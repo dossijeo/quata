@@ -6,6 +6,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import com.quata.core.model.NotificationItem
 import com.quata.core.text.SosPreviewCatalog
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlin.time.ExperimentalTime
 
 class NotificationPresentationTest {
     @Test
@@ -45,6 +48,48 @@ class NotificationPresentationTest {
     @Test
     fun blankCreatedAtRemainsBlankLikeAndroid() {
         assertEquals("", notificationRelativeTimeLabel("   ", 1_000_000L, relativeStrings()))
+    }
+
+    @Test
+    @OptIn(ExperimentalTime::class)
+    fun parsesLocalizedClockWordsIsoAndLeavesInvalidValuesVisible() {
+        val now = 2_000_000_000_000L
+
+        assertEquals("hace 1 s", notificationRelativeTimeLabel("Now", now, relativeStrings(), TimeZone.UTC))
+        assertEquals("hace 1 d", notificationRelativeTimeLabel("Hier", now, relativeStrings(), TimeZone.UTC))
+        assertEquals(
+            "hace 5 min",
+            notificationRelativeTimeLabel(
+                Instant.fromEpochMilliseconds(now - 5L * 60_000L).toString(),
+                now,
+                relativeStrings(),
+                TimeZone.UTC,
+            ),
+        )
+        assertEquals(
+            "not a timestamp",
+            notificationRelativeTimeLabel("not a timestamp", now, relativeStrings(), TimeZone.UTC),
+        )
+    }
+
+    @Test
+    @OptIn(ExperimentalTime::class)
+    fun keepsWeekMonthAndYearThresholdsFromTheAndroidContract() {
+        val now = 2_000_000_000_000L
+        fun label(ageMinutes: Long): String = notificationRelativeTimeLabel(
+            value = Instant.fromEpochMilliseconds(now - ageMinutes * 60_000L).toString(),
+            nowMillis = now,
+            strings = relativeStrings(),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertEquals("hace 6 d", label(60L * 24L * 6L))
+        assertEquals("hace 1 semana", label(60L * 24L * 7L))
+        assertEquals("hace 2 semanas", label(60L * 24L * 14L))
+        assertEquals("hace 1 mes", label(60L * 24L * 31L))
+        assertEquals("hace 2 meses", label(60L * 24L * 62L))
+        assertEquals("hace 1 año", label(60L * 24L * 365L))
+        assertEquals("hace 2 años", label(60L * 24L * 365L * 2L))
     }
 
     @Test

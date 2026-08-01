@@ -569,28 +569,33 @@ private final class IosAppCompositionRoot {
     /// delegates to `showChat`, which remains the single private-route gate.
     private func installNotificationsIfAvailable() {
         guard let bootstrap = notificationsRuntimeBootstrap else { return }
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            DispatchQueue.main.async {
+                self?.installNotifications(
+                    bootstrap,
+                    authorizationStatus: settings.authorizationStatus
+                )
+            }
+        }
+    }
+
+    private func installNotifications(
+        _ bootstrap: IosNotificationsRuntimeBootstrap,
+        authorizationStatus: UNAuthorizationStatus
+    ) {
         installAuthenticatedNotifications(
             IosNotificationsHostKt.createIosNotificationsHostDependencies(
                 repository: bootstrap.repository(),
                 timestampNowMillis: Int64(Date().timeIntervalSince1970 * 1_000),
+                notificationPermissionGranted: IosApnsAuthorization.permitsRegistration(
+                    authorizationStatus
+                ),
                 onBack: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
                 onOpenConversation: { [weak self] conversationId in
                     self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
                 },
-                onRequestNotificationPermission: {
-                    // Permission is a UIKit/system concern. This invokes the real iOS prompt;
-                    // APNs token registration remains the existing AppDelegate bridge. Request
-                    // it from this completion as the authorization sheet is not guaranteed to
-                    // produce another applicationDidBecomeActive callback.
-                    UNUserNotificationCenter.current().requestAuthorization(
-                        options: [.alert, .badge, .sound]
-                    ) { granted, error in
-                        guard IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(
-                            granted: granted,
-                            error: error
-                        ) else { return }
-                        IosApnsLifecycleBridge.shared.requestRegistrationIfAuthorized()
-                    }
+                onRequestNotificationPermission: { [weak self] in
+                    self?.performNotificationPermissionAction(for: authorizationStatus)
                 },
                 // Conversation navigation above is the real host action. This common callback
                 // is observability only and must not manufacture a URL or a route.
@@ -612,6 +617,27 @@ private final class IosAppCompositionRoot {
             ),
         )
         installNotificationCountObserver(bootstrap)
+    }
+
+    private func performNotificationPermissionAction(for status: UNAuthorizationStatus) {
+        switch IosApnsAuthorization.permissionAction(status) {
+        case .requestAuthorization:
+            UNUserNotificationCenter.current().requestAuthorization(
+                options: [.alert, .badge, .sound]
+            ) { [weak self] granted, error in
+                guard IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(
+                    granted: granted,
+                    error: error
+                ) else { return }
+                IosApnsLifecycleBridge.shared.requestRegistrationIfAuthorized()
+                DispatchQueue.main.async { self?.installNotificationsIfAvailable() }
+            }
+        case .openSettings:
+            guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else { return }
+            UIApplication.shared.open(settingsURL)
+        case .none:
+            IosApnsLifecycleBridge.shared.requestRegistrationIfAuthorized()
+        }
     }
 
     private func installNotificationCountObserver(_ bootstrap: IosNotificationsRuntimeBootstrap) {

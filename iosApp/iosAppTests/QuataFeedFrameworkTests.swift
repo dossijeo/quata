@@ -78,6 +78,14 @@ final class QuataFeedFrameworkTests: XCTestCase {
         )
     }
 
+    func testApnsPermissionActionUsesPromptSettingsOrNothingForTheRealSystemState() {
+        XCTAssertEqual(IosApnsAuthorization.permissionAction(.notDetermined), .requestAuthorization)
+        XCTAssertEqual(IosApnsAuthorization.permissionAction(.denied), .openSettings)
+        XCTAssertEqual(IosApnsAuthorization.permissionAction(.authorized), .none)
+        XCTAssertEqual(IosApnsAuthorization.permissionAction(.provisional), .none)
+        XCTAssertEqual(IosApnsAuthorization.permissionAction(.ephemeral), .none)
+    }
+
     func testApnsTokenFormattingProducesCanonicalLowercaseHexWithoutPersistence() {
         let token = Data([0x00, 0x0A, 0xF0, 0xFF])
 

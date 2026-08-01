@@ -34,6 +34,7 @@ class IosNotificationsHostDependencies(
 fun createIosNotificationsHostDependencies(
     repository: NotificationsRepository,
     timestampNowMillis: Long,
+    notificationPermissionGranted: Boolean,
     onBack: () -> Unit,
     onOpenConversation: (String) -> Unit,
     onRequestNotificationPermission: () -> Unit,
@@ -64,9 +65,11 @@ fun createIosNotificationsHostDependencies(
         voiceNotePreview = "🎤 Nota de voz",
         filePreview = "📎 Archivo",
     ),
-    // APNs permission is a platform capability. Do not add an always-visible delivery banner
-    // that Android does not have; the UIKit adapter may surface an actionable prompt when needed.
-    deliveryNotice = null,
+    deliveryNotice = if (notificationPermissionGranted) null else notificationDeliveryNotice(
+        state = NotificationDeliveryState.PermissionRequired,
+        actionLabel = "Permitir notificaciones",
+        onAction = onRequestNotificationPermission,
+    ),
     onBack = onBack,
     onOpenConversation = onOpenConversation,
     onRequestNotificationPermission = onRequestNotificationPermission,
@@ -77,12 +80,11 @@ fun createIosNotificationsHostDependencies(
 )
 
 fun QuataNotificationsViewController(dependencies: IosNotificationsHostDependencies): UIViewController = ComposeUIViewController {
-    // The old host captured a single startup timestamp, so labels could never age. The Compose
-    // controller owns a lightweight minute tick, just like the browser host.
+    // Match Android's literal second-level relative-time cadence.
     var nowMillis by remember { mutableLongStateOf(dependencies.timestampNowMillis) }
     LaunchedEffect(Unit) {
         while (true) {
-            delay(60_000L)
+            delay(1_000L)
             nowMillis = iosNotificationsNowMillis()
         }
     }

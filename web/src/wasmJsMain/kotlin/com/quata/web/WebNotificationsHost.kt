@@ -39,7 +39,7 @@ fun WebNotificationsHost(
     var nowMillis by remember { mutableLongStateOf(notificationsBrowserNowMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
-            delay(60_000L)
+            delay(1_000L)
             nowMillis = notificationsBrowserNowMillis()
         }
     }
