@@ -3,6 +3,9 @@
 package com.quata.web
 
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
+import com.quata.core.model.Post
+import com.quata.core.model.User
+import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
@@ -29,7 +32,9 @@ internal enum class WebNeighborhoodsReadOperation { Directory, CurrentUserAdmin,
 internal fun webNeighborhoodsReadAuthMode(operation: WebNeighborhoodsReadOperation): WebPostgrestAuthMode = when (operation) {
     WebNeighborhoodsReadOperation.Directory -> WebPostgrestAuthMode.Public
     WebNeighborhoodsReadOperation.CurrentUserAdmin,
-    WebNeighborhoodsReadOperation.UserProfile -> WebPostgrestAuthMode.SessionRequired
+    // A profile is a public route.  The postgrest client still uses the publishable key here;
+    // private action requests below explicitly require the current bearer session.
+    WebNeighborhoodsReadOperation.UserProfile -> WebPostgrestAuthMode.Public
 }
 
 /**
@@ -118,11 +123,46 @@ class WebNeighborhoodsRepository(
         require(userId.matches(PostgrestIdentifier)) { "web_community_invalid_profile_id" }
         val profile = loadProfiles(ids = listOf(userId), authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.UserProfile)).firstOrNull()
             ?: error("web_community_profile_not_found")
-        val enriched = profile.copy(isFollowing = false)
-        // This read adapter has not yet enabled the posts endpoint; an empty collection is an
-        // explicit snapshot of that endpoint rather than a fabricated profile timeline.
-        CommunityUserProfile(user = enriched, posts = emptyList()).also { profileCache[userId] = it }
+        val posts = client.rows(
+            table = "community_posts",
+            query = mapOf("select" to PostSelect, "profile_id" to "eq.$userId", "order" to "created_at.desc"),
+            limit = ProfilePostsLimit,
+            authMode = WebPostgrestAuthMode.Public,
+        ).map { it.toCommunityProfilePost(profile) }
+        val followers = profileRelations("followed_profile_id", userId)
+        val following = profileRelations("follower_profile_id", userId)
+        val relatedIds = (followers.mapNotNull { it.webCommunityString("follower_profile_id") } +
+            following.mapNotNull { it.webCommunityString("followed_profile_id") }).distinct()
+        val related = if (relatedIds.isEmpty()) emptyMap() else loadProfiles(relatedIds, WebPostgrestAuthMode.Public).associateBy { it.id }
+        val currentId = authRepository.sessionForAuthenticatedRequest()?.userId
+        val currentFollowing = currentId?.let { profileRelations("follower_profile_id", it).mapNotNull { row -> row.webCommunityString("followed_profile_id") }.toSet() }.orEmpty()
+        val followerUsers = followers.mapNotNull { related[it.webCommunityString("follower_profile_id")] }
+            .map { it.copy(isFollowing = it.id in currentFollowing) }
+        val followingUsers = following.mapNotNull { related[it.webCommunityString("followed_profile_id")] }
+            .map { it.copy(isFollowing = it.id in currentFollowing) }
+        val enriched = profile.copy(
+            isFollowing = userId in currentFollowing,
+            followersCount = followers.size,
+            followingCount = following.size,
+            postsCount = posts.size,
+        )
+        CommunityUserProfile(
+            user = enriched,
+            posts = posts,
+            // Post media are real profile-visible attachments. Private chat attachments remain
+            // intentionally absent for anonymous visitors rather than being fabricated.
+            attachments = posts.flatMap(Post::toProfileAttachments),
+            followers = followerUsers,
+            following = followingUsers,
+        ).also { profileCache[userId] = it }
     }
+
+    private suspend fun profileRelations(column: String, profileId: String): List<JsonObject> = client.rows(
+        table = "community_profile_follows",
+        query = mapOf("select" to "follower_profile_id,followed_profile_id", column to "eq.$profileId"),
+        limit = DirectoryLimit,
+        authMode = WebPostgrestAuthMode.Public,
+    )
 
     private suspend fun loadCommunities(): List<NeighborhoodCommunity> {
         val profiles = loadProfiles(authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.Directory))
@@ -177,6 +217,8 @@ class WebNeighborhoodsRepository(
         const val DefaultPollIntervalMillis = 30_000L
         const val MinimumPollIntervalMillis = 5_000L
         const val ProfileSelect = "id,display_name,phone,country_code,phone_local,barrio,neighborhood,telefono,nombre,avatar_url,avatar,followers_count,following_count,is_admin,is_official"
+        const val PostSelect = "id,profile_id,body,content,image_url,video_url,created_at"
+        const val ProfilePostsLimit = 120
         const val WallStatsSelect = "id,slug,name,normalized_name,chat_count,chat_last_at"
         val PostgrestIdentifier = Regex("[A-Za-z0-9_-]+")
     }
@@ -207,6 +249,20 @@ private fun JsonObject.toNeighborhoodUser(): NeighborhoodUser {
         followingCount = webCommunityInt("following_count") ?: 0,
     )
 }
+
+private fun JsonObject.toCommunityProfilePost(author: NeighborhoodUser): Post = Post(
+    id = webCommunityString("id") ?: error("web_community_post_missing_id"),
+    author = User(author.id, author.email, author.displayName, author.neighborhood, author.avatarUrl, author.isAdmin, author.isOfficial),
+    text = webCommunityString("body") ?: webCommunityString("content").orEmpty(),
+    imageUrl = webCommunityString("image_url"),
+    videoUrl = webCommunityString("video_url"),
+    createdAt = webCommunityString("created_at").orEmpty(),
+)
+
+private fun Post.toProfileAttachments(): List<ProfileAttachment> = listOfNotNull(
+    imageUrl?.let { uri -> ProfileAttachment("post:$id:image", "imagen", uri, "image/*", createdAt.toWebCommunityEpochMillis(), author.displayName) },
+    videoUrl?.let { uri -> ProfileAttachment("post:$id:video", "vídeo", uri, "video/*", createdAt.toWebCommunityEpochMillis(), author.displayName) },
+)
 
 private fun JsonObject.toWallStats(): WebCommunityWallStats = WebCommunityWallStats(
     id = webCommunityString("id") ?: webCommunityString("slug"),

@@ -241,8 +241,11 @@ fun CommunityProfileScreen(
 ) {
     val isOwnProfile = profile.user.id == currentUserId
     val isFollowingLoading = followingUserId == profile.user.id
-    var showPosts by rememberSaveable(profile.user.id) { mutableStateOf(false) }
-    var userListTitle by rememberSaveable(profile.user.id) { mutableStateOf<String?>(null) }
+    var navigationState by rememberSaveable(profile.user.id) { mutableStateOf(CommunityProfileNavigationState()) }
+    val showPosts = navigationState.showingPosts
+    val userListTitle = navigationState.peopleList?.let {
+        if (it == CommunityProfilePeopleList.Followers) "followers" else "following"
+    }
     var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
     var pendingProfileAction by remember { mutableStateOf<ProfileModerationAction?>(null) }
     val context = LocalContext.current
@@ -286,7 +289,7 @@ fun CommunityProfileScreen(
                 },
                 users = if (userListTitle == "followers") profile.followers else profile.following,
                 currentUserId = currentUserId,
-                onBack = { userListTitle = null },
+                onBack = { navigationState = navigationState.reduce(CommunityProfileNavigationEvent.ShowDetails) },
                 onFollowUser = { user ->
                     if (currentUserId == null) onAuthRequired() else onFollowUser(user.id)
                 },
@@ -324,12 +327,12 @@ fun CommunityProfileScreen(
                         },
                         kpis = {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        ProfileKpi(profile.user.postsCount, stringResource(R.string.neighborhoods_posts), Modifier.weight(1f), onClick = { showPosts = true })
+                        ProfileKpi(profile.user.postsCount, stringResource(R.string.neighborhoods_posts), Modifier.weight(1f), onClick = { navigationState = navigationState.reduce(CommunityProfileNavigationEvent.ShowPosts) })
                         ProfileKpi(profile.user.followersCount, stringResource(R.string.neighborhoods_followers), Modifier.weight(1f), onClick = {
-                            userListTitle = "followers"
+                            navigationState = navigationState.reduce(CommunityProfileNavigationEvent.ShowPeople(CommunityProfilePeopleList.Followers))
                         })
                         ProfileKpi(profile.user.followingCount, stringResource(R.string.neighborhoods_following), Modifier.weight(1f), onClick = {
-                            userListTitle = "following"
+                            navigationState = navigationState.reduce(CommunityProfileNavigationEvent.ShowPeople(CommunityProfilePeopleList.Following))
                         })
                             }
                         },
