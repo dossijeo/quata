@@ -7,6 +7,8 @@ interface NeighborhoodRepository {
     suspend fun openNeighborhoodChat(neighborhood: String): Result<String>
     suspend fun toggleFollowUser(userId: String): Result<FollowUserResult>
     suspend fun reportPost(postId: String): Result<Unit>
+    suspend fun addPostComment(postId: String, body: String): Result<Unit>
+    suspend fun togglePostLike(postId: String): Result<Unit>
     suspend fun reportProfile(profileId: String): Result<Unit>
     suspend fun blockProfile(profileId: String): Result<Unit>
     suspend fun openPrivateChat(userId: String): Result<String>

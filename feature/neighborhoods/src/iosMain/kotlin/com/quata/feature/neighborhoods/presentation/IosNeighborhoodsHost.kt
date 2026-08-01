@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
@@ -42,10 +44,12 @@ import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.neighborhoods.presentation.ProfileAttachmentRowContent
 import com.quata.feature.feed.presentation.IosFeedMediaFactory
 import com.quata.feature.feed.presentation.IosFeedMediaSlot
 import com.quata.feature.chat.data.IosChatAttachmentPreviewService
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
 import platform.UIKit.UIViewController
 import platform.Foundation.NSData
 import platform.Foundation.NSError
@@ -89,13 +93,15 @@ class IosNeighborhoodsHostDependencies(
     val currentUserId: String?,
     val listStrings: NeighborhoodListStrings,
     val usersStrings: NeighborhoodUsersStrings,
+    val profileStrings: CommunityProfileStrings,
+    val profileCommentsStrings: CommunityProfileCommentsDialogStrings,
     val avatar: @Composable (NeighborhoodUser, Boolean, () -> Unit) -> Unit,
     val onOpenConversation: (String) -> Unit,
     val profileNavigator: IosCommunityProfileNavigator,
     val onAuthRequired: () -> Unit,
     val mediaFactory: IosFeedMediaFactory,
     val shareService: ShareService,
-    val attachmentPreviewService: IosChatAttachmentPreviewService?,
+    val attachmentPreviewService: IosChatAttachmentPreviewService,
 )
 
 /**
@@ -114,13 +120,15 @@ fun createIosNeighborhoodsHostDependencies(
     onAuthRequired: () -> Unit,
     mediaFactory: IosFeedMediaFactory,
     shareService: ShareService,
-    attachmentPreviewService: IosChatAttachmentPreviewService?,
+    attachmentPreviewService: IosChatAttachmentPreviewService,
 ): IosNeighborhoodsHostDependencies = IosNeighborhoodsHostDependencies(
     repository = repository,
     viewModel = NeighborhoodsViewModel(repository),
     currentUserId = currentUserId,
     listStrings = defaultNeighborhoodsScreenStrings(languageTag).list,
     usersStrings = defaultNeighborhoodsScreenStrings(languageTag).members,
+    profileStrings = defaultCommunityProfileStrings(languageTag),
+    profileCommentsStrings = defaultCommunityProfileCommentsDialogStrings(languageTag),
     avatar = { user, _, onClick -> IosNeighborhoodAvatar(user, onClick) },
     onOpenConversation = onOpenConversation,
     profileNavigator = IosCommunityProfileNavigator(onNavigateToProfile),
@@ -170,6 +178,19 @@ fun QuataCommunityProfileViewController(
                 if (state.error != null) Button(onClick = { dependencies.viewModel.openUserProfile(profileId) }) { Text("Retry") }
             }
         } else {
+            var failedAttachment by remember(profileId) { mutableStateOf<ProfileAttachment?>(null) }
+            var attachmentError by rememberSaveable(profileId) { mutableStateOf<String?>(null) }
+            val openAttachment: (ProfileAttachment) -> Unit = { attachment ->
+                actionScope.launch {
+                    attachmentError = null
+                    when (val result = dependencies.attachmentPreviewService.openRemoteAttachment(PlatformFile(attachment.uri, attachment.name, attachment.mimeType))) {
+                        is PlatformResult.Success -> failedAttachment = null
+                        is PlatformResult.Failure -> { failedAttachment = attachment; attachmentError = result.reason ?: "Could not open attachment" }
+                        PlatformResult.Cancelled -> { failedAttachment = attachment; attachmentError = "Attachment preview cancelled" }
+                        PlatformResult.Unsupported -> { failedAttachment = attachment; attachmentError = "Attachment format is not supported" }
+                    }
+                }
+            }
             val theme = com.quata.core.designsystem.theme.quataTheme()
             CommunityProfileRoot(
                 profile = profile,
@@ -177,10 +198,11 @@ fun QuataCommunityProfileViewController(
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                 containerColor = theme.colors.background,
                 contentColor = theme.colors.textPrimary,
-                strings = iosCommunityProfileStrings(),
+                strings = dependencies.profileStrings,
                 isOpeningChat = state.openingPrivateChatUserId != null,
                 isRefreshing = state.refreshingProfileUserId != null,
                 followingUserId = state.followingUserId,
+                openingProfileUserId = state.openingProfileUserId,
                 roleUpdatingUserId = state.roleUpdatingUserId,
                 currentUserIsAdmin = state.currentUserIsAdmin,
                 error = state.error,
@@ -194,15 +216,25 @@ fun QuataCommunityProfileViewController(
                 onReportProfile = dependencies.viewModel::reportProfile,
                 onBlockProfile = { dependencies.viewModel.blockProfile(it, onDismiss) },
                 onSetRoles = dependencies.viewModel::setUserRoles,
-                avatar = { user, _, click -> IosNeighborhoodAvatar(user, click) },
-                attachmentItem = { attachment -> TextButton(onClick = {
-                    val preview = dependencies.attachmentPreviewService
-                    if (preview != null) actionScope.launch { preview.openRemoteAttachment(PlatformFile(attachment.uri, attachment.name, attachment.mimeType)) }
-                    else iosOpenProfileResource(attachment.uri)
-                }) { Text(attachment.name) } },
+                onAddPostComment = dependencies.viewModel::addProfilePostComment,
+                avatar = { user, _, role, click -> IosNeighborhoodAvatar(user, click, Modifier.size(role.sizeDp.dp)) },
+                attachmentItem = { attachment ->
+                    Column {
+                        ProfileAttachmentRowContent(
+                            attachment = attachment,
+                            audioPlayer = { TextButton(onClick = { openAttachment(attachment) }) { Text(attachment.name) } },
+                            thumbnail = { Text(attachment.name.substringAfterLast('.', "FILE").take(4).uppercase()) },
+                            onOpen = { openAttachment(attachment) },
+                        )
+                        if (failedAttachment?.uri == attachment.uri && attachmentError != null) {
+                            Text(requireNotNull(attachmentError), color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+                            Button(onClick = { openAttachment(attachment) }) { Text("Retry") }
+                        }
+                    }
+                },
                 postPreview = { post, count, isCurrent, openComments ->
                     CommunityProfilePostPreviewContent(post, count, dependencies.currentUserId != null, openComments, dependencies.onAuthRequired,
-                        { actionScope.launch { dependencies.shareService.share(SharePayload(text = "https://quata.app/post/${post.id}")) } }, { dependencies.viewModel.reportProfilePost(post.id) }, media = { loaded, load ->
+                        { actionScope.launch { dependencies.shareService.share(SharePayload(text = "https://quata.app/post/${post.id}")) } }, { dependencies.viewModel.reportProfilePost(post.id) }, { dependencies.viewModel.toggleProfilePostLike(post.id) }, media = { loaded, load ->
                             if (post.videoUrl != null && !loaded) Button(onClick = load) { Text("Load video") }
                             else {
                                 var position by remember(post.id) { mutableLongStateOf(0L) }
@@ -211,10 +243,10 @@ fun QuataCommunityProfileViewController(
                             }
                         })
                 },
-                commentsDialog = { post, local, add, dismiss ->
-                    CommunityProfileCommentsDialogContent(post, local, dependencies.currentUserId != null,
-                        CommunityProfileCommentsDialogStrings("Comments", "Close", "Write a comment", "Send"), dependencies.onAuthRequired,
-                        { draft -> PostComment("ios:${post.id}:${local.size}", "You", draft, "Now") }, add, dismiss)
+                commentsDialog = { post, comments, submit, dismiss ->
+                    CommunityProfileCommentsDialogContent(post, comments, dependencies.currentUserId != null,
+                        dependencies.profileCommentsStrings, dependencies.onAuthRequired,
+                        submit, dismiss)
                 },
             )
             /*
@@ -233,21 +265,9 @@ fun QuataCommunityProfileViewController(
     }
 }
 
-private fun iosCommunityProfileStrings() = CommunityProfileStrings(
-    "Posts", "Followers", "Following", { "Followers of $it" }, { "Following of $it" },
-    "Photos and videos", "No visible posts", ProfileAttachmentsStrings("Attachments", "No attachments"),
-    ProfileActionStrings("Follow", "Following", "Chat"), ProfileModerationStrings("Report", "Block"),
-    ProfileModerationConfirmationStrings("Report profile", "Block profile", "Report this profile?", "Block this profile?", "Cancel", "Report", "Block"),
-    ProfileRoleStrings("Permissions", "Admin", "Official"), NeighborhoodUserRowStrings("Follow", "Following", "Chat"), "Back",
-)
-
-private fun iosOpenProfileResource(value: String) {
-    NSURL(string = value)?.let { UIApplication.sharedApplication.openURL(it) }
-}
-
 /** Real remote avatar slot with the common frame retaining its deterministic fallback. */
 @Composable
-private fun IosNeighborhoodAvatar(user: NeighborhoodUser, onClick: (() -> Unit)?) {
+private fun IosNeighborhoodAvatar(user: NeighborhoodUser, onClick: (() -> Unit)?, modifier: Modifier = Modifier) {
     val url = iosNeighborhoodAvatarRequestKey(user.avatarUrl)
     var image by remember(url) { mutableStateOf<UIImage?>(null) }
     LaunchedEffect(url) { image = if (url == null) null else loadIosNeighborhoodAvatarOrNull(url) }
@@ -255,7 +275,7 @@ private fun IosNeighborhoodAvatar(user: NeighborhoodUser, onClick: (() -> Unit)?
         name = user.displayName,
         stableId = user.id,
         isOfficial = user.isOfficial,
-        modifier = Modifier.let { base -> if (onClick != null) base.clickable(onClick = onClick) else base },
+        modifier = modifier.let { base -> if (onClick != null) base.clickable(onClick = onClick) else base },
         avatar = image?.let { decoded -> { UIKitView(factory = { UIImageView().apply { contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill; clipsToBounds = true; image = decoded } }, update = { it.image = decoded }, modifier = Modifier.fillMaxSize()) } },
     )
 }

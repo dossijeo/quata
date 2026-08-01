@@ -229,6 +229,8 @@ fun CommunityProfileScreen(
     chatError: String? = null,
     onAuthRequired: () -> Unit = {},
     onReportPost: (String) -> Unit = {},
+    onTogglePostLike: (String) -> Unit = {},
+    onAddPostComment: (String, String) -> Unit = { _, _ -> },
     onReportProfile: (String) -> Unit = {},
     onBlockProfile: (String) -> Unit = {},
     onBack: () -> Unit,
@@ -271,6 +273,7 @@ fun CommunityProfileScreen(
         isOpeningChat = isOpeningChat,
         isRefreshing = isRefreshingProfile,
         followingUserId = followingUserId,
+        openingProfileUserId = openingProfileUserId,
         roleUpdatingUserId = roleUpdatingUserId,
         currentUserIsAdmin = currentUserIsAdmin,
         error = chatError,
@@ -282,10 +285,11 @@ fun CommunityProfileScreen(
         onReportProfile = onReportProfile,
         onBlockProfile = onBlockProfile,
         onSetRoles = onSetUserRoles,
-        avatar = { user, loading, click ->
+        onAddPostComment = onAddPostComment,
+        avatar = { user, loading, role, click ->
             ProfileAvatar(
                 user,
-                Modifier.size(if (user.id == profile.user.id) 92.dp else 48.dp).clickable {
+                Modifier.size(role.sizeDp.dp).clickable {
                     if (click != null) click()
                     else user.avatarUrl?.takeIf { it.isNotBlank() }?.let { selectedAttachment = AttachmentPreview(user.displayName, it, "image/jpeg") }
                 },
@@ -304,6 +308,7 @@ fun CommunityProfileScreen(
                 post, commentsCount, currentUserId != null, openComments, onAuthRequired,
                 { context.shareProfilePost(post) },
                 { if (currentUserId == null) onAuthRequired() else onReportPost(post.id) },
+                { if (currentUserId == null) onAuthRequired() else onTogglePostLike(post.id) },
             )
         },
         commentsDialog = { post, comments, add, dismiss ->
@@ -424,7 +429,9 @@ private fun ProfilePostsPager(
     pagerState: androidx.compose.foundation.pager.PagerState,
     canParticipate: Boolean,
     onAuthRequired: () -> Unit,
-    onReportPost: (String) -> Unit
+    onReportPost: (String) -> Unit,
+    onTogglePostLike: (String) -> Unit,
+    onAddPostComment: (String, String) -> Unit,
 ) {
     val context = LocalContext.current
     ProfilePostsPagerContent(
@@ -448,18 +455,20 @@ private fun ProfilePostsPager(
                         }
                     }
                 },
+                onToggleLike = { if (canParticipate) onTogglePostLike(post.id) else onAuthRequired() },
             )
         },
         commentsDialog = { post, localComments, onAddComment, onDismiss ->
             ProfileCommentsDialog(
                 post = post,
-                localComments = localComments,
+                comments = localComments,
                 canParticipate = canParticipate,
                 onAuthRequired = onAuthRequired,
                 onAddComment = onAddComment,
                 onDismiss = onDismiss,
             )
         },
+        onAddComment = onAddPostComment,
     )
 }
 
@@ -471,7 +480,8 @@ private fun ProfilePostPreview(
     onOpenComments: () -> Unit,
     onAuthRequired: () -> Unit,
     onShare: () -> Unit,
-    onReport: () -> Unit
+    onReport: () -> Unit,
+    onToggleLike: () -> Unit,
 ) {
     CommunityProfilePostPreviewContent(
         post = post,
@@ -481,6 +491,7 @@ private fun ProfilePostPreview(
         onAuthRequired = onAuthRequired,
         onShare = onShare,
         onReport = onReport,
+        onToggleLike = onToggleLike,
         media = { isVideoLoaded, onLoadVideo ->
             when {
             post.imageUrl != null -> AsyncImage(
@@ -572,17 +583,15 @@ private fun ProfileVideoPlayer(videoUrl: String) {
 @Composable
 private fun ProfileCommentsDialog(
     post: Post,
-    localComments: List<PostComment>,
+    comments: List<PostComment>,
     canParticipate: Boolean,
     onAuthRequired: () -> Unit,
-    onAddComment: (PostComment) -> Unit,
+    onAddComment: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val currentUserName = stringResource(R.string.comments_you)
-    val nowLabel = stringResource(R.string.common_now)
     CommunityProfileCommentsDialogContent(
         post = post,
-        localComments = localComments,
+        comments = comments,
         canParticipate = canParticipate,
         strings = CommunityProfileCommentsDialogStrings(
             title = stringResource(R.string.feed_comments),
@@ -591,15 +600,7 @@ private fun ProfileCommentsDialog(
             sendLabel = stringResource(R.string.common_send),
         ),
         onAuthRequired = onAuthRequired,
-        createComment = { draft ->
-            com.quata.core.model.PostComment(
-                id = "profile_${post.id}_${System.currentTimeMillis()}",
-                authorName = currentUserName,
-                message = draft,
-                timestamp = nowLabel,
-            )
-        },
-        onAddComment = onAddComment,
+        onSubmitComment = onAddComment,
         onDismiss = onDismiss,
     )
 }

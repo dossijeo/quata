@@ -27,6 +27,35 @@ fun defaultNeighborhoodsScreenStrings(languageTag: String?): NeighborhoodsScreen
     }
 }
 
+fun defaultCommunityProfileStrings(languageTag: String?): CommunityProfileStrings {
+    val language = languageTag.orEmpty().substringBefore('-').lowercase()
+    return when (language) {
+        "es" -> communityProfileStrings("Publicaciones", "Seguidores", "Siguiendo", "Seguidores de", "Seguidos por", "Fotos y vídeos", "No hay publicaciones visibles", "Archivos adjuntos", "No hay archivos adjuntos", "Seguir", "Siguiendo", "Chat", "Reportar", "Bloquear", "Reportar perfil", "Bloquear perfil", "¿Reportar este perfil?", "¿Bloquear este perfil?", "Cancelar", "Permisos", "Administrador", "Oficial", "Volver")
+        "fr" -> communityProfileStrings("Publications", "Abonnés", "Abonnements", "Abonnés de", "Abonnements de", "Photos et vidéos", "Aucune publication visible", "Pièces jointes", "Aucune pièce jointe", "Suivre", "Suivi", "Discussion", "Signaler", "Bloquer", "Signaler le profil", "Bloquer le profil", "Signaler ce profil ?", "Bloquer ce profil ?", "Annuler", "Autorisations", "Administrateur", "Officiel", "Retour")
+        else -> communityProfileStrings("Posts", "Followers", "Following", "Followers of", "Following of", "Photos and videos", "No visible posts", "Attachments", "No attachments", "Follow", "Following", "Chat", "Report", "Block", "Report profile", "Block profile", "Report this profile?", "Block this profile?", "Cancel", "Permissions", "Admin", "Official", "Back")
+    }
+}
+
+fun defaultCommunityProfileCommentsDialogStrings(languageTag: String?): CommunityProfileCommentsDialogStrings =
+    when (languageTag.orEmpty().substringBefore('-').lowercase()) {
+        "es" -> CommunityProfileCommentsDialogStrings("Comentarios", "Cerrar", "Escribe un comentario", "Enviar")
+        "fr" -> CommunityProfileCommentsDialogStrings("Commentaires", "Fermer", "Écrire un commentaire", "Envoyer")
+        else -> CommunityProfileCommentsDialogStrings("Comments", "Close", "Write a comment", "Send")
+    }
+
+private fun communityProfileStrings(
+    posts: String, followers: String, following: String, followersOf: String, followingOf: String,
+    gallery: String, noPosts: String, attachments: String, noAttachments: String,
+    follow: String, followingAction: String, chat: String, report: String, block: String,
+    reportTitle: String, blockTitle: String, reportConfirm: String, blockConfirm: String,
+    cancel: String, permissions: String, admin: String, official: String, back: String,
+) = CommunityProfileStrings(
+    posts, followers, following, { "$followersOf $it" }, { "$followingOf $it" }, gallery, noPosts,
+    ProfileAttachmentsStrings(attachments, noAttachments), ProfileActionStrings(follow, followingAction, chat),
+    ProfileModerationStrings(report, block), ProfileModerationConfirmationStrings(reportTitle, blockTitle, reportConfirm, blockConfirm, cancel, report, block),
+    ProfileRoleStrings(permissions, admin, official), NeighborhoodUserRowStrings(follow, followingAction, chat), back,
+)
+
 private fun neighborhoodStrings(
     title: String, search: String, loading: String, oneUser: String, users: String,
     oneMessage: String, messages: String, viewUsers: String, openChat: String, activity: String,

@@ -900,13 +900,13 @@ private val webNeighborhoodsStrings = WebNeighborhoodsStrings(
 )
 
 private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
-    avatar = { user, _, onClick -> BrowserRemoteAvatar(
+    avatar = { user, _, sizeDp, onClick -> BrowserRemoteAvatar(
         name = user.displayName,
         profileId = user.id,
         avatarUrl = user.avatarUrl,
         isOfficial = user.isOfficial,
         isOnline = null,
-        modifier = androidx.compose.ui.Modifier.size(48.dp).let { base -> if (onClick != null) base.clickable(onClick = onClick) else base },
+        modifier = androidx.compose.ui.Modifier.size(sizeDp.dp).let { base -> if (onClick != null) base.clickable(onClick = onClick) else base },
     ) },
     /*
     profileMedia = { profile ->

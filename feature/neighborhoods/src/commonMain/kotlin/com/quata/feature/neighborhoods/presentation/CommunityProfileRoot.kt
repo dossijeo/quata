@@ -38,22 +38,24 @@ data class CommunityProfileStrings(
     val roles: ProfileRoleStrings, val userActions: NeighborhoodUserRowStrings, val back: String,
 )
 
+enum class CommunityProfileAvatarRole(val sizeDp: Int) { Header(92), Row(48) }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunityProfileRoot(
     profile: CommunityUserProfile, currentUserId: String?, sheetState: SheetState,
     containerColor: Color, contentColor: Color, strings: CommunityProfileStrings,
-    isOpeningChat: Boolean, isRefreshing: Boolean, followingUserId: String?,
+    isOpeningChat: Boolean, isRefreshing: Boolean, followingUserId: String?, openingProfileUserId: String?,
     roleUpdatingUserId: String?, currentUserIsAdmin: Boolean, error: String?,
     showModeration: Boolean = true, showAdminControls: Boolean = true,
     onDismiss: () -> Unit, onAuthRequired: () -> Unit, onFollowUser: (String) -> Unit,
     onOpenPrivateChat: (String) -> Unit, onOpenUserProfile: (String) -> Unit,
     onReportProfile: (String) -> Unit, onBlockProfile: (String) -> Unit,
-    onSetRoles: (String, Boolean, Boolean) -> Unit,
-    avatar: @Composable (NeighborhoodUser, Boolean, (() -> Unit)?) -> Unit,
+    onSetRoles: (String, Boolean, Boolean) -> Unit, onAddPostComment: (String, String) -> Unit,
+    avatar: @Composable (NeighborhoodUser, Boolean, CommunityProfileAvatarRole, (() -> Unit)?) -> Unit,
     attachmentItem: @Composable (ProfileAttachment) -> Unit,
     postPreview: @Composable (Post, Int, Boolean, () -> Unit) -> Unit,
-    commentsDialog: @Composable (Post, List<PostComment>, (PostComment) -> Unit, () -> Unit) -> Unit,
+    commentsDialog: @Composable (Post, List<PostComment>, (String) -> Unit, () -> Unit) -> Unit,
 ) {
     var navigation by rememberSaveable(profile.user.id) { mutableStateOf(CommunityProfileNavigationState()) }
     var moderation by remember { mutableStateOf<ProfileModerationAction?>(null) }
@@ -71,8 +73,8 @@ fun CommunityProfileRoot(
             ProfileUsersListCommon(
                 title = if (list == CommunityProfilePeopleList.Followers) strings.followersOf(profile.user.displayName) else strings.followingOf(profile.user.displayName),
                 users = users, currentUserId = currentUserId, isOpeningChat = isOpeningChat,
-                openingProfileUserId = null, followingUserId = followingUserId, strings = strings.userActions, back = strings.back,
-                avatar = { user, loading, click -> avatar(user, loading, click) },
+                openingProfileUserId = openingProfileUserId, followingUserId = followingUserId, strings = strings.userActions, back = strings.back,
+                avatar = { user, loading, click -> avatar(user, loading, CommunityProfileAvatarRole.Row, click) },
                 onBack = { dispatch(CommunityProfileNavigationEvent.ShowDetails) },
                 onFollow = { user -> if (communityProfilePrivateActionAllowed(currentUserId)) onFollowUser(user.id) else onAuthRequired() },
                 onProfile = { onOpenUserProfile(it.id) },
@@ -84,7 +86,7 @@ fun CommunityProfileRoot(
                 header = {
                     CommunityProfileHeaderContent(
                         displayName = profile.user.displayName, neighborhood = profile.user.neighborhood,
-                        avatar = { avatar(profile.user, isRefreshing, null) },
+                        avatar = { avatar(profile.user, isRefreshing, CommunityProfileAvatarRole.Header, null) },
                         kpis = {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 ProfileKpiContent(profile.user.postsCount, strings.posts, Modifier.weight(1f)) { dispatch(CommunityProfileNavigationEvent.ShowPosts) }
@@ -113,7 +115,7 @@ fun CommunityProfileRoot(
                     {
                         val pager = rememberPagerState(pageCount = { profile.posts.size })
                         ProfileGalleryHeader(strings.gallery, (pager.currentPage + 1).takeIf { profile.posts.isNotEmpty() }, profile.posts.size, strings.noPosts.takeIf { profile.posts.isEmpty() })
-                        if (profile.posts.isNotEmpty()) ProfilePostsPagerContent(profile.posts, pager, postPreview, commentsDialog)
+                        if (profile.posts.isNotEmpty()) ProfilePostsPagerContent(profile.posts, pager, postPreview, commentsDialog, onAddPostComment)
                     }
                 } else null,
             )

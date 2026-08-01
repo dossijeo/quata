@@ -988,6 +988,12 @@ fun AppNavGraph(
                 onReportPost = { postId ->
                     if (isAuthenticated) globalProfileViewModel.reportProfilePost(postId) else requestAuthentication()
                 },
+                onTogglePostLike = { postId ->
+                    if (isAuthenticated) globalProfileViewModel.toggleProfilePostLike(postId) else requestAuthentication()
+                },
+                onAddPostComment = { postId, body ->
+                    if (isAuthenticated) globalProfileViewModel.addProfilePostComment(postId, body) else requestAuthentication()
+                },
                 onReportProfile = { profileId ->
                     appScope.launch {
                         container.moderationRepository.report(ModerationTarget.Profile, profileId)

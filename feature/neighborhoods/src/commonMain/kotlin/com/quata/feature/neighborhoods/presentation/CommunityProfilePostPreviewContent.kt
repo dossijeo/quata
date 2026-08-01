@@ -37,7 +37,7 @@ import com.quata.core.ui.textCanvasBrush
  * Shared profile-gallery post composition.
  *
  * Hosts render the actual image/video surface and retain sharing, reporting and authorization
- * policy. The portable layer owns the text fallback, metadata, optimistic like state and action
+ * policy. The portable layer owns the text fallback, metadata and action
  * rail, so every platform presents the same interaction structure without importing media APIs.
  */
 @Composable
@@ -49,19 +49,11 @@ fun CommunityProfilePostPreviewContent(
     onAuthRequired: () -> Unit,
     onShare: () -> Unit,
     onReport: () -> Unit,
+    onToggleLike: () -> Unit,
     media: @Composable BoxScope.(isVideoLoaded: Boolean, onLoadVideo: () -> Unit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var liked by rememberSaveable(post.id, post.isLikedByCurrentUser) {
-        mutableStateOf(post.isLikedByCurrentUser)
-    }
     var isVideoLoaded by rememberSaveable(post.id) { mutableStateOf(false) }
-    val likeDelta = when {
-        liked && !post.isLikedByCurrentUser -> 1
-        !liked && post.isLikedByCurrentUser -> -1
-        else -> 0
-    }
-    val likes = (post.likesCount + likeDelta).coerceAtLeast(0)
     val cleanPostText = remember(post.text) { post.text.withoutPostShortcodes() }
     val seedText = remember(post.text) { post.text.cleanTextCanvasSeedBody() }
     val mediaSeed = post.imageUrl ?: post.videoUrl ?: seedText
@@ -112,10 +104,10 @@ fun CommunityProfilePostPreviewContent(
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
             ) {
                 ProfilePostActionContent(
-                    icon = if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                    count = likes.toString(),
+                    icon = if (post.isLikedByCurrentUser) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    count = post.likesCount.toString(),
                     onClick = {
-                        if (canParticipate) liked = !liked else onAuthRequired()
+                        if (canParticipate) onToggleLike() else onAuthRequired()
                     },
                 )
                 ProfilePostActionContent(Icons.Filled.ChatBubble, commentsCount.toString(), onClick = onOpenComments)

@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 
@@ -12,23 +13,30 @@ import com.quata.core.model.PostComment
  * Shared profile-gallery comments overlay.
  *
  * The component owns only portable draft state and composition of the common comments panel.
- * Hosts retain authorization, persistence and local-comment identity through [createComment] and
- * [onAddComment], so no platform clock, resource or navigation API leaks into commonMain.
+ * Hosts retain authorization and persistence through [onSubmitComment]. The draft is cleared only
+ * after refreshed repository data confirms a new comment; no client-generated identity enters the timeline.
  */
 @Composable
 fun CommunityProfileCommentsDialogContent(
     post: Post,
-    localComments: List<PostComment>,
+    comments: List<PostComment>,
     canParticipate: Boolean,
     strings: CommunityProfileCommentsDialogStrings,
     onAuthRequired: () -> Unit,
-    createComment: (draft: String) -> PostComment,
-    onAddComment: (PostComment) -> Unit,
+    onSubmitComment: (draft: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var draft by rememberSaveable(post.id) { mutableStateOf("") }
+    var submittedAtCount by rememberSaveable(post.id) { mutableStateOf<Int?>(null) }
+    LaunchedEffect(comments.size) {
+        val previousCount = submittedAtCount
+        if (previousCount != null && comments.size > previousCount) {
+            draft = ""
+            submittedAtCount = null
+        }
+    }
     CommunityProfileCommentsPanelContent(
-        comments = post.comments + localComments,
+        comments = comments,
         title = strings.title,
         closeContentDescription = strings.closeContentDescription,
         onDismiss = onDismiss,
@@ -41,8 +49,8 @@ fun CommunityProfileCommentsDialogContent(
                 onValueChange = { draft = it },
                 onSend = {
                     if (canParticipate) {
-                        onAddComment(createComment(draft.trim()))
-                        draft = ""
+                        onSubmitComment(draft.trim())
+                        submittedAtCount = comments.size
                     } else {
                         onAuthRequired()
                     }

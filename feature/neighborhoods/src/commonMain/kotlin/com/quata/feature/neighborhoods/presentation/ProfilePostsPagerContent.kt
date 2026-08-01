@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -12,7 +11,7 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 
-/** Shared profile gallery pager and its local comment overlay state; hosts render post media and comments. */
+/** Shared profile gallery pager. Comment identity and persistence always come from the repository. */
 @Composable
 fun ProfilePostsPagerContent(
     posts: List<Post>,
@@ -20,23 +19,23 @@ fun ProfilePostsPagerContent(
     postPreview: @Composable (post: Post, commentsCount: Int, isCurrent: Boolean, onOpenComments: () -> Unit) -> Unit,
     commentsDialog: @Composable (
         post: Post,
-        localComments: List<PostComment>,
-        onAddComment: (PostComment) -> Unit,
+        comments: List<PostComment>,
+        onAddComment: (String) -> Unit,
         onDismiss: () -> Unit,
     ) -> Unit,
+    onAddComment: (postId: String, draft: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val commentsPost = remember { mutableStateOf<Post?>(null) }
-    val localComments = remember { mutableStateMapOf<String, List<PostComment>>() }
     HorizontalPager(state = pagerState, modifier = modifier.height(440.dp)) { page ->
         val post = posts[page]
-        postPreview(post, post.comments.size + localComments[post.id].orEmpty().size, page == pagerState.currentPage) { commentsPost.value = post }
+        postPreview(post, post.comments.size, page == pagerState.currentPage) { commentsPost.value = post }
     }
     commentsPost.value?.let { post ->
         commentsDialog(
             post,
-            localComments[post.id].orEmpty(),
-            { comment -> localComments[post.id] = localComments[post.id].orEmpty() + comment },
+            post.comments,
+            { draft -> onAddComment(post.id, draft) },
             { commentsPost.value = null },
         )
     }

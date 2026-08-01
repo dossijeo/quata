@@ -195,6 +195,20 @@ class NeighborhoodRepositoryImpl(
         return profileRemote.getProfile(session.userId)?.is_admin == true
     }
 
+    override suspend fun addPostComment(postId: String, body: String): Result<Unit> = runCatching {
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        val cleanBody = body.trim().takeIf { it.isNotEmpty() } ?: error("El comentario no puede estar vacio")
+        supabaseApi.addComment(postId, session.userId, cleanBody)
+            ?: error("No se pudo guardar el comentario")
+        Unit
+    }
+
+    override suspend fun togglePostLike(postId: String): Result<Unit> = runCatching {
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        supabaseApi.toggleLike(postId, session.userId)
+        Unit
+    }
+
     override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser> =
         runCatching {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")

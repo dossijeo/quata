@@ -7,6 +7,13 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class IosCommunityProfilePostMappingTest {
+    @Test fun `comment payload carries backend identities and safely escaped body`() {
+        assertEquals(
+            "{\"post_id\":\"post-1\",\"profile_id\":\"me\",\"body\":\"hello \\\"world\\\"\"}",
+            iosNeighborhoodCommentPayload("post-1", "me", "hello \"world\""),
+        )
+    }
+
     @Test fun `profile post maps backend media into visible attachments`() {
         val post = mapOf(
             "id" to "post_1",

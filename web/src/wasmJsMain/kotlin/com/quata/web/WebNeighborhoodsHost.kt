@@ -14,6 +14,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.DocumentPreviewKind
+import com.quata.core.platform.DocumentSupport
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
@@ -38,6 +40,9 @@ import com.quata.feature.neighborhoods.presentation.CommunityProfileCommentsDial
 import com.quata.core.model.PostComment
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreenStrings
 import com.quata.feature.neighborhoods.presentation.defaultNeighborhoodsScreenStrings
+import com.quata.feature.neighborhoods.presentation.defaultCommunityProfileStrings
+import com.quata.feature.neighborhoods.presentation.defaultCommunityProfileCommentsDialogStrings
+import com.quata.feature.neighborhoods.presentation.ProfileAttachmentRowContent
 
 @OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
 private val browserNeighborhoodsLanguage: String = js("globalThis.navigator?.language || 'en'")
@@ -48,7 +53,7 @@ fun browserNeighborhoodsStrings(): WebNeighborhoodsStrings =
 data class WebNeighborhoodsStrings(val screen: NeighborhoodsScreenStrings)
 
 class WebNeighborhoodsSlots(
-    val avatar: @Composable (NeighborhoodUser, Boolean, (() -> Unit)?) -> Unit,
+    val avatar: @Composable (NeighborhoodUser, Boolean, Int, (() -> Unit)?) -> Unit,
 )
 
 /** Thin browser wrapper: state, gates and directory/member navigation are common. */
@@ -72,7 +77,7 @@ fun WebNeighborhoodsHost(
     repository = repository,
     currentUserId = currentUserId,
     strings = strings.screen,
-        avatar = { user, loading, click -> slots.avatar(user, loading, click) },
+        avatar = { user, loading, click -> slots.avatar(user, loading, 48, click) },
     onOpenConversation = onOpenConversation,
     onOpenUserProfile = onOpenUserProfile,
     onAuthRequired = onAuthRequired,
@@ -112,10 +117,11 @@ private fun WebCommunityProfileRoute(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = theme.colors.background,
         contentColor = theme.colors.textPrimary,
-        strings = webCommunityProfileStrings(),
+        strings = defaultCommunityProfileStrings(browserNeighborhoodsLanguage),
         isOpeningChat = state.openingPrivateChatUserId != null,
         isRefreshing = state.refreshingProfileUserId != null,
         followingUserId = state.followingUserId,
+        openingProfileUserId = state.openingProfileUserId,
         roleUpdatingUserId = state.roleUpdatingUserId,
         currentUserIsAdmin = state.currentUserIsAdmin,
         error = state.error,
@@ -127,15 +133,28 @@ private fun WebCommunityProfileRoute(
         onOpenPrivateChat = { model.openPrivateChat(it, onOpenConversation) },
         onOpenUserProfile = model::openUserProfile,
         onReportProfile = model::reportProfile, onBlockProfile = { model.blockProfile(it, onDismiss) }, onSetRoles = model::setUserRoles,
-        avatar = { user, loading, click -> slots.avatar(user, loading, click) },
-        attachmentItem = { attachment -> TextButton(onClick = {
-            if (documentOpener != null && attachment.mimeType?.let { it.contains("pdf") || it.contains("officedocument") || it.contains("msword") } == true) {
-                actionScope.launch { documentOpener.open(PlatformFile(attachment.uri, attachment.name, attachment.mimeType)) }
-            } else webOpenProfileResource(attachment.uri)
-        }) { Text(attachment.name) } },
+        onAddPostComment = model::addProfilePostComment,
+        avatar = { user, loading, role, click -> slots.avatar(user, loading, role.sizeDp, click) },
+        attachmentItem = { attachment ->
+            val open: () -> Unit = {
+                val file = PlatformFile(attachment.uri, attachment.name, attachment.mimeType)
+                when (DocumentSupport.describe(file.reference, file.displayName, file.mimeType).kind) {
+                    DocumentPreviewKind.Pdf, DocumentPreviewKind.RichText, DocumentPreviewKind.Office ->
+                        if (documentOpener != null) actionScope.launch { documentOpener.open(file) } else webOpenProfileResource(attachment.uri)
+                    else -> webOpenProfileResource(attachment.uri)
+                }
+                Unit
+            }
+            ProfileAttachmentRowContent(
+                attachment = attachment,
+                audioPlayer = { TextButton(onClick = open) { Text(attachment.name) } },
+                thumbnail = { Text(attachment.name.substringAfterLast('.', "FILE").take(4).uppercase()) },
+                onOpen = open,
+            )
+        },
         postPreview = { post, count, isCurrent, openComments ->
             CommunityProfilePostPreviewContent(post, count, currentUserId != null, openComments, onAuthRequired,
-                { webShareProfilePost(post.id) }, { model.reportProfilePost(post.id) }, media = { loaded, load ->
+                { webShareProfilePost(post.id) }, { model.reportProfilePost(post.id) }, { model.toggleProfilePostLike(post.id) }, media = { loaded, load ->
                     if (post.videoUrl != null && !loaded) Button(onClick = load) { Text("Load video") }
                     else {
                         var position by remember(post.id) { mutableLongStateOf(0L) }
@@ -144,10 +163,10 @@ private fun WebCommunityProfileRoute(
                     }
                 })
         },
-        commentsDialog = { post, local, add, dismiss ->
-            CommunityProfileCommentsDialogContent(post, local, currentUserId != null,
-                CommunityProfileCommentsDialogStrings("Comments", "Close", "Write a comment", "Send"), onAuthRequired,
-                { draft -> PostComment("web:${post.id}:${local.size}", "You", draft, "Now") }, add, dismiss)
+        commentsDialog = { post, comments, submit, dismiss ->
+            CommunityProfileCommentsDialogContent(post, comments, currentUserId != null,
+                defaultCommunityProfileCommentsDialogStrings(browserNeighborhoodsLanguage), onAuthRequired,
+                submit, dismiss)
         },
     )
     /*
@@ -166,14 +185,6 @@ private fun WebCommunityProfileRoute(
         }
     }*/
 }
-
-private fun webCommunityProfileStrings() = CommunityProfileStrings(
-    "Posts", "Followers", "Following", { "Followers of $it" }, { "Following of $it" },
-    "Photos and videos", "No visible posts", ProfileAttachmentsStrings("Attachments", "No attachments"),
-    ProfileActionStrings("Follow", "Following", "Chat"), ProfileModerationStrings("Report", "Block"),
-    ProfileModerationConfirmationStrings("Report profile", "Block profile", "Report this profile?", "Block this profile?", "Cancel", "Report", "Block"),
-    ProfileRoleStrings("Permissions", "Admin", "Official"), NeighborhoodUserRowStrings("Follow", "Following", "Chat"), "Back",
-)
 
 private fun webOpenProfileResource(url: String) { js("globalThis.open(url, '_blank', 'noopener,noreferrer')") }
 private fun webShareProfilePost(postId: String) {

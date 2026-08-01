@@ -111,6 +111,34 @@ class IosNeighborhoodsReadRepository(
 
     override suspend fun reportPost(postId: String): Result<Unit> = reportUgc("community_post", postId)
 
+    override suspend fun addPostComment(postId: String, body: String): Result<Unit> = runCatching {
+        require(postId.matches(IosNeighborhoodIdentifier)) { "ios_communities_post_id_invalid" }
+        val userId = authenticatedSession().userId
+        val cleanBody = body.trim().takeIf(String::isNotEmpty) ?: error("ios_communities_comment_empty")
+        mutate(
+            "POST",
+            "community_comments",
+            iosNeighborhoodCommentPayload(postId, userId, cleanBody),
+        )
+        Unit
+    }
+
+    override suspend fun togglePostLike(postId: String): Result<Unit> = runCatching {
+        require(postId.matches(IosNeighborhoodIdentifier)) { "ios_communities_post_id_invalid" }
+        val userId = authenticatedSession().userId
+        val existing = rows(
+            "community_post_likes",
+            mapOf("select" to "id", "post_id" to "eq.$postId", "profile_id" to "eq.$userId", "limit" to "1"),
+            requireSession = true,
+        ).firstOrNull()
+        if (existing == null) {
+            mutate("POST", "community_post_likes", "{\"post_id\":${postId.toIosNeighborhoodJsonString()},\"profile_id\":${userId.toIosNeighborhoodJsonString()}}")
+        } else {
+            mutate("DELETE", "community_post_likes?id=eq.${existing.requiredIosNeighborhoodString("id")}", null)
+        }
+        Unit
+    }
+
     override suspend fun reportProfile(profileId: String): Result<Unit> = reportUgc("profile", profileId)
 
     override suspend fun blockProfile(profileId: String): Result<Unit> = runCatching {
@@ -453,3 +481,23 @@ internal fun iosNeighborhoodBlockPayload(actor: String, profile: String): String
 
 internal fun iosNeighborhoodSharedAttachmentsPayload(actor: String, peer: String): String =
     "{\"p_actor_profile_id\":\"$actor\",\"p_peer_profile_id\":\"$peer\",\"p_limit\":120,\"p_offset\":0}"
+
+internal fun iosNeighborhoodCommentPayload(postId: String, profileId: String, body: String): String =
+    "{\"post_id\":${postId.toIosNeighborhoodJsonString()},\"profile_id\":${profileId.toIosNeighborhoodJsonString()},\"body\":${body.toIosNeighborhoodJsonString()}}"
+
+private fun String.toIosNeighborhoodJsonString(): String = buildString(length + 2) {
+    append('"')
+    this@toIosNeighborhoodJsonString.forEach { character ->
+        when (character) {
+            '"' -> append("\\\"")
+            '\\' -> append("\\\\")
+            '\b' -> append("\\b")
+            '\u000C' -> append("\\f")
+            '\n' -> append("\\n")
+            '\r' -> append("\\r")
+            '\t' -> append("\\t")
+            else -> if (character.code < 0x20) append("\\u${character.code.toString(16).padStart(4, '0')}") else append(character)
+        }
+    }
+    append('"')
+}

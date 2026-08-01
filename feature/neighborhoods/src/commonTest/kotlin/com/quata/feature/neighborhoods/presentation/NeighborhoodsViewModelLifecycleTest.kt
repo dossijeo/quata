@@ -50,18 +50,37 @@ class NeighborhoodsViewModelLifecycleTest {
         val vm = NeighborhoodsViewModel(repo, AppDispatchers(dispatcher, dispatcher, dispatcher))
         vm.openUserProfile("peer"); runCurrent(); advanceTimeBy(20_001); runCurrent()
         assertNull(vm.uiState.value.openingProfileUserId)
+        assertNull(vm.uiState.value.selectedProfile)
         assertNotNull(vm.uiState.value.error)
+        assertTrue(repo.profileCollectionCancelled)
         vm.closeUserProfile(); vm.close()
+    }
+
+    @Test fun `profile comment delegates raw draft and refreshes repository profile`() = runTest {
+        val repo = FakeNeighborhoodRepository()
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val vm = NeighborhoodsViewModel(repo, AppDispatchers(dispatcher, dispatcher, dispatcher))
+        vm.openUserProfile("peer"); runCurrent()
+        vm.addProfilePostComment("post-1", "real body"); runCurrent()
+        assertEquals("post-1" to "real body", repo.addedComment)
+        assertEquals(1, repo.profileRefreshes)
+        vm.close()
     }
 }
 
 private class FakeNeighborhoodRepository(private val failFirstRead: Boolean = false, private val hangProfile: Boolean = false) : NeighborhoodRepository {
     private var reads = 0
     var followedUserId: String? = null
+    var addedComment: Pair<String, String>? = null
+    var profileRefreshes = 0
+    var profileCollectionCancelled = false
+    private val profile = CommunityUserProfile(NeighborhoodUser("peer", "Peer", "", "Centro"), emptyList())
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flow { reads++; if (failFirstRead && reads == 1) error("offline"); emit(listOf(NeighborhoodCommunity("Centro", emptyList(), "wall:real", null, 1L, 1))) }
     override suspend fun openNeighborhoodChat(neighborhood: String) = Result.success("wall:real")
     override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> { followedUserId = userId; return Result.success(FollowUserResult(userId, true, NeighborhoodUser("me", "Me", "", "Centro"))) }
     override suspend fun reportPost(postId: String) = Result.success(Unit)
+    override suspend fun addPostComment(postId: String, body: String): Result<Unit> { addedComment = postId to body; return Result.success(Unit) }
+    override suspend fun togglePostLike(postId: String) = Result.success(Unit)
     override suspend fun reportProfile(profileId: String) = Result.success(Unit)
     override suspend fun blockProfile(profileId: String) = Result.success(Unit)
     override suspend fun openPrivateChat(userId: String) = Result.success("private:real")
@@ -69,6 +88,6 @@ private class FakeNeighborhoodRepository(private val failFirstRead: Boolean = fa
     override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean) = Result.failure<NeighborhoodUser>(UnsupportedOperationException())
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?) = null
     override suspend fun cacheUserProfile(profile: CommunityUserProfile) = Unit
-    override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = if (hangProfile) flow { awaitCancellation() } else flowOf(Result.failure(UnsupportedOperationException()))
-    override suspend fun getUserProfile(userId: String) = Result.failure<CommunityUserProfile>(UnsupportedOperationException())
+    override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = if (hangProfile) flow { try { awaitCancellation() } finally { profileCollectionCancelled = true } } else flowOf(Result.success(profile))
+    override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> { profileRefreshes++; return Result.success(profile) }
 }

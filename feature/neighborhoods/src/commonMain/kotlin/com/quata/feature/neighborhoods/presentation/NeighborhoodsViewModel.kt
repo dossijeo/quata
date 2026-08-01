@@ -128,11 +128,20 @@ class NeighborhoodsViewModel(
     override fun openUserProfile(userId: String) {
         profileJob?.cancel()
         profileWatchdogJob?.cancel()
+        _uiState.value = _uiState.value.copy(
+            selectedProfile = null,
+            openingProfileUserId = userId,
+            refreshingProfileUserId = null,
+            error = null,
+        )
         profileWatchdogJob = scope.launch {
             kotlinx.coroutines.delay(PROFILE_LOAD_TIMEOUT_MILLIS)
             val state = _uiState.value
             if (state.openingProfileUserId == userId || state.refreshingProfileUserId == userId) {
+                profileJob?.cancel()
+                profileJob = null
                 _uiState.value = state.copy(
+                    selectedProfile = null,
                     openingProfileUserId = null,
                     refreshingProfileUserId = null,
                     error = "La carga del perfil ha tardado demasiado. Inténtalo de nuevo.",
@@ -214,6 +223,30 @@ class NeighborhoodsViewModel(
         }
     }
 
+    fun addProfilePostComment(postId: String, body: String) {
+        scope.launch {
+            val profileUserId = _uiState.value.selectedProfile?.user?.id ?: return@launch
+            _uiState.value = _uiState.value.copy(error = null)
+            repository.addPostComment(postId, body)
+                .onSuccess { refreshSelectedProfile(profileUserId) }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        error = error.message ?: "No se pudo publicar el comentario. Intentalo de nuevo.",
+                    )
+                }
+        }
+    }
+
+    fun toggleProfilePostLike(postId: String) {
+        scope.launch {
+            val profileUserId = _uiState.value.selectedProfile?.user?.id ?: return@launch
+            _uiState.value = _uiState.value.copy(error = null)
+            repository.togglePostLike(postId)
+                .onSuccess { refreshSelectedProfile(profileUserId) }
+                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo actualizar Me gusta. Intentalo de nuevo.") }
+        }
+    }
+
     fun reportProfile(profileId: String) {
         scope.launch {
             repository.reportProfile(profileId).onFailure { failure ->
@@ -276,6 +309,9 @@ class NeighborhoodsViewModel(
             .onSuccess { profile ->
                 repository.cacheUserProfile(profile)
                 _uiState.value = _uiState.value.copy(selectedProfile = profile)
+            }
+            .onFailure { error ->
+                _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo actualizar el perfil. Intentalo de nuevo.")
             }
     }
 

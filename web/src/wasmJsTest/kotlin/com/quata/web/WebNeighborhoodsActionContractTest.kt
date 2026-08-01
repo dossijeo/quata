@@ -27,4 +27,11 @@ class WebNeighborhoodsActionContractTest {
         assertEquals(WebPostgrestAuthMode.Public, webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.UserProfile))
         assertTrue(WebNeighborhoodsPrivateActionsRequireSession)
     }
+
+    @Test fun `comment payload carries backend identities and safely escaped body`() {
+        assertEquals(
+            "{\"post_id\":\"post-1\",\"profile_id\":\"me\",\"body\":\"hello \\\"world\\\"\"}",
+            webNeighborhoodCommentPayload("post-1", "me", "hello \"world\""),
+        )
+    }
 }

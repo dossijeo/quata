@@ -636,14 +636,7 @@ private final class IosAppCompositionRoot {
                         self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
                     },
                     onNavigateToProfile: { [weak self] profileId in
-                        guard let self else { return }
-                        let controller = IosNeighborhoodsHostKt.QuataCommunityProfileViewController(
-                            dependencies: hostDependencies,
-                            profileId: profileId,
-                            onDismiss: { [weak self] in self?.authenticatedHost.dismiss(animated: true) }
-                        )
-                        controller.modalPresentationStyle = .fullScreen
-                        self.authenticatedHost.present(controller, animated: true)
+                        self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
                     onAuthRequired: { [weak self] in self?.authenticatedHost.requestAuthenticationForCommunities() },
                     mediaFactory: IosFeedNativeMediaFactory.shared,
@@ -678,13 +671,21 @@ private final class IosAppCompositionRoot {
             shareService: platformServices.services.share,
             attachmentPreviewService: communitiesRuntimeBootstrap.attachmentPreviewService(documentOpener: platformServices.services.documentOpener)
         )
-        let controller = IosNeighborhoodsHostKt.QuataCommunityProfileViewController(
-            dependencies: dependencies,
-            profileId: profileId,
-            onDismiss: { [weak self] in self?.authenticatedHost.dismiss(animated: true) }
-        )
-        controller.modalPresentationStyle = .fullScreen
-        authenticatedHost.present(controller, animated: true)
+        let presentProfile = { [weak self] in
+            guard let self else { return }
+            let controller = IosNeighborhoodsHostKt.QuataCommunityProfileViewController(
+                dependencies: dependencies,
+                profileId: profileId,
+                onDismiss: { [weak self] in self?.authenticatedHost.dismiss(animated: true) }
+            )
+            controller.modalPresentationStyle = .pageSheet
+            self.authenticatedHost.present(controller, animated: true)
+        }
+        if authenticatedHost.presentedViewController != nil {
+            authenticatedHost.dismiss(animated: false, completion: presentProfile)
+        } else {
+            presentProfile()
+        }
     }
 
     /// Composer is an authenticated in-app route. It receives the real UIKit gallery and still

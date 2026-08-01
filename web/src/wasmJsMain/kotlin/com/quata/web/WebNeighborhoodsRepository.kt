@@ -32,7 +32,7 @@ import kotlinx.serialization.json.put
 internal enum class WebNeighborhoodsReadOperation { Directory, CurrentUserAdmin, UserProfile }
 internal fun webNeighborhoodsReadAuthMode(operation: WebNeighborhoodsReadOperation): WebPostgrestAuthMode = when (operation) {
     WebNeighborhoodsReadOperation.Directory -> WebPostgrestAuthMode.Public
-    WebNeighborhoodsReadOperation.CurrentUserAdmin,
+    WebNeighborhoodsReadOperation.CurrentUserAdmin -> WebPostgrestAuthMode.SessionRequired
     // A profile is a public route.  The postgrest client still uses the publishable key here;
     // private action requests below explicitly require the current bearer session.
     WebNeighborhoodsReadOperation.UserProfile -> WebPostgrestAuthMode.Public
@@ -91,6 +91,36 @@ class WebNeighborhoodsRepository(
     }
 
     override suspend fun reportPost(postId: String): Result<Unit> = reportUgc("community_post", postId)
+
+    override suspend fun addPostComment(postId: String, body: String): Result<Unit> = runCatching {
+        require(postId.matches(PostgrestIdentifier)) { "web_community_invalid_post_id" }
+        val userId = authenticatedUserId()
+        val cleanBody = body.trim().takeIf(String::isNotEmpty) ?: error("web_community_comment_empty")
+        client.requireSuccess(
+            "community_comments",
+            client.post(
+                "community_comments",
+                webNeighborhoodCommentPayload(postId, userId, cleanBody),
+            ),
+        )
+    }
+
+    override suspend fun togglePostLike(postId: String): Result<Unit> = runCatching {
+        require(postId.matches(PostgrestIdentifier)) { "web_community_invalid_post_id" }
+        val userId = authenticatedUserId()
+        val existing = client.rows(
+            "community_post_likes",
+            mapOf("select" to "id", "post_id" to "eq.$postId", "profile_id" to "eq.$userId"),
+            1,
+            WebPostgrestAuthMode.SessionRequired,
+        ).firstOrNull()
+        if (existing == null) {
+            client.requireSuccess("community_post_likes", client.post("community_post_likes", buildJsonObject { put("post_id", postId); put("profile_id", userId) }.toString()))
+        } else {
+            val likeId = existing.webCommunityString("id") ?: error("web_community_like_id_missing")
+            client.requireSuccess("community_post_likes", client.delete("community_post_likes", mapOf("id" to "eq.$likeId")))
+        }
+    }
 
     override suspend fun reportProfile(profileId: String): Result<Unit> = reportUgc("profile", profileId)
 
@@ -351,3 +381,6 @@ internal fun webNeighborhoodBlockPayload(actor: String, profile: String): String
 
 internal fun webNeighborhoodSharedAttachmentsPayload(actor: String, peer: String): String =
     "{\"p_actor_profile_id\":\"$actor\",\"p_peer_profile_id\":\"$peer\",\"p_limit\":120,\"p_offset\":0}"
+
+internal fun webNeighborhoodCommentPayload(postId: String, profileId: String, body: String): String =
+    buildJsonObject { put("post_id", postId); put("profile_id", profileId); put("body", body) }.toString()
