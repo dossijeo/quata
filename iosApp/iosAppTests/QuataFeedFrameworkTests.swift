@@ -1256,6 +1256,47 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(services.activeViewController() === authenticatedRouteController(in: router))
     }
 
+    func testAuthenticatedRouterForwardsChatProfileNavigationToItsInjectedCompositionOwner() {
+        var receivedProfileId: String?
+        let router = IosAuthenticatedHostRouter(
+            platformServices: makePlatformServiceComposition(),
+            onOpenMemberProfile: { receivedProfileId = $0 },
+        )
+
+        router.routeToMemberProfile(profileId: "member-42")
+
+        XCTAssertEqual(receivedProfileId, "member-42")
+    }
+
+    func testChatHostWiresProfileOwnershipAndNotificationLifecycleCleanup() throws {
+        let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let appSource = try String(
+            contentsOf: testsDirectory.deletingLastPathComponent().appendingPathComponent("iosApp/QuataIosApp.swift"),
+            encoding: .utf8,
+        )
+        let kotlinHost = try String(
+            contentsOf: testsDirectory
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
+            encoding: .utf8,
+        )
+
+        XCTAssertTrue(appSource.contains("onOpenMemberProfile: { [weak self] profileId in"))
+        XCTAssertTrue(appSource.contains("self?.routeToMemberProfile(profileId: profileId)"))
+        XCTAssertFalse(appSource.contains("self?.presentAuthenticatedMemberProfile(profileId: profileId)\n                },\n                onOpenMap:"))
+        [
+            "UIApplicationDidEnterBackgroundNotification",
+            "UIApplicationWillEnterForegroundNotification",
+            "UIApplicationDidBecomeActiveNotification",
+            "UIApplicationWillResignActiveNotification",
+            "center.removeObserver(backgroundObserver)",
+            "chatHostIsForeground(ChatHostLifecycleEvent.Dispose)",
+        ].forEach { token in
+            XCTAssertTrue(kotlinHost.contains(token), "Missing Chat lifecycle token: \(token)")
+        }
+    }
+
     func testAuthenticatedRouterBuildsTheExportedCommunitiesHostFromSharedRuntime() {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)

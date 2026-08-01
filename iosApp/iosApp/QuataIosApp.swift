@@ -194,7 +194,12 @@ private final class IosAppCompositionRoot {
     private let platformServices = IosPlatformServiceComposition(
         coreLocationHost: IosCoreLocationHost(manager: CLLocationManager()),
     )
-    private lazy var authenticatedHost = IosAuthenticatedHostRouter(platformServices: platformServices)
+    private lazy var authenticatedHost = IosAuthenticatedHostRouter(
+        platformServices: platformServices,
+        onOpenMemberProfile: { [weak self] profileId in
+            self?.presentAuthenticatedMemberProfile(profileId: profileId)
+        },
+    )
     private lazy var authenticatedRouteDispatcher = IosAuthenticatedRouteDispatcher(host: authenticatedHost)
     private lazy var whatsNewRuntimeBootstrap: IosWhatsNewRuntimeBootstrap? =
         IosWhatsNewRuntimeBootstrapKt.createDefaultIosWhatsNewRuntimeBootstrap(
@@ -940,6 +945,7 @@ final class IosTransparentComposeOverlayController: UIViewController {
 /// launcher has real dependencies; a deep link received earlier remains pending.
 final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteHost {
     private let platformServices: IosPlatformServiceComposition
+    private let onOpenMemberProfile: (String) -> Void
     private var displayedController: UIViewController?
     private var feedFactory: ((String?) -> UIViewController)?
     private var chatFactory: ((String?, String?) -> UIViewController)?
@@ -1035,13 +1041,23 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
     }
 
-    init(platformServices: IosPlatformServiceComposition) {
+    init(
+        platformServices: IosPlatformServiceComposition,
+        onOpenMemberProfile: @escaping (String) -> Void = { _ in }
+    ) {
         self.platformServices = platformServices
+        self.onOpenMemberProfile = onOpenMemberProfile
         super.init(nibName: nil, bundle: nil)
     }
 
     required init?(coder: NSCoder) {
         nil
+    }
+
+    /// Profile presentation belongs to the composition root. The router only forwards the
+    /// feature-owned profile id through the navigation capability injected by that owner.
+    func routeToMemberProfile(profileId: String) {
+        onOpenMemberProfile(profileId)
     }
 
     override func viewDidLoad() {
@@ -1396,7 +1412,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                     }
                 },
                 onOpenAvatar: { [weak self] profileId in
-                    self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                    self?.routeToMemberProfile(profileId: profileId)
                 },
                 onOpenMap: { value in
                     guard let url = URL(string: value) else { return }
