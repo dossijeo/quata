@@ -452,12 +452,14 @@ async function startServer(distribution, state, configuration) {
           request.headers.authorization === `Bearer ${FIXTURE.accessToken}` && exactKeys &&
           body.p_actor_profile_id === FIXTURE.profileId && body.p_query === "" &&
           body.p_limit === 50 && body.p_offset === 0;
-        state.chatCandidateRequests.push({
-          method: request.method,
-          bearer: request.headers.authorization === `Bearer ${FIXTURE.accessToken}` ? "fixture_session" : "invalid",
-          body,
-          status: accepted ? 200 : 405,
-        });
+        if (state.chatCandidateRequests.length < 5) {
+          state.chatCandidateRequests.push({
+            method: request.method,
+            bearer: request.headers.authorization === `Bearer ${FIXTURE.accessToken}` ? "fixture_session" : "invalid",
+            body,
+            status: accepted ? 200 : 405,
+          });
+        }
         if (!accepted) {
           return json(response, 405, { error: "fixture_chat_candidate_read_forbidden" });
         }
