@@ -3,7 +3,6 @@
 package com.quata.web
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
@@ -50,22 +49,36 @@ fun WebOfficialEditorHost(
     when (allowed) {
         null -> Text("Loading official editor", modifier = modifier)
         false -> Text("Official authorisation is required", modifier = modifier)
-        true -> OfficialPostEditorScreenHost(
+        true -> {
+            val imagePicker: @Composable (onPicked: (OfficialEditorMedia) -> Unit, Modifier) -> Unit = { picked, pickerModifier ->
+                Button(modifier = pickerModifier, onClick = { scope.launch {
+                    filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery)).firstReferenceOrNull()
+                        ?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Image)) }
+                } }) { Text("Image") }
+            }
+            val videoPicker: @Composable (onPicked: (OfficialEditorMedia) -> Unit, Modifier) -> Unit = { picked, pickerModifier ->
+                Button(modifier = pickerModifier, onClick = { scope.launch {
+                    filePicker.pick(FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery)).firstReferenceOrNull()
+                        ?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Video)) }
+                } }) { Text("Video") }
+            }
+            val mediaPreview: @Composable (OfficialEditorMedia, () -> Unit, (() -> Unit)?, Modifier) -> Unit = { media, _, _, previewModifier ->
+                BrowserComposerMediaPreview(media.url, media.type == OfficialMediaType.Video, previewModifier)
+            }
+            OfficialPostEditorScreenHost(
             padding = PaddingValues(),
             language = OfficialPostLanguage.fromAppLanguage(webOfficialLanguageTag()),
             strings = OfficialPostEditorStrings.forLanguage(webOfficialLanguageTag()),
             slots = OfficialEditorPlatformSlots(
-                // This target currently has no portable WYSIWYG bridge; the real HTML field is
-                // intentionally labelled as such instead of faking formatting controls.
                 richTextEditor = OfficialRichBodyEditor(
-                    content = { html, onChanged, _ -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
-                    cancel = { Result.failure(UnsupportedOperationException("web_rich_fullscreen_unavailable")) },
+                    content = { html, onChanged, onFullscreenChanged -> BrowserOfficialRichBodyEditor(html, onChanged, onFullscreenChanged) },
+                    cancel = ::browserOfficialRichTextCancel,
                 ),
-                imagePicker = { picked, modifier -> Button(modifier = modifier, onClick = { scope.launch { filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery)).firstReferenceOrNull()?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Image)) } } }) { Text("Image") } },
-                videoPicker = { picked, modifier -> Button(modifier = modifier, onClick = { scope.launch { filePicker.pick(FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery)).firstReferenceOrNull()?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Video)) } } }) { Text("Video") } },
-                mediaPreview = { media, _, _, modifier -> BrowserComposerMediaPreview(media.url, media.type == OfficialMediaType.Video, modifier) },
-                mediaEditor = OfficialEditorCapability.Unavailable("web_media_editor_unavailable"),
-                cardPreview = OfficialEditorCapability.Unavailable("web_official_card_preview_unavailable"),
+                imagePicker = imagePicker,
+                videoPicker = videoPicker,
+                mediaPreview = mediaPreview,
+                mediaEditor = OfficialEditorCapability.Available(BrowserOfficialMediaEditor),
+                cardPreview = OfficialEditorCapability.Available(BrowserOfficialCardPreview),
             ),
             onSubmit = { drafts -> repository.createPosts(drafts).map { it?.id } },
             onPublished = onPublished,
@@ -74,7 +87,8 @@ fun WebOfficialEditorHost(
             translator = translator,
             languageDetector = OfficialLanguageDetector { Result.success(detectOfficialLanguage(it)) },
             modifier = modifier,
-        )
+            )
+        }
     }
 }
 
