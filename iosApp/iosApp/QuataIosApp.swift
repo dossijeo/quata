@@ -43,6 +43,7 @@ enum IosDeepLinkUrlContract {
 }
 
 enum IosPublicRuntimeConfiguration {
+    static let wordpressBaseUrl = "https://egquata.com/"
     private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
     private static let supabasePublishableKeyKey = "QUATA_SUPABASE_PUBLISHABLE_KEY"
     private static let iosRegistrationEnabledKey = "QUATA_IOS_REGISTRATION_ENABLED"
@@ -64,6 +65,18 @@ enum IosPublicRuntimeConfiguration {
             let publishableKey = configuredValue(for: supabasePublishableKeyKey, infoDictionary: infoDictionary)
         else { return nil }
         return IosFeedRuntimeConfiguration(supabaseUrl: url, supabasePublishableKey: publishableKey)
+    }
+
+    /// Kotlin default arguments are not exported to Swift. Keep the public WordPress transport
+    /// endpoint explicit and centralized whenever Feed configuration is adapted for Official.
+    static func officialConfiguration(
+        from feedConfiguration: IosFeedRuntimeConfiguration
+    ) -> IosOfficialRuntimeConfiguration {
+        IosOfficialRuntimeConfiguration(
+            supabaseUrl: feedConfiguration.supabaseUrl,
+            supabasePublishableKey: feedConfiguration.supabasePublishableKey,
+            wordpressBaseUrl: wordpressBaseUrl
+        )
     }
 
     /// Registration is opt-in and remains unavailable for malformed or absent build settings.
@@ -234,10 +247,7 @@ private final class IosAppCompositionRoot {
     private lazy var officialRuntimeBootstrap: IosOfficialRuntimeBootstrap? = {
         guard let configuration = runtimeConfiguration else { return nil }
         return IosOfficialRuntimeBootstrap(
-            configuration: IosOfficialRuntimeConfiguration(
-                supabaseUrl: configuration.supabaseUrl,
-                supabasePublishableKey: configuration.supabasePublishableKey,
-            ),
+            configuration: IosPublicRuntimeConfiguration.officialConfiguration(from: configuration),
             authSession: nil,
             preferredLanguageTag: Locale.preferredLanguages.first
         )
@@ -489,18 +499,12 @@ private final class IosAppCompositionRoot {
     private func installAuthenticatedOfficialEditorIfAvailable() {
         guard let configuration = runtimeConfiguration, let runtimeBootstrap else { return }
         let repository = IosOfficialReadRepository(
-            configuration: IosOfficialRuntimeConfiguration(
-                supabaseUrl: configuration.supabaseUrl,
-                supabasePublishableKey: configuration.supabasePublishableKey
-            ),
+            configuration: IosPublicRuntimeConfiguration.officialConfiguration(from: configuration),
             authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
             preferredLanguageTag: Locale.preferredLanguages.first
         )
         let mediaPresenter = platformServices
-        let mediaConfiguration = IosOfficialRuntimeConfiguration(
-            supabaseUrl: configuration.supabaseUrl,
-            supabasePublishableKey: configuration.supabasePublishableKey
-        )
+        let mediaConfiguration = IosPublicRuntimeConfiguration.officialConfiguration(from: configuration)
         let mediaAuthSession = runtimeBootstrap.authSessionForInteractiveLogin()
         authenticatedHost.installOfficialEditorFactory { [weak self] in
             // Every route instance owns its gateway; global navigation/logout disposes the
@@ -577,10 +581,7 @@ private final class IosAppCompositionRoot {
             if let runtimeBootstrap = self.runtimeBootstrap, let configuration = self.runtimeConfiguration, runtimeBootstrap.hasRestoredSession() {
                 return QuataOfficialViewControllerKt.QuataOfficialViewController(
                     dependencies: QuataOfficialViewControllerKt.iosAuthenticatedPostgrestOfficialHostDependencies(
-                        configuration: IosOfficialRuntimeConfiguration(
-                            supabaseUrl: configuration.supabaseUrl,
-                            supabasePublishableKey: configuration.supabasePublishableKey
-                        ),
+                        configuration: IosPublicRuntimeConfiguration.officialConfiguration(from: configuration),
                         authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
                         officialPostId: postId,
                         shareService: shareService,
@@ -763,7 +764,8 @@ private final class IosAppCompositionRoot {
             transport: IosPostComposerTransport(
                 configuration: IosPostComposerRuntimeConfiguration(
                     supabaseUrl: configuration.supabaseUrl,
-                    supabasePublishableKey: configuration.supabasePublishableKey
+                    supabasePublishableKey: configuration.supabasePublishableKey,
+                    wordpressBaseUrl: IosPublicRuntimeConfiguration.wordpressBaseUrl
                 ),
                 authSession: runtimeBootstrap.authSessionForInteractiveLogin()
             )

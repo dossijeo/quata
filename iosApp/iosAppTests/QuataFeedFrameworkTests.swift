@@ -1329,7 +1329,8 @@ final class QuataFeedFrameworkTests: XCTestCase {
             transport: IosPostComposerTransport(
                 configuration: IosPostComposerRuntimeConfiguration(
                     supabaseUrl: configuration.supabaseUrl,
-                    supabasePublishableKey: configuration.supabasePublishableKey
+                    supabasePublishableKey: configuration.supabasePublishableKey,
+                    wordpressBaseUrl: IosPublicRuntimeConfiguration.wordpressBaseUrl
                 ),
                 authSession: bootstrap.authSessionForInteractiveLogin()
             )

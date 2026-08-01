@@ -482,3 +482,27 @@ test('public Official composition explicitly keeps its Kotlin bootstrap bearer-f
     'Official public reads must never inherit the restored private bearer session',
   );
 });
+
+test('Swift explicitly preserves the public WordPress endpoint for every Official runtime', async () => {
+  const swift = await readFile(iosAppSource, 'utf8');
+  const factory = swift.match(
+    /static func officialConfiguration\([\s\S]*?\n    \}/,
+  )?.[0];
+
+  assert.ok(factory, 'the shared Feed-to-Official configuration factory must remain present');
+  assert.match(
+    swift,
+    /static let wordpressBaseUrl\s*=\s*"https:\/\/egquata\.com\/"/,
+    'Swift must preserve the public WordPress endpoint used by the Kotlin runtime defaults',
+  );
+  assert.match(
+    factory,
+    /IosOfficialRuntimeConfiguration\([\s\S]*?wordpressBaseUrl:\s*wordpressBaseUrl/,
+    'Swift must explicitly pass the non-null Kotlin WordPress URL because exported defaults are unavailable',
+  );
+  assert.equal(
+    [...swift.matchAll(/IosOfficialRuntimeConfiguration\(/g)].length,
+    1,
+    'Official runtime construction must stay centralized so no Swift call site can omit wordpressBaseUrl',
+  );
+});
