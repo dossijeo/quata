@@ -54,7 +54,10 @@ private fun PlatformResult<PlatformFile>.composerCapturedFileOrNull(): PlatformF
 /** Thin UIKit wrapper around the one common composer root. */
 @Composable
 private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
-    val viewModel = remember(dependencies.repository) { CreatePostViewModel(dependencies.repository) }
+    val copy = createPostRootCopyForLanguageTag(dependencies.languageTag)
+    val viewModel = remember(dependencies.repository, copy) {
+        CreatePostViewModel(dependencies.repository, messages = copy.viewModelMessages())
+    }
     val scope = rememberCoroutineScope()
     var imageFile by remember { mutableStateOf<PlatformFile?>(null) }
     var videoThumbnail by remember { mutableStateOf<PlatformFile?>(null) }
@@ -82,7 +85,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
         onAuthRequired = dependencies.onClose,
         onBack = dependencies.onClose,
         onPostCreated = { dependencies.onClose() },
-        copy = createPostRootCopyForLanguageTag(dependencies.languageTag),
+        copy = copy,
         slots = CreatePostPlatformSlots(
             pickImage = {
                 scope.launch {

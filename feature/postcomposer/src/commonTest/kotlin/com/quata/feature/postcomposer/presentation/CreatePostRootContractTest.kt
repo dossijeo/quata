@@ -26,6 +26,36 @@ class CreatePostRootContractTest {
         assertEquals("Crear publicación", createPostRootCopyForLanguageTag("es-ES").title)
         assertEquals("Créer une publication", createPostRootCopyForLanguageTag("fr-FR").title)
         assertEquals("42/500", createPostRootCopyForLanguageTag("en").characters(42))
+        assertEquals(CreatePostMessages("Post created", "Could not publish"), EnglishCreatePostRootCopy.viewModelMessages())
+        assertEquals(CreatePostMessages("Publicación creada", "No se pudo publicar"), SpanishCreatePostRootCopy.viewModelMessages())
+        assertEquals(CreatePostMessages("Publication créée", "Impossible de publier"), FrenchCreatePostRootCopy.viewModelMessages())
+    }
+
+    @Test
+    fun viewModelFeedbackUsesTheSameLocalizedCopyAsTheCommonRoot() = runTest {
+        val successViewModel = CreatePostViewModel(
+            repository = object : PostComposerRepository {
+                override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft) = Result.success<String?>("post-1")
+            },
+            dispatchers = AppDispatchers(default = StandardTestDispatcher(testScheduler)),
+            messages = EnglishCreatePostRootCopy.viewModelMessages(),
+        )
+        successViewModel.submit(PostComposerType.Text)
+        advanceUntilIdle()
+        assertEquals("Post created", successViewModel.uiState.value.successMessage)
+
+        val failureViewModel = CreatePostViewModel(
+            repository = object : PostComposerRepository {
+                override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft) = Result.failure<String?>(IllegalStateException())
+            },
+            dispatchers = AppDispatchers(default = StandardTestDispatcher(testScheduler)),
+            messages = FrenchCreatePostRootCopy.viewModelMessages(),
+        )
+        failureViewModel.submit(PostComposerType.Text)
+        advanceUntilIdle()
+        assertEquals("Impossible de publier", failureViewModel.uiState.value.error)
+        successViewModel.close()
+        failureViewModel.close()
     }
 
     @Test

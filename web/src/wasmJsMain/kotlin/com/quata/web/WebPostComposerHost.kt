@@ -12,6 +12,8 @@ import com.quata.feature.postcomposer.presentation.CreatePostPlatformSlots
 import com.quata.feature.postcomposer.presentation.CreatePostRoot
 import com.quata.feature.postcomposer.presentation.CreatePostUiEvent
 import com.quata.feature.postcomposer.presentation.CreatePostViewModel
+import com.quata.feature.postcomposer.presentation.createPostRootCopyForLanguageTag
+import com.quata.feature.postcomposer.presentation.viewModelMessages
 import kotlinx.coroutines.launch
 
 data class WebComposerMediaSlots(
@@ -39,7 +41,8 @@ fun WebPostComposerHost(
     canPublish: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val viewModel = remember(repository) { CreatePostViewModel(repository) }
+    val copy = createPostRootCopyForLanguageTag(browserCapabilityLanguageTag())
+    val viewModel = remember(repository, copy) { CreatePostViewModel(repository, messages = copy.viewModelMessages()) }
     val scope = rememberCoroutineScope()
     CreatePostRoot(
         viewModel = viewModel,
@@ -49,7 +52,7 @@ fun WebPostComposerHost(
         onAuthRequired = onAuthRequired,
         onPostCreated = onPostCreated,
         canPublish = canPublish,
-        copy = com.quata.feature.postcomposer.presentation.createPostRootCopyForLanguageTag(browserCapabilityLanguageTag()),
+        copy = copy,
         slots = CreatePostPlatformSlots(
             pickImage = { scope.launch { mediaSlots.pickImage()?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
             captureImage = { scope.launch { mediaSlots.captureImage()?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },

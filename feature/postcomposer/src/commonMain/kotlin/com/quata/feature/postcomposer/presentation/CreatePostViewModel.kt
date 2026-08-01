@@ -16,7 +16,8 @@ import kotlinx.coroutines.launch
 
 class CreatePostViewModel(
     private val repository: PostComposerRepository,
-    dispatchers: AppDispatchers = AppDispatchers()
+    dispatchers: AppDispatchers = AppDispatchers(),
+    private val messages: CreatePostMessages = SpanishCreatePostRootCopy.viewModelMessages(),
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
     private val _uiState = MutableStateFlow(CreatePostUiState())
@@ -81,12 +82,12 @@ class CreatePostViewModel(
                         longitude = state.longitude
                     )
                 )
-                    .onSuccess { postId -> _uiState.value = CreatePostUiState(successMessage = "Publicacion creada", createdPostId = postId) }
+                    .onSuccess { postId -> _uiState.value = CreatePostUiState(successMessage = messages.created, createdPostId = postId) }
                     .onFailure { throwable ->
                         if (throwable is CancellationException) {
                             _uiState.value = state.copy(isLoading = false)
                         } else {
-                            _uiState.value = state.copy(isLoading = false, error = throwable.message ?: "No se pudo publicar")
+                            _uiState.value = state.copy(isLoading = false, error = throwable.message ?: messages.failed)
                         }
                     }
             } finally {
@@ -106,3 +107,8 @@ class CreatePostViewModel(
         scope.coroutineContext.cancel()
     }
 }
+
+data class CreatePostMessages(
+    val created: String,
+    val failed: String,
+)

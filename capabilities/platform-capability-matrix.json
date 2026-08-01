@@ -116,7 +116,7 @@
       "platforms": {
         "android": { "state": "implemented", "evidence": [{ "path": "app/src/main/java/com/quata/core/di/AppContainer.kt", "sha256": "4701af4b22411d9d0ff3bf93a2d7529353dd7bdfb4e234f471a5f54c56c0d2c7", "role": "composition" }, { "path": "app/src/main/java/com/quata/feature/postcomposer/data/PostComposerRepositoryImpl.kt", "sha256": "d7a42c9427a0c42152d99157650c216e6b4fd10a19651402f83fdfc90e76d0bb", "role": "implementation" }] },
         "web": { "state": "contract-only", "evidence": [{ "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRoute.kt", "sha256": "3f0190dbd1a47a08a089f211584560c646f3e64a5113f6d536ac1282ed6f7f73", "role": "composition" }, { "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRepository.kt", "sha256": "8523c2646e0cfe632d4401841bb3b8738571fad8ae6f688fcb1c5c65f4efdcbd", "role": "contract-boundary" }] },
-        "ios": { "state": "blocked", "evidence": [{ "path": "iosApp/iosApp/QuataIosApp.swift", "sha256": "0e882f1168f13ebdb62e62964793b0ae19aecdab9fb718328f86f65725daf663", "role": "composition" }, { "path": "feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosComposerHost.kt", "sha256": "244e733955fee3b9b48c10f6933d4e6471de65f354d755ce69c2733d5b6b609e", "role": "explicit-block" }] }
+        "ios": { "state": "blocked", "evidence": [{ "path": "iosApp/iosApp/QuataIosApp.swift", "sha256": "0e882f1168f13ebdb62e62964793b0ae19aecdab9fb718328f86f65725daf663", "role": "composition" }, { "path": "feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosComposerHost.kt", "sha256": "6a88e512f2fd324104e5201c763f167099b24464548af8eff6d338cb977556a0", "role": "explicit-block" }] }
       }
     },
     {

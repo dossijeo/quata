@@ -109,9 +109,15 @@ fun CreatePostScreen(
     onBack: () -> Unit,
     onVideoEditorVisibilityChange: (Boolean) -> Unit = {},
     onUploadStateChange: (Boolean) -> Unit = {},
-    viewModel: CreatePostAndroidViewModel = viewModel(factory = CreatePostAndroidViewModel.factory(repository)),
+    viewModel: CreatePostAndroidViewModel = viewModel(
+        factory = CreatePostAndroidViewModel.factory(
+            repository,
+            createPostRootCopyForLanguageTag(Locale.getDefault().toLanguageTag()),
+        ),
+    ),
 ) {
     val context = LocalContext.current
+    val rootCopy = remember { createPostRootCopyForLanguageTag(Locale.getDefault().toLanguageTag()) }
     val state by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     var imageEditorUri by remember { mutableStateOf<Uri?>(null) }
@@ -214,7 +220,7 @@ fun CreatePostScreen(
             onBack = onBack,
             resetToken = resetToken,
             cancelUploadToken = cancelUploadToken,
-            copy = createPostRootCopyForLanguageTag(Locale.getDefault().toLanguageTag()),
+            copy = rootCopy,
             slots = CreatePostPlatformSlots(
                 pickImage = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 captureImage = { capture(CaptureTarget.Photo) },

@@ -92,6 +92,8 @@ data class CreatePostRootCopy(
     val publish: String,
     val publishing: String,
     val back: String,
+    val publicationCreated: String,
+    val publicationFailed: String,
     val author: String = "Qüata",
     val feed: String = "Feed",
 )
@@ -110,6 +112,7 @@ val SpanishCreatePostRootCopy = CreatePostRootCopy(
     description = "Descripción", descriptionPlaceholder = "Añade un título o descripción…",
     videoPreviewEmpty = "Selecciona o graba un vídeo para previsualizarlo.", publish = "Publicar",
     publishing = "Publicando…", back = "Volver al feed",
+    publicationCreated = "Publicación creada", publicationFailed = "No se pudo publicar",
 )
 
 val EnglishCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
@@ -123,7 +126,8 @@ val EnglishCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
     locationPlaceholder = "Neighborhood, city or place", edit = "Edit", pickVideo = "Choose video", recordVideo = "Record video",
     editVideo = "Edit video", noFile = "No file selected", description = "Description",
     descriptionPlaceholder = "Add a title or description…", videoPreviewEmpty = "Choose or record a video to preview it.",
-    publish = "Publish", publishing = "Publishing…", back = "Back to feed", feed = "Feed",
+    publish = "Publish", publishing = "Publishing…", back = "Back to feed",
+    publicationCreated = "Post created", publicationFailed = "Could not publish", feed = "Feed",
 )
 
 val FrenchCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
@@ -138,7 +142,8 @@ val FrenchCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
     recordVideo = "Enregistrer une vidéo", editVideo = "Modifier la vidéo", noFile = "Aucun fichier sélectionné",
     description = "Description", descriptionPlaceholder = "Ajoutez un titre ou une description…",
     videoPreviewEmpty = "Choisissez ou enregistrez une vidéo pour l'aperçu.", publish = "Publier",
-    publishing = "Publication…", back = "Retour au fil", feed = "Fil",
+    publishing = "Publication…", back = "Retour au fil",
+    publicationCreated = "Publication créée", publicationFailed = "Impossible de publier", feed = "Fil",
 )
 
 fun createPostRootCopyForLanguageTag(languageTag: String?): CreatePostRootCopy = when {
@@ -146,6 +151,9 @@ fun createPostRootCopyForLanguageTag(languageTag: String?): CreatePostRootCopy =
     languageTag?.lowercase()?.startsWith("en") == true -> EnglishCreatePostRootCopy
     else -> SpanishCreatePostRootCopy
 }
+
+fun CreatePostRootCopy.viewModelMessages(): CreatePostMessages =
+    CreatePostMessages(created = publicationCreated, failed = publicationFailed)
 
 data class CreatePostPlatformSlots(
     val pickImage: () -> Unit,
