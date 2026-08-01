@@ -1203,6 +1203,18 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(source.contains("createIosOfficialEditorMediaGateway("))
         XCTAssertTrue(source.contains("presenterProvider: platformServices"))
         XCTAssertTrue(source.contains("mediaGateway: mediaGateway"))
+        let factoryRange = try XCTUnwrap(source.range(of: "installOfficialEditorFactory {"))
+        let gatewayRange = try XCTUnwrap(source.range(of: "let mediaGateway =", range: factoryRange.lowerBound..<source.endIndex))
+        XCTAssertGreaterThan(gatewayRange.lowerBound, factoryRange.lowerBound, "Gateway must be owned per editor instance")
+
+        let controllerSourceURL = appSourceURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt")
+        let controllerSource = try String(contentsOf: controllerSourceURL, encoding: .utf8)
+        XCTAssertTrue(controllerSource.contains("DisposableEffect(dependencies.mediaGateway)"))
+        XCTAssertTrue(controllerSource.contains("dependencies.mediaGateway.discardAll()"))
     }
 
     func testPublicOfficialDeepLinkRendersWithoutAnAuthenticatedFeedSession() {

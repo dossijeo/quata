@@ -2,6 +2,7 @@ package com.quata.feature.official.presentation
 
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
+import com.quata.core.data.toFoundationData
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
@@ -23,6 +24,10 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
+import kotlinx.cinterop.ExperimentalForeignApi
+import platform.Foundation.NSFileManager
+import platform.Foundation.NSTemporaryDirectory
+import platform.Foundation.NSURL
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -173,6 +178,36 @@ class IosOfficialEditorMediaContractTest {
         assertNotNull(slots.videoPicker)
         assertNotNull(slots.mediaPreview)
         assertNotNull(slots.discardMedia)
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    @Test fun externalDisposalDeletesEveryOwnedOriginalAndThumbnailAndIsIdempotent() = runBlocking {
+        val temporary = NSTemporaryDirectory()
+        val imagePath = temporary + "quata_gallery_logout_owned.jpg"
+        val videoPath = temporary + "quata_gallery_logout_owned.mp4"
+        val thumbnailPath = temporary + "quata_video_thumbnail_logout_owned_123.png"
+        val manager = NSFileManager.defaultManager
+        listOf(imagePath, videoPath, thumbnailPath).forEach { path ->
+            assertTrue(manager.createFileAtPath(path, "owned".encodeToByteArray().toFoundationData(), null))
+        }
+        val image = PlatformFile(NSURL.fileURLWithPath(imagePath).absoluteString!!, "owned.jpg", "image/jpeg")
+        val video = PlatformFile(NSURL.fileURLWithPath(videoPath).absoluteString!!, "owned.mp4", "video/mp4")
+        val thumbnail = PlatformFile(NSURL.fileURLWithPath(thumbnailPath).absoluteString!!, "owned.png", "image/png")
+        val handles = ArrayDeque(listOf("ios-official-image", "ios-official-video"))
+        val gateway = IosOfficialEditorMediaGateway(
+            picker = RecordingPicker(PlatformResult.Success(listOf(image)), PlatformResult.Success(listOf(video))),
+            transport = RecordingTransport(), videoThumbnails = RecordingThumbnailService(thumbnail),
+            handleFactory = { handles.removeFirst() },
+        )
+        gateway.pick(OfficialMediaType.Image)
+        gateway.pick(OfficialMediaType.Video)
+
+        gateway.discardAll()
+        gateway.discardAll()
+
+        assertFalse(manager.fileExistsAtPath(imagePath))
+        assertFalse(manager.fileExistsAtPath(videoPath))
+        assertFalse(manager.fileExistsAtPath(thumbnailPath))
     }
 
     private fun gateway(

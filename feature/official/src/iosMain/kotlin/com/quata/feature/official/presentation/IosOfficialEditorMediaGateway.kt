@@ -90,6 +90,7 @@ class IosOfficialEditorMediaGateway(
     private val videoThumbnails: VideoThumbnailService? = null,
     private val handleFactory: () -> String = { "ios-official-media-${Random.nextLong().toString(16)}" },
     private val cleanup: (PlatformFile) -> Unit = ::deleteOnlyOwnedTemporaryFile,
+    private val previewCleanup: (PlatformFile) -> Unit = { releaseIosComposerVideoThumbnail(it); Unit },
 ) {
     private val selections = mutableMapOf<String, PlatformFile>()
     private val previews = mutableMapOf<String, PlatformFile>()
@@ -125,9 +126,19 @@ class IosOfficialEditorMediaGateway(
 
     suspend fun discard(media: OfficialEditorMedia) {
         val handle = media.preparedHandle ?: return
-        previews.remove(handle)?.let(::releaseIosComposerVideoThumbnail)
+        previews.remove(handle)?.let(previewCleanup)
         val file = selections.remove(handle) ?: return
         cleanup(file)
+    }
+
+    /** Idempotent owner shutdown used when UIKit removes the whole editor route (including logout). */
+    suspend fun discardAll() = withContext(NonCancellable) {
+        val ownedPreviews = previews.values.toList()
+        val ownedSelections = selections.values.toList()
+        previews.clear()
+        selections.clear()
+        ownedPreviews.forEach { runCatching { previewCleanup(it) } }
+        ownedSelections.forEach { runCatching { cleanup(it) } }
     }
 
     fun previewFile(media: OfficialEditorMedia): PlatformFile? {

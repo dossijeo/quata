@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -24,6 +26,9 @@ import platform.Foundation.NSUUID
 import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.postcomposer.presentation.IosComposerLocalImagePreview
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
 
 /** Narrow Swift-owned native viewer contract; it never owns pager or Official state. */
 interface IosOfficialMediaViewerFactory {
@@ -192,6 +197,14 @@ class IosOfficialEditorRootDependencies(
 fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDependencies): UIViewController =
     ComposeUIViewController {
         QuataTheme {
+            val lifecycleScope = rememberCoroutineScope()
+            DisposableEffect(dependencies.mediaGateway) {
+                onDispose {
+                    lifecycleScope.launch(NonCancellable, start = CoroutineStart.UNDISPATCHED) {
+                        dependencies.mediaGateway.discardAll()
+                    }
+                }
+            }
             var allowed by remember { mutableStateOf<Boolean?>(null) }
             LaunchedEffect(dependencies.repository) {
                 val profile = dependencies.repository.refreshCurrentUser().getOrNull()
