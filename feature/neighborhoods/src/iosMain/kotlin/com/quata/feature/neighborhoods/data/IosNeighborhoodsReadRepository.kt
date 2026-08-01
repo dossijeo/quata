@@ -4,6 +4,8 @@ package com.quata.feature.neighborhoods.data
 
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.data.toFoundationData
+import com.quata.core.model.Post
+import com.quata.core.model.User
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.FollowUserResult
@@ -11,6 +13,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.NeighborhoodWallSnapshot
+import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.neighborhoods.domain.mergeNeighborhoodDirectory
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
@@ -131,10 +134,39 @@ class IosNeighborhoodsReadRepository(
     override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> = runCatching {
         require(userId.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
         val user = loadProfiles(listOf(userId)).firstOrNull() ?: error("ios_communities_profile_not_found")
-        // The iOS endpoint is verified only for directory/profile reads. Do not infer a timeline
-        // from unrelated Feed endpoints until its profile-post contract is exercised.
-        CommunityUserProfile(user = user, posts = emptyList()).also { profileCache[userId] = it }
+        val posts = rows(
+            table = "community_posts",
+            query = mapOf("select" to PostSelect, "profile_id" to "eq.$userId", "order" to "created_at.desc", "limit" to ProfilePostsLimit.toString()),
+        ).map { row -> row.toIosCommunityProfilePost(user) }
+        val followers = profileRelations("followed_profile_id", userId)
+        val following = profileRelations("follower_profile_id", userId)
+        val relatedIds = (followers.mapNotNull { it.iosNeighborhoodString("follower_profile_id") } +
+            following.mapNotNull { it.iosNeighborhoodString("followed_profile_id") }).distinct()
+        val related = if (relatedIds.isEmpty()) emptyMap() else loadProfiles(relatedIds).associateBy { it.id }
+        // Relationship lookup remains a real request. Anonymous profile reads never invent a
+        // follow state when the keychain has no valid bearer.
+        val currentFollowing = authSession.currentSession()?.userId?.let { currentId ->
+            profileRelations("follower_profile_id", currentId).mapNotNull { it.iosNeighborhoodString("followed_profile_id") }.toSet()
+        }.orEmpty()
+        val profile = CommunityUserProfile(
+            user = user.copy(
+                isFollowing = userId in currentFollowing,
+                followersCount = followers.size,
+                followingCount = following.size,
+                postsCount = posts.size,
+            ),
+            posts = posts,
+            attachments = posts.flatMap(Post::toIosProfileAttachments),
+            followers = followers.mapNotNull { related[it.iosNeighborhoodString("follower_profile_id")] }.map { it.copy(isFollowing = it.id in currentFollowing) },
+            following = following.mapNotNull { related[it.iosNeighborhoodString("followed_profile_id")] }.map { it.copy(isFollowing = it.id in currentFollowing) },
+        )
+        profile.also { profileCache[userId] = it }
     }
+
+    private suspend fun profileRelations(column: String, profileId: String): List<Map<*, *>> = rows(
+        table = "community_profile_follows",
+        query = mapOf("select" to "follower_profile_id,followed_profile_id", column to "eq.$profileId", "limit" to DirectoryLimit.toString()),
+    )
 
     private suspend fun loadCommunities(): List<NeighborhoodCommunity> {
         val profiles = loadProfiles()
@@ -203,6 +235,8 @@ class IosNeighborhoodsReadRepository(
     private companion object {
         const val DirectoryLimit = 500
         const val ProfileSelect = "id,display_name,phone,country_code,phone_local,barrio,neighborhood,telefono,nombre,avatar_url,avatar,followers_count,following_count,is_admin,is_official"
+        const val PostSelect = "id,profile_id,body,content,image_url,video_url,created_at"
+        const val ProfilePostsLimit = 120
         const val WallStatsSelect = "id,slug,name,normalized_name,chat_count,chat_last_at"
     }
 }
@@ -292,6 +326,22 @@ private fun Map<*, *>.toIosNeighborhoodUser(): NeighborhoodUser = NeighborhoodUs
     followersCount = iosNeighborhoodInt("followers_count"),
     followingCount = iosNeighborhoodInt("following_count"),
 )
+
+internal fun Map<*, *>.toIosCommunityProfilePost(author: NeighborhoodUser): Post = Post(
+    id = requiredIosNeighborhoodString("id"),
+    author = User(author.id, author.email, author.displayName, author.neighborhood, author.avatarUrl, author.isAdmin, author.isOfficial),
+    text = iosNeighborhoodString("body") ?: iosNeighborhoodString("content").orEmpty(),
+    imageUrl = iosNeighborhoodString("image_url"),
+    videoUrl = iosNeighborhoodString("video_url"),
+    createdAt = iosNeighborhoodString("created_at").orEmpty(),
+)
+
+internal fun Post.toIosProfileAttachments(): List<ProfileAttachment> = listOfNotNull(
+    imageUrl?.let { ProfileAttachment("post:$id:image", "imagen", it, "image/*", createdAt.toIosNeighborhoodEpochMillis(), author.displayName) },
+    videoUrl?.let { ProfileAttachment("post:$id:video", "vídeo", it, "video/*", createdAt.toIosNeighborhoodEpochMillis(), author.displayName) },
+)
+
+private fun String.toIosNeighborhoodEpochMillis(): Long? = runCatching { kotlin.time.Instant.parse(this).toEpochMilliseconds() }.getOrNull()
 
 private fun Map<*, *>.requiredIosNeighborhoodString(name: String): String =
     iosNeighborhoodString(name) ?: error("ios_communities_response_missing_$name")
