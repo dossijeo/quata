@@ -166,6 +166,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
 /// Keeps UIKit-only state at the platform edge. It selects the shared Auth or Feed Compose
 /// controller according to the one Keychain-backed session owned by the Kotlin bootstrap.
+enum IosCommunityProfileOrigin: Equatable {
+    case feed
+    case official
+    case communities
+}
+
 private final class IosAppCompositionRoot {
     private enum SettingsPreferenceKey {
         static let themeMode = "quata_ios_theme_mode"
@@ -266,6 +272,7 @@ private final class IosAppCompositionRoot {
     private var externalShareForegroundObserver: NSObjectProtocol?
     private var pendingCommunityProfileId: String?
     private var pendingCommunityPostReportId: String?
+    private var pendingCommunityProfileOrigin: IosCommunityProfileOrigin?
 
     func start() {
         authenticatedHost.installCommunityAuthenticationCancellationHandler { [weak self] in
@@ -304,6 +311,7 @@ private final class IosAppCompositionRoot {
     private func clearPendingCommunityAuthenticationAction() {
         pendingCommunityProfileId = nil
         pendingCommunityPostReportId = nil
+        pendingCommunityProfileOrigin = nil
     }
 
     func handleDeepLink(_ url: URL) -> Bool {
@@ -419,7 +427,7 @@ private final class IosAppCompositionRoot {
                     mediaFactory: IosFeedNativeMediaFactory.shared,
                     shareService: self.platformServices.services.share,
                     onOpenUserProfile: { [weak self] profileId in
-                        self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                        self?.presentAuthenticatedMemberProfile(profileId: profileId, origin: .feed)
                     },
                     initialPostId: postId,
                     onAuthRequired: { [weak self] in
@@ -452,7 +460,7 @@ private final class IosAppCompositionRoot {
                     shareService: self.platformServices.services.share,
                     initialPostId: postId,
                     onOpenUserProfile: { [weak self] profileId in
-                        self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                        self?.presentAuthenticatedMemberProfile(profileId: profileId, origin: .feed)
                     },
                     onAuthRequired: { [weak self] in
                         self?.authenticatedHost.presentLoginIfAvailable()
@@ -472,8 +480,10 @@ private final class IosAppCompositionRoot {
             pendingCommunityProfileId = nil
             let pendingReportId = pendingCommunityPostReportId
             pendingCommunityPostReportId = nil
+            let pendingOrigin = pendingCommunityProfileOrigin ?? .feed
+            pendingCommunityProfileOrigin = nil
             DispatchQueue.main.async { [weak self] in
-                self?.presentAuthenticatedMemberProfile(profileId: pendingProfileId, pendingReportPostId: pendingReportId)
+                self?.presentAuthenticatedMemberProfile(profileId: pendingProfileId, pendingReportPostId: pendingReportId, origin: pendingOrigin)
             }
         }
         return true
@@ -538,7 +548,7 @@ private final class IosAppCompositionRoot {
                         mediaViewerFactory: IosOfficialMediaBridge.shared,
                         currentUserId: nil,
                         onAuthRequired: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
-                        onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
+                        onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id, origin: .official) },
                         onCreateOfficialPost: onCreateOfficialPost,
                         canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
                         preferredLanguageTag: Locale.preferredLanguages.first,
@@ -554,7 +564,7 @@ private final class IosAppCompositionRoot {
                     currentUserId: nil,
                     preferredLanguageTag: Locale.preferredLanguages.first,
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentLoginIfAvailable() },
-                    onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
+                    onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id, origin: .official) },
                     onCreateOfficialPost: onCreateOfficialPost,
                     canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
                 ),
@@ -662,7 +672,7 @@ private final class IosAppCompositionRoot {
                         self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
                     },
                     onNavigateToProfile: { [weak self] profileId in
-                        self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                        self?.presentAuthenticatedMemberProfile(profileId: profileId, origin: .communities)
                     },
                     onAuthRequired: { [weak self] in self?.authenticatedHost.requestAuthenticationForCommunities() },
                     onPostReportAuthRequired: { [weak self] _ in self?.authenticatedHost.requestAuthenticationForCommunities() },
@@ -678,7 +688,11 @@ private final class IosAppCompositionRoot {
     }
 
     /// Feed and Communities share the public common community-profile presentation.
-    fileprivate func presentAuthenticatedMemberProfile(profileId: String, pendingReportPostId: String? = nil) {
+    fileprivate func presentAuthenticatedMemberProfile(
+        profileId: String,
+        pendingReportPostId: String? = nil,
+        origin: IosCommunityProfileOrigin = .feed
+    ) {
         guard let communitiesRuntimeBootstrap else { return }
         let dependencies = IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
             repository: communitiesRuntimeBootstrap.repository,
@@ -689,20 +703,22 @@ private final class IosAppCompositionRoot {
                     self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
                 }
             },
-            onNavigateToProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
+            onNavigateToProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id, origin: origin) },
             onAuthRequired: { [weak self] in
                 guard let self else { return }
                 self.pendingCommunityProfileId = profileId
+                self.pendingCommunityProfileOrigin = origin
                 self.authenticatedHost.dismiss(animated: true) {
-                    self.authenticatedHost.requestAuthenticationForCommunities()
+                    self.authenticatedHost.requestAuthenticationForCommunityProfile(origin: origin)
                 }
             },
             onPostReportAuthRequired: { [weak self] postId in
                 guard let self else { return }
                 self.pendingCommunityProfileId = profileId
                 self.pendingCommunityPostReportId = postId
+                self.pendingCommunityProfileOrigin = origin
                 self.authenticatedHost.dismiss(animated: true) {
-                    self.authenticatedHost.requestAuthenticationForCommunities()
+                    self.authenticatedHost.requestAuthenticationForCommunityProfile(origin: origin)
                 }
             },
             mediaFactory: IosFeedNativeMediaFactory.shared,
@@ -935,6 +951,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var authenticationFactory: (() -> UIViewController)?
     private var authenticationRegistrationFactory: (() -> UIViewController)?
     private var onCommunityAuthenticationCancelled: (() -> Void)?
+    private var communityAuthenticationOrigin: IosCommunityProfileOrigin?
     private var logoutAction: ((@escaping () -> Void) -> Void)?
     private var onLoggedOut: (() -> Void)?
     private var isLoggingOut = false
@@ -1129,7 +1146,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func requestAuthenticationForCommunities() {
-        pendingRoute = .communities
+        requestAuthenticationForCommunityProfile(origin: .communities)
+    }
+
+    func requestAuthenticationForCommunityProfile(origin: IosCommunityProfileOrigin) {
+        communityAuthenticationOrigin = origin
+        switch origin {
+        case .feed: pendingRoute = .feed(postId: nil)
+        case .official: pendingRoute = .official(postId: nil)
+        case .communities: pendingRoute = .communities
+        }
         guard !hasAuthenticatedSession, presentedViewController == nil else { return }
         let prompt = IosAuthHostKt.QuataAuthRequiredDialogViewController(
             languageCode: Locale.current.languageCode ?? "en",
@@ -1155,11 +1181,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func cancelCommunityAuthenticationPrompt() {
         pendingRoute = nil
+        communityAuthenticationOrigin = nil
         onCommunityAuthenticationCancelled?()
         if presentedViewController != nil { dismiss(animated: true) }
     }
 
     func hasActiveAuthenticatedSession() -> Bool { hasAuthenticatedSession }
+
+    func communityAuthenticationOriginForTesting() -> IosCommunityProfileOrigin? {
+        communityAuthenticationOrigin
+    }
 
     /// XCTest-only controller factories for deterministic launcher and URL routing checks.
     /// Production callers only install factories backed by the real authenticated KMP runtime.
@@ -1521,6 +1552,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         whatsNewFactory = nil
         releaseHistoryFactory = nil
         pendingRoute = nil
+        communityAuthenticationOrigin = nil
         logoutAction = nil
         onLoggedOut = nil
         routeMenuButton.isHidden = true
@@ -1564,6 +1596,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         guard !pendingRoute.isAuthenticationRequired || hasAuthenticatedSession else { return }
         guard let controller = controller(for: pendingRoute) else { return }
         self.pendingRoute = nil
+        communityAuthenticationOrigin = nil
         showRouteController(controller, route: pendingRoute)
     }
 
@@ -1661,6 +1694,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         let abandonedAuthentication = previous?.view.accessibilityIdentifier == "quata-ios-auth-host" && accessibilityIdentifier != "quata-ios-auth-host" && !hasAuthenticatedSession
         if abandonedAuthentication {
             pendingRoute = nil
+            communityAuthenticationOrigin = nil
             onCommunityAuthenticationCancelled?()
         }
         addChild(controller)

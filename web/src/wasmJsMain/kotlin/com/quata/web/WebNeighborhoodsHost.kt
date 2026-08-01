@@ -290,7 +290,12 @@ private suspend fun webDownloadProfileAttachment(attachment: com.quata.feature.n
 @JsFun("""(url, token, success, failure) => { const controller = new AbortController(); const headers = token ? {Authorization: 'Bearer ' + token} : undefined; fetch(url, {signal: controller.signal, headers}).then(r => {if (!r.ok) throw new Error('http_' + r.status); return r.blob();}).then(blob => success(URL.createObjectURL(blob))).catch(error => {if (error?.name !== 'AbortError') failure();}); return () => controller.abort(); }""")
 private external fun webFetchProfileBlob(url: JsString, token: JsString, success: (JsString) -> Unit, failure: () -> Unit): () -> Unit
 
-private fun webRevokeProfileBlob(reference: String): Unit = js("if (reference.startsWith('blob:')) globalThis.URL?.revokeObjectURL?.(reference)")
+private fun webRevokeProfileBlob(reference: String) {
+    webRevokeProfileBlobReference(reference.toJsString())
+}
+
+@JsFun("""(reference) => { if (reference.startsWith('blob:')) globalThis.URL?.revokeObjectURL?.(reference); }""")
+private external fun webRevokeProfileBlobReference(reference: JsString)
 
 private fun webOpenProfileResource(url: String) { js("globalThis.open(url, '_blank', 'noopener,noreferrer')") }
 private fun webShareProfilePost(postId: String) {

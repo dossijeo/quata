@@ -925,11 +925,38 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.installAuthenticationFactory { UIViewController() }
         router.installCommunityAuthenticationCancellationHandler { cancellations += 1 }
         router.requestAuthenticationForCommunities()
+        XCTAssertEqual(router.communityAuthenticationOriginForTesting(), .communities)
         router.cancelCommunityAuthenticationPrompt()
 
         router.installFeedFactory { _ in UIViewController() }
         XCTAssertEqual(cancellations, 1)
+        XCTAssertNil(router.communityAuthenticationOriginForTesting())
         XCTAssertNotEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-communities-host")
+    }
+
+    func testCommunityProfileAuthenticationRestoresFeedOfficialAndCommunitiesOrigins() {
+        let cases: [(IosCommunityProfileOrigin, String)] = [
+            (.feed, "quata-ios-feed-host"),
+            (.official, "quata-ios-official-host"),
+            (.communities, "quata-ios-communities-host"),
+        ]
+        for (origin, expectedIdentifier) in cases {
+            let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+            router.loadViewIfNeeded()
+            router.installPublicFeed { _ in UIViewController() }
+            router.installOfficialFactory { _ in UIViewController() }
+            router.installCommunitiesFactory { UIViewController() }
+            router.installAuthenticationFactory { UIViewController() }
+
+            router.requestAuthenticationForCommunityProfile(origin: origin)
+            XCTAssertEqual(router.communityAuthenticationOriginForTesting(), origin)
+            XCTAssertNotEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-auth-host")
+
+            router.installFeedFactory { _ in UIViewController() }
+            XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, expectedIdentifier)
+            XCTAssertNil(router.communityAuthenticationOriginForTesting())
+            router.dismiss(animated: false)
+        }
     }
 
     func testAbandoningCommunityLoginClearsPendingAction() {
