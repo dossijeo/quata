@@ -22,6 +22,7 @@ import com.quata.core.platform.ShareService
 import platform.UIKit.UIViewController
 import platform.Foundation.NSUUID
 import com.quata.feature.official.domain.OfficialPostLanguage
+import com.quata.feature.official.domain.OfficialMediaType
 
 /** Narrow Swift-owned native viewer contract; it never owns pager or Official state. */
 interface IosOfficialMediaViewerFactory {
@@ -181,6 +182,8 @@ fun QuataOfficialEditorViewController(dependencies: IosOfficialEditorDependencie
 class IosOfficialEditorRootDependencies(
     val repository: OfficialRepository,
     val languageTag: String? = null,
+    /** Installed by the authenticated launcher with real PhotosUI/Files hosts and transport. */
+    val mediaGateway: IosOfficialEditorMediaGateway? = null,
     val onBack: () -> Unit = {},
     val onPublished: () -> Unit = {},
 )
@@ -198,15 +201,35 @@ fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDep
                 return@QuataTheme
             }
             val language = OfficialPostLanguage.fromAppLanguage(dependencies.languageTag)
+            val editorStrings = OfficialPostEditorStrings.forLanguage(dependencies.languageTag)
             OfficialPostEditorRoot(
                 padding = PaddingValues(), language = language,
-                strings = OfficialPostEditorStrings.forLanguage(dependencies.languageTag),
+                strings = editorStrings,
                 slots = OfficialEditorPlatformSlots(
                     // A Compose text input is functional on UIKit and stores literal HTML. Rich
                     // toolbar support is not claimed on this target until its native adapter lands.
                     richTextEditor = { html, onChanged -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
+                    imagePicker = dependencies.mediaGateway?.let { gateway -> { picked, modifier ->
+                        IosOfficialMediaPickerButton(editorStrings.image, OfficialMediaType.Image, gateway, picked, modifier)
+                    } },
+                    videoPicker = dependencies.mediaGateway?.let { gateway -> { picked, modifier ->
+                        IosOfficialMediaPickerButton(editorStrings.video, OfficialMediaType.Video, gateway, picked, modifier)
+                    } },
+                    mediaPreview = dependencies.mediaGateway?.let {
+                        { media, onRemove, modifier ->
+                            OfficialEditorMediaPreviewContent(
+                                removeLabel = "Remove", onRemove = onRemove,
+                                mediaContent = { Text(media.displayName ?: if (media.type == OfficialMediaType.Image) "Image selected" else "Video selected") },
+                                editAction = { }, modifier = modifier,
+                            )
+                        }
+                    },
+                    discardMedia = dependencies.mediaGateway?.let { gateway -> { media -> gateway.discard(media) } },
                 ),
-                onSubmit = { drafts -> dependencies.repository.createPosts(drafts).map { dependencies.onPublished() } },
+                onSubmit = { drafts ->
+                    (dependencies.mediaGateway?.submit(dependencies.repository, drafts)
+                        ?: dependencies.repository.createPosts(drafts)).map { dependencies.onPublished() }
+                },
                 onBack = dependencies.onBack,
                 newTranslationGroupId = { NSUUID().UUIDString() },
             )
