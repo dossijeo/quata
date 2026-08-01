@@ -200,10 +200,13 @@ fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDep
             }
             val language = OfficialPostLanguage.fromAppLanguage(dependencies.languageTag)
             val editorStrings = OfficialPostEditorStrings.forLanguage(dependencies.languageTag)
+            val editorSlots = remember(editorStrings, dependencies.mediaGateway) {
+                iosOfficialEditorPlatformSlots(editorStrings, dependencies.mediaGateway)
+            }
             OfficialPostEditorScreenHost(
                 padding = PaddingValues(), language = language,
                 strings = editorStrings,
-                slots = iosOfficialEditorPlatformSlots(editorStrings, dependencies.mediaGateway),
+                slots = editorSlots,
                 onSubmit = { drafts ->
                     dependencies.mediaGateway.submit(dependencies.repository, drafts).map { it?.id }
                 },
@@ -219,27 +222,28 @@ fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDep
 internal fun iosOfficialEditorPlatformSlots(
     strings: OfficialPostEditorStrings,
     gateway: IosOfficialEditorMediaGateway,
-) = OfficialEditorPlatformSlots(
+) : OfficialEditorPlatformSlots {
+    var richFullscreen by mutableStateOf(false)
+    return OfficialEditorPlatformSlots(
     richTextEditor = OfficialRichBodyEditor(
         content = { html, onChanged, onFullscreenChanged ->
-            var fullscreen by remember { mutableStateOf(false) }
             Column(Modifier.fillMaxWidth()) {
                 OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }, modifier = Modifier.fillMaxWidth())
-                Button(onClick = { fullscreen = true; onFullscreenChanged(true) }) { Text("Edit HTML full screen") }
+                Button(onClick = { richFullscreen = true; onFullscreenChanged(true) }) { Text("Edit HTML full screen") }
             }
-            if (fullscreen) Dialog(
-                onDismissRequest = { fullscreen = false; onFullscreenChanged(false) },
+            if (richFullscreen) Dialog(
+                onDismissRequest = { richFullscreen = false; onFullscreenChanged(false) },
                 properties = DialogProperties(usePlatformDefaultWidth = false),
             ) {
                 Column(Modifier.fillMaxSize()) {
                     Text("Rich body HTML")
                     // The canonical HTML string is edited directly: no plain-text round trip can drop markup.
                     OutlinedTextField(value = html, onValueChange = onChanged, modifier = Modifier.fillMaxWidth())
-                    Button(onClick = { fullscreen = false; onFullscreenChanged(false) }) { Text("Done") }
+                    Button(onClick = { richFullscreen = false; onFullscreenChanged(false) }) { Text("Done") }
                 }
             }
         },
-        cancel = { Result.success(Unit) },
+        cancel = { richFullscreen = false; Result.success(Unit) },
     ),
     imagePicker = { picked, modifier ->
         IosOfficialMediaPickerButton(strings.image, OfficialMediaType.Image, gateway, picked, modifier)
@@ -262,7 +266,7 @@ internal fun iosOfficialEditorPlatformSlots(
     mediaEditor = OfficialEditorCapability.Available(OfficialMediaEditExporter(
         supportedTypes = setOf(OfficialMediaType.Image, OfficialMediaType.Video),
         editAndExport = gateway::editAndExport,
-        cancel = { Result.success(Unit) },
+        cancel = gateway::cancelEdit,
     )),
     cardPreview = OfficialEditorCapability.Available(OfficialCardPreview { draft, modifier ->
         OfficialEditorMediaPreviewContent(
@@ -274,4 +278,5 @@ internal fun iosOfficialEditorPlatformSlots(
             },
         )
     }),
-)
+    )
+}

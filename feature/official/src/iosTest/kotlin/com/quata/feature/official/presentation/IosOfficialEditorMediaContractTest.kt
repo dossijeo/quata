@@ -190,6 +190,22 @@ class IosOfficialEditorMediaContractTest {
         assertEquals("edited.jpg", exported.displayName)
     }
 
+    @Test fun explicitMediaEditCancellationCancelsNativeWorkAndResumesCaller() = runBlocking {
+        val editor = PendingNativeEditor()
+        val gateway = IosOfficialEditorMediaGateway(
+            picker = RecordingPicker(PlatformResult.Success(listOf(file))), transport = RecordingTransport(),
+            handleFactory = { "source" }, nativeEditor = editor,
+        )
+        val original = (gateway.pick(OfficialMediaType.Video) as IosOfficialMediaPickResult.Success).media
+        val completed = CompletableDeferred<Result<OfficialEditorMedia>>()
+        launch { completed.complete(gateway.editAndExport(original)) }
+        editor.entered.await()
+
+        assertTrue(gateway.cancelEdit().isSuccess)
+        assertEquals("ios_official_media_edit_cancelled", completed.await().exceptionOrNull()?.message)
+        assertTrue(editor.cancelled)
+    }
+
     @Test fun iosMountInstallsPickerPreviewAndDiscardSlotsIntoCommonRootContract() {
         val slots = iosOfficialEditorPlatformSlots(OfficialPostEditorStrings.forLanguage("en"), gateway())
         assertNotNull(slots.imagePicker)
@@ -250,6 +266,17 @@ private class RecordingNativeEditor : IosOfficialNativeMediaEditor {
         source = sourceReference
         onSuccess("file:///tmp/quata_official_edit_7.jpg", "edited.jpg", "image/jpeg")
         return object : IosOfficialNativeMediaEditOperation { override fun cancel() = Unit }
+    }
+}
+
+private class PendingNativeEditor : IosOfficialNativeMediaEditor {
+    val entered = CompletableDeferred<Unit>()
+    var cancelled = false
+    override fun editAndExport(sourceReference: String, isVideo: Boolean, onSuccess: (String, String, String) -> Unit, onFailure: (String) -> Unit): IosOfficialNativeMediaEditOperation {
+        entered.complete(Unit)
+        return object : IosOfficialNativeMediaEditOperation {
+            override fun cancel() { cancelled = true }
+        }
     }
 }
 

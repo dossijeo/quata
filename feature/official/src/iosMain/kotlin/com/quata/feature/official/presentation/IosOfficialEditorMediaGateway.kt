@@ -32,6 +32,8 @@ import com.quata.feature.postcomposer.presentation.releaseIosComposerVideoThumbn
 import com.quata.core.session.IosRenewableAuthSession
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -114,6 +116,7 @@ class IosOfficialEditorMediaGateway(
 ) {
     private val selections = mutableMapOf<String, PlatformFile>()
     private val previews = mutableMapOf<String, PlatformFile>()
+    private var activeEditContinuation: CancellableContinuation<PlatformFile>? = null
 
     suspend fun pick(type: OfficialMediaType): IosOfficialMediaPickResult {
         val mime = if (type == OfficialMediaType.Image) "image/*" else "video/*"
@@ -172,17 +175,28 @@ class IosOfficialEditorMediaGateway(
         val source = selections[oldHandle] ?: error("ios_official_media_selection_missing")
         val editor = nativeEditor ?: error("ios_official_native_editor_missing")
         val exported = suspendCancellableCoroutine<PlatformFile> { continuation ->
+            check(activeEditContinuation == null) { "ios_official_media_edit_in_progress" }
+            activeEditContinuation = continuation
             val operation = editor.editAndExport(
                 sourceReference = source.reference,
                 isVideo = media.type == OfficialMediaType.Video,
                 onSuccess = { reference, displayName, mimeType ->
-                    if (continuation.isActive) continuation.resume(PlatformFile(reference, displayName, mimeType))
+                    if (continuation.isActive) {
+                        clearActiveEdit(continuation)
+                        continuation.resume(PlatformFile(reference, displayName, mimeType))
+                    }
                 },
                 onFailure = { reason ->
-                    if (continuation.isActive) continuation.resumeWith(Result.failure(IllegalStateException(reason)))
+                    if (continuation.isActive) {
+                        clearActiveEdit(continuation)
+                        continuation.resumeWith(Result.failure(IllegalStateException(reason)))
+                    }
                 },
             )
-            continuation.invokeOnCancellation { operation.cancel() }
+            continuation.invokeOnCancellation {
+                if (activeEditContinuation === continuation) clearActiveEdit(continuation)
+                operation.cancel()
+            }
         }
         // Do not leave a stale thumbnail or source copy after a successful native export.
         discard(media)
@@ -192,6 +206,18 @@ class IosOfficialEditorMediaGateway(
                 ?.let { previews[replacement.preparedHandle!!] = it }
         }
         replacement
+    }
+
+    /** Cancels the active native codec operation and always releases its suspended Kotlin caller. */
+    fun cancelEdit(): Result<Unit> = runCatching {
+        val continuation = activeEditContinuation ?: return@runCatching
+        clearActiveEdit(continuation)
+        continuation.cancel(CancellationException("ios_official_media_edit_cancelled"))
+    }
+
+    private fun clearActiveEdit(continuation: CancellableContinuation<PlatformFile>) {
+        if (activeEditContinuation !== continuation) return
+        activeEditContinuation = null
     }
 
     suspend fun submit(repository: OfficialRepository, drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> = runCatching {
