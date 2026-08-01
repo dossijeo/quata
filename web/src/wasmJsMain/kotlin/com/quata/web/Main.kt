@@ -42,6 +42,8 @@ import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import com.quata.feature.auth.presentation.AuthProductDestination
 import kotlinx.browser.document
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 internal val WebAuthenticatedChromeStrings = QuataAuthenticatedChromeSpanish
@@ -155,7 +157,8 @@ private fun QuataWebApp(
         )
     }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
-    val notificationCount by notificationsRepository.observeNotificationCount().collectAsState(initial = 0)
+    val notificationCount by webChromeNotificationCount(notificationsRepository.observeNotificationCount())
+        .collectAsState(initial = 0)
     val profileRepository = remember(runtimeConfiguration, authRepository, platformServices.preferences, platformServices.contacts) {
         WebProfileRepository(
             preferences = platformServices.preferences,
@@ -620,7 +623,15 @@ private fun QuataWebApp(
             }
         }
 }
+
 }
+
+/**
+ * The public Web chrome is mounted before an authenticated chat session exists. Inbox errors still
+ * reach [WebNotificationsHost], but its auxiliary badge must not cancel the root composition and
+ * strand subsequent public hash navigation on the previously rendered route.
+ */
+internal fun webChromeNotificationCount(source: Flow<Int>): Flow<Int> = source.catch { emit(0) }
 
 internal val webPrimaryNavigationLabels = QuataPrimaryNavigationLabels(
     neighborhoods = "Qüata",
