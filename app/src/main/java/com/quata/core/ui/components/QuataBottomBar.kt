@@ -32,8 +32,8 @@ fun QuataNavigationRail(
     notificationCount: Int,
     isNotificationBouncing: Boolean,
     onNotificationsClick: () -> Unit,
-    composerRoute: String? = null,
     modifier: Modifier = Modifier,
+    composerRoute: String? = null,
 ) {
     QuataPrimaryNavigationRail(
         labels = androidPrimaryNavigationLabels(),

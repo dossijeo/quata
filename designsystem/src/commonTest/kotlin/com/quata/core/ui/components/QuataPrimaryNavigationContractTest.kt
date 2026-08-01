@@ -11,7 +11,7 @@ class QuataPrimaryNavigationContractTest {
     fun composerModeReplacesOnlyTheCentralOfficialDestination() {
         val items = labels.items(QuataPrimaryNavigationMode.Composer("composer", "Publicar"))
 
-        assertEquals(listOf("neighborhoods", "conversations", "composer", "feed", "profile"), items.map { it.route })
+        assertEquals(listOf("neighborhoods", "conversations", "composer", "feed", "profile"), items.map { it.id })
         assertEquals(listOf("Qüata", "Chats", "Publicar", "Feed", "Cuenta"), items.map { it.label })
     }
 
@@ -25,7 +25,7 @@ class QuataPrimaryNavigationContractTest {
                 AppDestinations.Feed.route,
                 AppDestinations.Profile.route,
             ),
-            labels.items().map { it.route },
+            labels.items().map { it.id },
         )
     }
 }
