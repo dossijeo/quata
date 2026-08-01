@@ -100,7 +100,7 @@ data class CreatePostRootCopy(
 
 val SpanishCreatePostRootCopy = CreatePostRootCopy(
     title = "Crear publicación", textTitle = "Publicación de texto", imageTitle = "Publicación de imagen",
-    videoTitle = "Publicación de vídeo", textType = "Texto", imageType = "Imagen", videoType = "Vídeo",
+    videoTitle = "Publicación de vídeo", textType = "POSTEAR TEXTO", imageType = "POSTEAR FOTO/IMAGEN", videoType = "POSTEAR VÍDEO",
     content = "Tu publicación", textPlaceholder = "Escribe algo…", characters = { "$it/500" },
     emoji = "Emojis", textBackground = "Fondo y patrón", preview = "Vista previa",
     previewEmpty = "Tu texto aparecerá aquí", readMore = "Leer más", close = "Cerrar", image = "Imagen",
@@ -117,7 +117,7 @@ val SpanishCreatePostRootCopy = CreatePostRootCopy(
 
 val EnglishCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
     title = "Create post", textTitle = "Text post", imageTitle = "Image post", videoTitle = "Video post",
-    textType = "Text", imageType = "Image", videoType = "Video", content = "Your post",
+    textType = "POST TEXT", imageType = "POST PHOTO/IMAGE", videoType = "POST VIDEO", content = "Your post",
     textPlaceholder = "Write something…", characters = { "$it/500" }, emoji = "Emoji",
     textBackground = "Background and pattern", preview = "Preview", previewEmpty = "Your text will appear here",
     readMore = "Read more", close = "Close", pickImage = "Choose image", takePhoto = "Take photo",
@@ -132,7 +132,7 @@ val EnglishCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
 
 val FrenchCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
     title = "Créer une publication", textTitle = "Publication texte", imageTitle = "Publication image", videoTitle = "Publication vidéo",
-    textType = "Texte", imageType = "Image", videoType = "Vidéo", content = "Votre publication",
+    textType = "PUBLIER TEXTE", imageType = "PUBLIER PHOTO/IMAGE", videoType = "PUBLIER VIDÉO", content = "Votre publication",
     textPlaceholder = "Écrivez quelque chose…", characters = { "$it/500" }, textBackground = "Fond et motif",
     preview = "Aperçu", previewEmpty = "Votre texte apparaîtra ici", readMore = "Lire la suite", close = "Fermer",
     pickImage = "Choisir une image", takePhoto = "Prendre une photo", editImage = "Modifier l'image",

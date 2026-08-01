@@ -1020,7 +1020,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         return button
     }()
 
-    private enum PendingRoute {
+    enum PendingRoute {
         case feed(postId: String?)
         case chat(conversationId: String?, messageId: String?)
         case official(postId: String?)
@@ -1545,6 +1545,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case "official": showOfficial(postId: nil)
         case "feed": showFeed(postId: nil)
         case "profile": showProfileSos()
+        case "composer": showComposer()
         default: break
         }
     }
@@ -1747,12 +1748,20 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // installed. They still belong to the application viewport and therefore get the same
         // shared shell as Feed rather than becoming a full-screen UIKit exception.
         installSharedShellIfNeeded()
+        let isComposerRoute: Bool
+        if case .composer = route {
+            isComposerRoute = true
+        } else {
+            isComposerRoute = false
+        }
+        primaryNavigationHost.updateComposerMode(isComposer: isComposerRoute)
         switch route {
         case .communities: primaryNavigationHost.updateSelectedRoute(route: "neighborhoods")
         case .chat: primaryNavigationHost.updateSelectedRoute(route: "conversations")
         case .official: primaryNavigationHost.updateSelectedRoute(route: "official")
         case .feed: primaryNavigationHost.updateSelectedRoute(route: "feed")
         case .profileSos: primaryNavigationHost.updateSelectedRoute(route: "profile")
+        case .composer: primaryNavigationHost.updateSelectedRoute(route: "composer")
         default: break
         }
         let presentation: (identifier: String, label: String)
@@ -1787,12 +1796,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// The five primary routes are already represented by the common bottom navigation. UIKit's
     /// secondary menu is deliberately unavailable there so it neither duplicates nor overlays
     /// the shared SOS/header chrome.
-    private func routeUsesSecondaryMenu(_ route: PendingRoute) -> Bool {
+    func routeUsesSecondaryMenu(_ route: PendingRoute) -> Bool {
         switch route {
         case .feed, .chat, .official, .profileSos, .communities:
             return false
-        case .officialEditor, .notifications, .composer, .settings, .whatsNew, .releaseHistory:
+        case .officialEditor, .notifications, .settings, .whatsNew, .releaseHistory:
             return true
+        case .composer:
+            return false
         }
     }
 
