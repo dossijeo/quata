@@ -269,14 +269,12 @@ internal fun iosOfficialEditorPlatformSlots(
         cancel = gateway::cancelEdit,
     )),
     cardPreview = OfficialEditorCapability.Available(OfficialCardPreview { draft, modifier ->
-        OfficialEditorMediaPreviewContent(
-            removeLabel = "", onRemove = {}, modifier = modifier,
-            mediaContent = { previewModifier ->
-                val media = draft.mediaUrl?.let { handle -> OfficialEditorMedia("local://$handle", draft.mediaType ?: OfficialMediaType.Image, handle) }
-                media?.let { gateway.previewFile(it) }?.let { IosComposerLocalImagePreview(it, previewModifier) }
-                    ?: Text(draft.title.ifBlank { draft.contentHtml.stripHtmlForOfficialEditor() })
-            },
-        )
+        Column(modifier) {
+            Text(draft.title.ifBlank { draft.contentHtml.stripHtmlForOfficialEditor() })
+            val media = draft.mediaUrl?.let { handle -> OfficialEditorMedia("local://$handle", draft.mediaType ?: OfficialMediaType.Image, handle) }
+            media?.let { gateway.previewFile(it) }?.let { IosComposerLocalImagePreview(it, Modifier.fillMaxWidth()) }
+            if (draft.summary.isNotBlank()) Text(draft.summary)
+        }
     }),
     )
 }

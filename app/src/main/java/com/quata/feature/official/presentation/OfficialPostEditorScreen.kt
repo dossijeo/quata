@@ -75,7 +75,6 @@ import com.quata.core.model.User
 import com.quata.core.text.decodeHtmlEntities
 import com.quata.core.ui.components.QuataEditorScaffold
 import com.quata.core.ui.components.QuataEditorToolButton
-import com.quata.core.ui.components.QuataFeedOverflowActionButton
 import com.quata.core.ui.richtext.QuataRichTextEditorBox
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.core.translation.QuataDeepLLanguage
@@ -145,14 +144,23 @@ internal fun rememberAndroidOfficialEditorPlatformSlots(
     var imagePicked by remember { mutableStateOf<((OfficialEditorMedia) -> Unit)?>(null) }
     var videoPicked by remember { mutableStateOf<((OfficialEditorMedia) -> Unit)?>(null) }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let { pendingPickedMedia = AndroidPickedMedia(OfficialEditorMedia(it.toString(), OfficialMediaType.Image, displayName = it.lastPathSegment), imagePicked) }
+        uri?.let { selected -> imagePicked?.let { callback -> pendingPickedMedia = AndroidPickedMedia(OfficialEditorMedia(selected.toString(), OfficialMediaType.Image, displayName = selected.lastPathSegment), callback) } }
     }
     val videoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let { pendingPickedMedia = AndroidPickedMedia(OfficialEditorMedia(it.toString(), OfficialMediaType.Video, displayName = it.lastPathSegment), videoPicked) }
+        uri?.let { selected -> videoPicked?.let { callback -> pendingPickedMedia = AndroidPickedMedia(OfficialEditorMedia(selected.toString(), OfficialMediaType.Video, displayName = selected.lastPathSegment), callback) } }
     }
-    DisposableEffect(longEditor, mediaEdit, pendingPickedMedia) {
+    LaunchedEffect(longEditor, mediaEdit, pendingPickedMedia) {
         onFullscreenEditorVisibilityChange(longEditor != null || mediaEdit != null || pendingPickedMedia != null)
+    }
+    DisposableEffect(Unit) {
         onDispose { onFullscreenEditorVisibilityChange(false) }
+    }
+    BackHandler(enabled = longEditor != null || mediaEdit != null || pendingPickedMedia != null) {
+        when {
+            longEditor != null -> { longEditor?.onFullscreenChanged(false); longEditor = null }
+            mediaEdit != null -> { mediaEdit?.let { it.completion.complete(it.media) }; mediaEdit = null }
+            else -> pendingPickedMedia = null
+        }
     }
     val slots = remember(currentUser) {
         OfficialEditorPlatformSlots(
@@ -168,7 +176,7 @@ internal fun rememberAndroidOfficialEditorPlatformSlots(
             imagePicker = { onPicked, modifier -> OutlinedButton(onClick = { imagePicked = onPicked; imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, modifier = modifier) { Icon(Icons.Filled.PhotoLibrary, null, Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text(context.getString(R.string.composer_pick_image)) } },
             videoPicker = { onPicked, modifier -> OutlinedButton(onClick = { videoPicked = onPicked; videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }, modifier = modifier) { Icon(Icons.Filled.VideoLibrary, null, Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text(context.getString(R.string.composer_pick_video)) } },
             mediaPreview = { media, onRemove, onEdit, modifier ->
-                OfficialEditorMediaPreview(media.type, media.url, onEdit ?: {}, onRemove)
+                OfficialEditorMediaPreview(media.type, media.url, onEdit, onRemove)
             },
             mediaEditor = OfficialEditorCapability.Available(OfficialMediaEditExporter(OfficialMediaType.entries.toSet(), { media ->
                 val completion = CompletableDeferred<OfficialEditorMedia>(); mediaEdit = AndroidMediaEdit(media, completion); runCatching { completion.await() }
@@ -184,8 +192,8 @@ internal fun rememberAndroidOfficialEditorPlatformSlots(
     }
     pendingPickedMedia?.let { picked ->
         when (picked.media.type) {
-            OfficialMediaType.Image -> QuataImageEditorDialog(Uri.parse(picked.media.url), { pendingPickedMedia = null }, { uri -> picked.onPicked?.invoke(picked.media.copy(url = uri.toString())); pendingPickedMedia = null })
-            OfficialMediaType.Video -> QuataVideoEditorDialog(Uri.parse(picked.media.url), { pendingPickedMedia = null }, { uri -> picked.onPicked?.invoke(picked.media.copy(url = uri.toString())); pendingPickedMedia = null })
+            OfficialMediaType.Image -> QuataImageEditorDialog(Uri.parse(picked.media.url), { pendingPickedMedia = null }, { uri -> picked.onPicked(picked.media.copy(url = uri.toString())); pendingPickedMedia = null })
+            OfficialMediaType.Video -> QuataVideoEditorDialog(Uri.parse(picked.media.url), { pendingPickedMedia = null }, { uri -> picked.onPicked(picked.media.copy(url = uri.toString())); pendingPickedMedia = null })
         }
     }
     return slots
@@ -193,7 +201,7 @@ internal fun rememberAndroidOfficialEditorPlatformSlots(
 
 private class AndroidLongEditor(var html: String, val onHtmlChanged: (String) -> Unit, val onFullscreenChanged: (Boolean) -> Unit)
 private class AndroidMediaEdit(val media: OfficialEditorMedia, val completion: CompletableDeferred<OfficialEditorMedia>)
-private class AndroidPickedMedia(val media: OfficialEditorMedia, val onPicked: ((OfficialEditorMedia) -> Unit)?)
+private class AndroidPickedMedia(val media: OfficialEditorMedia, val onPicked: (OfficialEditorMedia) -> Unit)
 
 @Composable
 private fun OfficialLongContentEditor(
@@ -237,7 +245,7 @@ private fun OfficialEditorSectionTitle(text: String) {
 private fun OfficialEditorMediaPreview(
     mediaType: OfficialMediaType,
     mediaUrl: String,
-    onEdit: () -> Unit,
+    onEdit: (() -> Unit)?,
     onRemove: () -> Unit
 ) {
     OfficialEditorMediaPreviewContent(
@@ -282,20 +290,22 @@ private fun OfficialEditorMediaPreview(
                 }
             }
         },
-        editAction = { editModifier ->
-            OutlinedButton(onClick = onEdit, modifier = editModifier) {
-                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.size(6.dp))
-                Text(
-                    stringResource(
-                        if (mediaType == OfficialMediaType.Image) {
-                            R.string.composer_edit_image
-                        } else {
-                            R.string.video_editor_edit_video
-                        }
-                    ),
-                    fontWeight = FontWeight.ExtraBold,
-                )
+        editAction = onEdit?.let { edit ->
+            { editModifier ->
+                OutlinedButton(onClick = edit, modifier = editModifier) {
+                    Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(6.dp))
+                    Text(
+                        stringResource(
+                            if (mediaType == OfficialMediaType.Image) {
+                                R.string.composer_edit_image
+                            } else {
+                                R.string.video_editor_edit_video
+                            }
+                        ),
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
             }
         },
     )
@@ -352,7 +362,23 @@ private fun OfficialPostPreview(
     val previewMedia: (@Composable (Modifier) -> Unit)? = if (previewPost.mediaUrl.isNullOrBlank()) {
         null
     } else {
-        { mediaModifier -> OfficialPostMedia(previewPost, onOpenMedia = {}, modifier = mediaModifier) }
+        { mediaModifier ->
+            if (previewPost.mediaType == OfficialMediaType.Image) {
+                AsyncImage(
+                    model = previewPost.mediaUrl,
+                    contentDescription = previewPost.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = mediaModifier,
+                )
+            } else {
+                com.quata.core.ui.components.VideoAttachmentThumbnail(
+                    uri = previewPost.mediaUrl.orEmpty(),
+                    name = previewPost.title,
+                    showPlayButton = true,
+                    modifier = mediaModifier,
+                )
+            }
+        }
     }
     OfficialEditorPostPreviewContent(
         post = previewPost,
@@ -369,43 +395,8 @@ private fun OfficialPostPreview(
             )
         },
         media = previewMedia,
-        actionRail = { isLandscape, railModifier ->
-            OfficialPostActionRailContent(
-                post = previewPost,
-                rank = 1,
-                isLandscape = isLandscape,
-                canPublish = false,
-                canModerate = false,
-                strings = OfficialPostActionRailStrings(
-                    like = stringResource(R.string.feed_like),
-                    comments = stringResource(R.string.feed_comments),
-                    share = stringResource(R.string.feed_share),
-                    rank = stringResource(R.string.feed_rank),
-                    live = stringResource(R.string.common_live),
-                    publish = stringResource(R.string.official_create),
-                    delete = stringResource(R.string.feed_delete_post),
-                ),
-                onCreate = {},
-                onOpenLive = {},
-                onLike = {},
-                onComment = {},
-                onShare = {},
-                onDelete = {},
-                modifier = railModifier,
-            )
-        },
-        overflowAction = { overflowModifier ->
-            QuataFeedOverflowActionButton(
-                postRank = 1,
-                rankLabel = stringResource(R.string.feed_rank),
-                liveLabel = stringResource(R.string.common_live),
-                reportLabel = null,
-                showReport = false,
-                onOpenLive = {},
-                onReport = {},
-                modifier = overflowModifier,
-            )
-        },
+        actionRail = { _, _ -> },
+        overflowAction = null,
         articleContent = { selectedPost, articleModifier ->
             QuataRichTextRenderer(
                 html = selectedPost.contentHtml,
