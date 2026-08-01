@@ -27,6 +27,9 @@ import com.quata.feature.official.data.officialPostInsertPlan
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
+import com.quata.feature.official.domain.OfficialMediaType
+import com.quata.feature.postcomposer.data.ComposerPreparedMedia
+import com.quata.feature.postcomposer.data.ComposerUploadedMedia
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -56,6 +59,7 @@ internal fun webOfficialReadAuthMode(operation: WebOfficialReadOperation): WebPo
 class WebOfficialRepository(
     private val client: WebPostgrestClient,
     private val authRepository: WebAuthRepository,
+    private val configuration: WebRuntimeConfiguration,
     private val pollIntervalMillis: Long = DefaultPollIntervalMillis,
 ) : OfficialRepository {
     override fun observeOfficialFeed(): Flow<Result<List<OfficialPostItem>>> = flow {
@@ -96,8 +100,24 @@ class WebOfficialRepository(
         val profile = refreshCurrentUser().getOrThrow()
         check(profile?.isOfficial == true || profile?.isAdmin == true) { "web_official_publish_forbidden" }
         val insertedIds = mutableListOf<String>()
+        val originalMediaUrl = drafts.firstOrNull()?.mediaUrl?.takeIf { !it.startsWith("https://") }
+        val originalMediaType = drafts.firstOrNull()?.mediaType
+        val transport = WebPostComposerTransport(configuration, authRepository, client)
+        var prepared: ComposerPreparedMedia? = null
+        var uploaded: ComposerUploadedMedia? = null
         try {
-            drafts.forEach { draft ->
+            val publishDrafts = if (originalMediaUrl != null && originalMediaType != null) {
+                prepared = when (originalMediaType) {
+                    OfficialMediaType.Image -> transport.prepareImage(originalMediaUrl).getOrThrow()
+                    OfficialMediaType.Video -> transport.prepareVideo(originalMediaUrl).getOrThrow()
+                }
+                uploaded = when (originalMediaType) {
+                    OfficialMediaType.Image -> transport.uploadImage(profileId, prepared!!).getOrThrow()
+                    OfficialMediaType.Video -> transport.uploadVideo(profileId, prepared!!).getOrThrow()
+                }
+                drafts.map { it.copy(mediaUrl = uploaded!!.publicUrl) }
+            } else drafts
+            publishDrafts.forEach { draft ->
                 require(draft.title.isNotBlank() && draft.contentHtml.isNotBlank()) { "web_official_draft_invalid" }
                 val mediaUrl = draft.mediaUrl
                 require(mediaUrl.isNullOrBlank() || mediaUrl.startsWith("https://")) { "web_official_media_not_uploaded" }
@@ -108,8 +128,11 @@ class WebOfficialRepository(
                 }
             }
         } catch (failure: Throwable) {
-            insertedIds.forEach { id -> runCatching { client.patch("official_posts", mapOf("id" to "eq.$id"), "{\"deleted_at\":${currentOfficialTimestamp().webJsonString()}}") } }
+            insertedIds.forEach { id -> runCatching { client.patch("official_posts", mapOf("id" to "eq.$id"), "{\"deleted_at\":${currentOfficialTimestamp().webJsonString()}}") }.exceptionOrNull()?.let(failure::addSuppressed) }
+            uploaded?.let { transport.rollbackUploadedMedia(it).exceptionOrNull()?.let(failure::addSuppressed) }
             throw failure
+        } finally {
+            prepared?.let { transport.releasePreparedMedia(it) }
         }
         refreshOfficialFeed().getOrThrow().firstOrNull()
     }

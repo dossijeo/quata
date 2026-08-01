@@ -136,6 +136,7 @@ private fun QuataWebApp(
         WebOfficialRepository(
             client = WebPostgrestClient(runtimeConfiguration, authRepository),
             authRepository = authRepository,
+            configuration = runtimeConfiguration,
         )
     }
     val chatRepository = remember(runtimeConfiguration, authRepository) {
@@ -522,6 +523,7 @@ private fun QuataWebApp(
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Official) {
                         WebOfficialEditorHost(
                             repository = officialRepository,
+                            filePicker = platformServices.filePicker,
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
                             onBack = { navigation.navigate("official") },
                             onPublished = { navigation.navigate("official") },

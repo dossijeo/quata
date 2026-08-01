@@ -72,14 +72,14 @@ fun WebPostComposerRoute(
 
 internal fun webComposerCanPublish(session: WebLocalSession?): Boolean = session != null
 
-private fun PlatformResult<List<com.quata.core.platform.PlatformFile>>.firstReferenceOrNull(): String? = when (this) {
+internal fun PlatformResult<List<com.quata.core.platform.PlatformFile>>.firstReferenceOrNull(): String? = when (this) {
     is PlatformResult.Success -> value.firstOrNull()?.reference
     is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> null
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun BrowserComposerMediaPreview(uri: String?, isVideo: Boolean, modifier: Modifier) {
+internal fun BrowserComposerMediaPreview(uri: String?, isVideo: Boolean, modifier: Modifier) {
     if (uri.isNullOrBlank()) {
         Text("Selecciona un archivo para previsualizarlo.", style = MaterialTheme.typography.bodySmall, modifier = modifier)
         return

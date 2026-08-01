@@ -5,6 +5,7 @@ package com.quata.web
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -16,17 +17,26 @@ import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.presentation.OfficialEditorPlatformSlots
 import com.quata.feature.official.presentation.OfficialPostEditorRoot
 import com.quata.feature.official.presentation.OfficialPostEditorStrings
+import com.quata.feature.official.presentation.OfficialEditorMedia
+import com.quata.feature.official.domain.OfficialMediaType
+import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.FilePickerRequest
+import com.quata.core.platform.FilePickerSource
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 /** Browser mount and authorization gate for the common Official editor. */
 @Composable
 fun WebOfficialEditorHost(
     repository: WebOfficialRepository,
+    filePicker: FilePickerService,
     onAuthRequired: () -> Unit,
     onBack: () -> Unit,
     onPublished: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var allowed by remember { mutableStateOf<Boolean?>(null) }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(repository) {
         val profile = repository.refreshCurrentUser().getOrNull()
         allowed = profile?.isOfficial == true || profile?.isAdmin == true
@@ -43,6 +53,9 @@ fun WebOfficialEditorHost(
                 // This target currently has no portable WYSIWYG bridge; the real HTML field is
                 // intentionally labelled as such instead of faking formatting controls.
                 richTextEditor = { html, onChanged -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
+                imagePicker = { picked, modifier -> Button(modifier = modifier, onClick = { scope.launch { filePicker.pick(FilePickerRequest(listOf("image/*"), FilePickerSource.Gallery)).firstReferenceOrNull()?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Image)) } } }) { Text("Image") } },
+                videoPicker = { picked, modifier -> Button(modifier = modifier, onClick = { scope.launch { filePicker.pick(FilePickerRequest(listOf("video/*"), FilePickerSource.Gallery)).firstReferenceOrNull()?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Video)) } } }) { Text("Video") } },
+                mediaPreview = { media, _, modifier -> BrowserComposerMediaPreview(media.url, media.type == OfficialMediaType.Video, modifier) },
             ),
             onSubmit = { drafts -> repository.createPosts(drafts).map { onPublished() } },
             onBack = onBack,
