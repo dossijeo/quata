@@ -64,6 +64,10 @@ documento hasta que el responsable del producto lo modifique explícitamente.
 - Una Edge Function nueva puede desarrollarse de forma aditiva, pero su despliegue, secretos y
   activación se validan por separado. Nunca se incluye una service-role key ni un secreto privado en
   clientes, commits, logs o capturas.
+- En una validación se pueden inyectar metadatos **públicos** de despliegue únicamente en una copia
+  temporal del artefacto que se sirve o instala. El artefacto original y su hash permanecen
+  inmutables. Ni la copia ni el original pueden contener una service-role key o una clave VAPID
+  privada.
 - Supabase CLI se usa en modo de lectura para auditar el estado actual salvo autorización explícita
   para una operación aditiva ya revisada.
 - Los datos y cuentas temporales de prueba se eliminan al terminar.
@@ -92,6 +96,24 @@ documento hasta que el responsable del producto lo modifique explícitamente.
     invalidan la obligación de entregar primero una pantalla conectada y visualmente comparable.
 
 ## 5. Evidencia y gates
+
+### Identidad obligatoria del candidato integrado
+
+- Todo gate integrado Web o iOS —compilación, tests, browser/simulador y comparación visual— se
+  ejecuta sobre el commit de merge sintético exacto publicado por GitHub en
+  `refs/pull/<N>/merge`, no sobre el head aislado de la rama.
+- Antes del gate se obtienen y congelan tres identidades: la `origin/main` exacta esperada como
+  base, `refs/pull/<N>/head` como head exacto de la PR y `refs/pull/<N>/merge` como candidato
+  integrado.
+- El merge sintético debe tener exactamente dos padres. El primero debe coincidir byte por byte con
+  la base `main` registrada y el segundo con el head de PR registrado. Si falta el ref, cambia
+  cualquiera de los padres o no coincide el orden, no existe evidencia integrada válida y el gate
+  se repite desde cero.
+- El informe, los logs y el directorio de capturas registran el número de PR y los SHA completos de
+  base, head y merge. El SHA principal de la evidencia es siempre el del merge sintético.
+- Un build del head aislado solo diagnostica la rama. No autoriza GO ni decisión de merge; sus
+  informes y capturas se marcan explícitamente como **DESCARTADOS: HEAD-ONLY** para evitar su
+  reutilización como evidencia integrada.
 
 Una pantalla solo es **GO** cuando existe evidencia para todos estos puntos:
 
