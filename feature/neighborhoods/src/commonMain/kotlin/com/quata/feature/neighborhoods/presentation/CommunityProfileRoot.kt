@@ -36,6 +36,14 @@ data class CommunityProfileStrings(
     val moderation: ProfileModerationStrings,
     val moderationConfirmation: ProfileModerationConfirmationStrings,
     val roles: ProfileRoleStrings, val userActions: NeighborhoodUserRowStrings, val back: String,
+    val runtime: CommunityProfileRuntimeStrings,
+)
+
+data class CommunityProfileRuntimeStrings(
+    val loadingProfile: String, val retry: String, val genericFile: String, val loadVideo: String,
+    val attachmentOpenFailed: String, val attachmentCancelled: String, val attachmentUnsupported: String,
+    val image: String, val video: String, val audio: String, val document: String,
+    val playAudio: String, val pauseAudio: String,
 )
 
 enum class CommunityProfileAvatarRole(val sizeDp: Int) { Header(92), Row(48) }

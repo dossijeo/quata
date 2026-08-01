@@ -6,6 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 
@@ -20,19 +23,23 @@ import com.quata.core.model.PostComment
 fun CommunityProfileCommentsDialogContent(
     post: Post,
     comments: List<PostComment>,
-    canParticipate: Boolean,
+    currentUserId: String?,
     strings: CommunityProfileCommentsDialogStrings,
+    errorMessage: String?,
     onAuthRequired: () -> Unit,
     onSubmitComment: (draft: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var draft by rememberSaveable(post.id) { mutableStateOf("") }
-    var submittedAtCount by rememberSaveable(post.id) { mutableStateOf<Int?>(null) }
-    LaunchedEffect(comments.size) {
-        val previousCount = submittedAtCount
-        if (previousCount != null && comments.size > previousCount) {
+    var submittedDraft by rememberSaveable(post.id) { mutableStateOf<String?>(null) }
+    var commentIdsBeforeSubmit by rememberSaveable(post.id) { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(comments, currentUserId, submittedDraft) {
+        val submitted = submittedDraft
+        val remoteConfirmation = isRemoteProfileCommentConfirmation(comments, currentUserId, submitted, commentIdsBeforeSubmit)
+        if (remoteConfirmation) {
             draft = ""
-            submittedAtCount = null
+            submittedDraft = null
+            commentIdsBeforeSubmit = emptyList()
         }
     }
     CommunityProfileCommentsPanelContent(
@@ -42,22 +49,36 @@ fun CommunityProfileCommentsDialogContent(
         onDismiss = onDismiss,
         commentRow = { comment -> CommunityProfileCommentRowContent(comment) },
         input = {
-            CommunityProfileCommentInputContent(
-                value = draft,
-                placeholder = strings.placeholder,
-                sendLabel = strings.sendLabel,
-                onValueChange = { draft = it },
-                onSend = {
-                    if (canParticipate) {
-                        onSubmitComment(draft.trim())
-                        submittedAtCount = comments.size
-                    } else {
-                        onAuthRequired()
-                    }
-                },
-            )
+            Column {
+                errorMessage?.takeIf(String::isNotBlank)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                CommunityProfileCommentInputContent(
+                    value = draft,
+                    placeholder = strings.placeholder,
+                    sendLabel = strings.sendLabel,
+                    onValueChange = { draft = it },
+                    onSend = {
+                        if (!currentUserId.isNullOrBlank()) {
+                            val cleanDraft = draft.trim()
+                            commentIdsBeforeSubmit = comments.map(PostComment::id)
+                            submittedDraft = cleanDraft
+                            onSubmitComment(cleanDraft)
+                        } else {
+                            onAuthRequired()
+                        }
+                    },
+                )
+            }
         },
     )
+}
+
+internal fun isRemoteProfileCommentConfirmation(
+    comments: List<PostComment>,
+    currentUserId: String?,
+    submittedDraft: String?,
+    commentIdsBeforeSubmit: List<String>,
+): Boolean = submittedDraft != null && comments.any { comment ->
+    comment.id !in commentIdsBeforeSubmit && comment.authorId == currentUserId && comment.message.trim() == submittedDraft
 }
 
 data class CommunityProfileCommentsDialogStrings(

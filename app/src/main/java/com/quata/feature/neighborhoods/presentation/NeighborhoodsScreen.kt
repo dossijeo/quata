@@ -272,6 +272,7 @@ fun CommunityProfileScreen(
             roles = ProfileRoleStrings(stringResource(R.string.profile_admin_controls_title), stringResource(R.string.profile_admin_role), stringResource(R.string.profile_official_role)),
             userActions = NeighborhoodUserRowStrings(stringResource(R.string.common_follow), stringResource(R.string.common_following), stringResource(R.string.common_chat)),
             back = stringResource(R.string.common_back),
+            runtime = defaultCommunityProfileStrings(java.util.Locale.getDefault().language).runtime,
         ),
         isOpeningChat = isOpeningChat,
         isRefreshing = isRefreshingProfile,
@@ -315,7 +316,7 @@ fun CommunityProfileScreen(
             )
         },
         commentsDialog = { post, comments, add, dismiss ->
-            ProfileCommentsDialog(post, comments, currentUserId != null, onAuthRequired, add, dismiss)
+            ProfileCommentsDialog(post, comments, currentUserId, chatError, onAuthRequired, add, dismiss)
         },
     )
     selectedAttachment?.let { attachment -> AttachmentViewerDialog(attachment) { selectedAttachment = null } }
@@ -430,7 +431,8 @@ private fun ProfileKpi(value: Int, label: String, modifier: Modifier = Modifier,
 private fun ProfilePostsPager(
     posts: List<Post>,
     pagerState: androidx.compose.foundation.pager.PagerState,
-    canParticipate: Boolean,
+    currentUserId: String?,
+    errorMessage: String?,
     onAuthRequired: () -> Unit,
     onReportPost: (String) -> Unit,
     onTogglePostLike: (String) -> Unit,
@@ -444,13 +446,13 @@ private fun ProfilePostsPager(
             ProfilePostPreview(
                 post = post,
                 commentsCount = commentsCount,
-                canParticipate = canParticipate,
+                canParticipate = currentUserId != null,
                 onOpenComments = onOpenComments,
                 onAuthRequired = onAuthRequired,
                 onShare = { context.shareProfilePost(post) },
                 onReport = {
                     if (!post.isReportedByCurrentUser) {
-                        if (canParticipate) {
+                        if (currentUserId != null) {
                             onReportPost(post.id)
                             Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
                         } else {
@@ -458,14 +460,15 @@ private fun ProfilePostsPager(
                         }
                     }
                 },
-                onToggleLike = { if (canParticipate) onTogglePostLike(post.id) else onAuthRequired() },
+                onToggleLike = { if (currentUserId != null) onTogglePostLike(post.id) else onAuthRequired() },
             )
         },
         commentsDialog = { post, localComments, onAddComment, onDismiss ->
             ProfileCommentsDialog(
                 post = post,
                 comments = localComments,
-                canParticipate = canParticipate,
+                currentUserId = currentUserId,
+                errorMessage = errorMessage,
                 onAuthRequired = onAuthRequired,
                 onAddComment = onAddComment,
                 onDismiss = onDismiss,
@@ -492,6 +495,7 @@ private fun ProfilePostPreview(
         canParticipate = canParticipate,
         onOpenComments = onOpenComments,
         onAuthRequired = onAuthRequired,
+        onReportAuthRequired = onAuthRequired,
         onShare = onShare,
         onReport = onReport,
         onToggleLike = onToggleLike,
@@ -587,7 +591,8 @@ private fun ProfileVideoPlayer(videoUrl: String) {
 private fun ProfileCommentsDialog(
     post: Post,
     comments: List<PostComment>,
-    canParticipate: Boolean,
+    currentUserId: String?,
+    errorMessage: String?,
     onAuthRequired: () -> Unit,
     onAddComment: (String) -> Unit,
     onDismiss: () -> Unit
@@ -595,13 +600,14 @@ private fun ProfileCommentsDialog(
     CommunityProfileCommentsDialogContent(
         post = post,
         comments = comments,
-        canParticipate = canParticipate,
+        currentUserId = currentUserId,
         strings = CommunityProfileCommentsDialogStrings(
             title = stringResource(R.string.feed_comments),
             closeContentDescription = stringResource(R.string.common_close),
             placeholder = stringResource(R.string.comments_placeholder),
             sendLabel = stringResource(R.string.common_send),
         ),
+        errorMessage = errorMessage,
         onAuthRequired = onAuthRequired,
         onSubmitComment = onAddComment,
         onDismiss = onDismiss,

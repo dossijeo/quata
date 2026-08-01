@@ -1183,9 +1183,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
                     onOpenConversation: { _ in },
                     onNavigateToProfile: { _ in },
                     onAuthRequired: { },
+                    onPostReportAuthRequired: { _ in },
                     mediaFactory: IosFeedNativeMediaFactory.shared,
                     shareService: services.services.share,
                     attachmentPreviewService: communitiesBootstrap.attachmentPreviewService(documentOpener: services.services.documentOpener),
+                    pendingReportPostId: nil,
                 ),
             )
         }

@@ -265,6 +265,7 @@ private final class IosAppCompositionRoot {
     }()
     private var externalShareForegroundObserver: NSObjectProtocol?
     private var pendingCommunityProfileId: String?
+    private var pendingCommunityPostReportId: String?
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -461,7 +462,11 @@ private final class IosAppCompositionRoot {
         presentPendingExternalShareIfAvailable()
         if let pendingProfileId = pendingCommunityProfileId {
             pendingCommunityProfileId = nil
-            DispatchQueue.main.async { [weak self] in self?.presentAuthenticatedMemberProfile(profileId: pendingProfileId) }
+            let pendingReportId = pendingCommunityPostReportId
+            pendingCommunityPostReportId = nil
+            DispatchQueue.main.async { [weak self] in
+                self?.presentAuthenticatedMemberProfile(profileId: pendingProfileId, pendingReportPostId: pendingReportId)
+            }
         }
         return true
     }
@@ -652,16 +657,18 @@ private final class IosAppCompositionRoot {
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
                     onAuthRequired: { [weak self] in self?.authenticatedHost.requestAuthenticationForCommunities() },
+                    onPostReportAuthRequired: { [weak self] _ in self?.authenticatedHost.requestAuthenticationForCommunities() },
                     mediaFactory: IosFeedNativeMediaFactory.shared,
                     shareService: platformServices.services.share,
                     attachmentPreviewService: communitiesRuntimeBootstrap.attachmentPreviewService(documentOpener: platformServices.services.documentOpener),
+                    pendingReportPostId: nil,
                 )
             return IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(dependencies: hostDependencies)
         }
     }
 
     /// Feed and Communities share the public common community-profile presentation.
-    fileprivate func presentAuthenticatedMemberProfile(profileId: String) {
+    fileprivate func presentAuthenticatedMemberProfile(profileId: String, pendingReportPostId: String? = nil) {
         guard let communitiesRuntimeBootstrap else { return }
         let dependencies = IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
             repository: communitiesRuntimeBootstrap.repository,
@@ -680,9 +687,18 @@ private final class IosAppCompositionRoot {
                     self.authenticatedHost.requestAuthenticationForCommunities()
                 }
             },
+            onPostReportAuthRequired: { [weak self] postId in
+                guard let self else { return }
+                self.pendingCommunityProfileId = profileId
+                self.pendingCommunityPostReportId = postId
+                self.authenticatedHost.dismiss(animated: true) {
+                    self.authenticatedHost.requestAuthenticationForCommunities()
+                }
+            },
             mediaFactory: IosFeedNativeMediaFactory.shared,
             shareService: platformServices.services.share,
-            attachmentPreviewService: communitiesRuntimeBootstrap.attachmentPreviewService(documentOpener: platformServices.services.documentOpener)
+            attachmentPreviewService: communitiesRuntimeBootstrap.attachmentPreviewService(documentOpener: platformServices.services.documentOpener),
+            pendingReportPostId: pendingReportPostId
         )
         let presentProfile = { [weak self] in
             guard let self else { return }

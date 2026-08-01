@@ -43,6 +43,8 @@ import com.quata.feature.neighborhoods.presentation.defaultNeighborhoodsScreenSt
 import com.quata.feature.neighborhoods.presentation.defaultCommunityProfileStrings
 import com.quata.feature.neighborhoods.presentation.defaultCommunityProfileCommentsDialogStrings
 import com.quata.feature.neighborhoods.presentation.ProfileAttachmentRowContent
+import com.quata.feature.neighborhoods.presentation.ProfileAttachmentThumbnailContent
+import com.quata.feature.neighborhoods.presentation.ProfileAttachmentAudioLauncherContent
 
 @OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
 private val browserNeighborhoodsLanguage: String = js("globalThis.navigator?.language || 'en'")
@@ -65,6 +67,9 @@ fun WebNeighborhoodsHost(
     slots: WebNeighborhoodsSlots,
     onOpenConversation: (String) -> Unit,
     onAuthRequired: () -> Unit,
+    onPostReportAuthRequired: (String) -> Unit = { onAuthRequired() },
+    pendingReportPostId: String? = null,
+    onPendingReportHandled: () -> Unit = {},
     onOpenUserProfile: (String) -> Unit,
     onDismissProfile: () -> Unit = {},
     profileId: String? = null,
@@ -72,7 +77,7 @@ fun WebNeighborhoodsHost(
     padding: PaddingValues = PaddingValues(),
 ) {
     if (profileId != null) {
-        WebCommunityProfileRoute(repository, currentUserId, profileId, slots, onDismissProfile, onOpenConversation, onAuthRequired, documentOpener)
+        WebCommunityProfileRoute(repository, currentUserId, profileId, slots, onDismissProfile, onOpenConversation, onAuthRequired, onPostReportAuthRequired, pendingReportPostId, onPendingReportHandled, documentOpener)
     } else NeighborhoodsScreenHost(
     repository = repository,
     currentUserId = currentUserId,
@@ -95,18 +100,32 @@ private fun WebCommunityProfileRoute(
     onDismiss: () -> Unit,
     onOpenConversation: (String) -> Unit,
     onAuthRequired: () -> Unit,
+    onPostReportAuthRequired: (String) -> Unit,
+    pendingReportPostId: String?,
+    onPendingReportHandled: () -> Unit,
     documentOpener: DocumentOpenService?,
 ) {
     val model = remember(repository) { NeighborhoodsViewModel(repository) }
     val state by model.uiState.collectAsState()
+    val profileStrings = defaultCommunityProfileStrings(browserNeighborhoodsLanguage)
     val actionScope = rememberCoroutineScope()
     DisposableEffect(model) { onDispose(model::close) }
     LaunchedEffect(profileId) { model.openUserProfile(profileId) }
     val profile = state.selectedProfile
+    var pendingReportInFlight by remember(profileId, pendingReportPostId) { mutableStateOf(false) }
+    LaunchedEffect(profile?.user?.id, currentUserId, pendingReportPostId) {
+        if (!pendingReportInFlight && profile?.user?.id == profileId && !currentUserId.isNullOrBlank() && pendingReportPostId != null) {
+            pendingReportInFlight = true
+            model.reportProfilePost(pendingReportPostId) { success ->
+                pendingReportInFlight = false
+                if (success) onPendingReportHandled()
+            }
+        }
+    }
     if (profile == null) {
         Column {
-            Text(state.error ?: "Loading profile…")
-            if (state.error != null) Button(onClick = { model.openUserProfile(profileId) }) { Text("Retry") }
+            Text(state.error ?: profileStrings.runtime.loadingProfile)
+            if (state.error != null) Button(onClick = { model.openUserProfile(profileId) }) { Text(profileStrings.runtime.retry) }
         }
         return
     }
@@ -117,7 +136,7 @@ private fun WebCommunityProfileRoute(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = theme.colors.background,
         contentColor = theme.colors.textPrimary,
-        strings = defaultCommunityProfileStrings(browserNeighborhoodsLanguage),
+        strings = profileStrings,
         isOpeningChat = state.openingPrivateChatUserId != null,
         isRefreshing = state.refreshingProfileUserId != null,
         followingUserId = state.followingUserId,
@@ -147,15 +166,15 @@ private fun WebCommunityProfileRoute(
             }
             ProfileAttachmentRowContent(
                 attachment = attachment,
-                audioPlayer = { TextButton(onClick = open) { Text(attachment.name) } },
-                thumbnail = { Text(attachment.name.substringAfterLast('.', "FILE").take(4).uppercase()) },
+                audioPlayer = { ProfileAttachmentAudioLauncherContent(attachment, profileStrings.runtime, open) },
+                thumbnail = { ProfileAttachmentThumbnailContent(attachment, profileStrings.runtime) },
                 onOpen = open,
             )
         },
         postPreview = { post, count, isCurrent, openComments ->
-            CommunityProfilePostPreviewContent(post, count, currentUserId != null, openComments, onAuthRequired,
+            CommunityProfilePostPreviewContent(post, count, currentUserId != null, openComments, onAuthRequired, { onPostReportAuthRequired(post.id) },
                 { webShareProfilePost(post.id) }, { model.reportProfilePost(post.id) }, { model.toggleProfilePostLike(post.id) }, media = { loaded, load ->
-                    if (post.videoUrl != null && !loaded) Button(onClick = load) { Text("Load video") }
+                    if (post.videoUrl != null && !loaded) Button(onClick = load) { Text(profileStrings.runtime.loadVideo) }
                     else {
                         var position by remember(post.id) { mutableLongStateOf(0L) }
                         var muted by remember(post.id) { mutableStateOf(false) }
@@ -164,8 +183,8 @@ private fun WebCommunityProfileRoute(
                 })
         },
         commentsDialog = { post, comments, submit, dismiss ->
-            CommunityProfileCommentsDialogContent(post, comments, currentUserId != null,
-                defaultCommunityProfileCommentsDialogStrings(browserNeighborhoodsLanguage), onAuthRequired,
+            CommunityProfileCommentsDialogContent(post, comments, currentUserId,
+                defaultCommunityProfileCommentsDialogStrings(browserNeighborhoodsLanguage), state.error, onAuthRequired,
                 submit, dismiss)
         },
     )

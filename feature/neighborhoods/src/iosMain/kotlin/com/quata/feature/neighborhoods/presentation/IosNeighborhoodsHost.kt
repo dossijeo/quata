@@ -46,6 +46,8 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import com.quata.feature.neighborhoods.presentation.ProfileAttachmentRowContent
+import com.quata.feature.neighborhoods.presentation.ProfileAttachmentThumbnailContent
+import com.quata.feature.neighborhoods.presentation.ProfileAttachmentAudioLauncherContent
 import com.quata.feature.feed.presentation.IosFeedMediaFactory
 import com.quata.feature.feed.presentation.IosFeedMediaSlot
 import com.quata.feature.chat.data.IosChatAttachmentPreviewService
@@ -100,9 +102,11 @@ class IosNeighborhoodsHostDependencies(
     val onOpenConversation: (String) -> Unit,
     val profileNavigator: IosCommunityProfileNavigator,
     val onAuthRequired: () -> Unit,
+    val onPostReportAuthRequired: (String) -> Unit,
     val mediaFactory: IosFeedMediaFactory,
     val shareService: ShareService,
     val attachmentPreviewService: IosChatAttachmentPreviewService,
+    val pendingReportPostId: String?,
 )
 
 /**
@@ -119,9 +123,11 @@ fun createIosNeighborhoodsHostDependencies(
     onOpenConversation: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
     onAuthRequired: () -> Unit,
+    onPostReportAuthRequired: (String) -> Unit,
     mediaFactory: IosFeedMediaFactory,
     shareService: ShareService,
     attachmentPreviewService: IosChatAttachmentPreviewService,
+    pendingReportPostId: String?,
 ): IosNeighborhoodsHostDependencies = IosNeighborhoodsHostDependencies(
     repository = repository,
     viewModel = NeighborhoodsViewModel(repository),
@@ -134,9 +140,11 @@ fun createIosNeighborhoodsHostDependencies(
     onOpenConversation = onOpenConversation,
     profileNavigator = IosCommunityProfileNavigator(onNavigateToProfile),
     onAuthRequired = onAuthRequired,
+    onPostReportAuthRequired = onPostReportAuthRequired,
     mediaFactory = mediaFactory,
     shareService = shareService,
     attachmentPreviewService = attachmentPreviewService,
+    pendingReportPostId = pendingReportPostId,
 )
 
 /** Creates an injectable UIKit host for the common Neighborhoods list and member surfaces. */
@@ -172,11 +180,19 @@ fun QuataCommunityProfileViewController(
             onDispose { dependencies.viewModel.closeUserProfile() }
         }
         val profile = state.selectedProfile
+        var pendingReportHandled by rememberSaveable(profileId, dependencies.pendingReportPostId) { mutableStateOf(false) }
+        LaunchedEffect(profile?.user?.id, dependencies.currentUserId, dependencies.pendingReportPostId) {
+            val pendingPostId = dependencies.pendingReportPostId
+            if (!pendingReportHandled && profile?.user?.id == profileId && !dependencies.currentUserId.isNullOrBlank() && pendingPostId != null) {
+                pendingReportHandled = true
+                dependencies.viewModel.reportProfilePost(pendingPostId)
+            }
+        }
         val actionScope = rememberCoroutineScope()
         if (profile == null) {
             Column {
-                Text(state.error ?: "Loading profile…")
-                if (state.error != null) Button(onClick = { dependencies.viewModel.openUserProfile(profileId) }) { Text("Retry") }
+                Text(state.error ?: dependencies.profileStrings.runtime.loadingProfile)
+                if (state.error != null) Button(onClick = { dependencies.viewModel.openUserProfile(profileId) }) { Text(dependencies.profileStrings.runtime.retry) }
             }
         } else {
             var failedAttachment by remember(profileId) { mutableStateOf<ProfileAttachment?>(null) }
@@ -186,9 +202,9 @@ fun QuataCommunityProfileViewController(
                     attachmentError = null
                     when (val result = dependencies.attachmentPreviewService.openRemoteAttachment(PlatformFile(attachment.uri, attachment.name, attachment.mimeType))) {
                         is PlatformResult.Success -> failedAttachment = null
-                        is PlatformResult.Failure -> { failedAttachment = attachment; attachmentError = result.reason ?: "Could not open attachment" }
-                        PlatformResult.Cancelled -> { failedAttachment = attachment; attachmentError = "Attachment preview cancelled" }
-                        PlatformResult.Unsupported -> { failedAttachment = attachment; attachmentError = "Attachment format is not supported" }
+                        is PlatformResult.Failure -> { failedAttachment = attachment; attachmentError = result.reason ?: dependencies.profileStrings.runtime.attachmentOpenFailed }
+                        PlatformResult.Cancelled -> { failedAttachment = attachment; attachmentError = dependencies.profileStrings.runtime.attachmentCancelled }
+                        PlatformResult.Unsupported -> { failedAttachment = attachment; attachmentError = dependencies.profileStrings.runtime.attachmentUnsupported }
                     }
                 }
             }
@@ -223,20 +239,20 @@ fun QuataCommunityProfileViewController(
                     Column {
                         ProfileAttachmentRowContent(
                             attachment = attachment,
-                            audioPlayer = { TextButton(onClick = { openAttachment(attachment) }) { Text(attachment.name) } },
-                            thumbnail = { Text(attachment.name.substringAfterLast('.', "FILE").take(4).uppercase()) },
+                            audioPlayer = { ProfileAttachmentAudioLauncherContent(attachment, dependencies.profileStrings.runtime) { openAttachment(attachment) } },
+                            thumbnail = { ProfileAttachmentThumbnailContent(attachment, dependencies.profileStrings.runtime) },
                             onOpen = { openAttachment(attachment) },
                         )
                         if (failedAttachment?.uri == attachment.uri && attachmentError != null) {
                             Text(requireNotNull(attachmentError), color = androidx.compose.material3.MaterialTheme.colorScheme.error)
-                            Button(onClick = { openAttachment(attachment) }) { Text("Retry") }
+                            Button(onClick = { openAttachment(attachment) }) { Text(dependencies.profileStrings.runtime.retry) }
                         }
                     }
                 },
                 postPreview = { post, count, isCurrent, openComments ->
-                    CommunityProfilePostPreviewContent(post, count, dependencies.currentUserId != null, openComments, dependencies.onAuthRequired,
+                    CommunityProfilePostPreviewContent(post, count, dependencies.currentUserId != null, openComments, dependencies.onAuthRequired, { dependencies.onPostReportAuthRequired(post.id) },
                         { actionScope.launch { dependencies.shareService.share(SharePayload(text = "https://quata.app/post/${post.id}")) } }, { dependencies.viewModel.reportProfilePost(post.id) }, { dependencies.viewModel.toggleProfilePostLike(post.id) }, media = { loaded, load ->
-                            if (post.videoUrl != null && !loaded) Button(onClick = load) { Text("Load video") }
+                            if (post.videoUrl != null && !loaded) Button(onClick = load) { Text(dependencies.profileStrings.runtime.loadVideo) }
                             else {
                                 var position by remember(post.id) { mutableLongStateOf(0L) }
                                 var muted by remember(post.id) { mutableStateOf(false) }
@@ -245,8 +261,8 @@ fun QuataCommunityProfileViewController(
                         })
                 },
                 commentsDialog = { post, comments, submit, dismiss ->
-                    CommunityProfileCommentsDialogContent(post, comments, dependencies.currentUserId != null,
-                        dependencies.profileCommentsStrings, dependencies.onAuthRequired,
+                    CommunityProfileCommentsDialogContent(post, comments, dependencies.currentUserId,
+                        dependencies.profileCommentsStrings, state.error, dependencies.onAuthRequired,
                         submit, dismiss)
                 },
             )

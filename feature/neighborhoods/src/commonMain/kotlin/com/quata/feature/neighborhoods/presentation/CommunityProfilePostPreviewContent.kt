@@ -47,6 +47,7 @@ fun CommunityProfilePostPreviewContent(
     canParticipate: Boolean,
     onOpenComments: () -> Unit,
     onAuthRequired: () -> Unit,
+    onReportAuthRequired: () -> Unit,
     onShare: () -> Unit,
     onReport: () -> Unit,
     onToggleLike: () -> Unit,
@@ -116,7 +117,7 @@ fun CommunityProfilePostPreviewContent(
                     icon = Icons.Filled.Flag,
                     count = null,
                     tint = if (post.isReportedByCurrentUser) QuataOrange else Color.White,
-                    onClick = onReport,
+                    onClick = { if (canParticipate) onReport() else onReportAuthRequired() },
                 )
             }
         },

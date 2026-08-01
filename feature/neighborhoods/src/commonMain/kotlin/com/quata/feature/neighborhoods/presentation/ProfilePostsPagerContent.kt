@@ -26,17 +26,22 @@ fun ProfilePostsPagerContent(
     onAddComment: (postId: String, draft: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val commentsPost = remember { mutableStateOf<Post?>(null) }
+    val commentsPostId = remember { mutableStateOf<String?>(null) }
     HorizontalPager(state = pagerState, modifier = modifier.height(440.dp)) { page ->
         val post = posts[page]
-        postPreview(post, post.comments.size, page == pagerState.currentPage) { commentsPost.value = post }
+        postPreview(post, post.comments.size, page == pagerState.currentPage) { commentsPostId.value = post.id }
     }
-    commentsPost.value?.let { post ->
+    commentsPostId.value?.let { postId ->
+        val post = posts.firstOrNull { it.id == postId }
+        if (post == null) {
+            commentsPostId.value = null
+            return@let
+        }
         commentsDialog(
             post,
             post.comments,
             { draft -> onAddComment(post.id, draft) },
-            { commentsPost.value = null },
+            { commentsPostId.value = null },
         )
     }
 }

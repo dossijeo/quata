@@ -33,9 +33,9 @@ fun defaultNeighborhoodsScreenStrings(languageTag: String?): NeighborhoodsScreen
 fun defaultCommunityProfileStrings(languageTag: String?): CommunityProfileStrings {
     val language = languageTag.orEmpty().substringBefore('-').lowercase()
     return when (language) {
-        "es" -> communityProfileStrings("Publicaciones", "Seguidores", "Siguiendo", "Seguidores de", "Seguidos por", "Fotos y vídeos", "No hay publicaciones visibles", "Archivos adjuntos", "No hay archivos adjuntos", "Seguir", "Siguiendo", "Chat", "Reportar", "Bloquear", "Reportar perfil", "Bloquear perfil", "¿Reportar este perfil?", "¿Bloquear este perfil?", "Cancelar", "Permisos", "Administrador", "Oficial", "Volver")
-        "fr" -> communityProfileStrings("Publications", "Abonnés", "Abonnements", "Abonnés de", "Abonnements de", "Photos et vidéos", "Aucune publication visible", "Pièces jointes", "Aucune pièce jointe", "Suivre", "Suivi", "Discussion", "Signaler", "Bloquer", "Signaler le profil", "Bloquer le profil", "Signaler ce profil ?", "Bloquer ce profil ?", "Annuler", "Autorisations", "Administrateur", "Officiel", "Retour")
-        else -> communityProfileStrings("Posts", "Followers", "Following", "Followers of", "Following of", "Photos and videos", "No visible posts", "Attachments", "No attachments", "Follow", "Following", "Chat", "Report", "Block", "Report profile", "Block profile", "Report this profile?", "Block this profile?", "Cancel", "Permissions", "Admin", "Official", "Back")
+        "es" -> communityProfileStrings("Publicaciones", "Seguidores", "Siguiendo", "Seguidores de", "Seguidos por", "Fotos y vídeos", "No hay publicaciones visibles", "Archivos adjuntos", "No hay archivos adjuntos", "Seguir", "Siguiendo", "Chat", "Reportar", "Bloquear", "Reportar perfil", "Bloquear perfil", "¿Reportar este perfil?", "¿Bloquear este perfil?", "Cancelar", "Permisos", "Administrador", "Oficial", "Volver", CommunityProfileRuntimeStrings("Cargando perfil…", "Reintentar", "Archivo", "Cargar vídeo", "No se pudo abrir el archivo", "Vista previa cancelada", "Formato no compatible", "Imagen", "Vídeo", "Audio", "Documento", "Reproducir audio", "Pausar audio"))
+        "fr" -> communityProfileStrings("Publications", "Abonnés", "Abonnements", "Abonnés de", "Abonnements de", "Photos et vidéos", "Aucune publication visible", "Pièces jointes", "Aucune pièce jointe", "Suivre", "Suivi", "Discussion", "Signaler", "Bloquer", "Signaler le profil", "Bloquer le profil", "Signaler ce profil ?", "Bloquer ce profil ?", "Annuler", "Autorisations", "Administrateur", "Officiel", "Retour", CommunityProfileRuntimeStrings("Chargement du profil…", "Réessayer", "Fichier", "Charger la vidéo", "Impossible d’ouvrir le fichier", "Aperçu annulé", "Format non pris en charge", "Image", "Vidéo", "Audio", "Document", "Lire l’audio", "Mettre l’audio en pause"))
+        else -> communityProfileStrings("Posts", "Followers", "Following", "Followers of", "Following of", "Photos and videos", "No visible posts", "Attachments", "No attachments", "Follow", "Following", "Chat", "Report", "Block", "Report profile", "Block profile", "Report this profile?", "Block this profile?", "Cancel", "Permissions", "Admin", "Official", "Back", CommunityProfileRuntimeStrings("Loading profile…", "Retry", "File", "Load video", "Could not open attachment", "Attachment preview cancelled", "Attachment format is not supported", "Image", "Video", "Audio", "Document", "Play audio", "Pause audio"))
     }
 }
 
@@ -52,11 +52,12 @@ private fun communityProfileStrings(
     follow: String, followingAction: String, chat: String, report: String, block: String,
     reportTitle: String, blockTitle: String, reportConfirm: String, blockConfirm: String,
     cancel: String, permissions: String, admin: String, official: String, back: String,
+    runtime: CommunityProfileRuntimeStrings,
 ) = CommunityProfileStrings(
     posts, followers, following, { "$followersOf $it" }, { "$followingOf $it" }, gallery, noPosts,
     ProfileAttachmentsStrings(attachments, noAttachments), ProfileActionStrings(follow, followingAction, chat),
     ProfileModerationStrings(report, block), ProfileModerationConfirmationStrings(reportTitle, blockTitle, reportConfirm, blockConfirm, cancel, report, block),
-    ProfileRoleStrings(permissions, admin, official), NeighborhoodUserRowStrings(follow, followingAction, chat), back,
+    ProfileRoleStrings(permissions, admin, official), NeighborhoodUserRowStrings(follow, followingAction, chat), back, runtime,
 )
 
 private fun neighborhoodStrings(

@@ -215,16 +215,18 @@ class NeighborhoodsViewModel(
         )
     }
 
-    fun reportProfilePost(postId: String) {
+    fun reportProfilePost(postId: String, onCompleted: (Boolean) -> Unit = {}) {
         scope.launch {
             val profileUserId = _uiState.value.selectedProfile?.user?.id
             repository.reportPost(postId)
+                .onSuccess {
+                    if (profileUserId != null) refreshSelectedProfile(profileUserId)
+                    onCompleted(true)
+                }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo reportar")
+                    onCompleted(false)
                 }
-            if (profileUserId != null) {
-                refreshSelectedProfile(profileUserId)
-            }
         }
     }
 

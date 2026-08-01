@@ -196,6 +196,7 @@ private fun QuataWebApp(
     // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
     // authenticated shell level so navigation does not manufacture a second browser profile UI.
     val feedMemberProfileRoute = remember { WebFeedMemberProfileRoute() }
+    var pendingCommunityPostReport by remember { mutableStateOf<Pair<String, String>?>(null) }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
     var webPushOptedIn by remember { mutableStateOf(false) }
@@ -204,6 +205,9 @@ private fun QuataWebApp(
         currentUserId = authRepository.activeProfileSessionOrNull()?.userId
         navigation.navigate(pendingAuthenticationFragment ?: "")
         pendingAuthenticationFragment = null
+        pendingCommunityPostReport?.let { pending ->
+            feedMemberProfileRoute.open(pending.first)
+        }
     }
     fun completeLogout(onFinished: (WebPushSessionResult) -> Unit = {}) {
         scope.launch {
@@ -511,6 +515,12 @@ private fun QuataWebApp(
                             slots = webNeighborhoodsSlots,
                             onOpenConversation = navigation::navigateConversation,
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                            onPostReportAuthRequired = { postId ->
+                                feedMemberProfileRoute.profileId?.let { profileId -> pendingCommunityPostReport = profileId to postId }
+                                requestAuthenticationForCurrentRoute()
+                            },
+                            pendingReportPostId = pendingCommunityPostReport?.takeIf { it.first == feedMemberProfileRoute.profileId }?.second,
+                            onPendingReportHandled = { pendingCommunityPostReport = null },
                             onOpenUserProfile = feedMemberProfileRoute::open,
                             onDismissProfile = feedMemberProfileRoute::close,
                             profileId = feedMemberProfileRoute.profileId,
@@ -528,6 +538,12 @@ private fun QuataWebApp(
                                 slots = webNeighborhoodsSlots,
                                 onOpenConversation = navigation::navigateConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                                onPostReportAuthRequired = { postId ->
+                                    pendingCommunityPostReport = memberProfileId to postId
+                                    requestAuthenticationForCurrentRoute()
+                                },
+                                pendingReportPostId = pendingCommunityPostReport?.takeIf { it.first == memberProfileId }?.second,
+                                onPendingReportHandled = { pendingCommunityPostReport = null },
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 onDismissProfile = feedMemberProfileRoute::close,
                                 profileId = memberProfileId,
@@ -574,6 +590,12 @@ private fun QuataWebApp(
                                 slots = webNeighborhoodsSlots,
                                 onOpenConversation = navigation::navigateConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                                onPostReportAuthRequired = { postId ->
+                                    pendingCommunityPostReport = memberProfileId to postId
+                                    requestAuthenticationForCurrentRoute()
+                                },
+                                pendingReportPostId = pendingCommunityPostReport?.takeIf { it.first == memberProfileId }?.second,
+                                onPendingReportHandled = { pendingCommunityPostReport = null },
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 onDismissProfile = feedMemberProfileRoute::close,
                                 profileId = memberProfileId,
