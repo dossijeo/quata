@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.Modifier
@@ -47,6 +48,7 @@ import platform.Foundation.NSURLSessionDataDelegateProtocol
 import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLSessionTask
 import platform.UIKit.UIImage
+import platform.UIKit.UIApplication
 import platform.UIKit.UIImageView
 import platform.UIKit.UIViewContentMode
 import platform.darwin.NSObject
@@ -150,12 +152,39 @@ fun QuataCommunityProfileViewController(
         } else {
             val theme = com.quata.core.designsystem.theme.quataTheme()
             CommunityProfileRoot(
-                profileId = profile.user.id,
+                profile = profile,
+                currentUserId = dependencies.currentUserId,
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                 containerColor = theme.colors.background,
                 contentColor = theme.colors.textPrimary,
+                strings = iosCommunityProfileStrings(),
+                isOpeningChat = state.openingPrivateChatUserId != null,
+                isRefreshing = state.refreshingProfileUserId != null,
+                followingUserId = state.followingUserId,
+                roleUpdatingUserId = state.roleUpdatingUserId,
+                currentUserIsAdmin = state.currentUserIsAdmin,
+                error = state.error,
+                showModeration = false,
+                showAdminControls = false,
                 onDismiss = onDismiss,
-            ) { navigation, dispatch ->
+                onAuthRequired = dependencies.onAuthRequired,
+                onFollowUser = dependencies.viewModel::toggleFollowUser,
+                onOpenPrivateChat = { dependencies.viewModel.openPrivateChat(it, dependencies.onOpenConversation) },
+                onOpenUserProfile = dependencies.profileNavigator::openMemberProfile,
+                onReportProfile = {}, onBlockProfile = {}, onSetRoles = { _, _, _ -> },
+                avatar = { user, _, click -> IosNeighborhoodAvatar(user) { click?.invoke() } },
+                attachmentItem = { attachment -> TextButton(onClick = { iosOpenProfileResource(attachment.uri) }) { Text(attachment.name) } },
+                postPreview = { post, count, openComments ->
+                    CommunityProfilePostPreviewContent(post, count, dependencies.currentUserId != null, openComments, dependencies.onAuthRequired,
+                        { iosOpenProfileResource("https://quata.app/post/${post.id}") }, { dependencies.viewModel.reportProfilePost(post.id) }, media = { _, _ -> })
+                },
+                commentsDialog = { post, local, add, dismiss ->
+                    CommunityProfileCommentsDialogContent(post, local, dependencies.currentUserId != null,
+                        CommunityProfileCommentsDialogStrings("Comments", "Close", "Write a comment", "Send"), dependencies.onAuthRequired,
+                        { draft -> PostComment("ios:${post.id}:${local.size}", "You", draft, "Now") }, add, dismiss)
+                },
+            )
+            /*
                 Column {
                     Text(profile.user.displayName)
                     Text("${profile.user.postsCount} posts · ${profile.user.followersCount} followers")
@@ -166,9 +195,21 @@ fun QuataCommunityProfileViewController(
                         profile.posts.forEach { Text(it.text) }
                     }
                 }
-            }
+            }*/
         }
     }
+}
+
+private fun iosCommunityProfileStrings() = CommunityProfileStrings(
+    "Posts", "Followers", "Following", { "Followers of $it" }, { "Following of $it" },
+    "Photos and videos", "No visible posts", ProfileAttachmentsStrings("Attachments", "No attachments"),
+    ProfileActionStrings("Follow", "Following", "Chat"), ProfileModerationStrings("Report", "Block"),
+    ProfileModerationConfirmationStrings("Report profile", "Block profile", "Report this profile?", "Block this profile?", "Cancel", "Report", "Block"),
+    ProfileRoleStrings("Permissions", "Admin", "Official"), NeighborhoodUserRowStrings("Follow", "Following", "Chat"), "Back",
+)
+
+private fun iosOpenProfileResource(value: String) {
+    NSURL(string = value)?.let { UIApplication.sharedApplication.openURL(it) }
 }
 
 /** Real remote avatar slot with the common frame retaining its deterministic fallback. */

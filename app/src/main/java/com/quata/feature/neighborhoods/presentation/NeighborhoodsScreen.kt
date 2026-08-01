@@ -239,204 +239,78 @@ fun CommunityProfileScreen(
     onOpenUserProfile: (String) -> Unit = {},
     openingProfileUserId: String? = null
 ) {
-    val isOwnProfile = profile.user.id == currentUserId
-    val isFollowingLoading = followingUserId == profile.user.id
     var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
-    var pendingProfileAction by remember { mutableStateOf<ProfileModerationAction?>(null) }
     val context = LocalContext.current
     val template = quataTheme()
-    val avatarUrl = profile.user.avatarUrl?.trim()?.takeIf { it.isNotBlank() }
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ProfileModerationConfirmation(
-        action = pendingProfileAction,
-        strings = ProfileModerationConfirmationStrings(
-            reportTitle = stringResource(R.string.moderation_report_title),
-            blockTitle = stringResource(R.string.moderation_block_title),
-            reportMessage = stringResource(R.string.moderation_report_profile_confirm),
-            blockMessage = stringResource(R.string.moderation_block_profile_confirm),
-            cancel = stringResource(R.string.common_cancel),
-            report = stringResource(R.string.moderation_report),
-            block = stringResource(R.string.moderation_block)
-        ),
-        onDismiss = { pendingProfileAction = null },
-        onConfirm = { action ->
-            pendingProfileAction = null
-            if (action == ProfileModerationAction.Block) onBlockProfile(profile.user.id)
-            else onReportProfile(profile.user.id)
-        }
-    )
     CommunityProfileRoot(
-        profileId = profile.user.id,
-        sheetState = sheetState,
+        profile = profile,
+        currentUserId = currentUserId,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = template.colors.background,
         contentColor = template.colors.textPrimary,
+        strings = CommunityProfileStrings(
+            posts = stringResource(R.string.neighborhoods_posts),
+            followers = stringResource(R.string.neighborhoods_followers),
+            following = stringResource(R.string.neighborhoods_following),
+            followersOf = { context.getString(R.string.neighborhoods_followers_of, it) },
+            followingOf = { context.getString(R.string.neighborhoods_following_of, it) },
+            gallery = stringResource(R.string.neighborhoods_photos_videos),
+            noPosts = stringResource(R.string.neighborhoods_no_visible_posts),
+            attachments = ProfileAttachmentsStrings(stringResource(R.string.neighborhoods_attachments), stringResource(R.string.neighborhoods_no_attachments)),
+            actions = ProfileActionStrings(stringResource(R.string.common_follow), stringResource(R.string.common_following), stringResource(R.string.common_chat)),
+            moderation = ProfileModerationStrings(stringResource(R.string.moderation_report), stringResource(R.string.moderation_block)),
+            moderationConfirmation = ProfileModerationConfirmationStrings(
+                stringResource(R.string.moderation_report_title), stringResource(R.string.moderation_block_title),
+                stringResource(R.string.moderation_report_profile_confirm), stringResource(R.string.moderation_block_profile_confirm),
+                stringResource(R.string.common_cancel), stringResource(R.string.moderation_report), stringResource(R.string.moderation_block)
+            ),
+            roles = ProfileRoleStrings(stringResource(R.string.profile_admin_controls_title), stringResource(R.string.profile_admin_role), stringResource(R.string.profile_official_role)),
+            userActions = NeighborhoodUserRowStrings(stringResource(R.string.common_follow), stringResource(R.string.common_following), stringResource(R.string.common_chat)),
+            back = stringResource(R.string.common_back),
+        ),
+        isOpeningChat = isOpeningChat,
+        isRefreshing = isRefreshingProfile,
+        followingUserId = followingUserId,
+        roleUpdatingUserId = roleUpdatingUserId,
+        currentUserIsAdmin = currentUserIsAdmin,
+        error = chatError,
         onDismiss = onBack,
-    ) { navigationState, dispatch ->
-        val showPosts = navigationState.showingPosts
-        val userListTitle = navigationState.peopleList?.let {
-            if (it == CommunityProfilePeopleList.Followers) "followers" else "following"
-        }
-        LaunchedEffect(showPosts) {
-            if (showPosts) listState.animateScrollToItem(2)
-        }
-        if (userListTitle != null) {
-            ProfileUsersListContent(
-                title = if (userListTitle == "followers") {
-                    stringResource(R.string.neighborhoods_followers_of, profile.user.displayName)
-                } else {
-                    stringResource(R.string.neighborhoods_following_of, profile.user.displayName)
+        onAuthRequired = onAuthRequired,
+        onFollowUser = onFollowUser,
+        onOpenPrivateChat = onOpenPrivateChat,
+        onOpenUserProfile = onOpenUserProfile,
+        onReportProfile = onReportProfile,
+        onBlockProfile = onBlockProfile,
+        onSetRoles = onSetUserRoles,
+        avatar = { user, loading, click ->
+            ProfileAvatar(
+                user,
+                Modifier.size(if (user.id == profile.user.id) 92.dp else 48.dp).clickable {
+                    if (click != null) click()
+                    else user.avatarUrl?.takeIf { it.isNotBlank() }?.let { selectedAttachment = AttachmentPreview(user.displayName, it, "image/jpeg") }
                 },
-                users = if (userListTitle == "followers") profile.followers else profile.following,
-                currentUserId = currentUserId,
-                onBack = { dispatch(CommunityProfileNavigationEvent.ShowDetails) },
-                onFollowUser = { user ->
-                    if (currentUserId == null) onAuthRequired() else onFollowUser(user.id)
-                },
-                onOpenProfile = { user -> onOpenUserProfile(user.id) },
-                onOpenPrivateChat = { user ->
-                    if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(user.id)
-                },
-                isOpeningChat = isOpeningChat,
-                openingProfileUserId = openingProfileUserId,
-                followingUserId = followingUserId
+                loading
             )
-        } else {
-            CommunityProfileDetailsContent(
-                listState = listState,
-                modifier = Modifier.heightIn(max = 780.dp),
-                header = {
-                    CommunityProfileHeaderContent(
-                        displayName = profile.user.displayName,
-                        neighborhood = profile.user.neighborhood,
-                        avatar = {
-                        ProfileAvatar(
-                            profile.user,
-                            Modifier
-                                .size(92.dp)
-                                .clickable(enabled = avatarUrl != null) {
-                                    val imageUri = avatarUrl ?: return@clickable
-                                    selectedAttachment = AttachmentPreview(
-                                        name = profile.user.displayName,
-                                        uri = imageUri,
-                                        mimeType = "image/jpeg"
-                                    )
-                                },
-                            isLoading = isRefreshingProfile
-                        )
-                        },
-                        kpis = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        ProfileKpi(profile.user.postsCount, stringResource(R.string.neighborhoods_posts), Modifier.weight(1f), onClick = { dispatch(CommunityProfileNavigationEvent.ShowPosts) })
-                        ProfileKpi(profile.user.followersCount, stringResource(R.string.neighborhoods_followers), Modifier.weight(1f), onClick = {
-                            dispatch(CommunityProfileNavigationEvent.ShowPeople(CommunityProfilePeopleList.Followers))
-                        })
-                        ProfileKpi(profile.user.followingCount, stringResource(R.string.neighborhoods_following), Modifier.weight(1f), onClick = {
-                            dispatch(CommunityProfileNavigationEvent.ShowPeople(CommunityProfilePeopleList.Following))
-                        })
-                            }
-                        },
-                        primaryActions = {
-                            ProfilePrimaryActions(
-                        isOwnProfile = isOwnProfile,
-                        isFollowing = profile.user.isFollowing,
-                        isFollowingLoading = isFollowingLoading,
-                        isOpeningChat = isOpeningChat,
-                        strings = ProfileActionStrings(
-                            follow = stringResource(R.string.common_follow),
-                            following = stringResource(R.string.common_following),
-                            chat = stringResource(R.string.common_chat)
-                        ),
-                        onFollow = { if (currentUserId == null) onAuthRequired() else onFollowUser(profile.user.id) },
-                        onChat = { if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(profile.user.id) }
-                            )
-                        },
-                        moderationActions = {
-                            ProfileModerationActions(
-                        visible = !isOwnProfile,
-                        strings = ProfileModerationStrings(
-                            report = stringResource(R.string.moderation_report),
-                            block = stringResource(R.string.moderation_block)
-                        ),
-                        onReport = {
-                            if (currentUserId == null) onAuthRequired() else pendingProfileAction = ProfileModerationAction.Report
-                        },
-                        onBlock = {
-                            if (currentUserId == null) onAuthRequired() else pendingProfileAction = ProfileModerationAction.Block
-                        }
-                            )
-                        },
-                        adminControls = if (currentUserIsAdmin && !isOwnProfile) {
-                            {
-                                Spacer(Modifier.height(14.dp))
-                                ProfileRoleControlsContent(
-                            user = profile.user,
-                            isUpdating = roleUpdatingUserId == profile.user.id,
-                            strings = ProfileRoleStrings(
-                                title = stringResource(R.string.profile_admin_controls_title),
-                                admin = stringResource(R.string.profile_admin_role),
-                                official = stringResource(R.string.profile_official_role)
-                            ),
-                            onSetRoles = { isAdmin, isOfficial ->
-                                onSetUserRoles(profile.user.id, isAdmin, isOfficial)
-                            }
-                                )
-                            }
-                        } else null,
-                        errorMessage = chatError?.let { error ->
-                            {
-                                Spacer(Modifier.height(10.dp))
-                                Text(error, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    )
-                },
-                attachments = {
-                    ProfileAttachmentsSection(
-                        attachments = profile.attachments,
-                        onOpenAttachment = { attachment ->
-                            val preview = attachment.toAttachmentPreview()
-                            if (preview.isMedia) {
-                                selectedAttachment = preview
-                            } else {
-                                context.openAttachmentWithDocumentReaderOrChooser(
-                                    attachment = preview,
-                                    isDarkMode = template.resolvedTheme == QuataResolvedTheme.Dark
-                                )
-                            }
-                        }
-                    )
-                    Spacer(Modifier.height(18.dp))
-                },
-                gallery = if (showPosts) {
-                    {
-                        val pagerState = rememberPagerState(pageCount = { profile.posts.size })
-                        ProfileGalleryHeader(
-                            title = stringResource(R.string.neighborhoods_photos_videos),
-                            currentIndex = (pagerState.currentPage + 1).takeIf { profile.posts.isNotEmpty() },
-                            total = profile.posts.size,
-                            emptyLabel = stringResource(R.string.neighborhoods_no_visible_posts).takeIf { profile.posts.isEmpty() }
-                        )
-                        if (profile.posts.isNotEmpty()) {
-                            ProfilePostsPager(
-                                posts = profile.posts,
-                                pagerState = pagerState,
-                                canParticipate = currentUserId != null,
-                                onAuthRequired = onAuthRequired,
-                                onReportPost = onReportPost
-                            )
-                        }
-                    }
-                } else null,
+        },
+        attachmentItem = { attachment ->
+            ProfileAttachmentRow(attachment) {
+                val preview = attachment.toAttachmentPreview()
+                if (preview.isMedia) selectedAttachment = preview
+                else context.openAttachmentWithDocumentReaderOrChooser(preview, template.resolvedTheme == QuataResolvedTheme.Dark)
+            }
+        },
+        postPreview = { post, commentsCount, openComments ->
+            ProfilePostPreview(
+                post, commentsCount, currentUserId != null, openComments, onAuthRequired,
+                { context.shareProfilePost(post) },
+                { if (currentUserId == null) onAuthRequired() else onReportPost(post.id) },
             )
-        }
-    }
-    selectedAttachment?.let { attachment ->
-        AttachmentViewerDialog(
-            attachment = attachment,
-            onDismiss = { selectedAttachment = null }
-        )
-    }
+        },
+        commentsDialog = { post, comments, add, dismiss ->
+            ProfileCommentsDialog(post, comments, currentUserId != null, onAuthRequired, add, dismiss)
+        },
+    )
+    selectedAttachment?.let { attachment -> AttachmentViewerDialog(attachment) { selectedAttachment = null } }
 }
 
 @Composable

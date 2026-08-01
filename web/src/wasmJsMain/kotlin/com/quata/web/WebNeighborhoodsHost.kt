@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
@@ -17,6 +18,17 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreenHost
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModel
 import com.quata.feature.neighborhoods.presentation.CommunityProfileRoot
+import com.quata.feature.neighborhoods.presentation.CommunityProfileStrings
+import com.quata.feature.neighborhoods.presentation.ProfileAttachmentsStrings
+import com.quata.feature.neighborhoods.presentation.ProfileActionStrings
+import com.quata.feature.neighborhoods.presentation.ProfileModerationStrings
+import com.quata.feature.neighborhoods.presentation.ProfileModerationConfirmationStrings
+import com.quata.feature.neighborhoods.presentation.ProfileRoleStrings
+import com.quata.feature.neighborhoods.presentation.NeighborhoodUserRowStrings
+import com.quata.feature.neighborhoods.presentation.CommunityProfilePostPreviewContent
+import com.quata.feature.neighborhoods.presentation.CommunityProfileCommentsDialogContent
+import com.quata.feature.neighborhoods.presentation.CommunityProfileCommentsDialogStrings
+import com.quata.core.model.PostComment
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreenStrings
 import com.quata.feature.neighborhoods.presentation.defaultNeighborhoodsScreenStrings
 
@@ -47,7 +59,7 @@ fun WebNeighborhoodsHost(
     padding: PaddingValues = PaddingValues(),
 ) {
     if (profileId != null) {
-        WebCommunityProfileRoute(repository, profileId, onDismissProfile)
+        WebCommunityProfileRoute(repository, currentUserId, profileId, slots, onDismissProfile, onOpenConversation, onAuthRequired)
     } else NeighborhoodsScreenHost(
     repository = repository,
     currentUserId = currentUserId,
@@ -64,8 +76,12 @@ fun WebNeighborhoodsHost(
 @Composable
 private fun WebCommunityProfileRoute(
     repository: NeighborhoodRepository,
+    currentUserId: String?,
     profileId: String,
+    slots: WebNeighborhoodsSlots,
     onDismiss: () -> Unit,
+    onOpenConversation: (String) -> Unit,
+    onAuthRequired: () -> Unit,
 ) {
     val model = remember(repository) { NeighborhoodsViewModel(repository) }
     val state by model.uiState.collectAsState()
@@ -81,12 +97,39 @@ private fun WebCommunityProfileRoute(
     }
     val theme = quataTheme()
     CommunityProfileRoot(
-        profileId = profile.user.id,
+        profile = profile,
+        currentUserId = currentUserId,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = theme.colors.background,
         contentColor = theme.colors.textPrimary,
+        strings = webCommunityProfileStrings(),
+        isOpeningChat = state.openingPrivateChatUserId != null,
+        isRefreshing = state.refreshingProfileUserId != null,
+        followingUserId = state.followingUserId,
+        roleUpdatingUserId = state.roleUpdatingUserId,
+        currentUserIsAdmin = state.currentUserIsAdmin,
+        error = state.error,
+        showModeration = false,
+        showAdminControls = false,
         onDismiss = { model.closeUserProfile(); onDismiss() },
-    ) { navigation, dispatch ->
+        onAuthRequired = onAuthRequired,
+        onFollowUser = model::toggleFollowUser,
+        onOpenPrivateChat = { model.openPrivateChat(it, onOpenConversation) },
+        onOpenUserProfile = model::openUserProfile,
+        onReportProfile = {}, onBlockProfile = {}, onSetRoles = { _, _, _ -> },
+        avatar = { user, loading, click -> slots.avatar(user, loading) { click?.invoke() } },
+        attachmentItem = { attachment -> TextButton(onClick = { webOpenProfileResource(attachment.uri) }) { Text(attachment.name) } },
+        postPreview = { post, count, openComments ->
+            CommunityProfilePostPreviewContent(post, count, currentUserId != null, openComments, onAuthRequired,
+                { webShareProfilePost(post.id) }, { model.reportProfilePost(post.id) }, media = { _, _ -> })
+        },
+        commentsDialog = { post, local, add, dismiss ->
+            CommunityProfileCommentsDialogContent(post, local, currentUserId != null,
+                CommunityProfileCommentsDialogStrings("Comments", "Close", "Write a comment", "Send"), onAuthRequired,
+                { draft -> PostComment("web:${post.id}:${local.size}", "You", draft, "Now") }, add, dismiss)
+        },
+    )
+    /*
         Column {
             Text(profile.user.displayName)
             Text("${profile.user.postsCount} posts · ${profile.user.followersCount} followers")
@@ -100,5 +143,16 @@ private fun WebCommunityProfileRoute(
                 profile.posts.forEach { Text(it.text) }
             }
         }
-    }
+    }*/
 }
+
+private fun webCommunityProfileStrings() = CommunityProfileStrings(
+    "Posts", "Followers", "Following", { "Followers of $it" }, { "Following of $it" },
+    "Photos and videos", "No visible posts", ProfileAttachmentsStrings("Attachments", "No attachments"),
+    ProfileActionStrings("Follow", "Following", "Chat"), ProfileModerationStrings("Report", "Block"),
+    ProfileModerationConfirmationStrings("Report profile", "Block profile", "Report this profile?", "Block this profile?", "Cancel", "Report", "Block"),
+    ProfileRoleStrings("Permissions", "Admin", "Official"), NeighborhoodUserRowStrings("Follow", "Following", "Chat"), "Back",
+)
+
+private fun webOpenProfileResource(url: String) { js("globalThis.open(url, '_blank', 'noopener,noreferrer')") }
+private fun webShareProfilePost(postId: String) { js("globalThis.navigator?.share?.({url: globalThis.location.origin + '/#post/' + postId})") }
