@@ -172,12 +172,32 @@ class IosOfficialEditorMediaContractTest {
         assertTrue(repository.created.all { it.mediaUrl == "https://cdn.example/notice.jpg" })
     }
 
+    @Test fun nativeExportReplacesOpaqueSelectionAndDisposesTheOriginal() = runBlocking {
+        val cleaned = mutableListOf<PlatformFile>()
+        val editor = RecordingNativeEditor()
+        val handles = ArrayDeque(listOf("source", "export"))
+        val gateway = IosOfficialEditorMediaGateway(
+            picker = RecordingPicker(PlatformResult.Success(listOf(file))), transport = RecordingTransport(),
+            handleFactory = { handles.removeFirst() }, cleanup = cleaned::add, nativeEditor = editor,
+        )
+        val original = (gateway.pick(OfficialMediaType.Image) as IosOfficialMediaPickResult.Success).media
+
+        val exported = gateway.editAndExport(original).getOrThrow()
+
+        assertEquals("export", exported.preparedHandle)
+        assertEquals(file.reference, editor.source)
+        assertEquals(listOf(file), cleaned)
+        assertEquals("edited.jpg", exported.displayName)
+    }
+
     @Test fun iosMountInstallsPickerPreviewAndDiscardSlotsIntoCommonRootContract() {
         val slots = iosOfficialEditorPlatformSlots(OfficialPostEditorStrings.forLanguage("en"), gateway())
         assertNotNull(slots.imagePicker)
         assertNotNull(slots.videoPicker)
         assertNotNull(slots.mediaPreview)
         assertNotNull(slots.discardMedia)
+        assertTrue(slots.mediaEditor is OfficialEditorCapability.Available)
+        assertTrue(slots.cardPreview is OfficialEditorCapability.Available)
     }
 
     @OptIn(ExperimentalForeignApi::class)
@@ -222,6 +242,15 @@ class IosOfficialEditorMediaContractTest {
         title = "Notice", summary = "Summary", contentHtml = "<p>Body</p>",
         type = OfficialPostType.Announcement, mediaUrl = media.preparedHandle, mediaType = media.type,
     )
+}
+
+private class RecordingNativeEditor : IosOfficialNativeMediaEditor {
+    var source: String? = null
+    override fun editAndExport(sourceReference: String, isVideo: Boolean, onSuccess: (String, String, String) -> Unit, onFailure: (String) -> Unit): IosOfficialNativeMediaEditOperation {
+        source = sourceReference
+        onSuccess("file:///tmp/quata_official_edit_7.jpg", "edited.jpg", "image/jpeg")
+        return object : IosOfficialNativeMediaEditOperation { override fun cancel() = Unit }
+    }
 }
 
 private class RecordingPicker(private vararg val outcomes: PlatformResult<List<PlatformFile>>) : FilePickerService {

@@ -13,6 +13,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.official.data.IosOfficialReadRepository
@@ -215,8 +221,25 @@ internal fun iosOfficialEditorPlatformSlots(
     gateway: IosOfficialEditorMediaGateway,
 ) = OfficialEditorPlatformSlots(
     richTextEditor = OfficialRichBodyEditor(
-        content = { html, onChanged, _ -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
-        cancel = { Result.failure(UnsupportedOperationException("ios_rich_fullscreen_unavailable")) },
+        content = { html, onChanged, onFullscreenChanged ->
+            var fullscreen by remember { mutableStateOf(false) }
+            Column(Modifier.fillMaxWidth()) {
+                OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }, modifier = Modifier.fillMaxWidth())
+                Button(onClick = { fullscreen = true; onFullscreenChanged(true) }) { Text("Edit HTML full screen") }
+            }
+            if (fullscreen) Dialog(
+                onDismissRequest = { fullscreen = false; onFullscreenChanged(false) },
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+            ) {
+                Column(Modifier.fillMaxSize()) {
+                    Text("Rich body HTML")
+                    // The canonical HTML string is edited directly: no plain-text round trip can drop markup.
+                    OutlinedTextField(value = html, onValueChange = onChanged, modifier = Modifier.fillMaxWidth())
+                    Button(onClick = { fullscreen = false; onFullscreenChanged(false) }) { Text("Done") }
+                }
+            }
+        },
+        cancel = { Result.success(Unit) },
     ),
     imagePicker = { picked, modifier ->
         IosOfficialMediaPickerButton(strings.image, OfficialMediaType.Image, gateway, picked, modifier)
@@ -224,17 +247,31 @@ internal fun iosOfficialEditorPlatformSlots(
     videoPicker = { picked, modifier ->
         IosOfficialMediaPickerButton(strings.video, OfficialMediaType.Video, gateway, picked, modifier)
     },
-    mediaPreview = { media, onRemove, _, modifier ->
+    mediaPreview = { media, onRemove, onEdit, modifier ->
         OfficialEditorMediaPreviewContent(
             removeLabel = "Remove", onRemove = onRemove,
             mediaContent = { previewModifier ->
                 gateway.previewFile(media)?.let { IosComposerLocalImagePreview(it, previewModifier) }
-                    ?: Text(if (media.type == OfficialMediaType.Video) "Video thumbnail unavailable" else "Image preview unavailable")
+                    ?: Text(if (media.type == OfficialMediaType.Video) "Preparing video preview" else "Preparing image preview")
             },
+            editAction = onEdit?.let { edit -> { actionModifier -> Button(onClick = edit, modifier = actionModifier) { Text("Edit and export") } } },
             modifier = modifier,
         )
     },
     discardMedia = { media -> gateway.discard(media) },
-    mediaEditor = OfficialEditorCapability.Unavailable("ios_media_editor_unavailable"),
-    cardPreview = OfficialEditorCapability.Unavailable("ios_official_card_preview_unavailable"),
+    mediaEditor = OfficialEditorCapability.Available(OfficialMediaEditExporter(
+        supportedTypes = setOf(OfficialMediaType.Image, OfficialMediaType.Video),
+        editAndExport = gateway::editAndExport,
+        cancel = { Result.success(Unit) },
+    )),
+    cardPreview = OfficialEditorCapability.Available(OfficialCardPreview { draft, modifier ->
+        OfficialEditorMediaPreviewContent(
+            removeLabel = "", onRemove = {}, modifier = modifier,
+            mediaContent = { previewModifier ->
+                val media = draft.mediaUrl?.let { handle -> OfficialEditorMedia("local://$handle", draft.mediaType ?: OfficialMediaType.Image, handle) }
+                media?.let { gateway.previewFile(it) }?.let { IosComposerLocalImagePreview(it, previewModifier) }
+                    ?: Text(draft.title.ifBlank { draft.contentHtml.stripHtmlForOfficialEditor() })
+            },
+        )
+    }),
 )
