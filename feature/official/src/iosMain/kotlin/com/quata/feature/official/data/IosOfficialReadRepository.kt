@@ -21,6 +21,8 @@ import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
@@ -133,13 +135,21 @@ class IosOfficialReadRepository(
                 require(draft.mediaUrl.isNullOrBlank() || draft.mediaUrl.startsWith("https://")) { "ios_official_media_not_uploaded" }
                 val response = authenticatedRequest("official_posts", "POST", emptyMap(), officialPostInsertPlan(profileId, draft).body!!)
                 val rows = NSJSONSerialization.JSONObjectWithData(response, options = 0u, error = null) as? List<*>
-                ((rows?.firstOrNull() as? Map<*, *>)?.get("id") as? String)?.let(insertedIds::add)
+                val createdId = ((rows?.singleOrNull() as? Map<*, *>)?.get("id") as? String)
+                    ?.takeIf(String::isNotBlank) ?: error("ios_official_created_id_missing")
+                insertedIds += createdId
             }
         } catch (failure: Throwable) {
-            insertedIds.forEach { id -> runCatching { mutate("official_posts", "PATCH", mapOf("id" to "eq.$id"), "{\"deleted_at\":${iosJsonString(currentOfficialTimestamp())}}") } }
+            withContext(NonCancellable) {
+                insertedIds.asReversed().forEach { id ->
+                    runCatching { mutate("official_posts", "PATCH", mapOf("id" to "eq.$id"), "{\"deleted_at\":${iosJsonString(currentOfficialTimestamp())}}") }
+                        .exceptionOrNull()?.let(failure::addSuppressed)
+                }
+            }
             throw failure
         }
-        refreshOfficialFeed().getOrThrow().firstOrNull()
+        val createdId = insertedIds.firstOrNull() ?: error("ios_official_created_id_missing")
+        getOfficialPost(createdId).getOrThrow() ?: error("ios_official_created_post_missing")
     }
 
     override suspend fun deletePost(postId: String): Result<Unit> = runCatching {

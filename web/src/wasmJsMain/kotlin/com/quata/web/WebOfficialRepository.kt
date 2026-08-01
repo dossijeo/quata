@@ -35,6 +35,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -123,18 +125,22 @@ class WebOfficialRepository(
                 require(mediaUrl.isNullOrBlank() || mediaUrl.startsWith("https://")) { "web_official_media_not_uploaded" }
                 val result = client.post("official_posts", officialPostInsertPlan(profileId, draft).body!!)
                 result.requireWebOfficialSuccess()
-                (result as? WebPostgrestResult.Success)?.body?.let { body ->
-                    runCatching { Json.parseToJsonElement(body).jsonArray.firstOrNull()?.jsonObject?.requiredOfficialString("id") }.getOrNull()?.let(insertedIds::add)
-                }
+                val createdId = (result as? WebPostgrestResult.Success)?.body?.let { body ->
+                    Json.parseToJsonElement(body).jsonArray.singleOrNull()?.jsonObject?.requiredOfficialString("id")
+                } ?: error("web_official_created_id_missing")
+                insertedIds += createdId
             }
         } catch (failure: Throwable) {
-            insertedIds.forEach { id -> runCatching { client.patch("official_posts", mapOf("id" to "eq.$id"), "{\"deleted_at\":${currentOfficialTimestamp().webJsonString()}}") }.exceptionOrNull()?.let(failure::addSuppressed) }
-            uploaded?.let { transport.rollbackUploadedMedia(it).exceptionOrNull()?.let(failure::addSuppressed) }
+            withContext(NonCancellable) {
+                insertedIds.asReversed().forEach { id -> runCatching { client.patch("official_posts", mapOf("id" to "eq.$id"), "{\"deleted_at\":${currentOfficialTimestamp().webJsonString()}}") }.exceptionOrNull()?.let(failure::addSuppressed) }
+                uploaded?.let { transport.rollbackUploadedMedia(it).exceptionOrNull()?.let(failure::addSuppressed) }
+            }
             throw failure
         } finally {
-            prepared?.let { transport.releasePreparedMedia(it) }
+            withContext(NonCancellable) { prepared?.let { transport.releasePreparedMedia(it) } }
         }
-        refreshOfficialFeed().getOrThrow().firstOrNull()
+        val createdId = insertedIds.firstOrNull() ?: error("web_official_created_id_missing")
+        getOfficialPost(createdId).getOrThrow() ?: error("web_official_created_post_missing")
     }
 
     override suspend fun deletePost(postId: String): Result<Unit> = runCatching {

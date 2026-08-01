@@ -517,7 +517,7 @@ private final class IosAppCompositionRoot {
                     languageTag: Locale.preferredLanguages.first,
                     mediaGateway: mediaGateway,
                     onBack: { self?.authenticatedHost.showOfficial(postId: nil) },
-                    onPublished: { self?.authenticatedHost.showOfficial(postId: nil) }
+                    onPublished: { createdId in self?.authenticatedHost.showOfficial(postId: createdId) }
                 )
             )
         }

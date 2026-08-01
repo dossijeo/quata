@@ -32,7 +32,7 @@ fun WebOfficialEditorHost(
     filePicker: FilePickerService,
     onAuthRequired: () -> Unit,
     onBack: () -> Unit,
-    onPublished: () -> Unit,
+    onPublished: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var allowed by remember { mutableStateOf<Boolean?>(null) }
@@ -58,7 +58,7 @@ fun WebOfficialEditorHost(
                 mediaPreview = { media, _, modifier -> BrowserComposerMediaPreview(media.url, media.type == OfficialMediaType.Video, modifier) },
             ),
             onSubmit = { drafts -> repository.createPosts(drafts).map { it?.id } },
-            onPublished = { onPublished() },
+            onPublished = onPublished,
             onBack = onBack,
             newTranslationGroupId = ::webOfficialTranslationGroupId,
             modifier = modifier,

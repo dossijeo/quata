@@ -526,7 +526,7 @@ private fun QuataWebApp(
                             filePicker = platformServices.filePicker,
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
                             onBack = { navigation.navigate("official") },
-                            onPublished = { navigation.navigate("official") },
+                            onPublished = { createdId -> navigation.navigate(createdId?.let { "official-$it" } ?: "official") },
                         )
                     }
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {

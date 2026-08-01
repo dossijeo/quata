@@ -168,7 +168,7 @@ class IosOfficialEditorRootDependencies(
     /** Installed by the authenticated launcher with real PhotosUI/Files hosts and transport. */
     val mediaGateway: IosOfficialEditorMediaGateway,
     val onBack: () -> Unit = {},
-    val onPublished: () -> Unit = {},
+    val onPublished: (String?) -> Unit = {},
 )
 
 fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDependencies): UIViewController =
@@ -200,7 +200,7 @@ fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDep
                 onSubmit = { drafts ->
                     dependencies.mediaGateway.submit(dependencies.repository, drafts).map { it?.id }
                 },
-                onPublished = { dependencies.onPublished() },
+                onPublished = dependencies.onPublished,
                 onBack = dependencies.onBack,
                 newTranslationGroupId = { NSUUID().UUIDString() },
             )
