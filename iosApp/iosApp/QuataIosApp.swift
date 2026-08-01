@@ -622,8 +622,8 @@ private final class IosAppCompositionRoot {
     private func installCommunitiesIfAvailable() {
         guard let communitiesRuntimeBootstrap else { return }
         authenticatedHost.installCommunitiesFactory { [weak self] in
-            IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(
-                dependencies: IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
+            var hostDependencies: IosNeighborhoodsHostDependencies!
+            hostDependencies = IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
                     repository: communitiesRuntimeBootstrap.repository,
                     currentUserId: communitiesRuntimeBootstrap.restoredCurrentUserId(),
                     languageTag: Locale.preferredLanguages.first,
@@ -632,36 +632,39 @@ private final class IosAppCompositionRoot {
                     },
                     onNavigateToProfile: { [weak self] profileId in
                         guard let self else { return }
-                        guard self.authenticatedHost.hasActiveAuthenticatedSession(),
-                              let profileSosRuntimeBootstrap = self.profileSosRuntimeBootstrap else {
-                            self.authenticatedHost.requestAuthenticationForCommunities()
-                            return
-                        }
-                        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
+                        let controller = IosNeighborhoodsHostKt.QuataCommunityProfileViewController(
+                            dependencies: hostDependencies,
                             profileId: profileId,
-                            onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
-                        )
-                        let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
-                            dependencies: dependencies,
+                            onDismiss: { [weak self] in self?.authenticatedHost.dismiss(animated: true) }
                         )
                         controller.modalPresentationStyle = .fullScreen
                         self.authenticatedHost.present(controller, animated: true)
                     },
                     onAuthRequired: { [weak self] in self?.authenticatedHost.requestAuthenticationForCommunities() },
-                ),
-            )
+                )
+            return IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(dependencies: hostDependencies)
         }
     }
 
-    /// Feed and Communities share the existing authenticated member-profile presentation.
+    /// Feed and Communities share the public common community-profile presentation.
     fileprivate func presentAuthenticatedMemberProfile(profileId: String) {
-        guard let profileSosRuntimeBootstrap else { return }
-        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
-            profileId: profileId,
-            onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
+        guard let communitiesRuntimeBootstrap else { return }
+        let dependencies = IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
+            repository: communitiesRuntimeBootstrap.repository,
+            currentUserId: communitiesRuntimeBootstrap.restoredCurrentUserId(),
+            languageTag: Locale.preferredLanguages.first,
+            onOpenConversation: { [weak self] conversationId in
+                self?.authenticatedHost.dismiss(animated: true) {
+                    self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                }
+            },
+            onNavigateToProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
+            onAuthRequired: { [weak self] in self?.authenticatedHost.requestAuthenticationForCommunities() }
         )
-        let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
+        let controller = IosNeighborhoodsHostKt.QuataCommunityProfileViewController(
             dependencies: dependencies,
+            profileId: profileId,
+            onDismiss: { [weak self] in self?.authenticatedHost.dismiss(animated: true) }
         )
         controller.modalPresentationStyle = .fullScreen
         authenticatedHost.present(controller, animated: true)

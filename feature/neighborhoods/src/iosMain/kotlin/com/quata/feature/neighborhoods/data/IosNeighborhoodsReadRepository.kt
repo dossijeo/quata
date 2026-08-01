@@ -61,7 +61,7 @@ class IosNeighborhoodsReadRepository(
     private val authSession: IosRenewableAuthSession,
     private val chatRepository: ChatRepository,
 ) : NeighborhoodRepository {
-    private val profileCache = mutableMapOf<String, CommunityUserProfile>()
+    private val profileCache = mutableMapOf<String, Pair<CommunityUserProfile, Long>>()
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flow {
         emit(loadCommunities())
@@ -121,10 +121,11 @@ class IosNeighborhoodsReadRepository(
         isOfficial: Boolean,
     ): Result<NeighborhoodUser> = Result.failure(UnsupportedOperationException("ios_communities_roles_reserved_for_profile"))
 
-    override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? = profileCache[userId]
+    override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? =
+        profileCache[userId]?.takeIf { cached -> maxAgeMillis == null || kotlin.time.Clock.System.now().toEpochMilliseconds() - cached.second <= maxAgeMillis }?.first
 
     override suspend fun cacheUserProfile(profile: CommunityUserProfile) {
-        profileCache[profile.user.id] = profile
+        profileCache[profile.user.id] = profile to kotlin.time.Clock.System.now().toEpochMilliseconds()
     }
 
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow {
@@ -160,7 +161,7 @@ class IosNeighborhoodsReadRepository(
             followers = followers.mapNotNull { related[it.iosNeighborhoodString("follower_profile_id")] }.map { it.copy(isFollowing = it.id in currentFollowing) },
             following = following.mapNotNull { related[it.iosNeighborhoodString("followed_profile_id")] }.map { it.copy(isFollowing = it.id in currentFollowing) },
         )
-        profile.also { profileCache[userId] = it }
+        profile.also { profileCache[userId] = it to kotlin.time.Clock.System.now().toEpochMilliseconds() }
     }
 
     private suspend fun profileRelations(column: String, profileId: String): List<Map<*, *>> = rows(

@@ -16,6 +16,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.Modifier
@@ -141,7 +142,12 @@ fun QuataCommunityProfileViewController(
             onDispose { dependencies.viewModel.closeUserProfile() }
         }
         val profile = state.selectedProfile
-        if (profile != null) {
+        if (profile == null) {
+            Column {
+                Text(state.error ?: "Loading profile…")
+                if (state.error != null) Button(onClick = { dependencies.viewModel.openUserProfile(profileId) }) { Text("Retry") }
+            }
+        } else {
             val theme = com.quata.core.designsystem.theme.quataTheme()
             CommunityProfileRoot(
                 profileId = profile.user.id,

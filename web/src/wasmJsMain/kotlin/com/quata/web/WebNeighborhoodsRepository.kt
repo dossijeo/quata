@@ -50,7 +50,7 @@ class WebNeighborhoodsRepository(
     private val chatRepository: ChatRepository,
     private val pollIntervalMillis: Long = DefaultPollIntervalMillis,
 ) : NeighborhoodRepository {
-    private val profileCache = mutableMapOf<String, CommunityUserProfile>()
+    private val profileCache = mutableMapOf<String, Pair<CommunityUserProfile, Double>>()
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flow {
         while (currentCoroutineContext().isActive) {
@@ -106,10 +106,11 @@ class WebNeighborhoodsRepository(
     override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser> =
         Result.failure(UnsupportedOperationException("web_communities_roles_reserved_for_profile"))
 
-    override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? = profileCache[userId]
+    override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? =
+        profileCache[userId]?.takeIf { cached -> maxAgeMillis == null || browserNowMillis() - cached.second <= maxAgeMillis.toDouble() }?.first
 
     override suspend fun cacheUserProfile(profile: CommunityUserProfile) {
-        profileCache[profile.user.id] = profile
+        profileCache[profile.user.id] = profile to browserNowMillis()
     }
 
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow {
@@ -154,7 +155,7 @@ class WebNeighborhoodsRepository(
             attachments = posts.flatMap(Post::toProfileAttachments),
             followers = followerUsers,
             following = followingUsers,
-        ).also { profileCache[userId] = it }
+        ).also { profileCache[userId] = it to browserNowMillis() }
     }
 
     private suspend fun profileRelations(column: String, profileId: String): List<JsonObject> = client.rows(
@@ -291,3 +292,4 @@ private fun String.toWebCommunityEpochMillis(): Long? = browserDateParse(this)
     ?.toLong()
 
 private fun browserDateParse(value: String): Double? = js("Date.parse(value)")
+private fun browserNowMillis(): Double = js("Date.now()")

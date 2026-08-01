@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
@@ -70,7 +71,14 @@ private fun WebCommunityProfileRoute(
     val state by model.uiState.collectAsState()
     DisposableEffect(model) { onDispose(model::close) }
     LaunchedEffect(profileId) { model.openUserProfile(profileId) }
-    val profile = state.selectedProfile ?: return
+    val profile = state.selectedProfile
+    if (profile == null) {
+        Column {
+            Text(state.error ?: "Loading profile…")
+            if (state.error != null) Button(onClick = { model.openUserProfile(profileId) }) { Text("Retry") }
+        }
+        return
+    }
     val theme = quataTheme()
     CommunityProfileRoot(
         profileId = profile.user.id,
