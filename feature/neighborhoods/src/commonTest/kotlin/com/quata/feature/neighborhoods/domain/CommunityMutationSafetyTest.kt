@@ -6,7 +6,7 @@ import kotlin.test.assertTrue
 
 class CommunityMutationSafetyTest {
     @Test
-    fun `keeps every unverified Communities mutation fail closed while RLS-001 is open`() {
+    fun `keeps only deferred CommunityProfile moderation capabilities fail closed`() {
         CommunityMutationOperation.entries.forEach { operation ->
             assertFalse(CommunityMutationSafety.isEnabled(operation), "$operation must remain disabled")
             val result = CommunityMutationSafety.blocked<Unit>(operation)

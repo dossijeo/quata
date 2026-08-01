@@ -2,6 +2,9 @@
 
 package com.quata.web
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
@@ -888,9 +891,14 @@ private val webNeighborhoodsStrings = WebNeighborhoodsStrings(
 )
 
 private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
-    avatar = { user, _, onClick -> androidx.compose.material3.TextButton(onClick = onClick) {
-        androidx.compose.material3.Text(user.displayName.take(1).uppercase())
-    } },
+    avatar = { user, _, onClick -> BrowserRemoteAvatar(
+        name = user.displayName,
+        profileId = user.id,
+        avatarUrl = user.avatarUrl,
+        isOfficial = user.isOfficial,
+        isOnline = null,
+        modifier = androidx.compose.ui.Modifier.size(48.dp).clickable(onClick = onClick),
+    ) },
     /*
     profileMedia = { profile ->
         if (profile.posts.isEmpty()) androidx.compose.material3.Text("No hay publicaciones públicas.")

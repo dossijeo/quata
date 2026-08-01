@@ -287,6 +287,7 @@ private final class IosAppCompositionRoot {
         deepLinkDispatcher.attachHost(host: authenticatedRouteDispatcher)
         installSettings()
         installWhatsNewIfAvailable()
+        installCommunitiesIfAvailable()
         installPublicFeedIfConfigured()
         installPublicOfficialIfConfigured()
         if !installRestoredFeedSessionIfAvailable() {
@@ -442,7 +443,6 @@ private final class IosAppCompositionRoot {
         installAuthenticatedChatIfAvailable()
         installAuthenticatedNotificationsIfAvailable()
         installAuthenticatedProfileSosIfAvailable()
-        installAuthenticatedCommunitiesIfAvailable()
         installAuthenticatedComposerIfAvailable()
         presentPendingExternalShareIfAvailable()
         return true
@@ -619,18 +619,24 @@ private final class IosAppCompositionRoot {
         }
     }
 
-    private func installAuthenticatedCommunitiesIfAvailable() {
-        guard let communitiesRuntimeBootstrap, let profileSosRuntimeBootstrap else { return }
+    private func installCommunitiesIfAvailable() {
+        guard let communitiesRuntimeBootstrap else { return }
         authenticatedHost.installCommunitiesFactory { [weak self] in
             IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(
                 dependencies: IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
                     repository: communitiesRuntimeBootstrap.repository,
                     currentUserId: communitiesRuntimeBootstrap.restoredCurrentUserId(),
+                    languageTag: Locale.preferredLanguages.first,
                     onOpenConversation: { [weak self] conversationId in
                         self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
                     },
                     onNavigateToProfile: { [weak self] profileId in
                         guard let self else { return }
+                        guard self.authenticatedHost.hasActiveAuthenticatedSession(),
+                              let profileSosRuntimeBootstrap = self.profileSosRuntimeBootstrap else {
+                            self.authenticatedHost.requestAuthenticationForCommunities()
+                            return
+                        }
                         let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
                             profileId: profileId,
                             onClose: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
@@ -641,7 +647,7 @@ private final class IosAppCompositionRoot {
                         controller.modalPresentationStyle = .fullScreen
                         self.authenticatedHost.present(controller, animated: true)
                     },
-                    onAuthRequired: { [weak self] in self?.authenticatedHost.dismiss(animated: true) },
+                    onAuthRequired: { [weak self] in self?.authenticatedHost.requestAuthenticationForCommunities() },
                 ),
             )
         }
@@ -928,9 +934,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
         var isAuthenticationRequired: Bool {
             switch self {
-            case .feed, .official, .whatsNew, .releaseHistory:
+            case .feed, .official, .communities, .whatsNew, .releaseHistory:
                 return false
-            case .chat, .officialEditor, .notifications, .profileSos, .communities, .composer, .settings:
+            case .chat, .officialEditor, .notifications, .profileSos, .composer, .settings:
                 return true
             }
         }
@@ -1050,6 +1056,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             accessibilityLabel: "Quata iOS authentication",
         )
     }
+
+    func requestAuthenticationForCommunities() {
+        pendingRoute = .communities
+        presentLoginIfAvailable()
+    }
+
+    func hasActiveAuthenticatedSession() -> Bool { hasAuthenticatedSession }
 
     /// XCTest-only controller factories for deterministic launcher and URL routing checks.
     /// Production callers only install factories backed by the real authenticated KMP runtime.

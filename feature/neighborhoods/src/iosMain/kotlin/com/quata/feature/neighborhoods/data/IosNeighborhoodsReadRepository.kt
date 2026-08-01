@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.quata.feature.neighborhoods.data
 
 import com.quata.core.session.IosRenewableAuthSession
@@ -8,6 +10,8 @@ import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
+import com.quata.feature.neighborhoods.domain.NeighborhoodWallSnapshot
+import com.quata.feature.neighborhoods.domain.mergeNeighborhoodDirectory
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
@@ -66,7 +70,8 @@ class IosNeighborhoodsReadRepository(
         val session = authenticatedSession()
         chatRepository.cachedCommunityConversationId(cleanNeighborhood)
             ?: chatRepository.openCommunityConversation(
-                communityId = cleanNeighborhood.normalizedCommunityKey(),
+                communityId = loadWalls().firstOrNull { it.name.normalizedCommunityKey() == cleanNeighborhood.normalizedCommunityKey() || it.normalizedName?.normalizedCommunityKey() == cleanNeighborhood.normalizedCommunityKey() }?.id
+                    ?: cleanNeighborhood.normalizedCommunityKey(),
                 title = cleanNeighborhood,
                 participantIds = listOf(session.userId),
             ).getOrThrow()
@@ -132,25 +137,16 @@ class IosNeighborhoodsReadRepository(
     }
 
     private suspend fun loadCommunities(): List<NeighborhoodCommunity> {
-        val grouped = loadProfiles()
-            .filter { it.neighborhood.isNotBlank() }
-            .groupBy { it.neighborhood.normalizedCommunityKey() }
-        return buildList {
-            grouped.forEach { (_, users) ->
-                val name = users.firstOrNull()?.neighborhood?.takeIf(String::isNotBlank) ?: return@forEach
-                add(
-                    NeighborhoodCommunity(
-                        name = name,
-                        users = users.distinctBy(NeighborhoodUser::id).sortedBy { it.displayName.lowercase() },
-                        conversationId = chatRepository.cachedCommunityConversationId(name),
-                        lastMessagePreview = null,
-                        lastMessageAtMillis = null,
-                        messageCount = 0,
-                    ),
-                )
-            }
-        }.sortedBy { it.name.lowercase() }
+        val profiles = loadProfiles()
+        val walls = loadWalls()
+        return mergeNeighborhoodDirectory(profiles, walls.map { NeighborhoodWallSnapshot(it.id, it.name, it.normalizedName, it.chatCount, it.chatLastAtMillis) })
+            .map { community -> community.copy(conversationId = chatRepository.cachedCommunityConversationId(community.name) ?: community.conversationId) }
     }
+
+    private suspend fun loadWalls(): List<IosCommunityWall> = rows(
+        table = "community_walls_stats",
+        query = mapOf("select" to WallStatsSelect, "is_active" to "eq.true", "order" to "sort_order.asc,chat_last_at.desc,created_at.desc", "limit" to DirectoryLimit.toString()),
+    ).map(Map<*, *>::toIosCommunityWall)
 
     private suspend fun loadProfiles(ids: List<String>? = null, requireSession: Boolean = false): List<NeighborhoodUser> = rows(
         query = buildMap {
@@ -207,8 +203,19 @@ class IosNeighborhoodsReadRepository(
     private companion object {
         const val DirectoryLimit = 500
         const val ProfileSelect = "id,display_name,phone,country_code,phone_local,barrio,neighborhood,telefono,nombre,avatar_url,avatar,followers_count,following_count,is_admin,is_official"
+        const val WallStatsSelect = "id,slug,name,normalized_name,chat_count,chat_last_at"
     }
 }
+
+private data class IosCommunityWall(val id: String?, val name: String, val normalizedName: String?, val chatCount: Int, val chatLastAtMillis: Long?)
+
+private fun Map<*, *>.toIosCommunityWall(): IosCommunityWall = IosCommunityWall(
+    id = iosNeighborhoodString("id") ?: iosNeighborhoodString("slug"),
+    name = iosNeighborhoodString("name") ?: iosNeighborhoodString("slug") ?: error("ios_communities_wall_name_missing"),
+    normalizedName = iosNeighborhoodString("normalized_name"),
+    chatCount = iosNeighborhoodInt("chat_count"),
+    chatLastAtMillis = iosNeighborhoodString("chat_last_at")?.let { runCatching { kotlin.time.Instant.parse(it).toEpochMilliseconds() }.getOrNull() },
+)
 
 /** Small iOS composition factory; UIKit owns navigation and system-only affordances. */
 class IosNeighborhoodsRuntimeBootstrap(

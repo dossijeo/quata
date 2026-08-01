@@ -8,6 +8,8 @@ import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
+import com.quata.feature.neighborhoods.domain.NeighborhoodWallSnapshot
+import com.quata.feature.neighborhoods.domain.mergeNeighborhoodDirectory
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -33,11 +35,9 @@ internal fun webNeighborhoodsReadAuthMode(operation: WebNeighborhoodsReadOperati
 /**
  * Browser read adapter for the Communities directory.
  *
- * Public directory reads use the configured publishable key with [WebPostgrestAuthMode.Public] and
- * omit Authorization. Profile/admin reads stay [WebPostgrestAuthMode.SessionRequired]; community
- * chat, follow and moderation writes are not exposed by the browser transport and fail closed
- * instead of inventing a local-only community state. SB-07 keeps every Communities-owned mutation
- * fail-closed through [CommunityMutationSafety] while RLS-001 is open.
+ * Public directory reads use the configured publishable key and omit Authorization. Directory
+ * chat/follow actions use authenticated production repositories and tables. Report, roles and
+ * profile timeline work remain reserved for the separate CommunityProfile surface.
  */
 class WebNeighborhoodsRepository(
     private val client: WebPostgrestClient,
@@ -58,14 +58,19 @@ class WebNeighborhoodsRepository(
         val name = neighborhood.trim().takeIf(String::isNotBlank) ?: error("web_community_neighborhood_missing")
         val userId = authenticatedUserId()
         chatRepository.cachedCommunityConversationId(name)
-            ?: chatRepository.openCommunityConversation(name.normalizedCommunityKey(), name, listOf(userId)).getOrThrow()
+            ?: chatRepository.openCommunityConversation(
+                loadCommunities().firstOrNull { it.name.normalizedCommunityKey() == name.normalizedCommunityKey() }
+                    ?.conversationId?.removePrefix("wall:") ?: name.normalizedCommunityKey(),
+                name,
+                listOf(userId),
+            ).getOrThrow()
     }
 
     override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = runCatching {
         require(userId.matches(PostgrestIdentifier)) { "web_community_invalid_profile_id" }
         val currentUserId = authenticatedUserId()
         require(userId != currentUserId) { "web_community_cannot_follow_self" }
-        val existing = client.rows("community_profile_follows", mapOf("select" to "id", "follower_profile_id" to "eq.$currentUserId", "followed_profile_id" to "eq.$userId"), 1, WebPostgrestAuthMode.SessionRequired).firstOrNull()
+        val existing = client.rows("community_profile_follows", webNeighborhoodFollowLookup(currentUserId, userId), 1, WebPostgrestAuthMode.SessionRequired).firstOrNull()
         val following = if (existing == null) {
             client.requireSuccess("community_profile_follows", client.post("community_profile_follows", buildJsonObject { put("follower_profile_id", currentUserId); put("followed_profile_id", userId) }.toString()))
             true
@@ -131,31 +136,7 @@ class WebNeighborhoodsRepository(
             limit = DirectoryLimit,
             authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.Directory),
         ).map(JsonObject::toWallStats)
-        val wallsByKey = walls.mapNotNull { wall ->
-            (wall.normalizedName ?: wall.name?.normalizedCommunityKey())
-                ?.takeIf(String::isNotBlank)
-                ?.let { it to wall }
-        }.toMap()
-        val profilesByNeighborhood = profiles
-            .filter { it.neighborhood.isNotBlank() }
-            .groupBy { it.neighborhood.normalizedCommunityKey() }
-        return (profilesByNeighborhood.keys + wallsByKey.keys)
-            .filter(String::isNotBlank)
-            .map { key ->
-                val wall = wallsByKey[key]
-                val users = profilesByNeighborhood[key].orEmpty().sortedBy { it.displayName.lowercase() }
-                NeighborhoodCommunity(
-                    name = wall?.name?.takeIf(String::isNotBlank)
-                        ?: users.firstOrNull()?.neighborhood
-                        ?: key,
-                    users = users,
-                    conversationId = null,
-                    lastMessagePreview = null,
-                    lastMessageAtMillis = wall?.chatLastAtMillis,
-                    messageCount = wall?.chatCount ?: 0,
-                )
-            }
-            .sortedWith(compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }.thenBy { it.name.lowercase() })
+        return mergeNeighborhoodDirectory(profiles, walls.map { NeighborhoodWallSnapshot(it.id, it.name.orEmpty(), it.normalizedName, it.chatCount ?: 0, it.chatLastAtMillis) })
     }
 
     private suspend fun loadProfiles(
@@ -202,6 +183,7 @@ class WebNeighborhoodsRepository(
 }
 
 private data class WebCommunityWallStats(
+    val id: String?,
     val name: String?,
     val normalizedName: String?,
     val chatCount: Int?,
@@ -227,6 +209,7 @@ private fun JsonObject.toNeighborhoodUser(): NeighborhoodUser {
 }
 
 private fun JsonObject.toWallStats(): WebCommunityWallStats = WebCommunityWallStats(
+    id = webCommunityString("id") ?: webCommunityString("slug"),
     name = webCommunityString("name"),
     normalizedName = webCommunityString("normalized_name")?.normalizedCommunityKey(),
     chatCount = webCommunityInt("chat_count"),
@@ -238,6 +221,12 @@ private fun JsonObject.webCommunityString(name: String): String? = this[name]?.j
 private fun JsonObject.webCommunityInt(name: String): Int? = this[name]?.jsonPrimitive?.intOrNull
 
 private fun String.normalizedCommunityKey(): String = trim().lowercase().replace(Regex("\\s+"), " ")
+
+internal fun webNeighborhoodFollowLookup(currentUserId: String, followedUserId: String): Map<String, String> = mapOf(
+    "select" to "id",
+    "follower_profile_id" to "eq.$currentUserId",
+    "followed_profile_id" to "eq.$followedUserId",
+)
 
 private fun List<String>.toPostgrestInFilter(): String = "in.(${joinToString(",")})"
 

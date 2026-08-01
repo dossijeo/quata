@@ -1,4 +1,9 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.quata.feature.neighborhoods.presentation
+
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 /** Portable directory copy. Unknown locales deliberately fall back to English, never a key name. */
 fun defaultNeighborhoodsScreenStrings(languageTag: String?): NeighborhoodsScreenStrings {
@@ -27,6 +32,26 @@ private fun neighborhoodStrings(
     oneMessage: String, messages: String, viewUsers: String, openChat: String, activity: String,
     membersOf: String, subtitle: String, back: String, follow: String, following: String, chat: String,
 ) = NeighborhoodsScreenStrings(
-    list = NeighborhoodListStrings(title, search, loading, oneUser, { "$it $users" }, oneMessage, { "$it $messages" }, viewUsers, openChat, { activity }),
+    list = NeighborhoodListStrings(title, search, loading, oneUser, { "$it $users" }, oneMessage, { "$it $messages" }, viewUsers, openChat, { timestamp -> neighborhoodTimeLabel(timestamp, kotlin.time.Clock.System.now().toEpochMilliseconds(), title) ?: activity }),
     members = NeighborhoodUsersStrings({ "$membersOf $it" }, subtitle, back, { if (it == 1) oneUser else "$it $users" }, NeighborhoodUserRowStrings(follow, following, chat)),
 )
+
+internal fun neighborhoodTimeLabel(timestamp: Long?, nowMillis: Long, localizedTitle: String): String? {
+    timestamp ?: return null
+    val language = when (localizedTitle) { "Comunidades" -> "es"; "Communautés" -> "fr"; else -> "en" }
+    val zone = TimeZone.currentSystemDefault()
+    val messageDateTime = kotlin.time.Instant.fromEpochMilliseconds(timestamp).toLocalDateTime(zone)
+    val today = kotlin.time.Instant.fromEpochMilliseconds(nowMillis).toLocalDateTime(zone).date
+    val days = (today.toEpochDays() - messageDateTime.date.toEpochDays()).toLong().coerceAtLeast(0L)
+    if (days == 0L) {
+        return messageDateTime.hour.toString().padStart(2, '0') + ":" + messageDateTime.minute.toString().padStart(2, '0')
+    }
+    fun unit(value: Long, es: String, en: String, fr: String) = when (language) { "es" -> "Hace $value $es"; "fr" -> "Il y a $value $fr"; else -> "$value $en ago" }
+    return when {
+        days == 1L -> when (language) { "es" -> "Ayer"; "fr" -> "Hier"; else -> "Yesterday" }
+        days < 7 -> unit(days, "días", "days", "jours")
+        days < 30 -> unit((days / 7).coerceAtLeast(1), if (days / 7 == 1L) "semana" else "semanas", if (days / 7 == 1L) "week" else "weeks", if (days / 7 == 1L) "semaine" else "semaines")
+        days < 365 -> unit((days / 30).coerceAtLeast(1), if (days / 30 == 1L) "mes" else "meses", if (days / 30 == 1L) "month" else "months", if (days / 30 == 1L) "mois" else "mois")
+        else -> unit((days / 365).coerceAtLeast(1), if (days / 365 == 1L) "año" else "años", if (days / 365 == 1L) "year" else "years", if (days / 365 == 1L) "an" else "ans")
+    }
+}

@@ -86,6 +86,7 @@ class IosNeighborhoodsHostDependencies(
 fun createIosNeighborhoodsHostDependencies(
     repository: NeighborhoodRepository,
     currentUserId: String?,
+    languageTag: String?,
     onOpenConversation: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
     onAuthRequired: () -> Unit,
@@ -93,8 +94,8 @@ fun createIosNeighborhoodsHostDependencies(
     repository = repository,
     viewModel = NeighborhoodsViewModel(repository),
     currentUserId = currentUserId,
-    listStrings = defaultNeighborhoodsScreenStrings(null).list,
-    usersStrings = defaultNeighborhoodsScreenStrings(null).members,
+    listStrings = defaultNeighborhoodsScreenStrings(languageTag).list,
+    usersStrings = defaultNeighborhoodsScreenStrings(languageTag).members,
     avatar = { user, _, onClick -> IosNeighborhoodAvatar(user, onClick) },
     onOpenConversation = onOpenConversation,
     profileNavigator = IosCommunityProfileNavigator(onNavigateToProfile),
@@ -123,7 +124,7 @@ fun QuataNeighborhoodsViewController(
 /** Real remote avatar slot with the common frame retaining its deterministic fallback. */
 @Composable
 private fun IosNeighborhoodAvatar(user: NeighborhoodUser, onClick: () -> Unit) {
-    val url = user.avatarUrl?.trim()?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+    val url = iosNeighborhoodAvatarRequestKey(user.avatarUrl)
     var image by remember(url) { mutableStateOf<UIImage?>(null) }
     LaunchedEffect(url) { image = if (url == null) null else loadIosNeighborhoodAvatarOrNull(url) }
     QuataAvatarFrameContent(
@@ -163,6 +164,10 @@ private class IosNeighborhoodAvatarDelegate(private val continuation: Cancellabl
 
 @OptIn(ExperimentalForeignApi::class)
 private fun NSData.toNeighborhoodAvatarBytes(): ByteArray = if (length == 0uL) ByteArray(0) else bytes?.readBytes(length.toInt()) ?: ByteArray(0)
+
+internal fun isIosNeighborhoodAvatarUrl(value: String): Boolean = value.startsWith("https://") || value.startsWith("http://")
+
+internal fun iosNeighborhoodAvatarRequestKey(value: String?): String? = value?.trim()?.takeIf(::isIosNeighborhoodAvatarUrl)
 
 /**
  * Shared profile arrangement available to the iOS launcher once it presents a selected profile.
@@ -229,28 +234,3 @@ fun IosNeighborhoodRankingPanelContent(
         onOpenItem = onOpenPost,
     )
 }
-
-private val IosNeighborhoodListStrings = NeighborhoodListStrings(
-    title = "Communities",
-    searchPlaceholder = "Search communities",
-    loading = "Loading communities…",
-    oneUser = "1 member",
-    users = { "$it members" },
-    oneMessage = "1 message",
-    messages = { "$it messages" },
-    viewUsers = "View members",
-    openChat = "Open chat",
-    timeLabel = { "No recent activity" },
-)
-
-private val IosNeighborhoodUsersStrings = NeighborhoodUsersStrings(
-    title = { "$it members" },
-    subtitle = "Community members",
-    backContentDescription = "Back",
-    memberCount = { "$it members" },
-    row = NeighborhoodUserRowStrings(
-        follow = "Follow",
-        following = "Following",
-        chat = "Chat",
-    ),
-)

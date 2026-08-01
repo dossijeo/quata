@@ -862,15 +862,14 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Profile SOS")
     }
 
-    func testAuthenticatedRouterPresentsQueuedCommunitiesOnlyAfterItsRealFactoryIsInstalled() {
+    func testAnonymousRouterPresentsPublicCommunitiesAfterItsRealFactoryIsInstalled() {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
         router.installFeedFactory { _ in UIViewController() }
         let initialChildren = router.children
 
-        // Communities has no public URL contract. It remains an authenticated, deferred route
-        // until the launcher has real session/configuration-backed dependencies.
+        // Communities is public, but still waits for its configuration-backed factory.
         router.showCommunities()
         XCTAssertEqual(router.children.count, initialChildren.count)
 
@@ -1149,6 +1148,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
                 dependencies: IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
                     repository: communitiesBootstrap.repository,
                     currentUserId: communitiesBootstrap.restoredCurrentUserId(),
+                    languageTag: "es-ES",
                     onOpenConversation: { _ in },
                     onNavigateToProfile: { _ in },
                     onAuthRequired: { },
