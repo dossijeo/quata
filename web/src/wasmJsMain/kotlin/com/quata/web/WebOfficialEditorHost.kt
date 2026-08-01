@@ -18,6 +18,8 @@ import com.quata.feature.official.presentation.OfficialEditorPlatformSlots
 import com.quata.feature.official.presentation.OfficialPostEditorScreenHost
 import com.quata.feature.official.presentation.OfficialPostEditorStrings
 import com.quata.feature.official.presentation.OfficialEditorMedia
+import com.quata.feature.official.presentation.OfficialLanguageDetector
+import com.quata.feature.official.presentation.detectOfficialLanguage
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerRequest
@@ -63,6 +65,7 @@ fun WebOfficialEditorHost(
             onBack = onBack,
             newTranslationGroupId = ::webOfficialTranslationGroupId,
             translator = translator,
+            languageDetector = OfficialLanguageDetector { Result.success(detectOfficialLanguage(it)) },
             modifier = modifier,
         )
     }

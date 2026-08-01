@@ -48,6 +48,24 @@ fun interface OfficialDraftTranslator {
     suspend fun translate(draft: OfficialPostDraft, target: OfficialPostLanguage): Result<OfficialPostDraft>
 }
 
+fun interface OfficialLanguageDetector {
+    suspend fun detect(text: String): Result<OfficialPostLanguage>
+}
+
+/** Deterministic offline classifier shared by Web/iOS; Android injects its ML identifier. */
+fun detectOfficialLanguage(text: String): OfficialPostLanguage {
+    val words = text.stripHtmlForOfficialEditor().lowercase().split(Regex("[^\\p{L}]+"))
+    fun score(markers: Set<String>) = words.count(markers::contains)
+    val spanish = score(setOf("el","la","los","las","de","del","que","para","con","una","por","más","este","esta")) + words.count { it.any { c -> c in "áéíóúñ¿¡" } } * 2
+    val french = score(setOf("le","la","les","des","du","que","pour","avec","une","par","plus","ce","cette")) + words.count { it.any { c -> c in "àâçéèêëîïôùûüœ" } } * 2
+    val english = score(setOf("the","and","of","to","for","with","this","that","from","is","are","will","more"))
+    return when (maxOf(spanish, french, english)) {
+        french -> if (french > spanish && french > english) OfficialPostLanguage.French else OfficialPostLanguage.Spanish
+        english -> if (english > spanish && english > french) OfficialPostLanguage.English else OfficialPostLanguage.Spanish
+        else -> OfficialPostLanguage.Spanish
+    }
+}
+
 /** Kept pure so all targets can enforce the same publication gate. */
 internal fun isOfficialEditorDraftValid(advanced: Boolean, title: String, summary: String, html: String, hasMedia: Boolean): Boolean =
     if (advanced) title.isNotBlank() && (summary.isNotBlank() || html.stripHtmlForOfficialEditor().isNotBlank() || hasMedia)
@@ -102,6 +120,7 @@ fun OfficialPostEditorScreenHost(
     onBack: () -> Unit,
     newTranslationGroupId: () -> String,
     translator: OfficialDraftTranslator? = null,
+    languageDetector: OfficialLanguageDetector,
     modifier: Modifier = Modifier,
 ) {
     var advanced by rememberSaveable { mutableStateOf(false) }
@@ -118,9 +137,10 @@ fun OfficialPostEditorScreenHost(
     var translating by remember { mutableStateOf(false) }
     var publishing by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf<String?>(null) }
+    var sourceLanguage by remember { mutableStateOf(language) }
     val scope = rememberCoroutineScope()
 
-    fun draft(target: OfficialPostLanguage = language, groupId: String? = null): OfficialPostDraft {
+    fun draft(target: OfficialPostLanguage = sourceLanguage, groupId: String? = null): OfficialPostDraft {
         val blocks = html.extractOfficialEditorBlocks()
         val effectiveTitle = if (advanced) title.trim() else blocks.firstOrNull().orEmpty().take(120)
         val effectiveSummary = if (advanced) summary.trim() else blocks.drop(1).joinToString(" ").take(280)
@@ -184,7 +204,11 @@ fun OfficialPostEditorScreenHost(
             publishAction = {
                 OfficialPublishButtonContent(enabled = valid() && !publishing, isPublishing = publishing, publishLabel = strings.publish, publishingLabel = strings.publishing, onClick = {
                     if (!valid()) feedback = strings.validation
-                    else if (translator != null) translationPrompt = true
+                    else if (translator != null) scope.launch {
+                        languageDetector.detect(listOf(title, summary, html).joinToString("\n")).onSuccess {
+                            sourceLanguage = it; translationPrompt = true
+                        }.onFailure { feedback = it.message ?: "Language detection failed" }
+                    }
                     else publish(listOf(draft()))
                 })
             },
@@ -210,7 +234,7 @@ fun OfficialPostEditorScreenHost(
                 translating = true
                 val group = newTranslationGroupId()
                 val source = draft(groupId = group)
-                val translations = OfficialPostLanguage.entries.filter { it != language }.map { target -> service.translate(source, target).getOrElse { feedback = it.message ?: "Translation failed"; translating = false; return@launch } }
+                val translations = OfficialPostLanguage.entries.filter { it != sourceLanguage }.map { target -> service.translate(source, target).getOrElse { feedback = it.message ?: "Translation failed"; translating = false; return@launch } }
                 translating = false; translationPrompt = false; publish(listOf(source) + translations.map { it.copy(translationGroupId = group) })
             }
         },

@@ -205,6 +205,7 @@ fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDep
                 onBack = dependencies.onBack,
                 newTranslationGroupId = { NSUUID().UUIDString() },
                 translator = dependencies.translator,
+                languageDetector = OfficialLanguageDetector { Result.success(detectOfficialLanguage(it)) },
             )
         }
     }
