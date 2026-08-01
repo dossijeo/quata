@@ -49,7 +49,7 @@ class WebFeatureCapabilitiesTest {
         val registry = webFeatureCapabilityRegistry(configured, hasAuthenticatedSession = true)
 
         assertEquals(
-            CapabilityStateOrigin.Real,
+            CapabilityStateOrigin.Local,
             registry.projection(QuataFeature.Composer, FeatureCapabilityAction.View).origin,
         )
         assertFalse(registry.capability(QuataFeature.Composer).backendReal)
@@ -73,7 +73,7 @@ class WebFeatureCapabilitiesTest {
             authenticated.projection(QuataFeature.Profile, FeatureCapabilityAction.View).origin,
         )
         assertEquals(
-            CapabilityStateOrigin.Local,
+            CapabilityStateOrigin.Real,
             authenticated.projection(QuataFeature.Profile, FeatureCapabilityAction.Mutate).origin,
         )
         assertFalse(authenticated.capability(QuataFeature.Profile).e2e)
@@ -85,7 +85,7 @@ class WebFeatureCapabilitiesTest {
         val registry = webFeatureCapabilityRegistry(unconfigured)
 
         assertFalse(registry.projection(QuataFeature.Auth, FeatureCapabilityAction.View).enabled)
-        assertTrue(registry.projection(QuataFeature.Profile, FeatureCapabilityAction.View).enabled)
+        assertFalse(registry.projection(QuataFeature.Profile, FeatureCapabilityAction.View).enabled)
         assertFalse(registry.capability(QuataFeature.Auth).backendReal)
         assertEquals(
             listOf(

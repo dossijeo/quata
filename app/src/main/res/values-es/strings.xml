@@ -278,7 +278,6 @@
     <string name="theme_mode_system">Sistema</string>
     <string name="theme_mode_dark">Modo Oscuro</string>
     <string name="theme_mode_light">Modo Claro</string>
-    <string name="profile_photo">Foto de perfil</string>
     <string name="profile_change_photo">Cambiar foto de perfil</string>
     <string name="profile_my_data">Mis datos</string>
     <string name="profile_pick_gallery">Elegir de galería</string>
@@ -286,8 +285,6 @@
     <string name="profile_photo_hint">Sube una foto cuadrada o vertical para verte mejor.</string>
     <string name="profile_neighborhood">Barrio</string>
     <string name="profile_phone">Teléfono</string>
-    <string name="profile_search_prefix">Buscar prefijo</string>
-    <string name="profile_new_password">Nueva contraseña (opcional)</string>
     <string name="profile_new_secret_answer">Nueva respuesta secreta (opcional)</string>
     <string name="secret_question_keep_current">Mantener pregunta secreta actual</string>
     <string name="secret_question_select">Selecciona una pregunta secreta</string>

@@ -376,7 +376,7 @@ private fun Map<String, String?>.toIosProfileJson(): String = entries.joinToStri
 
 private fun String.toIosProfileJsonString(): String = buildString {
     append('"')
-    forEach { c -> when (c) { '\\' -> append("\\\\"); '"' -> append("\\\""); '\n' -> append("\\n"); '\r' -> append("\\r"); '\t' -> append("\\t"); else -> if (c.code < 0x20) append("\\u${c.code.toString(16).padStart(4, '0')}") else append(c) } }
+    this@toIosProfileJsonString.forEach { c -> when (c) { '\\' -> append("\\\\"); '"' -> append("\\\""); '\n' -> append("\\n"); '\r' -> append("\\r"); '\t' -> append("\\t"); else -> if (c.code < 0x20) append("\\u${c.code.toString(16).padStart(4, '0')}") else append(c) } }
     append('"')
 }
 
