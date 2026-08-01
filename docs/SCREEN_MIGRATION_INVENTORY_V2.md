@@ -1,5 +1,9 @@
 # Inventario de pantallas — migración Compose Multiplatform v2
 
+> Fuente de verdad del método de trabajo: [`MULTIPLATFORM_MIGRATION_OPERATING_MODEL.md`](./MULTIPLATFORM_MIGRATION_OPERATING_MODEL.md).
+> Este inventario describe el estado del producto; si una regla operativa entra en conflicto con él,
+> prevalece el modelo operativo.
+
 Base auditada: `main` en `22e32ba341dce8d7b024b0f17b10de1d4f707493` (31 de julio de 2026).
 
 Android sigue siendo la referencia de producto. En este inventario **COMÚN** significa que Android,
