@@ -34,7 +34,7 @@ class NotificationFactory(private val context: Context) {
     ) {
         if (!hasNotificationPermission()) return
         val notificationId = chatNotificationId(conversationId)
-        val localizedBody = resolveLocalizedSosPreview(body, sosPreviewCatalog())
+        val localizedBody = resolveLocalizedSosPreview(body, context.sosPreviewCatalog())
             ?: localizedPushBody(bodyKey.ifBlank { body.notificationBodyKeyOrNull().orEmpty() })
             ?: body
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -73,7 +73,7 @@ class NotificationFactory(private val context: Context) {
         val contentTitle = conversation.notificationTitle().ifBlank {
             context.getString(R.string.common_chat)
         }.boldNotificationTitle()
-        val contentText = (resolveLocalizedSosPreview(conversation.lastMessagePreview, sosPreviewCatalog()) ?: conversation.lastMessagePreview)
+        val contentText = (resolveLocalizedSosPreview(conversation.lastMessagePreview, context.sosPreviewCatalog()) ?: conversation.lastMessagePreview)
             .takeIf { it.isNotBlank() }
             ?: context.getString(R.string.notification_new_message)
         val intent = Intent(context, MainActivity::class.java).apply {

@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import com.quata.R
 import com.quata.core.text.SosPreviewCatalog
@@ -24,6 +25,7 @@ fun NotificationsScreen(
     onOpenConversation: (String) -> Unit,
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
     var timestampNowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val strings = NotificationsStrings(
         title = stringResource(R.string.notifications_title),
@@ -36,7 +38,7 @@ fun NotificationsScreen(
         retryLabel = stringResource(R.string.notifications_retry),
         relativeTime = { createdAt, now -> relativeTimeLabel(context, createdAt, now) },
         localizedBody = { it },
-        sosPreviewCatalog = SosPreviewCatalog.forLanguage(context.resources.configuration.locales[0]?.language),
+        sosPreviewCatalog = SosPreviewCatalog.forLanguage(configuration.locales[0]?.language),
         photoPreview = stringResource(R.string.conversation_preview_photo),
         videoPreview = stringResource(R.string.conversation_preview_video),
         documentPreview = stringResource(R.string.conversation_preview_document),
