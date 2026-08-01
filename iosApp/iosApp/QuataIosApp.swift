@@ -516,6 +516,10 @@ private final class IosAppCompositionRoot {
                     repository: repository,
                     languageTag: Locale.preferredLanguages.first,
                     mediaGateway: mediaGateway,
+                    translator: IosOfficialTranslationService(
+                        configuration: mediaConfiguration,
+                        authSession: mediaAuthSession
+                    ),
                     onBack: { self?.authenticatedHost.showOfficial(postId: nil) },
                     onPublished: { createdId in self?.authenticatedHost.showOfficial(postId: createdId) }
                 )

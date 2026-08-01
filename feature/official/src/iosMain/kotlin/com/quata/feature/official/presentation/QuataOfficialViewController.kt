@@ -167,6 +167,7 @@ class IosOfficialEditorRootDependencies(
     val languageTag: String? = null,
     /** Installed by the authenticated launcher with real PhotosUI/Files hosts and transport. */
     val mediaGateway: IosOfficialEditorMediaGateway,
+    val translator: OfficialDraftTranslator,
     val onBack: () -> Unit = {},
     val onPublished: (String?) -> Unit = {},
 )
@@ -203,6 +204,7 @@ fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDep
                 onPublished = dependencies.onPublished,
                 onBack = dependencies.onBack,
                 newTranslationGroupId = { NSUUID().UUIDString() },
+                translator = dependencies.translator,
             )
         }
     }
