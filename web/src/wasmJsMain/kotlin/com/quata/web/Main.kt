@@ -523,6 +523,7 @@ private fun QuataWebApp(
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Official) {
                         WebOfficialEditorHost(
                             repository = officialRepository,
+                            translator = remember(runtimeConfiguration, authRepository) { WebOfficialTranslationService(runtimeConfiguration, authRepository) },
                             filePicker = platformServices.filePicker,
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
                             onBack = { navigation.navigate("official") },

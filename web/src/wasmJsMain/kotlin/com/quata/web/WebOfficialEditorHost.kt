@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun WebOfficialEditorHost(
     repository: WebOfficialRepository,
+    translator: WebOfficialTranslationService,
     filePicker: FilePickerService,
     onAuthRequired: () -> Unit,
     onBack: () -> Unit,
@@ -61,6 +62,7 @@ fun WebOfficialEditorHost(
             onPublished = onPublished,
             onBack = onBack,
             newTranslationGroupId = ::webOfficialTranslationGroupId,
+            translator = translator,
             modifier = modifier,
         )
     }
