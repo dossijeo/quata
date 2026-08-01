@@ -15,19 +15,19 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun OfficialEditorMediaSectionContent(
     title: String,
-    imagePicker: @Composable (Modifier) -> Unit,
-    videoPicker: @Composable (Modifier) -> Unit,
+    imagePicker: (@Composable (Modifier) -> Unit)? = null,
+    videoPicker: (@Composable (Modifier) -> Unit)? = null,
     modifier: Modifier = Modifier,
     preview: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     OfficialEditorSectionCardContent(modifier = modifier) {
         OfficialEditorSectionTitleContent(title)
-        Row(
+        if (imagePicker != null || videoPicker != null) Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            imagePicker(Modifier.weight(1f))
-            videoPicker(Modifier.weight(1f))
+            imagePicker?.invoke(Modifier.weight(1f))
+            videoPicker?.invoke(Modifier.weight(1f))
         }
         preview?.invoke(this)
     }
