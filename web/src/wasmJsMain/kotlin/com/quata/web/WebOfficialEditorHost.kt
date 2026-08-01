@@ -53,8 +53,8 @@ fun WebOfficialEditorHost(
                 // This target currently has no portable WYSIWYG bridge; the real HTML field is
                 // intentionally labelled as such instead of faking formatting controls.
                 richTextEditor = { html, onChanged -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
-                imagePicker = { picked, modifier -> Button(modifier = modifier, onClick = { scope.launch { filePicker.pick(FilePickerRequest(listOf("image/*"), FilePickerSource.Gallery)).firstReferenceOrNull()?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Image)) } } }) { Text("Image") } },
-                videoPicker = { picked, modifier -> Button(modifier = modifier, onClick = { scope.launch { filePicker.pick(FilePickerRequest(listOf("video/*"), FilePickerSource.Gallery)).firstReferenceOrNull()?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Video)) } } }) { Text("Video") } },
+                imagePicker = { picked, modifier -> Button(modifier = modifier, onClick = { scope.launch { filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery)).firstReferenceOrNull()?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Image)) } } }) { Text("Image") } },
+                videoPicker = { picked, modifier -> Button(modifier = modifier, onClick = { scope.launch { filePicker.pick(FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery)).firstReferenceOrNull()?.let { picked(OfficialEditorMedia(it, OfficialMediaType.Video)) } } }) { Text("Video") } },
                 mediaPreview = { media, _, modifier -> BrowserComposerMediaPreview(media.url, media.type == OfficialMediaType.Video, modifier) },
             ),
             onSubmit = { drafts -> repository.createPosts(drafts).map { onPublished() } },

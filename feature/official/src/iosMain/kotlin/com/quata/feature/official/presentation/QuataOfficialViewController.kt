@@ -23,6 +23,7 @@ import platform.UIKit.UIViewController
 import platform.Foundation.NSUUID
 import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialMediaType
+import com.quata.feature.postcomposer.presentation.IosComposerLocalImagePreview
 
 /** Narrow Swift-owned native viewer contract; it never owns pager or Official state. */
 interface IosOfficialMediaViewerFactory {
@@ -183,7 +184,7 @@ class IosOfficialEditorRootDependencies(
     val repository: OfficialRepository,
     val languageTag: String? = null,
     /** Installed by the authenticated launcher with real PhotosUI/Files hosts and transport. */
-    val mediaGateway: IosOfficialEditorMediaGateway? = null,
+    val mediaGateway: IosOfficialEditorMediaGateway,
     val onBack: () -> Unit = {},
     val onPublished: () -> Unit = {},
 )
@@ -207,8 +208,7 @@ fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDep
                 strings = editorStrings,
                 slots = iosOfficialEditorPlatformSlots(editorStrings, dependencies.mediaGateway),
                 onSubmit = { drafts ->
-                    (dependencies.mediaGateway?.submit(dependencies.repository, drafts)
-                        ?: dependencies.repository.createPosts(drafts)).map { dependencies.onPublished() }
+                    dependencies.mediaGateway.submit(dependencies.repository, drafts).map { dependencies.onPublished() }
                 },
                 onBack = dependencies.onBack,
                 newTranslationGroupId = { NSUUID().UUIDString() },
@@ -218,23 +218,24 @@ fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDep
 
 internal fun iosOfficialEditorPlatformSlots(
     strings: OfficialPostEditorStrings,
-    gateway: IosOfficialEditorMediaGateway?,
+    gateway: IosOfficialEditorMediaGateway,
 ) = OfficialEditorPlatformSlots(
     richTextEditor = { html, onChanged -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
-    imagePicker = gateway?.let { value -> { picked, modifier ->
-        IosOfficialMediaPickerButton(strings.image, OfficialMediaType.Image, value, picked, modifier)
-    } },
-    videoPicker = gateway?.let { value -> { picked, modifier ->
-        IosOfficialMediaPickerButton(strings.video, OfficialMediaType.Video, value, picked, modifier)
-    } },
-    mediaPreview = gateway?.let {
-        { media, onRemove, modifier ->
-            OfficialEditorMediaPreviewContent(
-                removeLabel = "Remove", onRemove = onRemove,
-                mediaContent = { Text(media.displayName ?: if (media.type == OfficialMediaType.Image) "Image selected" else "Video selected") },
-                modifier = modifier,
-            )
-        }
+    imagePicker = { picked, modifier ->
+        IosOfficialMediaPickerButton(strings.image, OfficialMediaType.Image, gateway, picked, modifier)
     },
-    discardMedia = gateway?.let { value -> { media -> value.discard(media) } },
+    videoPicker = { picked, modifier ->
+        IosOfficialMediaPickerButton(strings.video, OfficialMediaType.Video, gateway, picked, modifier)
+    },
+    mediaPreview = { media, onRemove, modifier ->
+        OfficialEditorMediaPreviewContent(
+            removeLabel = "Remove", onRemove = onRemove,
+            mediaContent = { previewModifier ->
+                gateway.previewFile(media)?.let { IosComposerLocalImagePreview(it, previewModifier) }
+                    ?: Text(if (media.type == OfficialMediaType.Video) "Video thumbnail unavailable" else "Image preview unavailable")
+            },
+            modifier = modifier,
+        )
+    },
+    discardMedia = { media -> gateway.discard(media) },
 )

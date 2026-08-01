@@ -7,6 +7,7 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.VideoThumbnailService
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
@@ -17,6 +18,11 @@ import com.quata.feature.postcomposer.data.ComposerUploadedMedia
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -31,7 +37,7 @@ class IosOfficialEditorMediaContractTest {
     @Test fun photosPickerMapsToOpaqueHandleWithMetadata() = runBlocking {
         val picker = RecordingPicker(PlatformResult.Success(listOf(file)))
         val gateway = gateway(picker = picker)
-        val media = assertNotNull(gateway.pick(OfficialMediaType.Image))
+        val media = (gateway.pick(OfficialMediaType.Image) as IosOfficialMediaPickResult.Success).media
 
         assertEquals(FilePickerSource.Gallery, picker.requests.single().source)
         assertEquals(listOf("image/*"), picker.requests.single().acceptedMimeTypes)
@@ -46,15 +52,33 @@ class IosOfficialEditorMediaContractTest {
         val picker = RecordingPicker(PlatformResult.Unsupported, PlatformResult.Cancelled)
         val gateway = gateway(picker = picker)
 
-        assertNull(gateway.pick(OfficialMediaType.Video))
+        assertTrue(gateway.pick(OfficialMediaType.Video) is IosOfficialMediaPickResult.Cancelled)
         assertEquals(listOf(FilePickerSource.Gallery, FilePickerSource.Documents), picker.requests.map { it.source })
         assertEquals(listOf("video/*"), picker.requests.last().acceptedMimeTypes)
+    }
+
+    @Test fun failureAndUnsupportedRemainDistinctVisibleUiStates() = runBlocking {
+        val failure = gateway(RecordingPicker(PlatformResult.Failure("permission_denied"))).pick(OfficialMediaType.Image)
+        val unsupported = gateway(RecordingPicker(PlatformResult.Unsupported, PlatformResult.Unsupported)).pick(OfficialMediaType.Image)
+        assertEquals(IosOfficialMediaPickResult.Failure("permission_denied"), failure)
+        assertTrue(unsupported is IosOfficialMediaPickResult.Unsupported)
+    }
+
+    @Test fun videoPreviewUsesGeneratedThumbnailInsteadOfOriginalMovie() = runBlocking {
+        val thumbnail = PlatformFile("file:///tmp/quata_video_thumb_7.png", "thumb.png", "image/png")
+        val gateway = IosOfficialEditorMediaGateway(
+            picker = RecordingPicker(PlatformResult.Success(listOf(file.copy(displayName = "clip.mp4", mimeType = "video/mp4")))),
+            transport = RecordingTransport(), videoThumbnails = RecordingThumbnailService(thumbnail),
+            handleFactory = { "ios-official-media-7" }, cleanup = {},
+        )
+        val media = (gateway.pick(OfficialMediaType.Video) as IosOfficialMediaPickResult.Success).media
+        assertEquals(thumbnail, gateway.previewFile(media))
     }
 
     @Test fun discardRemovesPreparedSelectionAndOwnedTemporaryFile() = runBlocking {
         val cleaned = mutableListOf<PlatformFile>()
         val gateway = gateway(cleanup = cleaned::add)
-        val media = assertNotNull(gateway.pick(OfficialMediaType.Image))
+        val media = (gateway.pick(OfficialMediaType.Image) as IosOfficialMediaPickResult.Success).media
 
         gateway.discard(media)
         gateway.discard(media)
@@ -66,13 +90,13 @@ class IosOfficialEditorMediaContractTest {
         val transport = RecordingTransport()
         val cleaned = mutableListOf<PlatformFile>()
         val gateway = gateway(transport = transport, cleanup = cleaned::add)
-        val media = assertNotNull(gateway.pick(OfficialMediaType.Image))
+        val media = (gateway.pick(OfficialMediaType.Image) as IosOfficialMediaPickResult.Success).media
         val repository = RecordingRepository()
 
         assertTrue(gateway.submit(repository, listOf(draft(media))).isSuccess)
 
         assertEquals(listOf("prepare-image:${file.reference}", "upload-image:profile-7:notice.jpg", "release:notice.jpg"), transport.calls)
-        assertEquals("https://cdn.example/notice.jpg", repository.created.single().mediaUrl)
+        assertTrue(repository.created.all { it.mediaUrl == "https://cdn.example/notice.jpg" })
         assertEquals(listOf(file), cleaned)
     }
 
@@ -80,7 +104,7 @@ class IosOfficialEditorMediaContractTest {
         val transport = RecordingTransport()
         val cleaned = mutableListOf<PlatformFile>()
         val gateway = gateway(transport = transport, cleanup = cleaned::add)
-        val media = assertNotNull(gateway.pick(OfficialMediaType.Video))
+        val media = (gateway.pick(OfficialMediaType.Video) as IosOfficialMediaPickResult.Success).media
         val repository = RecordingRepository(createFailure = IllegalStateException("insert_failed"))
 
         assertTrue(gateway.submit(repository, listOf(draft(media))).isFailure)
@@ -96,7 +120,7 @@ class IosOfficialEditorMediaContractTest {
         val transport = RecordingTransport()
         val cleaned = mutableListOf<PlatformFile>()
         val gateway = gateway(transport = transport, cleanup = cleaned::add)
-        val media = assertNotNull(gateway.pick(OfficialMediaType.Image))
+        val media = (gateway.pick(OfficialMediaType.Image) as IosOfficialMediaPickResult.Success).media
 
         assertTrue(gateway.submit(RecordingRepository(CancellationException("cancelled")), listOf(draft(media))).isFailure)
         assertTrue("rollback:remote-token" in transport.calls)
@@ -108,11 +132,39 @@ class IosOfficialEditorMediaContractTest {
         val transport = RecordingTransport(prepareFailure = IllegalStateException("decode_failed"))
         val cleaned = mutableListOf<PlatformFile>()
         val gateway = gateway(transport = transport, cleanup = cleaned::add)
-        val media = assertNotNull(gateway.pick(OfficialMediaType.Image))
+        val media = (gateway.pick(OfficialMediaType.Image) as IosOfficialMediaPickResult.Success).media
 
         assertTrue(gateway.submit(RecordingRepository(), listOf(draft(media))).isFailure)
         assertEquals(listOf("prepare-image:${file.reference}"), transport.calls)
         assertEquals(listOf(file), cleaned)
+    }
+
+    @Test fun realCoroutineCancellationRunsRollbackInNonCancellableCleanup() = runBlocking {
+        val enteredInsert = CompletableDeferred<Unit>()
+        val transport = RecordingTransport()
+        val cleaned = mutableListOf<PlatformFile>()
+        val gateway = gateway(transport = transport, cleanup = cleaned::add)
+        val media = (gateway.pick(OfficialMediaType.Image) as IosOfficialMediaPickResult.Success).media
+        val repository = RecordingRepository(createBlock = { enteredInsert.complete(Unit); awaitCancellation() })
+
+        val job = launch { gateway.submit(repository, listOf(draft(media))) }
+        enteredInsert.await()
+        job.cancelAndJoin()
+
+        assertTrue("rollback:remote-token" in transport.calls)
+        assertTrue("release:notice.jpg" in transport.calls)
+        assertEquals(listOf(file), cleaned)
+    }
+
+    @Test fun everyTranslationDraftReceivesTheSingleUploadedUrl() = runBlocking {
+        val gateway = gateway()
+        val media = (gateway.pick(OfficialMediaType.Image) as IosOfficialMediaPickResult.Success).media
+        val repository = RecordingRepository()
+
+        gateway.submit(repository, listOf(draft(media), draft(media).copy(title = "Translation"))).getOrThrow()
+
+        assertEquals(2, repository.created.size)
+        assertTrue(repository.created.all { it.mediaUrl == "https://cdn.example/notice.jpg" })
     }
 
     @Test fun iosMountInstallsPickerPreviewAndDiscardSlotsIntoCommonRootContract() {
@@ -127,7 +179,9 @@ class IosOfficialEditorMediaContractTest {
         picker: RecordingPicker = RecordingPicker(PlatformResult.Success(listOf(file))),
         transport: RecordingTransport = RecordingTransport(),
         cleanup: (PlatformFile) -> Unit = {},
-    ) = IosOfficialEditorMediaGateway(picker, transport, { "ios-official-media-7" }, cleanup)
+    ) = IosOfficialEditorMediaGateway(
+        picker = picker, transport = transport, handleFactory = { "ios-official-media-7" }, cleanup = cleanup,
+    )
 
     private fun draft(media: OfficialEditorMedia) = OfficialPostDraft(
         title = "Notice", summary = "Summary", contentHtml = "<p>Body</p>",
@@ -144,6 +198,10 @@ private class RecordingPicker(private vararg val outcomes: PlatformResult<List<P
     }
 }
 
+private class RecordingThumbnailService(private val thumbnail: PlatformFile) : VideoThumbnailService {
+    override suspend fun createThumbnail(video: PlatformFile, maxWidth: Int) = PlatformResult.Success(thumbnail)
+}
+
 private class RecordingTransport(private val prepareFailure: Throwable? = null) : IosOfficialEditorMediaTransport {
     val calls = mutableListOf<String>()
     private val prepared = ComposerPreparedMedia("file:///tmp/quata_gallery_7.jpg", "notice.jpg", "image/jpeg")
@@ -158,11 +216,20 @@ private class RecordingTransport(private val prepareFailure: Throwable? = null) 
     }
     override suspend fun uploadImage(actorProfileId: String, media: ComposerPreparedMedia) = Result.success(uploaded).also { calls += "upload-image:$actorProfileId:${media.name}" }
     override suspend fun uploadVideo(actorProfileId: String, media: ComposerPreparedMedia) = Result.success(uploaded).also { calls += "upload-video:$actorProfileId:${media.name}" }
-    override suspend fun rollbackUploadedMedia(media: ComposerUploadedMedia) = Result.success(Unit).also { calls += "rollback:${media.rollbackToken}" }
+    override suspend fun rollbackUploadedMedia(media: ComposerUploadedMedia): Result<Unit> {
+        // This suspension would abort immediately in the cancelled parent Job unless the gateway
+        // invokes rollback inside NonCancellable.
+        yield()
+        calls += "rollback:${media.rollbackToken}"
+        return Result.success(Unit)
+    }
     override suspend fun releasePreparedMedia(media: ComposerPreparedMedia) = Result.success(Unit).also { calls += "release:${media.name}" }
 }
 
-private class RecordingRepository(private val createFailure: Throwable? = null) : OfficialRepository {
+private class RecordingRepository(
+    private val createFailure: Throwable? = null,
+    private val createBlock: (suspend () -> Unit)? = null,
+) : OfficialRepository {
     val created = mutableListOf<OfficialPostDraft>()
     private val user = User("profile-7", "official@example.com", "Official", isOfficial = true)
     override fun observeOfficialFeed(): Flow<Result<List<OfficialPostItem>>> = flowOf(Result.success(emptyList()))
@@ -174,6 +241,7 @@ private class RecordingRepository(private val createFailure: Throwable? = null) 
     override suspend fun createPost(draft: OfficialPostDraft) = createPosts(listOf(draft))
     override suspend fun createPosts(drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> {
         created += drafts
+        createBlock?.invoke()
         return createFailure?.let { Result.failure(it) } ?: Result.success(null)
     }
     override suspend fun deletePost(postId: String) = Result.success(Unit)

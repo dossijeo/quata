@@ -496,11 +496,21 @@ private final class IosAppCompositionRoot {
             authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
             preferredLanguageTag: Locale.preferredLanguages.first
         )
+        let mediaGateway = IosOfficialEditorMediaGatewayKt.createIosOfficialEditorMediaGateway(
+            presenterProvider: platformServices,
+            configuration: IosOfficialRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey
+            ),
+            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+            videoThumbnails: platformServices.services.videoThumbnails
+        )
         authenticatedHost.installOfficialEditorFactory { [weak self] in
             QuataOfficialViewControllerKt.QuataOfficialEditorRootViewController(
                 dependencies: IosOfficialEditorRootDependencies(
                     repository: repository,
                     languageTag: Locale.preferredLanguages.first,
+                    mediaGateway: mediaGateway,
                     onBack: { self?.authenticatedHost.showOfficial(postId: nil) },
                     onPublished: { self?.authenticatedHost.showOfficial(postId: nil) }
                 )

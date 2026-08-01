@@ -1193,6 +1193,18 @@ final class QuataFeedFrameworkTests: XCTestCase {
         }
     }
 
+    func testOfficialEditorCompositionMountsRealMediaGateway() throws {
+        let appSourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("iosApp/QuataIosApp.swift")
+        let source = try String(contentsOf: appSourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("createIosOfficialEditorMediaGateway("))
+        XCTAssertTrue(source.contains("presenterProvider: platformServices"))
+        XCTAssertTrue(source.contains("mediaGateway: mediaGateway"))
+    }
+
     func testPublicOfficialDeepLinkRendersWithoutAnAuthenticatedFeedSession() {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
