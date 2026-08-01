@@ -140,6 +140,7 @@ fun NeighborhoodsScreen(
         onOpenConversation = onOpenConversation,
         onOpenUserProfile = onOpenUserProfile,
         onAuthRequired = onAuthRequired,
+        openingProfileUserId = openingProfileUserId,
         avatar = { user, isLoading, onClick ->
             ClickableProfileAvatar(user.displayName, user.avatarUrl, user.isOfficial, user.id, isLoading, onClick, Modifier.size(48.dp))
         },

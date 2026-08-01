@@ -52,6 +52,11 @@ class NeighborhoodsViewModel(
         communitiesJob = null
     }
 
+    override fun retryCommunities() {
+        stopObservingCommunities()
+        startObservingCommunities()
+    }
+
     override fun openChat(neighborhood: String, onOpened: (String) -> Unit) {
         if (_uiState.value.openingChatNeighborhood != null) return
         scope.launch {

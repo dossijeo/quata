@@ -52,7 +52,8 @@ data class NeighborhoodListStrings(
     val messages: (Int) -> String,
     val viewUsers: String,
     val openChat: String,
-    val timeLabel: (Long?) -> String
+    val timeLabel: (Long?) -> String,
+    val retry: String = "Retry",
 )
 
 @Composable
@@ -67,7 +68,8 @@ fun NeighborhoodListContent(
     strings: NeighborhoodListStrings,
     onQueryChange: (String) -> Unit,
     onShowUsers: (NeighborhoodCommunity) -> Unit,
-    onOpenChat: (NeighborhoodCommunity) -> Unit
+    onOpenChat: (NeighborhoodCommunity) -> Unit,
+    onRetry: () -> Unit,
 ) {
     val template = quataTheme()
     val visibleCommunities = remember(communities, query) {
@@ -89,7 +91,10 @@ fun NeighborhoodListContent(
             )
             Spacer(Modifier.height(18.dp))
             error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    OutlinedButton(onClick = onRetry) { Text(strings.retry) }
+                }
                 Spacer(Modifier.height(12.dp))
             }
             if (isLoading && communities.isEmpty()) {
@@ -105,8 +110,7 @@ fun NeighborhoodListContent(
                     items(visibleCommunities, key = { it.name }) { community ->
                         NeighborhoodCardContent(
                             community = community,
-                            canOpenChat = currentUserId?.let { id -> community.users.any { it.id != id } }
-                                ?: community.users.isNotEmpty(),
+                            canOpenChat = canOpenNeighborhoodChat(community, currentUserId),
                             isOpeningChat = openingNeighborhood == community.name,
                             strings = strings,
                             onShowUsers = { onShowUsers(community) },
@@ -118,6 +122,9 @@ fun NeighborhoodListContent(
         }
     }
 }
+
+internal fun canOpenNeighborhoodChat(community: NeighborhoodCommunity, currentUserId: String?): Boolean =
+    community.conversationId != null || currentUserId?.let { id -> community.users.any { it.id != id } } ?: community.users.isNotEmpty()
 
 @Composable
 private fun NeighborhoodCardContent(

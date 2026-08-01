@@ -17,6 +17,7 @@ interface NeighborhoodsScreenModel {
     val uiState: kotlinx.coroutines.flow.StateFlow<NeighborhoodsUiState>
     fun startObservingCommunities()
     fun stopObservingCommunities()
+    fun retryCommunities()
     fun openChat(neighborhood: String, onOpened: (String) -> Unit)
     fun toggleFollowUser(userId: String)
     fun openPrivateChat(userId: String, onOpened: (String) -> Unit)
@@ -44,6 +45,7 @@ fun NeighborhoodsScreenHost(
     onAuthRequired: () -> Unit,
     padding: PaddingValues,
     closeModelOnDispose: Boolean = false,
+    openingProfileUserId: String? = null,
 ) {
     require((repository == null) != (model == null)) { "Provide exactly one Neighborhoods model source" }
     val ownedModel = if (model == null) androidx.compose.runtime.remember(repository) { NeighborhoodsViewModel(requireNotNull(repository)) } else null
@@ -64,11 +66,11 @@ fun NeighborhoodsScreenHost(
         NeighborhoodUsersContent(
             padding = padding, community = selected, currentUserId = currentUserId,
             isOpeningChat = state.isOpeningChat, openingPrivateChatUserId = state.openingPrivateChatUserId,
-            openingProfileUserId = state.openingProfileUserId, followingUserId = state.followingUserId,
+            openingProfileUserId = openingProfileUserId ?: state.openingProfileUserId, followingUserId = state.followingUserId,
             strings = strings.members, avatar = avatar,
             onBack = { selectedCommunity = null },
             onFollowUser = { user -> if (!canPerformNeighborhoodPrivateAction(currentUserId)) onAuthRequired() else viewModel.toggleFollowUser(user.id) },
-            onOpenProfile = { user -> viewModel.openUserProfile(user.id); onOpenUserProfile(user.id) },
+            onOpenProfile = { user -> onOpenUserProfile(user.id) },
             onOpenPrivateChat = { user ->
                 if (!canPerformNeighborhoodPrivateAction(currentUserId)) onAuthRequired() else viewModel.openPrivateChat(user.id) { conversationId ->
                     selectedCommunity = null
@@ -82,6 +84,7 @@ fun NeighborhoodsScreenHost(
             error = state.error, currentUserId = currentUserId, openingNeighborhood = state.openingChatNeighborhood,
             strings = strings.list, onQueryChange = { query = it }, onShowUsers = { selectedCommunity = it.name },
             onOpenChat = { community -> if (!canPerformNeighborhoodPrivateAction(currentUserId)) onAuthRequired() else viewModel.openChat(community.name, onOpenConversation) },
+            onRetry = viewModel::retryCommunities,
         )
     }
 }

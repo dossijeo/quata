@@ -866,7 +866,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)
         router.loadViewIfNeeded()
-        router.installFeedFactory { _ in UIViewController() }
+        router.installPublicFeed { _ in UIViewController() }
         let initialChildren = router.children
 
         // Communities is public, but still waits for its configuration-backed factory.
@@ -881,6 +881,23 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.children.contains { $0 === exportedFeatureController })
         XCTAssertEqual(exportedFeatureController.view.accessibilityIdentifier, "quata-ios-communities-host")
         XCTAssertEqual(exportedFeatureController.view.accessibilityLabel, "Quata iOS Communities")
+    }
+
+    func testAnonymousCommunitiesActionPresentsAuthAndReturnsToCommunitiesAfterSession() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        router.installPublicFeed { _ in UIViewController() }
+        let communities = UIViewController()
+        router.installCommunitiesFactory { communities }
+        router.installAuthenticationFactory { UIViewController() }
+        router.showCommunities()
+        XCTAssertTrue(router.children.contains { $0 === communities })
+
+        router.requestAuthenticationForCommunities()
+        XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-auth-host")
+
+        router.installFeedFactory { _ in UIViewController() }
+        XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-communities-host")
     }
 
     func testAuthenticatedRouterPresentsQueuedComposerOnlyAfterItsRealFactoryIsInstalled() {
