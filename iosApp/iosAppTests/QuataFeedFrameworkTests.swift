@@ -1305,7 +1305,8 @@ final class QuataFeedFrameworkTests: XCTestCase {
             transport: IosPostComposerTransport(
                 configuration: IosPostComposerRuntimeConfiguration(
                     supabaseUrl: configuration.supabaseUrl,
-                    supabasePublishableKey: configuration.supabasePublishableKey
+                    supabasePublishableKey: configuration.supabasePublishableKey,
+                    wordpressBaseUrl: IosPublicRuntimeConfiguration.wordpressBaseUrl
                 ),
                 authSession: bootstrap.authSessionForInteractiveLogin()
             )
@@ -1326,6 +1327,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.showComposer()
 
         XCTAssertEqual(router.children.count, 3)
+        XCTAssertEqual(IosPublicRuntimeConfiguration.wordpressBaseUrl, "https://egquata.com/")
         XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-composer-host")
         XCTAssertTrue(authenticatedRouteController(in: router)?.isViewLoaded == true)
         XCTAssertTrue(services.activeViewController() === authenticatedRouteController(in: router))

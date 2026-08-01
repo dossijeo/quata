@@ -18,6 +18,8 @@ import com.quata.core.platform.CameraCaptureRequest
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PlatformPermission
+import com.quata.core.platform.PermissionStatus
 import com.quata.feature.postcomposer.data.ActorBoundPostComposerRepository
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
@@ -33,6 +35,7 @@ fun WebPostComposerRoute(
     onBack: () -> Unit,
     onAuthRequired: () -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     WebPostComposerHost(
         repository = remember(runtimeConfiguration, authRepository) {
             ActorBoundPostComposerRepository(WebPostComposerTransport(runtimeConfiguration, authRepository))
@@ -61,6 +64,20 @@ fun WebPostComposerRoute(
             },
             imagePreview = { uri, modifier -> BrowserComposerMediaPreview(uri, false, modifier) },
             videoPreview = { uri, modifier -> BrowserComposerMediaPreview(uri, true, modifier) },
+            requestLocation = { resolved ->
+                scope.launch {
+                    if (platformServices.permissions.status(PlatformPermission.Location) != PermissionStatus.Granted &&
+                        platformServices.permissions.request(PlatformPermission.Location) != PermissionStatus.Granted
+                    ) return@launch
+                    val location = (platformServices.location.currentLocation() as? PlatformResult.Success)?.value
+                        ?: return@launch
+                    resolved(
+                        webComposerCoordinateLabel(location.latitude, location.longitude),
+                        location.latitude,
+                        location.longitude,
+                    )
+                }
+            },
         ),
         isLandscapeLayout = browserComposerIsLandscape(),
         onBack = onBack,
@@ -71,6 +88,8 @@ fun WebPostComposerRoute(
 }
 
 internal fun webComposerCanPublish(session: WebLocalSession?): Boolean = session != null
+
+internal fun webComposerCoordinateLabel(latitude: Double, longitude: Double): String = "$latitude, $longitude"
 
 private fun PlatformResult<List<com.quata.core.platform.PlatformFile>>.firstReferenceOrNull(): String? = when (this) {
     is PlatformResult.Success -> value.firstOrNull()?.reference

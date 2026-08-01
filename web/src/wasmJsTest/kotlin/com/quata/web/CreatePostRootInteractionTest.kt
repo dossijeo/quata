@@ -63,4 +63,47 @@ class CreatePostRootInteractionTest {
         onNodeWithTag("composer-type-picker").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag))
         runOnIdle { assertEquals(2, cleanupCalls) }
     }
+
+    @Test
+    fun selectedImageRequestsRealPlatformLocationAndAppliesItsCoordinates() = runComposeUiTest {
+        val repository = object : PostComposerRepository {
+            override suspend fun createPost(draft: PostComposerDraft) = Result.success<String?>("post")
+        }
+        lateinit var viewModel: CreatePostViewModel
+        var locationRequests = 0
+        setContent {
+            QuataTheme {
+                viewModel = remember { CreatePostViewModel(repository) }
+                CreatePostRoot(
+                    viewModel = viewModel,
+                    accessibility = EnglishCriticalControlsAccessibility,
+                    isLandscapeLayout = false,
+                    onAuthRequired = {},
+                    onPostCreated = {},
+                    onBack = {},
+                    copy = EnglishCreatePostRootCopy,
+                    slots = CreatePostPlatformSlots(
+                        pickImage = { viewModel.onEvent(com.quata.feature.postcomposer.presentation.CreatePostUiEvent.ImageSelected("blob:image")) },
+                        captureImage = {}, editImage = null,
+                        pickVideo = {}, captureVideo = null, editVideo = null,
+                        imagePreview = { _, _ -> }, videoPreview = { _, _, _ -> },
+                        requestLocation = { resolved ->
+                            locationRequests++
+                            resolved("40.4168, -3.7038", 40.4168, -3.7038)
+                        },
+                    ),
+                )
+            }
+        }
+
+        onNodeWithTag("composer-type-image").performClick()
+        onNodeWithText("Choose image").performClick()
+        waitForIdle()
+        runOnIdle {
+            assertEquals(1, locationRequests)
+            assertEquals("40.4168, -3.7038", viewModel.uiState.value.locationLabel)
+            assertEquals(40.4168, viewModel.uiState.value.latitude)
+            assertEquals(-3.7038, viewModel.uiState.value.longitude)
+        }
+    }
 }

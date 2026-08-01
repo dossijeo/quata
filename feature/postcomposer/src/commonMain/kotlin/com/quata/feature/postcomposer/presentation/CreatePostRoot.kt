@@ -203,6 +203,16 @@ fun CreatePostRoot(
             lastCancelUploadToken = cancelUploadToken
         }
     }
+    LaunchedEffect(state.imageUri) {
+        val selectedImage = state.imageUri ?: return@LaunchedEffect
+        if (state.locationLabel.isNullOrBlank()) {
+            slots.requestLocation?.invoke { label, latitude, longitude ->
+                if (viewModel.uiState.value.imageUri == selectedImage) {
+                    viewModel.onEvent(CreatePostUiEvent.LocationResolved(label, latitude, longitude))
+                }
+            }
+        }
+    }
     LaunchedEffect(state.successMessage) {
         if (state.successMessage != null) {
             slots.clearOwnedMedia?.invoke()

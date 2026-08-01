@@ -24,6 +24,7 @@ data class WebComposerMediaSlots(
     val imagePreview: @Composable (String, Modifier) -> Unit,
     val videoPreview: @Composable (String, Modifier) -> Unit,
     val export: (@Composable ColumnScope.(String, PostComposerType) -> Unit)? = null,
+    val requestLocation: (((String, Double?, Double?) -> Unit) -> Unit)? = null,
 )
 
 /** Thin browser wrapper: all form/state/preview structure lives in common CreatePostRoot. */
@@ -59,6 +60,7 @@ fun WebPostComposerHost(
             imagePreview = mediaSlots.imagePreview,
             videoPreview = { uri, _, modifier -> mediaSlots.videoPreview(uri, modifier) },
             mediaExport = mediaSlots.export,
+            requestLocation = mediaSlots.requestLocation,
         ),
         modifier = modifier,
     )

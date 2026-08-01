@@ -43,6 +43,8 @@ enum IosDeepLinkUrlContract {
 }
 
 enum IosPublicRuntimeConfiguration {
+    static let wordpressBaseUrl = "https://egquata.com/"
+
     private static let supabaseUrlKey = "QUATA_SUPABASE_URL"
     private static let supabasePublishableKeyKey = "QUATA_SUPABASE_PUBLISHABLE_KEY"
     private static let iosRegistrationEnabledKey = "QUATA_IOS_REGISTRATION_ENABLED"
@@ -717,7 +719,8 @@ private final class IosAppCompositionRoot {
             transport: IosPostComposerTransport(
                 configuration: IosPostComposerRuntimeConfiguration(
                     supabaseUrl: configuration.supabaseUrl,
-                    supabasePublishableKey: configuration.supabasePublishableKey
+                    supabasePublishableKey: configuration.supabasePublishableKey,
+                    wordpressBaseUrl: IosPublicRuntimeConfiguration.wordpressBaseUrl
                 ),
                 authSession: runtimeBootstrap.authSessionForInteractiveLogin()
             )
