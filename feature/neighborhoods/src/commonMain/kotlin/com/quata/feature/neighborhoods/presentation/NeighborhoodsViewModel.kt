@@ -18,7 +18,8 @@ import kotlinx.coroutines.launch
 
 class NeighborhoodsViewModel(
     private val repository: NeighborhoodRepository,
-    dispatchers: AppDispatchers = AppDispatchers()
+    dispatchers: AppDispatchers = AppDispatchers(),
+    private val errors: NeighborhoodsErrorStrings = defaultNeighborhoodsErrorStrings(null),
 ) : NeighborhoodsScreenModel {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
     private val _uiState = MutableStateFlow(NeighborhoodsUiState())
@@ -35,7 +36,7 @@ class NeighborhoodsViewModel(
                 .catch { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "No se pudieron cargar las comunidades"
+                        error = errors.loadCommunities
                     )
                 }
                 .collect { communities ->
@@ -78,7 +79,7 @@ class NeighborhoodsViewModel(
                     _uiState.value = _uiState.value.copy(
                         isOpeningChat = false,
                         openingChatNeighborhood = null,
-                        error = error.message ?: "No se pudo abrir el chat"
+                        error = errors.openCommunityChat
                     )
                 }
         }
@@ -106,7 +107,7 @@ class NeighborhoodsViewModel(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         followingUserId = null,
-                        error = error.message ?: "No se pudo actualizar el seguimiento"
+                        error = errors.updateFollow
                     )
                 }
         }
@@ -124,7 +125,7 @@ class NeighborhoodsViewModel(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         openingPrivateChatUserId = null,
-                        error = error.message ?: "No se pudo abrir PRIVI"
+                        error = errors.openPrivateChat
                     )
                 }
         }
@@ -149,7 +150,7 @@ class NeighborhoodsViewModel(
                     selectedProfile = null,
                     openingProfileUserId = null,
                     refreshingProfileUserId = null,
-                    error = "La carga del perfil ha tardado demasiado. Inténtalo de nuevo.",
+                    error = errors.profileTimeout,
                 )
             }
         }
@@ -196,7 +197,7 @@ class NeighborhoodsViewModel(
                                 _uiState.value = currentState.copy(
                                     openingProfileUserId = if (currentState.openingProfileUserId == userId) null else currentState.openingProfileUserId,
                                     refreshingProfileUserId = if (currentState.refreshingProfileUserId == userId) null else currentState.refreshingProfileUserId,
-                                    error = error.message ?: "No se pudo abrir el perfil"
+                                    error = errors.openProfile
                                 )
                             }
                     }
@@ -224,7 +225,7 @@ class NeighborhoodsViewModel(
                     onCompleted(true)
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo reportar")
+                    _uiState.value = _uiState.value.copy(error = errors.reportPost)
                     onCompleted(false)
                 }
         }
@@ -238,7 +239,7 @@ class NeighborhoodsViewModel(
                 .onSuccess { refreshSelectedProfile(profileUserId) }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
-                        error = error.message ?: "No se pudo publicar el comentario. Intentalo de nuevo.",
+                        error = errors.publishComment,
                     )
                 }
         }
@@ -250,14 +251,14 @@ class NeighborhoodsViewModel(
             _uiState.value = _uiState.value.copy(error = null)
             repository.togglePostLike(postId)
                 .onSuccess { refreshSelectedProfile(profileUserId) }
-                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo actualizar Me gusta. Intentalo de nuevo.") }
+                .onFailure { _ -> _uiState.value = _uiState.value.copy(error = errors.updateLike) }
         }
     }
 
     fun reportProfile(profileId: String) {
         scope.launch {
             repository.reportProfile(profileId).onFailure { failure ->
-                _uiState.value = _uiState.value.copy(error = failure.message ?: "No se pudo reportar el perfil")
+                _uiState.value = _uiState.value.copy(error = errors.reportProfile)
             }
         }
     }
@@ -266,7 +267,7 @@ class NeighborhoodsViewModel(
         scope.launch {
             repository.blockProfile(profileId)
                 .onSuccess { closeUserProfile(); onBlocked() }
-                .onFailure { failure -> _uiState.value = _uiState.value.copy(error = failure.message ?: "No se pudo bloquear el perfil") }
+                .onFailure { _ -> _uiState.value = _uiState.value.copy(error = errors.blockProfile) }
         }
     }
 
@@ -303,7 +304,7 @@ class NeighborhoodsViewModel(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         roleUpdatingUserId = null,
-                        error = error.message ?: "No se pudieron actualizar los permisos"
+                        error = errors.updateRoles
                     )
                 }
         }
@@ -318,7 +319,7 @@ class NeighborhoodsViewModel(
                 _uiState.value = _uiState.value.copy(selectedProfile = profile)
             }
             .onFailure { error ->
-                _uiState.value = _uiState.value.copy(error = error.message ?: "No se pudo actualizar el perfil. Intentalo de nuevo.")
+                _uiState.value = _uiState.value.copy(error = errors.refreshProfile)
             }
     }
 

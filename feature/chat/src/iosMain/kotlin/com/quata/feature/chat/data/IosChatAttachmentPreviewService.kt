@@ -25,6 +25,14 @@ class IosChatAttachmentPreviewService(
         authSession = authSession,
     ),
 ) {
+    /** Authenticated local lease used by inline media previews; callers must release it on disposal. */
+    suspend fun downloadRemoteAttachment(attachment: PlatformFile): PlatformResult<PlatformFile> =
+        downloader.download(attachment.reference, attachment.displayName)
+
+    fun releaseDownloadedAttachment(attachment: PlatformFile) {
+        downloader.discard(attachment)
+    }
+
     /** Shared admission check used by the UIKit callback before starting a network operation. */
     fun supportsQuickLook(attachment: PlatformFile): Boolean =
         (DocumentPreviewAdmissions.admit(attachment, DocumentPreviewAdmissions.QuickLook)

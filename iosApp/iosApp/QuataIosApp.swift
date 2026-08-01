@@ -268,6 +268,9 @@ private final class IosAppCompositionRoot {
     private var pendingCommunityPostReportId: String?
 
     func start() {
+        authenticatedHost.installCommunityAuthenticationCancellationHandler { [weak self] in
+            self?.clearPendingCommunityAuthenticationAction()
+        }
         let window = UIWindow(frame: UIScreen.main.bounds)
         if let fixtureRootViewController = uiTestFixtureRootViewControllerIfRequested() {
             window.rootViewController = fixtureRootViewController
@@ -296,6 +299,11 @@ private final class IosAppCompositionRoot {
         if !installRestoredFeedSessionIfAvailable() {
             installAuthenticationIfConfigured()
         }
+    }
+
+    private func clearPendingCommunityAuthenticationAction() {
+        pendingCommunityProfileId = nil
+        pendingCommunityPostReportId = nil
     }
 
     func handleDeepLink(_ url: URL) -> Bool {
@@ -661,6 +669,8 @@ private final class IosAppCompositionRoot {
                     mediaFactory: IosFeedNativeMediaFactory.shared,
                     shareService: platformServices.services.share,
                     attachmentPreviewService: communitiesRuntimeBootstrap.attachmentPreviewService(documentOpener: platformServices.services.documentOpener),
+                    audioPlayer: platformServices.services.audioPlayer,
+                    videoThumbnails: platformServices.services.videoThumbnails,
                     pendingReportPostId: nil,
                 )
             return IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(dependencies: hostDependencies)
@@ -698,6 +708,8 @@ private final class IosAppCompositionRoot {
             mediaFactory: IosFeedNativeMediaFactory.shared,
             shareService: platformServices.services.share,
             attachmentPreviewService: communitiesRuntimeBootstrap.attachmentPreviewService(documentOpener: platformServices.services.documentOpener),
+            audioPlayer: platformServices.services.audioPlayer,
+            videoThumbnails: platformServices.services.videoThumbnails,
             pendingReportPostId: pendingReportPostId
         )
         let presentProfile = { [weak self] in
@@ -921,6 +933,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var whatsNewFactory: (() -> UIViewController)?
     private var releaseHistoryFactory: (() -> UIViewController)?
     private var authenticationFactory: (() -> UIViewController)?
+    private var authenticationRegistrationFactory: (() -> UIViewController)?
+    private var onCommunityAuthenticationCancelled: (() -> Void)?
     private var logoutAction: ((@escaping () -> Void) -> Void)?
     private var onLoggedOut: (() -> Void)?
     private var isLoggingOut = false
@@ -1071,9 +1085,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     func installAuthentication(_ dependencies: IosAuthHostDependencies) {
+        authenticationRegistrationFactory = { IosAuthHostKt.QuataRegistrationViewController(dependencies: dependencies) }
         installAuthenticationFactory {
             IosAuthHostKt.QuataAuthViewController(dependencies: dependencies)
         }
+    }
+
+    func installCommunityAuthenticationCancellationHandler(_ handler: @escaping () -> Void) {
+        onCommunityAuthenticationCancelled = handler
     }
 
     /// The actual sign-out operation stays in the shared Auth module. UIKit only supplies the
@@ -1111,7 +1130,33 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func requestAuthenticationForCommunities() {
         pendingRoute = .communities
-        presentLoginIfAvailable()
+        guard !hasAuthenticatedSession, presentedViewController == nil else { return }
+        let prompt = IosAuthHostKt.QuataAuthRequiredDialogViewController(
+            languageCode: Locale.current.languageCode ?? "en",
+            onDismiss: { [weak self] in self?.cancelCommunityAuthenticationPrompt() },
+            onCreateAccount: { [weak self] in self?.continueCommunityAuthentication(register: true) },
+            onLogin: { [weak self] in self?.continueCommunityAuthentication(register: false) }
+        )
+        prompt.modalPresentationStyle = .overFullScreen
+        present(prompt, animated: true)
+    }
+
+    private func continueCommunityAuthentication(register: Bool) {
+        dismiss(animated: true) { [weak self] in
+            guard let self else { return }
+            if register, let registration = self.authenticationRegistrationFactory {
+                self.routeMenuButton.isHidden = true
+                self.show(registration(), accessibilityIdentifier: "quata-ios-auth-host", accessibilityLabel: "Quata iOS registration")
+            } else {
+                self.presentLoginIfAvailable()
+            }
+        }
+    }
+
+    func cancelCommunityAuthenticationPrompt() {
+        pendingRoute = nil
+        onCommunityAuthenticationCancelled?()
+        if presentedViewController != nil { dismiss(animated: true) }
     }
 
     func hasActiveAuthenticatedSession() -> Bool { hasAuthenticatedSession }
@@ -1613,6 +1658,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         accessibilityLabel: String,
     ) {
         let previous = displayedController
+        let abandonedAuthentication = previous?.view.accessibilityIdentifier == "quata-ios-auth-host" && accessibilityIdentifier != "quata-ios-auth-host" && !hasAuthenticatedSession
+        if abandonedAuthentication {
+            pendingRoute = nil
+            onCommunityAuthenticationCancelled?()
+        }
         addChild(controller)
         controller.view.frame = view.bounds
         controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]

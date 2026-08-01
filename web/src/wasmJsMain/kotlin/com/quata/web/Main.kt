@@ -196,7 +196,8 @@ private fun QuataWebApp(
     // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
     // authenticated shell level so navigation does not manufacture a second browser profile UI.
     val feedMemberProfileRoute = remember { WebFeedMemberProfileRoute() }
-    var pendingCommunityPostReport by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var pendingCommunityPostReport by remember { mutableStateOf<WebPendingCommunityPostReport?>(null) }
+    var communityReportEnteredAuth by remember { mutableStateOf(false) }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
     var webPushOptedIn by remember { mutableStateOf(false) }
@@ -206,7 +207,7 @@ private fun QuataWebApp(
         navigation.navigate(pendingAuthenticationFragment ?: "")
         pendingAuthenticationFragment = null
         pendingCommunityPostReport?.let { pending ->
-            feedMemberProfileRoute.open(pending.first)
+            feedMemberProfileRoute.open(pending.profileId)
         }
     }
     fun completeLogout(onFinished: (WebPushSessionResult) -> Unit = {}) {
@@ -347,6 +348,7 @@ private fun QuataWebApp(
     fun dismissAuthenticationPrompt() {
         isAuthRequiredPromptOpen = false
         pendingAuthenticationFragment = null
+        pendingCommunityPostReport = null
     }
     fun chooseLoginFromPrompt() = openAuth(AuthProductDestination.Login)
     fun chooseRegisterFromPrompt() = openAuth(AuthProductDestination.Register)
@@ -379,6 +381,22 @@ private fun QuataWebApp(
             visible = navigationState.isAuthenticationRoute,
             destination = authInitialDestination.name.lowercase(),
         )
+    }
+    LaunchedEffect(navigationState.isAuthenticationRoute, isSessionReady, pendingCommunityPostReport) {
+        if (navigationState.isAuthenticationRoute && pendingCommunityPostReport != null) {
+            communityReportEnteredAuth = true
+        } else if (communityReportEnteredAuth && !isSessionReady && !navigationState.isAuthenticationRoute) {
+            pendingCommunityPostReport = clearWebPendingCommunityPostReportOnAuthExit(
+                pendingCommunityPostReport,
+                enteredAuth = communityReportEnteredAuth,
+                isAuthenticated = isSessionReady,
+                isAuthenticationRoute = navigationState.isAuthenticationRoute,
+            )
+            pendingAuthenticationFragment = null
+            communityReportEnteredAuth = false
+        } else if (isSessionReady) {
+            communityReportEnteredAuth = false
+        }
     }
     QuataTheme(mode = themeMode) {
         Box(Modifier.fillMaxSize().fluidTouchEffect(enabled = touchFlowEnabled)) {
@@ -516,15 +534,18 @@ private fun QuataWebApp(
                             onOpenConversation = navigation::navigateConversation,
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
                             onPostReportAuthRequired = { postId ->
-                                feedMemberProfileRoute.profileId?.let { profileId -> pendingCommunityPostReport = profileId to postId }
+                                feedMemberProfileRoute.profileId?.let { profileId -> pendingCommunityPostReport = WebPendingCommunityPostReport(profileId, postId) }
                                 requestAuthenticationForCurrentRoute()
                             },
-                            pendingReportPostId = pendingCommunityPostReport?.takeIf { it.first == feedMemberProfileRoute.profileId }?.second,
+                            pendingReportPostId = pendingCommunityPostReport?.takeIf { it.profileId == feedMemberProfileRoute.profileId }?.postId,
                             onPendingReportHandled = { pendingCommunityPostReport = null },
                             onOpenUserProfile = feedMemberProfileRoute::open,
                             onDismissProfile = feedMemberProfileRoute::close,
                             profileId = feedMemberProfileRoute.profileId,
                             documentOpener = platformServices.documentOpener,
+                            audioPlayer = platformServices.audioPlayer,
+                            videoThumbnails = platformServices.videoThumbnails,
+                            attachmentAccessToken = { authRepository.sessionForAuthenticatedRequest()?.accessToken },
                         )
                     }
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {
@@ -539,15 +560,18 @@ private fun QuataWebApp(
                                 onOpenConversation = navigation::navigateConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onPostReportAuthRequired = { postId ->
-                                    pendingCommunityPostReport = memberProfileId to postId
+                                    pendingCommunityPostReport = WebPendingCommunityPostReport(memberProfileId, postId)
                                     requestAuthenticationForCurrentRoute()
                                 },
-                                pendingReportPostId = pendingCommunityPostReport?.takeIf { it.first == memberProfileId }?.second,
+                                pendingReportPostId = pendingCommunityPostReport?.takeIf { it.profileId == memberProfileId }?.postId,
                                 onPendingReportHandled = { pendingCommunityPostReport = null },
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 onDismissProfile = feedMemberProfileRoute::close,
                                 profileId = memberProfileId,
                                 documentOpener = platformServices.documentOpener,
+                                audioPlayer = platformServices.audioPlayer,
+                                videoThumbnails = platformServices.videoThumbnails,
+                                attachmentAccessToken = { authRepository.sessionForAuthenticatedRequest()?.accessToken },
                             )
                         } else {
                             WebOfficialHost(
@@ -591,15 +615,18 @@ private fun QuataWebApp(
                                 onOpenConversation = navigation::navigateConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onPostReportAuthRequired = { postId ->
-                                    pendingCommunityPostReport = memberProfileId to postId
+                                    pendingCommunityPostReport = WebPendingCommunityPostReport(memberProfileId, postId)
                                     requestAuthenticationForCurrentRoute()
                                 },
-                                pendingReportPostId = pendingCommunityPostReport?.takeIf { it.first == memberProfileId }?.second,
+                                pendingReportPostId = pendingCommunityPostReport?.takeIf { it.profileId == memberProfileId }?.postId,
                                 onPendingReportHandled = { pendingCommunityPostReport = null },
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 onDismissProfile = feedMemberProfileRoute::close,
                                 profileId = memberProfileId,
                                 documentOpener = platformServices.documentOpener,
+                                audioPlayer = platformServices.audioPlayer,
+                                videoThumbnails = platformServices.videoThumbnails,
+                                attachmentAccessToken = { authRepository.sessionForAuthenticatedRequest()?.accessToken },
                             )
                         } else {
                             WebFeedHost(
@@ -747,6 +774,19 @@ internal class WebNavigationController(
         currentFragment = fragment
         state = fragment.toWebNavigationState()
     }
+}
+
+internal data class WebPendingCommunityPostReport(val profileId: String, val postId: String)
+
+internal fun clearWebPendingCommunityPostReportOnAuthExit(
+    pending: WebPendingCommunityPostReport?,
+    enteredAuth: Boolean,
+    isAuthenticated: Boolean,
+    isAuthenticationRoute: Boolean,
+): WebPendingCommunityPostReport? = when {
+    pending == null -> null
+    enteredAuth && !isAuthenticated && !isAuthenticationRoute -> null
+    else -> pending
 }
 
 @Composable

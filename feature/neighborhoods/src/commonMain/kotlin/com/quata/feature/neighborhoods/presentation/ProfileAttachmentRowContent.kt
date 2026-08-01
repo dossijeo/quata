@@ -1,6 +1,12 @@
 package com.quata.feature.neighborhoods.presentation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -20,6 +26,22 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.core.platform.AudioPlaybackState
+import com.quata.core.platform.AudioPlayerService
+import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
+import com.quata.feature.chat.presentation.chat.ChatAudioAttachmentPlayerContent
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Shared attachment row decision for a community profile.
@@ -95,4 +117,102 @@ fun ProfileAttachmentAudioLauncherContent(
         androidx.compose.foundation.layout.Spacer(Modifier.size(10.dp))
         Text(attachment.name, style = MaterialTheme.typography.bodyMedium)
     }
+}
+
+/** Real inline playback shared by browser and iOS hosts; the host controls authenticated file preparation. */
+@Composable
+fun ProfileAttachmentAudioPlayerContent(
+    attachment: ProfileAttachment,
+    strings: CommunityProfileRuntimeStrings,
+    audioPlayer: AudioPlayerService,
+    prepareFile: suspend () -> PlatformResult<PlatformFile> = {
+        PlatformResult.Success(PlatformFile(attachment.uri, attachment.name, attachment.mimeType))
+    },
+    releaseFile: suspend (PlatformFile) -> Unit = {},
+) {
+    val scope = remember(attachment.uri, audioPlayer) { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
+    var activeOperation by remember(attachment.uri, audioPlayer) { mutableStateOf<Job?>(null) }
+    var state by remember(attachment.uri) { mutableStateOf(AudioPlaybackState()) }
+    var preparedFile by remember(attachment.uri) { mutableStateOf<PlatformFile?>(null) }
+    var loading by remember(attachment.uri) { mutableStateOf(false) }
+    var hasError by remember(attachment.uri) { mutableStateOf(false) }
+
+    fun apply(result: PlatformResult<AudioPlaybackState>) {
+        when (result) {
+            is PlatformResult.Success -> { state = result.value; hasError = false }
+            else -> hasError = true
+        }
+    }
+    fun toggle() {
+        activeOperation?.cancel()
+        activeOperation = scope.launch {
+            if (loading) return@launch
+            if (state.isPlaying) {
+                apply(audioPlayer.pause())
+                return@launch
+            }
+            if (!state.isLoaded) {
+                loading = true
+                val file = try { prepareFile() } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Throwable) { PlatformResult.Failure("profile_audio_prepare_failed") }
+                val ready = (file as? PlatformResult.Success)?.value
+                if (ready == null) {
+                    hasError = true
+                    loading = false
+                    return@launch
+                }
+                preparedFile = ready
+                when (val loaded = audioPlayer.load(ready)) {
+                    is PlatformResult.Success -> state = loaded.value
+                    else -> { hasError = true; loading = false; return@launch }
+                }
+                loading = false
+            }
+            apply(audioPlayer.play())
+        }
+    }
+
+    LaunchedEffect(state.isPlaying) {
+        while (state.isPlaying) {
+            delay(250)
+            state = audioPlayer.state()
+        }
+    }
+    DisposableEffect(attachment.uri, audioPlayer) {
+        onDispose {
+            val file = preparedFile
+            val operation = activeOperation
+            operation?.cancel()
+            scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                try {
+                    operation?.join()
+                    withContext(NonCancellable) {
+                        audioPlayer.stop()
+                        if (file != null) releaseFile(file)
+                    }
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+    }
+    val progress = if (state.durationMillis > 0) state.positionMillis.toFloat() / state.durationMillis else 0f
+    val status = when {
+        hasError -> strings.attachmentOpenFailed
+        loading -> strings.loadingProfile
+        else -> attachment.name
+    }
+    ChatAudioAttachmentPlayerContent(
+        isPlaying = state.isPlaying,
+        hasError = hasError,
+        progress = progress,
+        displayText = status,
+        textColor = MaterialTheme.colorScheme.onSurface,
+        playPauseDescription = if (state.isPlaying) strings.pauseAudio else strings.playAudio,
+        onTogglePlayback = ::toggle,
+        onSeekToFraction = { fraction ->
+            scope.launch { apply(audioPlayer.seekTo((state.durationMillis * fraction.coerceIn(0f, 1f)).toLong())) }
+        },
+    )
 }

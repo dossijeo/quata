@@ -39,6 +39,7 @@ fun NeighborhoodsScreenHost(
     model: NeighborhoodsScreenModel? = null,
     currentUserId: String?,
     strings: NeighborhoodsScreenStrings,
+    errorStrings: NeighborhoodsErrorStrings = defaultNeighborhoodsErrorStrings(null),
     avatar: @Composable (NeighborhoodUser, Boolean, () -> Unit) -> Unit,
     onOpenConversation: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
@@ -48,7 +49,7 @@ fun NeighborhoodsScreenHost(
     openingProfileUserId: String? = null,
 ) {
     require((repository == null) != (model == null)) { "Provide exactly one Neighborhoods model source" }
-    val ownedModel = if (model == null) androidx.compose.runtime.remember(repository) { NeighborhoodsViewModel(requireNotNull(repository)) } else null
+    val ownedModel = if (model == null) androidx.compose.runtime.remember(repository, errorStrings) { NeighborhoodsViewModel(requireNotNull(repository), errors = errorStrings) } else null
     val viewModel = model ?: requireNotNull(ownedModel)
     val state by viewModel.uiState.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }

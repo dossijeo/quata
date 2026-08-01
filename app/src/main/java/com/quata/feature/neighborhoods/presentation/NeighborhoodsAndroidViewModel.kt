@@ -6,8 +6,11 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import kotlinx.coroutines.flow.StateFlow
 
 /** Android lifecycle adapter for shared communities presentation logic. */
-class NeighborhoodsAndroidViewModel(repository: NeighborhoodRepository) : ViewModel(), NeighborhoodsScreenModel {
-    private val delegate = NeighborhoodsViewModel(repository)
+class NeighborhoodsAndroidViewModel(
+    repository: NeighborhoodRepository,
+    errors: NeighborhoodsErrorStrings = defaultNeighborhoodsErrorStrings(java.util.Locale.getDefault().language),
+) : ViewModel(), NeighborhoodsScreenModel {
+    private val delegate = NeighborhoodsViewModel(repository, errors = errors)
     override val uiState: StateFlow<NeighborhoodsUiState> = delegate.uiState
     override fun startObservingCommunities() = delegate.startObservingCommunities()
     override fun stopObservingCommunities() = delegate.stopObservingCommunities()
@@ -26,9 +29,12 @@ class NeighborhoodsAndroidViewModel(repository: NeighborhoodRepository) : ViewMo
     override fun onCleared() = close()
 
     companion object {
-        fun factory(repository: NeighborhoodRepository): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        fun factory(
+            repository: NeighborhoodRepository,
+            errors: NeighborhoodsErrorStrings = defaultNeighborhoodsErrorStrings(java.util.Locale.getDefault().language),
+        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T = NeighborhoodsAndroidViewModel(repository) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = NeighborhoodsAndroidViewModel(repository, errors) as T
         }
     }
 }

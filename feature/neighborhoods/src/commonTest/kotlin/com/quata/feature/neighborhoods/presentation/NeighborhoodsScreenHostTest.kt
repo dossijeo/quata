@@ -28,6 +28,12 @@ class NeighborhoodsScreenHostTest {
         assertEquals("Charger la vidéo", defaultCommunityProfileStrings("fr-FR").runtime.loadVideo)
     }
 
+    @Test fun `error catalog covers every supported locale`() {
+        assertEquals("Could not load communities", defaultNeighborhoodsErrorStrings("en-US").loadCommunities)
+        assertTrue(defaultNeighborhoodsErrorStrings("es-ES").reportPost.startsWith("No se pudo"))
+        assertTrue(defaultNeighborhoodsErrorStrings("fr-FR").blockProfile.startsWith("Impossible"))
+    }
+
     @Test fun `relative activity labels cover Android calendar buckets`() {
         val now = 400L * 86_400_000L
         assertTrue(neighborhoodTimeLabel(now - 86_400_000L, now, "es-ES") == "Ayer")

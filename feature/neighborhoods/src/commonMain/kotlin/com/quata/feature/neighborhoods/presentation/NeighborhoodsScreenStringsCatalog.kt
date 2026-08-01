@@ -5,6 +5,35 @@ package com.quata.feature.neighborhoods.presentation
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
+data class NeighborhoodsErrorStrings(
+    val loadCommunities: String, val openCommunityChat: String, val updateFollow: String,
+    val openPrivateChat: String, val profileTimeout: String, val openProfile: String,
+    val reportPost: String, val publishComment: String, val updateLike: String,
+    val reportProfile: String, val blockProfile: String, val updateRoles: String, val refreshProfile: String,
+)
+
+fun defaultNeighborhoodsErrorStrings(languageTag: String?): NeighborhoodsErrorStrings =
+    when (languageTag.orEmpty().substringBefore('-').lowercase()) {
+        "es" -> NeighborhoodsErrorStrings(
+            "No se pudieron cargar las comunidades", "No se pudo abrir el chat", "No se pudo actualizar el seguimiento",
+            "No se pudo abrir el chat privado", "La carga del perfil ha tardado demasiado. Inténtalo de nuevo.", "No se pudo abrir el perfil",
+            "No se pudo reportar la publicación", "No se pudo publicar el comentario. Inténtalo de nuevo.", "No se pudo actualizar Me gusta. Inténtalo de nuevo.",
+            "No se pudo reportar el perfil", "No se pudo bloquear el perfil", "No se pudieron actualizar los permisos", "No se pudo actualizar el perfil. Inténtalo de nuevo.",
+        )
+        "fr" -> NeighborhoodsErrorStrings(
+            "Impossible de charger les communautés", "Impossible d’ouvrir la discussion", "Impossible de modifier l’abonnement",
+            "Impossible d’ouvrir la discussion privée", "Le chargement du profil a expiré. Réessayez.", "Impossible d’ouvrir le profil",
+            "Impossible de signaler la publication", "Impossible de publier le commentaire. Réessayez.", "Impossible de modifier la mention J’aime. Réessayez.",
+            "Impossible de signaler le profil", "Impossible de bloquer le profil", "Impossible de modifier les autorisations", "Impossible d’actualiser le profil. Réessayez.",
+        )
+        else -> NeighborhoodsErrorStrings(
+            "Could not load communities", "Could not open chat", "Could not update follow status",
+            "Could not open private chat", "Profile loading timed out. Try again.", "Could not open profile",
+            "Could not report post", "Could not publish comment. Try again.", "Could not update Like. Try again.",
+            "Could not report profile", "Could not block profile", "Could not update permissions", "Could not refresh profile. Try again.",
+        )
+    }
+
 /** Portable directory copy. Unknown locales deliberately fall back to English, never a key name. */
 fun defaultNeighborhoodsScreenStrings(languageTag: String?): NeighborhoodsScreenStrings {
     val language = languageTag.orEmpty().substringBefore('-').lowercase()

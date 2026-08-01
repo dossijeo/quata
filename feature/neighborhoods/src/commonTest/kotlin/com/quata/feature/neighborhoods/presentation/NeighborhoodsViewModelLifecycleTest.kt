@@ -25,6 +25,17 @@ class NeighborhoodsViewModelLifecycleTest {
         vm.close()
     }
 
+    @Test fun `repository exception text never escapes the localized error catalog`() = runTest {
+        val repo = FakeNeighborhoodRepository(failFirstRead = true)
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val localized = defaultNeighborhoodsErrorStrings("fr-FR")
+        val vm = NeighborhoodsViewModel(repo, AppDispatchers(dispatcher, dispatcher, dispatcher), localized)
+        vm.startObservingCommunities(); runCurrent()
+        assertEquals(localized.loadCommunities, vm.uiState.value.error)
+        assertFalse(vm.uiState.value.error.orEmpty().contains("offline"))
+        vm.close()
+    }
+
     @Test fun `community and private chat callbacks expose repository ids`() = runTest {
         val repo = FakeNeighborhoodRepository()
         val dispatcher = StandardTestDispatcher(testScheduler)

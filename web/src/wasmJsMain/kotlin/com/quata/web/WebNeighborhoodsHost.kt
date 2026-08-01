@@ -13,6 +13,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.AudioPlayerService
+import com.quata.core.platform.VideoThumbnailService
+import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.DocumentPreviewKind
 import com.quata.core.platform.DocumentSupport
@@ -42,9 +45,25 @@ import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreenStrings
 import com.quata.feature.neighborhoods.presentation.defaultNeighborhoodsScreenStrings
 import com.quata.feature.neighborhoods.presentation.defaultCommunityProfileStrings
 import com.quata.feature.neighborhoods.presentation.defaultCommunityProfileCommentsDialogStrings
+import com.quata.feature.neighborhoods.presentation.defaultNeighborhoodsErrorStrings
 import com.quata.feature.neighborhoods.presentation.ProfileAttachmentRowContent
 import com.quata.feature.neighborhoods.presentation.ProfileAttachmentThumbnailContent
 import com.quata.feature.neighborhoods.presentation.ProfileAttachmentAudioLauncherContent
+import com.quata.feature.neighborhoods.presentation.ProfileAttachmentAudioPlayerContent
+import com.quata.feature.neighborhoods.presentation.ProfileAttachmentVisualKind
+import com.quata.feature.neighborhoods.presentation.visualKind
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.js.JsString
+import kotlin.js.toJsString
 
 @OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
 private val browserNeighborhoodsLanguage: String = js("globalThis.navigator?.language || 'en'")
@@ -74,14 +93,18 @@ fun WebNeighborhoodsHost(
     onDismissProfile: () -> Unit = {},
     profileId: String? = null,
     documentOpener: DocumentOpenService? = null,
+    audioPlayer: AudioPlayerService? = null,
+    videoThumbnails: VideoThumbnailService? = null,
+    attachmentAccessToken: suspend () -> String? = { null },
     padding: PaddingValues = PaddingValues(),
 ) {
     if (profileId != null) {
-        WebCommunityProfileRoute(repository, currentUserId, profileId, slots, onDismissProfile, onOpenConversation, onAuthRequired, onPostReportAuthRequired, pendingReportPostId, onPendingReportHandled, documentOpener)
+        WebCommunityProfileRoute(repository, currentUserId, profileId, slots, onDismissProfile, onOpenConversation, onAuthRequired, onPostReportAuthRequired, pendingReportPostId, onPendingReportHandled, documentOpener, audioPlayer, videoThumbnails, attachmentAccessToken)
     } else NeighborhoodsScreenHost(
     repository = repository,
     currentUserId = currentUserId,
     strings = strings.screen,
+    errorStrings = defaultNeighborhoodsErrorStrings(browserNeighborhoodsLanguage),
         avatar = { user, loading, click -> slots.avatar(user, loading, 48, click) },
     onOpenConversation = onOpenConversation,
     onOpenUserProfile = onOpenUserProfile,
@@ -104,8 +127,11 @@ private fun WebCommunityProfileRoute(
     pendingReportPostId: String?,
     onPendingReportHandled: () -> Unit,
     documentOpener: DocumentOpenService?,
+    audioPlayer: AudioPlayerService?,
+    videoThumbnails: VideoThumbnailService?,
+    attachmentAccessToken: suspend () -> String?,
 ) {
-    val model = remember(repository) { NeighborhoodsViewModel(repository) }
+    val model = remember(repository) { NeighborhoodsViewModel(repository, errors = defaultNeighborhoodsErrorStrings(browserNeighborhoodsLanguage)) }
     val state by model.uiState.collectAsState()
     val profileStrings = defaultCommunityProfileStrings(browserNeighborhoodsLanguage)
     val actionScope = rememberCoroutineScope()
@@ -166,8 +192,17 @@ private fun WebCommunityProfileRoute(
             }
             ProfileAttachmentRowContent(
                 attachment = attachment,
-                audioPlayer = { ProfileAttachmentAudioLauncherContent(attachment, profileStrings.runtime, open) },
-                thumbnail = { ProfileAttachmentThumbnailContent(attachment, profileStrings.runtime) },
+                audioPlayer = {
+                    if (audioPlayer != null) ProfileAttachmentAudioPlayerContent(
+                        attachment,
+                        profileStrings.runtime,
+                        audioPlayer,
+                        prepareFile = { webDownloadProfileAttachment(attachment, attachmentAccessToken()) },
+                        releaseFile = { webRevokeProfileBlob(it.reference) },
+                    )
+                    else ProfileAttachmentAudioLauncherContent(attachment, profileStrings.runtime, open)
+                },
+                thumbnail = { WebProfileAttachmentThumbnail(attachment, profileStrings.runtime, videoThumbnails, attachmentAccessToken) },
                 onOpen = open,
             )
         },
@@ -204,6 +239,58 @@ private fun WebCommunityProfileRoute(
         }
     }*/
 }
+
+@Composable
+private fun WebProfileAttachmentThumbnail(
+    attachment: com.quata.feature.neighborhoods.domain.ProfileAttachment,
+    strings: com.quata.feature.neighborhoods.presentation.CommunityProfileRuntimeStrings,
+    videoThumbnails: VideoThumbnailService?,
+    attachmentAccessToken: suspend () -> String?,
+) {
+    var thumbnailUrl by remember(attachment.uri) { mutableStateOf<String?>(null) }
+    LaunchedEffect(attachment.uri, videoThumbnails) {
+        if (attachment.visualKind() in setOf(ProfileAttachmentVisualKind.Image, ProfileAttachmentVisualKind.Video)) {
+            val local = webDownloadProfileAttachment(attachment, attachmentAccessToken())
+            if (local is PlatformResult.Success) {
+                if (attachment.visualKind() == ProfileAttachmentVisualKind.Image) {
+                    thumbnailUrl = local.value.reference
+                } else if (videoThumbnails != null) {
+                    val generated = videoThumbnails.createThumbnail(local.value, 320)
+                    webRevokeProfileBlob(local.value.reference)
+                    thumbnailUrl = (generated as? PlatformResult.Success)?.value?.reference
+                } else {
+                    webRevokeProfileBlob(local.value.reference)
+                }
+            }
+        }
+    }
+    DisposableEffect(thumbnailUrl) { onDispose { thumbnailUrl?.let(::webRevokeProfileBlob) } }
+    val visualUrl = when (attachment.visualKind()) {
+        ProfileAttachmentVisualKind.Image -> thumbnailUrl
+        ProfileAttachmentVisualKind.Video -> thumbnailUrl
+        else -> null
+    }
+    if (visualUrl != null) {
+        Box(Modifier.size(58.dp).clip(RoundedCornerShape(12.dp))) {
+            BrowserCanvasImage(visualUrl, attachment.name, ContentScale.Crop, Modifier.fillMaxSize())
+        }
+    } else ProfileAttachmentThumbnailContent(attachment, strings)
+}
+
+private suspend fun webDownloadProfileAttachment(attachment: com.quata.feature.neighborhoods.domain.ProfileAttachment, accessToken: String?): PlatformResult<PlatformFile> =
+    suspendCancellableCoroutine { continuation ->
+        val cancel = webFetchProfileBlob(
+            attachment.uri.toJsString(), accessToken.orEmpty().toJsString(),
+            { reference -> if (continuation.isActive) continuation.resume(PlatformResult.Success(PlatformFile(reference.toString(), attachment.name, attachment.mimeType))) },
+            { if (continuation.isActive) continuation.resume(PlatformResult.Failure("profile_attachment_download_failed")) },
+        )
+        continuation.invokeOnCancellation { cancel() }
+    }
+
+@JsFun("""(url, token, success, failure) => { const controller = new AbortController(); const headers = token ? {Authorization: 'Bearer ' + token} : undefined; fetch(url, {signal: controller.signal, headers}).then(r => {if (!r.ok) throw new Error('http_' + r.status); return r.blob();}).then(blob => success(URL.createObjectURL(blob))).catch(error => {if (error?.name !== 'AbortError') failure();}); return () => controller.abort(); }""")
+private external fun webFetchProfileBlob(url: JsString, token: JsString, success: (JsString) -> Unit, failure: () -> Unit): () -> Unit
+
+private fun webRevokeProfileBlob(reference: String): Unit = js("if (reference.startsWith('blob:')) globalThis.URL?.revokeObjectURL?.(reference)")
 
 private fun webOpenProfileResource(url: String) { js("globalThis.open(url, '_blank', 'noopener,noreferrer')") }
 private fun webShareProfilePost(postId: String) {

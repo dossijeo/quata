@@ -897,7 +897,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == "quata-ios-auth-host" })
     }
 
-    func testAnonymousCommunitiesActionPresentsAuthAndReturnsToCommunitiesAfterSession() {
+    func testAnonymousCommunitiesActionPresentsCommonPromptBeforeAuth() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
         router.installPublicFeed { _ in UIViewController() }
@@ -908,10 +908,40 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.children.contains { $0 === communities })
 
         router.requestAuthenticationForCommunities()
-        XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertNotNil(router.presentedViewController)
+        XCTAssertNotEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-auth-host")
+
+        router.cancelCommunityAuthenticationPrompt()
+    }
+
+    func testCancellingCommunityAuthClearsPendingAndLaterLoginDoesNotReplayRoute() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let feed = UIViewController()
+        let communities = UIViewController()
+        var cancellations = 0
+        router.installPublicFeed { _ in feed }
+        router.installCommunitiesFactory { communities }
+        router.installAuthenticationFactory { UIViewController() }
+        router.installCommunityAuthenticationCancellationHandler { cancellations += 1 }
+        router.requestAuthenticationForCommunities()
+        router.cancelCommunityAuthenticationPrompt()
 
         router.installFeedFactory { _ in UIViewController() }
-        XCTAssertEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-communities-host")
+        XCTAssertEqual(cancellations, 1)
+        XCTAssertNotEqual(authenticatedRouteController(in: router)?.view.accessibilityIdentifier, "quata-ios-communities-host")
+    }
+
+    func testAbandoningCommunityLoginClearsPendingAction() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        var cancellations = 0
+        router.installPublicFeed { _ in UIViewController() }
+        router.installAuthenticationFactory { UIViewController() }
+        router.installCommunityAuthenticationCancellationHandler { cancellations += 1 }
+        router.presentLoginIfAvailable()
+        router.showFeed(postId: nil)
+        XCTAssertEqual(cancellations, 1)
     }
 
     func testAuthenticatedRouterPresentsQueuedComposerOnlyAfterItsRealFactoryIsInstalled() {
@@ -1187,6 +1217,8 @@ final class QuataFeedFrameworkTests: XCTestCase {
                     mediaFactory: IosFeedNativeMediaFactory.shared,
                     shareService: services.services.share,
                     attachmentPreviewService: communitiesBootstrap.attachmentPreviewService(documentOpener: services.services.documentOpener),
+                    audioPlayer: services.services.audioPlayer,
+                    videoThumbnails: services.services.videoThumbnails,
                     pendingReportPostId: nil,
                 ),
             )

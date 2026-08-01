@@ -89,6 +89,14 @@ class WebNavigationTest {
         assertEquals("official-bulletin-99", browserFragment)
     }
 
+    @Test
+    fun cancelledOrAbandonedAuthCannotReplayAnOldCommunityReport() {
+        val pending = WebPendingCommunityPostReport("profile-a", "post-a")
+        assertEquals(null, clearWebPendingCommunityPostReportOnAuthExit(pending, enteredAuth = true, isAuthenticated = false, isAuthenticationRoute = false))
+        assertEquals(null, clearWebPendingCommunityPostReportOnAuthExit(null, enteredAuth = true, isAuthenticated = true, isAuthenticationRoute = false))
+        assertEquals(pending, clearWebPendingCommunityPostReportOnAuthExit(pending, enteredAuth = true, isAuthenticated = false, isAuthenticationRoute = true))
+    }
+
     private fun assertRoute(expected: String, navigation: WebNavigationState) {
         assertEquals(expected, navigation.route)
     }

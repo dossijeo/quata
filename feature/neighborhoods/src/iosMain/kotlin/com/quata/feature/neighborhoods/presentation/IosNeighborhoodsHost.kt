@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
@@ -53,11 +54,14 @@ import com.quata.feature.feed.presentation.IosFeedMediaSlot
 import com.quata.feature.chat.data.IosChatAttachmentPreviewService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.AudioPlayerService
+import com.quata.core.platform.VideoThumbnailService
 import platform.UIKit.UIViewController
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSURL
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionDataDelegateProtocol
@@ -106,6 +110,8 @@ class IosNeighborhoodsHostDependencies(
     val mediaFactory: IosFeedMediaFactory,
     val shareService: ShareService,
     val attachmentPreviewService: IosChatAttachmentPreviewService,
+    val audioPlayer: AudioPlayerService,
+    val videoThumbnails: VideoThumbnailService,
     val pendingReportPostId: String?,
 )
 
@@ -127,10 +133,12 @@ fun createIosNeighborhoodsHostDependencies(
     mediaFactory: IosFeedMediaFactory,
     shareService: ShareService,
     attachmentPreviewService: IosChatAttachmentPreviewService,
+    audioPlayer: AudioPlayerService,
+    videoThumbnails: VideoThumbnailService,
     pendingReportPostId: String?,
 ): IosNeighborhoodsHostDependencies = IosNeighborhoodsHostDependencies(
     repository = repository,
-    viewModel = NeighborhoodsViewModel(repository),
+    viewModel = NeighborhoodsViewModel(repository, errors = defaultNeighborhoodsErrorStrings(languageTag)),
     currentUserId = currentUserId,
     listStrings = defaultNeighborhoodsScreenStrings(languageTag).list,
     usersStrings = defaultNeighborhoodsScreenStrings(languageTag).members,
@@ -144,6 +152,8 @@ fun createIosNeighborhoodsHostDependencies(
     mediaFactory = mediaFactory,
     shareService = shareService,
     attachmentPreviewService = attachmentPreviewService,
+    audioPlayer = audioPlayer,
+    videoThumbnails = videoThumbnails,
     pendingReportPostId = pendingReportPostId,
 )
 
@@ -239,8 +249,16 @@ fun QuataCommunityProfileViewController(
                     Column {
                         ProfileAttachmentRowContent(
                             attachment = attachment,
-                            audioPlayer = { ProfileAttachmentAudioLauncherContent(attachment, dependencies.profileStrings.runtime) { openAttachment(attachment) } },
-                            thumbnail = { ProfileAttachmentThumbnailContent(attachment, dependencies.profileStrings.runtime) },
+                            audioPlayer = {
+                                ProfileAttachmentAudioPlayerContent(
+                                    attachment = attachment,
+                                    strings = dependencies.profileStrings.runtime,
+                                    audioPlayer = dependencies.audioPlayer,
+                                    prepareFile = { dependencies.attachmentPreviewService.downloadRemoteAttachment(PlatformFile(attachment.uri, attachment.name, attachment.mimeType)) },
+                                    releaseFile = { dependencies.attachmentPreviewService.releaseDownloadedAttachment(it) },
+                                )
+                            },
+                            thumbnail = { IosProfileAttachmentThumbnail(attachment, dependencies) },
                             onOpen = { openAttachment(attachment) },
                         )
                         if (failedAttachment?.uri == attachment.uri && attachmentError != null) {
@@ -280,6 +298,48 @@ fun QuataCommunityProfileViewController(
             }*/
         }
     }
+}
+
+@Composable
+@OptIn(ExperimentalForeignApi::class)
+private fun IosProfileAttachmentThumbnail(
+    attachment: ProfileAttachment,
+    dependencies: IosNeighborhoodsHostDependencies,
+) {
+    var localFile by remember(attachment.uri) { mutableStateOf<PlatformFile?>(null) }
+    var generatedThumbnail by remember(attachment.uri) { mutableStateOf<PlatformFile?>(null) }
+    var image by remember(attachment.uri) { mutableStateOf<UIImage?>(null) }
+    LaunchedEffect(attachment.uri) {
+        if (attachment.visualKind() !in setOf(ProfileAttachmentVisualKind.Image, ProfileAttachmentVisualKind.Video)) return@LaunchedEffect
+        val downloaded = dependencies.attachmentPreviewService.downloadRemoteAttachment(PlatformFile(attachment.uri, attachment.name, attachment.mimeType))
+        val source = (downloaded as? PlatformResult.Success)?.value ?: return@LaunchedEffect
+        localFile = source
+        val visual = if (attachment.visualKind() == ProfileAttachmentVisualKind.Video) {
+            (dependencies.videoThumbnails.createThumbnail(source, 320) as? PlatformResult.Success)?.value
+        } else source
+        if (visual !== source) generatedThumbnail = visual
+        val path = visual?.reference?.let { reference -> NSURL(string = reference)?.path ?: reference.removePrefix("file://") }
+        image = path?.let { UIImage(contentsOfFile = it) }
+    }
+    DisposableEffect(attachment.uri) {
+        onDispose {
+            localFile?.let(dependencies.attachmentPreviewService::releaseDownloadedAttachment)
+            generatedThumbnail?.reference?.let { reference ->
+                val path = NSURL(string = reference)?.path ?: reference.removePrefix("file://")
+                NSFileManager.defaultManager.removeItemAtPath(path, error = null)
+            }
+        }
+    }
+    val decoded = image
+    if (decoded != null) {
+        Box(Modifier.size(58.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))) {
+            UIKitView(
+                factory = { UIImageView().apply { contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill; clipsToBounds = true; this.image = decoded } },
+                update = { it.image = decoded },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    } else ProfileAttachmentThumbnailContent(attachment, dependencies.profileStrings.runtime)
 }
 
 /** Real remote avatar slot with the common frame retaining its deterministic fallback. */
