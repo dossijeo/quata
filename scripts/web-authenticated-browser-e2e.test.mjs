@@ -18,6 +18,7 @@ import {
 } from "./web-authenticated-browser-policy.mjs";
 
 const runner = await readFile(new URL("./web-authenticated-browser-e2e.mjs", import.meta.url), "utf8");
+const webChatHost = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt", import.meta.url), "utf8");
 const wrapper = await readFile(new URL("./run-web-authenticated-browser-e2e.ps1", import.meta.url), "utf8");
 const bridge = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebAuthE2eBridge.kt", import.meta.url), "utf8");
 const main = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt", import.meta.url), "utf8");
@@ -110,6 +111,12 @@ test("Wasm file-cache interop expressions remain valid object-property expressio
       new RegExp(`web_file_cache_${operation}_failed'\\)\\);`),
     );
   }
+});
+
+test("Chat converts the JavaScript Number clock before returning a Wasm Long", () => {
+  assert.match(webChatHost, /@JsFun\("\(\) => Date\.now\(\)"\)\s*private external fun chatBrowserNowMillisAsDouble\(\): Double/);
+  assert.match(webChatHost, /private fun webNowMillis\(\): Long = chatBrowserNowMillisAsDouble\(\)\.toLong\(\)/);
+  assert.doesNotMatch(webChatHost, /fun webNowMillis\(\): Long = js\("Date\.now\(\)"\)/);
 });
 
 test("fixture fails closed on external network while proving the notification inbox read", () => {

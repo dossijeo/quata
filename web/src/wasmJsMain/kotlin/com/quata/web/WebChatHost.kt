@@ -165,7 +165,11 @@ private fun WebInviteChannelSheet(
     )
 }
 
-private fun webNowMillis(): Long = js("Date.now()")
+@JsFun("() => Date.now()")
+private external fun chatBrowserNowMillisAsDouble(): Double
+
+/** Date.now() is a JavaScript Number, not the BigInt required by a Wasm Kotlin Long. */
+private fun webNowMillis(): Long = chatBrowserNowMillisAsDouble().toLong()
 private fun webBrowserLanguage(): String? = js("globalThis.navigator?.language || null")
 
 private fun browserDocumentIsVisible(): Boolean = js(
