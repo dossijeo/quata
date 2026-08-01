@@ -44,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -89,6 +90,7 @@ import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
 import com.quata.feature.postcomposer.videoeditor.QuataVideoEditorDialog
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CompletableDeferred
 import java.util.UUID
 
 @Composable
@@ -100,424 +102,98 @@ fun OfficialPostEditorRoute(
     viewModel: OfficialFeedAndroidViewModel = viewModel(factory = OfficialFeedAndroidViewModel.factory(repository))
 ) {
     val state by viewModel.uiState.collectAsState()
-
-    LaunchedEffect(state.message) {
-        if (state.message != null) {
-            val createdPostId = state.createdPostId
-            viewModel.onEvent(OfficialFeedUiEvent.ClearMessage)
-            onPublished(createdPostId)
-        }
+    val context = LocalContext.current
+    if (state.currentUser?.isOfficial != true && state.currentUser?.isAdmin != true) {
+        Text("Official authorisation is required")
+        return
     }
-
-    OfficialPostEditorScreen(
+    BackHandler { onPublished(null) }
+    OfficialPostEditorScreenHost(
         padding = padding,
-        currentUser = state.currentUser,
-        isPublishing = state.isPublishing,
-        error = state.error,
-        onSubmit = { drafts -> viewModel.onEvent(OfficialFeedUiEvent.CreatePosts(drafts)) },
-        onFullscreenEditorVisibilityChange = onFullscreenEditorVisibilityChange
+        language = currentOfficialPostLanguage(),
+        strings = OfficialPostEditorStrings.forLanguage(QuataLanguageManager.currentLanguage.tag),
+        slots = rememberAndroidOfficialEditorPlatformSlots(state.currentUser, onFullscreenEditorVisibilityChange),
+        onSubmit = repository::createPosts,
+        onPublished = onPublished,
+        onBack = { onPublished(null) },
+        newTranslationGroupId = { UUID.randomUUID().toString() },
+        translator = OfficialDraftTranslator { draft, target ->
+            runCatching { translateOfficialDraft(context, draft, draft.language, target, draft.translationGroupId.orEmpty()) }
+        },
+        languageDetector = OfficialLanguageDetector { text ->
+            runCatching {
+                when (QuataLanguageIdentifier.detect(context, text).language) {
+                    QuataDetectedLanguage.English -> OfficialPostLanguage.English
+                    QuataDetectedLanguage.French -> OfficialPostLanguage.French
+                    else -> OfficialPostLanguage.Spanish
+                }
+            }
+        },
     )
 }
 
+/** Android-only bindings. The common host owns the editor state and transaction flow. */
 @Composable
-fun OfficialPostEditorScreen(
-    padding: PaddingValues,
+internal fun rememberAndroidOfficialEditorPlatformSlots(
     currentUser: User?,
-    isPublishing: Boolean,
-    error: String?,
-    onSubmit: (List<OfficialPostDraft>) -> Unit,
-    onFullscreenEditorVisibilityChange: (Boolean) -> Unit = {}
-) {
+    onFullscreenEditorVisibilityChange: (Boolean) -> Unit,
+): OfficialEditorPlatformSlots {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    var editorMode by rememberSaveable { mutableStateOf(OfficialEditorMode.Quick) }
-    var title by rememberSaveable { mutableStateOf("") }
-    var summary by rememberSaveable { mutableStateOf("") }
-    var contentHtml by rememberSaveable { mutableStateOf("") }
-    var readMoreOption by rememberSaveable { mutableStateOf(OfficialReadMoreOption.ReadMore) }
-    var readMoreMenuOpen by rememberSaveable { mutableStateOf(false) }
-    var linkUrl by rememberSaveable { mutableStateOf("") }
-    var mediaUrl by rememberSaveable { mutableStateOf("") }
-    var mediaType by rememberSaveable { mutableStateOf<OfficialMediaType?>(null) }
-    var postType by rememberSaveable { mutableStateOf(OfficialPostType.Announcement) }
-    var typeMenuOpen by rememberSaveable { mutableStateOf(false) }
-    var isLongEditorOpen by rememberSaveable { mutableStateOf(false) }
-    var longEditorHtml by rememberSaveable { mutableStateOf("") }
-    var imageEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var videoEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var pendingTranslation by remember { mutableStateOf<OfficialPendingTranslation?>(null) }
-
+    var longEditor by remember { mutableStateOf<AndroidLongEditor?>(null) }
+    var mediaEdit by remember { mutableStateOf<AndroidMediaEdit?>(null) }
+    var pendingPickedMedia by remember { mutableStateOf<AndroidPickedMedia?>(null) }
+    var imagePicked by remember { mutableStateOf<((OfficialEditorMedia) -> Unit)?>(null) }
+    var videoPicked by remember { mutableStateOf<((OfficialEditorMedia) -> Unit)?>(null) }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        imageEditorUri = uri
+        uri?.let { pendingPickedMedia = AndroidPickedMedia(OfficialEditorMedia(it.toString(), OfficialMediaType.Image, displayName = it.lastPathSegment), imagePicked) }
     }
     val videoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        videoEditorUri = uri
+        uri?.let { pendingPickedMedia = AndroidPickedMedia(OfficialEditorMedia(it.toString(), OfficialMediaType.Video, displayName = it.lastPathSegment), videoPicked) }
     }
-
-    LaunchedEffect(imageEditorUri, videoEditorUri, isLongEditorOpen) {
-        onFullscreenEditorVisibilityChange(imageEditorUri != null || videoEditorUri != null || isLongEditorOpen)
+    DisposableEffect(longEditor, mediaEdit, pendingPickedMedia) {
+        onFullscreenEditorVisibilityChange(longEditor != null || mediaEdit != null || pendingPickedMedia != null)
+        onDispose { onFullscreenEditorVisibilityChange(false) }
     }
-
-    BackHandler(enabled = isLongEditorOpen) {
-        isLongEditorOpen = false
-    }
-
-    val contentPlain = contentHtml.stripHtmlForOfficialEditor()
-    val quickTextBlocks = remember(contentHtml) { contentHtml.extractOfficialEditorBlocks() }
-    val quickTitle = quickTextBlocks.firstOrNull().orEmpty()
-    val quickSummary = quickTextBlocks.drop(1).joinToString(" ").ellipsizeOfficialSummary(140)
-    val effectiveTitle = if (editorMode == OfficialEditorMode.Quick) quickTitle else title.trim()
-    val effectiveSummary = if (editorMode == OfficialEditorMode.Quick) quickSummary else summary.trim()
-    val effectiveReadMoreCode = if (editorMode == OfficialEditorMode.Quick) {
-        OfficialReadMoreOption.ReadMore.shortcode
-    } else {
-        readMoreOption.shortcode
-    }
-    val effectiveLinkUrl = if (editorMode == OfficialEditorMode.Quick) "" else linkUrl.trim()
-
-    fun canPublishPost(): Boolean =
-        if (editorMode == OfficialEditorMode.Quick) {
-            contentPlain.isNotBlank()
-        } else {
-            title.isNotBlank() && (
-                summary.isNotBlank() ||
-                    contentPlain.isNotBlank() ||
-                    (mediaType != null && mediaUrl.isNotBlank())
-                )
-        }
-
-    fun buildDraft(language: OfficialPostLanguage = currentOfficialPostLanguage()): OfficialPostDraft =
-        OfficialPostDraft(
-            title = effectiveTitle.ifBlank { context.getString(R.string.official_post_default_title) },
-            summary = effectiveSummary,
-            contentHtml = contentHtml,
-            readMoreLabel = effectiveReadMoreCode,
-            language = language,
-            type = postType,
-            mediaUrl = mediaUrl.takeIf { mediaType != null && it.isNotBlank() },
-            mediaType = mediaType?.takeIf { mediaUrl.isNotBlank() },
-            linkUrl = effectiveLinkUrl.takeIf { it.isNotBlank() },
-            isLive = false
-        )
-
-    fun requestPublication() {
-        val draft = buildDraft()
-        coroutineScope.launch {
-            val sourceLanguage = detectOfficialPostLanguage(context, draft)
-            val missingLanguages = OfficialPostLanguage.entries.filterNot { it == sourceLanguage }
-            pendingTranslation = OfficialPendingTranslation(
-                draft = draft.copy(language = sourceLanguage),
-                sourceLanguage = sourceLanguage,
-                targetLanguages = missingLanguages
-            )
-        }
-    }
-
-    if (isLongEditorOpen) {
-        OfficialLongContentEditor(
-            html = longEditorHtml,
-            title = stringResource(
-                if (editorMode == OfficialEditorMode.Quick) {
-                    R.string.official_form_body_quick
-                } else {
-                    R.string.official_form_body
-                }
+    val slots = remember(currentUser) {
+        OfficialEditorPlatformSlots(
+            richTextEditor = OfficialRichBodyEditor(
+                content = { html, onHtmlChanged, onFullscreenChanged ->
+                    OutlinedButton(onClick = { onFullscreenChanged(true); longEditor = AndroidLongEditor(html, onHtmlChanged, onFullscreenChanged) }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Filled.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text(context.getString(R.string.official_form_edit_body), fontWeight = FontWeight.ExtraBold)
+                    }
+                    longEditor?.let { editor -> OfficialLongContentEditor(editor.html, context.getString(R.string.official_form_body), { editor.html = it }, { editor.onFullscreenChanged(false); longEditor = null }, { editor.onHtmlChanged(editor.html); editor.onFullscreenChanged(false); longEditor = null }) }
+                },
+                cancel = { longEditor?.onFullscreenChanged(false); longEditor = null; Result.success(Unit) },
             ),
-            onHtmlChange = { longEditorHtml = it },
-            onBack = { isLongEditorOpen = false },
-            onSave = {
-                contentHtml = longEditorHtml
-                isLongEditorOpen = false
-            }
+            imagePicker = { onPicked, modifier -> OutlinedButton(onClick = { imagePicked = onPicked; imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, modifier = modifier) { Icon(Icons.Filled.PhotoLibrary, null, Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text(context.getString(R.string.composer_pick_image)) } },
+            videoPicker = { onPicked, modifier -> OutlinedButton(onClick = { videoPicked = onPicked; videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }, modifier = modifier) { Icon(Icons.Filled.VideoLibrary, null, Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text(context.getString(R.string.composer_pick_video)) } },
+            mediaPreview = { media, onRemove, onEdit, modifier ->
+                OfficialEditorMediaPreview(media.type, media.url, onEdit ?: {}, onRemove)
+            },
+            mediaEditor = OfficialEditorCapability.Available(OfficialMediaEditExporter(OfficialMediaType.entries.toSet(), { media ->
+                val completion = CompletableDeferred<OfficialEditorMedia>(); mediaEdit = AndroidMediaEdit(media, completion); runCatching { completion.await() }
+            }, { mediaEdit?.let { it.completion.complete(it.media) }; mediaEdit = null; Result.success(Unit) })),
+            cardPreview = OfficialEditorCapability.Available(OfficialCardPreview { draft, _ -> OfficialPostPreview(currentUser, draft.title, draft.summary, draft.contentHtml, draft.readMoreLabel, draft.type, draft.mediaUrl.orEmpty(), draft.mediaType, draft.linkUrl.orEmpty()) }),
         )
-    } else {
-        OfficialEditorScreenContent(
-            padding = padding,
-            title = stringResource(R.string.official_create),
-        ) {
-            OfficialEditorFormContent(
-                modeSelector = {
-                    OfficialEditorModeSelectorContent(
-                        title = stringResource(
-                            if (editorMode == OfficialEditorMode.Quick) {
-                                R.string.official_form_mode_quick
-                            } else {
-                                R.string.official_form_mode_advanced
-                            }
-                        ),
-                        description = stringResource(
-                            if (editorMode == OfficialEditorMode.Quick) {
-                                R.string.official_form_mode_description_quick
-                            } else {
-                                R.string.official_form_mode_description_advanced
-                            }
-                        ),
-                        isAdvanced = editorMode == OfficialEditorMode.Advanced,
-                        onAdvancedChange = { checked ->
-                            editorMode = if (checked) OfficialEditorMode.Advanced else OfficialEditorMode.Quick
-                        },
-                    )
-                },
-                mainSection = {
-                        OfficialEditorCard {
-                            OfficialEditorSectionTitle(stringResource(R.string.official_form_main_section))
-                        OfficialEditorDropdownFieldContent(
-                            selectedLabel = postType.editorLabel(),
-                            options = OfficialPostType.entries.map { type ->
-                                OfficialEditorSelectionOption(type.name, type.editorLabel())
-                            },
-                            expanded = typeMenuOpen,
-                            onExpandedChange = { typeMenuOpen = it },
-                            onOptionSelected = { selectedId ->
-                                postType = OfficialPostType.entries.first { it.name == selectedId }
-                            },
-                        )
-                        if (editorMode == OfficialEditorMode.Advanced) {
-                            OfficialAdvancedTextFieldsContent(
-                                title = title,
-                                summary = summary,
-                                titleLabel = stringResource(R.string.official_form_title),
-                                summaryLabel = stringResource(R.string.official_form_summary),
-                                onTitleChange = { title = it },
-                                onSummaryChange = { summary = it },
-                            )
-                        }
-                    }
-                },
-                mediaSection = {
-                    OfficialEditorMediaSectionContent(
-                        title = stringResource(R.string.official_form_media_section),
-                        imagePicker = { pickerModifier ->
-                            OutlinedButton(
-                                onClick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                                modifier = pickerModifier,
-                            ) {
-                                Icon(Icons.Filled.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.size(8.dp))
-                                Text(stringResource(R.string.composer_pick_image), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        },
-                        videoPicker = { pickerModifier ->
-                            OutlinedButton(
-                                onClick = { videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
-                                modifier = pickerModifier,
-                            ) {
-                                Icon(Icons.Filled.VideoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.size(8.dp))
-                                Text(stringResource(R.string.composer_pick_video), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        },
-                        preview = {
-                            val selectedMediaType = mediaType
-                            if (mediaUrl.isNotBlank() && selectedMediaType != null) {
-                                OfficialEditorMediaPreview(
-                                    mediaType = selectedMediaType,
-                                    mediaUrl = mediaUrl,
-                                    onEdit = {
-                                        when (selectedMediaType) {
-                                            OfficialMediaType.Image -> imageEditorUri = Uri.parse(mediaUrl)
-                                            OfficialMediaType.Video -> videoEditorUri = Uri.parse(mediaUrl)
-                                        }
-                                    },
-                                    onRemove = {
-                                        mediaType = null
-                                        mediaUrl = ""
-                                    },
-                                )
-                            }
-                        },
-                    )
-                },
-                bodySection = {
-                    OfficialEditorBodySectionContent(
-                        title = stringResource(
-                            if (editorMode == OfficialEditorMode.Quick) {
-                                R.string.official_form_body_quick
-                            } else {
-                                R.string.official_form_read_more_section
-                            }
-                        ),
-                        readMoreControl = if (editorMode == OfficialEditorMode.Advanced) {
-                            {
-                                OfficialEditorDropdownFieldContent(
-                                    selectedLabel = localizedOfficialReadMoreLabel(readMoreOption.shortcode),
-                                    options = officialReadMoreUiOptions.map { option ->
-                                        OfficialEditorSelectionOption(option.option.name, stringResource(option.labelRes))
-                                    },
-                                    expanded = readMoreMenuOpen,
-                                    onExpandedChange = { readMoreMenuOpen = it },
-                                    onOptionSelected = { selectedId ->
-                                        readMoreOption = OfficialReadMoreOption.entries.first { it.name == selectedId }
-                                    },
-                                )
-                            }
-                        } else {
-                            null
-                        },
-                        editorAction = {
-                            OutlinedButton(
-                                onClick = {
-                                    longEditorHtml = contentHtml
-                                    isLongEditorOpen = true
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.size(8.dp))
-                                Text(
-                                    stringResource(
-                                        if (editorMode == OfficialEditorMode.Quick) {
-                                            R.string.official_form_edit_body_quick
-                                        } else {
-                                            R.string.official_form_edit_body
-                                        }
-                                    ),
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
-                        },
-                        linkControl = if (editorMode == OfficialEditorMode.Advanced) {
-                            {
-                                OfficialEditorLinkFieldContent(
-                                    value = linkUrl,
-                                    onValueChange = { linkUrl = it },
-                                    label = stringResource(R.string.official_form_link),
-                                )
-                            }
-                        } else {
-                            null
-                        }
-                    )
-                },
-                previewSection = {
-                    OfficialEditorSectionTitle(stringResource(R.string.composer_preview))
-                    OfficialPostPreview(
-                        author = currentUser,
-                        title = effectiveTitle,
-                        summary = effectiveSummary,
-                        contentHtml = contentHtml,
-                        readMoreLabel = effectiveReadMoreCode,
-                        postType = postType,
-                        mediaUrl = mediaUrl,
-                        mediaType = mediaType,
-                        linkUrl = effectiveLinkUrl
-                    )
-                },
-                feedback = {
-                    if (error != null) {
-                        Text(error, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                    }
-                },
-                publishAction = {
-                    OfficialPublishButton(
-                        enabled = canPublishPost(),
-                        isPublishing = isPublishing,
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { requestPublication() },
-                    )
-                },
-            )
+    }
+    mediaEdit?.let { edit ->
+        when (edit.media.type) {
+            OfficialMediaType.Image -> QuataImageEditorDialog(Uri.parse(edit.media.url), { edit.completion.complete(edit.media); mediaEdit = null }, { uri -> edit.completion.complete(edit.media.copy(url = uri.toString())); mediaEdit = null })
+            OfficialMediaType.Video -> QuataVideoEditorDialog(Uri.parse(edit.media.url), { edit.completion.complete(edit.media); mediaEdit = null }, { uri -> edit.completion.complete(edit.media.copy(url = uri.toString())); mediaEdit = null })
         }
     }
-
-    pendingTranslation?.let { pending ->
-        OfficialTranslationPromptDialog(
-            pending = pending,
-            onDismiss = {
-                if (!pending.isTranslating) {
-                    pendingTranslation = null
-                }
-            },
-            onSkip = {
-                val groupId = UUID.randomUUID().toString()
-                onSubmit(listOf(pending.draft.copy(translationGroupId = groupId)))
-                pendingTranslation = null
-            },
-            onGenerate = {
-                pendingTranslation = pending.copy(isTranslating = true)
-                coroutineScope.launch {
-                    val translatedDrafts = runCatching {
-                        buildTranslatedOfficialDrafts(context, pending)
-                    }.getOrElse {
-                        listOf(pending.draft.copy(translationGroupId = UUID.randomUUID().toString()))
-                    }
-                    onSubmit(translatedDrafts)
-                    pendingTranslation = null
-                }
-            }
-        )
+    pendingPickedMedia?.let { picked ->
+        when (picked.media.type) {
+            OfficialMediaType.Image -> QuataImageEditorDialog(Uri.parse(picked.media.url), { pendingPickedMedia = null }, { uri -> picked.onPicked?.invoke(picked.media.copy(url = uri.toString())); pendingPickedMedia = null })
+            OfficialMediaType.Video -> QuataVideoEditorDialog(Uri.parse(picked.media.url), { pendingPickedMedia = null }, { uri -> picked.onPicked?.invoke(picked.media.copy(url = uri.toString())); pendingPickedMedia = null })
+        }
     }
-
-    imageEditorUri?.let { sourceUri ->
-        QuataImageEditorDialog(
-            imageUri = sourceUri,
-            onDismiss = { imageEditorUri = null },
-            onEdited = { editedUri ->
-                mediaType = OfficialMediaType.Image
-                mediaUrl = editedUri.toString()
-                imageEditorUri = null
-            }
-        )
-    }
-
-    videoEditorUri?.let { sourceUri ->
-        QuataVideoEditorDialog(
-            videoUri = sourceUri,
-            onDismiss = { videoEditorUri = null },
-            onExported = { editedUri ->
-                mediaType = OfficialMediaType.Video
-                mediaUrl = editedUri.toString()
-                videoEditorUri = null
-            }
-        )
-    }
+    return slots
 }
 
-private enum class OfficialEditorMode {
-    Quick,
-    Advanced
-}
-
-private data class OfficialPendingTranslation(
-    val draft: OfficialPostDraft,
-    val sourceLanguage: OfficialPostLanguage,
-    val targetLanguages: List<OfficialPostLanguage>,
-    val isTranslating: Boolean = false
-)
-
-@Composable
-private fun OfficialTranslationPromptDialog(
-    pending: OfficialPendingTranslation,
-    onDismiss: () -> Unit,
-    onSkip: () -> Unit,
-    onGenerate: () -> Unit
-) {
-    val spanishName = stringResource(R.string.official_language_spanish)
-    val englishName = stringResource(R.string.official_language_english)
-    val frenchName = stringResource(R.string.official_language_french)
-    fun languageName(language: OfficialPostLanguage): String = when (language) {
-        OfficialPostLanguage.Spanish -> spanishName
-        OfficialPostLanguage.English -> englishName
-        OfficialPostLanguage.French -> frenchName
-    }
-    val targets = pending.targetLanguages.joinToString(", ") { languageName(it) }
-    OfficialTranslationPromptContent(
-        title = stringResource(R.string.official_translation_title),
-        message = stringResource(
-            R.string.official_translation_message,
-            languageName(pending.sourceLanguage),
-            targets,
-        ),
-        progressLabel = stringResource(R.string.official_translation_progress),
-        confirmLabel = stringResource(R.string.official_translation_confirm),
-        skipLabel = stringResource(R.string.official_translation_skip),
-        isTranslating = pending.isTranslating,
-        loader = { OfficialTranslationLoaderContent() },
-        onDismiss = onDismiss,
-        onSkip = onSkip,
-        onGenerate = onGenerate,
-    )
-}
+private class AndroidLongEditor(var html: String, val onHtmlChanged: (String) -> Unit, val onFullscreenChanged: (Boolean) -> Unit)
+private class AndroidMediaEdit(val media: OfficialEditorMedia, val completion: CompletableDeferred<OfficialEditorMedia>)
+private class AndroidPickedMedia(val media: OfficialEditorMedia, val onPicked: ((OfficialEditorMedia) -> Unit)?)
 
 @Composable
 private fun OfficialLongContentEditor(
