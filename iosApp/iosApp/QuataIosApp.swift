@@ -411,6 +411,12 @@ private final class IosAppCompositionRoot {
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     },
                     initialPostId: postId,
+                    onAuthRequired: { [weak self] in
+                        self?.authenticatedHost.presentLoginIfAvailable()
+                    },
+                    onCreatePost: { [weak self] in
+                        self?.authenticatedHost.showComposer()
+                    },
                 ),
             )
         }
@@ -436,6 +442,12 @@ private final class IosAppCompositionRoot {
                     initialPostId: postId,
                     onOpenUserProfile: { [weak self] profileId in
                         self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                    },
+                    onAuthRequired: { [weak self] in
+                        self?.authenticatedHost.presentLoginIfAvailable()
+                    },
+                    onCreatePost: { [weak self] in
+                        self?.authenticatedHost.showComposer()
                     },
                 ),
             )

@@ -182,7 +182,9 @@ private fun NeighborhoodUsersScreen(
     onOpenProfile: (NeighborhoodUser) -> Unit,
     onOpenPrivateChat: (NeighborhoodUser) -> Unit
 ) {
-    val context = LocalContext.current
+    val usersTitleFormat = stringResource(R.string.neighborhoods_users_title)
+    val oneUser = stringResource(R.string.neighborhoods_one_user)
+    val userCountFormat = stringResource(R.string.neighborhoods_user_count)
     NeighborhoodUsersContent(
         padding = padding,
         community = community,
@@ -192,10 +194,10 @@ private fun NeighborhoodUsersScreen(
         openingProfileUserId = openingProfileUserId,
         followingUserId = followingUserId,
         strings = NeighborhoodUsersStrings(
-            title = { name -> context.getString(R.string.neighborhoods_users_title, name) },
+            title = { name -> usersTitleFormat.format(name) },
             subtitle = stringResource(R.string.neighborhoods_users_subtitle),
             backContentDescription = stringResource(R.string.common_back),
-            memberCount = { count -> if (count == 1) context.getString(R.string.neighborhoods_one_user) else context.getString(R.string.neighborhoods_user_count, count) },
+            memberCount = { count -> if (count == 1) oneUser else userCountFormat.format(count) },
             row = NeighborhoodUserRowStrings(stringResource(R.string.common_follow), stringResource(R.string.common_following), stringResource(R.string.common_chat))
         ),
         avatar = { user, isLoading, onClick ->
