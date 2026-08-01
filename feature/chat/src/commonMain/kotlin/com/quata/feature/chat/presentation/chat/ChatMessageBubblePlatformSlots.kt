@@ -28,20 +28,3 @@ data class ChatMessageBubblePlatformSlots(
     val hasActions: Boolean,
     val actions: @Composable (Modifier) -> Unit,
 )
-
-/** Explicit no-op slots for hosts whose current message has no platform-backed content. */
-val EmptyChatMessageBubblePlatformSlots = ChatMessageBubblePlatformSlots(
-    avatar = {},
-    translatedTextModifier = { it },
-    richText = {},
-    hasMediaAttachment = false,
-    mediaAttachment = {},
-    hasAudioAttachment = false,
-    audioAttachment = {},
-    hasUriAttachment = false,
-    uriAttachment = {},
-    hasMapAction = false,
-    mapAction = {},
-    hasActions = false,
-    actions = {},
-)

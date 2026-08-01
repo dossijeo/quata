@@ -558,10 +558,12 @@ private fun QuataWebApp(
                             shareService = platformServices.share,
                             contactPicker = platformServices.contacts,
                             conversationId = navigation.chatConversationId,
+                            focusedMessageId = navigation.chatMessageId,
                             navigationMessage = navigation.message,
                             onOpenConversation = navigation::navigateConversation,
                             onBackToList = { navigation.navigate("chat") },
                             onOpenUserProfile = feedMemberProfileRoute::open,
+                            onOpenMessageConversation = navigation::navigateConversationMessage,
                         )
                     }
                 } else {
@@ -654,6 +656,7 @@ internal data class WebNavigationState(
     val route: String,
     val message: String,
     val chatConversationId: String? = null,
+    val chatMessageId: String? = null,
     val officialPostId: String? = null,
     val postId: String? = null,
 )
@@ -712,6 +715,7 @@ internal class WebNavigationController(
     val route: String get() = state.route
     val message: String get() = state.message
     val chatConversationId: String? get() = state.chatConversationId
+    val chatMessageId: String? get() = state.chatMessageId
     val officialPostId: String? get() = state.officialPostId
     val postId: String? get() = state.postId
     val fragment: String get() = currentFragment
@@ -726,6 +730,10 @@ internal class WebNavigationController(
 
     fun navigateConversation(conversationId: String) {
         navigate(quataChatUrl(conversationId).substringAfter('#'))
+    }
+
+    fun navigateConversationMessage(conversationId: String, messageId: String) {
+        navigate(quataChatUrl(conversationId, messageId).substringAfter('#'))
     }
 
     fun acceptBrowserFragment(fragment: String) {
@@ -784,6 +792,7 @@ internal fun String.toWebNavigationState(): WebNavigationState {
             route = "chat/${chat.conversationId}",
             message = "Conversación abierta desde un enlace.",
             chatConversationId = chat.conversationId,
+            chatMessageId = chat.messageId,
         )
     }
     canonicalUrl.quataOfficialPostIdOrNull()?.let { postId ->

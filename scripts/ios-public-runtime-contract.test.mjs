@@ -21,12 +21,13 @@ function parseAndExpandXcconfig(...contents) {
   return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, expand(value, new Set([key]))]));
 }
 
-test('iOS Chat exports real profile, map and translation host callbacks', async () => {
+test('iOS Chat exports real profile, map, translation and message host callbacks', async () => {
   const app = await source('iosApp/iosApp/QuataIosApp.swift');
   assert.match(app, /IosAuthenticatedHostRouter\([\s\S]*?onOpenMemberProfile: \{ \[weak self\] profileId in[\s\S]*?presentAuthenticatedMemberProfile\(profileId: profileId\)/);
   assert.match(app, /onOpenAvatar: \{ \[weak self\] profileId in\s*self\?\.routeToMemberProfile\(profileId: profileId\)/);
   assert.match(app, /onOpenMap: \{ value in[\s\S]*?URL\(string: value\)[\s\S]*?UIApplication\.shared\.open\(url\)/);
   assert.match(app, /onTranslateMessage: \{ text in[\s\S]*?URLComponents\(string: "https:\/\/translate\.google\.com\/"\)[\s\S]*?URLQueryItem\(name: "text", value: text\)[\s\S]*?UIApplication\.shared\.open\(url\)/);
+  assert.match(app, /onOpenMessageConversation: \{ \[weak self\] conversationId, messageId in\s*self\?\.showChat\(conversationId: conversationId, messageId: messageId\)/);
   assert.doesNotMatch(app, /onOpenMemberProfile: @escaping \(String\) -> Void\s*=\s*\{/);
 });
 

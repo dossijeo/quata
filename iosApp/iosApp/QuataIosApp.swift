@@ -1043,7 +1043,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     init(
         platformServices: IosPlatformServiceComposition,
-        onOpenMemberProfile: @escaping (String) -> Void = { _ in }
+        onOpenMemberProfile: @escaping (String) -> Void
     ) {
         self.platformServices = platformServices
         self.onOpenMemberProfile = onOpenMemberProfile
@@ -1428,6 +1428,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                     ]
                     guard let url = components?.url else { return }
                     UIApplication.shared.open(url)
+                },
+                onOpenMessageConversation: { [weak self] conversationId, messageId in
+                    self?.showChat(conversationId: conversationId, messageId: messageId)
                 },
             )
             return QuataChatViewControllerKt.QuataChatViewController(dependencies: dependencies)

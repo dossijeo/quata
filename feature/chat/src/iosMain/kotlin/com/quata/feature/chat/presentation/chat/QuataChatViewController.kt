@@ -79,11 +79,13 @@ class IosChatHostDependencies(
     /** Host slot for image/document/audio/map URIs selected from a shared bubble. */
     val onOpenAttachment: (PlatformFile) -> Unit,
     /** Host slot reserved for a platform avatar/profile destination. */
-    val onOpenAvatar: (String) -> Unit = {},
+    val onOpenAvatar: (String) -> Unit,
     /** Host slot for map/location attachment navigation. */
-    val onOpenMap: (String) -> Unit = {},
+    val onOpenMap: (String) -> Unit,
     /** Host slot for translation UI owned by the launcher. */
-    val onTranslateMessage: (String) -> Unit = {},
+    val onTranslateMessage: (String) -> Unit,
+    /** Opens a message in its source conversation from Favorites. */
+    val onOpenMessageConversation: (String, String) -> Unit,
 )
 
 /**
@@ -146,6 +148,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 },
                 onOpenMap = dependencies.onOpenMap,
                 onTranslateMessage = dependencies.onTranslateMessage,
+                onOpenMessageConversation = dependencies.onOpenMessageConversation,
                 clipboardService = IosClipboardService(),
                 conversationListHost = { listModifier ->
                     val scope = rememberCoroutineScope()

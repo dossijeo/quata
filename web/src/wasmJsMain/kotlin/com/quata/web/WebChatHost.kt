@@ -59,10 +59,12 @@ fun WebChatHost(
     shareService: ShareService,
     contactPicker: ContactPickerService,
     conversationId: String?,
+    focusedMessageId: String?,
     navigationMessage: String,
     onOpenConversation: (String) -> Unit,
     onBackToList: () -> Unit,
     onOpenUserProfile: (String) -> Unit,
+    onOpenMessageConversation: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val resolvedAudioRecorder = remember(audioRecorder) { audioRecorder ?: BrowserAudioRecorderService() }
@@ -87,6 +89,7 @@ fun WebChatHost(
         audioRecordingReferences = resolvedRecordingReferences,
         filePicker = filePicker,
         conversationId = conversationId,
+        focusedMessageId = focusedMessageId,
         navigationMessage = navigationMessage,
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
@@ -162,6 +165,7 @@ fun WebChatHost(
         },
         onOpenMap = { value -> value.safeWebMapUrl()?.let(::openWebExternalLink) },
         onTranslateMessage = { text -> openWebExternalLink(webTranslationUrl(text)) },
+        onOpenMessageConversation = onOpenMessageConversation,
         messageInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, "Mensaje", modifier.height(56.dp), inputType = "text") },
         sendButtonOverride = { enabled, onClick, modifier -> WebNativeButton("Enviar", enabled, onClick, modifier.height(48.dp)) },
         clipboardService = clipboardService,
@@ -196,7 +200,11 @@ private fun WebInviteChannelSheet(
     )
 }
 
-private fun webNowMillis(): Long = js("Date.now()")
+@JsFun("() => Date.now()")
+private external fun chatBrowserNowMillisAsDouble(): Double
+
+/** Date.now() is a JavaScript Number, not the BigInt required by a Wasm Kotlin Long. */
+private fun webNowMillis(): Long = chatBrowserNowMillisAsDouble().toLong()
 private fun webBrowserLanguage(): String? = js("globalThis.navigator?.language || null")
 
 private fun browserDocumentIsVisible(): Boolean = js(
