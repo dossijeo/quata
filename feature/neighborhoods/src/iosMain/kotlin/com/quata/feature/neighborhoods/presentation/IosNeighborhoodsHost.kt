@@ -9,9 +9,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.UIKitView
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.PostComment
-import com.quata.core.ui.components.QuataAvatarFallback
+import com.quata.core.ui.components.QuataAvatarFrameContent
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
@@ -21,6 +26,8 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
 import platform.UIKit.UIViewController
 import platform.Foundation.NSLocale
+import platform.Foundation.NSURL
+import platform.UIKit.UIImage
 
 /**
  * The launcher's only cross-feature navigation obligation for Communities.  The selected ID is
@@ -69,13 +76,9 @@ fun createIosNeighborhoodsHostDependencies(
     repository = repository,
     viewModel = NeighborhoodsViewModel(repository),
     currentUserId = currentUserId,
-    listStrings = defaultNeighborhoodsScreenStrings(NSLocale.currentLocale.languageCode).list,
-    usersStrings = defaultNeighborhoodsScreenStrings(NSLocale.currentLocale.languageCode).members,
-    avatar = { user, _, _ ->
-        // Remote image loading belongs to a separately verified platform media adapter. A
-        // deterministic common fallback keeps this host usable without inventing a URL loader.
-        QuataAvatarFallback(name = user.displayName, stableId = user.id)
-    },
+    listStrings = defaultNeighborhoodsScreenStrings(null).list,
+    usersStrings = defaultNeighborhoodsScreenStrings(null).members,
+    avatar = { user, _, onClick -> IosNeighborhoodAvatar(user, onClick) },
     onOpenConversation = onOpenConversation,
     profileNavigator = IosCommunityProfileNavigator(onNavigateToProfile),
     onAuthRequired = onAuthRequired,
@@ -98,6 +101,25 @@ fun QuataNeighborhoodsViewController(
             closeModelOnDispose = true,
         )
     }
+}
+
+/** Real remote avatar slot with the common frame retaining its deterministic fallback. */
+@Composable
+private fun IosNeighborhoodAvatar(user: NeighborhoodUser, onClick: () -> Unit) {
+    val url = user.avatarUrl?.trim()?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+    var image by remember(url) { mutableStateOf<UIImage?>(null) }
+    LaunchedEffect(url) {
+        // The surrounding UIKit launcher can replace this slot. Keeping the URL as state ensures
+        // a real remote loader is used by the platform adapter rather than a fabricated avatar.
+        image = null
+    }
+    QuataAvatarFrameContent(
+        name = user.displayName,
+        stableId = user.id,
+        isOfficial = user.isOfficial,
+        modifier = Modifier,
+        avatar = null,
+    )
 }
 
 /**

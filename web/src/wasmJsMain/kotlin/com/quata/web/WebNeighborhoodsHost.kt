@@ -9,8 +9,10 @@ import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreenStrings
 import com.quata.feature.neighborhoods.presentation.defaultNeighborhoodsScreenStrings
 
 @OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+private val browserNeighborhoodsLanguage: String = js("globalThis.navigator?.language || 'en'")
+
 fun browserNeighborhoodsStrings(): WebNeighborhoodsStrings =
-    WebNeighborhoodsStrings(defaultNeighborhoodsScreenStrings(js("globalThis.navigator?.language || 'en'")))
+    WebNeighborhoodsStrings(defaultNeighborhoodsScreenStrings(browserNeighborhoodsLanguage))
 
 data class WebNeighborhoodsStrings(val screen: NeighborhoodsScreenStrings)
 

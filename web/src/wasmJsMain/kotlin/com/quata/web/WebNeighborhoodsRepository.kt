@@ -3,8 +3,7 @@
 package com.quata.web
 
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
-import com.quata.feature.neighborhoods.domain.CommunityMutationOperation
-import com.quata.feature.neighborhoods.domain.CommunityMutationSafety
+import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
@@ -21,6 +20,8 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 internal enum class WebNeighborhoodsReadOperation { Directory, CurrentUserAdmin, UserProfile }
 internal fun webNeighborhoodsReadAuthMode(operation: WebNeighborhoodsReadOperation): WebPostgrestAuthMode = when (operation) {
@@ -41,6 +42,7 @@ internal fun webNeighborhoodsReadAuthMode(operation: WebNeighborhoodsReadOperati
 class WebNeighborhoodsRepository(
     private val client: WebPostgrestClient,
     private val authRepository: WebAuthRepository,
+    private val chatRepository: ChatRepository,
     private val pollIntervalMillis: Long = DefaultPollIntervalMillis,
 ) : NeighborhoodRepository {
     private val profileCache = mutableMapOf<String, CommunityUserProfile>()
@@ -52,15 +54,39 @@ class WebNeighborhoodsRepository(
         }
     }
 
-    override suspend fun openNeighborhoodChat(neighborhood: String): Result<String> = unsupported("web_community_chat_not_implemented")
+    override suspend fun openNeighborhoodChat(neighborhood: String): Result<String> = runCatching {
+        val name = neighborhood.trim().takeIf(String::isNotBlank) ?: error("web_community_neighborhood_missing")
+        val userId = authenticatedUserId()
+        chatRepository.cachedCommunityConversationId(name)
+            ?: chatRepository.openCommunityConversation(name.normalizedCommunityKey(), name, listOf(userId)).getOrThrow()
+    }
 
-    override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> =
-        CommunityMutationSafety.blocked(CommunityMutationOperation.FollowUser)
+    override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = runCatching {
+        require(userId.matches(PostgrestIdentifier)) { "web_community_invalid_profile_id" }
+        val currentUserId = authenticatedUserId()
+        require(userId != currentUserId) { "web_community_cannot_follow_self" }
+        val existing = client.rows("community_profile_follows", mapOf("select" to "id", "follower_profile_id" to "eq.$currentUserId", "followed_profile_id" to "eq.$userId"), 1, WebPostgrestAuthMode.SessionRequired).firstOrNull()
+        val following = if (existing == null) {
+            client.requireSuccess("community_profile_follows", client.post("community_profile_follows", buildJsonObject { put("follower_profile_id", currentUserId); put("followed_profile_id", userId) }.toString()))
+            true
+        } else {
+            client.requireSuccess("community_profile_follows", client.delete("community_profile_follows", mapOf("id" to "eq.${existing.webCommunityString("id") ?: error("web_community_follow_id_missing")}")))
+            false
+        }
+        val current = loadProfiles(listOf(currentUserId), WebPostgrestAuthMode.SessionRequired).firstOrNull()
+            ?: NeighborhoodUser(id = currentUserId, displayName = "Usuario", email = "", neighborhood = "")
+        FollowUserResult(userId, following, current)
+    }
 
     override suspend fun reportPost(postId: String): Result<Unit> =
-        CommunityMutationSafety.blocked(CommunityMutationOperation.ReportPost)
+        Result.failure(UnsupportedOperationException("web_communities_report_reserved_for_profile"))
 
-    override suspend fun openPrivateChat(userId: String): Result<String> = unsupported("web_community_private_chat_not_implemented")
+    override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
+        require(userId.matches(PostgrestIdentifier)) { "web_community_invalid_profile_id" }
+        authenticatedUserId()
+        chatRepository.cachedPrivateConversationId(userId)
+            ?: chatRepository.openPrivateConversation(userId).getOrThrow()
+    }
 
     override suspend fun isCurrentUserAdmin(): Boolean = runCatching {
         val userId = authenticatedUserId()
@@ -68,7 +94,7 @@ class WebNeighborhoodsRepository(
     }.getOrDefault(false)
 
     override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser> =
-        CommunityMutationSafety.blocked(CommunityMutationOperation.SetUserRoles)
+        Result.failure(UnsupportedOperationException("web_communities_roles_reserved_for_profile"))
 
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? = profileCache[userId]
 
@@ -158,7 +184,12 @@ class WebNeighborhoodsRepository(
         is WebPostgrestResult.Failure -> throw WebPostgrestReadException(result)
     }
 
-    private fun <T> unsupported(reason: String): Result<T> = Result.failure(UnsupportedOperationException(reason))
+    private fun WebPostgrestClient.requireSuccess(table: String, result: WebPostgrestResult) {
+        when (result) {
+            is WebPostgrestResult.Success -> Unit
+            is WebPostgrestResult.Failure -> throw WebPostgrestReadException(result)
+        }
+    }
 
     private companion object {
         const val DirectoryLimit = 500

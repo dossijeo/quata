@@ -4,8 +4,6 @@ import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.data.toFoundationData
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
-import com.quata.feature.neighborhoods.domain.CommunityMutationOperation
-import com.quata.feature.neighborhoods.domain.CommunityMutationSafety
 import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
@@ -23,6 +21,11 @@ import platform.Foundation.NSJSONSerialization
 import platform.Foundation.NSNull
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLRequest
+import platform.Foundation.NSMutableURLRequest
+import platform.Foundation.NSURLRequestUseProtocolCachePolicy
+import platform.Foundation.setHTTPBody
+import platform.Foundation.setHTTPMethod
+import platform.Foundation.setValue
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionDataDelegateProtocol
@@ -39,13 +42,11 @@ data class IosNeighborhoodsRuntimeConfiguration(
 )
 
 /**
- * Authenticated iOS read adapter for the common Communities directory.
+ * iOS adapter for the common Communities directory.
  *
- * It uses URLSession and the same renewable Keychain session as Auth/Feed/Chat. Directory and
- * profile reads are real PostgREST snapshots; there is deliberately no fabricated local data or
- * unverified realtime subscription. Follow, moderation and report mutations remain explicit
- * failures until their RLS contracts have iOS E2E evidence. SB-07 additionally keeps every
- * Communities-owned mutation fail-closed through [CommunityMutationSafety] while RLS-001 is open.
+ * Directory/member reads use the publishable key anonymously. Private actions require the same
+ * renewable Keychain session and chat/table contracts as Android; RLS-001 is operational debt,
+ * never a reason for a client-side fake success or a disabled signed-in action.
  */
 @OptIn(ExperimentalForeignApi::class)
 class IosNeighborhoodsReadRepository(
@@ -71,11 +72,29 @@ class IosNeighborhoodsReadRepository(
             ).getOrThrow()
     }
 
-    override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> =
-        CommunityMutationSafety.blocked(CommunityMutationOperation.FollowUser)
+    override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = runCatching {
+        require(userId.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
+        val session = authenticatedSession()
+        require(userId != session.userId) { "ios_communities_cannot_follow_self" }
+        val existing = rows(
+            table = "community_profile_follows",
+            query = mapOf("select" to "id", "follower_profile_id" to "eq.${session.userId}", "followed_profile_id" to "eq.$userId", "limit" to "1"),
+            requireSession = true,
+        ).firstOrNull()
+        val following = if (existing == null) {
+            mutate("POST", "community_profile_follows", "{\"follower_profile_id\":\"${session.userId}\",\"followed_profile_id\":\"$userId\"}")
+            true
+        } else {
+            mutate("DELETE", "community_profile_follows?id=eq.${existing.requiredIosNeighborhoodString("id")}", null)
+            false
+        }
+        val current = loadProfiles(listOf(session.userId), requireSession = true).firstOrNull()
+            ?: NeighborhoodUser(session.userId, "Usuario", "", "")
+        FollowUserResult(userId, following, current)
+    }
 
     override suspend fun reportPost(postId: String): Result<Unit> =
-        CommunityMutationSafety.blocked(CommunityMutationOperation.ReportPost)
+        Result.failure(UnsupportedOperationException("ios_communities_report_reserved_for_profile"))
 
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         require(userId.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
@@ -92,7 +111,7 @@ class IosNeighborhoodsReadRepository(
         userId: String,
         isAdmin: Boolean,
         isOfficial: Boolean,
-    ): Result<NeighborhoodUser> = CommunityMutationSafety.blocked(CommunityMutationOperation.SetUserRoles)
+    ): Result<NeighborhoodUser> = Result.failure(UnsupportedOperationException("ios_communities_roles_reserved_for_profile"))
 
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? = profileCache[userId]
 
@@ -133,29 +152,30 @@ class IosNeighborhoodsReadRepository(
         }.sortedBy { it.name.lowercase() }
     }
 
-    private suspend fun loadProfiles(ids: List<String>? = null): List<NeighborhoodUser> = rows(
+    private suspend fun loadProfiles(ids: List<String>? = null, requireSession: Boolean = false): List<NeighborhoodUser> = rows(
         query = buildMap {
             put("select", ProfileSelect)
             put("order", "display_name.asc")
             put("limit", DirectoryLimit.toString())
             ids?.takeIf { it.isNotEmpty() }?.let { put("id", it.toIosNeighborhoodInFilter()) }
         },
+        requireSession = requireSession,
     ).map(Map<*, *>::toIosNeighborhoodUser)
 
-    private suspend fun rows(query: Map<String, String>): List<Map<*, *>> {
+    private suspend fun rows(table: String = "community_profiles", query: Map<String, String>, requireSession: Boolean = false): List<Map<*, *>> {
         val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty)
             ?: error("ios_communities_supabase_url_missing")
         val publishableKey = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty)
             ?: error("ios_communities_supabase_publishable_key_missing")
-        val session = authenticatedSession()
-        val url = NSURL(string = "$baseUrl/rest/v1/community_profiles${query.toIosNeighborhoodQueryString()}")
+        val session = if (requireSession) authenticatedSession() else null
+        val url = NSURL(string = "$baseUrl/rest/v1/$table${query.toIosNeighborhoodQueryString()}")
             ?: error("ios_communities_url_invalid")
         val requestConfiguration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
-            HTTPAdditionalHeaders = mapOf(
-                "apikey" to publishableKey,
-                "Authorization" to "Bearer ${session.bearerToken}",
-                "Accept" to "application/json",
-            )
+            HTTPAdditionalHeaders = buildMap {
+                put("apikey", publishableKey)
+                session?.let { put("Authorization", "Bearer ${it.bearerToken}") }
+                put("Accept", "application/json")
+            }
         }
         val data = requestConfiguration.iosNeighborhoodData(url)
         val root = NSJSONSerialization.JSONObjectWithData(data, options = 0u, error = null) as? List<*>
@@ -163,6 +183,21 @@ class IosNeighborhoodsReadRepository(
         return root.mapIndexed { index, row ->
             row as? Map<*, *> ?: error("ios_communities_response_row_${index}_invalid")
         }
+    }
+
+    private suspend fun mutate(method: String, path: String, body: String?) {
+        val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty) ?: error("ios_communities_supabase_url_missing")
+        val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty) ?: error("ios_communities_supabase_publishable_key_missing")
+        val session = authenticatedSession()
+        val request = NSMutableURLRequest.requestWithURL(NSURL(string = "$baseUrl/rest/v1/$path") ?: error("ios_communities_url_invalid")).apply {
+            setHTTPMethod(method)
+            setValue(key, "apikey")
+            setValue("Bearer ${session.bearerToken}", "Authorization")
+            setValue("application/json", "Content-Type")
+            setValue("return=minimal", "Prefer")
+            body?.let { setHTTPBody(it.encodeToByteArray().toFoundationData()) }
+        }
+        NSURLSessionConfiguration.ephemeralSessionConfiguration().iosNeighborhoodData(request)
     }
 
     private suspend fun authenticatedSession() = authSession.currentSession()
@@ -187,10 +222,14 @@ class IosNeighborhoodsRuntimeBootstrap(
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun NSURLSessionConfiguration.iosNeighborhoodData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->
+private suspend fun NSURLSessionConfiguration.iosNeighborhoodData(url: NSURL): NSData =
+    iosNeighborhoodData(NSURLRequest(url))
+
+@OptIn(ExperimentalForeignApi::class)
+private suspend fun NSURLSessionConfiguration.iosNeighborhoodData(request: NSURLRequest): NSData = suspendCancellableCoroutine { continuation ->
     val delegate = IosNeighborhoodDataTaskDelegate(continuation)
     val session = NSURLSession.sessionWithConfiguration(this, delegate, null)
-    val task = session.dataTaskWithRequest(NSURLRequest(url))
+    val task = session.dataTaskWithRequest(request)
     continuation.invokeOnCancellation {
         task.cancel()
         session.invalidateAndCancel()
