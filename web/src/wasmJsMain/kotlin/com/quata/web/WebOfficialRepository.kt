@@ -23,6 +23,7 @@ import com.quata.feature.official.data.officialLikeInsertPlan
 import com.quata.feature.official.data.officialLikeDeletePlan
 import com.quata.feature.official.data.officialCommentPlan
 import com.quata.feature.official.data.officialSoftDeletePlan
+import com.quata.feature.official.data.officialPostInsertPlan
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
@@ -87,9 +88,30 @@ class WebOfficialRepository(
         loadProfiles(listOf(userId), webOfficialReadAuthMode(WebOfficialReadOperation.CurrentUser)).firstOrNull()?.toOfficialDomainUser()
     }
 
-    override suspend fun createPost(draft: OfficialPostDraft): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun createPost(draft: OfficialPostDraft): Result<OfficialPostItem?> = createPosts(listOf(draft))
 
-    override suspend fun createPosts(drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun createPosts(drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> = runCatching {
+        require(drafts.isNotEmpty()) { "web_official_drafts_empty" }
+        val profileId = authenticatedUserId().requireOfficialPostgrestIdentifier()
+        val profile = refreshCurrentUser().getOrThrow()
+        check(profile?.isOfficial == true || profile?.isAdmin == true) { "web_official_publish_forbidden" }
+        val insertedIds = mutableListOf<String>()
+        try {
+            drafts.forEach { draft ->
+                require(draft.title.isNotBlank() && draft.contentHtml.isNotBlank()) { "web_official_draft_invalid" }
+                require(draft.mediaUrl.isNullOrBlank() || draft.mediaUrl.startsWith("https://")) { "web_official_media_not_uploaded" }
+                val result = client.post("official_posts", officialPostInsertPlan(profileId, draft).body!!)
+                result.requireWebOfficialSuccess()
+                (result as? WebPostgrestResult.Success)?.body?.let { body ->
+                    runCatching { Json.parseToJsonElement(body).jsonArray.firstOrNull()?.jsonObject?.requiredOfficialString("id") }.getOrNull()?.let(insertedIds::add)
+                }
+            }
+        } catch (failure: Throwable) {
+            insertedIds.forEach { id -> runCatching { client.patch("official_posts", mapOf("id" to "eq.$id"), "{\"deleted_at\":${currentOfficialTimestamp().webJsonString()}}") } }
+            throw failure
+        }
+        refreshOfficialFeed().getOrThrow().firstOrNull()
+    }
 
     override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
         val userId = authenticatedUserId()
@@ -215,9 +237,6 @@ class WebOfficialRepository(
     private suspend fun authenticatedUserId(): String = authRepository.restoreLocalSession()?.userId
         ?.takeIf(String::isNotBlank)
         ?: error("web_official_session_missing")
-
-    private fun <T> unsupportedMutation(): Result<T> =
-        Result.failure(UnsupportedOperationException("web_official_mutation_not_implemented"))
 
     private companion object {
         const val FeedPageSize = 50

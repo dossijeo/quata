@@ -103,7 +103,7 @@ private fun OfficialPostItem.asFeedPost() = Post(
 )
 
 private fun openBrowserUrl(url: String): Unit = js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
-private fun webOfficialLanguageTag(): String? = js("globalThis.navigator?.language || 'es'")
+internal fun webOfficialLanguageTag(): String? = js("globalThis.navigator?.language || 'es'")
 
 @JsFun(
     """(url, onSuccess, onFailure) => {

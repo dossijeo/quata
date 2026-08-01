@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.official.data.IosOfficialReadRepository
@@ -13,6 +15,8 @@ import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.platform.IosShareService
 import com.quata.core.platform.ShareService
 import platform.UIKit.UIViewController
+import platform.Foundation.NSUUID
+import com.quata.feature.official.domain.OfficialPostLanguage
 
 /** Narrow Swift-owned native viewer contract; it never owns pager or Official state. */
 interface IosOfficialMediaViewerFactory {
@@ -160,6 +164,37 @@ fun QuataOfficialEditorViewController(dependencies: IosOfficialEditorDependencie
                 padding = PaddingValues(),
                 title = dependencies.title,
                 content = dependencies.content,
+            )
+        }
+    }
+
+/**
+ * Authenticated iOS mount of the same state-owning editor used by the other targets. The UIKit
+ * owner provides navigation; media controls are deliberately absent until an upload-capable
+ * picker is installed, rather than presenting a button that cannot publish its selection.
+ */
+class IosOfficialEditorRootDependencies(
+    val repository: OfficialRepository,
+    val languageTag: String? = null,
+    val onBack: () -> Unit = {},
+    val onPublished: () -> Unit = {},
+)
+
+fun QuataOfficialEditorRootViewController(dependencies: IosOfficialEditorRootDependencies): UIViewController =
+    ComposeUIViewController {
+        QuataTheme {
+            val language = OfficialPostLanguage.fromAppLanguage(dependencies.languageTag)
+            OfficialPostEditorRoot(
+                padding = PaddingValues(), language = language,
+                strings = OfficialPostEditorStrings.forLanguage(dependencies.languageTag),
+                slots = OfficialEditorPlatformSlots(
+                    // A Compose text input is functional on UIKit and stores literal HTML. Rich
+                    // toolbar support is not claimed on this target until its native adapter lands.
+                    richTextEditor = { html, onChanged -> OutlinedTextField(value = html, onValueChange = onChanged, label = { Text("HTML") }) },
+                ),
+                onSubmit = { drafts -> dependencies.repository.createPosts(drafts).map { dependencies.onPublished() } },
+                onBack = dependencies.onBack,
+                newTranslationGroupId = { NSUUID().UUIDString() },
             )
         }
     }

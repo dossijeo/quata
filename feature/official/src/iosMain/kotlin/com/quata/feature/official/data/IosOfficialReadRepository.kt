@@ -14,6 +14,7 @@ import com.quata.feature.official.data.officialLikeInsertPlan
 import com.quata.feature.official.data.officialLikeDeletePlan
 import com.quata.feature.official.data.officialCommentPlan
 import com.quata.feature.official.data.officialSoftDeletePlan
+import com.quata.feature.official.data.officialPostInsertPlan
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
@@ -116,9 +117,28 @@ class IosOfficialReadRepository(
         loadProfiles(listOf(userId)).firstOrNull()?.toOfficialDomainUser()
     }
 
-    override suspend fun createPost(draft: OfficialPostDraft): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun createPost(draft: OfficialPostDraft): Result<OfficialPostItem?> = createPosts(listOf(draft))
 
-    override suspend fun createPosts(drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun createPosts(drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> = runCatching {
+        require(drafts.isNotEmpty()) { "ios_official_drafts_empty" }
+        val profileId = authenticatedUserId().requireOfficialPostgrestIdentifier()
+        val profile = refreshCurrentUser().getOrThrow()
+        check(profile?.isOfficial == true || profile?.isAdmin == true) { "ios_official_publish_forbidden" }
+        val insertedIds = mutableListOf<String>()
+        try {
+            drafts.forEach { draft ->
+                require(draft.title.isNotBlank() && draft.contentHtml.isNotBlank()) { "ios_official_draft_invalid" }
+                require(draft.mediaUrl.isNullOrBlank() || draft.mediaUrl.startsWith("https://")) { "ios_official_media_not_uploaded" }
+                val response = authenticatedRequest("official_posts", "POST", emptyMap(), officialPostInsertPlan(profileId, draft).body!!)
+                val rows = NSJSONSerialization.JSONObjectWithData(response, options = 0u, error = null) as? List<*>
+                ((rows?.firstOrNull() as? Map<*, *>)?.get("id") as? String)?.let(insertedIds::add)
+            }
+        } catch (failure: Throwable) {
+            insertedIds.forEach { id -> runCatching { mutate("official_posts", "PATCH", mapOf("id" to "eq.$id"), "{\"deleted_at\":${iosJsonString(currentOfficialTimestamp())}}") } }
+            throw failure
+        }
+        refreshOfficialFeed().getOrThrow().firstOrNull()
+    }
 
     override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
         val userId = authenticatedUserId()
@@ -297,9 +317,6 @@ class IosOfficialReadRepository(
         return sessionProvider.currentSession()?.userId
             ?.takeIf(String::isNotBlank) ?: error("ios_official_session_missing")
     }
-
-    private fun <T> unsupportedMutation(): Result<T> =
-        Result.failure(UnsupportedOperationException("ios_official_mutation_not_implemented"))
 
     private companion object {
         const val FeedPageSize = 50

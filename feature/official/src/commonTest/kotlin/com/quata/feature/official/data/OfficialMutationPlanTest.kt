@@ -1,6 +1,9 @@
 package com.quata.feature.official.data
 
 import com.quata.core.model.PostComment
+import com.quata.feature.official.domain.OfficialPostDraft
+import com.quata.feature.official.domain.OfficialPostLanguage
+import com.quata.feature.official.domain.OfficialPostType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -33,5 +36,15 @@ class OfficialMutationPlanTest {
         )
         val body = requireNotNull(officialCommentPlan("p", "u", comment).body)
         assertTrue("[reply:root:Author] Reply" in body)
+    }
+    @Test fun postInsertCarriesTranslationGroupAndNeverCredentials() {
+        val body = requireNotNull(officialPostInsertPlan("author", OfficialPostDraft(
+            title = "Title", summary = "Summary", contentHtml = "<p>Body</p>",
+            language = OfficialPostLanguage.French, translationGroupId = "group", type = OfficialPostType.News,
+        )).body)
+        assertTrue("\"profile_id\":\"author\"" in body)
+        assertTrue("\"translation_group_id\":\"group\"" in body)
+        assertTrue("\"language\":\"fr\"" in body)
+        assertFalse("service_role" in body)
     }
 }

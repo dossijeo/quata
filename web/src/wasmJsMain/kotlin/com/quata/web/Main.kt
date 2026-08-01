@@ -518,6 +518,15 @@ private fun QuataWebApp(
                             commentsEnabled = false,
                         )
                     }
+                } else if (navigation.route == "official/editor") {
+                    WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Official) {
+                        WebOfficialEditorHost(
+                            repository = officialRepository,
+                            onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                            onBack = { navigation.navigate("official") },
+                            onPublished = { navigation.navigate("official") },
+                        )
+                    }
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Official) {
                         val memberProfileId = feedMemberProfileRoute.profileId
@@ -545,7 +554,7 @@ private fun QuataWebApp(
                                 currentUserId = currentUserId,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserProfile = feedMemberProfileRoute::open,
-                                onCreateOfficialPost = { navigation.navigate("composer") },
+                                onCreateOfficialPost = { navigation.navigate("official/editor") },
                             )
                         }
                     }
