@@ -5,53 +5,33 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,19 +42,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.quata.R
-import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.language.QuataDetectedLanguage
 import com.quata.core.language.QuataLanguageIdentifier
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.model.User
-import com.quata.core.text.decodeHtmlEntities
-import com.quata.core.ui.components.QuataEditorScaffold
-import com.quata.core.ui.components.QuataEditorToolButton
 import com.quata.core.ui.richtext.QuataRichTextEditorBox
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.core.translation.QuataDeepLLanguage
@@ -83,7 +58,6 @@ import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialPostLanguage
-import com.quata.feature.official.domain.OfficialReadMoreOption
 import com.quata.feature.official.domain.OfficialPostType
 import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
@@ -112,7 +86,7 @@ fun OfficialPostEditorRoute(
         language = currentOfficialPostLanguage(),
         strings = OfficialPostEditorStrings.forLanguage(QuataLanguageManager.currentLanguage.tag),
         slots = rememberAndroidOfficialEditorPlatformSlots(state.currentUser, onFullscreenEditorVisibilityChange),
-        onSubmit = repository::createPosts,
+        onSubmit = { drafts -> repository.createPosts(drafts).map { it?.id } },
         onPublished = onPublished,
         onBack = { onPublished(null) },
         newTranslationGroupId = { UUID.randomUUID().toString() },
@@ -227,18 +201,6 @@ private fun OfficialLongContentEditor(
             )
         },
     )
-}
-
-@Composable
-private fun OfficialEditorCard(
-    content: @Composable ColumnScope.() -> Unit
-) {
-    OfficialEditorSectionCardContent(content = content)
-}
-
-@Composable
-private fun OfficialEditorSectionTitle(text: String) {
-    OfficialEditorSectionTitleContent(text)
 }
 
 @Composable
@@ -407,81 +369,8 @@ private fun OfficialPostPreview(
     )
 }
 
-@Composable
-private fun OfficialPublishButton(
-    enabled: Boolean,
-    isPublishing: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    OfficialPublishButtonContent(
-        enabled = enabled,
-        isPublishing = isPublishing,
-        publishLabel = stringResource(R.string.official_publish),
-        publishingLabel = stringResource(R.string.composer_publishing),
-        onClick = onClick,
-        modifier = modifier,
-    )
-}
-
-@Composable
-private fun OfficialPostType.editorLabel(): String = when (this) {
-    OfficialPostType.Announcement -> stringResource(R.string.official_type_announcement)
-    OfficialPostType.News -> stringResource(R.string.official_type_news)
-    OfficialPostType.Event -> stringResource(R.string.official_type_event)
-    OfficialPostType.Urgent -> stringResource(R.string.official_type_urgent)
-}
-
-@Composable
-private fun OfficialPostLanguage.localizedName(): String = stringResource(
-    when (this) {
-        OfficialPostLanguage.Spanish -> R.string.official_language_spanish
-        OfficialPostLanguage.English -> R.string.official_language_english
-        OfficialPostLanguage.French -> R.string.official_language_french
-    }
-)
-
 private fun currentOfficialPostLanguage(): OfficialPostLanguage =
     OfficialPostLanguage.fromAppLanguage(QuataLanguageManager.currentLanguage.tag)
-
-private suspend fun detectOfficialPostLanguage(
-    context: android.content.Context,
-    draft: OfficialPostDraft
-): OfficialPostLanguage {
-    val text = buildString {
-        appendLine(draft.title)
-        appendLine(draft.summary)
-        append(draft.contentHtml.stripHtmlForOfficialEditor())
-    }.trim()
-    val detected = runCatching { QuataLanguageIdentifier.detect(context, text) }.getOrNull()?.language
-    return when (detected) {
-        QuataDetectedLanguage.Spanish -> OfficialPostLanguage.Spanish
-        QuataDetectedLanguage.English -> OfficialPostLanguage.English
-        QuataDetectedLanguage.French -> OfficialPostLanguage.French
-        else -> currentOfficialPostLanguage()
-    }
-}
-
-private suspend fun buildTranslatedOfficialDrafts(
-    context: android.content.Context,
-    pending: OfficialPendingTranslation
-): List<OfficialPostDraft> {
-    val groupId = UUID.randomUUID().toString()
-    val sourceDraft = pending.draft.copy(
-        language = pending.sourceLanguage,
-        translationGroupId = groupId
-    )
-    val translations = pending.targetLanguages.map { target ->
-        translateOfficialDraft(
-            context = context,
-            draft = sourceDraft,
-            source = pending.sourceLanguage,
-            target = target,
-            groupId = groupId
-        )
-    }
-    return listOf(sourceDraft) + translations
-}
 
 private suspend fun translateOfficialDraft(
     context: android.content.Context,
