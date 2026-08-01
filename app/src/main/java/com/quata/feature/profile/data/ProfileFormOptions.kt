@@ -10,6 +10,12 @@ fun Context.countryPrefixOptions(): List<CountryPrefix> = AuthCatalog.countryPre
 
 fun Context.authCatalog() = AuthCatalog.copy(authCatalogLocale())
 
+fun countryPrefixOptionsForLanguage(language: String?): List<CountryPrefix> =
+    AuthCatalog.countryPrefixes(AuthCatalogLocale.fromLanguage(language))
+
+fun authCatalogForLanguage(language: String?) =
+    AuthCatalog.copy(AuthCatalogLocale.fromLanguage(language))
+
 private fun Context.authCatalogLocale(): AuthCatalogLocale =
     AuthCatalogLocale.fromLanguage(resources.configuration.locales[0]?.language)
 

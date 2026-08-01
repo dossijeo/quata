@@ -91,6 +91,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -238,6 +239,7 @@ fun AppNavGraph(
     var feedNetworkReconnectToken by rememberSaveable { mutableLongStateOf(0L) }
     var previousDeviceNetworkAvailable by rememberSaveable { mutableStateOf<Boolean?>(null) }
     val appContext = LocalContext.current
+    val startupLanguageTags = LocalConfiguration.current.locales.languageTags()
     val rootView = LocalView.current
     val appScope = rememberCoroutineScope()
     val translatorRegistry = remember { QuataTranslatableTextRegistry() }
@@ -356,14 +358,14 @@ fun AppNavGraph(
     var officialFocusedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var chatFocusedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
     var isAuthRequiredPromptOpen by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(currentUserId) {
+    LaunchedEffect(currentUserId, startupLanguageTags) {
         startupDestination = if (currentUserId == null) {
             StartupDestination.Main
         } else {
             StartupDestination.Loading
             startupCoordinator.resolve(
                 installedVersionCode = BuildConfig.VERSION_CODE.toLong(),
-                languageTags = appContext.resources.configuration.locales.languageTags()
+                languageTags = startupLanguageTags
             )
         }
     }

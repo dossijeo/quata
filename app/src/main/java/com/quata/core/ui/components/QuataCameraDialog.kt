@@ -499,17 +499,18 @@ private fun ConfigureQuataCameraSystemBars() {
 @Composable
 private fun rememberQuataCameraNavigationBarsPadding(): QuataCameraNavigationBarsPadding {
     val context = LocalContext.current
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val dialogView = LocalView.current
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val activity = remember(context) { context.findQuataCameraActivity() }
-    var paddingPx by remember(dialogView, activity) {
-        mutableStateOf(resolveQuataCameraNavigationBarsPaddingPx(dialogView, activity))
+    var paddingPx by remember(dialogView, activity, isLandscape) {
+        mutableStateOf(resolveQuataCameraNavigationBarsPaddingPx(dialogView, activity, isLandscape))
     }
 
-    DisposableEffect(dialogView, activity) {
+    DisposableEffect(dialogView, activity, isLandscape) {
         fun updatePadding() {
-            paddingPx = resolveQuataCameraNavigationBarsPaddingPx(dialogView, activity)
+            paddingPx = resolveQuataCameraNavigationBarsPaddingPx(dialogView, activity, isLandscape)
         }
 
         val dialogLayoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updatePadding() }
@@ -572,10 +573,11 @@ private data class QuataCameraNavigationBarsPaddingPx(
 
 private fun resolveQuataCameraNavigationBarsPaddingPx(
     dialogView: View,
-    activity: Activity?
+    activity: Activity?,
+    isLandscape: Boolean,
 ): QuataCameraNavigationBarsPaddingPx {
-    val dialogInsets = dialogView.quataCameraNavigationBarInsetsPx()
-    val activityInsets = activity?.window?.decorView?.quataCameraNavigationBarInsetsPx()
+    val dialogInsets = dialogView.quataCameraNavigationBarInsetsPx(isLandscape)
+    val activityInsets = activity?.window?.decorView?.quataCameraNavigationBarInsetsPx(isLandscape)
         ?: QuataCameraNavigationBarsPaddingPx()
     val navigationInsets = QuataCameraNavigationBarsPaddingPx(
         left = maxOf(dialogInsets.left, activityInsets.left),
@@ -619,7 +621,7 @@ private fun resolveQuataCameraNavigationBarsPaddingPx(
  * Resolve navigation bar insets for the dialog, falling back to system
  * navigation-bar dimensions when the dialog has not received real insets yet.
  */
-private fun View.quataCameraNavigationBarInsetsPx(): QuataCameraNavigationBarsPaddingPx {
+private fun View.quataCameraNavigationBarInsetsPx(isLandscape: Boolean): QuataCameraNavigationBarsPaddingPx {
     nativeQuataCameraNavigationBarInsetsPx()?.takeIf { it != QuataCameraNavigationBarsPaddingPx() }?.let { return it }
     val compatInsets = ViewCompat.getRootWindowInsets(this)
         ?.getInsets(WindowInsetsCompat.Type.navigationBars())
@@ -633,7 +635,7 @@ private fun View.quataCameraNavigationBarInsetsPx(): QuataCameraNavigationBarsPa
             return padding
         }
     }
-    return context.quataCameraNavigationBarResourceInsetsPx(display?.rotation)
+    return context.quataCameraNavigationBarResourceInsetsPx(display?.rotation, isLandscape)
 }
 
 private fun View.nativeQuataCameraNavigationBarInsetsPx(): QuataCameraNavigationBarsPaddingPx? {
@@ -663,10 +665,13 @@ private fun View.nativeQuataCameraNavigationBarInsetsPx(): QuataCameraNavigation
  * Resource-based navigation bar estimate used only when both native and compat
  * insets are still unavailable.
  */
-private fun Context.quataCameraNavigationBarResourceInsetsPx(rotation: Int?): QuataCameraNavigationBarsPaddingPx {
+private fun Context.quataCameraNavigationBarResourceInsetsPx(
+    rotation: Int?,
+    isLandscape: Boolean,
+): QuataCameraNavigationBarsPaddingPx {
     val navigationBarHeight = androidSystemDimensionPx("navigation_bar_height")
     val navigationBarWidth = androidSystemDimensionPx("navigation_bar_width").takeIf { it > 0 } ?: navigationBarHeight
-    val padding = if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+    val padding = if (isLandscape) {
         when (rotation) {
             Surface.ROTATION_270 -> QuataCameraNavigationBarsPaddingPx(left = navigationBarWidth)
             else -> QuataCameraNavigationBarsPaddingPx(right = navigationBarWidth)

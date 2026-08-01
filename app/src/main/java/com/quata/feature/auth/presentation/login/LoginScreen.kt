@@ -3,11 +3,11 @@ package com.quata.feature.auth.presentation.login
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import com.quata.core.config.AppConfig
 import com.quata.feature.auth.domain.AuthRepository
-import com.quata.feature.profile.data.countryPrefixOptions
-import com.quata.feature.profile.data.authCatalog
+import com.quata.feature.profile.data.authCatalogForLanguage
+import com.quata.feature.profile.data.countryPrefixOptionsForLanguage
 
 @Composable
 fun LoginScreen(
@@ -17,9 +17,9 @@ fun LoginScreen(
     onForgotPassword: () -> Unit,
     onLoginSuccess: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val prefixes = remember(context) { context.countryPrefixOptions() }
-    val catalog = remember(context) { context.authCatalog() }
+    val language = LocalConfiguration.current.locales[0].language
+    val prefixes = remember(language) { countryPrefixOptionsForLanguage(language) }
+    val catalog = remember(language) { authCatalogForLanguage(language) }
     LoginScreenHost(
         padding = padding,
         repository = authRepository,
