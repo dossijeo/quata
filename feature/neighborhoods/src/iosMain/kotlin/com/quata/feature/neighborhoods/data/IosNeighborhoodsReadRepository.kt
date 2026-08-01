@@ -8,6 +8,9 @@ import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.data.IosChatAttachmentPreviewService
+import com.quata.feature.chat.data.IosChatRuntimeConfiguration
+import com.quata.core.platform.DocumentOpenService
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
@@ -48,6 +51,10 @@ data class IosNeighborhoodsRuntimeConfiguration(
     val supabaseUrl: String,
     val supabasePublishableKey: String,
 )
+
+internal enum class IosNeighborhoodProfileOperation { PublicRead, PrivateAction }
+internal fun iosNeighborhoodRequiresSession(operation: IosNeighborhoodProfileOperation): Boolean =
+    operation == IosNeighborhoodProfileOperation.PrivateAction
 
 /**
  * iOS adapter for the common Communities directory.
@@ -154,7 +161,7 @@ class IosNeighborhoodsReadRepository(
 
     override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> = runCatching {
         require(userId.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
-        val user = loadProfiles(listOf(userId)).firstOrNull() ?: error("ios_communities_profile_not_found")
+        val user = loadProfiles(listOf(userId), requireSession = iosNeighborhoodRequiresSession(IosNeighborhoodProfileOperation.PublicRead)).firstOrNull() ?: error("ios_communities_profile_not_found")
         val basePosts = rows(
             table = "community_posts",
             query = mapOf("select" to PostSelect, "profile_id" to "eq.$userId", "order" to "created_at.desc", "limit" to ProfilePostsLimit.toString()),
@@ -306,13 +313,20 @@ private fun Map<*, *>.toIosCommunityWall(): IosCommunityWall = IosCommunityWall(
 
 /** Small iOS composition factory; UIKit owns navigation and system-only affordances. */
 class IosNeighborhoodsRuntimeBootstrap(
-    configuration: IosNeighborhoodsRuntimeConfiguration,
+    private val configuration: IosNeighborhoodsRuntimeConfiguration,
     private val authSession: IosRenewableAuthSession,
     chatRepository: ChatRepository,
 ) {
     val repository: NeighborhoodRepository = IosNeighborhoodsReadRepository(configuration, authSession, chatRepository)
 
     fun restoredCurrentUserId(): String? = authSession.restoredSession()?.userId?.takeIf(String::isNotBlank)
+
+    fun attachmentPreviewService(documentOpener: DocumentOpenService): IosChatAttachmentPreviewService =
+        IosChatAttachmentPreviewService(
+            configuration = IosChatRuntimeConfiguration(configuration.supabaseUrl, configuration.supabasePublishableKey),
+            authSession = authSession,
+            documentOpener = documentOpener,
+        )
 }
 
 @OptIn(ExperimentalForeignApi::class)

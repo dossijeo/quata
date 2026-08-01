@@ -3,6 +3,8 @@ package com.quata.feature.neighborhoods.data
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class IosCommunityProfilePostMappingTest {
     @Test fun `profile post maps backend media into visible attachments`() {
@@ -26,5 +28,10 @@ class IosCommunityProfilePostMappingTest {
         )
         assertEquals("{\"p_actor_profile_id\":\"me\",\"p_profile_id\":\"peer\"}", iosNeighborhoodBlockPayload("me", "peer"))
         assertEquals("{\"p_actor_profile_id\":\"me\",\"p_peer_profile_id\":\"peer\",\"p_limit\":120,\"p_offset\":0}", iosNeighborhoodSharedAttachmentsPayload("me", "peer"))
+    }
+
+    @Test fun `profile reads are public while actions require bearer session`() {
+        assertFalse(iosNeighborhoodRequiresSession(IosNeighborhoodProfileOperation.PublicRead))
+        assertTrue(iosNeighborhoodRequiresSession(IosNeighborhoodProfileOperation.PrivateAction))
     }
 }

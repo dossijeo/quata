@@ -28,7 +28,7 @@ kotlin {
         // Keeping this dependency platform-scoped avoids coupling the shared Communities domain
         // or presentation code to Chat while allowing the UIKit composition root to reuse its
         // authenticated repository.
-        iosMain.dependencies { implementation(project(":feature:chat")) }
+        iosMain.dependencies { implementation(project(":feature:chat")); implementation(project(":feature:feed")) }
         wasmJsMain.dependencies { }
     }
 }

@@ -10,6 +10,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.PlatformFile
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
@@ -59,10 +63,11 @@ fun WebNeighborhoodsHost(
     onOpenUserProfile: (String) -> Unit,
     onDismissProfile: () -> Unit = {},
     profileId: String? = null,
+    documentOpener: DocumentOpenService? = null,
     padding: PaddingValues = PaddingValues(),
 ) {
     if (profileId != null) {
-        WebCommunityProfileRoute(repository, currentUserId, profileId, slots, onDismissProfile, onOpenConversation, onAuthRequired)
+        WebCommunityProfileRoute(repository, currentUserId, profileId, slots, onDismissProfile, onOpenConversation, onAuthRequired, documentOpener)
     } else NeighborhoodsScreenHost(
     repository = repository,
     currentUserId = currentUserId,
@@ -85,9 +90,11 @@ private fun WebCommunityProfileRoute(
     onDismiss: () -> Unit,
     onOpenConversation: (String) -> Unit,
     onAuthRequired: () -> Unit,
+    documentOpener: DocumentOpenService?,
 ) {
     val model = remember(repository) { NeighborhoodsViewModel(repository) }
     val state by model.uiState.collectAsState()
+    val actionScope = rememberCoroutineScope()
     DisposableEffect(model) { onDispose(model::close) }
     LaunchedEffect(profileId) { model.openUserProfile(profileId) }
     val profile = state.selectedProfile
@@ -121,15 +128,19 @@ private fun WebCommunityProfileRoute(
         onOpenUserProfile = model::openUserProfile,
         onReportProfile = model::reportProfile, onBlockProfile = { model.blockProfile(it, onDismiss) }, onSetRoles = model::setUserRoles,
         avatar = { user, loading, click -> slots.avatar(user, loading, click) },
-        attachmentItem = { attachment -> TextButton(onClick = { webOpenProfileResource(attachment.uri) }) { Text(attachment.name) } },
-        postPreview = { post, count, openComments ->
+        attachmentItem = { attachment -> TextButton(onClick = {
+            if (documentOpener != null && attachment.mimeType?.let { it.contains("pdf") || it.contains("officedocument") || it.contains("msword") } == true) {
+                actionScope.launch { documentOpener.open(PlatformFile(attachment.uri, attachment.name, attachment.mimeType)) }
+            } else webOpenProfileResource(attachment.uri)
+        }) { Text(attachment.name) } },
+        postPreview = { post, count, isCurrent, openComments ->
             CommunityProfilePostPreviewContent(post, count, currentUserId != null, openComments, onAuthRequired,
                 { webShareProfilePost(post.id) }, { model.reportProfilePost(post.id) }, media = { loaded, load ->
                     if (post.videoUrl != null && !loaded) Button(onClick = load) { Text("Load video") }
                     else {
                         var position by remember(post.id) { mutableLongStateOf(0L) }
                         var muted by remember(post.id) { mutableStateOf(false) }
-                        BrowserFeedMediaContent(post, true, muted, position, { position = it }, { muted = it })
+                        BrowserFeedMediaContent(post, isCurrent, muted, position, { position = it }, { muted = it })
                     }
                 })
         },
@@ -165,4 +176,18 @@ private fun webCommunityProfileStrings() = CommunityProfileStrings(
 )
 
 private fun webOpenProfileResource(url: String) { js("globalThis.open(url, '_blank', 'noopener,noreferrer')") }
-private fun webShareProfilePost(postId: String) { js("globalThis.navigator?.share?.({url: globalThis.location.origin + '/#post/' + postId})") }
+private fun webShareProfilePost(postId: String) {
+    js(
+        """
+        (() => {
+          const url = globalThis.location.origin + '/#post/' + postId;
+          const copy = () => globalThis.navigator?.clipboard?.writeText(url)
+            ?.catch(() => globalThis.prompt('Copy this link', url))
+            ?? globalThis.prompt('Copy this link', url);
+          if (typeof globalThis.navigator?.share === 'function') {
+            globalThis.navigator.share({url}).catch(copy);
+          } else copy();
+        })()
+        """
+    )
+}

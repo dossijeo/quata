@@ -52,7 +52,7 @@ fun CommunityProfileRoot(
     onSetRoles: (String, Boolean, Boolean) -> Unit,
     avatar: @Composable (NeighborhoodUser, Boolean, (() -> Unit)?) -> Unit,
     attachmentItem: @Composable (ProfileAttachment) -> Unit,
-    postPreview: @Composable (Post, Int, () -> Unit) -> Unit,
+    postPreview: @Composable (Post, Int, Boolean, () -> Unit) -> Unit,
     commentsDialog: @Composable (Post, List<PostComment>, (PostComment) -> Unit, () -> Unit) -> Unit,
 ) {
     var navigation by rememberSaveable(profile.user.id) { mutableStateOf(CommunityProfileNavigationState()) }

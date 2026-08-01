@@ -17,7 +17,7 @@ import com.quata.core.model.PostComment
 fun ProfilePostsPagerContent(
     posts: List<Post>,
     pagerState: PagerState,
-    postPreview: @Composable (post: Post, commentsCount: Int, onOpenComments: () -> Unit) -> Unit,
+    postPreview: @Composable (post: Post, commentsCount: Int, isCurrent: Boolean, onOpenComments: () -> Unit) -> Unit,
     commentsDialog: @Composable (
         post: Post,
         localComments: List<PostComment>,
@@ -30,7 +30,7 @@ fun ProfilePostsPagerContent(
     val localComments = remember { mutableStateMapOf<String, List<PostComment>>() }
     HorizontalPager(state = pagerState, modifier = modifier.height(440.dp)) { page ->
         val post = posts[page]
-        postPreview(post, post.comments.size + localComments[post.id].orEmpty().size) { commentsPost.value = post }
+        postPreview(post, post.comments.size + localComments[post.id].orEmpty().size, page == pagerState.currentPage) { commentsPost.value = post }
     }
     commentsPost.value?.let { post ->
         commentsDialog(

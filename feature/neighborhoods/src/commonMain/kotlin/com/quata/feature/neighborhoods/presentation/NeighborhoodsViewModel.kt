@@ -25,6 +25,7 @@ class NeighborhoodsViewModel(
     override val uiState: StateFlow<NeighborhoodsUiState> = _uiState.asStateFlow()
     private var communitiesJob: Job? = null
     private var profileJob: Job? = null
+    private var profileWatchdogJob: Job? = null
 
     override fun startObservingCommunities() {
         if (communitiesJob?.isActive == true) return
@@ -126,6 +127,18 @@ class NeighborhoodsViewModel(
 
     override fun openUserProfile(userId: String) {
         profileJob?.cancel()
+        profileWatchdogJob?.cancel()
+        profileWatchdogJob = scope.launch {
+            kotlinx.coroutines.delay(PROFILE_LOAD_TIMEOUT_MILLIS)
+            val state = _uiState.value
+            if (state.openingProfileUserId == userId || state.refreshingProfileUserId == userId) {
+                _uiState.value = state.copy(
+                    openingProfileUserId = null,
+                    refreshingProfileUserId = null,
+                    error = "La carga del perfil ha tardado demasiado. Inténtalo de nuevo.",
+                )
+            }
+        }
         profileJob = scope.launch {
             val currentUserIsAdmin = repository.isCurrentUserAdmin()
             val freshCachedProfile = repository.getCachedUserProfile(userId, PROFILE_CACHE_FRESH_MILLIS)
@@ -150,6 +163,8 @@ class NeighborhoodsViewModel(
                     .collect { result ->
                         result
                             .onSuccess { profile ->
+                                profileWatchdogJob?.cancel()
+                                profileWatchdogJob = null
                                 val currentState = _uiState.value
                                 val shouldUpdateVisibleProfile =
                                     currentState.selectedProfile?.user?.id == userId ||
@@ -177,6 +192,8 @@ class NeighborhoodsViewModel(
     fun closeUserProfile() {
         profileJob?.cancel()
         profileJob = null
+        profileWatchdogJob?.cancel()
+        profileWatchdogJob = null
         _uiState.value = _uiState.value.copy(
             openingProfileUserId = null,
             refreshingProfileUserId = null,
@@ -366,12 +383,14 @@ class NeighborhoodsViewModel(
 
     companion object {
         private const val PROFILE_CACHE_FRESH_MILLIS = 5 * 60_000L
+        private const val PROFILE_LOAD_TIMEOUT_MILLIS = 20_000L
 
     }
 
     override fun close() {
         communitiesJob?.cancel()
         profileJob?.cancel()
+        profileWatchdogJob?.cancel()
         scope.coroutineContext.cancel()
     }
 }

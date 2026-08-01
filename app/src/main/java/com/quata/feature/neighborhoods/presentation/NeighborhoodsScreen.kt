@@ -299,7 +299,7 @@ fun CommunityProfileScreen(
                 else context.openAttachmentWithDocumentReaderOrChooser(preview, template.resolvedTheme == QuataResolvedTheme.Dark)
             }
         },
-        postPreview = { post, commentsCount, openComments ->
+        postPreview = { post, commentsCount, _, openComments ->
             ProfilePostPreview(
                 post, commentsCount, currentUserId != null, openComments, onAuthRequired,
                 { context.shareProfilePost(post) },
@@ -430,7 +430,7 @@ private fun ProfilePostsPager(
     ProfilePostsPagerContent(
         posts = posts,
         pagerState = pagerState,
-        postPreview = { post, commentsCount, onOpenComments ->
+        postPreview = { post, commentsCount, _, onOpenComments ->
             ProfilePostPreview(
                 post = post,
                 commentsCount = commentsCount,

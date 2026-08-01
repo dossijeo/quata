@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.awaitCancellation
 import kotlin.test.*
 
 class NeighborhoodsViewModelLifecycleTest {
@@ -41,9 +43,19 @@ class NeighborhoodsViewModelLifecycleTest {
         assertEquals("peer", repo.followedUserId)
         vm.close()
     }
+
+    @Test fun `profile watchdog exposes retryable error and close cancels jobs`() = runTest {
+        val repo = FakeNeighborhoodRepository(hangProfile = true)
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val vm = NeighborhoodsViewModel(repo, AppDispatchers(dispatcher, dispatcher, dispatcher))
+        vm.openUserProfile("peer"); runCurrent(); advanceTimeBy(20_001); runCurrent()
+        assertNull(vm.uiState.value.openingProfileUserId)
+        assertNotNull(vm.uiState.value.error)
+        vm.closeUserProfile(); vm.close()
+    }
 }
 
-private class FakeNeighborhoodRepository(private val failFirstRead: Boolean = false) : NeighborhoodRepository {
+private class FakeNeighborhoodRepository(private val failFirstRead: Boolean = false, private val hangProfile: Boolean = false) : NeighborhoodRepository {
     private var reads = 0
     var followedUserId: String? = null
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flow { reads++; if (failFirstRead && reads == 1) error("offline"); emit(listOf(NeighborhoodCommunity("Centro", emptyList(), "wall:real", null, 1L, 1))) }
@@ -57,6 +69,6 @@ private class FakeNeighborhoodRepository(private val failFirstRead: Boolean = fa
     override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean) = Result.failure<NeighborhoodUser>(UnsupportedOperationException())
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?) = null
     override suspend fun cacheUserProfile(profile: CommunityUserProfile) = Unit
-    override fun observeUserProfile(userId: String) = flowOf(Result.failure<CommunityUserProfile>(UnsupportedOperationException()))
+    override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = if (hangProfile) flow { awaitCancellation() } else flowOf(Result.failure(UnsupportedOperationException()))
     override suspend fun getUserProfile(userId: String) = Result.failure<CommunityUserProfile>(UnsupportedOperationException())
 }

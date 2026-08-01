@@ -264,6 +264,7 @@ private final class IosAppCompositionRoot {
         )
     }()
     private var externalShareForegroundObserver: NSObjectProtocol?
+    private var pendingCommunityProfileId: String?
 
     func start() {
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -445,6 +446,10 @@ private final class IosAppCompositionRoot {
         installAuthenticatedProfileSosIfAvailable()
         installAuthenticatedComposerIfAvailable()
         presentPendingExternalShareIfAvailable()
+        if let pendingProfileId = pendingCommunityProfileId {
+            pendingCommunityProfileId = nil
+            DispatchQueue.main.async { [weak self] in self?.presentAuthenticatedMemberProfile(profileId: pendingProfileId) }
+        }
         return true
     }
 
@@ -641,6 +646,9 @@ private final class IosAppCompositionRoot {
                         self.authenticatedHost.present(controller, animated: true)
                     },
                     onAuthRequired: { [weak self] in self?.authenticatedHost.requestAuthenticationForCommunities() },
+                    mediaFactory: IosFeedNativeMediaFactory.shared,
+                    shareService: platformServices.services.share,
+                    attachmentPreviewService: communitiesRuntimeBootstrap.attachmentPreviewService(documentOpener: platformServices.services.documentOpener),
                 )
             return IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(dependencies: hostDependencies)
         }
@@ -659,7 +667,16 @@ private final class IosAppCompositionRoot {
                 }
             },
             onNavigateToProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
-            onAuthRequired: { [weak self] in self?.authenticatedHost.requestAuthenticationForCommunities() }
+            onAuthRequired: { [weak self] in
+                guard let self else { return }
+                self.pendingCommunityProfileId = profileId
+                self.authenticatedHost.dismiss(animated: true) {
+                    self.authenticatedHost.requestAuthenticationForCommunities()
+                }
+            },
+            mediaFactory: IosFeedNativeMediaFactory.shared,
+            shareService: platformServices.services.share,
+            attachmentPreviewService: communitiesRuntimeBootstrap.attachmentPreviewService(documentOpener: platformServices.services.documentOpener)
         )
         let controller = IosNeighborhoodsHostKt.QuataCommunityProfileViewController(
             dependencies: dependencies,

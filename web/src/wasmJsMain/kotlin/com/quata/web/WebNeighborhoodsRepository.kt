@@ -37,6 +37,7 @@ internal fun webNeighborhoodsReadAuthMode(operation: WebNeighborhoodsReadOperati
     // private action requests below explicitly require the current bearer session.
     WebNeighborhoodsReadOperation.UserProfile -> WebPostgrestAuthMode.Public
 }
+internal const val WebNeighborhoodsPrivateActionsRequireSession = true
 
 /**
  * Browser read adapter for the Communities directory.

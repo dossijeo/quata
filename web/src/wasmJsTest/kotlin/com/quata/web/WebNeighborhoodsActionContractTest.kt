@@ -2,6 +2,7 @@ package com.quata.web
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class WebNeighborhoodsActionContractTest {
     @Test fun `follow lookup uses Android equivalent profile follow table columns`() {
@@ -24,5 +25,6 @@ class WebNeighborhoodsActionContractTest {
         assertEquals(WebPostgrestAuthMode.Public, webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.Directory))
         assertEquals(WebPostgrestAuthMode.SessionRequired, webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.CurrentUserAdmin))
         assertEquals(WebPostgrestAuthMode.Public, webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.UserProfile))
+        assertTrue(WebNeighborhoodsPrivateActionsRequireSession)
     }
 }

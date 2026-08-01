@@ -514,6 +514,7 @@ private fun QuataWebApp(
                             onOpenUserProfile = feedMemberProfileRoute::open,
                             onDismissProfile = feedMemberProfileRoute::close,
                             profileId = feedMemberProfileRoute.profileId,
+                            documentOpener = platformServices.documentOpener,
                         )
                     }
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {
@@ -530,6 +531,7 @@ private fun QuataWebApp(
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 onDismissProfile = feedMemberProfileRoute::close,
                                 profileId = memberProfileId,
+                                documentOpener = platformServices.documentOpener,
                             )
                         } else {
                             WebOfficialHost(
@@ -575,6 +577,7 @@ private fun QuataWebApp(
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 onDismissProfile = feedMemberProfileRoute::close,
                                 profileId = memberProfileId,
+                                documentOpener = platformServices.documentOpener,
                             )
                         } else {
                             WebFeedHost(

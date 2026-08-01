@@ -15,11 +15,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -29,6 +32,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import com.quata.core.data.toFoundationData
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.PostComment
+import com.quata.core.platform.ShareService
+import com.quata.core.platform.SharePayload
 import com.quata.core.ui.components.QuataAvatarFrameContent
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
@@ -37,6 +42,10 @@ import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.feed.presentation.IosFeedMediaFactory
+import com.quata.feature.feed.presentation.IosFeedMediaSlot
+import com.quata.feature.chat.data.IosChatAttachmentPreviewService
+import com.quata.core.platform.PlatformFile
 import platform.UIKit.UIViewController
 import platform.Foundation.NSData
 import platform.Foundation.NSError
@@ -54,6 +63,7 @@ import platform.UIKit.UIViewContentMode
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.launch
 
 /**
  * The launcher's only cross-feature navigation obligation for Communities.  The selected ID is
@@ -83,6 +93,9 @@ class IosNeighborhoodsHostDependencies(
     val onOpenConversation: (String) -> Unit,
     val profileNavigator: IosCommunityProfileNavigator,
     val onAuthRequired: () -> Unit,
+    val mediaFactory: IosFeedMediaFactory,
+    val shareService: ShareService,
+    val attachmentPreviewService: IosChatAttachmentPreviewService?,
 )
 
 /**
@@ -99,6 +112,9 @@ fun createIosNeighborhoodsHostDependencies(
     onOpenConversation: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
     onAuthRequired: () -> Unit,
+    mediaFactory: IosFeedMediaFactory,
+    shareService: ShareService,
+    attachmentPreviewService: IosChatAttachmentPreviewService?,
 ): IosNeighborhoodsHostDependencies = IosNeighborhoodsHostDependencies(
     repository = repository,
     viewModel = NeighborhoodsViewModel(repository),
@@ -109,6 +125,9 @@ fun createIosNeighborhoodsHostDependencies(
     onOpenConversation = onOpenConversation,
     profileNavigator = IosCommunityProfileNavigator(onNavigateToProfile),
     onAuthRequired = onAuthRequired,
+    mediaFactory = mediaFactory,
+    shareService = shareService,
+    attachmentPreviewService = attachmentPreviewService,
 )
 
 /** Creates an injectable UIKit host for the common Neighborhoods list and member surfaces. */
@@ -144,6 +163,7 @@ fun QuataCommunityProfileViewController(
             onDispose { dependencies.viewModel.closeUserProfile() }
         }
         val profile = state.selectedProfile
+        val actionScope = rememberCoroutineScope()
         if (profile == null) {
             Column {
                 Text(state.error ?: "Loading profile…")
@@ -175,10 +195,21 @@ fun QuataCommunityProfileViewController(
                 onBlockProfile = { dependencies.viewModel.blockProfile(it, onDismiss) },
                 onSetRoles = dependencies.viewModel::setUserRoles,
                 avatar = { user, _, click -> IosNeighborhoodAvatar(user, click) },
-                attachmentItem = { attachment -> TextButton(onClick = { iosOpenProfileResource(attachment.uri) }) { Text(attachment.name) } },
-                postPreview = { post, count, openComments ->
+                attachmentItem = { attachment -> TextButton(onClick = {
+                    val preview = dependencies.attachmentPreviewService
+                    if (preview != null) actionScope.launch { preview.openRemoteAttachment(PlatformFile(attachment.uri, attachment.name, attachment.mimeType)) }
+                    else iosOpenProfileResource(attachment.uri)
+                }) { Text(attachment.name) } },
+                postPreview = { post, count, isCurrent, openComments ->
                     CommunityProfilePostPreviewContent(post, count, dependencies.currentUserId != null, openComments, dependencies.onAuthRequired,
-                        { iosOpenProfileResource("https://quata.app/post/${post.id}") }, { dependencies.viewModel.reportProfilePost(post.id) }, media = { _, _ -> })
+                        { actionScope.launch { dependencies.shareService.share(SharePayload(text = "https://quata.app/post/${post.id}")) } }, { dependencies.viewModel.reportProfilePost(post.id) }, media = { loaded, load ->
+                            if (post.videoUrl != null && !loaded) Button(onClick = load) { Text("Load video") }
+                            else {
+                                var position by remember(post.id) { mutableLongStateOf(0L) }
+                                var muted by remember(post.id) { mutableStateOf(false) }
+                                Box { IosFeedMediaSlot(post, isCurrent, position, { position = it }, muted, { muted = it }, dependencies.mediaFactory) }
+                            }
+                        })
                 },
                 commentsDialog = { post, local, add, dismiss ->
                     CommunityProfileCommentsDialogContent(post, local, dependencies.currentUserId != null,
