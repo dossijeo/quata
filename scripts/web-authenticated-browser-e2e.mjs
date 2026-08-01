@@ -337,6 +337,7 @@ try {
     blockedBackendMutations: blockedBackendMutations.map(({ method, path, stage, reason }) => ({ method, path, stage, reason })),
     notificationInboxReads: productReadEvidence.notificationInboxReads,
     chatCandidateReads: productReadEvidence.chatCandidateReads,
+    chatCandidateRequests: fixtureState.chatCandidateRequests,
   };
   report.network = options.real ? { policy: "local_and_exact_configured_backend" } : { policy: "local_only", unexpectedOrigins: [...new Set(unexpectedNetwork)].length };
   await writeSafeReport(options.output, report);
