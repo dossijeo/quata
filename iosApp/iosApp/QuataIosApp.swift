@@ -1247,7 +1247,16 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private func presentAuthentication(_ entry: AuthenticationEntry) {
         guard !hasAuthenticatedSession, let authenticationFactory else { return }
         let controller = authenticationFactory(entry)
-        controller.modalPresentationStyle = .fullScreen
+        switch entry {
+        case .login:
+            controller.modalPresentationStyle = .fullScreen
+        case .registration:
+            // Keep the Compose shell attached while Registration covers it. Removing the shell
+            // during a full-screen transition can synchronously tear down its Metal surface.
+            controller.modalPresentationStyle = .overFullScreen
+            controller.view.backgroundColor = .systemBackground
+            controller.view.isOpaque = true
+        }
         controller.view.accessibilityIdentifier = "quata-ios-auth-host"
         controller.view.accessibilityLabel = "Quata iOS authentication"
         controller.view.isAccessibilityElement = false

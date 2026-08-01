@@ -443,8 +443,19 @@ final class QuataFeedFrameworkTests: XCTestCase {
         wait(for: [registrationPresented], timeout: 2)
 
         XCTAssertTrue(router.presentedViewController === registration)
-        XCTAssertEqual(registration.modalPresentationStyle, .fullScreen)
+        XCTAssertEqual(registration.modalPresentationStyle, .overFullScreen)
+        XCTAssertEqual(registration.view.backgroundColor, .systemBackground)
+        XCTAssertTrue(registration.view.isOpaque)
         XCTAssertEqual(registration.view.accessibilityIdentifier, "quata-ios-auth-host")
+        XCTAssertNotNil(router.view.subviews.first {
+            $0.accessibilityIdentifier == "quata-ios-authenticated-top-chrome"
+        })
+        XCTAssertNotNil(router.view.subviews.first {
+            $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation"
+        })
+        XCTAssertNil(registration.view.subviews.first {
+            $0.accessibilityIdentifier == "quata-ios-authenticated-top-chrome"
+        })
         XCTAssertNil(registration.view.subviews.first {
             $0.accessibilityIdentifier == "quata-ios-authenticated-primary-navigation"
         })
