@@ -691,7 +691,7 @@ private final class IosAppCompositionRoot {
                 touchFlowEnabled: appearancePreferences.touchFlowEnabled,
                 themeModeStorageValue: appearancePreferences.themeModeStorageValue,
                 onTouchFlowEnabledChange: { enabled in
-                    appearancePreferences.setTouchFlowEnabled(enabled)
+                    appearancePreferences.setTouchFlowEnabled(enabled.boolValue)
                 },
                 onThemeModeStorageValueChange: { [weak self] value in
                     appearancePreferences.setThemeModeStorageValue(value)
@@ -784,7 +784,7 @@ private final class IosAppCompositionRoot {
                     touchFlowEnabled: appearancePreferences.touchFlowEnabled,
                     themeModeStorageValue: appearancePreferences.themeModeStorageValue,
                     onTouchFlowEnabledChange: { enabled in
-                        appearancePreferences.setTouchFlowEnabled(enabled)
+                        appearancePreferences.setTouchFlowEnabled(enabled.boolValue)
                     },
                     onThemeModeStorageValueChange: { [weak self] value in
                         appearancePreferences.setThemeModeStorageValue(value)
