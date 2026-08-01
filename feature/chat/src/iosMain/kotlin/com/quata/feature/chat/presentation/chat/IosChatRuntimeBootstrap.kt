@@ -67,6 +67,8 @@ class IosChatRuntimeBootstrap(
         onOpenMap: (String) -> Unit,
         onTranslateMessage: (String) -> Unit,
         onOpenMessageConversation: (String, String) -> Unit,
+        onPlaySentSound: () -> Unit,
+        onPlayIncomingSound: () -> Unit,
     ): IosChatHostDependencies = IosChatHostDependencies(
         repository = repository(),
         audioPlayer = audioPlayer,
@@ -83,6 +85,8 @@ class IosChatRuntimeBootstrap(
         onOpenMap = onOpenMap,
         onTranslateMessage = onTranslateMessage,
         onOpenMessageConversation = onOpenMessageConversation,
+        onPlaySentSound = onPlaySentSound,
+        onPlayIncomingSound = onPlayIncomingSound,
     )
 }
 

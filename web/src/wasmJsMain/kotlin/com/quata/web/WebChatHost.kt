@@ -36,6 +36,8 @@ import com.quata.core.ui.components.QuataFloatingPanelContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatScreenHost
 import com.quata.feature.chat.presentation.chat.ChatMediaKind
+import com.quata.feature.chat.presentation.chat.ChatSoundEvent
+import com.quata.feature.chat.presentation.chat.chatDetailStringsForLanguage
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.InviteChannelSheetContent
@@ -75,9 +77,14 @@ fun WebChatHost(
     val scope = rememberCoroutineScope()
     var pickedInviteContacts by remember { mutableStateOf<List<ChatInviteContact>>(emptyList()) }
     var contactsAvailable by remember { mutableStateOf(false) }
+    var isAppForeground by remember { mutableStateOf(browserDocumentIsVisible()) }
+    val detailStrings = chatDetailStringsForLanguage(webBrowserLanguage())
     DisposableEffect(repository) {
-        repository.setAppForeground(browserDocumentIsVisible())
-        val stopObserving = observeBrowserDocumentVisibility(repository::setAppForeground)
+        repository.setAppForeground(isAppForeground)
+        val stopObserving = observeBrowserDocumentVisibility { foreground ->
+            isAppForeground = foreground
+            repository.setAppForeground(foreground)
+        }
         onDispose {
             stopObserving()
             repository.setAppForeground(false)
@@ -167,9 +174,12 @@ fun WebChatHost(
         onOpenMap = { value -> value.safeWebMapUrl()?.let(::openWebExternalLink) },
         onTranslateMessage = { text -> openWebExternalLink(webTranslationUrl(text)) },
         onOpenMessageConversation = onOpenMessageConversation,
-        messageInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, "Mensaje", modifier.height(56.dp), inputType = "text") },
+        isAppForeground = isAppForeground,
+        onSoundEvent = ::playWebChatSound,
+        strings = detailStrings,
+        messageInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, detailStrings.message, modifier.height(56.dp), inputType = "text") },
         sendButtonOverride = { enabled, onClick, modifier ->
-            WebNativeButton("Enviar", enabled, onClick, modifier.width(96.dp).height(48.dp))
+            WebNativeButton(detailStrings.send, enabled, onClick, modifier.width(96.dp).height(48.dp))
         },
         clipboardService = clipboardService,
         modifier = modifier,
@@ -208,6 +218,28 @@ private external fun chatBrowserNowMillisAsDouble(): Double
 
 /** Date.now() is a JavaScript Number, not the BigInt required by a Wasm Kotlin Long. */
 private fun webNowMillis(): Long = chatBrowserNowMillisAsDouble().toLong()
+
+private fun playWebChatSound(event: ChatSoundEvent) {
+    playBrowserChatTone(if (event == ChatSoundEvent.MessageSent) 880.0 else 660.0)
+}
+
+private fun playBrowserChatTone(frequency: Double): Unit = js(
+    """(() => {
+      try {
+        const AudioContext = globalThis.AudioContext || globalThis.webkitAudioContext;
+        if (!AudioContext) return;
+        const context = globalThis.__quataChatSoundContext || (globalThis.__quataChatSoundContext = new AudioContext());
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.0001, context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.12);
+        oscillator.connect(gain); gain.connect(context.destination);
+        oscillator.start(); oscillator.stop(context.currentTime + 0.13);
+      } catch (_) {}
+    })()""",
+)
 private fun webBrowserLanguage(): String? = js("globalThis.navigator?.language || null")
 
 private fun browserDocumentIsVisible(): Boolean = js(

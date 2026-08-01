@@ -86,6 +86,8 @@ class IosChatHostDependencies(
     val onTranslateMessage: (String) -> Unit,
     /** Opens a message in its source conversation from Favorites. */
     val onOpenMessageConversation: (String, String) -> Unit,
+    val onPlaySentSound: () -> Unit,
+    val onPlayIncomingSound: () -> Unit,
 )
 
 /**
@@ -95,8 +97,10 @@ class IosChatHostDependencies(
 fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewController =
     ComposeUIViewController {
         QuataTheme {
+            var isAppForeground by remember { mutableStateOf(true) }
             DisposableEffect(dependencies.repository) {
                 fun updateForeground(isForeground: Boolean) {
+                    isAppForeground = isForeground
                     dependencies.repository.setAppForeground(isForeground)
                     dependencies.conversationId?.let { dependencies.repository.setConversationVisible(it, isForeground) }
                 }
@@ -149,6 +153,14 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenMap = dependencies.onOpenMap,
                 onTranslateMessage = dependencies.onTranslateMessage,
                 onOpenMessageConversation = dependencies.onOpenMessageConversation,
+                isAppForeground = isAppForeground,
+                onSoundEvent = { event ->
+                    when (event) {
+                        ChatSoundEvent.MessageSent -> dependencies.onPlaySentSound()
+                        ChatSoundEvent.MessageReceived -> dependencies.onPlayIncomingSound()
+                    }
+                },
+                strings = chatDetailStringsForLanguage(iosConversationLanguage()),
                 clipboardService = IosClipboardService(),
                 conversationListHost = { listModifier ->
                     val scope = rememberCoroutineScope()

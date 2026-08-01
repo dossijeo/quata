@@ -15,6 +15,10 @@ class ChatCommonCompositionStaticTest {
             root,
             "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatScreenHost.kt",
         ).readText()
+        val localization = File(
+            root,
+            "feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatDetailLocalization.kt",
+        ).readText()
         listOf(
             "FavoriteMessagesHeaderContent(",
             "ChatConversationTitleBarContent(",
@@ -50,7 +54,8 @@ class ChatCommonCompositionStaticTest {
             "ChatUiEvent.DeleteConversation",
             "Ocultar conversación",
             "Eliminar conversación",
-        ).forEach { required -> assertTrue("Missing shared Chat hierarchy token: $required", required in source) }
+        ).forEach { required -> assertTrue("Missing shared Chat hierarchy token: $required", required in source + localization) }
+        assertTrue("Localized delete action is not consumed by the shared host", "strings.deleteConversation" in source)
         assertTrue(source.indexOf("mediaAttachment(") < source.indexOf("ChatDocumentAttachmentContent("))
     }
 }

@@ -1,8 +1,14 @@
 import CoreLocation
 import Foundation
 import UIKit
+import AudioToolbox
 import UserNotifications
 import QuataShared
+
+private enum IosChatSound {
+    static let sent: SystemSoundID = 1004
+    static let incoming: SystemSoundID = 1007
+}
 
 enum IosWhatsNewLocale {
     static func sanitizedPreferredLanguageTag(_ preferredLanguages: [String] = Locale.preferredLanguages) -> String? {
@@ -1431,6 +1437,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 },
                 onOpenMessageConversation: { [weak self] conversationId, messageId in
                     self?.showChat(conversationId: conversationId, messageId: messageId)
+                },
+                onPlaySentSound: {
+                    AudioServicesPlaySystemSound(IosChatSound.sent)
+                },
+                onPlayIncomingSound: {
+                    AudioServicesPlaySystemSound(IosChatSound.incoming)
                 },
             )
             return QuataChatViewControllerKt.QuataChatViewController(dependencies: dependencies)

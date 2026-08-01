@@ -9,8 +9,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -43,17 +48,23 @@ fun ChatScreen(
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    var isAppForeground by remember(lifecycleOwner) {
+        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+    }
     DisposableEffect(lifecycleOwner, repository, conversationId) {
-        val initiallyForeground = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        val initiallyForeground = isAppForeground
         repository.setAppForeground(initiallyForeground)
         repository.setConversationVisible(conversationId, initiallyForeground)
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> {
+                    isAppForeground = true
                     repository.setAppForeground(true)
                     repository.setConversationVisible(conversationId, true)
                 }
                 Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> {
+                    isAppForeground = false
                     repository.setConversationVisible(conversationId, false)
                     repository.setAppForeground(false)
                 }
@@ -84,6 +95,9 @@ fun ChatScreen(
             context.openChatUrl("https://translate.google.com/?sl=auto&tl=es&text=${Uri.encode(text)}&op=translate")
         },
         onOpenMessageConversation = onOpenMessageConversation,
+        isAppForeground = isAppForeground,
+        onSoundEvent = context::playChatSound,
+        strings = chatDetailStringsForLanguage(configuration.locales[0].toLanguageTag()),
         compactHeader = compactHeader,
         appHeaderActions = appHeaderActions,
         openingProfileUserId = openingProfileUserId,
