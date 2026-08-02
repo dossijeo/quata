@@ -74,6 +74,8 @@ class WebNavigationTest {
         check("".toWebNavigationState().isPublicRoute)
         check("official-bulletin-99".toWebNavigationState().isPublicRoute)
         check("post-publication-123".toWebNavigationState().isPublicRoute)
+        check("notifications".toWebNavigationState().isPublicRoute)
+        check(!"notifications".toWebNavigationState().requiresAuthentication)
         check(!"chat".toWebNavigationState().isPublicRoute)
         check("chat".toWebNavigationState().requiresAuthentication)
         check("profile".toWebNavigationState().requiresAuthentication)
