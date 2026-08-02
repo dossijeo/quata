@@ -90,6 +90,34 @@ class WebProfileAvatarUploaderTest {
     }
 
     @Test
+    fun quarterTurnUsesRotatedOutputAxesForLandscapeSourceSoHorizontalPanCannotExposeAStripe() {
+        val geometry = webProfileAvatarExportGeometry(
+            sourceWidth = 1600,
+            sourceHeight = 900,
+            transform = AvatarImageEditorTransform.Default.rotateClockwise(),
+        )
+
+        assertEquals(1080f, geometry.outputDrawnWidth)
+        assertEquals(1920f, geometry.outputDrawnHeight)
+        assertEquals(0f, geometry.maxPanX)
+        assertEquals(420f, geometry.maxPanY)
+    }
+
+    @Test
+    fun quarterTurnUsesRotatedOutputAxesForPortraitSourceSoVerticalPanCannotExposeAStripe() {
+        val geometry = webProfileAvatarExportGeometry(
+            sourceWidth = 900,
+            sourceHeight = 1600,
+            transform = AvatarImageEditorTransform.Default.rotateClockwise().rotateClockwise().rotateClockwise(),
+        )
+
+        assertEquals(1920f, geometry.outputDrawnWidth)
+        assertEquals(1080f, geometry.outputDrawnHeight)
+        assertEquals(420f, geometry.maxPanX)
+        assertEquals(0f, geometry.maxPanY)
+    }
+
+    @Test
     fun prepareFailureReleasesTheOriginalBlobAndDoesNotUploadOrMutate() = runTest {
         val binary = RecordingBinary(failPrepare = true)
         val refs = RecordingReferences()

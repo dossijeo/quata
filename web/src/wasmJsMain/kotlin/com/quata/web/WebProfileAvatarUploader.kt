@@ -58,6 +58,37 @@ internal data class WebProfileAvatarPreparedImage(
     val mimeType: String = "image/jpeg",
 )
 
+/** Geometry shared by the browser export and its unit tests.  Rotation changes the output axes. */
+internal data class WebProfileAvatarExportGeometry(
+    val scale: Float,
+    val outputDrawnWidth: Float,
+    val outputDrawnHeight: Float,
+    val maxPanX: Float,
+    val maxPanY: Float,
+)
+
+internal fun webProfileAvatarExportGeometry(
+    sourceWidth: Int,
+    sourceHeight: Int,
+    transform: AvatarImageEditorTransform,
+    outputSide: Int = 1080,
+): WebProfileAvatarExportGeometry {
+    require(sourceWidth > 0 && sourceHeight > 0)
+    val scale = maxOf(outputSide.toFloat() / sourceWidth, outputSide.toFloat() / sourceHeight) * transform.zoom
+    val sourceDrawnWidth = sourceWidth * scale
+    val sourceDrawnHeight = sourceHeight * scale
+    val isQuarterTurn = transform.quarterTurns % 2 != 0
+    val outputDrawnWidth = if (isQuarterTurn) sourceDrawnHeight else sourceDrawnWidth
+    val outputDrawnHeight = if (isQuarterTurn) sourceDrawnWidth else sourceDrawnHeight
+    return WebProfileAvatarExportGeometry(
+        scale = scale,
+        outputDrawnWidth = outputDrawnWidth,
+        outputDrawnHeight = outputDrawnHeight,
+        maxPanX = ((outputDrawnWidth - outputSide) / 2f).coerceAtLeast(0f),
+        maxPanY = ((outputDrawnHeight - outputSide) / 2f).coerceAtLeast(0f),
+    )
+}
+
 /** Injectable edge so path/header and cancellation guarantees are testable without a browser DOM. */
 internal interface WebProfileAvatarBinaryTransport {
     suspend fun prepareSquareJpeg(reference: String, transform: AvatarImageEditorTransform): WebProfileAvatarPreparedImage
@@ -206,16 +237,20 @@ private fun webProfilePrepareSquareAvatarJs(
           const context = canvas.getContext('2d');
           if (!context) throw Error('web_profile_avatar_canvas_context_unavailable');
           const turns = ((Number(quarterTurns) % 4) + 4) % 4;
-          const rotated = turns % 2 === 0 ? { width, height } : { width: height, height: width };
-          const scale = Math.max(1080 / rotated.width, 1080 / rotated.height) * Math.min(4, Math.max(1, Number(zoom) || 1));
-          const drawnWidth = width * scale;
-          const drawnHeight = height * scale;
-          const maxPanX = Math.max(0, (drawnWidth - 1080) / 2);
-          const maxPanY = Math.max(0, (drawnHeight - 1080) / 2);
+          const scale = Math.max(1080 / width, 1080 / height) * Math.min(4, Math.max(1, Number(zoom) || 1));
+          const sourceDrawnWidth = width * scale;
+          const sourceDrawnHeight = height * scale;
+          // context.rotate swaps the visible axes at 90°/270°.  Pan is expressed in
+          // output-canvas axes, so its overflow must swap too or a portrait image can expose a
+          // transparent stripe on one side while the preview appears correctly constrained.
+          const outputDrawnWidth = turns % 2 === 0 ? sourceDrawnWidth : sourceDrawnHeight;
+          const outputDrawnHeight = turns % 2 === 0 ? sourceDrawnHeight : sourceDrawnWidth;
+          const maxPanX = Math.max(0, (outputDrawnWidth - 1080) / 2);
+          const maxPanY = Math.max(0, (outputDrawnHeight - 1080) / 2);
           context.save();
           context.translate(540 + Math.max(-1, Math.min(1, Number(panX) || 0)) * maxPanX, 540 + Math.max(-1, Math.min(1, Number(panY) || 0)) * maxPanY);
           context.rotate(turns * Math.PI / 2);
-          context.drawImage(image, -width * scale / 2, -height * scale / 2, drawnWidth, drawnHeight);
+          context.drawImage(image, -sourceDrawnWidth / 2, -sourceDrawnHeight / 2, sourceDrawnWidth, sourceDrawnHeight);
           context.restore();
           canvas.toBlob(blob => {
             if (!blob || !blob.size) { onFailure('web_profile_avatar_encode_failed'); return; }
