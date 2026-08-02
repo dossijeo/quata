@@ -31,25 +31,25 @@ data class ConversationRelativeTimeStrings(
 
 fun conversationsLocaleCatalogForLanguage(languageTag: String?): ConversationsLocaleCatalog = when (languageTag.language()) {
     "es" -> catalog(
-        title = "Chats", search = "Buscar conversaci?n...", favorites = "Mensajes favoritos", newChat = "Nuevo chat", undo = "Deshacer", group = "A?adir participantes", create = "Crear grupo",
-        candidates = ConversationCandidatePickerStrings("Buscar por nombre, barrio o telefono...", "No hay usuarios para esta busqueda.", "Cancelar", "Tus contactos", "Los que sigues", "Los que te siguen", "Conversaciones recientes", "Otros barrios", "Sin barrio", "Invitar a Q?ata", "Permite el acceso a tus contactos para ver a qui?n puedes invitar.", "Permitir", "Invitar", "Selecciona conversaciones"),
-        selection = { "$it participantes" }, preview = ConversationPreviewStrings("??? Foto", "?? V?deo", "?? Documento", "?? Nota de voz", "?? Archivo", "Actualizacion de ubicacion SOS", "?? Ubicaci?n no disponible") { "Ubicacion aproximada: $it" },
-        relative = relative({ "hace $it s" }, "hace 1 min", { "hace $it min" }, { "hace $it h" }, { "hace $it d" }, "hace 1 semana", { "hace $it semanas" }, "hace 1 mes", { "hace $it meses" }, "hace 1 a?o", { "hace $it a?os" }),
-        invitation = ConversationInvitationStrings("Me gustar?a hablar contigo en Q?ata. Desc?rgala aqu?: https://play.google.com/store/apps/details?id=com.quata", "Compartir", "Q?ata", { "Invitar a $it con" }, "Copiar texto", { "Elige una aplicaci?n para invitar a $it" }),
+        title = "Chats", search = "Buscar conversación...", favorites = "Mensajes favoritos", newChat = "Nuevo chat", undo = "Deshacer", group = "Añadir participantes", create = "Crear grupo",
+        candidates = ConversationCandidatePickerStrings("Buscar por nombre, barrio o telefono...", "No hay usuarios para esta busqueda.", "Cancelar", "Tus contactos", "Los que sigues", "Los que te siguen", "Conversaciones recientes", "Otros barrios", "Sin barrio", "Invitar a Qüata", "Permite el acceso a tus contactos para ver a quién puedes invitar.", "Permitir", "Invitar", "Selecciona conversaciones"),
+        selection = { "$it participantes" }, preview = ConversationPreviewStrings("🖼️ Foto", "🎥 Vídeo", "📄 Documento", "🎤 Nota de voz", "📎 Archivo", "Actualizacion de ubicacion SOS", "📍 Ubicación no disponible") { "Ubicacion aproximada: $it" },
+        relative = relative({ "hace $it s" }, "hace 1 min", { "hace $it min" }, { "hace $it h" }, { "hace $it d" }, "hace 1 semana", { "hace $it semanas" }, "hace 1 mes", { "hace $it meses" }, "hace 1 año", { "hace $it años" }),
+        invitation = ConversationInvitationStrings("Me gustaría hablar contigo en Qüata. Descárgala aquí: https://play.google.com/store/apps/details?id=com.quata", "Compartir", "Qüata", { "Invitar a $it con" }, "Copiar texto", { "Elige una aplicación para invitar a $it" }),
     )
     "fr" -> catalog(
-        title = "Chats", search = "Chercher une conversation...", favorites = "Messages favoris", newChat = "Nouveau chat", undo = "Annuler", group = "Ajouter des participants", create = "Cr?er le groupe",
-        candidates = ConversationCandidatePickerStrings("Chercher par nom, quartier ou telephone...", "Aucun utilisateur pour cette recherche.", "Annuler", "Tes contacts", "Les personnes que tu suis", "Les personnes qui te suivent", "Conversations r?centes", "Autres quartiers", "Sans quartier", "Inviter sur Q?ata", "Autorise l'acc?s ? tes contacts pour voir qui tu peux inviter.", "Autoriser", "Inviter", "Selectionne des conversations"),
-        selection = { "$it participants" }, preview = ConversationPreviewStrings("??? Photo", "?? Vid?o", "?? Document", "?? Note vocale", "?? Fichier", "Mise a jour de position SOS", "?? Position indisponible") { "Position approximative : $it" },
+        title = "Chats", search = "Chercher une conversation...", favorites = "Messages favoris", newChat = "Nouveau chat", undo = "Annuler", group = "Ajouter des participants", create = "Créer le groupe",
+        candidates = ConversationCandidatePickerStrings("Chercher par nom, quartier ou telephone...", "Aucun utilisateur pour cette recherche.", "Annuler", "Tes contacts", "Les personnes que tu suis", "Les personnes qui te suivent", "Conversations récentes", "Autres quartiers", "Sans quartier", "Inviter sur Qüata", "Autorise l'accès à tes contacts pour voir qui tu peux inviter.", "Autoriser", "Inviter", "Selectionne des conversations"),
+        selection = { "$it participants" }, preview = ConversationPreviewStrings("🖼️ Photo", "🎥 Vidéo", "📄 Document", "🎤 Note vocale", "📎 Fichier", "Mise a jour de position SOS", "📍 Position indisponible") { "Position approximative : $it" },
         relative = relative({ "il y a $it s" }, "il y a 1 min", { "il y a $it min" }, { "il y a $it h" }, { "il y a $it j" }, "il y a 1 semaine", { "il y a $it semaines" }, "il y a 1 mois", { "il y a $it mois" }, "il y a 1 an", { "il y a $it ans" }),
-        invitation = ConversationInvitationStrings("J'aimerais discuter avec toi sur Q?ata. T?l?charge l'application ici : https://play.google.com/store/apps/details?id=com.quata", "Partager", "Q?ata", { "Inviter $it avec" }, "Copier le texte", { "Choisissez une application pour inviter $it" }),
+        invitation = ConversationInvitationStrings("J'aimerais discuter avec toi sur Qüata. Télécharge l'application ici : https://play.google.com/store/apps/details?id=com.quata", "Partager", "Qüata", { "Inviter $it avec" }, "Copier le texte", { "Choisissez une application pour inviter $it" }),
     )
     else -> catalog(
         title = "Chats", search = "Search conversation...", favorites = "Favorite messages", newChat = "New chat", undo = "Undo", group = "Add participants", create = "Create group",
-        candidates = ConversationCandidatePickerStrings("Search by name, district, or phone...", "No users found for this search.", "Cancel", "Your contacts", "People you follow", "People following you", "Recent conversations", "Other districts", "No district", "Invite to Q?ata", "Allow contact access to see who you can invite.", "Allow", "Invite", "Select conversations"),
-        selection = { "$it participants" }, preview = ConversationPreviewStrings("??? Photo", "?? Video", "?? Document", "?? Voice note", "?? File", "SOS location update", "?? Location unavailable") { "Location (approximate): $it" },
+        candidates = ConversationCandidatePickerStrings("Search by name, district, or phone...", "No users found for this search.", "Cancel", "Your contacts", "People you follow", "People following you", "Recent conversations", "Other districts", "No district", "Invite to Qüata", "Allow contact access to see who you can invite.", "Allow", "Invite", "Select conversations"),
+        selection = { "$it participants" }, preview = ConversationPreviewStrings("🖼️ Photo", "🎥 Video", "📄 Document", "🎤 Voice note", "📎 File", "SOS location update", "📍 Location unavailable") { "Location (approximate): $it" },
         relative = relative({ "$it sec ago" }, "1 min ago", { "$it min ago" }, { "$it h ago" }, { "$it d ago" }, "1 week ago", { "$it weeks ago" }, "1 month ago", { "$it months ago" }, "1 year ago", { "$it years ago" }),
-        invitation = ConversationInvitationStrings("I'd like to talk with you on Q?ata. Download it here: https://play.google.com/store/apps/details?id=com.quata", "Share", "Q?ata", { "Invite $it with" }, "Copy text", { "Choose an app to invite $it" }),
+        invitation = ConversationInvitationStrings("I'd like to talk with you on Qüata. Download it here: https://play.google.com/store/apps/details?id=com.quata", "Share", "Qüata", { "Invite $it with" }, "Copy text", { "Choose an app to invite $it" }),
     )
 }
 
@@ -66,7 +66,7 @@ private fun catalog(title: String, search: String, favorites: String, newChat: S
 }
 
 private fun conversationTitle(conversation: Conversation): String = when {
-    conversation.isEmergency -> "?? SOS"
+    conversation.isEmergency -> "🚨 SOS"
     !conversation.communityName.isNullOrBlank() -> conversation.communityName.orEmpty()
     conversation.isGroup && conversation.participantNames.isNotEmpty() && conversation.title == "Chat ${conversation.id.substringAfterLast(':')}" -> conversation.participantNames.joinToString(", ")
     conversation.title.isNotBlank() -> conversation.title

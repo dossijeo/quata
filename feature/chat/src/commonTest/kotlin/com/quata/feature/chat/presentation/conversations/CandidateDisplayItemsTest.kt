@@ -80,9 +80,9 @@ class CandidateDisplayItemsTest {
     @Test
     fun localizedPreviewKeepsAndroidAttachmentAndLegacyTokens() {
         val spanish = conversationsLocaleCatalogForLanguage("es").preview
-        assertEquals("??? Foto", localizedChatPreview(" [QUATA_ATTACHMENT:photo] ", spanish))
-        assertEquals("?? Nota de voz", localizedChatPreview("[QUATA_NOTIFICATION:chat_voice_note]", spanish))
-        assertEquals("?? Archivo", localizedChatPreview("[QUATA_NOTIFICATION:chat_attachment]", spanish))
+        assertEquals("🖼️ Foto", localizedChatPreview(" [QUATA_ATTACHMENT:photo] ", spanish))
+        assertEquals("🎤 Nota de voz", localizedChatPreview("[QUATA_NOTIFICATION:chat_voice_note]", spanish))
+        assertEquals("📎 Archivo", localizedChatPreview("[QUATA_NOTIFICATION:chat_attachment]", spanish))
         assertEquals("plain text", localizedChatPreview("plain text", spanish))
     }
 
@@ -99,8 +99,8 @@ class CandidateDisplayItemsTest {
         assertEquals("hace 4 semanas", localizedRelativeConversationTime(30 * 24 * 60 * 60_000L, es))
         assertEquals("hace 1 mes", localizedRelativeConversationTime(31 * 24 * 60 * 60_000L, es))
         assertEquals("hace 11 meses", localizedRelativeConversationTime(364 * 24 * 60 * 60_000L, es))
-        assertEquals("hace 1 a?o", localizedRelativeConversationTime(365 * 24 * 60 * 60_000L, es))
-        assertEquals("hace 2 a?os", localizedRelativeConversationTime(2 * 365 * 24 * 60 * 60_000L, es))
+        assertEquals("hace 1 año", localizedRelativeConversationTime(365 * 24 * 60 * 60_000L, es))
+        assertEquals("hace 2 años", localizedRelativeConversationTime(2 * 365 * 24 * 60 * 60_000L, es))
     }
 
     @Test
