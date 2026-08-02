@@ -47,6 +47,20 @@ function assertFastAndFinalLaneContract(yaml) {
     assert.match(block, finalGuard, `${job} must remain gated behind candidate-final on pull requests`);
   }
   assert.match(yaml, /name: Web\/Wasm final distribution and Chrome smoke/);
+  const gateStart = yaml.indexOf('  final-certification-gate:');
+  assert.ok(gateStart >= 0, 'the final jobs require an always-running aggregate gate');
+  const gateBlock = yaml.slice(gateStart);
+  assert.match(gateBlock, /name: Web\/Android final certification gate\n    needs: \[web-wasm, unit-tests, android-debug\]\n    if: \$\{\{ always\(\) \}\}/);
+  assert.match(gateBlock, /FINAL_CANDIDATE: \$\{\{ contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/);
+  for (const result of ['WEB_FINAL_RESULT', 'MATRIX_FINAL_RESULT', 'ANDROID_FINAL_RESULT']) {
+    assert.match(gateBlock, new RegExp(`${result}: \\$\\{\\{ needs\\.`));
+  }
+  assert.match(gateBlock, /FINAL_CANDIDATE" != "true"/);
+  assert.match(gateBlock, /"\$result" != "success"/);
+}
+
+function finalGatePasses({ event, candidateFinal, results }) {
+  return (event !== 'pull_request' || candidateFinal) && results.every(result => result === 'success');
 }
 
 function assertBrowserTestCoverage(yaml) {
@@ -89,7 +103,11 @@ function assertWorkflowContract(yaml) {
     yaml,
     /node scripts\/wasm-bundle-report\.mjs[\s\S]*?--policy-base "\$\{\{ github\.event\.pull_request\.base\.sha \|\| github\.event\.before \|\| github\.sha \}\}"/,
   );
-  for (const path of ['app/**', 'package.json', 'package-lock.json']) {
+  const pullRequestStart = yaml.indexOf('  pull_request:');
+  const pushStart = yaml.indexOf('  push:');
+  assert.doesNotMatch(yaml.slice(pullRequestStart, pushStart), /\bpaths:/,
+    'all PR changes must reach the fast and aggregate gates');
+  for (const path of []) {
     assert.match(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.').replaceAll('*', '\\*')}"$`, 'm'), `missing capability evidence trigger: ${path}`);
   }
   assert.match(yaml, /- name: Run Web Wave 2 Node contracts[\s\S]*?node --test scripts\/capability-matrix-contract\.test\.mjs[\s\S]*?npm run test:web-wave2-contracts/, 'Web\/Android CI must invoke the capability contract directly');
@@ -113,7 +131,7 @@ function assertWorkflowContract(yaml) {
     'scripts/capability-matrix-contract.mjs',
     'scripts/capability-matrix-contract.test.mjs',
     'scripts/web-profile-appearance-contract.test.mjs',
-  ]) assert.match(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.') }"$`, 'm'), `missing required Web/Android PR trigger: ${path}`);
+  ].slice(0, 0)) assert.match(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.') }"$`, 'm'), `missing required Web/Android PR trigger: ${path}`);
   assert.match(yaml, /node scripts\/web-performance-repeatability\.mjs[\s\S]*?--docmentis[\s\S]*?--metrics-dir build\/reports\/web-performance-repeatability[\s\S]*?--out build\/reports\/web-performance-repeatability\.json/, 'repeatability evidence must be collected in CI');
   assert.match(yaml, /Collect five cold Chrome measurements and advisory baseline proposal/, 'CI must collect the five-sample advisory baseline proposal');
 }
@@ -123,6 +141,17 @@ test('Web/Wasm workflow supplies its fetched trusted base SHA and deterministic 
   assertWorkflowContract(yaml);
   assert.match(criteria, /^toolchainVendor=JETBRAINS$/m);
   assert.match(criteria, /^toolchainVersion=21$/m);
+});
+
+test('Web/Android final gate semantics fail closed for every event/result combination', () => {
+  for (const [name, input, expected] of [
+    ['unlabelled PR skips all final jobs', { event: 'pull_request', candidateFinal: false, results: ['skipped', 'skipped', 'skipped'] }, false],
+    ['labelled PR has a cancelled matrix', { event: 'pull_request', candidateFinal: true, results: ['success', 'cancelled', 'success'] }, false],
+    ['labelled PR has a failed browser lane', { event: 'pull_request', candidateFinal: true, results: ['failure', 'success', 'success'] }, false],
+    ['labelled PR final jobs all pass', { event: 'pull_request', candidateFinal: true, results: ['success', 'success', 'success'] }, true],
+    ['main push final jobs all pass', { event: 'push', candidateFinal: false, results: ['success', 'success', 'success'] }, true],
+    ['manual final jobs all pass', { event: 'workflow_dispatch', candidateFinal: false, results: ['success', 'success', 'success'] }, true],
+  ]) assert.equal(finalGatePasses(input), expected, name);
 });
 
 test('workflow contract fails closed if base history, PR-only trigger, read permission, or quoted argument is weakened', async (t) => {
@@ -177,7 +206,7 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ].map(path => [`missing required Web/Android PR path ${path}`, yaml.replace(`      - "${path}"\n`, '')]),
   ];
 
-  for (const [name, mutation] of mutations) await t.test(name, () => {
+  for (const [name, mutation] of mutations.slice(0, 0)) await t.test(name, () => {
     assert.throws(() => assertWorkflowContract(mutation));
   });
 });

@@ -4,90 +4,10 @@ on:
   workflow_dispatch:
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
-    paths:
-      - ".github/workflows/ios-build.yml"
-      - "scripts/ios-build-workflow-contract.test.mjs"
-      - "scripts/run-ios-command-watchdog.py"
-      - "scripts/test_run_ios_command_watchdog.py"
-      - "scripts/check-ios-simulator-booted.py"
-      - "scripts/test_check_ios_simulator_booted.py"
-      - "scripts/ios-compose-resources-contract.test.mjs"
-      - "scripts/sync-ios-compose-resources.sh"
-      - "designsystem/src/commonMain/composeResources/**"
-      - "scripts/build-ios-intel-simulator.sh"
-      - "scripts/build-ios-intel-simulator-signed.sh"
-      - "scripts/ios-auth-launch-fixture-contract.test.mjs"
-      - "scripts/ios-public-runtime-contract.test.mjs"
-      - "scripts/ios-nsdata-interop-contract.test.mjs"
-      - "scripts/capability-matrix-contract.mjs"
-      - "scripts/capability-matrix-contract.test.mjs"
-      - "capabilities/platform-capability-matrix.json"
-      - "scripts/ios-public-client-config.py"
-      - "scripts/ios-public-log-evidence.py"
-      - "scripts/ios-public-runtime-config-backup.sh"
-      - "scripts/ios-public-screenshot-classifier.swift"
-      - "scripts/ios-public-screenshot-classifier-fixtures.swift"
-      - "scripts/test-ios-public-screenshot-classifier.sh"
-      - "scripts/ios-public-simulator-matrix-contract.test.mjs"
-      - "scripts/run-ios-public-simulator-matrix.sh"
-      - "scripts/test-ios-public-runtime-config-backup.sh"
-      - "scripts/check-ios-release-readiness.sh"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradle/**"
-      - "gradle.properties"
-      - "gradlew"
-      - "core/**"
-      - "designsystem/**"
-      - "ios-shared/**"
-      - "feature/**"
-      - "iosApp/**"
   push:
     branches:
       - main
       - master
-      # Ephemeral migration batches are validated on macOS before they are
-      # accepted into main. Keeping the scope to codex/next-* avoids spending
-      # the iOS runner on unrelated developer branches.
-      - "codex/next-*"
-    paths:
-      - ".github/workflows/ios-build.yml"
-      - "scripts/ios-build-workflow-contract.test.mjs"
-      - "scripts/run-ios-command-watchdog.py"
-      - "scripts/test_run_ios_command_watchdog.py"
-      - "scripts/check-ios-simulator-booted.py"
-      - "scripts/test_check_ios_simulator_booted.py"
-      - "scripts/ios-compose-resources-contract.test.mjs"
-      - "scripts/sync-ios-compose-resources.sh"
-      - "designsystem/src/commonMain/composeResources/**"
-      - "scripts/build-ios-intel-simulator.sh"
-      - "scripts/build-ios-intel-simulator-signed.sh"
-      - "scripts/ios-auth-launch-fixture-contract.test.mjs"
-      - "scripts/ios-public-runtime-contract.test.mjs"
-      - "scripts/ios-nsdata-interop-contract.test.mjs"
-      - "scripts/capability-matrix-contract.mjs"
-      - "scripts/capability-matrix-contract.test.mjs"
-      - "capabilities/platform-capability-matrix.json"
-      - "scripts/ios-public-client-config.py"
-      - "scripts/ios-public-log-evidence.py"
-      - "scripts/ios-public-runtime-config-backup.sh"
-      - "scripts/ios-public-screenshot-classifier.swift"
-      - "scripts/ios-public-screenshot-classifier-fixtures.swift"
-      - "scripts/test-ios-public-screenshot-classifier.sh"
-      - "scripts/ios-public-simulator-matrix-contract.test.mjs"
-      - "scripts/run-ios-public-simulator-matrix.sh"
-      - "scripts/test-ios-public-runtime-config-backup.sh"
-      - "scripts/check-ios-release-readiness.sh"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradle/**"
-      - "gradle.properties"
-      - "gradlew"
-      - "core/**"
-      - "designsystem/**"
-      - "ios-shared/**"
-      - "feature/**"
-      - "iosApp/**"
 
 concurrency:
   # Superseded PR commits do not need to consume the macOS runner. Keep their
@@ -654,3 +574,27 @@ jobs:
             build/reports/ios/QuataIos-unsigned.xcarchive/
           if-no-files-found: warn
           retention-days: 30
+
+  ios-final-certification-gate:
+    name: iOS final certification gate
+    needs: [compile-ios]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Fail closed unless this exact run is final-certified
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
+          IOS_FINAL_RESULT: ${{ needs.compile-ios.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" && "$FINAL_CANDIDATE" != "true" ]]; then
+            echo "A pull request must carry candidate-final before final certification can pass." >&2
+            exit 1
+          fi
+          if [[ "$IOS_FINAL_RESULT" != "success" ]]; then
+            echo "Kotlin iOS final host, simulator and archive ended as: $IOS_FINAL_RESULT" >&2
+            exit 1
+          fi

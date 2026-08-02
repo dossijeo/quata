@@ -4,95 +4,6 @@ on:
   workflow_dispatch:
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
-    paths:
-      - ".github/workflows/web-android-pr.yml"
-      - ".github/workflows/wasm-baseline-capture.yml"
-      - ".github/workflows/web-docmentis-staging-evidence.yml"
-      - ".github/workflows/ios-build.yml"
-      - "build-logic/**"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradle/**"
-      - "gradle.properties"
-      - "gradlew"
-      - "gradlew.bat"
-      - "app/**"
-      - "core/**"
-      - "designsystem/**"
-      - "document-reader/**"
-      - "feature/**"
-      - "vosk_model_en/**"
-      - "vosk_model_es/**"
-      - "vosk_model_fr/**"
-      - "web/**"
-      - "capabilities/platform-capability-matrix.json"
-      - "scripts/capability-matrix-contract.mjs"
-      - "scripts/capability-matrix-contract.test.mjs"
-      - "scripts/web-browser-smoke.mjs"
-      - "scripts/web-browser-smoke-cleanup.mjs"
-      - "scripts/web-browser-smoke-cleanup.test.mjs"
-      - "scripts/web-browser-smoke-interception.mjs"
-      - "scripts/web-browser-smoke-interception.test.mjs"
-      - "scripts/web-browser-metrics.mjs"
-      - "scripts/web-performance-repeatability.mjs"
-      - "scripts/web-performance-repeatability.test.mjs"
-      - "scripts/web-browser-network-policy.mjs"
-      - "scripts/web-browser-network-policy.test.mjs"
-      - "scripts/web-share-target-network-policy.mjs"
-      - "scripts/web-share-target-pwa-e2e.mjs"
-      - "scripts/web-share-target-pwa-e2e.test.mjs"
-      - "scripts/web-pwa-push-lifecycle-contract.test.mjs"
-      - "scripts/web-docmentis-product-smoke-contract.test.mjs"
-      - "scripts/web-docmentis-staging-lifecycle-gate.mjs"
-      - "scripts/web-docmentis-staging-lifecycle-gate.test.mjs"
-      - "scripts/web-docmentis-staging-lifecycle-cli.mjs"
-      - "scripts/web-docmentis-staging-lifecycle-cli.test.mjs"
-      - "scripts/backend-compatibility-web-smoke.mjs"
-      - "scripts/backend-compatibility-request-policy.mjs"
-      - "scripts/backend-compatibility-request-policy.test.mjs"
-      - "scripts/backend-compatibility-feed-detail.mjs"
-      - "scripts/backend-compatibility-feed-detail.test.mjs"
-      - "scripts/wasm-bundle-report.mjs"
-      - "scripts/wasm-bundle-report.test.mjs"
-      - "scripts/wasm-bundle-approval-policy.mjs"
-      - "scripts/wasm-bundle-approval-policy.test.mjs"
-      - "scripts/run-wasm-production-observed.ps1"
-      - "scripts/web-android-pr-workflow-contract.test.mjs"
-      - "scripts/wasm-baseline-capture-workflow-contract.test.mjs"
-      - "scripts/ios-build-workflow-contract.test.mjs"
-      - "scripts/web-test-contract.test.mjs"
-      - "scripts/web-profile-appearance-contract.test.mjs"
-      - "scripts/android-lint-baseline-ratchet.mjs"
-      - "scripts/android-lint-baseline-ratchet.test.mjs"
-      - "scripts/web-public-ux-smoke-contract.test.mjs"
-      - "scripts/web-chat-browser-e2e-report.test.mjs"
-      - "scripts/web-chat-browser-e2e-policy.mjs"
-      - "scripts/web-chat-browser-e2e-policy.test.mjs"
-      - "scripts/web-chat-browser-e2e.mjs"
-      - "scripts/web-chat-a11y-e2e-contract.test.mjs"
-      - "scripts/run-web-chat-browser-e2e.ps1"
-      - "scripts/web-chat-exact-purge-gate.mjs"
-      - "scripts/web-chat-exact-purge-gate.test.mjs"
-      - "scripts/run-web-chat-exact-purge-gate.ps1"
-      - "scripts/attest-web-chat-exact-purge.mjs"
-      - "docs/WEB_CHAT_BROWSER_E2E.md"
-      - "scripts/web-browser-metrics.test.mjs"
-      - "docs/WEB_PERFORMANCE_REPEATABILITY.md"
-      - "scripts/web-authenticated-browser-e2e.mjs"
-      - "scripts/web-authenticated-browser-policy.mjs"
-      - "scripts/web-authenticated-browser-security.mjs"
-      - "scripts/web-authenticated-browser-e2e.test.mjs"
-      - "scripts/web-chat-a11y-browser-e2e.mjs"
-      - "scripts/run-web-authenticated-browser-e2e.ps1"
-      - "package.json"
-      - "package-lock.json"
-      - "docs/CI_WEB_ANDROID.md"
-      - "docs/WEB_AUTHENTICATED_BROWSER_E2E.md"
-      - "docs/WEB_DOCMENTIS_STAGING_LIFECYCLE_EVIDENCE.md"
-      - "docs/schemas/docmentis-staging-lifecycle-evidence-v1.schema.json"
-      - "docs/wasm-bundle-budget.json"
-      - "docs/wasm-bundle-baseline.json"
-      - "docs/android-lint-baseline-ratchet.json"
   push:
     branches:
       - main
@@ -572,3 +483,31 @@ jobs:
             document-reader/build/reports/lint-results-debug/
           if-no-files-found: warn
           retention-days: 14
+
+  final-certification-gate:
+    name: Web/Android final certification gate
+    needs: [web-wasm, unit-tests, android-debug]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Fail closed unless this exact run is final-certified
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
+          WEB_FINAL_RESULT: ${{ needs.web-wasm.result }}
+          MATRIX_FINAL_RESULT: ${{ needs.unit-tests.result }}
+          ANDROID_FINAL_RESULT: ${{ needs.android-debug.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" && "$FINAL_CANDIDATE" != "true" ]]; then
+            echo "A pull request must carry candidate-final before final certification can pass." >&2
+            exit 1
+          fi
+          for result in "$WEB_FINAL_RESULT" "$MATRIX_FINAL_RESULT" "$ANDROID_FINAL_RESULT"; do
+            if [[ "$result" != "success" ]]; then
+              echo "A required final job ended as: $result" >&2
+              exit 1
+            fi
+          done
