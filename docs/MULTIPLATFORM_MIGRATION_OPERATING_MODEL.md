@@ -1,7 +1,7 @@
 # Modelo operativo de la migración multiplataforma
 
 Estado: **fuente de verdad vigente**
-Última revisión: 1 de agosto de 2026
+Última revisión: 2 de agosto de 2026
 
 Este documento define cómo se completa y valida la migración de Qüata a Kotlin/Compose
 Multiplatform. Si una nota, backlog, agente o PR contradice este documento, prevalece este
@@ -81,9 +81,12 @@ documento hasta que el responsable del producto lo modifique explícitamente.
 2. Un agente de implementación Terra Medium trabaja en una rama y un worktree propios.
 3. El agente sustituye cualquier fallback por la raíz común completa y conserva el comportamiento
    Android. No añade mocks ni funciones provisionales de producto.
-4. Compila y ejecuta las pruebas relevantes de las plataformas afectadas.
-5. Publica commits intencionales y una PR draft. Se evitan rondas de CI por cada cambio mínimo:
-   primero se valida localmente y después se usa CI sobre un SHA candidato.
+4. Compila, ejecuta y revisa localmente todas las pruebas relevantes de las plataformas afectadas.
+   No se publica un candidato mientras siga un build local relevante o falte una comprobación
+   reproducible de la ruta, sesión, backend, mutación o estado de error afectado.
+5. Acumula los commits intencionales en el worktree. Tras actualizar e integrar `origin/main` una
+   sola vez, resuelve conflictos, repite los checks afectados, revisa el diff completo y congela el
+   head. Sólo entonces publica una única tanda candidata y su PR draft.
 6. Un agente Sol independiente revisa la PR exacta. Comprueba código, contratos, navegación,
    backend real y comparación visual contra Android en el mismo estado de autenticación.
 7. El revisor guarda capturas e informe en
@@ -96,6 +99,27 @@ documento hasta que el responsable del producto lo modifique explícitamente.
     invalidan la obligación de entregar primero una pantalla conectada y visualmente comparable.
 
 ## 5. Evidencia y gates
+
+### Preflight local, candidato y certificación remota
+
+La integración es **secuencial**: sólo existe un candidato final de merge a la vez. La ejecución es
+**paralela**: mientras ese candidato recibe certificación remota, las lanes locales libres preparan
+la siguiente unidad sin cambiar el head del candidato ni promocionar otra PR.
+
+Antes de publicar un candidato se ejecuta el preflight local proporcional al diff: compilación y
+tests focales, Android/Wasm/iOS afectados, Kotlin/Native, host Swift, simulador, rutas, navegación,
+backend real, sesión pública o autenticada, mutaciones, errores recuperables, comparación visual,
+limpieza de datos/procesos y revisión completa del diff. La evidencia local registra los comandos,
+SHA y resultado.
+
+GitHub Actions es la **certificación final en runners limpios**, no el primer lugar donde descubrir
+que una implementación no compila ni funciona. Si CI revela un defecto reproducible localmente, el
+informe lo clasifica como **DEFECTO ESCAPADO DEL PREFLIGHT LOCAL** e incorpora obligatoriamente el
+comando, test o contrato preventivo al preflight antes de publicar el siguiente candidato.
+
+Durante esa certificación se permite preparar localmente la siguiente unidad, analizar conflictos,
+revisar contratos, preparar tests focales y documentación. Se prohíbe fusionar otra PR, publicar
+rondas repetidas de trabajo futuro o alterar el head congelado salvo defecto bloqueante demostrado.
 
 ### Identidad obligatoria del candidato integrado
 
@@ -114,6 +138,11 @@ documento hasta que el responsable del producto lo modifique explícitamente.
 - Un build del head aislado solo diagnostica la rama. No autoriza GO ni decisión de merge; sus
   informes y capturas se marcan explícitamente como **DESCARTADOS: HEAD-ONLY** para evitar su
   reutilización como evidencia integrada.
+- La evidencia de una plataforma sólo puede reutilizarse si existe una regla formal que lo autoriza
+  y un diff revisado demuestra que desde la evidencia previa no cambió ningún input de esa
+  plataforma (código, recursos, configuración, dependencias, host, datos/contrato ni ruta). El
+  informe identifica la evidencia origen, ambos SHA, el diff y al revisor. Si no puede demostrarse,
+  el gate exacto del merge sintético se repite.
 
 Una pantalla solo es **GO** cuando existe evidencia para todos estos puntos:
 
@@ -175,6 +204,15 @@ Reglas de aplicación:
   simuladores booted.
 - Un proceso activo y registrado es válido; un proceso sin dueño o posterior a la finalización es
   una fuga y debe cerrarse.
+- El registro de cada lane incluye propietario, PR/rama, worktree, plataforma, comando, PID (o
+  UDID/puerto), propósito, SHA y resultado. Una lane ocupada no bloquea las demás; sólo se respeta
+  su propia capacidad y los límites reales de CPU, memoria, dispositivos y puertos.
+
+### Informes durante procesos largos
+
+No se informa mediante polling del mismo job. Cada actualización útil indica: PR activa; base/head/
+merge; lane remota; lanes locales ocupadas; trabajo paralelo; último resultado; bloqueo concreto y
+siguiente decisión. Sólo se comunica de nuevo cuando cambia uno de esos elementos.
 
 ## 8. Runtimes estables
 
