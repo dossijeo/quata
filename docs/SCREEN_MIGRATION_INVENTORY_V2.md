@@ -47,11 +47,11 @@ fallback histórico, no una segunda pantalla que deba mantenerse.
 
 | Superficie | Hecho comprobado | Pendiente prioritario |
 |---|---|---|
-| Shell, navegación y deep links | Android mantiene su grafo; Wasm usa `Main.kt`/hash; iOS usa `IosAuthenticatedHostRouter` en Swift. Wasm actual envuelve el chrome sólo cuando `isSessionReady`; por eso el trabajo de shell permanente no puede darse por integrado todavía. | Consolidar el comportamiento visible: header y navegación para Feed/Oficial también sin sesión, redirección de privadas a Auth y retorno a la ruta original. Validar transiciones repetidas contra el error del pager ya corregido. |
+| Shell, navegación y deep links | Android mantiene su grafo; Wasm usa `Main.kt`/hash; iOS usa `IosAuthenticatedHostRouter` en Swift. Wasm monta `QuataAuthenticatedShellChrome` también para Feed y Oficial anónimos: header/navegación permanecen visibles. Auth a pantalla completa y las rutas privadas gated son excepciones explícitas al shell. | Repetir paridad visual/navegación de las excepciones y del retorno a ruta tras Auth; validar transiciones repetidas contra el error del pager ya corregido. |
 | Emoji y glifos | El feed común y Oficial usan catálogo/controles comunes; capturas Wasm muestran tofu en texto, comentarios y menús. | Resolver renderizado/atlas/fuentes para Wasm y contrastar con Android; no convertir los emoji en HTML alternativo. |
 | Adaptación iOS | Oficial obtiene layout con `rememberQuataWindowLayoutInfo` dentro de su raíz común y #141 corrigió el tamaño/landscape. Feed tiene un parámetro `isLandscape`, pero `QuataFeedViewController` no lo inyecta y lo deja en `false`. | Corregir Feed iOS con una fuente real de tamaño/orientación y repetir su comparación landscape. No declarar que la mejora de Oficial cubre Feed. |
 | Visualizador de documentos/Office | Android conserva lector vendorizado; Web usa DocMentis e iOS Quick Look. | Compartir estado, selección y chrome cuando se migre el flujo que los invoca; los renderizadores son adaptadores, no una razón para duplicar pantallas. |
-| Ajustes y cierre de sesión | Web tiene `WebSettingsHost`; iOS tiene `QuataSettingsViewController`; Android los integra con perfil/grafo. | Diseñar la ruta común de perfil/cuenta y mantener los mecanismos de logout/Web Push y Keychain como bordes de plataforma. |
+| Ajustes y cierre de sesión | Web tiene `WebSettingsHost`; iOS tiene `QuataSettingsViewController`; Android los integra con perfil/grafo. Perfil/Cuenta ya monta `ProfileScreenHost` común. | Validar rutas, logout y retorno; mantener los mecanismos de Web Push y Keychain como bordes de plataforma. |
 | Cuenta, Perfil y SOS (#156) | `ProfileScreenHost` común ya está integrado en Android, Wasm e iOS. En iOS `main` `5d2a52d1` pasó Feed/perfil público remoto, auth real mediante `.xctestrun`, relanzamiento y visual de Cuenta/Perfil. | Completar SOS: sólo se observó acceso/estado y 1/5 contactos; el puntero remoto no automatizó de forma fiable la navegación al subflujo y no hubo mutaciones. Registrar una subida de avatar Web temporal y su limpieza, o mantenerla explícitamente contractual. |
 
 ## Superficies internas y transversales de Android
@@ -74,7 +74,7 @@ fallback histórico, no una segunda pantalla que deba mantenerse.
 
 ## Orden técnico actual
 
-`shell/autenticación integrada → Feed/Oficial (paridad y emojis) → Conversaciones/Chat → Comunidades/perfil comunitario → Mi perfil → Compositor → Editor oficial → Notificaciones → Novedades/Historial`.
+`paridad/postflight shell y Auth → Feed/Oficial (paridad y emojis) → Conversaciones/Chat → Comunidades/perfil comunitario → postflight Perfil/Cuenta/SOS y Create Post (avatar, publicación, Storage/PostgREST/rollback y paridad) → Editor oficial → Notificaciones → Novedades/Historial`.
 
 Este orden parte de rutas existentes en Android y de bloqueos observables en `main`; no declara que
 una capacidad esté terminada sólo porque exista un ViewModel o una pantalla de prueba.
