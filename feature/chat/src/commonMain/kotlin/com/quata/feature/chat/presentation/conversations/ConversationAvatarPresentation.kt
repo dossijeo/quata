@@ -77,7 +77,7 @@ fun ConversationAvatarContent(
         }
         if (presentation.isMuted) {
             Box(Modifier.align(Alignment.TopEnd).size(22.dp).clip(CircleShape).background(template.colors.surfaceRaised).border(1.dp, template.colors.divider, CircleShape), contentAlignment = Alignment.Center) {
-                Text("??", fontSize = template.textSizes.caption)
+                Text("🔕", fontSize = template.textSizes.caption)
             }
         }
     }
