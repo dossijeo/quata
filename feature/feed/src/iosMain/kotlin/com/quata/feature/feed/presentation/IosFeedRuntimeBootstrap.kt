@@ -5,6 +5,10 @@ import com.quata.core.platform.ShareService
 import com.quata.core.session.IosSupabaseAuthRuntimeConfiguration
 import com.quata.core.session.IosSupabaseAuthSessionRefresher
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Restores one real Keychain-backed Supabase session into the shared Feed host. If Keychain has
@@ -21,6 +25,7 @@ class IosFeedRuntimeBootstrap(
         ),
     ),
 ) {
+    private val launchValidationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     /**
      * Returns the one Keychain-backed session owner used by both interactive Auth and Feed.
      * The launcher must not create another storage instance, otherwise a successful login would
@@ -58,8 +63,19 @@ class IosFeedRuntimeBootstrap(
         onAuthRequired, onCreatePost,
     )
 
-    /** Session restoration remains the gate for interactive iOS feature factories. */
+    /** Returns whether a Keychain record exists; do not use this to mount authenticated UI. */
     fun hasRestoredSession(): Boolean = authSession.restoredSession() != null
+
+    /**
+     * Asynchronously validates the Keychain session before the launcher may mount private
+     * factories. An expired session only succeeds after its refresh has completed and persisted.
+     * A failed refresh retains Keychain credentials for a later retry while reporting false.
+     */
+    fun validateRestoredSession(onCompleted: (Boolean) -> Unit) {
+        launchValidationScope.launch {
+            onCompleted(authSession.validatedRestoredSession() != null)
+        }
+    }
 }
 
 /**

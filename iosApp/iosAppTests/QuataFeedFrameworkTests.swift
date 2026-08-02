@@ -15,7 +15,22 @@ final class QuataFeedFrameworkTests: XCTestCase {
     private var mountedWindows: [UIWindow] = []
 
     override func tearDown() {
-        mountedWindows.forEach { $0.isHidden = true }
+        // Several router contracts deliberately leave an Auth-required modal visible at the
+        // assertion boundary. Hiding its UIWindow alone lets UIKit retain that presentation
+        // transition beyond the XCTest case and can make the next window's non-animated
+        // `present` completion nondeterministic. Dismiss and detach the full containment tree
+        // instead; this is test isolation only and does not alter the production modal flow.
+        mountedWindows.forEach { window in
+            if let root = window.rootViewController, root.presentedViewController != nil {
+                let dismissed = expectation(description: "Mounted router modal dismissed")
+                root.dismiss(animated: false) {
+                    dismissed.fulfill()
+                }
+                wait(for: [dismissed], timeout: 1)
+            }
+            window.rootViewController = nil
+            window.isHidden = true
+        }
         mountedWindows.removeAll()
         super.tearDown()
     }
@@ -199,6 +214,22 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         XCTAssertEqual(configuration?.supabaseUrl, "https://deployment.invalid")
         XCTAssertEqual(configuration?.supabasePublishableKey, "public-build-setting")
+    }
+
+    func testLaunchContractInstallsPublicFeedBeforeAsynchronousSessionValidation() throws {
+        let appSourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("iosApp/QuataIosApp.swift")
+        let source = try String(contentsOf: appSourceURL, encoding: .utf8)
+        let publicInstall = try XCTUnwrap(source.range(of: "installPublicFeedIfConfigured()"))
+        let validation = try XCTUnwrap(source.range(of: "validateRestoredFeedSessionAsynchronously()"))
+
+        XCTAssertLessThan(publicInstall.lowerBound, validation.lowerBound)
+        XCTAssertTrue(source.contains("runtimeBootstrap.validateRestoredSession"))
+        XCTAssertTrue(source.contains("DispatchQueue.main.async"))
+        XCTAssertTrue(source.contains("guard let self, validated.boolValue else { return }"))
+        XCTAssertFalse(source.contains("afterRestoredSessionAttempt: installRestoredFeedSessionIfAvailable()"))
     }
 
     func testPublicRuntimeConfigurationKeepsRegistrationFailClosedForMissingOrUnexpandedInputs() {

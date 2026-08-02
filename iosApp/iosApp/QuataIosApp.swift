@@ -225,6 +225,9 @@ final class IosAppearancePreferences {
 /// controller according to the one Keychain-backed session owned by the Kotlin bootstrap.
 private final class IosAppCompositionRoot {
     private let appearancePreferences = IosAppearancePreferences()
+    /// A Keychain entry is not an authenticated session until launch validation accepts it.
+    /// This flag gates every private factory while the public Feed remains available first.
+    private var hasValidatedAuthenticatedSession = false
 
     private var window: UIWindow?
     // Kotlin default arguments are not exported as a Swift zero-argument initializer. Build the
@@ -362,11 +365,11 @@ private final class IosAppCompositionRoot {
         installPublicFeedIfConfigured()
         installPublicOfficialIfConfigured()
         installCommunitiesIfAvailable()
-        installNotificationsIfAvailable()
         IosAuthLifecycleBootstrap.installBindings(
-            afterRestoredSessionAttempt: installRestoredFeedSessionIfAvailable(),
+            afterRestoredSessionAttempt: false,
             install: installAuthenticationIfConfigured,
         )
+        validateRestoredFeedSessionAsynchronously()
     }
 
     func handleDeepLink(_ url: URL) -> Bool {
@@ -503,7 +506,7 @@ private final class IosAppCompositionRoot {
 
     @discardableResult
     private func installRestoredFeedSessionIfAvailable() -> Bool {
-        guard let runtimeBootstrap, runtimeBootstrap.hasRestoredSession() else { return false }
+        guard let runtimeBootstrap, hasValidatedAuthenticatedSession else { return false }
         authenticatedHost.installFeedFactory { postId in
             QuataFeedViewControllerKt.QuataFeedViewController(
                 dependencies: runtimeBootstrap.authenticatedDependencies(
@@ -525,6 +528,19 @@ private final class IosAppCompositionRoot {
         installAuthenticatedComposerIfAvailable()
         presentPendingExternalShareIfAvailable()
         return true
+    }
+
+    /// Public Feed is installed synchronously. Only a successfully validated/restored token may
+    /// replace it with authenticated dependencies; a failed refresh leaves the public route up.
+    private func validateRestoredFeedSessionAsynchronously() {
+        guard let runtimeBootstrap else { return }
+        runtimeBootstrap.validateRestoredSession { [weak self] validated in
+            DispatchQueue.main.async {
+                guard let self, validated.boolValue else { return }
+                self.hasValidatedAuthenticatedSession = true
+                _ = self.installRestoredFeedSessionIfAvailable()
+            }
+        }
     }
 
     private func presentPendingExternalShareIfAvailable() {
@@ -573,7 +589,7 @@ private final class IosAppCompositionRoot {
                 guard let self, self.authenticatedHost.hasOfficialEditorFactory else { return }
                 self.authenticatedHost.showOfficialEditor()
             }
-            if let runtimeBootstrap = self.runtimeBootstrap, let configuration = self.runtimeConfiguration, runtimeBootstrap.hasRestoredSession() {
+            if let runtimeBootstrap = self.runtimeBootstrap, let configuration = self.runtimeConfiguration, self.hasValidatedAuthenticatedSession {
                 return QuataOfficialViewControllerKt.QuataOfficialViewController(
                     dependencies: QuataOfficialViewControllerKt.iosAuthenticatedPostgrestOfficialHostDependencies(
                         configuration: IosOfficialRuntimeConfiguration(
@@ -710,7 +726,7 @@ private final class IosAppCompositionRoot {
     /// current user; its chat/follow/profile actions ask the shared Auth gate when it is nil.
     private func installCommunitiesIfAvailable() {
         guard let runtimeBootstrap, let profileSosRuntimeBootstrap else { return }
-        let authenticated = runtimeBootstrap.hasRestoredSession()
+        let authenticated = hasValidatedAuthenticatedSession
         guard let communitiesBootstrap = authenticated ? communitiesRuntimeBootstrap : publicCommunitiesRuntimeBootstrap else { return }
         authenticatedHost.installCommunitiesFactory { [weak self] in
             IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(
@@ -719,7 +735,7 @@ private final class IosAppCompositionRoot {
                     currentUserId: communitiesBootstrap.restoredCurrentUserId(),
                     onOpenConversation: { [weak self] conversationId in
                         guard let self else { return }
-                        if self.runtimeBootstrap?.hasRestoredSession() == true {
+                        if self.hasValidatedAuthenticatedSession {
                             self.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
                         } else {
                             self.authenticatedHost.presentAuthRequiredPrompt()
@@ -737,18 +753,21 @@ private final class IosAppCompositionRoot {
 
     /// Feed and Communities share the existing authenticated member-profile presentation.
     fileprivate func presentAuthenticatedMemberProfile(profileId: String) {
-        guard let runtimeBootstrap, runtimeBootstrap.hasRestoredSession(), let profileSosRuntimeBootstrap else {
-            authenticatedHost.presentAuthRequiredPrompt()
-            return
-        }
+        guard let configuration = runtimeConfiguration else { return }
         let onClose: () -> Void = { [weak self] in
             guard let self else { return }
             self.authenticatedHost.dismiss(animated: true)
         }
-        let dependencies = profileSosRuntimeBootstrap.memberProfileHostDependencies(
-            profileId: profileId,
-            onClose: onClose,
-        )
+        let dependencies = hasValidatedAuthenticatedSession && profileSosRuntimeBootstrap != nil
+            ? profileSosRuntimeBootstrap!.memberProfileHostDependencies(profileId: profileId, onClose: onClose)
+            : IosProfileSosRuntimeBootstrapKt.createIosPublicMemberProfileHostDependencies(
+                configuration: IosProfileRuntimeConfiguration(
+                    supabaseUrl: configuration.supabaseUrl,
+                    supabasePublishableKey: configuration.supabasePublishableKey,
+                ),
+                profileId: profileId,
+                onClose: onClose,
+            )
         let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
             dependencies: dependencies,
         )
@@ -921,6 +940,7 @@ private final class IosAppCompositionRoot {
                 // The shared operation has already cleared the Keychain session. Rebuild only
                 // the public read-only browsers and login entry point; no private factory is
                 // retained as an anonymous destination.
+                self?.hasValidatedAuthenticatedSession = false
                 self?.closeNotificationCountObserver()
                 self?.installPublicFeedIfConfigured()
                 self?.installPublicOfficialIfConfigured()
@@ -933,6 +953,7 @@ private final class IosAppCompositionRoot {
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
                     self?.authenticatedHost.finishAuthentication {
+                        self?.hasValidatedAuthenticatedSession = true
                         _ = self?.installRestoredFeedSessionIfAvailable()
                     }
                 }
@@ -1077,6 +1098,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var authRequiredPromptFactory: (() -> UIViewController)?
     private var authRequiredPromptVisible = false
     private var authModalTransitionsAnimated = true
+    /// Retains the selected Auth entry until UIKit has completed dismissing the common prompt.
+    private var pendingAuthenticationEntry: AuthenticationEntry?
     private var nextAuthPromptPresentationCompletionForTesting: (() -> Void)?
     private var nextAuthenticationPresentationCompletionForTesting: (() -> Void)?
     private var logoutAction: ((@escaping () -> Void) -> Void)?
@@ -1344,11 +1367,26 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Keeping these transitions explicit also makes the real modal lifecycle verifiable without
     /// replacing the common Compose prompt with a UIKit imitation.
     func openLoginFromAuthRequiredPrompt() {
-        dismissAuthRequiredPrompt { [weak self] in self?.presentAuthentication(.login) }
+        queueAuthenticationPresentation(.login)
     }
 
     func openRegistrationFromAuthRequiredPrompt() {
-        dismissAuthRequiredPrompt { [weak self] in self?.presentAuthentication(.registration) }
+        queueAuthenticationPresentation(.registration)
+    }
+
+    private func queueAuthenticationPresentation(_ entry: AuthenticationEntry) {
+        guard !hasAuthenticatedSession else { return }
+        pendingAuthenticationEntry = entry
+        dismissAuthRequiredPrompt { [weak self] in
+            DispatchQueue.main.async { self?.drainPendingAuthenticationPresentation() }
+        }
+    }
+
+    private func drainPendingAuthenticationPresentation() {
+        guard !hasAuthenticatedSession, let entry = pendingAuthenticationEntry else { return }
+        guard presentedViewController == nil else { return }
+        pendingAuthenticationEntry = nil
+        presentAuthentication(entry)
     }
 
     private func presentAuthentication(_ entry: AuthenticationEntry) {
