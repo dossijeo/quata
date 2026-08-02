@@ -35,3 +35,6 @@ outside an old route allow-list.
 Concurrency is scoped by pull-request number and cancels only superseded PR
 runs. Push and manual-dispatch runs use stable event/ref groups and are never
 cancelled, preserving their diagnostic evidence.
+
+`wasm-baseline-capture.yml` still contains a separate, pre-existing actionlint
+compatibility finding and is intentionally outside this lane-policy change.

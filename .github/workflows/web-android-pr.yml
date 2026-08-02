@@ -33,7 +33,6 @@ jobs:
         with:
           distribution: jetbrains
           java-version: "21"
-          set-default: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -95,7 +94,6 @@ jobs:
         with:
           distribution: jetbrains
           java-version: "21"
-          set-default: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -316,7 +314,6 @@ jobs:
         with:
           distribution: jetbrains
           java-version: "21"
-          set-default: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -388,7 +385,6 @@ jobs:
         with:
           distribution: jetbrains
           java-version: "21"
-          set-default: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
