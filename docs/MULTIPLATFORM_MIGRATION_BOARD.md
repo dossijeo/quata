@@ -4,21 +4,22 @@
 > Este tablero es una fotografía de progreso y no puede redefinir los gates, la arquitectura ni el
 > presupuesto de ejecución establecidos allí.
 
-## Foto de control — 2026-07-29
+## Foto de control — 2026-08-02
 
-**HEAD acreditado:** `main` `d8652326f61d93f33bb860d64565ad74e3e80ed5`.
-El proyecto sigue incompleto: la navegación pública Web/Android está validada y
-iOS cuenta con una matriz pública real de simulador, pero ninguna de esas
-evidencias habilita mutaciones, distribución ni un rollout de backend.
+**HEAD integrado:** `main` `4c719072c7a0dafafdce583e7b34157df5fc3f61` (PR #170), posterior a #154, #156 y #169. El proyecto sigue incompleto:
+las raíces comunes de Crear publicación y Cuenta/Perfil/SOS están integradas, pero integración de
+raíz no equivale a GO visual o funcional final en Web/iOS.
 
 | Área | Estado | Qué acredita | Límite vigente |
 | --- | --- | --- | --- |
-| Web/Wasm | GO limitado | Producción observada, cinco perfiles Chrome fríos, rutas profundas/recarga, diseño adaptable, foco y árbol de accesibilidad ligados a nodos. | Login y demás recorridos autenticados no se declaran listos; la ejecución con cuenta aislada está en validación y permanece HOLD hasta que termine con limpieza verificable. |
+| Web/Wasm | GO limitado | Shell público, rutas principales y varias raíces Compose comunes están integrados; #154 incorpora `CreatePostRoot` y #156 `ProfileScreenHost`. | Faltan postflights autenticados por flujo y paridad visual exacta. Avatar Web se acredita por contratos, no por una mutación E2E real guardada y limpiada. |
 | Presupuesto Wasm | Integrado | Watchdog sin ventanas visibles, baseline Linux aprobado y captura canónica reproducible. | Windows sigue siendo diagnóstico: el artefacto Wasm/JS depende del host. El presupuesto es un gate técnico, no un SLO de producto. |
 | Android | GO limitado | Build, `install -r`, arranque frío y Feed anónimo API-37 con 0 crash/ANR tras cold boot. | Falta matriz autenticada controlada; no se modifica Android publicado ni el Feed anónimo. |
-| iOS CI | GO limitado | PR #106 añadió la UI de logout autenticado; el run [`30429034347`](https://github.com/dossijeo/quata/actions/runs/30429034347) verde acredita compilación y contratos Swift/Kotlin. Se conserva además la matriz pública acreditada por #102. | El run no es una IPA firmada, TestFlight, APNs, dispositivo físico ni una E2E visual de auth. |
-| iOS simulador | GO funcional suplementario | Feed público HTTPS 200 en iOS 18.3 e iOS 26.5; matriz endurecida serial, con OCR/captura, PID/logs limitados y limpieza. Backend de cuenta de prueba respondió sesión/perfil en un carril redactado. | CPU-raster Intel es evidencia funcional, no SLA. La autenticación visual sigue HOLD por configuración `0600` ausente y aislamiento Keychain/test host. |
-| Capacidades y rutas | Integrado | Manifest fail-closed por plataforma y contratos de factorías/rutas iOS integrados por PRs #101 y #103. | Una ruta o contrato no prueba por sí solo el backend, permisos ni E2E. |
+| iOS CI | GO limitado | CI y contratos Swift/Kotlin siguen siendo gates obligatorios; #156 restauró el acceso Swift/Kotlin requerido por el host. | No prueba IPA/TestFlight/APNs/dispositivo físico. El runner auth debe rechazar explícitamente `SKIPPED`/no ejecutado aunque `xcodebuild` devuelva 0. |
+| iOS simulador | GO funcional suplementario | El postflight de `main` `5d2a52d1` pasó Feed y perfil remoto públicos; auth real ejecutada mediante `.xctestrun` con `QUATA_IOS_AUTH_E2E_FILE`; relanzamiento normal sin reinstalar conserva/restaura sesión; Cuenta/Perfil visual PASS. | SOS es parcial: acceso/estado y 1/5 contactos visibles; el puntero remoto no automatizó la navegación de forma fiable. No hubo mutaciones. CPU-raster no es SLA ni reemplaza CI ARM. |
+| Crear publicación (#154) | COMÚN con límites | `CreatePostRoot` común está integrado en Android, Wasm e iOS. | La evidencia de #154 no debe presentarse como GO visual/funcional final: validar publicación, adaptadores de medios y paridad autenticada sin modificar RLS. |
+| Cuenta/Perfil/SOS (#156) | COMÚN con límites | `ProfileScreenHost` común integrado; postflight iOS de Feed/perfil público, auth, relanzamiento y Cuenta/Perfil visual PASS. | Completar el subflujo SOS sin ocultar que sólo se verificaron 1/5 contactos; avatar Web continúa contractual sin mutación E2E acreditada. |
+| Pipeline CI (#169) | Integrado, fail-closed | Preflight rápido local exacto, gates finales requeridos y concurrencia por PR sin cancelar evidencia de `main`/manual. | Aún no acredita producto; certifica candidatos ya validados localmente. |
 | RLS/DB | Sin cambios | Esta ola no cambió RLS, DDL, funciones, grants ni datos de Supabase. | Hallazgos existentes siguen abiertos; no se endurecen políticas mientras convivan clientes publicados. |
 
 ## Integraciones recientes
@@ -33,14 +34,106 @@ evidencias habilita mutaciones, distribución ni un rollout de backend.
 | [#103](https://github.com/dossijeo/quata/pull/103) | `9344b5fa` | Contratos de rutas y factorías iOS instaladas. |
 | [#104](https://github.com/dossijeo/quata/pull/104) | `18596076` | Requisitos de producción APNs y hallazgo del dispatcher. |
 | [#106](https://github.com/dossijeo/quata/pull/106) | `d8652326` | UI de logout autenticado iOS; CI iOS verde. |
+| [#154](https://github.com/dossijeo/quata/pull/154) | `68d1fab7` | `CreatePostRoot` integrado como raíz común. No atribuye GO visual ni publicación E2E acreditada. |
+| [#168](https://github.com/dossijeo/quata/pull/168) | `07ec8826` | Compilación/host iOS y renderer público acreditados. No acredita el fallback visual de sesión restaurada caducada. |
+| [#156](https://github.com/dossijeo/quata/pull/156) | `5d2a52d1` | `ProfileScreenHost` común; postflight iOS PASS para lectura pública, auth/relanzamiento y Cuenta/Perfil visual. SOS parcial; avatar Web contractual sin mutación E2E. |
+| [#169](https://github.com/dossijeo/quata/pull/169) | `1fe3bf74` | Pipeline CI fail-closed: lane rápida replicable localmente y certificación final separada/exacta. |
+| [#170](https://github.com/dossijeo/quata/pull/170) | `4c719072` | Clasificador de impacto fail-closed integrado; certificación final exacta verde y rama remota limpiada. |
+
+## Registro de candidato #156 y mejora de preflight
+
+La candidata congelada de #156 requirió **tres rondas finales de certificación**. Dos defectos de
+implementación se escaparon del preflight local y se registran para no maquillarlos como incidencias
+normales de CI:
+
+| Defecto escapado del preflight local | Corrección integrada | Gate preventivo |
+| --- | --- | --- |
+| La factoría Kotlin requerida por Swift no estaba disponible al construir el host iOS. | Se restauró la factoría/puente Swift-Kotlin. | Añadido: compilar Kotlin/Native y construir el host Swift localmente antes de publicar. |
+| El gateway de perfil impedía la lectura pública sin sesión. | Se corrigió el fallback público del gateway. | Añadido y ejecutado en `main` `5d2a52d1`: arrancar Feed/perfil público iOS sin sesión y acreditar lectura remota y recuperación. |
+
+Hallazgo postflight operativo (no es una tercera corrección integrada de #156): `xcodebuild` puede
+devolver `0` aunque el test auth lanzado por `.xctestrun` quede `SKIPPED` o no se ejecute. El gate
+preventivo añadido exige que el runner falle si no encuentra ejecución PASS, incluso con exit code
+`0`; el postflight ejecutado usó `QUATA_IOS_AUTH_E2E_FILE` explícito.
+
+Las rondas anteriores al congelado sólo fueron diagnósticas; no se reutilizan como evidencia final.
+La evidencia final exige base, head y merge sintético exactos según el modelo operativo.
+
+## Auditoría honesta #168 — fallback iOS de sesión caducada
+
+El merge `07ec8826` acredita compilación/host iOS y renderer del Feed público. El seeder de auth de
+CI quedó `SKIPPED` porque no se proporcionó `QUATA_IOS_AUTH_E2E_FILE`. La evidencia local exacta
+instaló la app después de sembrar la sesión, cambiando su *data-container*; por tanto no conserva el
+estado restaurado y **no acredita** el fallback de sesión caducada. No se interpreta como fallo del
+fallback ni como PASS visual.
+
+Tarea focal de cierre: con `QUATA_IOS_AUTH_E2E_FILE` explícito, sembrar una sesión restaurada
+caducada en el mismo simulador/data-container y relanzar sin reinstalar ni borrar datos; capturar el
+fallback a Feed público y su recuperación. El informe debe registrar SHA, UDID, estado del
+container, resultado real del seeder (nunca `SKIPPED`) y la captura resultante.
+
+## Auditoría honesta #154 — Create Post
+
+#154 (`68d1fab7`) integró `CreatePostRoot` común y sus montajes Android/Web/iOS; la CI exacta y el
+host de simulador estrecho están acreditados. Eso no acredita publicación ni paridad visual 1:1.
+La PR se fusionó con validación visual pendiente y sin una revisión durable de producto, por lo que
+no se reconstruye retrospectivamente un GO. Se mantienen los estados del manifiesto: Web
+`composer.publish` **contract-only** e iOS **blocked** hasta una E2E real.
+
+Tarea focal de cierre: comparar 1:1 Android/Web/iOS con la misma sesión y ruta, y ejecutar una E2E
+desechable de Storage/PostgREST que cubra publicación y rollback/limpieza. La corrección de la fila
+obsoleta de `MULTIPLATFORM_INVENTORY.md` se mantiene como cambio documental separado; no eleva las
+capacidades ni oculta los límites del manifiesto.
+
+## Cierre de pipeline #169
+
+La PR #169 completó dos rondas remotas del candidato. La primera, `3a94c9c6`, falló por un
+**DEFECTO ESCAPADO DEL PREFLIGHT LOCAL**: el contrato del simulador iOS aún exigía rutas del filtro
+`paths` eliminado. `e945d6ab` incorporó el contrato correcto al preflight rápido exacto local y la
+segunda ronda remota quedó verde. La política final queda fail-closed: checks finales exactos
+omitidos, cancelados o fallidos bloquean el gate requerido.
+
+## Preparación local #157 — no integrada
+
+La preparación local `3147` de Notificaciones no es una candidata ni una integración. Web auth,
+visual y navegación PASS; Android exacto ya tiene el recorrido `d036` en `Pixel_9` API 37, mientras
+el Android estable API 35 sólo se conserva como referencia; iOS tiene product build/auth previo
+PASS. El gate real de Notificaciones iOS continúa bloqueado por un handshake de infraestructura
+XCTest: no se ha confirmado una pantalla Inbox negra.
+
+Actualización de evidencia: Android exacto `d036` pasó en ese AVD con los recorridos sin mutación
+`Feed → Avisos vacío → Volver` (público) y `Feed → Avisos` con badge 4/dato Gabriel `→ Volver`
+(auth); el estable API 35 se restauró después. El runner iOS `3147` pasó build firmado,
+cold-boot y `bootstatus`, pero el seeder XCTest/testmanager agotó 120 s en dos condiciones
+controladas (antes y tras cold boot), por lo que la UI de Notifications **no se ejecutó** y el estado
+es **INFRASTRUCTURE BLOCK**. Evidencia: `C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\notifications\3147b928-ios\runner.log`,
+`C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\notifications\3147b928-ios\seed.log`,
+`C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\notifications\3147b928-ios\bootstatus.log`; plan/rutas:
+`C:\Users\PC\Desktop\QÜATA\migration-v2\preflight\pr157\PLAN.md`.
+
+## Cierre #170 — clasificador de impacto CI
+
+PR #170 está fusionada como `main` `4c719072` (2 de agosto de 2026). El candidato certificado
+tuvo base `1fe3bf74`, head `66052c95` y merge sintético `4f3ce660`. La primera ronda `fca3` quedó
+invalidada por un P1 del clasificador que omitía orígenes `D`/`T`/rename y se canceló: se conserva
+sólo como diagnóstico. El candidato corregido pasó preflight exacto **137/137**, Wave2 **245/245**,
+`actionlint`, `diff --check` y revisión independiente **GO**.
+
+La certificación final remota del head integrado concluyó verde: fast contracts Web/iOS, distribución
+Wasm/Chrome, host/simulador/archive Kotlin iOS, tests Android/KMP, lint Android, CodeQL y ambos
+gates finales Web/Android e iOS. Tras el merge la referencia remota
+`codex/platform-change-classifier` ya no existe; esa limpieza confirma el cierre de la candidata,
+no una nueva evidencia de producto.
 
 ## Próxima cola
 
-1. Proporcionar en el Mac el fichero de configuración de prueba con propietario correcto y modo `0600`, y reanudar la E2E iOS aislando Keychain/test host: login, refresh, logout y relanzamiento; clasificar el resultado y limpiar la sesión. No publicar credenciales en evidencia. PR #107 quedó cerrado sin merge por fixture y desconexión del proceso Compose.
-2. Configurar firma Apple en un carril separado: Team, identificador, perfiles, App Group y archive/IPA firmado. El archive actual entregado es deliberadamente **sin firma**.
-3. Completar APNs en backend y un dispositivo físico firmado según [IOS_APNS_PRODUCTION_REQUIREMENTS.md](IOS_APNS_PRODUCTION_REQUIREMENTS.md); el dispatcher actual aún no tiene un canal APNs verificado.
-4. Ejecutar E2E Web/Android autenticado sólo con datos y limpieza autorizados.
-5. Mantener RLS-001..005 en releases compatibles independientes; no cambiar políticas en este backlog.
+1. Completar el postflight de #156 pendiente: subflujo SOS (el PASS actual cubre acceso/estado y 1/5 contactos, no su mutación) y comparación Android↔Wasm↔iOS donde corresponda. Acreditar o dejar pendiente la subida real de avatar Web con datos temporales y limpieza.
+2. Ejecutar el postflight de #154: Crear publicación común en Web/iOS con sesión real, adaptadores de medios y comparación visual; no convertir sus contratos en un GO no probado.
+3. Desbloquear el handshake XCTest de Notificaciones para convertir la preparación local #157 en una candidata; repetir después sus gates exactos. El Android `d036` API 37 es PASS exacto local, pero no integrado; el seeder iOS no ejecutó UI y continúa bloqueado por infraestructura.
+4. Aplicar el modelo de integración secuencial/ejecución paralela: una candidata final, preflight local completo, merge sintético y CI como certificación. Preparar localmente la siguiente unidad mientras CI está activo, sin publicar candidatos adicionales.
+5. Cerrar la evidencia #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado con `QUATA_IOS_AUTH_E2E_FILE` y relanzamiento sin reinstalar.
+6. Cerrar #154 con comparación 1:1 Android/Web/iOS y E2E desechable Storage/PostgREST/rollback; mantener Web contract-only e iOS blocked hasta entonces y corregir el inventario legado en una actualización documental separada.
+7. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
 
 ## Decisiones vigentes
 
