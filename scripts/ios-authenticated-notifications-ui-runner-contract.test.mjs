@@ -63,4 +63,15 @@ test('iOS notification factory ignores stale settings callbacks and refreshes th
   assert.match(swift, /hasValidatedAuthenticatedSession/);
   assert.match(swift, /setAppForeground\(isForeground: true\)/);
   assert.match(swift, /setAppForeground\(isForeground: false\)/);
+
+  const sessionInstallation = swift.slice(
+    swift.indexOf('private func installRestoredFeedSessionIfAvailable()'),
+    swift.indexOf('private func validateRestoredFeedSessionAsynchronously()'),
+  );
+  const foregroundSeed = sessionInstallation.indexOf('UIApplication.shared.applicationState == .active');
+  const installChat = sessionInstallation.indexOf('installAuthenticatedChatIfAvailable()');
+  const installNotifications = sessionInstallation.indexOf('installNotificationsIfAvailable()');
+  assert.ok(foregroundSeed >= 0, 'restored sessions must seed the Chat repository from UIKit state');
+  assert.ok(foregroundSeed < installChat, 'foreground seed must precede private Chat installation');
+  assert.ok(foregroundSeed < installNotifications, 'foreground seed must precede Notifications installation');
 });

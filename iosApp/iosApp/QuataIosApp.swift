@@ -521,6 +521,14 @@ private final class IosAppCompositionRoot {
     @discardableResult
     private func installRestoredFeedSessionIfAvailable() -> Bool {
         guard let runtimeBootstrap, hasValidatedAuthenticatedSession else { return false }
+        // A restoration/login completion can race with didEnterBackground.  Seed the newly
+        // composed Chat repository from UIKit's current state before any private factory starts
+        // observing it, otherwise a missed background transition leaves polling active.
+        if let chatRuntimeBootstrap {
+            chatRuntimeBootstrap.repository().setAppForeground(
+                isForeground: UIApplication.shared.applicationState == .active
+            )
+        }
         authenticatedHost.installFeedFactory { postId in
             QuataFeedViewControllerKt.QuataFeedViewController(
                 dependencies: runtimeBootstrap.authenticatedDependencies(
