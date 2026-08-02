@@ -112,6 +112,14 @@ backend real, sesión pública o autenticada, mutaciones, errores recuperables, 
 limpieza de datos/procesos y revisión completa del diff. La evidencia local registra los comandos,
 SHA y resultado.
 
+El preflight rápido exacto de CI es obligatorio antes de congelar/publicar: ejecuta los contratos
+rápidos que replica la automatización remota, imports Wasm focales y `diff --check`. Un candidato
+no se publica si esa réplica falla. Los workflows y sus gates finales son *fail-closed*: un job
+final omitido, cancelado o fallido nunca puede convertir el gate requerido en verde.
+Los checks requeridos de certificación son exactamente **Web/Android final certification gate**,
+**iOS final certification gate**, **Analyze java-kotlin** y **Analyze javascript-typescript**;
+los dos primeros sólo son GO cuando todos sus jobs finales exactos concluyen correctamente.
+
 GitHub Actions es la **certificación final en runners limpios**, no el primer lugar donde descubrir
 que una implementación no compila ni funciona. Si CI revela un defecto reproducible localmente, el
 informe lo clasifica como **DEFECTO ESCAPADO DEL PREFLIGHT LOCAL** e incorpora obligatoriamente el

@@ -6,7 +6,7 @@
 
 ## Foto de control — 2026-08-02
 
-**HEAD integrado:** `main` `5d2a52d1` (PR #156), posterior a #154. El proyecto sigue incompleto:
+**HEAD integrado:** `main` `1fe3bf74831415951779b50e651f89505a562169` (PR #169), posterior a #154 y #156. El proyecto sigue incompleto:
 las raíces comunes de Crear publicación y Cuenta/Perfil/SOS están integradas, pero integración de
 raíz no equivale a GO visual o funcional final en Web/iOS.
 
@@ -19,6 +19,7 @@ raíz no equivale a GO visual o funcional final en Web/iOS.
 | iOS simulador | GO funcional suplementario | El postflight de `main` `5d2a52d1` pasó Feed y perfil remoto públicos; auth real ejecutada mediante `.xctestrun` con `QUATA_IOS_AUTH_E2E_FILE`; relanzamiento normal sin reinstalar conserva/restaura sesión; Cuenta/Perfil visual PASS. | SOS es parcial: acceso/estado y 1/5 contactos visibles; no se abrió el subflujo para evitar mutación. CPU-raster no es SLA ni reemplaza CI ARM. |
 | Crear publicación (#154) | COMÚN con límites | `CreatePostRoot` común está integrado en Android, Wasm e iOS. | La evidencia de #154 no debe presentarse como GO visual/funcional final: validar publicación, adaptadores de medios y paridad autenticada sin modificar RLS. |
 | Cuenta/Perfil/SOS (#156) | COMÚN con límites | `ProfileScreenHost` común integrado; postflight iOS de Feed/perfil público, auth, relanzamiento y Cuenta/Perfil visual PASS. | Completar el subflujo SOS sin ocultar que sólo se verificaron 1/5 contactos; avatar Web continúa contractual sin mutación E2E acreditada. |
+| Pipeline CI (#169) | Integrado, fail-closed | Preflight rápido local exacto, gates finales requeridos y concurrencia por PR sin cancelar evidencia de `main`/manual. | Aún no acredita producto; certifica candidatos ya validados localmente. |
 | RLS/DB | Sin cambios | Esta ola no cambió RLS, DDL, funciones, grants ni datos de Supabase. | Hallazgos existentes siguen abiertos; no se endurecen políticas mientras convivan clientes publicados. |
 
 ## Integraciones recientes
@@ -35,6 +36,7 @@ raíz no equivale a GO visual o funcional final en Web/iOS.
 | [#106](https://github.com/dossijeo/quata/pull/106) | `d8652326` | UI de logout autenticado iOS; CI iOS verde. |
 | [#154](https://github.com/dossijeo/quata/pull/154) | `68d1fab7` | `CreatePostRoot` integrado como raíz común. No atribuye GO visual ni publicación E2E acreditada. |
 | [#156](https://github.com/dossijeo/quata/pull/156) | `5d2a52d1` | `ProfileScreenHost` común; postflight iOS PASS para lectura pública, auth/relanzamiento y Cuenta/Perfil visual. SOS parcial; avatar Web contractual sin mutación E2E. |
+| [#169](https://github.com/dossijeo/quata/pull/169) | `1fe3bf74` | Pipeline CI fail-closed: lane rápida replicable localmente y certificación final separada/exacta. |
 
 ## Registro de candidato #156 y mejora de preflight
 
@@ -50,12 +52,28 @@ escaparon del preflight local y se registran para no maquillarlos como incidenci
 Las rondas anteriores al congelado sólo fueron diagnósticas; no se reutilizan como evidencia final.
 La evidencia final exige base, head y merge sintético exactos según el modelo operativo.
 
+## Cierre de pipeline #169
+
+La PR #169 completó dos rondas remotas del candidato. La primera, `3a94c9c6`, falló por un
+**DEFECTO ESCAPADO DEL PREFLIGHT LOCAL**: el contrato del simulador iOS aún exigía rutas del filtro
+`paths` eliminado. `e945d6ab` incorporó el contrato correcto al preflight rápido exacto local y la
+segunda ronda remota quedó verde. La política final queda fail-closed: checks finales exactos
+omitidos, cancelados o fallidos bloquean el gate requerido.
+
+## Preparación local #157 — no integrada
+
+La preparación local `3147` de Notificaciones no es una candidata ni una integración. Web auth,
+visual y navegación PASS; Android estable sólo se usa como referencia y no como evidencia exacta;
+iOS tiene product build/auth previo PASS. El gate real de Notificaciones iOS continúa bloqueado por
+un handshake de infraestructura XCTest: no se ha confirmado una pantalla Inbox negra. El AVD de
+referencia localizado es `Pixel_9` API 37.
+
 ## Próxima cola
 
 1. Completar el postflight de #156 pendiente: subflujo SOS (el PASS actual cubre acceso/estado y 1/5 contactos, no su mutación) y comparación Android↔Wasm↔iOS donde corresponda. Acreditar o dejar pendiente la subida real de avatar Web con datos temporales y limpieza.
 2. Ejecutar el postflight de #154: Crear publicación común en Web/iOS con sesión real, adaptadores de medios y comparación visual; no convertir sus contratos en un GO no probado.
-3. Aplicar el modelo de integración secuencial/ejecución paralela: una candidata final, preflight local completo, merge sintético y CI como certificación. Preparar localmente la siguiente unidad mientras CI está activo, sin publicar candidatos adicionales.
-4. Publicar después de #156 una PR aislada de pipeline: cancelación por PR, nunca para `main` ni `workflow_dispatch`, y separar lane rápida de lane completa de candidato.
+3. Desbloquear el handshake XCTest de Notificaciones para convertir la preparación local #157 en una candidata; repetir después sus gates exactos. No presentar Android estable ni iOS product/auth previo como evidencia integrada.
+4. Aplicar el modelo de integración secuencial/ejecución paralela: una candidata final, preflight local completo, merge sintético y CI como certificación. Preparar localmente la siguiente unidad mientras CI está activo, sin publicar candidatos adicionales.
 5. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
 
 ## Decisiones vigentes

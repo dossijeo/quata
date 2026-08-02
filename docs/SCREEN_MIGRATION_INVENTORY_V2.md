@@ -4,7 +4,7 @@
 > Este inventario describe el estado del producto; si una regla operativa entra en conflicto con él,
 > prevalece el modelo operativo.
 
-Base auditada: `main` en `5d2a52d1` (2 de agosto de 2026), después de #154 y #156.
+Base auditada: `main` en `1fe3bf74831415951779b50e651f89505a562169` (2 de agosto de 2026), después de #154, #156 y #169.
 
 Android sigue siendo la referencia de producto. En este inventario **COMÚN** significa que Android,
 Wasm e iOS invocan la misma raíz Compose de `commonMain`; los servicios del sistema, el transporte y
@@ -67,9 +67,10 @@ fallback histórico, no una segunda pantalla que deba mantenerse.
 
 1. Antes de asignar código, revisar la pantalla Android y señalar la raíz, eventos, datos y servicios que deben ser comunes.
 2. El agente de implementación sustituye el fallback por esa raíz en una rama aislada y sólo compila los destinos afectados.
-3. El agente abre una PR. Un revisor independiente arranca la rama, captura Android y Wasm o iOS en la misma ruta y compara el resultado.
-4. Sólo tras verificar la raíz común, compilación y comparación visual se integra. Las pruebas funcionales autenticadas del usuario se registran por plataforma; no se usan fixtures como evidencia de backend.
-5. No se cambian políticas RLS ni esquema de Supabase para cerrar una pantalla. Una limitación de backend se documenta como tal.
+3. Antes de abrir una candidata final, el agente ejecuta el preflight rápido exacto de CI (contratos rápidos, imports Wasm focales y `diff --check`). El gate es fail-closed: no cuentan jobs finales omitidos, cancelados o fallidos.
+4. El agente abre una PR. Un revisor independiente arranca la rama, captura Android y Wasm o iOS en la misma ruta y compara el resultado.
+5. Sólo tras verificar la raíz común, compilación y comparación visual se integra. Las pruebas funcionales autenticadas del usuario se registran por plataforma; no se usan fixtures como evidencia de backend.
+6. No se cambian políticas RLS ni esquema de Supabase para cerrar una pantalla. Una limitación de backend se documenta como tal.
 
 ## Orden técnico actual
 
