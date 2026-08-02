@@ -6,8 +6,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.quata.core.platform.PreferenceStore
-import com.quata.feature.whatsnew.data.LocalWhatsNewRelease
+import com.quata.feature.whatsnew.data.LocalWhatsNewPlatform
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
+import com.quata.feature.whatsnew.data.QuataLocalWhatsNewCatalog
 import com.quata.feature.whatsnew.data.WhatsNewSeenStateStore
 import com.quata.feature.whatsnew.domain.UserReleaseState
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
@@ -33,12 +34,11 @@ internal fun webWhatsNewReturnFragment(origin: WebWhatsNewOrigin): String = when
     WebWhatsNewOrigin.Startup, WebWhatsNewOrigin.DeepLink -> ""
 }
 
-/** Web has no audited release-notes API. Publishing releases here is an explicit product step. */
-internal val WebWhatsNewCatalog: List<LocalWhatsNewRelease> = emptyList()
-internal fun webWhatsNewSourceKind(): String = "source-controlled-empty"
+/** Android release RPCs use Android version codes; Web uses the shared platform-local catalog. */
+internal fun webWhatsNewSourceKind(): String = "common-source-controlled-web"
 
 internal fun createWebWhatsNewRepository(): WhatsNewRepository = LocalWhatsNewRepository(
-    releases = WebWhatsNewCatalog,
+    releases = QuataLocalWhatsNewCatalog.releases(LocalWhatsNewPlatform.Web),
     store = WebWhatsNewSeenStateStore(),
 )
 

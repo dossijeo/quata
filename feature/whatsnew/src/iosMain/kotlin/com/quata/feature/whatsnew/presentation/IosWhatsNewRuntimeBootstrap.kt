@@ -19,8 +19,9 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.platform.PlatformResult
 import com.quata.feature.whatsnew.data.IosWhatsNewSeenStateStore
-import com.quata.feature.whatsnew.data.LocalWhatsNewRelease
+import com.quata.feature.whatsnew.data.LocalWhatsNewPlatform
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
+import com.quata.feature.whatsnew.data.QuataLocalWhatsNewCatalog
 import com.quata.feature.whatsnew.domain.PendingRelease
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import kotlin.concurrent.Volatile
@@ -70,7 +71,7 @@ fun createIosWhatsNewRuntimeBootstrap(
         ?.let(::listOf)
         ?: listOf("en")
     val repository = LocalWhatsNewRepository(
-        releases = IosWhatsNewCatalog.releases,
+        releases = QuataLocalWhatsNewCatalog.releases(LocalWhatsNewPlatform.Ios),
         store = IosWhatsNewSeenStateStore(defaults, IosWhatsNewSeenStateStore.DefaultKey),
     )
     return IosWhatsNewRuntimeBootstrap(versionCode, versionName, languageTags, repository)
@@ -192,20 +193,6 @@ class IosWhatsNewRouteDispatcher {
         return runCatching { activeHost.open(route); PlatformResult.Success(Unit) }
             .getOrElse { PlatformResult.Failure(it.message) }
     }
-}
-
-private object IosWhatsNewCatalog {
-    val releases = listOf(
-        LocalWhatsNewRelease(
-            releaseId = "ios-1.0-1",
-            versionCode = 1,
-            versionName = "1.0",
-            notes = mapOf(
-                "es" to "Quata para iOS incorpora las superficies Compose compartidas y una base local de novedades versionada.",
-                "en" to "Quata for iOS now includes shared Compose surfaces and a versioned local What's New catalog.",
-            ),
-        ),
-    )
 }
 
 private data class IosWhatsNewCopy(val loadError: String, val saveError: String)
