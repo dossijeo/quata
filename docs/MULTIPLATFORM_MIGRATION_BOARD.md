@@ -35,6 +35,7 @@ raíz no equivale a GO visual o funcional final en Web/iOS.
 | [#104](https://github.com/dossijeo/quata/pull/104) | `18596076` | Requisitos de producción APNs y hallazgo del dispatcher. |
 | [#106](https://github.com/dossijeo/quata/pull/106) | `d8652326` | UI de logout autenticado iOS; CI iOS verde. |
 | [#154](https://github.com/dossijeo/quata/pull/154) | `68d1fab7` | `CreatePostRoot` integrado como raíz común. No atribuye GO visual ni publicación E2E acreditada. |
+| [#168](https://github.com/dossijeo/quata/pull/168) | `07ec8826` | Compilación/host iOS y renderer público acreditados. No acredita el fallback visual de sesión restaurada caducada. |
 | [#156](https://github.com/dossijeo/quata/pull/156) | `5d2a52d1` | `ProfileScreenHost` común; postflight iOS PASS para lectura pública, auth/relanzamiento y Cuenta/Perfil visual. SOS parcial; avatar Web contractual sin mutación E2E. |
 | [#169](https://github.com/dossijeo/quata/pull/169) | `1fe3bf74` | Pipeline CI fail-closed: lane rápida replicable localmente y certificación final separada/exacta. |
 
@@ -51,6 +52,19 @@ escaparon del preflight local y se registran para no maquillarlos como incidenci
 
 Las rondas anteriores al congelado sólo fueron diagnósticas; no se reutilizan como evidencia final.
 La evidencia final exige base, head y merge sintético exactos según el modelo operativo.
+
+## Auditoría honesta #168 — fallback iOS de sesión caducada
+
+El merge `07ec8826` acredita compilación/host iOS y renderer del Feed público. El seeder de auth de
+CI quedó `SKIPPED` porque no se proporcionó `QUATA_IOS_AUTH_E2E_FILE`. La evidencia local exacta
+instaló la app después de sembrar la sesión, cambiando su *data-container*; por tanto no conserva el
+estado restaurado y **no acredita** el fallback de sesión caducada. No se interpreta como fallo del
+fallback ni como PASS visual.
+
+Tarea focal de cierre: con `QUATA_IOS_AUTH_E2E_FILE` explícito, sembrar una sesión restaurada
+caducada en el mismo simulador/data-container y relanzar sin reinstalar ni borrar datos; capturar el
+fallback a Feed público y su recuperación. El informe debe registrar SHA, UDID, estado del
+container, resultado real del seeder (nunca `SKIPPED`) y la captura resultante.
 
 ## Cierre de pipeline #169
 
@@ -93,7 +107,8 @@ verdes certifiquen ese merge sintético.
 3. Desbloquear el handshake XCTest de Notificaciones para convertir la preparación local #157 en una candidata; repetir después sus gates exactos. El Android `d036` API 37 es PASS exacto local, pero no integrado; el seeder iOS no ejecutó UI y continúa bloqueado por infraestructura.
 4. Esperar únicamente la certificación final remota exacta de #170; no alterar su head ni promocionar otra candidata. En paralelo, preparar trabajo local aislado sin reutilizarlo como evidencia final.
 5. Aplicar el modelo de integración secuencial/ejecución paralela: una candidata final, preflight local completo, merge sintético y CI como certificación. Preparar localmente la siguiente unidad mientras CI está activo, sin publicar candidatos adicionales.
-6. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
+6. Cerrar la evidencia #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado con `QUATA_IOS_AUTH_E2E_FILE` y relanzamiento sin reinstalar.
+7. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
 
 ## Decisiones vigentes
 
