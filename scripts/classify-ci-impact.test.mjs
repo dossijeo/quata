@@ -192,6 +192,15 @@ test('malformed Git statuses and ranges fail closed instead of becoming docs-onl
     assertAllPlatforms(classifyGitRange('0000000000000000000000000000000000000000', 'HEAD'), true);
 });
 
+test('untrusted but syntactically valid Git statuses never make docs-only changes cheap', () => {
+    for (const status of ['U', 'X', 'B']) {
+        const entries = parseNameStatusZ(Buffer.from(`${status}\0docs/only.md\0`));
+        assert.equal(entries[0].status, status);
+        assertAllPlatforms(classifyChanges(entries), true);
+        assertAllPlatforms(classifyChanges([{ status, paths: ['docs/only.md'] }]), true);
+    }
+});
+
 test('NUL-delimited records retain newline path bytes instead of line-splitting them', () => {
     const docsEntry = parseNameStatusZ(Buffer.from('A\0docs/guía\ncon salto.md\0'));
     assert.equal(classifyChanges(docsEntry).docs_only, true);

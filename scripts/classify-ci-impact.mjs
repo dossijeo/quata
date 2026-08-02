@@ -6,6 +6,10 @@ import { pathToFileURL } from 'node:url';
 
 const ALL_PLATFORMS = Object.freeze(['web', 'android', 'ios']);
 const NAME_STATUS = new Set(['A', 'C', 'D', 'M', 'R', 'T', 'U', 'X', 'B']);
+// These status letters do not describe a reliable ordinary file transition:
+// U is an unresolved merge, X is an unknown diff type and B is a broken
+// rename/copy pairing. A docs-looking path must never make such a range cheap.
+const UNTRUSTED_STATUS = new Set(['U', 'X', 'B']);
 
 const normalize = (value) => value.replaceAll('\\', '/').replace(/^\.\//, '');
 
@@ -163,6 +167,9 @@ export function classifyChanges(entries) {
         const expectedPathCount = entry?.status === 'R' || entry?.status === 'C' ? 2 : 1;
         if (!entry || !NAME_STATUS.has(entry.status) || !Array.isArray(entry.paths) || entry.paths.length !== expectedPathCount || entry.paths.some(path => typeof path !== 'string' || path.length === 0)) {
             return unknownResult('malformed-change-entry:all');
+        }
+        if (UNTRUSTED_STATUS.has(entry.status)) {
+            return unknownResult(`untrusted-git-status:${entry.status}:all`);
         }
         // R and C intentionally classify both endpoints. A platform migration can
         // otherwise hide the removed source set from its former lane.
