@@ -9,10 +9,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Portable notifications inbox backed by the chat conversations already available to a host.
@@ -32,20 +32,12 @@ class ConversationNotificationsRepository(
     override suspend fun getNotificationCount(): Result<Int> =
         getNotifications().map { notifications -> notifications.sumOf(NotificationItem::unreadCount) }
 
-    override fun observeNotifications(): Flow<List<NotificationItem>> = flow {
-        while (currentCoroutineContext().isActive) {
-            chatRepository.isAppForeground.filter { it }.first()
-            val conversations = chatRepository.getConversations().getOrThrow()
-            val interval = pollIntervalMillis.coerceAtLeast(1L)
-            // A local open-chat change must hide its notification immediately, without waiting
-            // for the next remote poll. The remote snapshot itself remains honest/getOrThrow.
-            withTimeoutOrNull(interval) {
-                chatRepository.activeConversationId.collect { activeConversationId ->
-                    emit(conversations.toConversationNotificationItems(activeConversationId))
-                }
-            }
-        }
-    }
+    override fun observeNotifications(): Flow<List<NotificationItem>> = observeConversationNotifications(
+        loadConversations = { chatRepository.getConversations().getOrThrow() },
+        isAppForeground = chatRepository.isAppForeground,
+        activeConversationId = chatRepository.activeConversationId,
+        pollIntervalMillis = pollIntervalMillis,
+    )
 
     override fun observeNotificationCount(): Flow<Int> = observeNotifications()
         .map { notifications -> notifications.sumOf(NotificationItem::unreadCount) }
@@ -55,4 +47,23 @@ class ConversationNotificationsRepository(
 
     override suspend fun dismissNotification(notification: NotificationItem): Result<Unit> =
         markNotificationRead(notification)
+}
+
+/** Remote reads are interval-bounded; active-chat changes remap only the latest local snapshot. */
+internal fun observeConversationNotifications(
+    loadConversations: suspend () -> List<com.quata.core.model.Conversation>,
+    isAppForeground: Flow<Boolean>,
+    activeConversationId: Flow<String?>,
+    pollIntervalMillis: Long,
+): Flow<List<NotificationItem>> {
+    val remoteSnapshots = flow {
+        while (currentCoroutineContext().isActive) {
+            isAppForeground.filter { it }.first()
+            emit(loadConversations())
+            delay(pollIntervalMillis.coerceAtLeast(1L))
+        }
+    }
+    return remoteSnapshots.combine(activeConversationId) { conversations, activeId ->
+        conversations.toConversationNotificationItems(activeId)
+    }
 }
