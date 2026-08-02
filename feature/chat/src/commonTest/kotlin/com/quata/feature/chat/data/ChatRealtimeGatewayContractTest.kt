@@ -37,6 +37,31 @@ class ChatRealtimeGatewayContractTest {
     }
 
     @Test
+    fun hidingAStaleScreenDoesNotClearTheCurrentlyVisibleConversation() {
+        val gateway = RecordingGateway()
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String) =
+                    ChatPostgrestResponse.Success("{}")
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ -> error("not used") },
+            realtimeGateway = gateway,
+        )
+
+        repository.setConversationVisible("sb:7", true)
+        repository.setConversationVisible("sb:8", true)
+        repository.setConversationVisible("sb:7", false)
+
+        assertEquals("sb:8", repository.activeConversationId.value)
+        assertEquals("sb:8", gateway.visibleConversation)
+
+        repository.setConversationVisible("sb:8", false)
+        assertEquals(null, repository.activeConversationId.value)
+        assertEquals(null, gateway.visibleConversation)
+    }
+
+    @Test
     fun lifecycleDisconnectsAndReconnectsOnlyWhenAllRequirementsHold() {
         assertTrue(shouldConnectChatRealtime(true, true, true))
         assertFalse(shouldConnectChatRealtime(false, true, true))

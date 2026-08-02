@@ -128,8 +128,13 @@ open class PostgrestChatRepository(
     override fun currentUser(): User? = currentUserSnapshot
     override fun setActiveConversation(conversationId: String?) { _activeConversationId.value = conversationId; realtimeGateway?.setVisibleConversation(conversationId) }
     override fun setConversationVisible(conversationId: String, visible: Boolean) {
-        if (visible) _activeConversationId.value = conversationId
-        realtimeGateway?.setVisibleConversation(conversationId.takeIf { visible })
+        if (visible) {
+            _activeConversationId.value = conversationId
+            realtimeGateway?.setVisibleConversation(conversationId)
+        } else if (_activeConversationId.value == conversationId) {
+            _activeConversationId.value = null
+            realtimeGateway?.setVisibleConversation(null)
+        }
     }
     override fun setAppForeground(isForeground: Boolean) { _isAppForeground.value = isForeground; realtimeGateway?.setForeground(isForeground) }
     override fun setTyping(conversationId: String, isTyping: Boolean) { realtimeGateway?.setTyping(conversationId, isTyping) }
