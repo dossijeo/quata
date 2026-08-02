@@ -25,7 +25,7 @@ import com.quata.core.ui.components.QuataLiveRankingItem
  */
 @Composable
 fun BrowserFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit, isOnline: Boolean? = null, modifier: Modifier = Modifier.size(56.dp)) {
-    BrowserFeedAvatar(
+    BrowserRemoteAvatar(
         name = post.author.displayName,
         profileId = post.author.id,
         avatarUrl = post.author.avatarUrl,
@@ -39,7 +39,7 @@ fun BrowserFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit, isO
 
 @Composable
 fun BrowserFeedRankingAvatar(item: QuataLiveRankingItem, isOnline: Boolean? = null) {
-    BrowserFeedAvatar(
+    BrowserRemoteAvatar(
         name = item.avatarName,
         profileId = item.profileId,
         avatarUrl = item.avatarUrl,
@@ -50,15 +50,18 @@ fun BrowserFeedRankingAvatar(item: QuataLiveRankingItem, isOnline: Boolean? = nu
 }
 
 @Composable
-private fun BrowserFeedAvatar(
+fun BrowserRemoteAvatar(
     name: String,
     profileId: String,
     avatarUrl: String?,
     isOfficial: Boolean,
     isOnline: Boolean?,
     modifier: Modifier,
+    allowOwnedBlobReference: Boolean = false,
 ) {
-    val imageUrl = avatarUrl?.trim()?.takeIf(::isBrowserAvatarUrl)
+    val imageUrl = avatarUrl?.trim()?.takeIf {
+        isBrowserAvatarUrl(it) || (allowOwnedBlobReference && isBrowserAvatarBlobUrl(it))
+    }
     val imageState = if (imageUrl != null) rememberBrowserCanvasImage(imageUrl) else null
     QuataAvatarFrameContent(
         name = name,
@@ -81,3 +84,7 @@ private fun BrowserFeedAvatar(
 
 internal fun isBrowserAvatarUrl(value: String): Boolean =
     value.startsWith("https://") || value.startsWith("http://")
+
+/** Only Profile opts into its locally-owned preview URLs; feed data never does. */
+internal fun isBrowserAvatarBlobUrl(value: String): Boolean =
+    value.startsWith("blob:", ignoreCase = true) && value.length > "blob:".length

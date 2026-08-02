@@ -67,11 +67,11 @@ data class StoredProfileEmergencyMessage(
 )
 
 interface ProfileEmergencyMessageStore {
-    fun get(profileId: String): StoredProfileEmergencyMessage?
-    fun save(profileId: String, message: String, isDefault: Boolean)
+    suspend fun get(profileId: String): StoredProfileEmergencyMessage?
+    suspend fun save(profileId: String, message: String, isDefault: Boolean)
 }
 
 interface ProfileEmergencyContactsStore {
-    fun get(profileId: String): List<String>
-    fun save(profileId: String, contactIds: List<String>)
+    suspend fun get(profileId: String): List<String>
+    suspend fun save(profileId: String, contactIds: List<String>)
 }

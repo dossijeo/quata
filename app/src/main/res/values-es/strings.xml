@@ -277,7 +277,6 @@
     <string name="theme_mode_system">Sistema</string>
     <string name="theme_mode_dark">Modo Oscuro</string>
     <string name="theme_mode_light">Modo Claro</string>
-    <string name="profile_photo">Foto de perfil</string>
     <string name="profile_change_photo">Cambiar foto de perfil</string>
     <string name="profile_my_data">Mis datos</string>
     <string name="profile_pick_gallery">Elegir de galería</string>
@@ -285,8 +284,6 @@
     <string name="profile_photo_hint">Sube una foto cuadrada o vertical para verte mejor.</string>
     <string name="profile_neighborhood">Barrio</string>
     <string name="profile_phone">Teléfono</string>
-    <string name="profile_search_prefix">Buscar prefijo</string>
-    <string name="profile_new_password">Nueva contraseña (opcional)</string>
     <string name="profile_new_secret_answer">Nueva respuesta secreta (opcional)</string>
     <string name="secret_question_keep_current">Mantener pregunta secreta actual</string>
     <string name="secret_question_select">Selecciona una pregunta secreta</string>
@@ -599,4 +596,7 @@
     <string name="release_history_subtitle">Consulta las novedades de todas las versiones registradas.</string>
     <string name="release_history_empty">Aún no hay notas de versión disponibles.</string>
     <string name="release_history_error">El historial de versiones no está disponible ahora mismo.</string>
+    <string name="profile_password_update_unavailable">Cambia tu contraseña desde «Olvidé mi contraseña» hasta que esté disponible la actualización autenticada.</string>
+    <string name="profile_retry">Reintentar</string>
+    <string name="profile_loading_error">No se pudo cargar el perfil.</string>
 </resources>

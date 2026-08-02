@@ -70,7 +70,7 @@ class ProfileViewModel(
         profileJob = scope.launch {
             _uiState.update {
                 it.copy(
-                    isLoading = showLoading && it.profile == null,
+                    isLoading = it.profile == null || showLoading,
                     errorMessage = null
                 )
             }

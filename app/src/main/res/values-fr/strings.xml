@@ -277,7 +277,6 @@
     <string name="theme_mode_system">Systeme</string>
     <string name="theme_mode_dark">Mode sombre</string>
     <string name="theme_mode_light">Mode clair</string>
-    <string name="profile_photo">Photo de profil</string>
     <string name="profile_change_photo">Changer photo de profil</string>
     <string name="profile_my_data">Mes infos</string>
     <string name="profile_pick_gallery">Choisir galerie</string>
@@ -285,8 +284,6 @@
     <string name="profile_photo_hint">Ajoute une photo carree ou verticale pour mieux te voir.</string>
     <string name="profile_neighborhood">Quartier</string>
     <string name="profile_phone">Telephone</string>
-    <string name="profile_search_prefix">Chercher prefixe</string>
-    <string name="profile_new_password">Nouveau mot de passe (optionnel)</string>
     <string name="profile_new_secret_answer">Nouvelle reponse secrete (optionnel)</string>
     <string name="secret_question_keep_current">Garder la question secrete actuelle</string>
     <string name="secret_question_select">Selectionne une question secrete</string>
@@ -599,4 +596,7 @@
     <string name="release_history_subtitle">Consultez les nouveaut&#233;s de toutes les versions suivies.</string>
     <string name="release_history_empty">Aucune note de version n\'est encore disponible.</string>
     <string name="release_history_error">L\'historique des versions est indisponible pour le moment.</string>
+    <string name="profile_password_update_unavailable">Modifiez votre mot de passe depuis « Mot de passe oublié » jusqu’à ce que la mise à jour authentifiée soit disponible.</string>
+    <string name="profile_retry">Réessayer</string>
+    <string name="profile_loading_error">Impossible de charger votre profil.</string>
 </resources>

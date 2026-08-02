@@ -48,6 +48,7 @@ class AndroidProfileRemoteGateway(
     override suspend fun saveRecoverySecret(profileId: String, secretQuestion: String, secretAnswer: String) =
         authApi.updateRecoverySecretWithAuthBridge(profileId, secretQuestion, secretAnswer)
 
+
     override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) =
         source.saveEmergencyContacts(profileId, contactIds)
 }
@@ -86,19 +87,19 @@ class AndroidProfileAvatarUploader(
 class AndroidProfileEmergencyMessageStore(context: Context) : ProfileEmergencyMessageStore {
     private val delegate = EmergencyMessageStore(context)
 
-    override fun get(profileId: String): StoredProfileEmergencyMessage? = delegate.get(profileId)?.let {
+    override suspend fun get(profileId: String): StoredProfileEmergencyMessage? = delegate.get(profileId)?.let {
         StoredProfileEmergencyMessage(message = it.message, isDefault = it.isDefault)
     }
 
-    override fun save(profileId: String, message: String, isDefault: Boolean) {
+    override suspend fun save(profileId: String, message: String, isDefault: Boolean) {
         delegate.save(profileId, message, isDefault)
     }
 }
 
 class AndroidProfileEmergencyContactsStore(context: Context) : ProfileEmergencyContactsStore {
     private val delegate = EmergencyContactsStore(context)
-    override fun get(profileId: String): List<String> = delegate.get(profileId)
-    override fun save(profileId: String, contactIds: List<String>) = delegate.save(profileId, contactIds)
+    override suspend fun get(profileId: String): List<String> = delegate.get(profileId)
+    override suspend fun save(profileId: String, contactIds: List<String>) = delegate.save(profileId, contactIds)
 }
 
 class AndroidProfilePresentationCatalog(private val context: Context) : ProfilePresentationCatalog {

@@ -307,7 +307,6 @@
     <string name="theme_mode_system">System</string>
     <string name="theme_mode_dark">Dark mode</string>
     <string name="theme_mode_light">Light mode</string>
-    <string name="profile_photo">Profile photo</string>
     <string name="profile_change_photo">Change profile photo</string>
     <string name="profile_my_data">My details</string>
     <string name="profile_pick_gallery">Choose from gallery</string>
@@ -315,8 +314,6 @@
     <string name="profile_photo_hint">Upload a square or vertical photo so you look better.</string>
     <string name="profile_neighborhood">District</string>
     <string name="profile_phone">Phone</string>
-    <string name="profile_search_prefix">Search prefix</string>
-    <string name="profile_new_password">New password (optional)</string>
     <string name="profile_new_secret_answer">New secret answer (optional)</string>
     <string name="secret_question_keep_current">Keep current secret question</string>
     <string name="secret_question_select">Select a secret question</string>
@@ -604,4 +601,7 @@
     <string name="release_history_subtitle">Browse the notes for every tracked release.</string>
     <string name="release_history_empty">No release notes are available yet.</string>
     <string name="release_history_error">Version history is unavailable right now.</string>
+    <string name="profile_password_update_unavailable">Change your password from Forgot my password until authenticated password updates are available.</string>
+    <string name="profile_retry">Retry</string>
+    <string name="profile_loading_error">Could not load your profile.</string>
 </resources>

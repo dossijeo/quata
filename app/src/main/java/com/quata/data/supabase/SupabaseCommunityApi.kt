@@ -170,6 +170,7 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         check(response.ok) { "recovery_secret_update_failed:$profileId" }
     }
 
+
     suspend fun performAccountLifecycle(action: String, password: String): SupabaseAccountLifecycleResponse =
         client.invokeFunction<SupabaseAccountLifecycleRequest, SupabaseAccountLifecycleResponse>(
             "quata-account-lifecycle",

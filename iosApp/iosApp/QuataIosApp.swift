@@ -181,18 +181,53 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 }
 
-/// Keeps UIKit-only state at the platform edge. It selects the shared Auth or Feed Compose
-/// controller according to the one Keychain-backed session owned by the Kotlin bootstrap.
-private final class IosAppCompositionRoot {
-    /// Keychain presence is not authentication. This flips only after launch validation has
-    /// accepted a fresh token (or an interactive login has saved one), and gates every private
-    /// iOS factory so an expired restore cannot replace the public Feed.
-    private var hasValidatedAuthenticatedSession = false
-
-    private enum SettingsPreferenceKey {
+/// Device-local appearance state shared by Settings and Cuenta. Android persists the same two
+/// controls at its application boundary; iOS keeps them at the UIKit boundary and injects them
+/// into Compose hosts instead of allowing feature-level no-op defaults.
+final class IosAppearancePreferences {
+    private enum Key {
         static let themeMode = "quata_ios_theme_mode"
         static let touchFlowEnabled = "quata_ios_touch_flow_enabled"
     }
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    var touchFlowEnabled: Bool {
+        defaults.object(forKey: Key.touchFlowEnabled) as? Bool ?? false
+    }
+
+    var themeModeStorageValue: String? {
+        defaults.string(forKey: Key.themeMode)
+    }
+
+    func setTouchFlowEnabled(_ enabled: Bool) {
+        defaults.set(enabled, forKey: Key.touchFlowEnabled)
+    }
+
+    func setThemeModeStorageValue(_ value: String) {
+        defaults.set(value, forKey: Key.themeMode)
+    }
+
+    func applyTheme(to window: UIWindow) {
+        switch themeModeStorageValue {
+        case "dark-mode": window.overrideUserInterfaceStyle = .dark
+        case "light-mode": window.overrideUserInterfaceStyle = .light
+        default: window.overrideUserInterfaceStyle = .unspecified
+        }
+    }
+}
+
+/// Keeps UIKit-only state at the platform edge. It selects the shared Auth or Feed Compose
+/// controller according to the one Keychain-backed session owned by the Kotlin bootstrap.
+private final class IosAppCompositionRoot {
+    private let appearancePreferences = IosAppearancePreferences()
+    /// A Keychain entry is not an authenticated session until launch validation accepts it.
+    /// This flag gates every private factory while the public Feed remains available first.
+    private var hasValidatedAuthenticatedSession = false
 
     private var window: UIWindow?
     // Kotlin default arguments are not exported as a Swift zero-argument initializer. Build the
@@ -214,16 +249,20 @@ private final class IosAppCompositionRoot {
         guard let configuration = runtimeConfiguration else { return nil }
         return IosFeedRuntimeBootstrapKt.createIosFeedRuntimeBootstrap(configuration: configuration)
     }()
+    /// One object identity is shared by Feed, Auth, Chat and Cuenta. Keeping this reference at
+    /// the launcher boundary prevents Cuenta from opening a second Keychain/refresh pipeline.
+    private lazy var renewableAuthSession: IosRenewableAuthSession? =
+        runtimeBootstrap?.authSessionForInteractiveLogin()
     // Chat receives precisely the Keychain-backed session retained by Feed/Auth. It is created
     // only after a restored or newly logged-in session has installed the authenticated Feed host.
     private lazy var chatRuntimeBootstrap: IosChatRuntimeBootstrap? = {
-        guard let configuration = runtimeConfiguration, let runtimeBootstrap else { return nil }
+        guard let configuration = runtimeConfiguration, let renewableAuthSession else { return nil }
         return IosChatRuntimeBootstrapKt.createIosChatRuntimeBootstrap(
             configuration: IosChatRuntimeConfiguration(
                 supabaseUrl: configuration.supabaseUrl,
                 supabasePublishableKey: configuration.supabasePublishableKey,
             ),
-            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+            authSession: renewableAuthSession,
         )
     }()
     // The inbox and the shared top chrome deliberately retain one notification repository. This
@@ -250,16 +289,17 @@ private final class IosAppCompositionRoot {
         )
     }()
     /// Profile/SOS reuses the same Keychain-backed identity as Auth, Feed and the other iOS
-    /// verticals. Its adapter deliberately exposes read-only remote state until mutations have
-    /// iOS RLS/E2E evidence.
+    /// verticals. Cuenta receives this exact renewable object and resolves it before starting its
+    /// parallel PostgREST reads; it never creates an independent Keychain or refresh owner.
     private lazy var profileSosRuntimeBootstrap: IosProfileSosRuntimeBootstrap? = {
-        guard let configuration = runtimeConfiguration, let runtimeBootstrap else { return nil }
+        guard let configuration = runtimeConfiguration, let renewableAuthSession else { return nil }
         return IosProfileSosRuntimeBootstrapKt.createIosProfileSosRuntimeBootstrap(
             configuration: IosProfileRuntimeConfiguration(
                 supabaseUrl: configuration.supabaseUrl,
                 supabasePublishableKey: configuration.supabasePublishableKey,
             ),
-            authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+            authSession: renewableAuthSession,
+            languageTag: Locale.preferredLanguages.first,
         )
     }()
     /// Communities reuses the authenticated Chat repository for actual conversation creation and
@@ -308,6 +348,7 @@ private final class IosAppCompositionRoot {
             return
         }
         window.rootViewController = authenticatedHost
+        appearancePreferences.applyTheme(to: window)
         window.makeKeyAndVisible()
         self.window = window
         externalShareForegroundObserver = NotificationCenter.default.addObserver(
@@ -489,9 +530,8 @@ private final class IosAppCompositionRoot {
         return true
     }
 
-    /// Public Feed is installed synchronously during launch. Only this asynchronous validation
-    /// may switch it to the authenticated runtime, after a stored access token is known fresh or
-    /// its refresh has succeeded. A failed refresh deliberately keeps Keychain intact for retry.
+    /// Public Feed is installed synchronously. Only a successfully validated/restored token may
+    /// replace it with authenticated dependencies; a failed refresh leaves the public route up.
     private func validateRestoredFeedSessionAsynchronously() {
         guard let runtimeBootstrap else { return }
         runtimeBootstrap.validateRestoredSession { [weak self] validated in
@@ -645,34 +685,40 @@ private final class IosAppCompositionRoot {
     }
 
     private func installAuthenticatedProfileSosIfAvailable() {
-        guard let profileSosRuntimeBootstrap else { return }
-        let services = platformServices.services
+        guard
+            let profileSosRuntimeBootstrap,
+            let runtimeConfiguration,
+            let runtimeBootstrap,
+            let authRepository = createAuthRepository(configuration: runtimeConfiguration, bootstrap: runtimeBootstrap)
+        else { return }
+        let lifecycleHandler = IosAuthHostKt.createIosAuthAccountLifecycleHandler(repository: authRepository)
+        let filePicker = platformServices.services.filePicker
+        let appearancePreferences = self.appearancePreferences
         authenticatedHost.installProfileSosFactory { [weak self] in
-            let dependencies = profileSosRuntimeBootstrap.hostDependencies(
-                contacts: services.contacts,
-                permissions: services.permissions,
-                // ContactsUI returns real device contacts, but Profile currently accepts Quata
-                // profile IDs only. Do not turn phone numbers into persistence identifiers.
-                onContactsPicked: { [weak self] _ in
-                    self?.presentProfileSosCapabilityNotice(
-                        ProfileSosCapabilityCopy.shared.selectedDeviceContactsNotMatched(languageTag: Locale.current.identifier)
-                    )
+            // Cuenta mounts the complete shared Compose host. SOS remains its in-context dialog;
+            // it is not a substitute route for Profile on iOS.
+            let dependencies = profileSosRuntimeBootstrap.profileHostDependencies(
+                onLogout: { [weak self] in self?.authenticatedHost.performLogout() },
+                onDeactivateAccount: { [weak self] in
+                    self?.presentAccountLifecyclePrompt(action: "deactivate", handler: lifecycleHandler)
                 },
-                onContactPickerResult: { [weak self] _ in
-                    self?.presentProfileSosCapabilityNotice(
-                        ProfileSosCapabilityCopy.shared.contactsPickerUnavailable(languageTag: Locale.current.identifier)
-                    )
+                onDeleteAccountData: { [weak self] in
+                    self?.presentAccountLifecyclePrompt(action: "delete", handler: lifecycleHandler)
                 },
-                onContactsPermissionResult: { [weak self] _ in
-                    self?.presentProfileSosCapabilityNotice(
-                        ProfileSosCapabilityCopy.shared.contactsPermissionNotGranted(languageTag: Locale.current.identifier)
-                    )
+                filePicker: filePicker,
+                touchFlowEnabled: appearancePreferences.touchFlowEnabled,
+                themeModeStorageValue: appearancePreferences.themeModeStorageValue,
+                onTouchFlowEnabledChange: { enabled in
+                    appearancePreferences.setTouchFlowEnabled(enabled.boolValue)
                 },
-                onClose: { [weak self] in
-                    self?.authenticatedHost.showFeed(postId: nil)
+                onThemeModeStorageValueChange: { [weak self] value in
+                    appearancePreferences.setThemeModeStorageValue(value)
+                    if let window = self?.window {
+                        appearancePreferences.applyTheme(to: window)
+                    }
                 },
             )
-            return IosProfileSosHostKt.QuataProfileSosViewController(dependencies: dependencies)
+            return IosProfileHostKt.QuataProfileViewController(dependencies: dependencies)
         }
     }
 
@@ -707,7 +753,7 @@ private final class IosAppCompositionRoot {
 
     /// Feed and Communities share the existing authenticated member-profile presentation.
     fileprivate func presentAuthenticatedMemberProfile(profileId: String) {
-        guard let runtimeBootstrap, let configuration = runtimeConfiguration else { return }
+        guard let configuration = runtimeConfiguration else { return }
         let onClose: () -> Void = { [weak self] in
             guard let self else { return }
             self.authenticatedHost.dismiss(animated: true)
@@ -761,20 +807,20 @@ private final class IosAppCompositionRoot {
     /// Settings owns only device-local appearance preferences. It does not create remote data or
     /// pretend that a server profile setting was saved.
     private func installSettings() {
-        authenticatedHost.installSettingsFactory {
+        let appearancePreferences = self.appearancePreferences
+        authenticatedHost.installSettingsFactory { [weak self] in
             IosSettingsHostKt.QuataSettingsViewController(
                 dependencies: IosSettingsHostKt.createIosSettingsHostDependencies(
-                    touchFlowEnabled: UserDefaults.standard.object(
-                        forKey: SettingsPreferenceKey.touchFlowEnabled
-                    ) as? Bool ?? true,
-                    themeModeStorageValue: UserDefaults.standard.string(
-                        forKey: SettingsPreferenceKey.themeMode
-                    ),
+                    touchFlowEnabled: appearancePreferences.touchFlowEnabled,
+                    themeModeStorageValue: appearancePreferences.themeModeStorageValue,
                     onTouchFlowEnabledChange: { enabled in
-                        UserDefaults.standard.set(enabled, forKey: SettingsPreferenceKey.touchFlowEnabled)
+                        appearancePreferences.setTouchFlowEnabled(enabled.boolValue)
                     },
-                    onThemeModeStorageValueChange: { value in
-                        UserDefaults.standard.set(value, forKey: SettingsPreferenceKey.themeMode)
+                    onThemeModeStorageValueChange: { [weak self] value in
+                        appearancePreferences.setThemeModeStorageValue(value)
+                        if let window = self?.window {
+                            appearancePreferences.applyTheme(to: window)
+                        }
                     },
                 ),
             )
@@ -805,6 +851,66 @@ private final class IosAppCompositionRoot {
             preferredStyle: .alert,
         )
         alert.addAction(UIAlertAction(title: NSLocalizedString("common_close", value: "Close", comment: ""), style: .default))
+        authenticatedHost.present(alert, animated: true)
+    }
+
+    private func presentAccountLifecyclePrompt(
+        action: String,
+        handler: IosAuthAccountLifecycleHandler
+    ) {
+        let deleting = action == "delete"
+        let alert = UIAlertController(
+            title: deleting
+                ? NSLocalizedString("ios_profile_delete_title", value: "Delete account data", comment: "")
+                : NSLocalizedString("ios_profile_deactivate_title", value: "Deactivate account", comment: ""),
+            message: NSLocalizedString(
+                "ios_profile_account_password_message",
+                value: "Enter your password to confirm this account operation.",
+                comment: "",
+            ),
+            preferredStyle: .alert,
+        )
+        alert.addTextField { field in
+            field.isSecureTextEntry = true
+            field.placeholder = NSLocalizedString("auth_password", value: "Password", comment: "")
+        }
+        let deleteWord: String
+        switch Locale.current.languageCode {
+        case "es": deleteWord = "ELIMINAR"
+        case "fr": deleteWord = "SUPPRIMER"
+        default: deleteWord = "DELETE"
+        }
+        if deleting {
+            alert.addTextField { field in
+                field.placeholder = String(format: NSLocalizedString("ios_profile_delete_type", value: "Type %@ to confirm", comment: ""), deleteWord)
+                field.autocapitalizationType = .allCharacters
+            }
+        }
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common_cancel", value: "Cancel", comment: ""), style: .cancel))
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("common_continue", value: "Continue", comment: ""),
+            style: deleting ? .destructive : .default,
+        ) { [weak self, weak alert] _ in
+            let password = alert?.textFields?.first?.text ?? ""
+            if deleting, alert?.textFields?.dropFirst().first?.text != deleteWord {
+                self?.presentProfileSosCapabilityNotice(
+                    NSLocalizedString("ios_profile_delete_confirmation_invalid", value: "The deletion confirmation does not match.", comment: "")
+                )
+                return
+            }
+            handler.perform(
+                action: action,
+                password: password,
+                onSuccess: { [weak self] in
+                    DispatchQueue.main.async { self?.authenticatedHost.performLogout() }
+                },
+                onFailure: { [weak self] reason in
+                    DispatchQueue.main.async {
+                        self?.presentProfileSosCapabilityNotice(reason)
+                    }
+                },
+            )
+        })
         authenticatedHost.present(alert, animated: true)
     }
 
@@ -858,11 +964,12 @@ private final class IosAppCompositionRoot {
 
     private func createAuthRepository(
         configuration: IosFeedRuntimeConfiguration,
-        bootstrap: IosFeedRuntimeBootstrap,
+        bootstrap _: IosFeedRuntimeBootstrap,
     ) -> AuthRepository? {
-        IosAuthRepositoryKt.createIosAuthRepository(
+        guard let renewableAuthSession else { return nil }
+        return IosAuthRepositoryKt.createIosAuthRepository(
             configuration: authRuntimeConfiguration(from: configuration),
-            session: bootstrap.authSessionForInteractiveLogin(),
+            session: renewableAuthSession,
         )
     }
 
@@ -991,10 +1098,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var authRequiredPromptFactory: (() -> UIViewController)?
     private var authRequiredPromptVisible = false
     private var authModalTransitionsAnimated = true
-    /// A capability choice is made while the common Compose prompt is still the presented
-    /// controller.  Keep the requested Auth destination until UIKit has completely finished
-    /// dismissing that controller; presenting from a dismissal completion can otherwise race
-    /// the presentation coordinator on slower simulators.
+    /// Retains the selected Auth entry until UIKit has completed dismissing the common prompt.
     private var pendingAuthenticationEntry: AuthenticationEntry?
     private var nextAuthPromptPresentationCompletionForTesting: (() -> Void)?
     private var nextAuthenticationPresentationCompletionForTesting: (() -> Void)?
@@ -1274,9 +1378,6 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         guard !hasAuthenticatedSession else { return }
         pendingAuthenticationEntry = entry
         dismissAuthRequiredPrompt { [weak self] in
-            // The dismissal completion is not a license to synchronously begin another UIKit
-            // transition. Moving the drain to the next main-loop turn serializes the two
-            // transitions without a timing delay and keeps the Compose prompt as the prompt.
             DispatchQueue.main.async { self?.drainPendingAuthenticationPresentation() }
         }
     }

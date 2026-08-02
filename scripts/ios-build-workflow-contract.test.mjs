@@ -13,6 +13,8 @@ const independentWorkflow = resolve(
 );
 const daemonCriteria = resolve(import.meta.dirname, '..', 'gradle', 'gradle-daemon-jvm.properties');
 const iosAppSource = resolve(import.meta.dirname, '..', 'iosApp', 'iosApp', 'QuataIosApp.swift');
+const iosProfileHostSource = resolve(import.meta.dirname, '..', 'feature', 'profile', 'src', 'iosMain', 'kotlin', 'com', 'quata', 'feature', 'profile', 'presentation', 'IosProfileHost.kt');
+const iosProfileBootstrapSource = resolve(import.meta.dirname, '..', 'feature', 'profile', 'src', 'iosMain', 'kotlin', 'com', 'quata', 'feature', 'profile', 'presentation', 'IosProfileSosRuntimeBootstrap.kt');
 
 function assertIosJavaContract(yaml) {
   assert.match(
@@ -154,8 +156,9 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
   const bootSimulator = yaml.indexOf('      - name: Boot test simulator');
   const inboxFilesystemTest = yaml.indexOf('      - name: Run iOS external share inbox filesystem contract');
   const officialPublicReadTest = yaml.indexOf('      - name: Run iOS Official public read contract');
+  const profileRuntimeTest = yaml.indexOf('      - name: Run iOS Profile runtime contract');
   const testStep = yaml.indexOf('      - name: Test Swift/Kotlin iOS host boundary');
-  assert.ok(fixtureProbe >= 0 && bootSimulator > fixtureProbe && inboxFilesystemTest > bootSimulator && officialPublicReadTest > inboxFilesystemTest && testStep > officialPublicReadTest,
+  assert.ok(fixtureProbe >= 0 && bootSimulator > fixtureProbe && inboxFilesystemTest > bootSimulator && officialPublicReadTest > inboxFilesystemTest && profileRuntimeTest > officialPublicReadTest && testStep > profileRuntimeTest,
     'the valid xcconfig fixture probe must remain before the isolated UI test');
 
   const fixtureBlock = yaml.slice(fixtureProbe, testStep);
@@ -187,6 +190,16 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
     /xcrun simctl bootstatus "\$simulator_udid" -b/,
     'the Official test must reuse the explicitly booted simulator',
   );
+
+  const profileTestBlock = yaml.slice(profileRuntimeTest, testStep);
+  assert.match(
+    profileTestBlock,
+    /:feature:profile:iosSimulatorArm64Test/,
+    'the Profile iosTest suite must execute on the Apple Silicon simulator target',
+  );
+  assert.match(profileTestBlock, /xcrun simctl bootstatus "\$simulator_udid" -b/);
+  assert.doesNotMatch(profileTestBlock, /compileTestKotlin|continue-on-error|timeout-minutes/,
+    'the focal Profile lane must execute without skipping or weakening the test gate');
 
   const uiTestBlock = yaml.slice(testStep, yaml.indexOf('      - name: Capture simulator diagnostics', testStep));
   const invocation = effectiveContinuedCommand(uiTestBlock, 'run_watchdog 1200');
@@ -437,6 +450,10 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
       yaml.replace(':feature:official:iosSimulatorArm64Test', ':feature:official:compileTestKotlinIosSimulatorArm64'),
     ],
     [
+      'Profile runtime assertions removed',
+      yaml.replace(':feature:profile:iosSimulatorArm64Test', ':feature:profile:compileTestKotlinIosSimulatorArm64'),
+    ],
+    [
       'boot watchdog accepts any booted simulator',
       yaml.replace(
         'scripts/check-ios-simulator-booted.py',
@@ -510,4 +527,24 @@ test('public Official composition explicitly keeps its Kotlin bootstrap bearer-f
     /authSessionForInteractiveLogin/,
     'Official public reads must never inherit the restored private bearer session',
   );
+});
+
+test('iOS Profile appearance state is mandatory, persisted by Swift and applied by Compose', async () => {
+  const [swift, host, bootstrap] = await Promise.all([
+    readFile(iosAppSource, 'utf8'),
+    readFile(iosProfileHostSource, 'utf8'),
+    readFile(iosProfileBootstrapSource, 'utf8'),
+  ]);
+
+  assert.doesNotMatch(host, /touchFlowEnabled:\s*Boolean\s*=|onTouchFlowEnabledChange:[^\n]*=\s*\{\}|themeMode:[^\n]*=|onThemeModeChange:[^\n]*=\s*\{\}/);
+  assert.match(host, /var touchFlowEnabled by remember \{ mutableStateOf\(dependencies\.touchFlowEnabled\) \}/);
+  assert.match(host, /var themeMode by remember \{ mutableStateOf\(dependencies\.themeMode\) \}/);
+  assert.match(host, /QuataTheme\(mode = themeMode\)/);
+  for (const required of ['touchFlowEnabled: Boolean', 'themeModeStorageValue: String?', 'onTouchFlowEnabledChange: (Boolean) -> Unit', 'onThemeModeStorageValueChange: (String) -> Unit']) {
+    assert.ok(bootstrap.includes(required), `Profile bootstrap must require ${required}`);
+  }
+  assert.match(bootstrap, /themeMode = QuataThemeMode\.fromStorageValue\(themeModeStorageValue\)/);
+  assert.match(swift, /final class IosAppearancePreferences[\s\S]*?UserDefaults[\s\S]*?touchFlowEnabled[\s\S]*?themeModeStorageValue/);
+  assert.match(swift, /appearancePreferences\.applyTheme\(to: window\)/);
+  assert.match(swift, /profileHostDependencies\([\s\S]*?touchFlowEnabled: appearancePreferences\.touchFlowEnabled[\s\S]*?themeModeStorageValue: appearancePreferences\.themeModeStorageValue/);
 });

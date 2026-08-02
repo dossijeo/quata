@@ -1,45 +1,50 @@
 package com.quata.web
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PermMedia
+import androidx.compose.material3.DropdownMenuItem as MaterialDropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.model.CountryPrefix
-import com.quata.core.capability.ProfileSosCapabilityCopy
+import com.quata.core.platform.CameraCaptureRequest
 import com.quata.core.platform.ContactPickerService
-import com.quata.core.platform.PlatformContact
+import com.quata.core.platform.FilePickerRequest
+import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PreferenceStore
-import com.quata.core.ui.components.QuataSavingButton
-import com.quata.core.ui.components.QuataTextField
-import com.quata.feature.profile.domain.EmergencyContactCandidate
-import com.quata.feature.profile.domain.ProfileEditConfig
-import com.quata.feature.profile.domain.ProfileEditModel
-import com.quata.feature.profile.domain.ProfileRepository
-import com.quata.feature.profile.domain.ProfileUpdate
-import com.quata.feature.profile.domain.SecretQuestionOption
-import com.quata.feature.profile.domain.UserProfile
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
+import com.quata.feature.auth.presentation.AuthCatalog
+import com.quata.feature.auth.presentation.AuthCatalogLocale
 import com.quata.feature.profile.data.KmpProfileRepository
 import com.quata.feature.profile.data.ProfileAvatarUploader
 import com.quata.feature.profile.data.ProfileEmergencyContactsStore
@@ -49,460 +54,326 @@ import com.quata.feature.profile.data.ProfileRemoteGateway
 import com.quata.feature.profile.data.ProfileSession
 import com.quata.feature.profile.data.ProfileSessionProvider
 import com.quata.feature.profile.data.StoredProfileEmergencyMessage
-import com.quata.feature.profile.presentation.EmergencyContactsDialogContent
-import com.quata.feature.profile.presentation.EmergencyContactsDialogSlots
+import com.quata.feature.profile.data.profileSecretQuestions
+import com.quata.feature.profile.domain.EmergencyContactCandidate
+import com.quata.feature.profile.domain.ProfileEditModel
+import com.quata.feature.profile.domain.ProfileRepository
+import com.quata.feature.profile.domain.ProfileUpdate
+import com.quata.feature.profile.domain.SecretQuestionOption
 import com.quata.feature.profile.presentation.EmergencyContactsEditorStrings
 import com.quata.feature.profile.presentation.EmergencyContactsHeaderStrings
 import com.quata.feature.profile.presentation.EmergencyUserRowContent
-import com.quata.feature.profile.presentation.ProfileOverviewAccountCardContent
-import com.quata.feature.profile.presentation.ProfilePageLayoutContent
-import com.quata.feature.profile.presentation.ProfileUiEvent
-import com.quata.feature.profile.presentation.ProfileViewModel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
+import com.quata.feature.profile.presentation.ProfileScreenHost
+import com.quata.feature.profile.presentation.ProfileScreenSlots
+import com.quata.feature.profile.presentation.ProfileScreenStrings
+import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
-/**
- * Browser composition for the shared Profile/SOS presentation. An authenticated session reads
- * its profile and SOS contacts from the remote service. Writes stay explicitly unavailable until
- * their deployed contract is verified; anonymous/no-session use remains a labelled local draft.
- */
+/** Web mounts the shared Cuenta UI and only provides browser-owned slots. */
 @Composable
-fun WebProfileHost(
+internal fun WebProfileHost(
     repository: WebProfileRepository,
+    platformServices: WebPlatformServices,
+    avatarReferences: WebProfileAvatarReferenceRegistry,
+    touchFlowEnabled: Boolean,
+    themeMode: QuataThemeMode,
+    onTouchFlowEnabledChange: (Boolean) -> Unit,
+    onThemeModeChange: (QuataThemeMode) -> Unit,
     isLoggingOut: Boolean = false,
     onLogout: (() -> Unit)? = null,
+    onDeactivateAccount: () -> Unit = {},
+    onDeleteAccountData: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val viewModel = remember(repository) { ProfileViewModel(repository) }
-    val state by viewModel.uiState.collectAsState()
-    val scope = rememberCoroutineScope()
-    var isSosOpen by remember { mutableStateOf(false) }
-    var contactPickerMessage by remember { mutableStateOf<String?>(null) }
-    val profile = state.profile
-
-    Box(modifier.fillMaxSize()) {
-        if (profile == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(if (state.isLoading) "Cargando perfil…" else state.errorMessage ?: "No se pudo cargar el perfil.")
-            }
-        } else {
-            ProfilePageLayoutContent(
-                isLandscapeLayout = false,
-                scrollState = rememberScrollState(),
-                content = {
-                    Text("Mi perfil", fontWeight = FontWeight.ExtraBold)
-                    if (repository.persistenceMode() == WebProfilePersistenceMode.OfflineDraft) {
-                        Text("Modo sin conexión: este perfil es un borrador local y no está sincronizado.")
-                    }
-                    ProfileOverviewAccountCardContent(
-                        avatar = {
-                            Text(
-                                text = profile.displayName.take(1).uppercase().ifBlank { "Q" },
-                                modifier = Modifier.size(56.dp).padding(16.dp),
-                                fontWeight = FontWeight.ExtraBold,
-                            )
-                        },
-                        actions = {
-                            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(profile.displayName, fontWeight = FontWeight.ExtraBold)
-                                Text(profile.neighborhood.ifBlank { "Sin barrio configurado" })
-                                OutlinedButton(onClick = { isSosOpen = true }, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Configurar contactos SOS")
-                                }
-                            }
-                        },
-                    )
-                    QuataTextField(
-                        value = profile.displayName,
-                        onValueChange = { viewModel.onEvent(ProfileUiEvent.NameChanged(it)) },
-                        label = "Nombre",
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    QuataTextField(
-                        value = profile.neighborhood,
-                        onValueChange = { viewModel.onEvent(ProfileUiEvent.NeighborhoodChanged(it)) },
-                        label = "Barrio",
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    QuataTextField(
-                        value = profile.phone,
-                        onValueChange = { viewModel.onEvent(ProfileUiEvent.PhoneChanged(it)) },
-                        label = "Teléfono",
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    QuataSavingButton(
-                        isSaving = state.isSaving,
-                        savingText = "Guardando…",
-                        actionText = "Guardar cambios",
-                        onClick = { viewModel.onEvent(ProfileUiEvent.Save) },
-                    )
-                    onLogout?.let { logout ->
-                        OutlinedButton(
-                            enabled = !isLoggingOut,
-                            onClick = logout,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(if (isLoggingOut) "Cerrando sesión..." else "Cerrar sesión")
-                        }
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            scope.launch {
-                                contactPickerMessage = repository.importBrowserContacts().fold(
-                                    onSuccess = { count -> if (count == 0) "No se seleccionaron contactos." else "$count contactos disponibles para SOS." },
-                                    onFailure = { it.message ?: "No se pudieron importar los contactos." },
-                                )
-                                isSosOpen = true
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Importar contactos del dispositivo") }
-                    contactPickerMessage?.let { Text(it) }
-                    state.successMessage?.let { Text(it) }
-                    state.errorMessage?.let { Text(it) }
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-        if (isSosOpen && profile != null) {
-            EmergencyContactsDialogContent(
-                layoutPadding = PaddingValues(),
-                isLandscapeLayout = false,
-                isImeVisible = false,
-                candidates = state.emergencyCandidates,
-                selectedIds = profile.emergencyContactIds,
-                message = profile.emergencyMessage,
-                isSaving = state.isSaving,
-                strings = WebEmergencyStrings,
-                onMessageChange = { viewModel.onEvent(ProfileUiEvent.EmergencyMessageChanged(it)) },
-                onToggleContact = { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) },
-                onDismiss = { isSosOpen = false },
-                onSave = { viewModel.onEvent(ProfileUiEvent.SaveEmergencySettings) },
-                slots = EmergencyContactsDialogSlots(
-                    contactRow = { contact, selected, toggle ->
-                        EmergencyUserRowContent(
-                            user = contact,
-                            selected = selected,
-                            addLabel = "Añadir",
-                            removeLabel = "Quitar",
-                            avatar = { Text(contact.displayName.take(1).uppercase().ifBlank { "Q" }) },
-                            onToggle = toggle,
-                        )
-                    },
-                    messageInput = { fieldModifier, value, onValueChange, minLines, maxLines ->
-                        OutlinedTextField(
-                            value = value,
-                            onValueChange = onValueChange,
-                            modifier = fieldModifier,
-                            minLines = minLines,
-                            maxLines = maxLines ?: Int.MAX_VALUE,
-                        )
-                    },
-                ),
-            )
-        }
-    }
+    val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
+    ProfileScreenHost(
+        repository = repository,
+        strings = WebProfileScreenStrings,
+        touchFlowEnabled = touchFlowEnabled,
+        onTouchFlowEnabledChange = onTouchFlowEnabledChange,
+        themeMode = themeMode,
+        onThemeModeChange = onThemeModeChange,
+        onLogout = { if (!isLoggingOut) onLogout?.invoke() },
+        onDeactivateAccount = onDeactivateAccount,
+        onDeleteAccountData = onDeleteAccountData,
+        modifier = modifier.fillMaxSize(),
+        slots = ProfileScreenSlots(
+            isLandscapeLayout = { isLandscape },
+            avatar = { name, avatarUrl -> BrowserRemoteAvatar(name, name, avatarUrl, false, null, Modifier.size(56.dp), allowOwnedBlobReference = true) },
+            avatarActions = { change -> WebProfileAvatarActions(platformServices, avatarReferences, change) },
+            emergencyContactRow = { contact, selected, toggle -> EmergencyUserRowContent(contact, selected, "Añadir", "Quitar", avatar = { BrowserRemoteAvatar(contact.displayName, contact.id, contact.avatarUrl, false, null, Modifier.size(46.dp)) }, onToggle = toggle) },
+        ),
+    )
 }
 
-/** Explicit offline browser draft; this is not selected for a configured authenticated session. */
-private class WebOfflineProfileRepository(
-    private val preferences: PreferenceStore,
-    private val contactPicker: ContactPickerService,
-) : ProfileRepository {
-    private val model = MutableStateFlow(defaultProfileModel())
+/** Browser-owned gallery/camera chooser; the visible control is the Android Profile control. */
+@Composable
+private fun WebProfileAvatarActions(
+    platformServices: WebPlatformServices,
+    references: WebProfileAvatarReferenceRegistry,
+    onAvatarChanged: (String?) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var menuOpen by rememberSaveable { mutableStateOf(false) }
+    var pendingReference by rememberSaveable { mutableStateOf<String?>(null) }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    // This Main scope outlives the composable only until its final release completes. Registry
+    // removal makes replacement/upload/disposal idempotent; finally cancels the scope itself.
+    val releaseScope = remember { MainScope() }
+    val latestPendingReference by rememberUpdatedState(pendingReference)
 
-    override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> = flow {
-        refreshPersistedProfile()
-        emitAll(model.map { Result.success(it) })
-    }
-
-    override suspend fun getProfileEditModel(): Result<ProfileEditModel> = runCatching {
-        refreshPersistedProfile()
-        model.value
-    }
-
-    override suspend fun saveProfile(update: ProfileUpdate): Result<Unit> = runCatching {
-        val profile = UserProfile(
-            displayName = update.displayName,
-            neighborhood = update.neighborhood,
-            countryCode = update.countryCode,
-            phone = update.phone,
-            avatarUri = update.avatarUri,
-            selectedSecretQuestion = update.secretQuestion,
-            emergencyContactIds = update.emergencyContactIds.distinct().take(MaxEmergencyContacts),
-            emergencyMessage = update.emergencyMessage,
-            emergencyMessageIsDefault = update.emergencyMessageIsDefault,
-        )
-        persist(profile)
-        model.value = model.value.copy(profile = profile)
-    }
-
-    override suspend fun saveEmergencySettings(
-        contactIds: List<String>,
-        message: String,
-        messageIsDefault: Boolean,
-    ): Result<Unit> = runCatching {
-        val profile = model.value.profile.copy(
-            emergencyContactIds = contactIds.distinct().take(MaxEmergencyContacts),
-            emergencyMessage = message,
-            emergencyMessageIsDefault = messageIsDefault,
-        )
-        persist(profile)
-        model.value = model.value.copy(profile = profile)
-    }
-
-    suspend fun importBrowserContacts(): Result<Int> = runCatching {
-        when (val result = contactPicker.pickContacts()) {
-            is PlatformResult.Success -> {
-                val imported = result.value.mapIndexedNotNull { index, contact -> contact.toEmergencyCandidate(index) }
-                val existing = model.value.config.emergencyCandidates.associateBy(EmergencyContactCandidate::id)
-                val merged = (existing.values + imported.filterNot { existing.containsKey(it.id) })
-                model.value = model.value.copy(config = model.value.config.copy(emergencyCandidates = merged))
-                imported.size
+    DisposableEffect(Unit) {
+        onDispose {
+            releaseScope.launch {
+                try {
+                    references.release(latestPendingReference)
+                } finally {
+                    releaseScope.cancel()
+                }
             }
-            PlatformResult.Cancelled -> 0
-            PlatformResult.Unsupported -> throw UnsupportedOperationException(
-                ProfileSosCapabilityCopy.contactsPickerUnavailable(browserCapabilityLanguageTag()),
-            )
-            is PlatformResult.Failure -> throw IllegalStateException(result.reason ?: "contact_picker_failed")
         }
     }
 
-    override fun defaultEmergencyMessage(displayName: String): String =
-        "Necesito ayuda. Por favor, contacta conmigo, $displayName."
+    suspend fun openEditor(file: com.quata.core.platform.PlatformFile, fromCamera: Boolean) {
+        references.release(pendingReference)
+        if (fromCamera) references.ownCamera(file) else references.ownGallery(file)
+        pendingReference = file.reference
+        error = null
+    }
 
-    override fun changesSavedMessage(): String = "Borrador guardado solo en este navegador; no se ha sincronizado."
-
-    override fun emergencyContactsSavedMessage(): String = "Borrador SOS guardado solo en este navegador; no se ha sincronizado."
-
-    private suspend fun refreshPersistedProfile() {
-        val current = model.value.profile
-        val displayName = preferences.getString(WebProfileNameKey) ?: current.displayName
-        val neighborhood = preferences.getString(WebProfileNeighborhoodKey) ?: current.neighborhood
-        val phone = preferences.getString(WebProfilePhoneKey) ?: current.phone
-        val contacts = preferences.getString(WebProfileEmergencyIdsKey)
-            ?.split(',')
-            ?.filter(String::isNotBlank)
-            .orEmpty()
-        val message = preferences.getString(WebProfileEmergencyMessageKey) ?: defaultEmergencyMessage(displayName)
-        model.value = model.value.copy(
-            profile = current.copy(
-                displayName = displayName,
-                neighborhood = neighborhood,
-                phone = phone,
-                emergencyContactIds = contacts,
-                emergencyMessage = message,
-                emergencyMessageIsDefault = preferences.getString(WebProfileEmergencyIsDefaultKey) != "false",
-            ),
+    OutlinedButton(onClick = { menuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+        CompactIcon(Icons.Filled.PhotoCamera, null)
+        Spacer(Modifier.width(4.dp))
+        Text("Cambiar foto de perfil")
+    }
+    if (menuOpen) Popup(
+        popupPositionProvider = CenteredAvatarActionMenuPosition,
+        onDismissRequest = { menuOpen = false },
+    ) {
+        BoxWithConstraints(Modifier.wrapContentSize()) {
+            val menuWidth = webAvatarActionMenuWidth(maxWidth.value.toInt()).dp
+            Surface(
+                modifier = Modifier.width(menuWidth),
+                shape = MaterialTheme.shapes.extraSmall,
+                tonalElevation = 6.dp,
+            ) {
+                Column {
+        DropdownMenuItem(text = { Text("Elegir de galería") }, onClick = {
+            menuOpen = false
+            scope.launch {
+                when (val result = platformServices.filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery))) {
+                    is PlatformResult.Success -> result.value.firstOrNull()?.let { openEditor(it, fromCamera = false) }
+                        ?: run { error = "No se seleccionó ninguna foto." }
+                    PlatformResult.Cancelled -> Unit
+                    PlatformResult.Unsupported -> error = "La galería no está disponible en este navegador."
+                    is PlatformResult.Failure -> error = "No se pudo seleccionar la foto."
+                }
+            }
+        })
+        DropdownMenuItem(
+            text = { Text("Hacer foto") },
+            leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, null) },
+            onClick = {
+            menuOpen = false
+            scope.launch {
+                when (val result = platformServices.cameraCapture.capturePhoto(CameraCaptureRequest("quata-avatar.jpg"))) {
+                    is PlatformResult.Success -> openEditor(result.value, fromCamera = true)
+                    PlatformResult.Cancelled -> Unit
+                    PlatformResult.Unsupported -> error = "La cámara no está disponible en este navegador."
+                    is PlatformResult.Failure -> error = "No se pudo capturar la foto."
+                }
+            }
+        })
+                }
+            }
+        }
+    }
+    pendingReference?.let { reference ->
+        WebAvatarImageEditor(
+            sourceReference = reference,
+            initialTransform = references.editorTransform(reference),
+            onDismiss = {
+                scope.launch { references.release(reference) }
+                pendingReference = null
+            },
+            onConfirm = { transform ->
+                references.saveEditorTransform(reference, transform)
+                pendingReference = null
+                onAvatarChanged(reference)
+            },
         )
     }
-
-    private suspend fun persist(profile: UserProfile) {
-        preferences.putString(WebProfileNameKey, profile.displayName)
-        preferences.putString(WebProfileNeighborhoodKey, profile.neighborhood)
-        preferences.putString(WebProfilePhoneKey, profile.phone)
-        preferences.putString(WebProfileEmergencyIdsKey, profile.emergencyContactIds.joinToString(","))
-        preferences.putString(WebProfileEmergencyMessageKey, profile.emergencyMessage)
-        preferences.putString(WebProfileEmergencyIsDefaultKey, profile.emergencyMessageIsDefault.toString())
-    }
+    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 }
 
 /**
- * Selects remote persistence only when the launcher has a configured authenticated session.
- * A remote failure is returned unchanged to [ProfileViewModel]; it never falls back to a local
- * save and therefore cannot produce a false "saved" confirmation.
+ * Anchors the action menu to the centre of the actual control, rather than assuming a desktop
+ * account-panel offset. On a narrow viewport it is clamped to the visible window and flips above
+ * its control when there is no room below.
  */
+private object CenteredAvatarActionMenuPosition : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        return webCenteredAvatarActionMenuOffset(anchorBounds, windowSize, popupContentSize)
+    }
+}
+
+/** Pure placement seam: exact centre on desktop, clamp/flip only when a mobile viewport needs it. */
+internal fun webCenteredAvatarActionMenuOffset(
+    anchorBounds: IntRect,
+    windowSize: IntSize,
+    popupContentSize: IntSize,
+): IntOffset {
+    val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+    val desiredX = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2
+    val belowY = anchorBounds.bottom
+    val y = if (belowY + popupContentSize.height <= windowSize.height) belowY
+    else (anchorBounds.top - popupContentSize.height).coerceAtLeast(0)
+    return IntOffset(desiredX.coerceIn(0, maxX), y)
+}
+
+/** A compact Android-like card on desktop that cannot exceed a narrow mobile viewport. */
+internal fun webAvatarActionMenuWidth(availableWidthDp: Int): Int =
+    availableWidthDp.coerceIn(1, WebAvatarActionMenuPreferredWidthDp)
+
+private const val WebAvatarActionMenuPreferredWidthDp = 240
+
+/** Keeps both avatar source choices visually equivalent without relying on browser menu chrome. */
+@Composable
+private fun DropdownMenuItem(
+    text: @Composable () -> Unit,
+    onClick: () -> Unit,
+) = MaterialDropdownMenuItem(
+    text = text,
+    onClick = onClick,
+    leadingIcon = { CompactIcon(Icons.Filled.PermMedia, null) },
+)
+
+@Composable
+private fun DropdownMenuItem(
+    text: @Composable () -> Unit,
+    leadingIcon: @Composable () -> Unit,
+    onClick: () -> Unit,
+) = MaterialDropdownMenuItem(
+    text = text,
+    onClick = onClick,
+    leadingIcon = leadingIcon,
+)
+
+/** Authenticated remote repository only. There is no browser-local Profile product fallback. */
 class WebProfileRepository(
     preferences: PreferenceStore,
-    contactPicker: ContactPickerService,
+    @Suppress("UNUSED_PARAMETER") contactPicker: ContactPickerService,
     remoteGateway: ProfileRemoteGateway? = null,
     remoteSessionProvider: ProfileSessionProvider? = null,
+    avatarUploader: ProfileAvatarUploader = UnavailableWebProfileAvatarUploader,
     private val remoteAvailable: () -> Boolean = { false },
 ) : ProfileRepository {
-    private val offline = WebOfflineProfileRepository(preferences, contactPicker)
-    private val remote: ProfileRepository? = if (remoteGateway != null && remoteSessionProvider != null) {
-        WebReadOnlyRemoteProfileRepository(
-            KmpProfileRepository(
-            remote = remoteGateway,
-            sessions = remoteSessionProvider,
-            avatarUploader = WebProfileAvatarUploader,
-            emergencyMessages = WebProfileMemoryEmergencyMessageStore(),
-            emergencyContacts = WebProfileMemoryEmergencyContactsStore(),
-            catalog = WebProfileCatalog,
-            ),
-        )
-    } else null
+    private val remote: ProfileRepository? = if (remoteGateway != null && remoteSessionProvider != null) KmpProfileRepository(
+        remote = remoteGateway, sessions = remoteSessionProvider, avatarUploader = avatarUploader,
+        emergencyMessages = WebProfilePreferenceEmergencyMessageStore(preferences),
+        emergencyContacts = WebProfilePreferenceEmergencyContactsStore(preferences),
+        catalog = WebProfileCatalog,
+    ) else null
 
-    fun persistenceMode(): WebProfilePersistenceMode =
-        webProfilePersistenceMode(remote != null, remoteAvailable())
-
+    fun persistenceMode(): WebProfilePersistenceMode = if (remote != null && remoteAvailable()) WebProfilePersistenceMode.Remote else WebProfilePersistenceMode.Unavailable
     private fun selected(): ProfileRepository = when (persistenceMode()) {
         WebProfilePersistenceMode.Remote -> checkNotNull(remote)
-        WebProfilePersistenceMode.OfflineDraft -> offline
+        WebProfilePersistenceMode.Unavailable -> UnavailableWebProfileRepository
     }
-
     override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> = selected().observeProfileEditModel()
     override suspend fun getProfileEditModel(): Result<ProfileEditModel> = selected().getProfileEditModel()
     override suspend fun saveProfile(update: ProfileUpdate): Result<Unit> = selected().saveProfile(update)
-    override suspend fun saveEmergencySettings(contactIds: List<String>, message: String, messageIsDefault: Boolean): Result<Unit> =
-        selected().saveEmergencySettings(contactIds, message, messageIsDefault)
-
-    suspend fun importBrowserContacts(): Result<Int> = when (persistenceMode()) {
-        WebProfilePersistenceMode.Remote -> Result.failure(
-            UnsupportedOperationException("web_profile_contacts_require_quata_profiles"),
-        )
-        WebProfilePersistenceMode.OfflineDraft -> offline.importBrowserContacts()
-    }
-
+    override suspend fun saveEmergencySettings(contactIds: List<String>, message: String, messageIsDefault: Boolean): Result<Unit> = selected().saveEmergencySettings(contactIds, message, messageIsDefault)
     override fun defaultEmergencyMessage(displayName: String): String = selected().defaultEmergencyMessage(displayName)
     override fun changesSavedMessage(): String = selected().changesSavedMessage()
     override fun emergencyContactsSavedMessage(): String = selected().emergencyContactsSavedMessage()
 }
 
-enum class WebProfilePersistenceMode { Remote, OfflineDraft }
+enum class WebProfilePersistenceMode { Remote, Unavailable }
+internal fun webProfilePersistenceMode(hasRemoteRepository: Boolean, hasConfiguredAuthenticatedSession: Boolean): WebProfilePersistenceMode =
+    if (hasRemoteRepository && hasConfiguredAuthenticatedSession) WebProfilePersistenceMode.Remote else WebProfilePersistenceMode.Unavailable
 
-internal fun webProfilePersistenceMode(
-    hasRemoteRepository: Boolean,
-    hasConfiguredAuthenticatedSession: Boolean,
-): WebProfilePersistenceMode = if (hasRemoteRepository && hasConfiguredAuthenticatedSession) {
-    WebProfilePersistenceMode.Remote
-} else {
-    WebProfilePersistenceMode.OfflineDraft
+private object UnavailableWebProfileRepository : ProfileRepository {
+    private fun unavailable() = IllegalStateException("web_profile_remote_session_unavailable")
+    override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> = flow { emit(Result.failure(unavailable())) }
+    override suspend fun getProfileEditModel(): Result<ProfileEditModel> = Result.failure(unavailable())
+    override suspend fun saveProfile(update: ProfileUpdate): Result<Unit> = Result.failure(unavailable())
+    override suspend fun saveEmergencySettings(contactIds: List<String>, message: String, messageIsDefault: Boolean): Result<Unit> = Result.failure(unavailable())
+    override fun defaultEmergencyMessage(displayName: String) = "Necesito ayuda. Por favor, contacta conmigo, $displayName."
+    override fun changesSavedMessage() = ""
+    override fun emergencyContactsSavedMessage() = ""
 }
 
-/**
- * A session-backed view can never fall through to the preference-backed draft after a remote
- * error. In particular, save requests return the contract failure before the portable repository
- * can touch its in-memory contact/message stores or construct a remote mutation.
- */
-internal class WebReadOnlyRemoteProfileRepository(
-    private val reads: ProfileRepository,
-) : ProfileRepository {
-    override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> = reads.observeProfileEditModel()
-    override suspend fun getProfileEditModel(): Result<ProfileEditModel> = reads.getProfileEditModel()
-    override suspend fun saveProfile(update: ProfileUpdate): Result<Unit> =
-        Result.failure(IllegalStateException("web_profile_mutation_contract_unverified"))
-
-    override suspend fun saveEmergencySettings(
-        contactIds: List<String>,
-        message: String,
-        messageIsDefault: Boolean,
-    ): Result<Unit> = Result.failure(IllegalStateException("web_profile_mutation_contract_unverified"))
-
-    override fun defaultEmergencyMessage(displayName: String): String = reads.defaultEmergencyMessage(displayName)
-    override fun changesSavedMessage(): String = reads.changesSavedMessage()
-    override fun emergencyContactsSavedMessage(): String = reads.emergencyContactsSavedMessage()
+private object UnavailableWebProfileAvatarUploader : ProfileAvatarUploader {
+    override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?): String? =
+        webProfileAvatarUploadReference(avatarUri)
 }
+internal class WebProfilePreferenceEmergencyMessageStore(private val preferences: PreferenceStore) : ProfileEmergencyMessageStore {
+    override suspend fun get(profileId: String): StoredProfileEmergencyMessage? {
+        val message = preferences.getString(webProfileSosKey(profileId, "message")) ?: return null
+        val isDefault = preferences.getString(webProfileSosKey(profileId, "is_default"))?.toBooleanStrictOrNull() ?: true
+        return StoredProfileEmergencyMessage(message, isDefault)
+    }
 
-private object WebProfileAvatarUploader : ProfileAvatarUploader {
-    override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?): String? {
-        if (avatarUri.isNullOrBlank()) return null
-        throw UnsupportedOperationException("web_profile_avatar_upload_not_available")
+    override suspend fun save(profileId: String, message: String, isDefault: Boolean) {
+        preferences.putString(webProfileSosKey(profileId, "message"), message)
+        preferences.putString(webProfileSosKey(profileId, "is_default"), isDefault.toString())
     }
 }
 
-private class WebProfileMemoryEmergencyMessageStore : ProfileEmergencyMessageStore {
-    private val values = mutableMapOf<String, StoredProfileEmergencyMessage>()
-    override fun get(profileId: String): StoredProfileEmergencyMessage? = values[profileId]
-    override fun save(profileId: String, message: String, isDefault: Boolean) {
-        values[profileId] = StoredProfileEmergencyMessage(message, isDefault)
+internal class WebProfilePreferenceEmergencyContactsStore(private val preferences: PreferenceStore) : ProfileEmergencyContactsStore {
+    override suspend fun get(profileId: String): List<String> = preferences
+        .getString(webProfileSosKey(profileId, "contacts"))
+        ?.split(WebProfileContactSeparator)
+        ?.filter(String::isNotBlank)
+        ?.distinct()
+        ?.take(5)
+        .orEmpty()
+
+    override suspend fun save(profileId: String, contactIds: List<String>) {
+        preferences.putString(
+            webProfileSosKey(profileId, "contacts"),
+            contactIds.map(String::trim).filter(String::isNotBlank).distinct().take(5)
+                .joinToString(WebProfileContactSeparator),
+        )
     }
 }
 
-private class WebProfileMemoryEmergencyContactsStore : ProfileEmergencyContactsStore {
-    private val values = mutableMapOf<String, List<String>>()
-    override fun get(profileId: String): List<String> = values[profileId].orEmpty()
-    override fun save(profileId: String, contactIds: List<String>) { values[profileId] = contactIds }
-}
+private fun webProfileSosKey(profileId: String, field: String): String =
+    "web.profile.sos.${profileId.replace(Regex("[^A-Za-z0-9._-]"), "_")}.$field"
 
-internal class WebProfileSessionProvider(
-    private val authRepository: WebAuthRepository,
-) : ProfileSessionProvider {
-    private var displayName: String = "Usuario"
-    override fun currentSession(): ProfileSession? = authRepository.activeProfileSessionOrNull()?.let {
-        ProfileSession(profileId = it.userId, displayName = displayName)
-    }
+private const val WebProfileContactSeparator = "\u001F"
+internal class WebProfileSessionProvider(private val authRepository: WebAuthRepository) : ProfileSessionProvider {
+    private var displayName = "Usuario"
+    override fun currentSession(): ProfileSession? = authRepository.activeProfileSessionOrNull()?.let { ProfileSession(it.userId, displayName) }
     override fun updateDisplayName(session: ProfileSession, displayName: String) { this.displayName = displayName }
 }
-
 private object WebProfileCatalog : ProfilePresentationCatalog {
-    override fun countryPrefixes(): List<CountryPrefix> = listOf(
-        CountryPrefix("240", "+240 - Guinea Ecuatorial"),
-        CountryPrefix("34", "+34 - España"),
-    )
-    override fun secretQuestions(): List<SecretQuestionOption> = emptyList()
-    override fun fallbackUserName(): String = "Usuario"
-    override fun defaultEmergencyMessage(displayName: String): String =
-        "Necesito ayuda. Por favor, contacta conmigo, $displayName."
-    override fun changesSavedMessage(): String = "Cambios sincronizados con el servidor."
-    override fun emergencyContactsSavedMessage(): String =
-        "Contactos SOS sincronizados; el texto SOS se conserva solo durante esta sesión web."
+    private fun locale() = AuthCatalogLocale.fromLanguage(webProfileLanguageTag())
+    override fun countryPrefixes() = AuthCatalog.countryPrefixes(locale())
+    override fun secretQuestions(): List<SecretQuestionOption> = profileSecretQuestions(locale())
+    override fun fallbackUserName() = "Usuario"
+    override fun defaultEmergencyMessage(displayName: String) = "Necesito ayuda. Por favor, contacta conmigo, $displayName."
+    override fun changesSavedMessage() = "Cambios sincronizados con el servidor."
+    override fun emergencyContactsSavedMessage() = "Contactos SOS sincronizados con el servidor."
 }
 
-private fun defaultProfileModel(): ProfileEditModel {
-    val displayName = "Mi perfil"
-    return ProfileEditModel(
-        profile = UserProfile(
-            displayName = displayName,
-            neighborhood = "",
-            countryCode = "240",
-            phone = "",
-            emergencyMessage = "Necesito ayuda. Por favor, contacta conmigo, $displayName.",
-        ),
-        config = ProfileEditConfig(
-            countryPrefixes = listOf(
-                CountryPrefix("240", "+240 - Guinea Ecuatorial"),
-                CountryPrefix("34", "+34 - España"),
-            ),
-            secretQuestions = emptyList<SecretQuestionOption>(),
-            emergencyCandidates = emptyList(),
-        ),
-    )
-}
+internal fun webProfileLanguageTag(): String? = js("globalThis.navigator?.language || globalThis.document?.documentElement?.lang || 'es'")
 
-private fun PlatformContact.toEmergencyCandidate(index: Int): EmergencyContactCandidate? {
-    val name = displayName?.trim()?.takeIf(String::isNotBlank)
-        ?: phones.firstOrNull()?.trim()?.takeIf(String::isNotBlank)
-        ?: emails.firstOrNull()?.trim()?.takeIf(String::isNotBlank)
-        ?: return null
-    val identity = phones.firstOrNull()?.filter(Char::isDigit)
-        ?: emails.firstOrNull()?.trim()?.lowercase()
-        ?: "$name-$index"
-    return EmergencyContactCandidate(
-        id = "browser-contact-$identity",
-        displayName = name,
-        email = emails.firstOrNull().orEmpty(),
-        neighborhood = "Contacto del dispositivo",
-        phone = phones.firstOrNull().orEmpty(),
-    )
-}
-
-private val WebEmergencyStrings = EmergencyContactsEditorStrings(
-    header = EmergencyContactsHeaderStrings(
-        back = "Volver",
-        sos = "SOS",
-        title = "Contactos de emergencia",
-        description = "Elige hasta cinco contactos y personaliza el mensaje de ayuda.",
-        contactsTab = "Contactos",
-        messageTab = "Mensaje",
-    ),
-    selectedCount = { "$it seleccionados" },
-    networkUsers = "Contactos disponibles",
-    searchPlaceholder = "Buscar contacto",
-    messageTitle = "Mensaje SOS",
-    messageHint = "Escribe el mensaje que recibirán tus contactos.",
-    savePortrait = "Guardar SOS",
-    saveLandscape = "Guardar",
+private val WebProfileScreenStrings = ProfileScreenStrings(
+    "Cargando perfil…", "Mis datos", "Gestión de cuenta", "Gestiona las opciones sensibles de tu cuenta.", "Configurar contactos de emergencia", "Guardar cambios", "Guardando…", "Cerrar sesión", "Nombre", "Barrio", "Teléfono", "Nueva contraseña", "Pregunta secreta", "Nueva respuesta secreta", "Volver", "Desactivar cuenta", "Solicitar eliminación de datos", "Esta acción requiere una confirmación adicional.", "Continuar", "Cancelar",
+    AppearanceSettingsStrings("Activar Qüata TouchFlow", "Modo de color", "Sistema", "Modo Oscuro", "Modo Claro"),
+    EmergencyContactsEditorStrings(EmergencyContactsHeaderStrings("Volver", "SOS", "Contactos de emergencia", "Elige hasta cinco contactos y personaliza el mensaje de ayuda.", "Contactos", "Mensaje"), { "$it seleccionados" }, "Contactos disponibles", "Buscar contacto", "Mensaje SOS", "Escribe el mensaje que recibirán tus contactos.", "Guardar SOS", "Guardar"),
+    "El cambio de contraseña se realiza desde «Olvidé mi contraseña» hasta que exista un contrato autenticado de actualización.",
+    "No se pudo cargar el perfil.",
+    "Reintentar",
 )
-
-private const val MaxEmergencyContacts = 5
-private const val WebProfileNameKey = "web.profile.display_name"
-private const val WebProfileNeighborhoodKey = "web.profile.neighborhood"
-private const val WebProfilePhoneKey = "web.profile.phone"
-private const val WebProfileEmergencyIdsKey = "web.profile.emergency_ids"
-private const val WebProfileEmergencyMessageKey = "web.profile.emergency_message"
-private const val WebProfileEmergencyIsDefaultKey = "web.profile.emergency_message_is_default"
