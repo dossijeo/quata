@@ -120,8 +120,8 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
   assert.match(runner, /fixtureState\.notificationInboxReads < 1/);
-  assert.match(runner, /MAX_NOTIFICATION_INBOX_READS = 50/);
-  assert.match(runner, /notification_inbox_read_storm/);
+  assert.match(runner, /MAX_AUTHENTICATED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 16/);
+  assert.match(runner, /authenticated_inbox_read_storm/);
   assert.match(runner, /notificationInboxReads: productReadEvidence\.notificationInboxReads/);
   assert.match(runner, /notificationInboxReadStages: productReadEvidence\.notificationInboxReadStages/);
   assert.doesNotMatch(runner, /chatExcluded/);
