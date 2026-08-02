@@ -120,6 +120,8 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
   assert.match(runner, /fixtureState\.notificationInboxReads < 1/);
+  assert.match(runner, /MAX_NOTIFICATION_INBOX_READS = 50/);
+  assert.match(runner, /notification_inbox_read_storm/);
   assert.match(runner, /notificationInboxReads: productReadEvidence\.notificationInboxReads/);
   assert.match(runner, /notificationInboxReadStages: productReadEvidence\.notificationInboxReadStages/);
   assert.doesNotMatch(runner, /chatExcluded/);
@@ -133,6 +135,8 @@ test("fixture fails closed on external network while proving the notification in
   );
   assert.ok(READ_ONLY_ROUTE_MATRIX.every(route => Object.keys(route).sort().join(",") === "fragment,route"));
   assert.match(runner, /globalThis\.location\.hash = fragment/);
+  assert.match(main, /val notificationCountFlow = remember\(notificationsRepository, shouldObserveNotifications\)/);
+  assert.match(main, /notificationCountFlow\.collectAsState\(initial = 0\)/);
 });
 
 test("WhatsNew RPC POST remains explicitly outside the strict GET-only route matrix", () => {
@@ -316,6 +320,14 @@ test("navigation stress permits only the exact read-only inbox RPC", () => {
   const decide = (path, method = "POST") => backendBrowserRequestDecision({ backend, url: `${backend}${path}`, method, stage: "authenticated_navigation_stress", body: "{}" });
   assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox").allowed, true);
   for (const path of ["/rest/v1/rpc/quata_chat_get_inbox_extra", "/rest/v1/rpc/quata_chat_send_message"]) assert.equal(decide(path).allowed, false);
+  assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox", "PATCH").allowed, false);
+});
+
+test("native push consent also permits only the exact read-only inbox RPC", () => {
+  const backend = "https://project-ref.supabase.co";
+  const decide = (path, method = "POST") => backendBrowserRequestDecision({ backend, url: `${backend}${path}`, method, stage: "authenticated_settings_push_consent", body: "{}" });
+  assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox").allowed, true);
+  assert.equal(decide("/rest/v1/rpc/quata_chat_send_message").allowed, false);
   assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox", "PATCH").allowed, false);
 });
 

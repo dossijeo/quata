@@ -169,11 +169,16 @@ private fun QuataWebApp(
     }
     var isSessionReady by remember { mutableStateOf(false) }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
-    val notificationCount by webChromeNotificationCount(
-        source = notificationsRepository.observeNotificationCount(),
-        shouldObserve = isSessionReady && runtimeConfiguration.isBackendConfigured,
-    )
-        .collectAsState(initial = 0)
+    val shouldObserveNotifications = isSessionReady && runtimeConfiguration.isBackendConfigured
+    // A cold polling Flow must survive unrelated shell recompositions. Recreating it here caused
+    // every navigation/layout change to cancel and immediately restart the inbox RPC.
+    val notificationCountFlow = remember(notificationsRepository, shouldObserveNotifications) {
+        webChromeNotificationCount(
+            source = notificationsRepository.observeNotificationCount(),
+            shouldObserve = shouldObserveNotifications,
+        )
+    }
+    val notificationCount by notificationCountFlow.collectAsState(initial = 0)
     val profileAvatarReferences = remember(platformServices) {
         WebProfileAvatarReferenceRegistry(platformServices.filePickerReferences, platformServices.cameraCapture)
     }

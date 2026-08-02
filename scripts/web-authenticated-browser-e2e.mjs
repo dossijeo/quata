@@ -47,6 +47,7 @@ const PRIMARY_NAVIGATION_STRESS_SEQUENCES = Object.freeze([
   { name: "direct_fragments", fragments: ["communities", "chat", "official", "", "profile"] },
 ]);
 const NAVIGATION_STRESS_CYCLES = 50;
+const MAX_NOTIFICATION_INBOX_READS = 50;
 const PRIVATE_RETURN_FRAGMENT = "chat-sb%3Ateam%2F42?message=msg%209";
 const PRIVATE_RETURN_ROUTE = "chat/sb:team/42";
 
@@ -234,6 +235,9 @@ try {
 
   stage = "authenticated_navigation_stress";
   report.navigationStress = await runAuthenticatedNavigationStress(page, browserDiagnostics);
+  if (productReadEvidence.notificationInboxReads > MAX_NOTIFICATION_INBOX_READS) {
+    throw new Error("notification_inbox_read_storm");
+  }
   report.navigationStress.finalShellScreenshot = await captureShellScreenshot(page, options.output);
   report.steps.push("authenticated_navigation_stress_6_sequences_50_cycles");
 

@@ -26,6 +26,7 @@ export const READ_ONLY_ROUTE_EXCLUSIONS = Object.freeze([
 const NOTIFICATION_INBOX_READ_STAGES = Object.freeze([
   "authenticated_browser_restore",
   "authenticated_route_matrix",
+  "authenticated_settings_push_consent",
   "authenticated_navigation_stress",
   "native_auth_control_logout",
   "compose_auth_bridge_logout",
