@@ -47,7 +47,6 @@ fun WebChatHost(
         val stopObserving = observeBrowserDocumentVisibility(repository::setAppForeground)
         onDispose {
             stopObserving()
-            repository.setAppForeground(false)
         }
     }
     ChatBrowserHostContent(

@@ -156,12 +156,18 @@ private fun QuataWebApp(
     // Test-only selection is fail-closed: both localhost and the explicit query opt-in are
     // required. All normal browsers retain the remote WebChatRepository above.
     val chatHostRepository = remember { webChatE2eFixtureOrNull() ?: chatRepository }
+    DisposableEffect(chatRepository) {
+        chatRepository.setAppForeground(browserDocumentIsVisible())
+        val stopObserving = observeBrowserDocumentVisibility(chatRepository::setAppForeground)
+        onDispose { stopObserving() }
+    }
     val neighborhoodsRepository = remember(runtimeConfiguration, authRepository) {
         WebNeighborhoodsRepository(
             client = WebPostgrestClient(runtimeConfiguration, authRepository),
             authRepository = authRepository,
         )
     }
+    var isSessionReady by remember { mutableStateOf(false) }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
     val notificationCount by webChromeNotificationCount(
         source = notificationsRepository.observeNotificationCount(),
@@ -194,7 +200,6 @@ private fun QuataWebApp(
         )
     }
     val incomingShareStore = remember { WebIncomingShareStore() }
-    var isSessionReady by remember { mutableStateOf(false) }
     var currentUserId by remember { mutableStateOf<String?>(null) }
     // Do not treat the first composition as anonymous: persisted Web credentials are restored
     // asynchronously, and private deep links must retain their hash while that resolves.
@@ -673,13 +678,13 @@ internal fun webChromeNotificationCount(source: Flow<Int>, shouldObserve: Boolea
             delayMillis = (delayMillis * 2L).coerceAtMost(30_000L)
         }
     }
-}
+    }
+    }
 
 internal data class AnonymousNotificationAuthEffect(val navigateFeed: Boolean, val pendingFragment: String?)
 internal fun anonymousNotificationClickEffect(conversationId: String) =
     AnonymousNotificationAuthEffect(navigateFeed = true, pendingFragment = quataChatUrl(conversationId).substringAfter('#'))
 internal fun anonymousNotificationSwipeEffect() = AnonymousNotificationAuthEffect(navigateFeed = false, pendingFragment = null)
-}
 
 internal val webPrimaryNavigationLabels = QuataPrimaryNavigationLabels(
     neighborhoods = "Qüata",
