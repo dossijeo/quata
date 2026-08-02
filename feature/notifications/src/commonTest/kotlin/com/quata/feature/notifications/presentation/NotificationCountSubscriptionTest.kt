@@ -81,6 +81,22 @@ class NotificationCountSubscriptionTest {
         assertEquals(listOf(9), received)
     }
 
+    @Test
+    fun `close during the first retry delay prevents a permanently failing source from resubscribing`() = runTest {
+        val repository = AlwaysFailingCountRepository()
+        val subscription = NotificationCountSubscription(repository, this)
+
+        subscription.start { }
+        testScheduler.runCurrent()
+        assertEquals(1, repository.attempts)
+
+        subscription.close()
+        advanceTimeBy(60_000)
+        testScheduler.runCurrent()
+
+        assertEquals(1, repository.attempts)
+    }
+
     private open class CountRepository : NotificationsRepository {
         val count = MutableStateFlow(0)
 
@@ -98,6 +114,14 @@ class NotificationCountSubscriptionTest {
             attempts += 1
             if (attempts == 1) error("count_transport_failed")
             emit(9)
+        }
+    }
+
+    private class AlwaysFailingCountRepository : CountRepository() {
+        var attempts = 0
+        override fun observeNotificationCount(): Flow<Int> = flow {
+            attempts += 1
+            error("count_transport_failed")
         }
     }
 }

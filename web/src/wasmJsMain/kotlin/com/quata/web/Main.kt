@@ -517,7 +517,11 @@ private fun QuataWebApp(
                             if (effect.navigateFeed) navigation.navigate("")
                             requestAuthenticationFor(effect.pendingFragment.orEmpty())
                         },
-                        onDismissAuthenticationRequired = { requestAuthenticationForCurrentRoute() },
+                        onDismissAuthenticationRequired = {
+                            val effect = anonymousNotificationSwipeEffect()
+                            if (effect.navigateFeed) navigation.navigate("")
+                            requestAuthenticationFor(effect.pendingFragment ?: navigation.fragment)
+                        },
                     )
                 } else if (navigation.route == "profile") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Profile) {
