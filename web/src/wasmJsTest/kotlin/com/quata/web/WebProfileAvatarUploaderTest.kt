@@ -87,6 +87,21 @@ class WebProfileAvatarUploaderTest {
     }
 
     @Test
+    fun mismatchedAuthenticatedActorReleasesTheBlobBeforeAnyPrepareOrUpload() = runTest {
+        val binary = RecordingBinary()
+        val refs = RecordingReferences()
+        val uploader = uploader(binary, refs, sessionUserId = "another-profile")
+
+        val failure = runCatching { uploader.uploadIfNeeded("profile-1", "blob:https://quata.example/input") }.exceptionOrNull()
+
+        assertEquals("web_profile_avatar_actor_mismatch", failure?.message)
+        assertTrue(binary.prepared.isEmpty())
+        assertTrue(binary.uploads.isEmpty())
+        assertTrue(binary.revoked.isEmpty())
+        assertEquals(listOf("blob:https://quata.example/input"), refs.released)
+    }
+
+    @Test
     fun uploadFailureRevokesProcessedBlobAndReleasesOriginalWithoutReturningABlobReference() = runTest {
         val binary = RecordingBinary(failUpload = true)
         val refs = RecordingReferences()
@@ -101,10 +116,16 @@ class WebProfileAvatarUploaderTest {
         assertFalse(result.getOrNull()?.startsWith("blob:") == true)
     }
 
-    private fun uploader(binary: WebProfileAvatarBinaryTransport, refs: WebProfileAvatarReferenceStore): ProfileAvatarUploader =
+    private fun uploader(
+        binary: WebProfileAvatarBinaryTransport,
+        refs: WebProfileAvatarReferenceStore,
+        sessionUserId: String = "profile-1",
+    ): ProfileAvatarUploader =
         WebProfileAvatarUploader(
             configuration = configuration,
-            credentials = { WebPushCredentials("access", "web-session") },
+            sessionForAuthenticatedRequest = {
+                WebLocalSession("access", "refresh", "web-session", sessionUserId, expiresAt = Long.MAX_VALUE)
+            },
             references = refs,
             binary = binary,
             token = { "fixed-token" },

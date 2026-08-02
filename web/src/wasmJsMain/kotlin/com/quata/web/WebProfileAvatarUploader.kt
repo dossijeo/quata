@@ -84,7 +84,8 @@ internal fun webProfileAvatarUploadPlan(
  */
 internal class WebProfileAvatarUploader(
     private val configuration: WebRuntimeConfiguration,
-    private val credentials: suspend () -> WebPushCredentials?,
+    /** The authenticated session carries both credentials and the authoritative actor id. */
+    private val sessionForAuthenticatedRequest: suspend () -> WebLocalSession?,
     private val references: WebProfileAvatarReferenceStore,
     private val binary: WebProfileAvatarBinaryTransport = BrowserWebProfileAvatarBinaryTransport,
     private val token: () -> String = ::webComposerRandomToken,
@@ -93,7 +94,7 @@ internal class WebProfileAvatarUploader(
         configuration: WebRuntimeConfiguration,
         auth: WebAuthRepository,
         references: WebProfileAvatarReferenceStore,
-    ) : this(configuration, auth::currentWebPushCredentials, references)
+    ) : this(configuration, auth::sessionForAuthenticatedRequest, references)
 
     override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?): String? {
         val normalized = avatarUri?.trim()?.takeIf(String::isNotBlank) ?: return null
@@ -101,7 +102,8 @@ internal class WebProfileAvatarUploader(
         require(isBrowserAvatarBlobUrl(normalized)) { "web_profile_avatar_reference_invalid" }
         var prepared: WebProfileAvatarPreparedImage? = null
         try {
-            val session = credentials() ?: error("web_session_missing")
+            val session = sessionForAuthenticatedRequest() ?: error("web_session_missing")
+            check(session.userId == profileId) { "web_profile_avatar_actor_mismatch" }
             val baseUrl = configuration.supabaseUrl?.trimEnd('/')?.takeIf(String::isNotBlank)
                 ?: error("supabase_url_missing")
             val key = configuration.supabasePublishableKey?.takeIf(String::isNotBlank)
@@ -177,14 +179,15 @@ private fun webProfilePrepareSquareAvatarJs(
           const height = Number(image.naturalHeight || image.height || 0);
           if (!width || !height) throw Error('web_profile_avatar_dimensions_invalid');
           const sourceSide = Math.min(width, height);
-          const side = Math.min(1080, sourceSide);
           const sourceX = Math.floor((width - sourceSide) / 2);
           const sourceY = Math.floor((height - sourceSide) / 2);
           const canvas = globalThis.document.createElement('canvas');
-          canvas.width = side; canvas.height = side;
+          // Android's avatar output contract is always a 1080x1080 JPEG, including
+          // upscaling smaller source images after a centered square crop.
+          canvas.width = 1080; canvas.height = 1080;
           const context = canvas.getContext('2d');
           if (!context) throw Error('web_profile_avatar_canvas_context_unavailable');
-          context.drawImage(image, sourceX, sourceY, sourceSide, sourceSide, 0, 0, side, side);
+          context.drawImage(image, sourceX, sourceY, sourceSide, sourceSide, 0, 0, 1080, 1080);
           canvas.toBlob(blob => {
             if (!blob || !blob.size) { onFailure('web_profile_avatar_encode_failed'); return; }
             onSuccess(JSON.stringify({ reference: globalThis.URL.createObjectURL(blob), mimeType: 'image/jpeg' }));

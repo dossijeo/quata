@@ -13,6 +13,7 @@ test('Web Profile uses the Android avatar action copy, icon and real browser sou
   assert.match(host, /Text\("Hacer foto"\)/);
   assert.match(host, /FilePickerSource\.Gallery/);
   assert.match(host, /cameraCapture\.capturePhoto/);
+  assert.match(host, /DisposableEffect\(Unit\)[\s\S]*references\.release\(latestPendingReference\)/);
   assert.doesNotMatch(host, /pending de subida segura/);
   assert.doesNotMatch(host, /enabled = false/);
 });
@@ -20,7 +21,9 @@ test('Web Profile uses the Android avatar action copy, icon and real browser sou
 test('Web Profile avatar upload is actor-bound, square-JPEG and never persists a Blob URL', () => {
   assert.match(uploader, /avatars\/\$profileId\/\$safeToken\.jpg/);
   assert.match(uploader, /webComposerStorageUploadContract/);
-  assert.match(uploader, /canvas\.width = side; canvas\.height = side/);
+  assert.match(uploader, /session\.userId == profileId/);
+  assert.match(uploader, /canvas\.width = 1080; canvas\.height = 1080/);
+  assert.match(uploader, /sourceSide, sourceSide, 0, 0, 1080, 1080/);
   assert.match(uploader, /canvas\.toBlob[\s\S]*'image\/jpeg', 0\.9/);
   assert.match(uploader, /finally \{[\s\S]*binary\.revokePrepared[\s\S]*references\.release/);
   assert.match(uploader, /require\(isBrowserAvatarBlobUrl\(normalized\)\)/);

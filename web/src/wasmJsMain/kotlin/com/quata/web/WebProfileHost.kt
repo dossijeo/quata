@@ -13,9 +13,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -55,6 +58,8 @@ import com.quata.feature.profile.presentation.ProfileScreenSlots
 import com.quata.feature.profile.presentation.ProfileScreenStrings
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -106,6 +111,16 @@ private fun WebProfileAvatarActions(
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     var pendingReference by rememberSaveable { mutableStateOf<String?>(null) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    // This scope outlives this composable just long enough to release a selected Blob when
+    // Cuenta is left without saving. Registry removal makes replacement/upload/disposal idempotent.
+    val releaseScope = remember { CoroutineScope(SupervisorJob()) }
+    val latestPendingReference by rememberUpdatedState(pendingReference)
+
+    DisposableEffect(Unit) {
+        onDispose {
+            releaseScope.launch { references.release(latestPendingReference) }
+        }
+    }
 
     suspend fun accept(file: com.quata.core.platform.PlatformFile, fromCamera: Boolean) {
         references.release(pendingReference)
