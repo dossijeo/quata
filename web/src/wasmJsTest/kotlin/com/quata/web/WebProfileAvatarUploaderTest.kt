@@ -1,6 +1,7 @@
 package com.quata.web
 
 import com.quata.feature.profile.data.ProfileAvatarUploader
+import com.quata.feature.postcomposer.imageeditor.AvatarImageEditorTransform
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -73,6 +74,22 @@ class WebProfileAvatarUploaderTest {
     }
 
     @Test
+    fun confirmedEditorTransformIsPassedToTheJpegExportAndIsBounded() = runTest {
+        val binary = RecordingBinary()
+        val refs = RecordingReferences().apply {
+            transforms["blob:https://quata.example/input"] = AvatarImageEditorTransform.Default
+                .withZoom(2.25f).withPan(-0.4f, 0.7f).rotateClockwise()
+        }
+        val uploader = uploader(binary, refs)
+
+        uploader.uploadIfNeeded("profile-1", "blob:https://quata.example/input")
+
+        assertEquals(refs.transforms["blob:https://quata.example/input"], binary.transforms.single())
+        assertEquals(2.25f, binary.transforms.single().zoom)
+        assertEquals(1, binary.transforms.single().quarterTurns)
+    }
+
+    @Test
     fun prepareFailureReleasesTheOriginalBlobAndDoesNotUploadOrMutate() = runTest {
         val binary = RecordingBinary(failPrepare = true)
         val refs = RecordingReferences()
@@ -133,7 +150,9 @@ class WebProfileAvatarUploaderTest {
 
     private class RecordingReferences : WebProfileAvatarReferenceStore {
         val released = mutableListOf<String>()
+        val transforms = mutableMapOf<String, AvatarImageEditorTransform>()
         override suspend fun release(reference: String?) { reference?.let(released::add) }
+        override fun editorTransform(reference: String) = transforms[reference] ?: AvatarImageEditorTransform.Default
     }
 
     private class RecordingBinary(
@@ -142,10 +161,12 @@ class WebProfileAvatarUploaderTest {
     ) : WebProfileAvatarBinaryTransport {
         data class Upload(val reference: String, val url: String, val headers: Map<String, String>)
         val prepared = mutableListOf<String>()
+        val transforms = mutableListOf<AvatarImageEditorTransform>()
         val uploads = mutableListOf<Upload>()
         val revoked = mutableListOf<String>()
-        override suspend fun prepareSquareJpeg(reference: String): WebProfileAvatarPreparedImage {
+        override suspend fun prepareSquareJpeg(reference: String, transform: AvatarImageEditorTransform): WebProfileAvatarPreparedImage {
             prepared += reference
+            transforms += transform
             if (failPrepare) error("prepare_failed")
             return WebProfileAvatarPreparedImage("blob:https://quata.example/square")
         }

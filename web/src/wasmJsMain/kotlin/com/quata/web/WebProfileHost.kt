@@ -128,12 +128,11 @@ private fun WebProfileAvatarActions(
         }
     }
 
-    suspend fun accept(file: com.quata.core.platform.PlatformFile, fromCamera: Boolean) {
+    suspend fun openEditor(file: com.quata.core.platform.PlatformFile, fromCamera: Boolean) {
         references.release(pendingReference)
         if (fromCamera) references.ownCamera(file) else references.ownGallery(file)
         pendingReference = file.reference
         error = null
-        onAvatarChanged(file.reference)
     }
 
     OutlinedButton(onClick = { menuOpen = true }, modifier = Modifier.fillMaxWidth()) {
@@ -146,7 +145,7 @@ private fun WebProfileAvatarActions(
             menuOpen = false
             scope.launch {
                 when (val result = platformServices.filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery))) {
-                    is PlatformResult.Success -> result.value.firstOrNull()?.let { accept(it, fromCamera = false) }
+                    is PlatformResult.Success -> result.value.firstOrNull()?.let { openEditor(it, fromCamera = false) }
                         ?: run { error = "No se seleccionó ninguna foto." }
                     PlatformResult.Cancelled -> Unit
                     PlatformResult.Unsupported -> error = "La galería no está disponible en este navegador."
@@ -158,13 +157,28 @@ private fun WebProfileAvatarActions(
             menuOpen = false
             scope.launch {
                 when (val result = platformServices.cameraCapture.capturePhoto(CameraCaptureRequest("quata-avatar.jpg"))) {
-                    is PlatformResult.Success -> accept(result.value, fromCamera = true)
+                    is PlatformResult.Success -> openEditor(result.value, fromCamera = true)
                     PlatformResult.Cancelled -> Unit
                     PlatformResult.Unsupported -> error = "La cámara no está disponible en este navegador."
                     is PlatformResult.Failure -> error = "No se pudo capturar la foto."
                 }
             }
         })
+    }
+    pendingReference?.let { reference ->
+        WebAvatarImageEditor(
+            sourceReference = reference,
+            initialTransform = references.editorTransform(reference),
+            onDismiss = {
+                scope.launch { references.release(reference) }
+                pendingReference = null
+            },
+            onConfirm = { transform ->
+                references.saveEditorTransform(reference, transform)
+                pendingReference = null
+                onAvatarChanged(reference)
+            },
+        )
     }
     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 }

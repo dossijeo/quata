@@ -672,7 +672,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
-              "sha256": "4827213bb7ee6f1c183e2206f00f8ce7f748dced35b486fd2b85b461db628b75",
+              "sha256": "c8f7d086f3fb55bb2bce7f65f3168fafbb9a1d7f28391f081831c2a07abeb2b5",
               "role": "composition"
             },
             {
@@ -726,7 +726,7 @@
           ]
         },
         "web": {
-          "state": "blocked",
+          "state": "implemented",
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
@@ -735,8 +735,18 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
-              "sha256": "4827213bb7ee6f1c183e2206f00f8ce7f748dced35b486fd2b85b461db628b75",
-              "role": "explicit-block"
+              "sha256": "c8f7d086f3fb55bb2bce7f65f3168fafbb9a1d7f28391f081831c2a07abeb2b5",
+              "role": "runtime-bootstrap"
+            },
+            {
+              "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileAvatarUploader.kt",
+              "sha256": "52f45c0966ac2241bfdd7d2768c17dc60d4c19bc8b358d6e0e47176727a15dc1",
+              "role": "implementation"
+            },
+            {
+              "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebAvatarImageEditor.kt",
+              "sha256": "e1730293f71e56d19454e1fd4bad1bacb0a64bf803772ccb13feb2be2a28d33e",
+              "role": "adapter"
             }
           ]
         },

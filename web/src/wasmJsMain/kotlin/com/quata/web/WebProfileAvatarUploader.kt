@@ -6,6 +6,7 @@ import com.quata.core.platform.BrowserCameraCaptureService
 import com.quata.core.platform.FilePickerReferenceReleaser
 import com.quata.core.platform.PlatformFile
 import com.quata.feature.profile.data.ProfileAvatarUploader
+import com.quata.feature.postcomposer.imageeditor.AvatarImageEditorTransform
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
@@ -19,6 +20,8 @@ import kotlin.coroutines.suspendCoroutine
  */
 internal interface WebProfileAvatarReferenceStore {
     suspend fun release(reference: String?)
+    fun editorTransform(reference: String): AvatarImageEditorTransform = AvatarImageEditorTransform.Default
+    fun saveEditorTransform(reference: String, transform: AvatarImageEditorTransform) = Unit
 }
 
 internal class WebProfileAvatarReferenceRegistry(
@@ -26,17 +29,27 @@ internal class WebProfileAvatarReferenceRegistry(
     private val camera: BrowserCameraCaptureService,
 ) : WebProfileAvatarReferenceStore {
     private val releasers = mutableMapOf<String, suspend () -> Unit>()
+    private val transforms = mutableMapOf<String, AvatarImageEditorTransform>()
 
     fun ownGallery(file: PlatformFile) {
         releasers[file.reference] = { galleryReleaser.release(file) }
+        transforms[file.reference] = AvatarImageEditorTransform.Default
     }
 
     fun ownCamera(file: PlatformFile) {
         releasers[file.reference] = { camera.release(file) }
+        transforms[file.reference] = AvatarImageEditorTransform.Default
     }
 
     override suspend fun release(reference: String?) {
-        reference?.let { releasers.remove(it) }?.invoke()
+        reference?.let { transforms.remove(it); releasers.remove(it) }?.invoke()
+    }
+
+    override fun editorTransform(reference: String): AvatarImageEditorTransform =
+        transforms[reference] ?: AvatarImageEditorTransform.Default
+
+    override fun saveEditorTransform(reference: String, transform: AvatarImageEditorTransform) {
+        if (reference in releasers) transforms[reference] = transform
     }
 }
 
@@ -47,7 +60,7 @@ internal data class WebProfileAvatarPreparedImage(
 
 /** Injectable edge so path/header and cancellation guarantees are testable without a browser DOM. */
 internal interface WebProfileAvatarBinaryTransport {
-    suspend fun prepareSquareJpeg(reference: String): WebProfileAvatarPreparedImage
+    suspend fun prepareSquareJpeg(reference: String, transform: AvatarImageEditorTransform): WebProfileAvatarPreparedImage
     suspend fun upload(reference: String, url: String, key: String, token: String, mimeType: String)
     fun revokePrepared(reference: String)
 }
@@ -108,7 +121,7 @@ internal class WebProfileAvatarUploader(
                 ?: error("supabase_url_missing")
             val key = configuration.supabasePublishableKey?.takeIf(String::isNotBlank)
                 ?: error("supabase_publishable_key_missing")
-            prepared = binary.prepareSquareJpeg(normalized)
+            prepared = binary.prepareSquareJpeg(normalized, references.editorTransform(normalized))
             val plan = webProfileAvatarUploadPlan(baseUrl, key, session.accessToken, profileId, token())
             binary.upload(prepared.reference, plan.request.url, key, session.accessToken, prepared.mimeType)
             return plan.publicUrl
@@ -127,8 +140,8 @@ internal fun webProfileAvatarUploadReference(avatarUri: String?): String? {
 }
 
 private object BrowserWebProfileAvatarBinaryTransport : WebProfileAvatarBinaryTransport {
-    override suspend fun prepareSquareJpeg(reference: String): WebProfileAvatarPreparedImage =
-        webProfilePrepareSquareAvatar(reference)
+    override suspend fun prepareSquareJpeg(reference: String, transform: AvatarImageEditorTransform): WebProfileAvatarPreparedImage =
+        webProfilePrepareSquareAvatar(reference, transform)
 
     override suspend fun upload(reference: String, url: String, key: String, token: String, mimeType: String) {
         webComposerUploadBlob(reference, url, key, token, mimeType)
@@ -137,9 +150,13 @@ private object BrowserWebProfileAvatarBinaryTransport : WebProfileAvatarBinaryTr
     override fun revokePrepared(reference: String) = webProfileRevokeBlobUrl(reference)
 }
 
-private suspend fun webProfilePrepareSquareAvatar(reference: String): WebProfileAvatarPreparedImage = suspendCoroutine { continuation ->
+private suspend fun webProfilePrepareSquareAvatar(reference: String, transform: AvatarImageEditorTransform): WebProfileAvatarPreparedImage = suspendCoroutine { continuation ->
     webProfilePrepareSquareAvatarJs(
         reference = reference,
+        zoom = transform.zoom,
+        panX = transform.panX,
+        panY = transform.panY,
+        quarterTurns = transform.quarterTurns,
         onSuccess = { payload ->
             runCatching {
                 val root = Json.parseToJsonElement(payload).jsonObject
@@ -156,6 +173,10 @@ private suspend fun webProfilePrepareSquareAvatar(reference: String): WebProfile
 
 private fun webProfilePrepareSquareAvatarJs(
     reference: String,
+    zoom: Float,
+    panX: Float,
+    panY: Float,
+    quarterTurns: Int,
     onSuccess: (String) -> Unit,
     onFailure: (String) -> Unit,
 ): Unit = js(
@@ -178,16 +199,24 @@ private fun webProfilePrepareSquareAvatarJs(
           const width = Number(image.naturalWidth || image.width || 0);
           const height = Number(image.naturalHeight || image.height || 0);
           if (!width || !height) throw Error('web_profile_avatar_dimensions_invalid');
-          const sourceSide = Math.min(width, height);
-          const sourceX = Math.floor((width - sourceSide) / 2);
-          const sourceY = Math.floor((height - sourceSide) / 2);
           const canvas = globalThis.document.createElement('canvas');
           // Android's avatar output contract is always a 1080x1080 JPEG, including
           // upscaling smaller source images after a centered square crop.
           canvas.width = 1080; canvas.height = 1080;
           const context = canvas.getContext('2d');
           if (!context) throw Error('web_profile_avatar_canvas_context_unavailable');
-          context.drawImage(image, sourceX, sourceY, sourceSide, sourceSide, 0, 0, 1080, 1080);
+          const turns = ((Number(quarterTurns) % 4) + 4) % 4;
+          const rotated = turns % 2 === 0 ? { width, height } : { width: height, height: width };
+          const scale = Math.max(1080 / rotated.width, 1080 / rotated.height) * Math.min(4, Math.max(1, Number(zoom) || 1));
+          const drawnWidth = width * scale;
+          const drawnHeight = height * scale;
+          const maxPanX = Math.max(0, (drawnWidth - 1080) / 2);
+          const maxPanY = Math.max(0, (drawnHeight - 1080) / 2);
+          context.save();
+          context.translate(540 + Math.max(-1, Math.min(1, Number(panX) || 0)) * maxPanX, 540 + Math.max(-1, Math.min(1, Number(panY) || 0)) * maxPanY);
+          context.rotate(turns * Math.PI / 2);
+          context.drawImage(image, -width * scale / 2, -height * scale / 2, drawnWidth, drawnHeight);
+          context.restore();
           canvas.toBlob(blob => {
             if (!blob || !blob.size) { onFailure('web_profile_avatar_encode_failed'); return; }
             onSuccess(JSON.stringify({ reference: globalThis.URL.createObjectURL(blob), mimeType: 'image/jpeg' }));
