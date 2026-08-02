@@ -63,18 +63,34 @@ omitidos, cancelados o fallidos bloquean el gate requerido.
 ## Preparación local #157 — no integrada
 
 La preparación local `3147` de Notificaciones no es una candidata ni una integración. Web auth,
-visual y navegación PASS; Android estable sólo se usa como referencia y no como evidencia exacta;
-iOS tiene product build/auth previo PASS. El gate real de Notificaciones iOS continúa bloqueado por
-un handshake de infraestructura XCTest: no se ha confirmado una pantalla Inbox negra. El AVD de
-referencia localizado es `Pixel_9` API 37.
+visual y navegación PASS; Android exacto ya tiene el recorrido `d036` en `Pixel_9` API 37, mientras
+el Android estable API 35 sólo se conserva como referencia; iOS tiene product build/auth previo
+PASS. El gate real de Notificaciones iOS continúa bloqueado por un handshake de infraestructura
+XCTest: no se ha confirmado una pantalla Inbox negra.
+
+Actualización de evidencia: Android exacto `d036` pasó en ese AVD con los recorridos sin mutación
+`Feed → Avisos vacío → Volver` (público) y `Feed → Avisos` con badge 4/dato Gabriel `→ Volver`
+(auth); el estable API 35 se restauró después. El runner iOS `3147` pasó build firmado,
+cold-boot y `bootstatus`, pero el seeder XCTest/testmanager agotó 120 s en dos condiciones
+controladas (antes y tras cold boot), por lo que la UI de Notifications **no se ejecutó** y el estado
+es **INFRASTRUCTURE BLOCK**. Evidencia: `C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\notifications\3147b928-ios\runner.log`,
+`seed.log`, `bootstatus.log`; plan/rutas: `C:\Users\PC\Desktop\QÜATA\migration-v2\preflight\pr157\PLAN.md`.
+
+## Candidata #170 — activa, NO-GO, no integrada
+
+La PR #170, head `fca3e83e`, es una candidata activa y no forma parte de `main`. Su CI fue
+cancelado porque el clasificador omitía orígenes `D`/`T`/rename; hasta corregir y repetir el
+preflight/gates exactos permanece **NO-GO**. No se reutiliza esta ejecución cancelada como
+evidencia ni se promociona #157.
 
 ## Próxima cola
 
 1. Completar el postflight de #156 pendiente: subflujo SOS (el PASS actual cubre acceso/estado y 1/5 contactos, no su mutación) y comparación Android↔Wasm↔iOS donde corresponda. Acreditar o dejar pendiente la subida real de avatar Web con datos temporales y limpieza.
 2. Ejecutar el postflight de #154: Crear publicación común en Web/iOS con sesión real, adaptadores de medios y comparación visual; no convertir sus contratos en un GO no probado.
-3. Desbloquear el handshake XCTest de Notificaciones para convertir la preparación local #157 en una candidata; repetir después sus gates exactos. No presentar Android estable ni iOS product/auth previo como evidencia integrada.
-4. Aplicar el modelo de integración secuencial/ejecución paralela: una candidata final, preflight local completo, merge sintético y CI como certificación. Preparar localmente la siguiente unidad mientras CI está activo, sin publicar candidatos adicionales.
-5. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
+3. Desbloquear el handshake XCTest de Notificaciones para convertir la preparación local #157 en una candidata; repetir después sus gates exactos. El Android `d036` API 37 es PASS exacto local, pero no integrado; el seeder iOS no ejecutó UI y continúa bloqueado por infraestructura.
+4. Reparar el clasificador de #170 para cubrir `D`/`T`/rename origins, repetir preflight/gates exactos y mantenerla NO-GO hasta entonces.
+5. Aplicar el modelo de integración secuencial/ejecución paralela: una candidata final, preflight local completo, merge sintético y CI como certificación. Preparar localmente la siguiente unidad mientras CI está activo, sin publicar candidatos adicionales.
+6. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
 
 ## Decisiones vigentes
 
