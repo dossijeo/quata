@@ -2,15 +2,17 @@ package com.quata.web
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.PermMedia
+import androidx.compose.material3.DropdownMenuItem as MaterialDropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -22,7 +24,13 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.model.CountryPrefix
 import com.quata.core.platform.CameraCaptureRequest
@@ -140,7 +148,12 @@ private fun WebProfileAvatarActions(
         Spacer(Modifier.width(4.dp))
         Text("Cambiar foto de perfil")
     }
-    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+    if (menuOpen) Popup(
+        popupPositionProvider = CenteredAvatarActionMenuPosition,
+        onDismissRequest = { menuOpen = false },
+    ) {
+        Surface(shape = MaterialTheme.shapes.extraSmall, tonalElevation = 6.dp) {
+            Column {
         DropdownMenuItem(text = { Text("Elegir de galería") }, onClick = {
             menuOpen = false
             scope.launch {
@@ -153,7 +166,10 @@ private fun WebProfileAvatarActions(
                 }
             }
         })
-        DropdownMenuItem(text = { Text("Hacer foto") }, onClick = {
+        DropdownMenuItem(
+            text = { Text("Hacer foto") },
+            leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, null) },
+            onClick = {
             menuOpen = false
             scope.launch {
                 when (val result = platformServices.cameraCapture.capturePhoto(CameraCaptureRequest("quata-avatar.jpg"))) {
@@ -164,6 +180,8 @@ private fun WebProfileAvatarActions(
                 }
             }
         })
+            }
+        }
     }
     pendingReference?.let { reference ->
         WebAvatarImageEditor(
@@ -182,6 +200,58 @@ private fun WebProfileAvatarActions(
     }
     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 }
+
+/**
+ * Anchors the action menu to the centre of the actual control, rather than assuming a desktop
+ * account-panel offset. On a narrow viewport it is clamped to the visible window and flips above
+ * its control when there is no room below.
+ */
+private object CenteredAvatarActionMenuPosition : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        return webCenteredAvatarActionMenuOffset(anchorBounds, windowSize, popupContentSize)
+    }
+}
+
+/** Pure placement seam: exact centre on desktop, clamp/flip only when a mobile viewport needs it. */
+internal fun webCenteredAvatarActionMenuOffset(
+    anchorBounds: IntRect,
+    windowSize: IntSize,
+    popupContentSize: IntSize,
+): IntOffset {
+    val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+    val desiredX = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2
+    val belowY = anchorBounds.bottom
+    val y = if (belowY + popupContentSize.height <= windowSize.height) belowY
+    else (anchorBounds.top - popupContentSize.height).coerceAtLeast(0)
+    return IntOffset(desiredX.coerceIn(0, maxX), y)
+}
+
+/** Keeps both avatar source choices visually equivalent without relying on browser menu chrome. */
+@Composable
+private fun DropdownMenuItem(
+    text: @Composable () -> Unit,
+    onClick: () -> Unit,
+) = MaterialDropdownMenuItem(
+    text = text,
+    onClick = onClick,
+    leadingIcon = { CompactIcon(Icons.Filled.PermMedia, null) },
+)
+
+@Composable
+private fun DropdownMenuItem(
+    text: @Composable () -> Unit,
+    leadingIcon: @Composable () -> Unit,
+    onClick: () -> Unit,
+) = MaterialDropdownMenuItem(
+    text = text,
+    onClick = onClick,
+    leadingIcon = leadingIcon,
+)
 
 /** Authenticated remote repository only. There is no browser-local Profile product fallback. */
 class WebProfileRepository(

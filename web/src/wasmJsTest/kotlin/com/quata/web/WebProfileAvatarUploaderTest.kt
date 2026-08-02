@@ -10,6 +10,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.math.abs
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
 
 class WebProfileAvatarUploaderTest {
     private val configuration = WebRuntimeConfiguration(
@@ -167,6 +170,23 @@ class WebProfileAvatarUploaderTest {
         assertEquals(0f, reset.panX)
         assertEquals(0f, reset.panY)
         assertEquals(0, reset.quarterTurns)
+    }
+
+    @Test
+    fun avatarSourceMenuCentersUnderTheActualControlOnDesktopAndClampsOrFlipsOnMobile() {
+        val desktop = webCenteredAvatarActionMenuOffset(
+            anchorBounds = IntRect(left = 420, top = 300, right = 860, bottom = 348),
+            windowSize = IntSize(1280, 720),
+            popupContentSize = IntSize(240, 112),
+        )
+        assertEquals(IntOffset(520, 348), desktop)
+
+        val mobile = webCenteredAvatarActionMenuOffset(
+            anchorBounds = IntRect(left = 4, top = 580, right = 316, bottom = 628),
+            windowSize = IntSize(320, 640),
+            popupContentSize = IntSize(240, 112),
+        )
+        assertEquals(IntOffset(40, 468), mobile)
     }
 
     @Test
