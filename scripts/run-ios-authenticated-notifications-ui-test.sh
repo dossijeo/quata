@@ -100,3 +100,4 @@ run_and_require() {
 }
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_AUTH_UI_LOG_DIR/seed.log"
 run_and_require "$ui" testAuthenticatedSessionOpensRealNotificationsFromFeed "$QUATA_IOS_AUTH_UI_LOG_DIR/ui.log"
+echo "HOST_SHELL_ONLY: this gate does not certify real notification data or backend mutations." >&2

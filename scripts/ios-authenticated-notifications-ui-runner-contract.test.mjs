@@ -33,6 +33,7 @@ test('authenticated Notifications UI gate seeds Keychain then normal-launches th
   assert.match(runner, /grep -Eqi "\$\{method\}\.\*\(skip\|skipped\)"/);
   assert.match(runner, /\*\* TEST SUCCEEDED \*\*/);
   assert.match(runner, /PASS_EXECUTED:%s/);
+  assert.match(runner, /HOST_SHELL_ONLY/);
   assert.match(runner, /testSeedAuthenticatedSessionForVisualGates/);
   assert.match(runner, /testAuthenticatedSessionOpensRealNotificationsFromFeed/);
 });

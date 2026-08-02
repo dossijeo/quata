@@ -92,6 +92,16 @@ class WebNavigationTest {
         assertEquals("official-bulletin-99", browserFragment)
     }
 
+    @Test
+    fun anonymous notification click returns to feed with pending chat while swipe stays in inbox() {
+        val click = anonymousNotificationClickEffect("conversation-7")
+        val swipe = anonymousNotificationSwipeEffect()
+        assertEquals(true, click.navigateFeed)
+        assertEquals("chat-conversation-7", click.pendingFragment)
+        assertEquals(false, swipe.navigateFeed)
+        assertNull(swipe.pendingFragment)
+    }
+
     private fun assertRoute(expected: String, navigation: WebNavigationState) {
         assertEquals(expected, navigation.route)
     }

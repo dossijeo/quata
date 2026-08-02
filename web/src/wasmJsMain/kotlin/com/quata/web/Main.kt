@@ -508,8 +508,9 @@ private fun QuataWebApp(
                         onOpenConversation = navigation::navigateConversation,
                         canMutate = isSessionReady,
                         onAuthenticationRequired = { conversationId ->
-                            navigation.navigate("")
-                            requestAuthenticationFor(quataChatUrl(conversationId).substringAfter('#'))
+                            val effect = anonymousNotificationClickEffect(conversationId)
+                            if (effect.navigateFeed) navigation.navigate("")
+                            requestAuthenticationFor(effect.pendingFragment.orEmpty())
                         },
                         onDismissAuthenticationRequired = { requestAuthenticationForCurrentRoute() },
                     )
@@ -673,6 +674,11 @@ internal fun webChromeNotificationCount(source: Flow<Int>, shouldObserve: Boolea
         }
     }
 }
+
+internal data class AnonymousNotificationAuthEffect(val navigateFeed: Boolean, val pendingFragment: String?)
+internal fun anonymousNotificationClickEffect(conversationId: String) =
+    AnonymousNotificationAuthEffect(navigateFeed = true, pendingFragment = quataChatUrl(conversationId).substringAfter('#'))
+internal fun anonymousNotificationSwipeEffect() = AnonymousNotificationAuthEffect(navigateFeed = false, pendingFragment = null)
 }
 
 internal val webPrimaryNavigationLabels = QuataPrimaryNavigationLabels(
