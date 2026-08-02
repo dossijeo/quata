@@ -684,7 +684,9 @@ private final class IosAppCompositionRoot {
                 if IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(granted: granted, error: error) {
                     IosApnsLifecycleBridge.shared.requestRegistrationIfAuthorized()
                 }
-                self?.installNotificationsIfAvailable()
+                DispatchQueue.main.async {
+                    self?.installNotificationsIfAvailable()
+                }
             }
         case .openSettings:
             guard let url = URL(string: UIApplication.openSettingsURLString) else { return }

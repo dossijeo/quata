@@ -655,14 +655,12 @@ private fun QuataWebApp(
 
 /** A public chrome badge must never cancel the root composition on an anonymous RPC failure. */
 internal fun webChromeNotificationCount(source: Flow<Int>, retryDelayMillis: Long = 1_000L): Flow<Int> = flow {
-    var latest = 0
     while (true) {
         try {
-            source.collect { value -> latest = value; emit(value) }
+            source.collect { value -> emit(value) }
             return@flow
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
-            emit(latest)
             delay(retryDelayMillis.coerceAtLeast(1L))
         }
     }
