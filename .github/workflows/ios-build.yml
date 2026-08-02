@@ -582,6 +582,9 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+      - name: Check out final gate helper
+        uses: actions/checkout@v6
+
       - name: Fail closed unless this exact run is final-certified
         shell: bash
         env:

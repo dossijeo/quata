@@ -64,6 +64,8 @@ function assertIosFastFinalLaneContract(yaml) {
   assert.ok(gateStart > finalStart, 'the iOS final gate must aggregate the final job');
   const gateBlock = yaml.slice(gateStart);
   assert.match(gateBlock, /name: iOS final certification gate\n    needs: \[compile-ios\]\n    if: \$\{\{ always\(\) \}\}/);
+  assert.match(gateBlock, /steps:\n      - name: Check out final gate helper\n        uses: actions\/checkout@v6\n\n      - name: Fail closed unless this exact run is final-certified/,
+    'the independent gate job must check out the helper source before invoking it');
   assert.match(gateBlock, /FINAL_CANDIDATE: \$\{\{ contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/);
   assert.match(gateBlock, /IOS_FINAL_RESULT: \$\{\{ needs\.compile-ios\.result \}\}/);
   assert.match(gateBlock, /run: bash scripts\/check-final-certification\.sh "\$IOS_FINAL_RESULT"/);
@@ -363,6 +365,7 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     ['candidate-final trigger removed', yaml.replace(', labeled, unlabeled', '')],
     ['final gate needs removed', yaml.replace('needs: [compile-ios]', 'needs: []')],
     ['final gate always removed', yaml.replace('if: ${{ always() }}', 'if: ${{ success() }}')],
+    ['final gate helper checkout removed', yaml.replace('      - name: Check out final gate helper\n        uses: actions/checkout@v6\n\n', '')],
     ['final gate helper bypassed', yaml.replace('run: bash scripts/check-final-certification.sh "$IOS_FINAL_RESULT"', 'run: echo bypass')],
     ['final result binding replaced', yaml.replace('IOS_FINAL_RESULT: ${{ needs.compile-ios.result }}', 'IOS_FINAL_RESULT: success')],
     ['candidate binding replaced', yaml.replace("FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}", 'FINAL_CANDIDATE: true')],

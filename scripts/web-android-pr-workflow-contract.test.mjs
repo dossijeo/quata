@@ -54,6 +54,8 @@ function assertFastAndFinalLaneContract(yaml) {
   assert.ok(gateStart >= 0, 'the final jobs require an always-running aggregate gate');
   const gateBlock = yaml.slice(gateStart);
   assert.match(gateBlock, /name: Web\/Android final certification gate\n    needs: \[web-wasm, unit-tests, android-debug\]\n    if: \$\{\{ always\(\) \}\}/);
+  assert.match(gateBlock, /steps:\n      - name: Check out final gate helper\n        uses: actions\/checkout@v6\n\n      - name: Fail closed unless this exact run is final-certified/,
+    'the independent gate job must check out the helper source before invoking it');
   assert.match(gateBlock, /FINAL_CANDIDATE: \$\{\{ contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/);
   for (const result of ['WEB_FINAL_RESULT', 'MATRIX_FINAL_RESULT', 'ANDROID_FINAL_RESULT']) {
     assert.match(gateBlock, new RegExp(`${result}: \\$\\{\\{ needs\\.`));
@@ -192,6 +194,7 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['PR concurrency cancellation weakened', yaml.replace("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", 'cancel-in-progress: true')],
     ['final gate needs removed', yaml.replace('needs: [web-wasm, unit-tests, android-debug]', 'needs: []')],
     ['final gate always removed', yaml.replace('if: ${{ always() }}', 'if: ${{ success() }}')],
+    ['final gate helper checkout removed', yaml.replace('      - name: Check out final gate helper\n        uses: actions/checkout@v6\n\n', '')],
     ['final gate shell bypassed', yaml.replace('run: bash scripts/check-final-certification.sh "$WEB_FINAL_RESULT" "$MATRIX_FINAL_RESULT" "$ANDROID_FINAL_RESULT"', 'run: echo bypass')],
     ['candidate-final binding replaced', yaml.replace("FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}", 'FINAL_CANDIDATE: true')],
     ['Web result binding replaced', yaml.replace('WEB_FINAL_RESULT: ${{ needs.web-wasm.result }}', 'WEB_FINAL_RESULT: success')],
