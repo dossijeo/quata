@@ -687,7 +687,7 @@
           "evidence": [
             {
               "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileSosRuntimeBootstrap.kt",
-              "sha256": "4cd939bbaaae6024cac34e40003c184eabf7f9fd29ea5333374a3d62ba6acfb8",
+              "sha256": "7bafb5170ea1887b9233e1c8c487f5da274d4c126dfdc89bda981aa1c1a38986",
               "role": "composition"
             },
             {
@@ -755,7 +755,7 @@
           "evidence": [
             {
               "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileSosRuntimeBootstrap.kt",
-              "sha256": "4cd939bbaaae6024cac34e40003c184eabf7f9fd29ea5333374a3d62ba6acfb8",
+              "sha256": "7bafb5170ea1887b9233e1c8c487f5da274d4c126dfdc89bda981aa1c1a38986",
               "role": "composition"
             },
             {
