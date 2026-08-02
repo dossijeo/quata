@@ -37,6 +37,15 @@ internal fun webWhatsNewReturnFragment(origin: WebWhatsNewOrigin): String = when
 /** Android release RPCs use Android version codes; Web uses the shared platform-local catalog. */
 internal fun webWhatsNewSourceKind(): String = "common-source-controlled-web"
 
+/**
+ * A deployment may stamp an explicit Web release code. The checked-in catalog remains the
+ * fail-closed product default so a blank optional meta tag cannot make What's New unreachable.
+ */
+internal fun webWhatsNewInstalledVersionCode(configuredVersionCode: Long?): Long =
+    configuredVersionCode
+        ?.takeIf { it > 0L }
+        ?: QuataLocalWhatsNewCatalog.latestVersionCode(LocalWhatsNewPlatform.Web)
+
 internal fun createWebWhatsNewRepository(): WhatsNewRepository = LocalWhatsNewRepository(
     releases = QuataLocalWhatsNewCatalog.releases(LocalWhatsNewPlatform.Web),
     store = WebWhatsNewSeenStateStore(),

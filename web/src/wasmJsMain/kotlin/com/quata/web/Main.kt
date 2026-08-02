@@ -201,6 +201,9 @@ private fun QuataWebApp(
         )
     }
     val whatsNewRepository: WhatsNewRepository = remember { createWebWhatsNewRepository() }
+    val whatsNewInstalledVersionCode = remember(runtimeConfiguration.releaseVersionCode) {
+        webWhatsNewInstalledVersionCode(runtimeConfiguration.releaseVersionCode)
+    }
     val whatsNewStartupCoordinator = remember(whatsNewRepository, platformServices.preferences) {
         createWebWhatsNewStartupCoordinator(whatsNewRepository, platformServices.preferences)
     }
@@ -349,10 +352,9 @@ private fun QuataWebApp(
         onDispose(stopObserving)
     }
     val navigationState = navigation.state
-    LaunchedEffect(isSessionResolved, isSessionReady, currentUserId, navigationState.route, runtimeConfiguration.releaseVersionCode) {
-        val versionCode = runtimeConfiguration.releaseVersionCode
-        if (isSessionResolved && isSessionReady && currentUserId != null && navigationState.route == "feed" && versionCode != null) {
-            val decision = whatsNewStartupCoordinator.evaluate(versionCode, browserWhatsNewLanguageTags()).getOrNull()
+    LaunchedEffect(isSessionResolved, isSessionReady, currentUserId, navigationState.route, whatsNewInstalledVersionCode) {
+        if (isSessionResolved && isSessionReady && currentUserId != null && navigationState.route == "feed") {
+            val decision = whatsNewStartupCoordinator.evaluate(whatsNewInstalledVersionCode, browserWhatsNewLanguageTags()).getOrNull()
             if (decision == WhatsNewStartupDecision.Show && navigation.route == "feed") {
                 whatsNewOrigin = WebWhatsNewOrigin.Startup
                 navigation.navigate("whats-new")
@@ -524,12 +526,12 @@ private fun QuataWebApp(
                     WebWhatsNewHost(
                         destination = destination,
                         repository = whatsNewRepository,
-                        installedVersionCode = runtimeConfiguration.releaseVersionCode,
+                        installedVersionCode = whatsNewInstalledVersionCode,
                         onBack = {
                             val returnFragment = webWhatsNewReturnFragment(origin)
-                            if (origin == WebWhatsNewOrigin.Startup && runtimeConfiguration.releaseVersionCode != null) {
+                            if (origin == WebWhatsNewOrigin.Startup) {
                                 scope.launch {
-                                    whatsNewStartupCoordinator.acknowledge(runtimeConfiguration.releaseVersionCode)
+                                    whatsNewStartupCoordinator.acknowledge(whatsNewInstalledVersionCode)
                                     navigation.navigate(returnFragment)
                                     whatsNewOrigin = null
                                 }

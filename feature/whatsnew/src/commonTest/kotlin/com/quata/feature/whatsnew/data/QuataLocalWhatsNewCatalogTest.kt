@@ -17,6 +17,8 @@ class QuataLocalWhatsNewCatalogTest {
         assertTrue(web.all { it.releaseId.startsWith("web-") && it.versionCode > 0 })
         assertTrue(ios.all { it.releaseId.startsWith("ios-") && it.versionCode > 0 })
         assertNotEquals(web.map { it.releaseId }, ios.map { it.releaseId })
+        assertTrue(QuataLocalWhatsNewCatalog.latestVersionCode(LocalWhatsNewPlatform.Web) > 0)
+        assertTrue(QuataLocalWhatsNewCatalog.latestVersionCode(LocalWhatsNewPlatform.Ios) > 0)
     }
 
     @Test

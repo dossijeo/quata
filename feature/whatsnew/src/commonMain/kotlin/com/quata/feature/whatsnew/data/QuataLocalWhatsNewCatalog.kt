@@ -16,6 +16,9 @@ object QuataLocalWhatsNewCatalog {
         LocalWhatsNewPlatform.Ios -> IosReleases
     }
 
+    fun latestVersionCode(platform: LocalWhatsNewPlatform): Long =
+        releases(platform).maxOf(LocalWhatsNewRelease::versionCode)
+
     private val WebReleases = listOf(
         LocalWhatsNewRelease(
             releaseId = "web-1.0-1",

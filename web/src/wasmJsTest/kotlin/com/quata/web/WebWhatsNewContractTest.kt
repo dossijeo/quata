@@ -19,6 +19,9 @@ class WebWhatsNewContractTest {
     fun webUsesARealCommonCatalogWithoutReusingAndroidReleaseVersionCodes() {
         assertEquals("common-source-controlled-web", webWhatsNewSourceKind())
         assertEquals("web-1.0-1", QuataLocalWhatsNewCatalog.releases(LocalWhatsNewPlatform.Web).single().releaseId)
+        assertEquals(1L, webWhatsNewInstalledVersionCode(null))
+        assertEquals(1L, webWhatsNewInstalledVersionCode(0L))
+        assertEquals(27L, webWhatsNewInstalledVersionCode(27L))
         assertEquals("", webWhatsNewReturnFragment(WebWhatsNewOrigin.Startup))
         assertEquals("settings", webWhatsNewReturnFragment(WebWhatsNewOrigin.Settings))
     }
