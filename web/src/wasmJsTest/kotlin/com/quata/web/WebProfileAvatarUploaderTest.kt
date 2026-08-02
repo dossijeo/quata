@@ -9,6 +9,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.math.abs
 
 class WebProfileAvatarUploaderTest {
     private val configuration = WebRuntimeConfiguration(
@@ -97,10 +98,10 @@ class WebProfileAvatarUploaderTest {
             transform = AvatarImageEditorTransform.Default.rotateClockwise(),
         )
 
-        assertEquals(1080f, geometry.outputDrawnWidth)
-        assertEquals(1920f, geometry.outputDrawnHeight)
-        assertEquals(0f, geometry.maxPanX)
-        assertEquals(420f, geometry.maxPanY)
+        assertFloatClose(1080f, geometry.outputDrawnWidth)
+        assertFloatClose(1920f, geometry.outputDrawnHeight)
+        assertFloatClose(0f, geometry.maxPanX)
+        assertFloatClose(420f, geometry.maxPanY)
     }
 
     @Test
@@ -111,10 +112,10 @@ class WebProfileAvatarUploaderTest {
             transform = AvatarImageEditorTransform.Default.rotateClockwise().rotateClockwise().rotateClockwise(),
         )
 
-        assertEquals(1920f, geometry.outputDrawnWidth)
-        assertEquals(1080f, geometry.outputDrawnHeight)
-        assertEquals(420f, geometry.maxPanX)
-        assertEquals(0f, geometry.maxPanY)
+        assertFloatClose(1920f, geometry.outputDrawnWidth)
+        assertFloatClose(1080f, geometry.outputDrawnHeight)
+        assertFloatClose(420f, geometry.maxPanX)
+        assertFloatClose(0f, geometry.maxPanY)
     }
 
     @Test
@@ -175,6 +176,11 @@ class WebProfileAvatarUploaderTest {
             binary = binary,
             token = { "fixed-token" },
         )
+
+    /** 0.01px is far below one physical output pixel but accommodates Wasm Float division. */
+    private fun assertFloatClose(expected: Float, actual: Float) {
+        assertTrue(abs(expected - actual) < 0.01f, "Expected <$expected>, actual <$actual>.")
+    }
 
     private class RecordingReferences : WebProfileAvatarReferenceStore {
         val released = mutableListOf<String>()
