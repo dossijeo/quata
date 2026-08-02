@@ -57,6 +57,7 @@ class SessionManager(
         val current = currentSession() ?: return null
         if (!current.shouldRefresh()) return current
         val refreshed = refresh(current) ?: return null
+        if (refreshed.shouldRefresh()) return null
         setSession(refreshed)
         refreshed
     }

@@ -43,6 +43,21 @@ class SessionManagerLaunchValidationTest {
         assertEquals(expired, storage.storedSession)
     }
 
+    @Test
+    fun staleRefreshResponseKeepsOriginalCredentialsAndRejectsAuthenticatedLaunch() = runTest {
+        val expired = expiredSession()
+        val storage = MemorySessionStorage(expired)
+        val manager = SessionManager(storage)
+        val stillStale = freshSession(token = "still-stale-token").copy(
+            expiresAt = currentEpochSeconds() + 60,
+        )
+
+        val accepted = manager.validateFreshSession { stillStale }
+
+        assertNull(accepted)
+        assertEquals(expired, storage.storedSession)
+    }
+
     private fun freshSession(token: String = "fresh-token") = AuthSession(
         token = token,
         accessToken = token,
