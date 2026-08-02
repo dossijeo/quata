@@ -5,6 +5,7 @@ import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const ALL_PLATFORMS = Object.freeze(['web', 'android', 'ios']);
+const NAME_STATUS = new Set(['A', 'C', 'D', 'M', 'R', 'T', 'U', 'X', 'B']);
 
 const normalize = (value) => value.replaceAll('\\', '/').replace(/^\.\//, '');
 
@@ -28,12 +29,22 @@ function all(result, reason, unknown = false) {
     result.unknown ||= unknown;
 }
 
+function unknownResult(reason) {
+    const result = platformResult();
+    all(result, reason, true);
+    return result;
+}
+
 export function classifyPaths(paths) {
     const result = platformResult();
 
     for (const rawPath of paths) {
-        const path = normalize(rawPath.trim());
-        if (!path) continue;
+        // Do not trim: Git paths may legally begin/end with whitespace or contain newlines.
+        const path = normalize(rawPath);
+        if (!path) {
+            all(result, 'malformed-empty-path', true);
+            continue;
+        }
 
         if (/^docs\//i.test(path)) {
             const documentedPlatforms = [];
@@ -46,7 +57,7 @@ export function classifyPaths(paths) {
             }
         }
 
-        if (/^(README(?:\.[^/]+)?|LICENSE|CONTRIBUTING(?:\.[^/]+)?|docs\/wiki\/|docs\/.*\.md$)/i.test(path)) {
+        if (/^(README(?:\.[^/]+)?|LICENSE|CONTRIBUTING(?:\.[^/]+)?|docs\/wiki\/|docs\/[\s\S]*\.md$)/i.test(path)) {
             result.reasons.push(`docs:${path}`);
             continue;
         }
@@ -68,21 +79,29 @@ export function classifyPaths(paths) {
             add(result, ['web'], `web:${path}`);
             continue;
         }
-        if (/^(?:app\/|document-reader\/|.*\/src\/(?:android|androidHost|androidUnit)(?:Main|Test)\/)/.test(path)) {
-            add(result, ['android'], `android:${path}`);
-            continue;
-        }
         if (/^(?:iosApp\/|ios-shared\/|.*\/src\/(?:ios|iosX64|iosArm64|iosSimulatorArm64)(?:Main|Test)\/)/.test(path) || /\.swift$/.test(path)) {
             add(result, ['ios'], `ios:${path}`);
             continue;
         }
 
-        if (/^(?:core|designsystem|feature)\/.*\/src\/(?:commonMain|commonTest)\//.test(path)) {
+        // settings.gradle.kts identifies core, designsystem and feature:* as KMP
+        // modules. Any common source set is therefore consumed by multiple targets.
+        // Keep this before Android-only prefixes: a future commonMain under an
+        // Android-named module is fail-closed instead of being misclassified Android-only.
+        if (/^[^/]+(?:\/[^/]+)?\/src\/(?:commonMain|commonTest)\//.test(path)) {
             all(result, `shared-source:${path}`);
             continue;
         }
         if (/^(?:core|designsystem|feature)\/.*\/build\.gradle\.kts$/.test(path)) {
             all(result, `shared-module-build:${path}`);
+            continue;
+        }
+
+        // document-reader is presently an Android library (its build file applies
+        // com.android.library only), but the generic commonMain case above remains
+        // cross-platform-safe if that module is migrated later.
+        if (/^(?:app\/|document-reader\/|.*\/src\/(?:android|androidHost|androidUnit)(?:Main|Test)\/)/.test(path)) {
+            add(result, ['android'], `android:${path}`);
             continue;
         }
 
@@ -110,11 +129,74 @@ export function classifyPaths(paths) {
     return result;
 }
 
-function changedPaths(base, head) {
-    if (!base || /^0{40}$/.test(base)) return null;
-    return execFileSync('git', ['diff', '--name-only', '--diff-filter=ACMR', base, head], {
-        encoding: 'utf8',
-    }).split(/\r?\n/).filter(Boolean);
+/** Parse `git diff --name-status -z` without newline/quote ambiguities. */
+export function parseNameStatusZ(buffer) {
+    if (!Buffer.isBuffer(buffer)) throw new Error('name-status output must be a Buffer');
+    if (buffer.length === 0) return [];
+    if (buffer[buffer.length - 1] !== 0) throw new Error('malformed name-status output: missing NUL terminator');
+
+    const fields = buffer.toString('utf8').split('\0');
+    fields.pop();
+    const entries = [];
+    for (let index = 0; index < fields.length;) {
+        const statusToken = fields[index++];
+        if (!statusToken) throw new Error('malformed name-status output: empty status');
+        const status = statusToken[0];
+        const validToken = status === 'R' || status === 'C'
+            ? /^[RC]\d+$/.test(statusToken)
+            : /^[ADMTUXB]$/.test(statusToken);
+        if (!NAME_STATUS.has(status) || !validToken) throw new Error(`unknown Git diff status: ${statusToken}`);
+        const pathCount = status === 'R' || status === 'C' ? 2 : 1;
+        const paths = fields.slice(index, index + pathCount);
+        if (paths.length !== pathCount || paths.some(path => path.length === 0)) {
+            throw new Error(`malformed ${statusToken} name-status entry`);
+        }
+        index += pathCount;
+        entries.push({ status, statusToken, paths });
+    }
+    return entries;
+}
+
+export function classifyChanges(entries) {
+    const paths = [];
+    for (const entry of entries) {
+        const expectedPathCount = entry?.status === 'R' || entry?.status === 'C' ? 2 : 1;
+        if (!entry || !NAME_STATUS.has(entry.status) || !Array.isArray(entry.paths) || entry.paths.length !== expectedPathCount || entry.paths.some(path => typeof path !== 'string' || path.length === 0)) {
+            return unknownResult('malformed-change-entry:all');
+        }
+        // R and C intentionally classify both endpoints. A platform migration can
+        // otherwise hide the removed source set from its former lane.
+        paths.push(...entry.paths);
+    }
+    return classifyPaths(paths);
+}
+
+function resolvedCommit(revision, cwd) {
+    if (!revision || /^0+$/.test(revision)) return null;
+    try {
+        return execFileSync('git', ['rev-parse', '--verify', '--quiet', `${revision}^{commit}`], {
+            cwd,
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim();
+    } catch {
+        return null;
+    }
+}
+
+export function classifyGitRange(base, head, { cwd = process.cwd() } = {}) {
+    const baseCommit = resolvedCommit(base, cwd);
+    const headCommit = resolvedCommit(head, cwd);
+    if (!baseCommit || !headCommit) return unknownResult('invalid-or-unresolvable-git-range:all');
+    try {
+        const output = execFileSync('git', [
+            'diff', '--name-status', '-z', '--find-renames', '--find-copies-harder',
+            baseCommit, headCommit,
+        ], { cwd, encoding: 'buffer', stdio: ['ignore', 'pipe', 'ignore'] });
+        return classifyChanges(parseNameStatusZ(output));
+    } catch {
+        return unknownResult('git-diff-failure-or-malformed-output:all');
+    }
 }
 
 function parseArguments(argv) {
@@ -141,9 +223,8 @@ function emit(result, githubOutput) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     const options = parseArguments(process.argv.slice(2));
-    const paths = options.all ? null : changedPaths(options.base, options.head);
-    const result = paths === null
-        ? { ...platformResult(), web: true, android: true, ios: true, docs_only: false, reasons: ['manual-or-unknown-base:all'] }
-        : classifyPaths(paths);
+    const result = options.all
+        ? { ...platformResult(), web: true, android: true, ios: true, docs_only: false, reasons: ['manual-dispatch:all'] }
+        : classifyGitRange(options.base, options.head);
     emit(result, options.githubOutput);
 }
