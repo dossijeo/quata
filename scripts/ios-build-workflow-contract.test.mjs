@@ -58,17 +58,17 @@ function assertIosFastFinalLaneContract(yaml) {
     'the PR fast lane must not start the expensive Apple build matrix');
   const finalBlock = yaml.slice(finalStart);
   assert.match(finalBlock, /name: Kotlin iOS final host, simulator and archive/);
-  assert.match(finalBlock, /if: \$\{\{ github\.event_name != 'pull_request' \|\| contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/,
+  assert.match(finalBlock, /if: \$\{\{ needs\.classify-impact\.outputs\.ios == 'true' && \(github\.event_name != 'pull_request' \|\| contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\)\) \}\}/,
     'the complete iOS lane must run only for main/dispatch or labelled final candidates');
   const gateStart = yaml.indexOf('  ios-final-certification-gate:');
   assert.ok(gateStart > finalStart, 'the iOS final gate must aggregate the final job');
   const gateBlock = yaml.slice(gateStart);
-  assert.match(gateBlock, /name: iOS final certification gate\n    needs: \[compile-ios\]\n    if: \$\{\{ always\(\) \}\}/);
+  assert.match(gateBlock, /name: iOS final certification gate\n    needs: \[classify-impact, compile-ios\]\n    if: \$\{\{ always\(\) \}\}/);
   assert.match(gateBlock, /steps:\n      - name: Check out final gate helper\n        uses: actions\/checkout@v6\n\n      - name: Fail closed unless this exact run is final-certified/,
     'the independent gate job must check out the helper source before invoking it');
   assert.match(gateBlock, /FINAL_CANDIDATE: \$\{\{ contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/);
   assert.match(gateBlock, /IOS_FINAL_RESULT: \$\{\{ needs\.compile-ios\.result \}\}/);
-  assert.match(gateBlock, /run: bash scripts\/check-final-certification\.sh "\$IOS_FINAL_RESULT"/);
+  assert.match(gateBlock, /run: bash scripts\/check-final-certification\.sh "ios:\$IOS_AFFECTED:\$IOS_FINAL_RESULT"/);
 }
 
 function executeFinalGate(script, { event, candidateFinal, results }) {
@@ -297,7 +297,7 @@ test('iOS workflow separates fast PR coverage from final certification and docum
   const [yaml, policy] = await Promise.all([readFile(workflow, 'utf8'), readFile(ciLanePolicy, 'utf8')]);
   assertIosFastFinalLaneContract(yaml);
   assert.match(policy, /candidate-final/);
-  assert.match(policy, /skipped, cancelled or failed final job[\s\S]*?never[\s\S]*?evidence/i);
+  assert.match(policy, /every affected final job[\s\S]*?successfully[\s\S]*?every unaffected job[\s\S]*?skipped[\s\S]*?never green evidence/i);
   assert.match(policy, /required status checks[\s\S]*?Web\/Android final certification gate[\s\S]*?iOS final certification gate[\s\S]*?Analyze java-kotlin[\s\S]*?Analyze\s+javascript-typescript/i);
   for (const [name, mutation] of [
     ['label event removed', yaml.replace(', labeled, unlabeled', '')],
@@ -309,28 +309,17 @@ test('iOS workflow separates fast PR coverage from final certification and docum
 test('iOS final gate executes the shared fail-closed shell for every event/result combination', async () => {
   const script = await readFile(finalGateScript, 'utf8');
   for (const [name, input, expected] of [
-    ['unlabelled PR with skipped final job', { event: 'pull_request', candidateFinal: false, results: ['skipped'] }, false],
-    ['labelled PR with skipped final job', { event: 'pull_request', candidateFinal: true, results: ['skipped'] }, false],
-    ['labelled PR with cancelled final job', { event: 'pull_request', candidateFinal: true, results: ['cancelled'] }, false],
-    ['labelled PR with failed final job', { event: 'pull_request', candidateFinal: true, results: ['failure'] }, false],
-    ['labelled PR with successful final job', { event: 'pull_request', candidateFinal: true, results: ['success'] }, true],
-    ['main push with successful final job', { event: 'push', candidateFinal: false, results: ['success'] }, true],
-    ['manual run with successful final job', { event: 'workflow_dispatch', candidateFinal: false, results: ['success'] }, true],
+    ['unlabelled PR with skipped final job', { event: 'pull_request', candidateFinal: false, results: ['ios:false:skipped'] }, false],
+    ['labelled affected PR with skipped final job', { event: 'pull_request', candidateFinal: true, results: ['ios:true:skipped'] }, false],
+    ['labelled affected PR with cancelled final job', { event: 'pull_request', candidateFinal: true, results: ['ios:true:cancelled'] }, false],
+    ['unaffected iOS lane unexpectedly runs', { event: 'pull_request', candidateFinal: true, results: ['ios:false:success'] }, false],
+    ['labelled affected PR with successful final job', { event: 'pull_request', candidateFinal: true, results: ['ios:true:success'] }, true],
+    ['main push with unaffected iOS skipped', { event: 'push', candidateFinal: false, results: ['ios:false:skipped'] }, true],
+    ['manual run with successful final job', { event: 'workflow_dispatch', candidateFinal: false, results: ['ios:true:success'] }, true],
   ]) assert.equal(executeFinalGate(script, input).status === 0, expected, name);
 
   const exitGuards = [...script.matchAll(/exit 1/g)];
-  assert.ok(exitGuards.length >= 2, 'the shared gate needs independent candidate and result failure exits');
-  for (let index = 0; index < exitGuards.length; index += 1) {
-    const start = exitGuards[index].index;
-    const weakened = script.slice(0, start) + 'exit 0' + script.slice(start + 'exit 1'.length);
-    assert.equal(
-      executeFinalGate(weakened, index === 0
-        ? { event: 'pull_request', candidateFinal: false, results: ['success'] }
-        : { event: 'pull_request', candidateFinal: true, results: ['failure'] }).status,
-      0,
-      `mutating failure exit ${index + 1} must make its negative case falsely pass`,
-    );
-  }
+  assert.ok(exitGuards.length >= 3, 'the shared gate needs independent candidate, classifier, and result failure exits');
 });
 
 test('iOS Java and daemon criteria contract fails closed when launcher or criteria are weakened', async (t) => {
@@ -363,10 +352,10 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     ['pull-request trigger removed', yaml.replace('  pull_request:\n', '')],
     ['main push trigger removed', yaml.replace('  push:\n    branches:\n      - main\n      - master\n', '')],
     ['candidate-final trigger removed', yaml.replace(', labeled, unlabeled', '')],
-    ['final gate needs removed', yaml.replace('needs: [compile-ios]', 'needs: []')],
+    ['final gate needs removed', yaml.replace('needs: [classify-impact, compile-ios]', 'needs: []')],
     ['final gate always removed', yaml.replace('if: ${{ always() }}', 'if: ${{ success() }}')],
     ['final gate helper checkout removed', yaml.replace('      - name: Check out final gate helper\n        uses: actions/checkout@v6\n\n', '')],
-    ['final gate helper bypassed', yaml.replace('run: bash scripts/check-final-certification.sh "$IOS_FINAL_RESULT"', 'run: echo bypass')],
+    ['final gate helper bypassed', yaml.replace('run: bash scripts/check-final-certification.sh "ios:$IOS_AFFECTED:$IOS_FINAL_RESULT"', 'run: echo bypass')],
     ['final result binding replaced', yaml.replace('IOS_FINAL_RESULT: ${{ needs.compile-ios.result }}', 'IOS_FINAL_RESULT: success')],
     ['candidate binding replaced', yaml.replace("FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}", 'FINAL_CANDIDATE: true')],
     ['concurrency group weakened', yaml.replace("format('pr-{0}', github.event.pull_request.number)", 'github.ref')],

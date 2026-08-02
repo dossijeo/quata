@@ -17,8 +17,36 @@ permissions:
   contents: read
 
 jobs:
+  classify-impact:
+    name: Classify affected platforms
+    runs-on: ubuntu-24.04
+    outputs:
+      web: ${{ steps.impact.outputs.web }}
+      android: ${{ steps.impact.outputs.android }}
+      unknown: ${{ steps.impact.outputs.unknown }}
+      docs_only: ${{ steps.impact.outputs.docs_only }}
+    steps:
+      - name: Check out classification range
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Classify changed paths fail closed
+        id: impact
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            node scripts/classify-ci-impact.mjs --all --github-output "$GITHUB_OUTPUT"
+          else
+            node scripts/classify-ci-impact.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --github-output "$GITHUB_OUTPUT"
+          fi
+
   fast-contracts:
     name: PR fast contracts and focal imports
+    needs: [classify-impact]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -63,8 +91,10 @@ jobs:
           fi
           node --test scripts/web-android-pr-workflow-contract.test.mjs
           node --test scripts/ios-build-workflow-contract.test.mjs
+          node --test scripts/classify-ci-impact.test.mjs
 
       - name: Compile focal Wasm imports
+        if: ${{ needs.classify-impact.outputs.web == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -77,7 +107,8 @@ jobs:
 
   web-wasm:
     name: Web/Wasm final distribution and Chrome smoke
-    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
+    needs: [classify-impact]
+    if: ${{ needs.classify-impact.outputs.web == 'true' && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final')) }}
     runs-on: ubuntu-24.04
     # Distribution, browser smoke, and three cold-profile measurements run in this job.
     # Keep enough shared budget for all evidence rather than letting the final advisory gate time out.
@@ -280,9 +311,10 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  unit-tests:
+  android-unit-tests:
     name: Unit tests (${{ matrix.name }})
-    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
+    needs: [classify-impact]
+    if: ${{ needs.classify-impact.outputs.android == 'true' && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
@@ -299,11 +331,6 @@ jobs:
             browser: false
             gradle_tasks: ":core:testAndroidHostTest"
             gradle_args: ""
-          - name: kmp-wasm-common
-            timeout_minutes: 65
-            browser: true
-            gradle_tasks: ":core:wasmJsNodeTest"
-            gradle_args: "-Dorg.gradle.jvmargs=-Xmx3g -Pkotlin.daemon.jvmargs=-Xmx3g --max-workers=1"
 
     steps:
       - name: Check out source
@@ -320,12 +347,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-
-      - name: Set up Node.js 20.19.0 for Wasm tests
-        if: matrix.browser
-        uses: actions/setup-node@v6
-        with:
-          node-version: "20.19.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -370,9 +391,83 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  web-unit-tests:
+    name: Unit tests (kmp-wasm-common)
+    needs: [classify-impact]
+    if: ${{ needs.classify-impact.outputs.web == 'true' && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up JetBrains Runtime 21 for Gradle daemon
+        uses: actions/setup-java@v5
+        with:
+          distribution: jetbrains
+          java-version: "21"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node.js 20.19.0 for Wasm tests
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20.19.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Install Android SDK 36.1 for KMP configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          set +e
+          yes | "$sdkmanager" --licenses >/dev/null
+          license_status=("${PIPESTATUS[@]}")
+          set -e
+          if [[ "${license_status[1]}" -ne 0 ]]; then
+            exit "${license_status[1]}"
+          fi
+          if [[ "${license_status[0]}" -ne 0 && "${license_status[0]}" -ne 1 && "${license_status[0]}" -ne 141 ]]; then
+            exit "${license_status[0]}"
+          fi
+          "$sdkmanager" "platforms;android-36.1" "build-tools;36.1.0"
+
+      - name: Run Wasm/common unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/reports/unit-tests
+          bash ./gradlew :core:wasmJsNodeTest \
+            -Dorg.gradle.jvmargs=-Xmx3g -Pkotlin.daemon.jvmargs=-Xmx3g --max-workers=1 \
+            --no-daemon --stacktrace --console=plain \
+            2>&1 | tee build/reports/unit-tests/kmp-wasm-common.log
+
+      - name: Upload Wasm/common JUnit and unit-test logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: unit-tests-kmp-wasm-common-${{ github.run_id }}
+          path: |
+            build/reports/unit-tests/
+            **/build/test-results/**/*.xml
+            **/build/reports/tests/
+          if-no-files-found: warn
+          retention-days: 14
+
   android-debug:
     name: Android lint and debug assembly
-    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
+    needs: [classify-impact]
+    if: ${{ needs.classify-impact.outputs.android == 'true' && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 50
 
@@ -482,7 +577,7 @@ jobs:
 
   final-certification-gate:
     name: Web/Android final certification gate
-    needs: [web-wasm, unit-tests, android-debug]
+    needs: [classify-impact, web-wasm, web-unit-tests, android-unit-tests, android-debug]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
 
@@ -495,7 +590,15 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
+          WEB_AFFECTED: ${{ needs.classify-impact.outputs.web }}
+          ANDROID_AFFECTED: ${{ needs.classify-impact.outputs.android }}
           WEB_FINAL_RESULT: ${{ needs.web-wasm.result }}
-          MATRIX_FINAL_RESULT: ${{ needs.unit-tests.result }}
+          WEB_UNIT_RESULT: ${{ needs.web-unit-tests.result }}
+          ANDROID_UNIT_RESULT: ${{ needs.android-unit-tests.result }}
           ANDROID_FINAL_RESULT: ${{ needs.android-debug.result }}
-        run: bash scripts/check-final-certification.sh "$WEB_FINAL_RESULT" "$MATRIX_FINAL_RESULT" "$ANDROID_FINAL_RESULT"
+        run: |
+          bash scripts/check-final-certification.sh \
+            "web-wasm:$WEB_AFFECTED:$WEB_FINAL_RESULT" \
+            "web-unit:$WEB_AFFECTED:$WEB_UNIT_RESULT" \
+            "android-unit:$ANDROID_AFFECTED:$ANDROID_UNIT_RESULT" \
+            "android-debug:$ANDROID_AFFECTED:$ANDROID_FINAL_RESULT"

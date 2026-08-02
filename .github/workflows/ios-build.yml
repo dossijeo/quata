@@ -21,6 +21,32 @@ permissions:
   contents: read
 
 jobs:
+  classify-impact:
+    name: Classify affected platforms
+    runs-on: ubuntu-24.04
+    outputs:
+      ios: ${{ steps.impact.outputs.ios }}
+      unknown: ${{ steps.impact.outputs.unknown }}
+      docs_only: ${{ steps.impact.outputs.docs_only }}
+    steps:
+      - name: Check out classification range
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Classify changed paths fail closed
+        id: impact
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            node scripts/classify-ci-impact.mjs --all --github-output "$GITHUB_OUTPUT"
+          else
+            node scripts/classify-ci-impact.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --github-output "$GITHUB_OUTPUT"
+          fi
+
   ios-fast-contracts:
     name: iOS fast contracts
     runs-on: ubuntu-24.04
@@ -44,6 +70,7 @@ jobs:
             git diff --check HEAD^ HEAD
           fi
           node --test scripts/ios-build-workflow-contract.test.mjs
+          node --test scripts/classify-ci-impact.test.mjs
           node --test scripts/ios-compose-resources-contract.test.mjs
           node --test scripts/ios-auth-launch-fixture-contract.test.mjs
           node --test scripts/ios-public-runtime-contract.test.mjs
@@ -53,7 +80,8 @@ jobs:
 
   compile-ios:
     name: Kotlin iOS final host, simulator and archive
-    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
+    needs: [classify-impact]
+    if: ${{ needs.classify-impact.outputs.ios == 'true' && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final')) }}
     runs-on: macos-15
     timeout-minutes: 60
 
@@ -577,7 +605,7 @@ jobs:
 
   ios-final-certification-gate:
     name: iOS final certification gate
-    needs: [compile-ios]
+    needs: [classify-impact, compile-ios]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
 
@@ -590,5 +618,6 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
+          IOS_AFFECTED: ${{ needs.classify-impact.outputs.ios }}
           IOS_FINAL_RESULT: ${{ needs.compile-ios.result }}
-        run: bash scripts/check-final-certification.sh "$IOS_FINAL_RESULT"
+        run: bash scripts/check-final-certification.sh "ios:$IOS_AFFECTED:$IOS_FINAL_RESULT"
