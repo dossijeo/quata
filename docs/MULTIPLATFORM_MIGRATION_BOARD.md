@@ -66,6 +66,19 @@ caducada en el mismo simulador/data-container y relanzar sin reinstalar ni borra
 fallback a Feed público y su recuperación. El informe debe registrar SHA, UDID, estado del
 container, resultado real del seeder (nunca `SKIPPED`) y la captura resultante.
 
+## Auditoría honesta #154 — Create Post
+
+#154 (`68d1fab7`) integró `CreatePostRoot` común y sus montajes Android/Web/iOS; la CI exacta y el
+host de simulador estrecho están acreditados. Eso no acredita publicación ni paridad visual 1:1.
+La PR se fusionó con validación visual pendiente y sin una revisión durable de producto, por lo que
+no se reconstruye retrospectivamente un GO. Se mantienen los estados del manifiesto: Web
+`composer.publish` **contract-only** e iOS **blocked** hasta una E2E real.
+
+Tarea focal de cierre: comparar 1:1 Android/Web/iOS con la misma sesión y ruta, y ejecutar una E2E
+desechable de Storage/PostgREST que cubra publicación y rollback/limpieza. La corrección de la fila
+obsoleta de `MULTIPLATFORM_INVENTORY.md` se mantiene como cambio documental separado; no eleva las
+capacidades ni oculta los límites del manifiesto.
+
 ## Cierre de pipeline #169
 
 La PR #169 completó dos rondas remotas del candidato. La primera, `3a94c9c6`, falló por un
@@ -108,7 +121,8 @@ verdes certifiquen ese merge sintético.
 4. Esperar únicamente la certificación final remota exacta de #170; no alterar su head ni promocionar otra candidata. En paralelo, preparar trabajo local aislado sin reutilizarlo como evidencia final.
 5. Aplicar el modelo de integración secuencial/ejecución paralela: una candidata final, preflight local completo, merge sintético y CI como certificación. Preparar localmente la siguiente unidad mientras CI está activo, sin publicar candidatos adicionales.
 6. Cerrar la evidencia #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado con `QUATA_IOS_AUTH_E2E_FILE` y relanzamiento sin reinstalar.
-7. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
+7. Cerrar #154 con comparación 1:1 Android/Web/iOS y E2E desechable Storage/PostgREST/rollback; mantener Web contract-only e iOS blocked hasta entonces y corregir el inventario legado en una actualización documental separada.
+8. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
 
 ## Decisiones vigentes
 
