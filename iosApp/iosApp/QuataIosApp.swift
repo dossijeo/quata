@@ -991,6 +991,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var authRequiredPromptFactory: (() -> UIViewController)?
     private var authRequiredPromptVisible = false
     private var authModalTransitionsAnimated = true
+    /// A capability choice is made while the common Compose prompt is still the presented
+    /// controller.  Keep the requested Auth destination until UIKit has completely finished
+    /// dismissing that controller; presenting from a dismissal completion can otherwise race
+    /// the presentation coordinator on slower simulators.
+    private var pendingAuthenticationEntry: AuthenticationEntry?
     private var nextAuthPromptPresentationCompletionForTesting: (() -> Void)?
     private var nextAuthenticationPresentationCompletionForTesting: (() -> Void)?
     private var logoutAction: ((@escaping () -> Void) -> Void)?
@@ -1258,11 +1263,29 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Keeping these transitions explicit also makes the real modal lifecycle verifiable without
     /// replacing the common Compose prompt with a UIKit imitation.
     func openLoginFromAuthRequiredPrompt() {
-        dismissAuthRequiredPrompt { [weak self] in self?.presentAuthentication(.login) }
+        queueAuthenticationPresentation(.login)
     }
 
     func openRegistrationFromAuthRequiredPrompt() {
-        dismissAuthRequiredPrompt { [weak self] in self?.presentAuthentication(.registration) }
+        queueAuthenticationPresentation(.registration)
+    }
+
+    private func queueAuthenticationPresentation(_ entry: AuthenticationEntry) {
+        guard !hasAuthenticatedSession else { return }
+        pendingAuthenticationEntry = entry
+        dismissAuthRequiredPrompt { [weak self] in
+            // The dismissal completion is not a license to synchronously begin another UIKit
+            // transition. Moving the drain to the next main-loop turn serializes the two
+            // transitions without a timing delay and keeps the Compose prompt as the prompt.
+            DispatchQueue.main.async { self?.drainPendingAuthenticationPresentation() }
+        }
+    }
+
+    private func drainPendingAuthenticationPresentation() {
+        guard !hasAuthenticatedSession, let entry = pendingAuthenticationEntry else { return }
+        guard presentedViewController == nil else { return }
+        pendingAuthenticationEntry = nil
+        presentAuthentication(entry)
     }
 
     private func presentAuthentication(_ entry: AuthenticationEntry) {
