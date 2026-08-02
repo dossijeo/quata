@@ -19,14 +19,14 @@ import kotlinx.coroutines.launch
 class NeighborhoodsViewModel(
     private val repository: NeighborhoodRepository,
     dispatchers: AppDispatchers = AppDispatchers()
-) {
+) : NeighborhoodsScreenModel {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
     private val _uiState = MutableStateFlow(NeighborhoodsUiState())
-    val uiState: StateFlow<NeighborhoodsUiState> = _uiState.asStateFlow()
+    override val uiState: StateFlow<NeighborhoodsUiState> = _uiState.asStateFlow()
     private var communitiesJob: Job? = null
     private var profileJob: Job? = null
 
-    fun startObservingCommunities() {
+    override fun startObservingCommunities() {
         if (communitiesJob?.isActive == true) return
         communitiesJob = scope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
@@ -47,12 +47,12 @@ class NeighborhoodsViewModel(
         }
     }
 
-    fun stopObservingCommunities() {
+    override fun stopObservingCommunities() {
         communitiesJob?.cancel()
         communitiesJob = null
     }
 
-    fun openChat(neighborhood: String, onOpened: (String) -> Unit) {
+    override fun openChat(neighborhood: String, onOpened: (String) -> Unit) {
         if (_uiState.value.openingChatNeighborhood != null) return
         scope.launch {
             _uiState.value = _uiState.value.copy(
@@ -78,7 +78,7 @@ class NeighborhoodsViewModel(
         }
     }
 
-    fun toggleFollowUser(userId: String) {
+    override fun toggleFollowUser(userId: String) {
         if (_uiState.value.followingUserId == userId) return
         scope.launch {
             _uiState.value = _uiState.value.copy(followingUserId = userId, error = null)
@@ -106,7 +106,7 @@ class NeighborhoodsViewModel(
         }
     }
 
-    fun openPrivateChat(userId: String, onOpened: (String) -> Unit) {
+    override fun openPrivateChat(userId: String, onOpened: (String) -> Unit) {
         if (_uiState.value.openingPrivateChatUserId != null) return
         scope.launch {
             _uiState.value = _uiState.value.copy(openingPrivateChatUserId = userId, error = null)
@@ -124,7 +124,7 @@ class NeighborhoodsViewModel(
         }
     }
 
-    fun openUserProfile(userId: String) {
+    override fun openUserProfile(userId: String) {
         profileJob?.cancel()
         scope.launch {
             val currentUserIsAdmin = repository.isCurrentUserAdmin()
@@ -355,7 +355,7 @@ class NeighborhoodsViewModel(
 
     }
 
-    fun close() {
+    override fun close() {
         communitiesJob?.cancel()
         profileJob?.cancel()
         scope.coroutineContext.cancel()
