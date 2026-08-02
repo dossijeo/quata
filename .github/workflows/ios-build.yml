@@ -89,11 +89,12 @@ on:
       - "iosApp/**"
 
 concurrency:
-  group: ios-compile-${{ github.ref }}
-  # An iOS run is expensive and its XCTest phase must complete to leave a
-  # useful diagnostic bundle. Keep one active run per ref instead of
-  # cancelling it when a newer push reaches that same ref.
-  cancel-in-progress: false
+  # Superseded PR commits do not need to consume the macOS runner. Keep their
+  # group tied to the PR number so a new revision cancels only its predecessor.
+  # Pushes to main and manually dispatched diagnostics remain independently
+  # stable and are never cancelled while collecting their evidence.
+  group: ios-compile-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('{0}-{1}', github.event_name, github.ref) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

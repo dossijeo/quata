@@ -23,6 +23,22 @@ function assertIosJavaContract(yaml) {
   assert.doesNotMatch(yaml, /- name: Set up JetBrains Runtime 21 for Gradle daemon/);
 }
 
+function assertIosConcurrencyContract(yaml) {
+  const concurrencyBlock = yaml.slice(
+    yaml.indexOf('\nconcurrency:'),
+    yaml.indexOf('\npermissions:', yaml.indexOf('\nconcurrency:')),
+  );
+  assert.match(
+    concurrencyBlock,
+    /group: ios-compile-\$\{\{ github\.event_name == 'pull_request' && format\('pr-\{0\}', github\.event\.pull_request\.number\) \|\| format\('\{0\}-\{1\}', github\.event_name, github\.ref\) \}\}/,
+    'PR runs must share a group by PR number while push and dispatch runs keep stable event/ref groups',
+  );
+  assert.match(
+    concurrencyBlock, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/,
+    'only superseded pull-request runs may be cancelled',
+  );
+}
+
 function assertIosWorkflowSelfCoverage(yaml) {
   const pullRequestStart = yaml.indexOf('  pull_request:');
   const pushStart = yaml.indexOf('  push:');
@@ -245,6 +261,19 @@ test('iOS build workflow preserves JDK 17 while Gradle resolves its daemon from 
   assertIosJavaContract(yaml);
   assert.match(criteria, /^toolchainVendor=JETBRAINS$/m);
   assert.match(criteria, /^toolchainVersion=21$/m);
+});
+
+test('iOS workflow cancels only superseded pull-request runs', async (t) => {
+  const yaml = await readFile(workflow, 'utf8');
+  assertIosConcurrencyContract(yaml);
+
+  for (const [name, mutation] of [
+    ['PR group falls back to ref instead of PR number', yaml.replace("format('pr-{0}', github.event.pull_request.number)", 'github.ref')],
+    ['manual dispatch can cancel', yaml.replace("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", 'cancel-in-progress: true')],
+    ['all runs are kept serial', yaml.replace("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", 'cancel-in-progress: false')],
+  ]) await t.test(name, () => {
+    assert.throws(() => assertIosConcurrencyContract(mutation));
+  });
 });
 
 test('iOS Java and daemon criteria contract fails closed when launcher or criteria are weakened', async (t) => {
