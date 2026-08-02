@@ -274,6 +274,7 @@ private final class IosAppCompositionRoot {
     }()
     private var notificationCountObserver: IosNotificationCountObserver?
     private var notificationCountObservationID = UUID()
+    private var notificationsFactoryGeneration = 0
     /// Official is a public, read-only browser.  Unlike the private verticals it is deliberately
     /// independent from Keychain restoration, so a valid public deployment can open a shared
     /// Official link before login and never sends a restored bearer token for that read.
@@ -631,9 +632,12 @@ private final class IosAppCompositionRoot {
     /// Android exposes the inbox from the shared header without a session.  Its detail action
     /// delegates to `showChat`, which remains the single private-route gate.
     private func installNotificationsIfAvailable() {
+        notificationsFactoryGeneration += 1
+        let generation = notificationsFactoryGeneration
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             DispatchQueue.main.async {
-                self?.installNotifications(authorizationStatus: settings.authorizationStatus)
+                guard let self, self.notificationsFactoryGeneration == generation else { return }
+                self.installNotifications(authorizationStatus: settings.authorizationStatus)
             }
         }
     }
@@ -668,6 +672,9 @@ private final class IosAppCompositionRoot {
             ),
         )
         if let bootstrap { installNotificationCountObserver(bootstrap) }
+        if authenticatedHost.isNotificationsVisible {
+            authenticatedHost.showNotifications()
+        }
     }
 
     private func performNotificationPermissionAction(for status: UNAuthorizationStatus) {
@@ -1141,6 +1148,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var onLoggedOut: (() -> Void)?
     private var isLoggingOut = false
     private var pendingRoute: PendingRoute?
+    private var visibleRoute: PendingRoute?
+    var isNotificationsVisible: Bool {
+        if case .notifications? = visibleRoute { return true }
+        return false
+    }
     private var hasAuthenticatedSession = false
     private var hasPublicFeed = false
     private lazy var primaryNavigationHost = IosPrimaryNavigationHost(
@@ -1924,6 +1936,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func showRouteController(_ controller: UIViewController, route: PendingRoute) {
+        visibleRoute = route
         // Public Official/deep-link routes may be resolved before the Feed factory has been
         // installed. They still belong to the application viewport and therefore get the same
         // shared shell as Feed rather than becoming a full-screen UIKit exception.

@@ -113,7 +113,6 @@ fun NotificationsContent(
                     }
                     state.error != null -> item("notifications-error") {
                         NotificationStatusCard(strings.errorTitle) {
-                            Text(state.error, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Button(onClick = { handleNotificationRetry(onRetry) }) {
                                 Text(strings.retryLabel)
                             }

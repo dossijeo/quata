@@ -7,6 +7,10 @@ import com.quata.feature.notifications.domain.toConversationNotificationItems
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 
 /**
  * Portable notifications inbox backed by the chat conversations already available to a host.
@@ -16,6 +20,7 @@ import kotlinx.coroutines.flow.map
  */
 class ConversationNotificationsRepository(
     private val chatRepository: ChatRepository,
+    private val pollIntervalMillis: Long = 15_000L,
 ) : NotificationsRepository {
     override suspend fun getNotifications(): Result<List<NotificationItem>> =
         chatRepository.getConversations().map { conversations ->
@@ -25,10 +30,13 @@ class ConversationNotificationsRepository(
     override suspend fun getNotificationCount(): Result<Int> =
         getNotifications().map { notifications -> notifications.sumOf(NotificationItem::unreadCount) }
 
-    override fun observeNotifications(): Flow<List<NotificationItem>> =
-        chatRepository.observeConversations().combine(chatRepository.activeConversationId) { conversations, activeConversationId ->
-            conversations.toConversationNotificationItems(activeConversationId)
+    override fun observeNotifications(): Flow<List<NotificationItem>> = flow {
+        while (currentCoroutineContext().isActive) {
+            val items = getNotifications().getOrThrow()
+            emit(items)
+            delay(pollIntervalMillis.coerceAtLeast(1L))
         }
+    }
 
     override fun observeNotificationCount(): Flow<Int> = observeNotifications()
         .map { notifications -> notifications.sumOf(NotificationItem::unreadCount) }

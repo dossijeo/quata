@@ -5,6 +5,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 
 /**
  * Lifecycle-owned subscription to the shared notification count.
@@ -23,11 +25,16 @@ internal class NotificationCountSubscription(
         val activeGeneration = ++generation
         observation?.cancel()
         observation = scope.launch {
-            repository.observeNotificationCount().collect { count ->
-                // Cancellation does not retract a value that was already dispatched by some
-                // Flow implementations. A generation check makes close/restart a hard delivery
-                // boundary for every platform, including the Wasm event loop.
-                if (activeGeneration == generation) onCountChanged(count)
+            while (activeGeneration == generation) {
+                try {
+                    repository.observeNotificationCount().collect { count ->
+                        if (activeGeneration == generation) onCountChanged(count)
+                    }
+                    return@launch
+                } catch (error: Throwable) {
+                    if (error is CancellationException) throw error
+                    delay(1_000L)
+                }
             }
         }
     }

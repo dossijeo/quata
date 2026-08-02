@@ -106,8 +106,7 @@ open class PostgrestChatRepository(
     override fun observeConversations(): Flow<List<Conversation>> = flow {
         while (currentCoroutineContext().isActive) {
             awaitForeground()
-            // Do not turn an unavailable RPC into a convincing cached-empty inbox.
-            refreshInbox().getOrThrow()
+            refreshInbox()
             emit(conversations.value)
             delay(pollIntervalMillis.coerceAtLeast(MinimumPollIntervalMillis))
         }

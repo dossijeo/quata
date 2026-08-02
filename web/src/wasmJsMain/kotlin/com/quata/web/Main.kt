@@ -45,6 +45,10 @@ import com.quata.feature.auth.presentation.AuthProductDestination
 import kotlinx.browser.document
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 internal val WebAuthenticatedChromeStrings = QuataAuthenticatedChromeSpanish
@@ -500,6 +504,7 @@ private fun QuataWebApp(
                         onOpenConversation = navigation::navigateConversation,
                         canMutate = isSessionReady,
                         onAuthenticationRequired = { conversationId ->
+                            navigation.navigate("")
                             requestAuthenticationFor(quataChatUrl(conversationId).substringAfter('#'))
                         },
                         onDismissAuthenticationRequired = { requestAuthenticationForCurrentRoute() },
@@ -649,7 +654,19 @@ private fun QuataWebApp(
 }
 
 /** A public chrome badge must never cancel the root composition on an anonymous RPC failure. */
-internal fun webChromeNotificationCount(source: Flow<Int>): Flow<Int> = source.catch { emit(0) }
+internal fun webChromeNotificationCount(source: Flow<Int>, retryDelayMillis: Long = 1_000L): Flow<Int> = flow {
+    var latest = 0
+    while (true) {
+        try {
+            source.collect { value -> latest = value; emit(value) }
+            return@flow
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            emit(latest)
+            delay(retryDelayMillis.coerceAtLeast(1L))
+        }
+    }
+}
 
 internal val webPrimaryNavigationLabels = QuataPrimaryNavigationLabels(
     neighborhoods = "Qüata",
