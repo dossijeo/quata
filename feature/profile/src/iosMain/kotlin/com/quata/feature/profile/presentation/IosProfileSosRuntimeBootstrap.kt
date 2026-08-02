@@ -139,6 +139,7 @@ fun createIosPublicMemberProfileHostDependencies(
     val remote = IosProfilePostgrestGateway(
         configuration = configuration,
         sessionProvider = anonymousTransportSession,
+        allowAnonymousCommunityProfileReads = true,
     )
     return IosMemberProfileHostDependencies(
         profileId = profileId,

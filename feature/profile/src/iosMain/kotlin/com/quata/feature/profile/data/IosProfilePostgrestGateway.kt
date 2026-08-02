@@ -107,16 +107,18 @@ class IosProfilePostgrestGateway internal constructor(
     private val configuration: IosProfileRuntimeConfiguration,
     private val sessionProvider: IosProfileSessionProvider,
     private val transport: IosProfileHttpTransport,
+    private val allowAnonymousCommunityProfileReads: Boolean = false,
 ) : ProfileRemoteGateway {
     constructor(
         configuration: IosProfileRuntimeConfiguration,
         sessionProvider: IosProfileSessionProvider,
-    ) : this(configuration, sessionProvider, IosUrlSessionProfileHttpTransport)
+        allowAnonymousCommunityProfileReads: Boolean = false,
+    ) : this(configuration, sessionProvider, IosUrlSessionProfileHttpTransport, allowAnonymousCommunityProfileReads)
 
     constructor(
         configuration: IosProfileRuntimeConfiguration,
         authSession: IosRenewableAuthSession,
-    ) : this(configuration, IosProfileKeychainSessionProvider(authSession), IosUrlSessionProfileHttpTransport)
+    ) : this(configuration, IosProfileKeychainSessionProvider(authSession), IosUrlSessionProfileHttpTransport, false)
 
     override suspend fun getProfile(profileId: String): ProfileRemoteRecord? =
         getProfiles(listOf(profileId)).firstOrNull()
@@ -203,13 +205,14 @@ class IosProfilePostgrestGateway internal constructor(
         val publishableKey = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty)
             ?: error("ios_profile_supabase_publishable_key_missing")
         val session = sessionProvider.currentSession()?.takeIf { it.accessToken.isNotBlank() }
-            ?: error("ios_profile_session_missing")
+        val permitsAnonymousRead = allowAnonymousCommunityProfileReads && table == CommunityProfilesTable
+        require(session != null || permitsAnonymousRead) { "ios_profile_session_missing" }
         val request = IosProfileHttpRequest(
             method = "GET",
             url = "$baseUrl/rest/v1/$table${query.toIosProfileQueryString()}",
             headers = mapOf(
                 "apikey" to publishableKey,
-                "Authorization" to "Bearer ${session.accessToken}",
+                "Authorization" to "Bearer ${session?.accessToken ?: publishableKey}",
                 "Accept" to "application/json",
             ),
         )

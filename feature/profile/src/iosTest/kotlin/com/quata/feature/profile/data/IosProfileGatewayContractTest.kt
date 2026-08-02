@@ -172,6 +172,46 @@ class IosProfileGatewayContractTest {
     }
 
     @Test
+    fun anonymous_public_member_profile_read_uses_only_the_publishable_key_bearer() = runTest {
+        val transport = RecordingTransport(response = "[{\"id\":\"profile-1\",\"display_name\":\"Ada\"}]")
+        val gateway = gateway(transport, session = null, allowAnonymousCommunityProfileReads = true)
+
+        gateway.getProfile("profile-1")
+
+        val request = transport.requests.single()
+        assertEquals("GET", request.method)
+        assertTrue(request.url.contains("/rest/v1/community_profiles?"))
+        assertEquals("public-key", request.headers["apikey"])
+        assertEquals("Bearer public-key", request.headers["Authorization"])
+    }
+
+    @Test
+    fun anonymous_mode_cannot_read_any_table_other_than_community_profiles() = runTest {
+        val transport = RecordingTransport()
+        val gateway = gateway(transport, session = null, allowAnonymousCommunityProfileReads = true)
+
+        val failure = assertFailsWith<IllegalArgumentException> {
+            gateway.getEmergencyContactIds("profile-1", ProfileCachePolicy.NetworkOnly)
+        }
+
+        assertEquals("ios_profile_session_missing", failure.message)
+        assertTrue(transport.requests.isEmpty())
+    }
+
+    @Test
+    fun anonymous_mode_does_not_enable_mutations() = runTest {
+        val transport = RecordingTransport()
+        val gateway = gateway(transport, session = null, allowAnonymousCommunityProfileReads = true)
+
+        val failure = assertFailsWith<IllegalStateException> {
+            gateway.saveProfile("profile-1", mapOf("display_name" to "Ada"))
+        }
+
+        assertEquals("ios_profile_actor_mismatch", failure.message)
+        assertTrue(transport.requests.isEmpty())
+    }
+
+    @Test
     fun recovery_rejects_2xx_false_and_malformed_bodies() = runTest {
         listOf("{\"ok\":false}", "not-json").forEach { response ->
             val transport = RecordingTransport(response)
@@ -228,10 +268,12 @@ class IosProfileGatewayContractTest {
     private fun gateway(
         transport: IosProfileHttpTransport,
         session: IosProfileSession? = IosProfileSession("access-token", "profile-1"),
+        allowAnonymousCommunityProfileReads: Boolean = false,
     ) = IosProfilePostgrestGateway(
         configuration = IosProfileRuntimeConfiguration("https://project.supabase.co", "public-key"),
         sessionProvider = IosProfileSessionProvider { session },
         transport = transport,
+        allowAnonymousCommunityProfileReads = allowAnonymousCommunityProfileReads,
     )
 
     private class RecordingTransport(
