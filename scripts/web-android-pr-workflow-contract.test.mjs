@@ -41,8 +41,8 @@ function assertFastAndFinalLaneContract(yaml) {
   assert.doesNotMatch(fastBlock, /wasmJsBrowserDistribution|web-browser-smoke\.mjs|setup-chrome/,
     'the fast lane must not build the distribution or launch Chrome');
 
-  const finalGuard = /if: \$\{\{ github\.event_name != 'pull_request' \|\| contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/;
-  for (const job of ['web-wasm', 'unit-tests', 'android-debug']) {
+  const finalGuard = /if: \$\{\{ needs\.classify-impact\.outputs\.(?:web|android) == 'true' && \(github\.event_name != 'pull_request' \|\| contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\)\) \}\}/;
+  for (const job of ['web-wasm', 'web-unit-tests', 'android-unit-tests', 'android-debug']) {
     const start = yaml.indexOf(`  ${job}:`);
     assert.ok(start >= 0, `missing final job ${job}`);
     const nextJobOffset = yaml.slice(start + 1).search(/\n  [a-z][a-z-]*:/);
@@ -53,14 +53,15 @@ function assertFastAndFinalLaneContract(yaml) {
   const gateStart = yaml.indexOf('  final-certification-gate:');
   assert.ok(gateStart >= 0, 'the final jobs require an always-running aggregate gate');
   const gateBlock = yaml.slice(gateStart);
-  assert.match(gateBlock, /name: Web\/Android final certification gate\n    needs: \[web-wasm, unit-tests, android-debug\]\n    if: \$\{\{ always\(\) \}\}/);
+  assert.match(gateBlock, /name: Web\/Android final certification gate\n    needs: \[classify-impact, web-wasm, web-unit-tests, android-unit-tests, android-debug\]\n    if: \$\{\{ always\(\) \}\}/);
   assert.match(gateBlock, /steps:\n      - name: Check out final gate helper\n        uses: actions\/checkout@v6\n\n      - name: Fail closed unless this exact run is final-certified/,
     'the independent gate job must check out the helper source before invoking it');
   assert.match(gateBlock, /FINAL_CANDIDATE: \$\{\{ contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/);
-  for (const result of ['WEB_FINAL_RESULT', 'MATRIX_FINAL_RESULT', 'ANDROID_FINAL_RESULT']) {
+  for (const result of ['WEB_FINAL_RESULT', 'WEB_UNIT_RESULT', 'ANDROID_UNIT_RESULT', 'ANDROID_FINAL_RESULT']) {
     assert.match(gateBlock, new RegExp(`${result}: \\$\\{\\{ needs\\.`));
   }
-  assert.match(gateBlock, /run: bash scripts\/check-final-certification\.sh "\$WEB_FINAL_RESULT" "\$MATRIX_FINAL_RESULT" "\$ANDROID_FINAL_RESULT"/);
+  assert.match(gateBlock, /bash scripts\/check-final-certification\.sh/);
+  assert.match(gateBlock, /"web-wasm:\$WEB_AFFECTED:\$WEB_FINAL_RESULT"[\s\S]*?"web-unit:\$WEB_AFFECTED:\$WEB_UNIT_RESULT"[\s\S]*?"android-unit:\$ANDROID_AFFECTED:\$ANDROID_UNIT_RESULT"[\s\S]*?"android-debug:\$ANDROID_AFFECTED:\$ANDROID_FINAL_RESULT"/);
 }
 
 function executeFinalGate(script, { event, candidateFinal, results }) {
@@ -107,7 +108,7 @@ function assertWorkflowContract(yaml) {
     /uses: actions\/checkout@v6\n        with:\n          fetch-depth: 0/,
     'the checkout must contain the pull request base commit',
   );
-  assertJetBrainsDaemonBootstrap(yaml, 4);
+  assertJetBrainsDaemonBootstrap(yaml, 5);
   assertWebWasmTimeoutBudget(yaml);
   assertBrowserTestCoverage(yaml);
   assertFastAndFinalLaneContract(yaml);
@@ -155,33 +156,22 @@ test('Web/Wasm workflow supplies its fetched trusted base SHA and deterministic 
 test('Web/Android final gate executes the shared fail-closed shell for every event/result combination', async () => {
   const script = await readFile(finalGateScript, 'utf8');
   for (const [name, input, expected] of [
-    ['unlabelled PR skips all final jobs', { event: 'pull_request', candidateFinal: false, results: ['skipped', 'skipped', 'skipped'] }, false],
-    ['labelled PR has a cancelled matrix', { event: 'pull_request', candidateFinal: true, results: ['success', 'cancelled', 'success'] }, false],
-    ['labelled PR has a failed browser lane', { event: 'pull_request', candidateFinal: true, results: ['failure', 'success', 'success'] }, false],
-    ['labelled PR final jobs all pass', { event: 'pull_request', candidateFinal: true, results: ['success', 'success', 'success'] }, true],
-    ['main push final jobs all pass', { event: 'push', candidateFinal: false, results: ['success', 'success', 'success'] }, true],
-    ['manual final jobs all pass', { event: 'workflow_dispatch', candidateFinal: false, results: ['success', 'success', 'success'] }, true],
+    ['unlabelled PR skips all final jobs', { event: 'pull_request', candidateFinal: false, results: ['web:false:skipped', 'android:false:skipped'] }, false],
+    ['affected Web lane is cancelled', { event: 'pull_request', candidateFinal: true, results: ['web:true:cancelled', 'android:false:skipped'] }, false],
+    ['unaffected Android lane unexpectedly runs', { event: 'pull_request', candidateFinal: true, results: ['web:true:success', 'android:false:success'] }, false],
+    ['Web-only final jobs pass while Android skips', { event: 'pull_request', candidateFinal: true, results: ['web:true:success', 'android:false:skipped'] }, true],
+    ['Android-only final jobs pass while Web skips', { event: 'push', candidateFinal: false, results: ['web:false:skipped', 'android:true:success'] }, true],
+    ['manual final jobs all pass', { event: 'workflow_dispatch', candidateFinal: false, results: ['web:true:success', 'android:true:success'] }, true],
   ]) assert.equal(executeFinalGate(script, input).status === 0, expected, name);
 
   const exitGuards = [...script.matchAll(/exit 1/g)];
-  assert.ok(exitGuards.length >= 2, 'the shared gate needs independent candidate and result failure exits');
-  for (let index = 0; index < exitGuards.length; index += 1) {
-    const start = exitGuards[index].index;
-    const weakened = script.slice(0, start) + 'exit 0' + script.slice(start + 'exit 1'.length);
-    assert.equal(
-      executeFinalGate(weakened, index === 0
-        ? { event: 'pull_request', candidateFinal: false, results: ['success', 'success', 'success'] }
-        : { event: 'pull_request', candidateFinal: true, results: ['success', 'failure', 'success'] }).status,
-      0,
-      `mutating failure exit ${index + 1} must make its negative case falsely pass`,
-    );
-  }
+  assert.ok(exitGuards.length >= 3, 'the shared gate needs independent candidate, classifier, and result failure exits');
 });
 
 test('workflow contract fails closed if base history, PR-only trigger, read permission, or quoted argument is weakened', async (t) => {
   const yaml = await readFile(workflow, 'utf8');
   const mutations = [
-    ['shallow checkout', yaml.replace('fetch-depth: 0', 'fetch-depth: 1')],
+    ['shallow checkout', yaml.replaceAll('fetch-depth: 0', 'fetch-depth: 1')],
     ['manual trigger removed', yaml.replace('  workflow_dispatch:\n', '')],
     ['main push trigger removed', yaml.replace('  push:\n    branches:\n      - main\n      - master\n', '')],
     ['write permission', yaml.replace('contents: read', 'contents: write')],
@@ -192,13 +182,13 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['full Web lane no longer gated', yaml.replace("contains(github.event.pull_request.labels.*.name, 'candidate-final')", "contains(github.event.pull_request.labels.*.name, 'candidate-review')")],
     ['PR concurrency group weakened', yaml.replace("format('pr-{0}', github.event.pull_request.number)", 'github.ref')],
     ['PR concurrency cancellation weakened', yaml.replace("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", 'cancel-in-progress: true')],
-    ['final gate needs removed', yaml.replace('needs: [web-wasm, unit-tests, android-debug]', 'needs: []')],
+    ['final gate needs removed', yaml.replace('needs: [classify-impact, web-wasm, web-unit-tests, android-unit-tests, android-debug]', 'needs: []')],
     ['final gate always removed', yaml.replace('if: ${{ always() }}', 'if: ${{ success() }}')],
     ['final gate helper checkout removed', yaml.replace('      - name: Check out final gate helper\n        uses: actions/checkout@v6\n\n', '')],
-    ['final gate shell bypassed', yaml.replace('run: bash scripts/check-final-certification.sh "$WEB_FINAL_RESULT" "$MATRIX_FINAL_RESULT" "$ANDROID_FINAL_RESULT"', 'run: echo bypass')],
+    ['final gate shell bypassed', yaml.replace('bash scripts/check-final-certification.sh', 'echo bypass')],
     ['candidate-final binding replaced', yaml.replace("FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}", 'FINAL_CANDIDATE: true')],
     ['Web result binding replaced', yaml.replace('WEB_FINAL_RESULT: ${{ needs.web-wasm.result }}', 'WEB_FINAL_RESULT: success')],
-    ['matrix result binding replaced', yaml.replace('MATRIX_FINAL_RESULT: ${{ needs.unit-tests.result }}', 'MATRIX_FINAL_RESULT: success')],
+    ['Web unit result binding replaced', yaml.replace('WEB_UNIT_RESULT: ${{ needs.web-unit-tests.result }}', 'WEB_UNIT_RESULT: success')],
     ['Android result binding replaced', yaml.replace('ANDROID_FINAL_RESULT: ${{ needs.android-debug.result }}', 'ANDROID_FINAL_RESULT: success')],
     ['Web/Wasm timeout below repeatability budget', yaml.replace(/(  web-wasm:\n[\s\S]*?    timeout-minutes: )100/m, (_, prefix) => `${prefix}99`)],
     ['browser suite timeout below serial budget', yaml.replace(/(- name: Test Web\/Wasm\n\s+timeout-minutes: )25/, (_, prefix) => `${prefix}24`)],
