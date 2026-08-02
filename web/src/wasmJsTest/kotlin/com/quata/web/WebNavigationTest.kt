@@ -102,6 +102,20 @@ class WebNavigationTest {
         assertNull(swipe.pendingFragment)
     }
 
+    @Test
+    fun `anonymous Notifications back returns to the public Feed transport`() {
+        var browserFragment = "notifications"
+        val controller = WebNavigationController("notifications") { browserFragment = it }
+
+        controller.navigate("")
+
+        assertRoute("feed", controller.state)
+        assertEquals("", controller.fragment)
+        assertEquals("", browserFragment)
+        assertEquals(WebPostgrestAuthMode.Public, webFeedReadAuthMode(WebFeedReadOperation.Feed))
+        assertEquals(WebPostgrestAuthMode.Public, webFeedReadAuthMode(WebFeedReadOperation.FeedProfiles))
+    }
+
     private fun assertRoute(expected: String, navigation: WebNavigationState) {
         assertEquals(expected, navigation.route)
     }
