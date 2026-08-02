@@ -38,6 +38,7 @@ raíz no equivale a GO visual o funcional final en Web/iOS.
 | [#168](https://github.com/dossijeo/quata/pull/168) | `07ec8826` | Compilación/host iOS y renderer público acreditados. No acredita el fallback visual de sesión restaurada caducada. |
 | [#156](https://github.com/dossijeo/quata/pull/156) | `5d2a52d1` | `ProfileScreenHost` común; postflight iOS PASS para lectura pública, auth/relanzamiento y Cuenta/Perfil visual. SOS parcial; avatar Web contractual sin mutación E2E. |
 | [#169](https://github.com/dossijeo/quata/pull/169) | `1fe3bf74` | Pipeline CI fail-closed: lane rápida replicable localmente y certificación final separada/exacta. |
+| [#170](https://github.com/dossijeo/quata/pull/170) | `4c719072` | Clasificador de impacto fail-closed integrado; certificación final exacta verde y rama remota limpiada. |
 
 ## Registro de candidato #156 y mejora de preflight
 
@@ -103,26 +104,29 @@ controladas (antes y tras cold boot), por lo que la UI de Notifications **no se 
 es **INFRASTRUCTURE BLOCK**. Evidencia: `C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\notifications\3147b928-ios\runner.log`,
 `seed.log`, `bootstatus.log`; plan/rutas: `C:\Users\PC\Desktop\QÜATA\migration-v2\preflight\pr157\PLAN.md`.
 
-## Candidata #170 — final activa, no integrada
+## Cierre #170 — clasificador de impacto CI
 
-PR #169 ya está fusionada en `main` `1fe3bf74`. La única candidata actual es #170:
-base `1fe3bf74`, head `66052c95` y merge sintético `4f3ce660`. La primera ronda sobre `fca3`
-quedó invalidada por un P1 del clasificador que omitía orígenes `D`/`T`/rename y fue cancelada;
-es diagnóstico, no evidencia reutilizable. El candidato congelado actual pasó el preflight exacto
-**137/137**, Wave2 **245/245**, `actionlint` y `diff --check`, y recibió revisión independiente
-**GO**. La ronda final remota está activa: #170 permanece no integrada hasta que sus gates exactos
-verdes certifiquen ese merge sintético.
+PR #170 está fusionada como `main` `4c719072` (2 de agosto de 2026). El candidato certificado
+tuvo base `1fe3bf74`, head `66052c95` y merge sintético `4f3ce660`. La primera ronda `fca3` quedó
+invalidada por un P1 del clasificador que omitía orígenes `D`/`T`/rename y se canceló: se conserva
+sólo como diagnóstico. El candidato corregido pasó preflight exacto **137/137**, Wave2 **245/245**,
+`actionlint`, `diff --check` y revisión independiente **GO**.
+
+La certificación final remota del head integrado concluyó verde: fast contracts Web/iOS, distribución
+Wasm/Chrome, host/simulador/archive Kotlin iOS, tests Android/KMP, lint Android, CodeQL y ambos
+gates finales Web/Android e iOS. Tras el merge la referencia remota
+`codex/platform-change-classifier` ya no existe; esa limpieza confirma el cierre de la candidata,
+no una nueva evidencia de producto.
 
 ## Próxima cola
 
 1. Completar el postflight de #156 pendiente: subflujo SOS (el PASS actual cubre acceso/estado y 1/5 contactos, no su mutación) y comparación Android↔Wasm↔iOS donde corresponda. Acreditar o dejar pendiente la subida real de avatar Web con datos temporales y limpieza.
 2. Ejecutar el postflight de #154: Crear publicación común en Web/iOS con sesión real, adaptadores de medios y comparación visual; no convertir sus contratos en un GO no probado.
 3. Desbloquear el handshake XCTest de Notificaciones para convertir la preparación local #157 en una candidata; repetir después sus gates exactos. El Android `d036` API 37 es PASS exacto local, pero no integrado; el seeder iOS no ejecutó UI y continúa bloqueado por infraestructura.
-4. Esperar únicamente la certificación final remota exacta de #170; no alterar su head ni promocionar otra candidata. En paralelo, preparar trabajo local aislado sin reutilizarlo como evidencia final.
-5. Aplicar el modelo de integración secuencial/ejecución paralela: una candidata final, preflight local completo, merge sintético y CI como certificación. Preparar localmente la siguiente unidad mientras CI está activo, sin publicar candidatos adicionales.
-6. Cerrar la evidencia #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado con `QUATA_IOS_AUTH_E2E_FILE` y relanzamiento sin reinstalar.
-7. Cerrar #154 con comparación 1:1 Android/Web/iOS y E2E desechable Storage/PostgREST/rollback; mantener Web contract-only e iOS blocked hasta entonces y corregir el inventario legado en una actualización documental separada.
-8. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
+4. Aplicar el modelo de integración secuencial/ejecución paralela: una candidata final, preflight local completo, merge sintético y CI como certificación. Preparar localmente la siguiente unidad mientras CI está activo, sin publicar candidatos adicionales.
+5. Cerrar la evidencia #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado con `QUATA_IOS_AUTH_E2E_FILE` y relanzamiento sin reinstalar.
+6. Cerrar #154 con comparación 1:1 Android/Web/iOS y E2E desechable Storage/PostgREST/rollback; mantener Web contract-only e iOS blocked hasta entonces y corregir el inventario legado en una actualización documental separada.
+7. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
 
 ## Decisiones vigentes
 
