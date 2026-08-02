@@ -128,6 +128,17 @@ comando, test o contrato preventivo al preflight antes de publicar el siguiente 
 Durante esa certificación se permite preparar localmente la siguiente unidad, analizar conflictos,
 revisar contratos, preparar tests focales y documentación. Se prohíbe fusionar otra PR, publicar
 rondas repetidas de trabajo futuro o alterar el head congelado salvo defecto bloqueante demostrado.
+La cola de integración no convierte el equipo en una sola lane: cada lane local libre debe poder
+avanzar trabajo preparatorio aislado y reproducible. Ese trabajo se mantiene fuera de la promoción
+remota hasta que el candidato activo cierre; no puede reutilizar evidencia final ni competir por
+`main`.
+
+Todo defecto descubierto tras publicar se clasifica antes de corregirlo: **DEFECTO ESCAPADO DEL
+PREFLIGHT LOCAL** si era reproducible con comandos/artefactos locales disponibles; defecto de
+runner, caché, toolchain o servicio exclusivo remoto si no lo era. En el primer caso no basta con
+arreglar el código: se añade el gate preventivo, se ejecuta y se registra antes de la siguiente
+promoción. El head previo queda invalidado y cualquier CI cancelado se conserva sólo como
+diagnóstico, nunca como evidencia GO.
 
 Los runners de autenticación iOS que invocan `xcodebuild` mediante un `.xctestrun` y
 `QUATA_IOS_AUTH_E2E_FILE` explícito deben verificar el resultado semántico del test: un proceso con

@@ -76,19 +76,22 @@ controladas (antes y tras cold boot), por lo que la UI de Notifications **no se 
 es **INFRASTRUCTURE BLOCK**. Evidencia: `C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\notifications\3147b928-ios\runner.log`,
 `seed.log`, `bootstatus.log`; plan/rutas: `C:\Users\PC\Desktop\QÜATA\migration-v2\preflight\pr157\PLAN.md`.
 
-## Candidata #170 — activa, NO-GO, no integrada
+## Candidata #170 — final activa, no integrada
 
-La PR #170, head `fca3e83e`, es una candidata activa y no forma parte de `main`. Su CI fue
-cancelado porque el clasificador omitía orígenes `D`/`T`/rename; hasta corregir y repetir el
-preflight/gates exactos permanece **NO-GO**. No se reutiliza esta ejecución cancelada como
-evidencia ni se promociona #157.
+PR #169 ya está fusionada en `main` `1fe3bf74`. La única candidata actual es #170:
+base `1fe3bf74`, head `66052c95` y merge sintético `4f3ce660`. La primera ronda sobre `fca3`
+quedó invalidada por un P1 del clasificador que omitía orígenes `D`/`T`/rename y fue cancelada;
+es diagnóstico, no evidencia reutilizable. El candidato congelado actual pasó el preflight exacto
+**137/137**, Wave2 **245/245**, `actionlint` y `diff --check`, y recibió revisión independiente
+**GO**. La ronda final remota está activa: #170 permanece no integrada hasta que sus gates exactos
+verdes certifiquen ese merge sintético.
 
 ## Próxima cola
 
 1. Completar el postflight de #156 pendiente: subflujo SOS (el PASS actual cubre acceso/estado y 1/5 contactos, no su mutación) y comparación Android↔Wasm↔iOS donde corresponda. Acreditar o dejar pendiente la subida real de avatar Web con datos temporales y limpieza.
 2. Ejecutar el postflight de #154: Crear publicación común en Web/iOS con sesión real, adaptadores de medios y comparación visual; no convertir sus contratos en un GO no probado.
 3. Desbloquear el handshake XCTest de Notificaciones para convertir la preparación local #157 en una candidata; repetir después sus gates exactos. El Android `d036` API 37 es PASS exacto local, pero no integrado; el seeder iOS no ejecutó UI y continúa bloqueado por infraestructura.
-4. Reparar el clasificador de #170 para cubrir `D`/`T`/rename origins, repetir preflight/gates exactos y mantenerla NO-GO hasta entonces.
+4. Esperar únicamente la certificación final remota exacta de #170; no alterar su head ni promocionar otra candidata. En paralelo, preparar trabajo local aislado sin reutilizarlo como evidencia final.
 5. Aplicar el modelo de integración secuencial/ejecución paralela: una candidata final, preflight local completo, merge sintético y CI como certificación. Preparar localmente la siguiente unidad mientras CI está activo, sin publicar candidatos adicionales.
 6. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
 
