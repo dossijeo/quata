@@ -8,11 +8,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Portable notifications inbox backed by the chat conversations already available to a host.
@@ -35,9 +35,15 @@ class ConversationNotificationsRepository(
     override fun observeNotifications(): Flow<List<NotificationItem>> = flow {
         while (currentCoroutineContext().isActive) {
             chatRepository.isAppForeground.filter { it }.first()
-            val items = getNotifications().getOrThrow()
-            emit(items)
-            delay(pollIntervalMillis.coerceAtLeast(1L))
+            val conversations = chatRepository.getConversations().getOrThrow()
+            val interval = pollIntervalMillis.coerceAtLeast(1L)
+            // A local open-chat change must hide its notification immediately, without waiting
+            // for the next remote poll. The remote snapshot itself remains honest/getOrThrow.
+            withTimeoutOrNull(interval) {
+                chatRepository.activeConversationId.collect { activeConversationId ->
+                    emit(conversations.toConversationNotificationItems(activeConversationId))
+                }
+            }
         }
     }
 
