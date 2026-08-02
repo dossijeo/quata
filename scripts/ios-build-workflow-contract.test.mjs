@@ -15,6 +15,7 @@ const daemonCriteria = resolve(import.meta.dirname, '..', 'gradle', 'gradle-daem
 const iosAppSource = resolve(import.meta.dirname, '..', 'iosApp', 'iosApp', 'QuataIosApp.swift');
 const iosProfileHostSource = resolve(import.meta.dirname, '..', 'feature', 'profile', 'src', 'iosMain', 'kotlin', 'com', 'quata', 'feature', 'profile', 'presentation', 'IosProfileHost.kt');
 const iosProfileBootstrapSource = resolve(import.meta.dirname, '..', 'feature', 'profile', 'src', 'iosMain', 'kotlin', 'com', 'quata', 'feature', 'profile', 'presentation', 'IosProfileSosRuntimeBootstrap.kt');
+const ciLanePolicy = resolve(import.meta.dirname, '..', 'docs', 'CI_LANE_POLICY.md');
 
 function assertIosJavaContract(yaml) {
   assert.match(
@@ -39,6 +40,24 @@ function assertIosConcurrencyContract(yaml) {
     concurrencyBlock, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/,
     'only superseded pull-request runs may be cancelled',
   );
+}
+
+function assertIosFastFinalLaneContract(yaml) {
+  assert.match(yaml, /pull_request:\n    types: \[opened, reopened, synchronize, labeled, unlabeled\]/,
+    'candidate-final must be re-evaluated both when labelled and when synchronized');
+  const fastStart = yaml.indexOf('  ios-fast-contracts:');
+  const finalStart = yaml.indexOf('  compile-ios:');
+  assert.ok(fastStart >= 0 && finalStart > fastStart, 'the iOS fast lane must remain separate from the final lane');
+  const fastBlock = yaml.slice(fastStart, finalStart);
+  assert.match(fastBlock, /name: iOS fast contracts/);
+  assert.match(fastBlock, /git diff --check/);
+  assert.match(fastBlock, /node --test scripts\/ios-build-workflow-contract\.test\.mjs/);
+  assert.doesNotMatch(fastBlock, /xcodebuild|assembleQuataSharedDebugXCFramework|simctl/,
+    'the PR fast lane must not start the expensive Apple build matrix');
+  const finalBlock = yaml.slice(finalStart);
+  assert.match(finalBlock, /name: Kotlin iOS final host, simulator and archive/);
+  assert.match(finalBlock, /if: \$\{\{ github\.event_name != 'pull_request' \|\| contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/,
+    'the complete iOS lane must run only for main/dispatch or labelled final candidates');
 }
 
 function assertIosWorkflowSelfCoverage(yaml) {
@@ -289,6 +308,19 @@ test('iOS workflow cancels only superseded pull-request runs', async (t) => {
   });
 });
 
+test('iOS workflow separates fast PR coverage from final certification and documents the merge gate', async (t) => {
+  const [yaml, policy] = await Promise.all([readFile(workflow, 'utf8'), readFile(ciLanePolicy, 'utf8')]);
+  assertIosFastFinalLaneContract(yaml);
+  assert.match(policy, /candidate-final/);
+  assert.match(policy, /skipped final job[\s\S]*?not[\s\S]*?evidence/i);
+  assert.match(policy, /must require the fast check, both final checks and CodeQL/i);
+  for (const [name, mutation] of [
+    ['label event removed', yaml.replace(', labeled, unlabeled', '')],
+    ['final label guard removed', yaml.replace(", 'candidate-final'", ", 'candidate-review'" )],
+    ['fast lane invokes Xcode', yaml.replace('          node --test scripts/ios-build-workflow-contract.test.mjs', '          xcodebuild -version\n          node --test scripts/ios-build-workflow-contract.test.mjs')],
+  ]) await t.test(name, () => assert.throws(() => assertIosFastFinalLaneContract(mutation)));
+});
+
 test('iOS Java and daemon criteria contract fails closed when launcher or criteria are weakened', async (t) => {
   const [yaml, criteria] = await Promise.all([readFile(workflow, 'utf8'), readFile(daemonCriteria, 'utf8')]);
   for (const [name, workflowMutation, criteriaMutation] of [
@@ -308,6 +340,7 @@ test('iOS Java and daemon criteria contract fails closed when launcher or criter
 test('iOS workflow runs and triggers its own fail-closed contract before compilation', async () => {
   const yaml = await readFile(workflow, 'utf8');
   assertIosWorkflowSelfCoverage(yaml);
+  assertIosFastFinalLaneContract(yaml);
   assertIosRuntimeFixtureAndUiIsolation(yaml);
   assertBootWatchdogRevalidation(yaml);
 });

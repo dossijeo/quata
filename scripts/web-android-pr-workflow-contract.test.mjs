@@ -17,6 +17,38 @@ function assertWebWasmTimeoutBudget(yaml) {
   assert.ok(Number(match[1]) >= 100, 'the Web/Wasm job needs at least 100 minutes for distribution, smoke, and five cold-profile measurements');
 }
 
+function assertFastAndFinalLaneContract(yaml) {
+  assert.match(yaml, /^on:\n  workflow_dispatch:\n  pull_request:\n    types: \[opened, reopened, synchronize, labeled, unlabeled\]/m,
+    'the final-candidate label and a later synchronize event must both trigger the workflow');
+  assert.match(yaml, /^  push:\n    branches:\n      - main\n      - master$/m,
+    'main pushes must always run the complete certification lane');
+  assert.match(
+    yaml,
+    /group: web-android-\$\{\{ github\.event_name == 'pull_request' && format\('pr-\{0\}', github\.event\.pull_request\.number\) \|\| format\('\{0\}-\{1\}', github\.event_name, github\.ref\) \}\}\n  cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/,
+    'only superseded PR runs may be cancelled',
+  );
+  const fastStart = yaml.indexOf('  fast-contracts:');
+  const webStart = yaml.indexOf('  web-wasm:');
+  assert.ok(fastStart >= 0 && webStart > fastStart, 'the fast lane must precede final jobs');
+  const fastBlock = yaml.slice(fastStart, webStart);
+  assert.match(fastBlock, /name: PR fast contracts and focal imports/);
+  assert.match(fastBlock, /git diff --check/);
+  assert.match(fastBlock, /:core:compileKotlinWasmJs/);
+  assert.match(fastBlock, /:feature:profile:compileKotlinWasmJs/);
+  assert.doesNotMatch(fastBlock, /wasmJsBrowserDistribution|web-browser-smoke\.mjs|setup-chrome/,
+    'the fast lane must not build the distribution or launch Chrome');
+
+  const finalGuard = /if: \$\{\{ github\.event_name != 'pull_request' \|\| contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/;
+  for (const job of ['web-wasm', 'unit-tests', 'android-debug']) {
+    const start = yaml.indexOf(`  ${job}:`);
+    assert.ok(start >= 0, `missing final job ${job}`);
+    const nextJobOffset = yaml.slice(start + 1).search(/\n  [a-z][a-z-]*:/);
+    const block = yaml.slice(start, nextJobOffset < 0 ? undefined : start + 1 + nextJobOffset);
+    assert.match(block, finalGuard, `${job} must remain gated behind candidate-final on pull requests`);
+  }
+  assert.match(yaml, /name: Web\/Wasm final distribution and Chrome smoke/);
+}
+
 function assertBrowserTestCoverage(yaml) {
   const testStep = yaml.indexOf('      - name: Test Web/Wasm');
   const nextStep = yaml.indexOf('      - name: Verify backend compatibility smoke policy (no network)', testStep);
@@ -42,20 +74,20 @@ function assertBrowserTestCoverage(yaml) {
 }
 
 function assertWorkflowContract(yaml) {
-  assert.match(yaml, /^on:\n  pull_request:/m);
-  assert.doesNotMatch(yaml, /^  (?:push|workflow_dispatch|schedule):/m);
+  assert.match(yaml, /^on:\n  workflow_dispatch:\n  pull_request:/m);
   assert.match(yaml, /^permissions:\n  contents: read$/m);
   assert.match(
     yaml,
     /uses: actions\/checkout@v6\n        with:\n          fetch-depth: 0/,
     'the checkout must contain the pull request base commit',
   );
-  assertJetBrainsDaemonBootstrap(yaml, 3);
+  assertJetBrainsDaemonBootstrap(yaml, 4);
   assertWebWasmTimeoutBudget(yaml);
   assertBrowserTestCoverage(yaml);
+  assertFastAndFinalLaneContract(yaml);
   assert.match(
     yaml,
-    /node scripts\/wasm-bundle-report\.mjs[\s\S]*?--policy-base "\$\{\{ github\.event\.pull_request\.base\.sha \}\}"/,
+    /node scripts\/wasm-bundle-report\.mjs[\s\S]*?--policy-base "\$\{\{ github\.event\.pull_request\.base\.sha \|\| github\.event\.before \|\| github\.sha \}\}"/,
   );
   for (const path of ['app/**', 'package.json', 'package-lock.json']) {
     assert.match(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.').replaceAll('*', '\\*')}"$`, 'm'), `missing capability evidence trigger: ${path}`);
@@ -86,7 +118,7 @@ function assertWorkflowContract(yaml) {
   assert.match(yaml, /Collect five cold Chrome measurements and advisory baseline proposal/, 'CI must collect the five-sample advisory baseline proposal');
 }
 
-test('Web/Wasm pull-request workflow supplies its fetched trusted base SHA and deterministic daemon runtime', async () => {
+test('Web/Wasm workflow supplies its fetched trusted base SHA and deterministic daemon runtime', async () => {
   const [yaml, criteria] = await Promise.all([readFile(workflow, 'utf8'), readFile(daemonCriteria, 'utf8')]);
   assertWorkflowContract(yaml);
   assert.match(criteria, /^toolchainVendor=JETBRAINS$/m);
@@ -97,16 +129,26 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
   const yaml = await readFile(workflow, 'utf8');
   const mutations = [
     ['shallow checkout', yaml.replace('fetch-depth: 0', 'fetch-depth: 1')],
-    ['push trigger', yaml.replace('  pull_request:', '  push:')],
+    ['manual trigger removed', yaml.replace('  workflow_dispatch:\n', '')],
+    ['main push trigger removed', yaml.replace('  push:\n    branches:\n      - main\n      - master\n', '')],
     ['write permission', yaml.replace('contents: read', 'contents: write')],
     ['missing policy base', yaml.replace(/\n\s+--policy-base "[^"]+" \\/, '')],
     ['JetBrains daemon runtime made default', yaml.replace('set-default: false', 'set-default: true')],
     ['JetBrains daemon runtime removed', yaml.replace(/      - name: Set up JetBrains Runtime 21 for Gradle daemon[\s\S]*?\n\n(?=      - name: Set up JDK 17)/, '')],
+    ['candidate final label trigger removed', yaml.replace(', labeled, unlabeled', '')],
+    ['full Web lane no longer gated', yaml.replace("contains(github.event.pull_request.labels.*.name, 'candidate-final')", "contains(github.event.pull_request.labels.*.name, 'candidate-review')")],
     ['Web/Wasm timeout below repeatability budget', yaml.replace(/(  web-wasm:\n[\s\S]*?    timeout-minutes: )100/m, (_, prefix) => `${prefix}99`)],
     ['browser suite timeout below serial budget', yaml.replace(/(- name: Test Web\/Wasm\n\s+timeout-minutes: )25/, (_, prefix) => `${prefix}24`)],
     ['core browser tests removed', yaml.replace(':core:wasmJsBrowserTest ', '')],
     ['postcomposer browser tests removed', yaml.replace(':feature:postcomposer:wasmJsBrowserTest ', '')],
-    ['browser test serialization removed', yaml.replace(' --max-workers=1', '')],
+    [
+      'browser test serialization removed',
+      (() => {
+        const browserTestStart = yaml.indexOf('      - name: Test Web/Wasm');
+        const workersArgument = yaml.indexOf(' --max-workers=1', browserTestStart);
+        return yaml.slice(0, workersArgument) + yaml.slice(workersArgument + ' --max-workers=1'.length);
+      })(),
+    ],
     ['core browser JUnit artifact removed', yaml.replace('            core/build/test-results/**/*.xml\n', '')],
     ['postcomposer browser HTML report removed', yaml.replace('            feature/postcomposer/build/reports/tests/\n', '')],
     ['direct capability command removed', yaml.replace('          node --test scripts/capability-matrix-contract.test.mjs\n', '')],

@@ -3,6 +3,7 @@ name: iOS compile
 on:
   workflow_dispatch:
   pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
     paths:
       - ".github/workflows/ios-build.yml"
       - "scripts/ios-build-workflow-contract.test.mjs"
@@ -100,8 +101,39 @@ permissions:
   contents: read
 
 jobs:
+  ios-fast-contracts:
+    name: iOS fast contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Validate iOS workflow and public-runtime contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git diff --check "${{ github.event.pull_request.base.sha }}" HEAD
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            git diff --check "${{ github.event.before }}" "${{ github.sha }}"
+          else
+            git diff --check HEAD^ HEAD
+          fi
+          node --test scripts/ios-build-workflow-contract.test.mjs
+          node --test scripts/ios-compose-resources-contract.test.mjs
+          node --test scripts/ios-auth-launch-fixture-contract.test.mjs
+          node --test scripts/ios-public-runtime-contract.test.mjs
+          node --test scripts/ios-nsdata-interop-contract.test.mjs
+          node --test scripts/ios-public-simulator-matrix-contract.test.mjs
+          node --test scripts/capability-matrix-contract.test.mjs
+
   compile-ios:
-    name: Kotlin iOS and Swift host
+    name: Kotlin iOS final host, simulator and archive
+    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
     runs-on: macos-15
     timeout-minutes: 60
 
