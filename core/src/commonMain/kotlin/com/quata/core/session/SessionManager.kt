@@ -43,6 +43,25 @@ class SessionManager(
         refreshed
     }
 
+    /**
+     * Validates a persisted session before it is allowed to select an authenticated UI runtime.
+     *
+     * Unlike [ensureFreshSession], a failed renewal must not return an expired session: callers
+     * use this at a public-first composition boundary and must keep anonymous dependencies until
+     * a fresh access token is available. The stored session is intentionally retained so a later
+     * foreground attempt or interactive recovery can retry with the same refresh token.
+     */
+    suspend fun validateFreshSession(
+        refresh: suspend (AuthSession) -> AuthSession?
+    ): AuthSession? = refreshMutex.withLock {
+        val current = currentSession() ?: return null
+        if (!current.shouldRefresh()) return current
+        val refreshed = refresh(current) ?: return null
+        if (refreshed.shouldRefresh()) return null
+        setSession(refreshed)
+        refreshed
+    }
+
     fun clearSession() {
         preferences.clear()
         _authState.value = AuthState.LoggedOut
