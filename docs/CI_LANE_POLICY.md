@@ -5,10 +5,19 @@ imports** and **iOS fast contracts**). They validate workflow contracts and
 the diff, then compile a focused Wasm import set. They are diagnostic coverage,
 not release certification.
 
-The expensive final checks run on every `main`/`master` push and manual
-dispatch. For a pull request they run only after the `candidate-final` label
-is present; `pull_request` listens to both `labeled` and `synchronize`, so a
-new commit on a labelled candidate restarts the final lane.
+Before any expensive job starts, `scripts/classify-ci-impact.mjs` classifies
+the complete diff as Web, Android, iOS, any combination of them, or
+documentation-only. Platform source sets and operational files select only
+their consumers; common source, shared build logic, capabilities and workflow
+control files select all consumers. Any unknown non-documentation path also
+selects all consumers, so a missing rule costs time but can never create a
+false green.
+
+The expensive final checks run only for the platforms selected by that
+classifier. Manual dispatch deliberately selects every platform. For a pull
+request the selected jobs additionally require the `candidate-final` label;
+`pull_request` listens to both `labeled` and `synchronize`, so a new commit on
+a labelled candidate restarts the final lane.
 
 Final checks are deliberately named separately:
 
@@ -19,18 +28,21 @@ Final checks are deliberately named separately:
 - **Analyze java-kotlin** and **Analyze javascript-typescript** are the
   required code-scanning checks.
 
-The required status checks are **Web/Android final certification gate**,
+The required status checks are **PR fast contracts and focal imports**,
+**iOS fast contracts**, **Web/Android final certification gate**,
 **iOS final certification gate**, **Analyze java-kotlin**, and **Analyze
-javascript-typescript**. Each gate always runs and fails
-closed unless its `candidate-final` PR has completed every final job
-successfully. A skipped, cancelled or failed final job is therefore never
-green evidence. The merge manager applies `candidate-final` only once the diff
+javascript-typescript**. The fast checks expose classifier or workflow-contract
+mistakes without waiting for expensive runners. Each final gate always runs and fails
+closed unless its `candidate-final` PR has completed every affected final job
+successfully and every unaffected job was actually skipped. Thus a classifier
+mistake, cancellation or failure is never green evidence. The merge manager
+applies `candidate-final` only once the diff
 is frozen, waits for both gates on that exact head SHA, then merges or removes
 the label after a material change.
 
 Both workflows deliberately have no `paths` filter: every pull request reaches
-the fast checks and their fail-closed gate, while every `main`/`master` push
-and manual dispatch runs the complete lane. This also means a `labeled` or
+the classifier, fast contracts and fail-closed gate, while selected platform
+jobs are omitted inside the workflow. This also means a `labeled` or
 `synchronize` event for `candidate-final` cannot be lost because its diff falls
 outside an old route allow-list.
 
