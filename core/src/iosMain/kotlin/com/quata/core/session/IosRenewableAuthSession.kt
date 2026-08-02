@@ -37,6 +37,16 @@ class IosRenewableAuthSession(
     suspend fun currentSession(forceRefresh: Boolean = false): AuthSession? =
         manager.ensureFreshSession(force = forceRefresh, refresh = refresher::refresh)
 
+    /**
+     * Strict launch-time validation for public-first iOS composition.
+     *
+     * A failed refresh deliberately leaves Keychain untouched but does not expose the expired
+     * session to authenticated factories. Runtime request paths continue to use [currentSession]
+     * so their existing retry policy is unchanged.
+     */
+    suspend fun validatedRestoredSession(): AuthSession? =
+        manager.validateFreshSession(refresh = refresher::refresh)
+
     fun clear() {
         manager.clearSession()
     }

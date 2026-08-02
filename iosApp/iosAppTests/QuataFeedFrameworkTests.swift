@@ -177,6 +177,22 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(configuration?.supabasePublishableKey, "public-build-setting")
     }
 
+    func testLaunchContractInstallsPublicFeedBeforeAsynchronousSessionValidation() throws {
+        let appSourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("iosApp/QuataIosApp.swift")
+        let source = try String(contentsOf: appSourceURL, encoding: .utf8)
+        let publicInstall = try XCTUnwrap(source.range(of: "installPublicFeedIfConfigured()"))
+        let validation = try XCTUnwrap(source.range(of: "validateRestoredFeedSessionAsynchronously()"))
+
+        XCTAssertLessThan(publicInstall.lowerBound, validation.lowerBound)
+        XCTAssertTrue(source.contains("runtimeBootstrap.validateRestoredSession"))
+        XCTAssertTrue(source.contains("DispatchQueue.main.async"))
+        XCTAssertTrue(source.contains("guard let self, validated else { return }"))
+        XCTAssertFalse(source.contains("afterRestoredSessionAttempt: installRestoredFeedSessionIfAvailable()"))
+    }
+
     func testPublicRuntimeConfigurationKeepsRegistrationFailClosedForMissingOrUnexpandedInputs() {
         let feedConfiguration = IosFeedRuntimeConfiguration(
             supabaseUrl: "https://deployment.invalid",
