@@ -77,6 +77,43 @@ class CandidateDisplayItemsTest {
         )
     }
 
+    @Test
+    fun localizedPreviewKeepsAndroidAttachmentAndLegacyTokens() {
+        val spanish = conversationsLocaleCatalogForLanguage("es").preview
+        assertEquals("??? Foto", localizedChatPreview(" [QUATA_ATTACHMENT:photo] ", spanish))
+        assertEquals("?? Nota de voz", localizedChatPreview("[QUATA_NOTIFICATION:chat_voice_note]", spanish))
+        assertEquals("?? Archivo", localizedChatPreview("[QUATA_NOTIFICATION:chat_attachment]", spanish))
+        assertEquals("plain text", localizedChatPreview("plain text", spanish))
+    }
+
+    @Test
+    fun relativeConversationTimeMatchesAndroidAtEveryBoundary() {
+        val es = conversationsLocaleCatalogForLanguage("es").relativeTime
+        assertEquals("hace 1 s", localizedRelativeConversationTime(0L, es))
+        assertEquals("hace 59 s", localizedRelativeConversationTime(59_999L, es))
+        assertEquals("hace 1 min", localizedRelativeConversationTime(60_000L, es))
+        assertEquals("hace 59 min", localizedRelativeConversationTime(59 * 60_000L, es))
+        assertEquals("hace 1 h", localizedRelativeConversationTime(60 * 60_000L, es))
+        assertEquals("hace 6 d", localizedRelativeConversationTime(6 * 24 * 60 * 60_000L, es))
+        assertEquals("hace 1 semana", localizedRelativeConversationTime(7 * 24 * 60 * 60_000L, es))
+        assertEquals("hace 4 semanas", localizedRelativeConversationTime(30 * 24 * 60 * 60_000L, es))
+        assertEquals("hace 1 mes", localizedRelativeConversationTime(31 * 24 * 60 * 60_000L, es))
+        assertEquals("hace 11 meses", localizedRelativeConversationTime(364 * 24 * 60 * 60_000L, es))
+        assertEquals("hace 1 a?o", localizedRelativeConversationTime(365 * 24 * 60 * 60_000L, es))
+        assertEquals("hace 2 a?os", localizedRelativeConversationTime(2 * 365 * 24 * 60 * 60_000L, es))
+    }
+
+    @Test
+    fun catalogLocalizesCandidatesInvitationsAndSelectionForAllSupportedLanguages() {
+        assertEquals("Tus contactos", conversationsLocaleCatalogForLanguage("es").host.candidates.contacts)
+        assertEquals("Your contacts", conversationsLocaleCatalogForLanguage("en-US").host.candidates.contacts)
+        assertEquals("Tes contacts", conversationsLocaleCatalogForLanguage("fr_FR").host.candidates.contacts)
+        assertEquals("2 participantes", conversationsLocaleCatalogForLanguage("es").host.selectionSummary(2))
+        assertEquals("2 participants", conversationsLocaleCatalogForLanguage("en").host.selectionSummary(2))
+        assertEquals("2 participants", conversationsLocaleCatalogForLanguage("fr").host.selectionSummary(2))
+        assertEquals("Partager", conversationsLocaleCatalogForLanguage("fr").invitation.shareTarget)
+    }
+
     private fun candidate(
         profileId: String,
         sectionKey: String,
