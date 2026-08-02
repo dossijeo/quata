@@ -27,10 +27,7 @@ test('authenticated Notifications UI gate seeds Keychain then normal-launches th
   assert.match(runner, /timeout_diagnostics/);
   assert.match(runner, /testmanagerd/);
   assert.match(runner, /\[REDACTED\]/);
-  assert.match(runner, /Required test did not pass/);
-  assert.match(runner, /Required test was skipped/);
-  assert.match(runner, /grep -Eq "Test Case '.+\$\{method\}'.+ passed"/);
-  assert.match(runner, /grep -Eqi "\$\{method\}\.\*\(skip\|skipped\)"/);
+  assert.match(runner, /check-ios-xctest-executed\.py/);
   assert.match(runner, /\*\* TEST SUCCEEDED \*\*/);
   assert.match(runner, /PASS_EXECUTED:%s/);
   assert.match(runner, /HOST_SHELL_ONLY/);
@@ -40,12 +37,10 @@ test('authenticated Notifications UI gate seeds Keychain then normal-launches th
 test('runner rejects a green xcodebuild invocation without executed test evidence', async () => {
   const runner = await readFile(resolve(root, 'scripts/run-ios-authenticated-notifications-ui-test.sh'), 'utf8');
   const weakened = runner
-    .replace(/grep -Eq "Test Case[^\n]*\n/, '')
-    .replace(/! grep -Eqi "\$\{method\}\.\*\(skip\|skipped\)"[^\n]*\n/, '')
+    .replace(/\/usr\/bin\/python3 scripts\/check-ios-xctest-executed\.py[^\n]*\n/, '')
     .replace(/printf 'PASS_EXECUTED:%s\\n'[^\n]*\n/, '');
   assert.notEqual(weakened, runner);
-  assert.doesNotMatch(weakened, /Required test did not pass/);
-  assert.doesNotMatch(weakened, /Required test was skipped/);
+  assert.doesNotMatch(weakened, /check-ios-xctest-executed\.py/);
   assert.doesNotMatch(weakened, /PASS_EXECUTED/);
   assert.match(weakened, /xcodebuild test-without-building/);
   assert.match(runner, /run_and_require/);

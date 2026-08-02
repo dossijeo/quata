@@ -93,8 +93,7 @@ run_and_require() {
   run_bounded "$method" 120 "$log" \
     xcodebuild test-without-building -xctestrun "$xctestrun" \
     -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" -only-testing:"$selected"
-  grep -Eq "Test Case '.+${method}'.+ passed" "$log" || { echo "Required test did not pass: $method" >&2; exit 1; }
-  ! grep -Eqi "${method}.*(skip|skipped)" "$log" || { echo "Required test was skipped: $method" >&2; exit 1; }
+  /usr/bin/python3 scripts/check-ios-xctest-executed.py --method "$method" --log "$log" || exit 1
   grep -Fq '** TEST SUCCEEDED **' "$log" || { echo "xcodebuild did not certify selected test: $method" >&2; exit 1; }
   printf 'PASS_EXECUTED:%s\n' "$method" | tee -a "$log"
 }
