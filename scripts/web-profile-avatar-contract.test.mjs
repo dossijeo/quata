@@ -13,7 +13,8 @@ test('Web Profile uses the Android avatar action copy, icon and real browser sou
   assert.match(host, /Text\("Hacer foto"\)/);
   assert.match(host, /FilePickerSource\.Gallery/);
   assert.match(host, /cameraCapture\.capturePhoto/);
-  assert.match(host, /DisposableEffect\(Unit\)[\s\S]*references\.release\(latestPendingReference\)/);
+  assert.match(host, /val releaseScope = remember \{ MainScope\(\) \}/);
+  assert.match(host, /DisposableEffect\(Unit\)[\s\S]*references\.release\(latestPendingReference\)[\s\S]*finally \{[\s\S]*releaseScope\.cancel\(\)/);
   assert.doesNotMatch(host, /pending de subida segura/);
   assert.doesNotMatch(host, /enabled = false/);
 });

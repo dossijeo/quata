@@ -58,8 +58,8 @@ import com.quata.feature.profile.presentation.ProfileScreenSlots
 import com.quata.feature.profile.presentation.ProfileScreenStrings
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -111,14 +111,20 @@ private fun WebProfileAvatarActions(
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     var pendingReference by rememberSaveable { mutableStateOf<String?>(null) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
-    // This scope outlives this composable just long enough to release a selected Blob when
-    // Cuenta is left without saving. Registry removal makes replacement/upload/disposal idempotent.
-    val releaseScope = remember { CoroutineScope(SupervisorJob()) }
+    // This Main scope outlives the composable only until its final release completes. Registry
+    // removal makes replacement/upload/disposal idempotent; finally cancels the scope itself.
+    val releaseScope = remember { MainScope() }
     val latestPendingReference by rememberUpdatedState(pendingReference)
 
     DisposableEffect(Unit) {
         onDispose {
-            releaseScope.launch { references.release(latestPendingReference) }
+            releaseScope.launch {
+                try {
+                    references.release(latestPendingReference)
+                } finally {
+                    releaseScope.cancel()
+                }
+            }
         }
     }
 
