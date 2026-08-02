@@ -13,6 +13,12 @@ test('authenticated Notifications UI gate seeds Keychain then normal-launches th
   assert.doesNotMatch(ui, /quata-ui-test-fixture|launchArguments/);
   assert.match(ui, /quata-ios-notifications-host/);
   assert.match(ui, /authenticated-notifications-real-host/);
+  assert.match(ui, /label == %@ OR label MATCHES %@/);
+  assert.match(ui, /\^Avisos, \[0-9\]\+\$/);
+  assert.match(ui, /XCTAssertEqual\(alerts\.count, 1/);
+  assert.match(ui, /alerts\.element\(boundBy: 0\)/);
+  assert.doesNotMatch(ui, /app\.buttons\["Avisos"\]/);
+  assert.doesNotMatch(ui, /alerts\.firstMatch/);
   assert.match(runner, /QUATA_IOS_AUTH_E2E_FILE/);
   assert.match(runner, /QUATA_IOS_AUTH_UI_E2E/);
   assert.match(runner, /xctestrun/);

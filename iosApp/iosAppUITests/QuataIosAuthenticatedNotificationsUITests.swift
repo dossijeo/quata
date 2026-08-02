@@ -16,10 +16,22 @@ final class QuataIosAuthenticatedNotificationsUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(feed.waitForExistence(timeout: 20), "A normal launch must restore Feed from the seeded Keychain session.")
 
-        let alerts = app.buttons["Avisos"]
-        XCTAssertTrue(alerts.waitForExistence(timeout: 15), "The shared authenticated chrome must expose Avisos.")
-        XCTAssertTrue(alerts.isHittable, "Avisos must be tappable from the normal Feed shell.")
-        alerts.tap()
+        let alerts = app.buttons.matching(
+            NSPredicate(format: "label == %@ OR label MATCHES %@", "Avisos", "^Avisos, [0-9]+$"),
+        )
+        let exactlyOneAlertsButton = expectation(
+            for: NSPredicate(format: "count == 1"),
+            evaluatedWith: alerts,
+        )
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [exactlyOneAlertsButton], timeout: 15),
+            .completed,
+            "The shared authenticated chrome must expose exactly one Avisos button, optionally with its numeric counter.",
+        )
+        XCTAssertEqual(alerts.count, 1, "Avisos must not be ambiguous before the UI test taps it.")
+        let alertsButton = alerts.element(boundBy: 0)
+        XCTAssertTrue(alertsButton.isHittable, "Avisos must be tappable from the normal Feed shell.")
+        alertsButton.tap()
 
         let root = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-notifications-host")
