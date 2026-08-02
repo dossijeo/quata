@@ -187,6 +187,9 @@ class WebProfileAvatarUploaderTest {
             popupContentSize = IntSize(240, 112),
         )
         assertEquals(IntOffset(40, 468), mobile)
+        assertEquals(240, webAvatarActionMenuWidth(1280))
+        assertEquals(240, webAvatarActionMenuWidth(320))
+        assertEquals(180, webAvatarActionMenuWidth(180))
     }
 
     @Test

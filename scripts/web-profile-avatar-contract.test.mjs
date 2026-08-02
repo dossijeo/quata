@@ -15,6 +15,9 @@ test('Web Profile uses the Android avatar action copy, icon and real browser sou
   assert.match(host, /FilePickerSource\.Gallery/);
   assert.match(host, /cameraCapture\.capturePhoto/);
   assert.match(host, /Popup\([\s\S]*popupPositionProvider = CenteredAvatarActionMenuPosition/);
+  assert.match(host, /BoxWithConstraints\(Modifier\.wrapContentSize\(\)\)[\s\S]*webAvatarActionMenuWidth\(maxWidth\.value\.toInt\(\)\)\.dp[\s\S]*Modifier\.width\(menuWidth\)/);
+  assert.match(host, /fun webAvatarActionMenuWidth\(availableWidthDp: Int\): Int =[\s\S]*availableWidthDp\.coerceIn\(1, WebAvatarActionMenuPreferredWidthDp\)/);
+  assert.doesNotMatch(host, /Surface\(\s*modifier = Modifier\.fillMaxWidth\(\)/);
   assert.match(host, /webCenteredAvatarActionMenuOffset\([\s\S]*anchorBounds\.left \+ \(anchorBounds\.width - popupContentSize\.width\) \/ 2[\s\S]*desiredX\.coerceIn\(0, maxX\)/);
   assert.match(host, /leadingIcon = \{ CompactIcon\(Icons\.Filled\.PermMedia, null\) \}/);
   assert.match(host, /leadingIcon = \{ CompactIcon\(Icons\.Filled\.PhotoCamera, null\) \}/);

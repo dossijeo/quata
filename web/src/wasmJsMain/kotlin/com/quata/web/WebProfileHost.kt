@@ -3,9 +3,11 @@ package com.quata.web
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PermMedia
@@ -152,8 +154,14 @@ private fun WebProfileAvatarActions(
         popupPositionProvider = CenteredAvatarActionMenuPosition,
         onDismissRequest = { menuOpen = false },
     ) {
-        Surface(shape = MaterialTheme.shapes.extraSmall, tonalElevation = 6.dp) {
-            Column {
+        BoxWithConstraints(Modifier.wrapContentSize()) {
+            val menuWidth = webAvatarActionMenuWidth(maxWidth.value.toInt()).dp
+            Surface(
+                modifier = Modifier.width(menuWidth),
+                shape = MaterialTheme.shapes.extraSmall,
+                tonalElevation = 6.dp,
+            ) {
+                Column {
         DropdownMenuItem(text = { Text("Elegir de galería") }, onClick = {
             menuOpen = false
             scope.launch {
@@ -180,6 +188,7 @@ private fun WebProfileAvatarActions(
                 }
             }
         })
+                }
             }
         }
     }
@@ -230,6 +239,12 @@ internal fun webCenteredAvatarActionMenuOffset(
     else (anchorBounds.top - popupContentSize.height).coerceAtLeast(0)
     return IntOffset(desiredX.coerceIn(0, maxX), y)
 }
+
+/** A compact Android-like card on desktop that cannot exceed a narrow mobile viewport. */
+internal fun webAvatarActionMenuWidth(availableWidthDp: Int): Int =
+    availableWidthDp.coerceIn(1, WebAvatarActionMenuPreferredWidthDp)
+
+private const val WebAvatarActionMenuPreferredWidthDp = 240
 
 /** Keeps both avatar source choices visually equivalent without relying on browser menu chrome. */
 @Composable
