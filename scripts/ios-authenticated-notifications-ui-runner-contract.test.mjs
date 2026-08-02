@@ -28,7 +28,7 @@ test('authenticated Notifications UI gate seeds Keychain then normal-launches th
   assert.match(runner, /testmanagerd/);
   assert.match(runner, /\[REDACTED\]/);
   assert.match(runner, /check-ios-xctest-executed\.py/);
-  assert.match(runner, /\*\* TEST SUCCEEDED \*\*/);
+  assert.match(runner, /--require-terminal-success-marker/);
   assert.match(runner, /PASS_EXECUTED:%s/);
   assert.match(runner, /HOST_SHELL_ONLY/);
   assert.match(runner, /testSeedAuthenticatedSessionForVisualGates/);
@@ -44,6 +44,14 @@ test('runner rejects a green xcodebuild invocation without executed test evidenc
   assert.doesNotMatch(weakened, /PASS_EXECUTED/);
   assert.match(weakened, /xcodebuild test-without-building/);
   assert.match(runner, /run_and_require/);
+});
+
+test('runner delegates only exact Xcode success markers to the XCTest evidence checker', async () => {
+  const checker = await readFile(resolve(root, 'scripts/check-ios-xctest-executed.py'), 'utf8');
+  assert.match(checker, /\*\* TEST SUCCEEDED \*\*/);
+  assert.match(checker, /\*\* TEST EXECUTE SUCCEEDED \*\*/);
+  assert.match(checker, /--require-terminal-success-marker/);
+  assert.doesNotMatch(checker, /TEST \(EXECUTE \)\?SUCCEEDED/);
 });
 
 test('iOS notification factory ignores stale settings callbacks and refreshes the visible inbox', async () => {

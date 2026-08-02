@@ -24,14 +24,39 @@ def selected_test_passed(log: str, method: str) -> bool:
     return results == ["passed"]
 
 
+def xcodebuild_test_succeeded(log: str) -> bool:
+    """Accept only the two exact successful terminal XCTest markers.
+
+    Xcode 26 may print ``TEST EXECUTE SUCCEEDED`` for a selected test while
+    older Xcode output uses ``TEST SUCCEEDED``.  Neither failed, skipped nor
+    merely non-empty output is a success marker.
+    """
+    terminal_markers = [
+        line.strip()
+        for line in log.splitlines()
+        if line.strip() in {
+            "** TEST SUCCEEDED **",
+            "** TEST EXECUTE SUCCEEDED **",
+            "** TEST FAILED **",
+            "** TEST SKIPPED **",
+        }
+    ]
+    return terminal_markers in (["** TEST SUCCEEDED **"], ["** TEST EXECUTE SUCCEEDED **"])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--method", required=True)
     parser.add_argument("--log", type=Path, required=True)
+    parser.add_argument("--require-terminal-success-marker", action="store_true")
     args = parser.parse_args()
 
-    if not selected_test_passed(args.log.read_text(encoding="utf-8", errors="replace"), args.method):
+    log = args.log.read_text(encoding="utf-8", errors="replace")
+    if not selected_test_passed(log, args.method):
         print(f"Required test did not execute and pass exactly once: {args.method}", file=sys.stderr)
+        return 1
+    if args.require_terminal_success_marker and not xcodebuild_test_succeeded(log):
+        print(f"xcodebuild did not emit an exact success marker: {args.method}", file=sys.stderr)
         return 1
     return 0
 
