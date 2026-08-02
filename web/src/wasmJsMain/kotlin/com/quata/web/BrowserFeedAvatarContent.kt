@@ -57,8 +57,11 @@ fun BrowserRemoteAvatar(
     isOfficial: Boolean,
     isOnline: Boolean?,
     modifier: Modifier,
+    allowOwnedBlobReference: Boolean = false,
 ) {
-    val imageUrl = avatarUrl?.trim()?.takeIf(::isBrowserAvatarUrl)
+    val imageUrl = avatarUrl?.trim()?.takeIf {
+        isBrowserAvatarUrl(it) || (allowOwnedBlobReference && isBrowserAvatarBlobUrl(it))
+    }
     val imageState = if (imageUrl != null) rememberBrowserCanvasImage(imageUrl) else null
     QuataAvatarFrameContent(
         name = name,
@@ -81,3 +84,7 @@ fun BrowserRemoteAvatar(
 
 internal fun isBrowserAvatarUrl(value: String): Boolean =
     value.startsWith("https://") || value.startsWith("http://")
+
+/** Only Profile opts into its locally-owned preview URLs; feed data never does. */
+internal fun isBrowserAvatarBlobUrl(value: String): Boolean =
+    value.startsWith("blob:", ignoreCase = true) && value.length > "blob:".length

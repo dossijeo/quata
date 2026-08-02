@@ -157,12 +157,19 @@ private fun QuataWebApp(
     }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
     val notificationCount by notificationsRepository.observeNotificationCount().collectAsState(initial = 0)
-    val profileRepository = remember(runtimeConfiguration, authRepository, platformServices.preferences, platformServices.contacts) {
+    val profileAvatarReferences = remember(platformServices) {
+        WebProfileAvatarReferenceRegistry(platformServices.filePickerReferences, platformServices.cameraCapture)
+    }
+    val profileAvatarUploader = remember(runtimeConfiguration, authRepository, profileAvatarReferences) {
+        WebProfileAvatarUploader(runtimeConfiguration, authRepository, profileAvatarReferences)
+    }
+    val profileRepository = remember(runtimeConfiguration, authRepository, platformServices.preferences, platformServices.contacts, profileAvatarUploader) {
         WebProfileRepository(
             preferences = platformServices.preferences,
             contactPicker = platformServices.contacts,
             remoteGateway = WebProfileRemoteGateway(WebPostgrestClient(runtimeConfiguration, authRepository), authRepository),
             remoteSessionProvider = WebProfileSessionProvider(authRepository),
+            avatarUploader = profileAvatarUploader,
             remoteAvailable = {
                 runtimeConfiguration.supabaseUrl?.isNotBlank() == true &&
                     runtimeConfiguration.supabasePublishableKey?.isNotBlank() == true &&
@@ -493,6 +500,8 @@ private fun QuataWebApp(
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Profile) {
                         WebProfileHost(
                             repository = profileRepository,
+                            platformServices = platformServices,
+                            avatarReferences = profileAvatarReferences,
                             touchFlowEnabled = touchFlowEnabled,
                             themeMode = themeMode,
                             onTouchFlowEnabledChange = ::changeTouchFlowEnabled,
