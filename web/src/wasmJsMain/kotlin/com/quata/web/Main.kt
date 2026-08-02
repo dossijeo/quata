@@ -43,6 +43,8 @@ import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import com.quata.feature.auth.presentation.AuthProductDestination
 import kotlinx.browser.document
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 internal val WebAuthenticatedChromeStrings = QuataAuthenticatedChromeSpanish
@@ -156,7 +158,8 @@ private fun QuataWebApp(
         )
     }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
-    val notificationCount by notificationsRepository.observeNotificationCount().collectAsState(initial = 0)
+    val notificationCount by webChromeNotificationCount(notificationsRepository.observeNotificationCount())
+        .collectAsState(initial = 0)
     val profileAvatarReferences = remember(platformServices) {
         WebProfileAvatarReferenceRegistry(platformServices.filePickerReferences, platformServices.cameraCapture)
     }
@@ -495,6 +498,11 @@ private fun QuataWebApp(
                         runtimeConfiguration = runtimeConfiguration,
                         onBack = { navigation.navigate("") },
                         onOpenConversation = navigation::navigateConversation,
+                        canMutate = isSessionReady,
+                        onAuthenticationRequired = { conversationId ->
+                            requestAuthenticationFor(quataChatUrl(conversationId).substringAfter('#'))
+                        },
+                        onDismissAuthenticationRequired = { requestAuthenticationForCurrentRoute() },
                     )
                 } else if (navigation.route == "profile") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Profile) {
@@ -639,6 +647,9 @@ private fun QuataWebApp(
         }
 }
 }
+
+/** A public chrome badge must never cancel the root composition on an anonymous RPC failure. */
+internal fun webChromeNotificationCount(source: Flow<Int>): Flow<Int> = source.catch { emit(0) }
 
 internal val webPrimaryNavigationLabels = QuataPrimaryNavigationLabels(
     neighborhoods = "Qüata",

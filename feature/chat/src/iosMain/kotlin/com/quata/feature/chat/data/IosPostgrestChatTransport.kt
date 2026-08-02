@@ -7,6 +7,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeout
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
@@ -43,6 +44,7 @@ data class IosChatRuntimeConfiguration(
 class IosChatPostgrestTransport(
     private val configuration: IosChatRuntimeConfiguration,
     private val authSession: IosRenewableAuthSession,
+    private val requestTimeoutMillis: Long = IosChatNetworkTimeouts.RpcRequestMillis,
 ) : ChatPostgrestTransport {
     override suspend fun post(functionName: String, body: String): ChatPostgrestResponse = runCatching {
         require(functionName.matches(IosRpcName)) { "ios_chat_rpc_name_invalid" }
@@ -51,7 +53,7 @@ class IosChatPostgrestTransport(
             setHTTPBody(body.encodeToByteArray().toIosData())
             setValue("application/json", "Content-Type")
         }
-        request.execute().body.toIosString()
+        request.execute(requestTimeoutMillis).body.toIosString()
     }.fold(
         onSuccess = ChatPostgrestResponse::Success,
         onFailure = ChatPostgrestResponse::Failure,
@@ -90,6 +92,7 @@ class IosChatAuthenticatedUserProvider(
 class IosChatAttachmentUploader(
     private val configuration: IosChatRuntimeConfiguration,
     private val authSession: IosRenewableAuthSession,
+    private val uploadTimeoutMillis: Long = IosChatNetworkTimeouts.AttachmentUploadMillis,
 ) : ChatAttachmentUploader {
     override suspend fun upload(profileId: String, file: PlatformFile): UploadedChatAttachment {
         val cleanProfileId = profileId.trim().takeIf { it.matches(IosStorageSegment) }
@@ -109,7 +112,7 @@ class IosChatAttachmentUploader(
             data,
             mimeType,
         )
-        request.execute()
+        request.execute(uploadTimeoutMillis)
         return UploadedChatAttachment(
             storagePath = storagePath,
             publicUrl = "${configuration.storageBaseUrl()}/object/public/$ChatAttachmentsBucket/${storagePath.iosPathComponent()}",
@@ -139,15 +142,25 @@ class IosChatAttachmentUploader(
 private data class IosChatHttpResponse(val body: NSData)
 
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun NSMutableURLRequest.execute(): IosChatHttpResponse = suspendCancellableCoroutine { continuation ->
-    val delegate = IosChatDataTaskDelegate(continuation)
-    val session = NSURLSession.sessionWithConfiguration(NSURLSessionConfiguration.ephemeralSessionConfiguration(), delegate, null)
-    val task = session.dataTaskWithRequest(this)
-    continuation.invokeOnCancellation {
-        task.cancel()
-        session.invalidateAndCancel()
+private suspend fun NSMutableURLRequest.execute(timeoutMillis: Long): IosChatHttpResponse {
+    require(timeoutMillis > 0L) { "ios_chat_timeout_invalid" }
+    return withTimeout(timeoutMillis) {
+        suspendCancellableCoroutine { continuation ->
+            val configuration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
+                val timeoutSeconds = timeoutMillis / 1_000.0
+                timeoutIntervalForRequest = timeoutSeconds
+                timeoutIntervalForResource = timeoutSeconds
+            }
+            val delegate = IosChatDataTaskDelegate(continuation)
+            val session = NSURLSession.sessionWithConfiguration(configuration, delegate, null)
+            val task = session.dataTaskWithRequest(this@execute)
+            continuation.invokeOnCancellation {
+                task.cancel()
+                session.invalidateAndCancel()
+            }
+            task.resume()
+        }
     }
-    task.resume()
 }
 
 @OptIn(ExperimentalForeignApi::class)
@@ -239,6 +252,11 @@ private fun String.iosPathComponent(): String = split('/').joinToString("/") { s
 }
 
 private const val ChatAttachmentsBucket = "chat-attachments"
+internal object IosChatNetworkTimeouts {
+    const val RpcRequestMillis = 15_000L
+    // Uploads can contain camera video/audio and must not inherit the short inbox RPC budget.
+    const val AttachmentUploadMillis = 120_000L
+}
 private val IosRpcName = Regex("[A-Za-z_][A-Za-z0-9_]*")
 private val IosStorageSegment = Regex("[A-Za-z0-9_-]+")
 private val IosUnsafeFilename = Regex("[^A-Za-z0-9._-]")

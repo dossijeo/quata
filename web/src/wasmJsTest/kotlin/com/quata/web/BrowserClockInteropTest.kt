@@ -12,7 +12,7 @@ class BrowserClockInteropTest {
     }
 
     @Test
-    fun `notifications unread subtitle remains UTF-8 Spanish copy`() {
-        assertEquals("Mensajes no leídos", webNotificationsUnreadSubtitle)
+    fun `notifications activity subtitle remains UTF-8 Spanish copy`() {
+        assertEquals("Notificaciones push y actividad", webNotificationsActivitySubtitle)
     }
 }

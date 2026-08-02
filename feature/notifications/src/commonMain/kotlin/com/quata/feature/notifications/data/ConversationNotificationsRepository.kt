@@ -5,7 +5,6 @@ import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.notifications.domain.NotificationsRepository
 import com.quata.feature.notifications.domain.toConversationNotificationItems
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
@@ -33,7 +32,6 @@ class ConversationNotificationsRepository(
 
     override fun observeNotificationCount(): Flow<Int> = observeNotifications()
         .map { notifications -> notifications.sumOf(NotificationItem::unreadCount) }
-        .catch { emit(0) }
 
     override suspend fun markNotificationRead(notification: NotificationItem): Result<Unit> =
         chatRepository.markConversationRead(notification.conversationId)
