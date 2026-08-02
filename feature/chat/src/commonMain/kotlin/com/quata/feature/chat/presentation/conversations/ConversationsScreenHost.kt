@@ -31,7 +31,24 @@ import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatInviteContact
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.delay
+
+/** Lifecycle-neutral state contract implemented by common and Android ViewModels. */
+interface ConversationsScreenModel {
+    val uiState: StateFlow<ConversationsUiState>
+    fun onEvent(event: ConversationsUiEvent)
+    fun openNewConversationPicker()
+    fun closeNewConversationPicker()
+    fun onCandidateQueryChanged(query: String)
+    fun loadMoreConversationCandidates()
+    fun loadInviteContacts()
+    fun openCandidateConversation(candidate: ChatConversationCandidate, onOpened: (String) -> Unit)
+    fun toggleNewConversationCandidate(candidate: ChatConversationCandidate)
+    fun onNewGroupTitleChanged(title: String)
+    fun openSelectedGroupConversation(onOpened: (String) -> Unit)
+    fun close()
+}
 
 /** All text and formatting that varies by launcher is supplied at the boundary. */
 data class ConversationsHostStrings(
@@ -61,7 +78,7 @@ data class ConversationsHostStrings(
 @Composable
 fun ConversationsScreenHost(
     padding: PaddingValues,
-    viewModel: ConversationsViewModel,
+    model: ConversationsScreenModel,
     clipboardService: ClipboardService,
     strings: ConversationsHostStrings,
     onOpenConversation: (String) -> Unit,
@@ -78,6 +95,7 @@ fun ConversationsScreenHost(
     nowMillisProvider: () -> Long,
     modifier: Modifier = Modifier,
 ) {
+    val viewModel = model
     val state by viewModel.uiState.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
     var contactsPermissionRequested by rememberSaveable { mutableStateOf(false) }
