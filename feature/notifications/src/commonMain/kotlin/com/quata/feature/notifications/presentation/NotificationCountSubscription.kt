@@ -25,6 +25,7 @@ internal class NotificationCountSubscription(
         val activeGeneration = ++generation
         observation?.cancel()
         observation = scope.launch {
+            var retryDelayMillis = 1_000L
             while (activeGeneration == generation) {
                 try {
                     repository.observeNotificationCount().collect { count ->
@@ -33,7 +34,8 @@ internal class NotificationCountSubscription(
                     return@launch
                 } catch (error: Throwable) {
                     if (error is CancellationException) throw error
-                    delay(1_000L)
+                    delay(retryDelayMillis)
+                    retryDelayMillis = (retryDelayMillis * 2L).coerceAtMost(30_000L)
                 }
             }
         }

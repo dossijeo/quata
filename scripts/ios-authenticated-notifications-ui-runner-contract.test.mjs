@@ -58,4 +58,9 @@ test('iOS notification factory ignores stale settings callbacks and refreshes th
   assert.match(swift, /isNotificationsVisible/);
   assert.match(swift, /authenticatedHost\.showNotifications\(\)/);
   assert.match(swift, /DispatchQueue\.main\.async/);
+  assert.match(swift, /UIApplication\.didBecomeActiveNotification/);
+  assert.match(swift, /UIApplication\.didEnterBackgroundNotification/);
+  assert.match(swift, /hasValidatedAuthenticatedSession/);
+  assert.match(swift, /setAppForeground\(isForeground: true\)/);
+  assert.match(swift, /setAppForeground\(isForeground: false\)/);
 });

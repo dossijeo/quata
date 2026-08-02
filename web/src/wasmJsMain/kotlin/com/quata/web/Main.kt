@@ -157,8 +157,8 @@ private fun QuataWebApp(
     // required. All normal browsers retain the remote WebChatRepository above.
     val chatHostRepository = remember { webChatE2eFixtureOrNull() ?: chatRepository }
     DisposableEffect(chatRepository) {
-        chatRepository.setAppForeground(browserDocumentIsVisible())
-        val stopObserving = observeBrowserDocumentVisibility(chatRepository::setAppForeground)
+        chatRepository.setAppForeground(chatBrowserDocumentIsVisible())
+        val stopObserving = observeChatBrowserDocumentVisibility(chatRepository::setAppForeground)
         onDispose { stopObserving() }
     }
     val neighborhoodsRepository = remember(runtimeConfiguration, authRepository) {

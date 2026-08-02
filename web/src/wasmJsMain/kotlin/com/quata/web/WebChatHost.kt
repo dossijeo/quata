@@ -3,7 +3,6 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -42,13 +41,6 @@ fun WebChatHost(
         audioRecordingReferences ?: (resolvedAudioRecorder as? AudioRecordingReferenceReleaser)
     }
     val scope = rememberCoroutineScope()
-    DisposableEffect(repository) {
-        repository.setAppForeground(browserDocumentIsVisible())
-        val stopObserving = observeBrowserDocumentVisibility(repository::setAppForeground)
-        onDispose {
-            stopObserving()
-        }
-    }
     ChatBrowserHostContent(
         repository = repository,
         audioPlayer = audioPlayer,
@@ -66,12 +58,12 @@ fun WebChatHost(
     )
 }
 
-private fun browserDocumentIsVisible(): Boolean = js(
+internal fun chatBrowserDocumentIsVisible(): Boolean = js(
     "globalThis.document?.visibilityState !== 'hidden'",
 )
 
 /** Pauses the repository polling loops on background tabs and unregisters with the host. */
-private fun observeBrowserDocumentVisibility(onChanged: (Boolean) -> Unit): () -> Unit = js(
+internal fun observeChatBrowserDocumentVisibility(onChanged: (Boolean) -> Unit): () -> Unit = js(
     """
     (() => {
     const document = globalThis.document;

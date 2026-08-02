@@ -93,7 +93,7 @@ class WebNavigationTest {
     }
 
     @Test
-    fun anonymous notification click returns to feed with pending chat while swipe stays in inbox() {
+    fun `anonymous notification click returns to feed with pending chat while swipe stays in inbox`() {
         val click = anonymousNotificationClickEffect("conversation-7")
         val swipe = anonymousNotificationSwipeEffect()
         assertEquals(true, click.navigateFeed)

@@ -357,9 +357,20 @@ private final class IosAppCompositionRoot {
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            if let self, self.hasValidatedAuthenticatedSession, let chatRuntimeBootstrap = self.chatRuntimeBootstrap {
+                chatRuntimeBootstrap.repository().setAppForeground(isForeground: true)
+            }
             self?.authenticatedHost.restoreRouteAfterForeground()
             self?.installNotificationsIfAvailable()
             self?.presentPendingExternalShareIfAvailable()
+        }
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self, self.hasValidatedAuthenticatedSession, let chatRuntimeBootstrap = self.chatRuntimeBootstrap else { return }
+            chatRuntimeBootstrap.repository().setAppForeground(isForeground: false)
         }
         deepLinkDispatcher.attachHost(host: authenticatedRouteDispatcher)
         installSettings()

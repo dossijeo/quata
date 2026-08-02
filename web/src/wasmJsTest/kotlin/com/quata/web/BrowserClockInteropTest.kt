@@ -6,7 +6,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 
 class BrowserClockInteropTest {
     @Test
@@ -21,7 +21,7 @@ class BrowserClockInteropTest {
     }
 
     @Test
-    fun `notification badge preserves collect state during an error then recovers`() = runBlocking {
+    fun `notification badge preserves collect state during an error then recovers`() = runTest {
         var attempts = 0
         val source = flow {
             attempts += 1
