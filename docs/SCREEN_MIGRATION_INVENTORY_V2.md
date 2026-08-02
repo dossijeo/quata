@@ -4,7 +4,7 @@
 > Este inventario describe el estado del producto; si una regla operativa entra en conflicto con él,
 > prevalece el modelo operativo.
 
-Base auditada: `main` en `1fe3bf74831415951779b50e651f89505a562169` (2 de agosto de 2026), después de #154, #156 y #169.
+Base auditada: `main` en `4c719072c7a0dafafdce583e7b34157df5fc3f61` (2 de agosto de 2026), después de #154, #156, #169 y #170.
 
 Android sigue siendo la referencia de producto. En este inventario **COMÚN** significa que Android,
 Wasm e iOS invocan la misma raíz Compose de `commonMain`; los servicios del sistema, el transporte y

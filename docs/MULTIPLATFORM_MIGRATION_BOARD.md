@@ -6,7 +6,7 @@
 
 ## Foto de control — 2026-08-02
 
-**HEAD integrado:** `main` `1fe3bf74831415951779b50e651f89505a562169` (PR #169), posterior a #154 y #156. El proyecto sigue incompleto:
+**HEAD integrado:** `main` `4c719072c7a0dafafdce583e7b34157df5fc3f61` (PR #170), posterior a #154, #156 y #169. El proyecto sigue incompleto:
 las raíces comunes de Crear publicación y Cuenta/Perfil/SOS están integradas, pero integración de
 raíz no equivale a GO visual o funcional final en Web/iOS.
 
