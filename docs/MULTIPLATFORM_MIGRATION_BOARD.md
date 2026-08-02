@@ -15,10 +15,10 @@ raíz no equivale a GO visual o funcional final en Web/iOS.
 | Web/Wasm | GO limitado | Shell público, rutas principales y varias raíces Compose comunes están integrados; #154 incorpora `CreatePostRoot` y #156 `ProfileScreenHost`. | Faltan postflights autenticados por flujo y paridad visual exacta. Avatar Web se acredita por contratos, no por una mutación E2E real guardada y limpiada. |
 | Presupuesto Wasm | Integrado | Watchdog sin ventanas visibles, baseline Linux aprobado y captura canónica reproducible. | Windows sigue siendo diagnóstico: el artefacto Wasm/JS depende del host. El presupuesto es un gate técnico, no un SLO de producto. |
 | Android | GO limitado | Build, `install -r`, arranque frío y Feed anónimo API-37 con 0 crash/ANR tras cold boot. | Falta matriz autenticada controlada; no se modifica Android publicado ni el Feed anónimo. |
-| iOS CI | GO limitado | CI y contratos Swift/Kotlin siguen siendo gates obligatorios; #156 restauró el acceso Swift/Kotlin requerido por el host. | No prueba IPA/TestFlight/APNs/dispositivo físico ni postflight visual exacto de Cuenta/Perfil/SOS. |
-| iOS simulador | GO funcional suplementario | Feed público y la lane CPU-raster Intel son utilizables para validar Compose en Hyper-V. | Ejecutar el postflight exacto de #156: perfil público, Cuenta/SOS autenticado, recuperación de error de sesión y comparación Android↔iOS. CPU-raster no es SLA ni reemplaza CI ARM. |
+| iOS CI | GO limitado | CI y contratos Swift/Kotlin siguen siendo gates obligatorios; #156 restauró el acceso Swift/Kotlin requerido por el host. | No prueba IPA/TestFlight/APNs/dispositivo físico. El runner auth debe rechazar explícitamente `SKIPPED`/no ejecutado aunque `xcodebuild` devuelva 0. |
+| iOS simulador | GO funcional suplementario | El postflight de `main` `5d2a52d1` pasó Feed y perfil remoto públicos; auth real ejecutada mediante `.xctestrun` con `QUATA_IOS_AUTH_E2E_FILE`; relanzamiento normal sin reinstalar conserva/restaura sesión; Cuenta/Perfil visual PASS. | SOS es parcial: acceso/estado y 1/5 contactos visibles; no se abrió el subflujo para evitar mutación. CPU-raster no es SLA ni reemplaza CI ARM. |
 | Crear publicación (#154) | COMÚN con límites | `CreatePostRoot` común está integrado en Android, Wasm e iOS. | La evidencia de #154 no debe presentarse como GO visual/funcional final: validar publicación, adaptadores de medios y paridad autenticada sin modificar RLS. |
-| Cuenta/Perfil/SOS (#156) | COMÚN con límites | `ProfileScreenHost` común está integrado en Android, Wasm e iOS; editor de avatar Web contractual. | Falta postflight visual/funcional iOS y mutación E2E Web de avatar con archivo/cuenta temporal y limpieza, o declaración explícita de capacidad pendiente. |
+| Cuenta/Perfil/SOS (#156) | COMÚN con límites | `ProfileScreenHost` común integrado; postflight iOS de Feed/perfil público, auth, relanzamiento y Cuenta/Perfil visual PASS. | Completar el subflujo SOS sin ocultar que sólo se verificaron 1/5 contactos; avatar Web continúa contractual sin mutación E2E acreditada. |
 | RLS/DB | Sin cambios | Esta ola no cambió RLS, DDL, funciones, grants ni datos de Supabase. | Hallazgos existentes siguen abiertos; no se endurecen políticas mientras convivan clientes publicados. |
 
 ## Integraciones recientes
@@ -34,7 +34,7 @@ raíz no equivale a GO visual o funcional final en Web/iOS.
 | [#104](https://github.com/dossijeo/quata/pull/104) | `18596076` | Requisitos de producción APNs y hallazgo del dispatcher. |
 | [#106](https://github.com/dossijeo/quata/pull/106) | `d8652326` | UI de logout autenticado iOS; CI iOS verde. |
 | [#154](https://github.com/dossijeo/quata/pull/154) | `68d1fab7` | `CreatePostRoot` integrado como raíz común. No atribuye GO visual ni publicación E2E acreditada. |
-| [#156](https://github.com/dossijeo/quata/pull/156) | `5d2a52d1` | `ProfileScreenHost` común para Cuenta/Perfil/SOS y editor de avatar Web contractual. Postflight iOS y mutación E2E avatar pendientes. |
+| [#156](https://github.com/dossijeo/quata/pull/156) | `5d2a52d1` | `ProfileScreenHost` común; postflight iOS PASS para lectura pública, auth/relanzamiento y Cuenta/Perfil visual. SOS parcial; avatar Web contractual sin mutación E2E. |
 
 ## Registro de candidato #156 y mejora de preflight
 
@@ -44,14 +44,15 @@ escaparon del preflight local y se registran para no maquillarlos como incidenci
 | Defecto escapado del preflight local | Corrección integrada | Gate preventivo |
 | --- | --- | --- |
 | La factoría Kotlin requerida por Swift no estaba disponible al construir el host iOS. | Se restauró la factoría/puente Swift-Kotlin. | Añadido: compilar Kotlin/Native y construir el host Swift localmente antes de publicar. |
-| El gateway de perfil impedía la lectura pública sin sesión. | Se corrigió el fallback público del gateway. | Pendiente de consolidar como gate focal: arrancar el perfil público iOS con sesión ausente/expirada y acreditar lectura y recuperación antes de publicar. |
+| El gateway de perfil impedía la lectura pública sin sesión. | Se corrigió el fallback público del gateway. | Añadido y ejecutado en `main` `5d2a52d1`: arrancar Feed/perfil público iOS sin sesión y acreditar lectura remota y recuperación. |
+| `xcodebuild` puede devolver `0` aunque el test auth lanzado por `.xctestrun` quede `SKIPPED` o no se ejecute. | El postflight se ejecutó realmente usando `QUATA_IOS_AUTH_E2E_FILE` explícito. | Añadido: el runner auth falla si no encuentra ejecución PASS del test, incluso con exit code 0. |
 
 Las rondas anteriores al congelado sólo fueron diagnósticas; no se reutilizan como evidencia final.
 La evidencia final exige base, head y merge sintético exactos según el modelo operativo.
 
 ## Próxima cola
 
-1. Ejecutar y guardar el postflight exacto de #156: Android↔Wasm↔iOS para Cuenta/Perfil/SOS, perfil público sin sesión, recuperación de sesión y estados de error. Acreditar o dejar pendiente la subida real de avatar Web con datos temporales y limpieza.
+1. Completar el postflight de #156 pendiente: subflujo SOS (el PASS actual cubre acceso/estado y 1/5 contactos, no su mutación) y comparación Android↔Wasm↔iOS donde corresponda. Acreditar o dejar pendiente la subida real de avatar Web con datos temporales y limpieza.
 2. Ejecutar el postflight de #154: Crear publicación común en Web/iOS con sesión real, adaptadores de medios y comparación visual; no convertir sus contratos en un GO no probado.
 3. Aplicar el modelo de integración secuencial/ejecución paralela: una candidata final, preflight local completo, merge sintético y CI como certificación. Preparar localmente la siguiente unidad mientras CI está activo, sin publicar candidatos adicionales.
 4. Publicar después de #156 una PR aislada de pipeline: cancelación por PR, nunca para `main` ni `workflow_dispatch`, y separar lane rápida de lane completa de candidato.

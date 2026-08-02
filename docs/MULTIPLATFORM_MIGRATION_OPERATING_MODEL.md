@@ -121,6 +121,11 @@ Durante esa certificación se permite preparar localmente la siguiente unidad, a
 revisar contratos, preparar tests focales y documentación. Se prohíbe fusionar otra PR, publicar
 rondas repetidas de trabajo futuro o alterar el head congelado salvo defecto bloqueante demostrado.
 
+Los runners de autenticación iOS que invocan `xcodebuild` mediante un `.xctestrun` y
+`QUATA_IOS_AUTH_E2E_FILE` explícito deben verificar el resultado semántico del test: un proceso con
+salida `0` no es PASS si el test figura como `SKIPPED` o no llegó a ejecutarse. El runner falla en
+esos casos y conserva el diagnóstico redactado.
+
 ### Identidad obligatoria del candidato integrado
 
 - Todo gate integrado Web o iOS —compilación, tests, browser/simulador y comparación visual— se
