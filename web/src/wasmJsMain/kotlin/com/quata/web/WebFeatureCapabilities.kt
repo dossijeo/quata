@@ -22,10 +22,9 @@ import com.quata.core.capability.StaticFeatureCapabilityRegistry
 import com.quata.core.ui.components.QuataCard
 
 /**
- * Browser evidence manifest. Most remote capability is configuration-driven, while Profile/SOS
- * deliberately falls back to an explicitly local draft until a real authenticated session is
- * available. The profile gateway must never be advertised as remote merely because a public
- * endpoint is configured.
+ * Browser evidence manifest. Profile/SOS uses the same temporary direct authenticated PostgREST
+ * access as Android. Actor checks are client-side compatibility guards, not a substitute for the
+ * coordinated RLS/bridge rollout tracked in docs/PROFILE_BRIDGE_REQUIREMENTS.md.
  */
 fun webFeatureCapabilityRegistry(
     configuration: WebRuntimeConfiguration,
@@ -35,7 +34,9 @@ fun webFeatureCapabilityRegistry(
     val remoteOrigin = if (remoteRead) CapabilityStateOrigin.Real else CapabilityStateOrigin.Unsupported
     val remoteProfile = remoteRead && hasAuthenticatedSession
     val remoteComposer = remoteRead && hasAuthenticatedSession
-    val profileOrigin = if (remoteProfile) CapabilityStateOrigin.Real else CapabilityStateOrigin.Local
+    // Profile/SOS has a real, authenticated Android-equivalent temporary transport. Do not
+    // downgrade it to a local draft merely because the coordinated RLS rollout is pending.
+    val profileOrigin = if (remoteProfile) CapabilityStateOrigin.Real else CapabilityStateOrigin.Unsupported
     fun capability(
         source: CapabilityStateOrigin = remoteOrigin,
         mutation: CapabilityStateOrigin = CapabilityStateOrigin.Unsupported,
@@ -59,14 +60,12 @@ fun webFeatureCapabilityRegistry(
                 QuataFeature.Auth to capability(mutation = remoteOrigin),
                 QuataFeature.Feed to capability(),
                 QuataFeature.Chat to capability(mutation = remoteOrigin),
-                // The Web Profile repository selects PostgREST only when both public runtime
-                // metadata and an authenticated session exist; otherwise its local draft is
-                // intentionally visible and labelled as such.
+                // Cuenta has no local product fallback. A configured signed-in session uses the
+                // temporary direct Android-equivalent transport; missing configuration/session
+                // remains unavailable.
                 QuataFeature.Profile to capability(
                     source = profileOrigin,
-                    // Profile writes are explicitly local OfflineDrafts until Web RLS/E2E
-                    // evidence exists; do not hide that usable local capability as unsupported.
-                    mutation = CapabilityStateOrigin.Local,
+                    mutation = profileOrigin,
                     backend = remoteProfile,
                 ),
                 QuataFeature.Communities to capability(),

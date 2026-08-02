@@ -50,6 +50,12 @@ que `quata-register`. `action: "update_recovery_secret"` exige JWT de usuario,
 `version: 1`, pregunta y respuesta; responde `{"ok":true,"version":1}` y guarda
 únicamente `secret_answer_hash` peppered, anulando el valor legacy.
 
+El cambio de contraseña dentro de Perfil permanece deshabilitado. La credencial
+interna de Supabase Auth y `community_profiles.pass_hash` pertenecen a sistemas
+distintos y todavía no existe una compensación demostrable si una de las dos
+escrituras falla. No se añadirá una acción parcial al bridge; la recuperación de
+contraseña existente conserva su contrato separado.
+
 ## Login web y Web Push
 
 Los clientes Android mantienen `action: "login"` sin cambios. Un cliente web

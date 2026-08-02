@@ -1,6 +1,8 @@
 package com.quata.feature.profile.data
 
 import com.quata.core.model.CountryPrefix
+import com.quata.feature.auth.presentation.AuthCatalog
+import com.quata.feature.auth.presentation.AuthCatalogLocale
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileEditConfig
 import com.quata.feature.profile.domain.ProfileEditModel
@@ -12,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeoutOrNull
@@ -26,6 +29,17 @@ interface ProfilePresentationCatalog {
     fun emergencyContactsSavedMessage(): String
 }
 
+/** Exact shared Auth/Android recovery-question catalogue, including the profile keep-current row. */
+fun profileSecretQuestions(locale: AuthCatalogLocale): List<SecretQuestionOption> {
+    val copy = AuthCatalog.copy(locale)
+    return copy.secretQuestions.map { question ->
+        SecretQuestionOption(
+            value = question.value,
+            label = if (question.value.isBlank()) copy.profileKeepCurrentSecretQuestion else question.label,
+        )
+    }
+}
+
 /**
  * Shared Profile repository. Transports, sessions, local stores, image handling and localized
  * text are injected so commonMain does not know about Android Context, Supabase or resources.
@@ -36,14 +50,16 @@ class KmpProfileRepository(
     private val avatarUploader: ProfileAvatarUploader,
     private val emergencyMessages: ProfileEmergencyMessageStore,
     private val emergencyContacts: ProfileEmergencyContactsStore,
-    private val catalog: ProfilePresentationCatalog
+    private val catalog: ProfilePresentationCatalog,
+    private val sessionReadiness: suspend () -> Unit = {},
 ) : ProfileRepository {
     override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> {
-        val session = sessions.currentSession()
-            ?: return flow { emit(Result.failure(IllegalStateException("No hay sesion activa"))) }
-        val storedMessage = emergencyMessages.get(session.profileId)
-        val contactIds = observeEmergencyContactIds(session.profileId)
-        return combine(contactIds, remote.observeProfile(session.profileId), remote.observeEmergencyCandidates()) {
+        return flow {
+            sessionReadiness()
+            val session = sessions.currentSession() ?: error("No hay sesion activa")
+            val contactIds = observeEmergencyContactIds(session.profileId)
+            val storedMessage = emergencyMessages.get(session.profileId)
+            emitAll(combine(contactIds, remote.observeProfile(session.profileId), remote.observeEmergencyCandidates()) {
                 selectedIds, profile, directory ->
             val userProfile = profile?.toUserProfile(
                 fallbackName = session.displayName,
@@ -56,11 +72,13 @@ class KmpProfileRepository(
                 profile = userProfile,
                 config = buildConfig(buildEmergencyCandidates(session.profileId, selectedIds, directory))
             )
-        }.map { Result.success(it) }
+            }.map { Result.success(it) })
+        }
             .catch { emit(Result.failure<ProfileEditModel>(it)) }
     }
 
     override suspend fun getProfileEditModel(): Result<ProfileEditModel> = runCatching {
+        sessionReadiness()
         val session = sessions.currentSession() ?: error("No hay sesion activa")
         val selectedIds = getEmergencyContactIdsOfflineFirst(session.profileId)
         val storedMessage = emergencyMessages.get(session.profileId)
@@ -81,6 +99,9 @@ class KmpProfileRepository(
     }
 
     override suspend fun saveProfile(update: ProfileUpdate): Result<Unit> = runCatching {
+        // Validate before any upload or remote mutation: a rejected password request must not
+        // leave the remaining profile fields partially persisted.
+        requireProfilePasswordUpdateSupported(update.newPassword)
         val session = sessions.currentSession() ?: error("No hay sesion activa")
         val normalizedIds = normalizeEmergencyContactIds(update.emergencyContactIds)
         val avatarUrl = avatarUploader.uploadIfNeeded(session.profileId, update.avatarUri)
@@ -159,7 +180,7 @@ class KmpProfileRepository(
                 id = missingId,
                 displayName = catalog.fallbackUserName(),
                 email = "",
-                neighborhood = ""
+                neighborhood = "",
             )
         }
         return candidates.values.toList()
@@ -174,6 +195,10 @@ class KmpProfileRepository(
 
 internal fun normalizeEmergencyContactIds(contactIds: List<String>): List<String> =
     contactIds.map { it.trim() }.filter { it.isNotBlank() }.distinct().take(MaxEmergencyContacts)
+
+internal fun requireProfilePasswordUpdateSupported(newPassword: String) {
+    require(newPassword.isBlank()) { "profile_password_update_unavailable" }
+}
 
 internal fun ProfileUpdate.toRemotePatch(): Map<String, String?> = buildMap {
     put("display_name", displayName)
@@ -209,11 +234,12 @@ internal fun ProfileRemoteRecord.toUserProfile(
     )
 }
 
-private fun ProfileRemoteRecord.toEmergencyCandidate(): EmergencyContactCandidate = EmergencyContactCandidate(
+internal fun ProfileRemoteRecord.toEmergencyCandidate(): EmergencyContactCandidate = EmergencyContactCandidate(
     id = id,
     displayName = displayName.cleanProfileValue() ?: legacyName.cleanProfileValue() ?: phoneLocal.orEmpty(),
     email = "${countryCode.orEmpty()}${phoneLocal.orEmpty()}@phone.quata.app",
     neighborhood = neighborhood.cleanProfileValue() ?: legacyNeighborhood.orEmpty(),
+    avatarUrl = avatarUrl.cleanProfileValue() ?: legacyAvatar.cleanProfileValue(),
     phone = phoneLocal.cleanProfileValue() ?: phone.orEmpty()
 )
 

@@ -127,7 +127,7 @@ internal fun webComposerWordpressUrl(configuration: WebRuntimeConfiguration, pat
 private fun webComposerIsLocalhost(): Boolean = js("globalThis.location?.hostname === 'localhost' || globalThis.location?.hostname === '127.0.0.1'")
 private fun webEncodePath(path: String): String = js("path.split('/').map(encodeURIComponent).join('/')")
 private fun webComposerTimestamp(): String = js("String(Date.now())")
-private fun webComposerRandomToken(): String = js("Math.random().toString(36).slice(2,9)")
+internal fun webComposerRandomToken(): String = js("Math.random().toString(36).slice(2,9)")
 
 internal data class WebComposerHttpContract(val method: String, val url: String, val headers: Map<String, String>)
 internal fun webComposerStorageUploadContract(url: String, key: String, token: String, mime: String) = WebComposerHttpContract(
@@ -140,7 +140,8 @@ internal fun webComposerStorageDeleteContract(url: String, key: String, token: S
 
 private suspend fun webComposerWordpressForm(url: String, fields: Map<String, String>): String = webComposerRequest("form", url, fields, null, null, null)
 private suspend fun webComposerMultipartVideo(url: String, reference: String, name: String, mime: String): String = webComposerRequest("video", url, emptyMap(), reference, name, mime)
-private suspend fun webComposerUploadBlob(reference: String, url: String, key: String, token: String, mime: String) {
+/** Shared authenticated Storage binary upload used by Composer and Profile avatars. */
+internal suspend fun webComposerUploadBlob(reference: String, url: String, key: String, token: String, mime: String) {
     val contract = webComposerStorageUploadContract(url, key, token, mime)
     webComposerRequest("storage", contract.url, contract.headers, reference, null, mime)
 }

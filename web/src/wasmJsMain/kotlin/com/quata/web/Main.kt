@@ -157,12 +157,19 @@ private fun QuataWebApp(
     }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
     val notificationCount by notificationsRepository.observeNotificationCount().collectAsState(initial = 0)
-    val profileRepository = remember(runtimeConfiguration, authRepository, platformServices.preferences, platformServices.contacts) {
+    val profileAvatarReferences = remember(platformServices) {
+        WebProfileAvatarReferenceRegistry(platformServices.filePickerReferences, platformServices.cameraCapture)
+    }
+    val profileAvatarUploader = remember(runtimeConfiguration, authRepository, profileAvatarReferences) {
+        WebProfileAvatarUploader(runtimeConfiguration, authRepository, profileAvatarReferences)
+    }
+    val profileRepository = remember(runtimeConfiguration, authRepository, platformServices.preferences, platformServices.contacts, profileAvatarUploader) {
         WebProfileRepository(
             preferences = platformServices.preferences,
             contactPicker = platformServices.contacts,
-            remoteGateway = WebProfileRemoteGateway(WebPostgrestClient(runtimeConfiguration, authRepository)),
+            remoteGateway = WebProfileRemoteGateway(WebPostgrestClient(runtimeConfiguration, authRepository), authRepository),
             remoteSessionProvider = WebProfileSessionProvider(authRepository),
+            avatarUploader = profileAvatarUploader,
             remoteAvailable = {
                 runtimeConfiguration.supabaseUrl?.isNotBlank() == true &&
                     runtimeConfiguration.supabasePublishableKey?.isNotBlank() == true &&
@@ -195,6 +202,14 @@ private fun QuataWebApp(
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
     var webPushOptedIn by remember { mutableStateOf(false) }
+    fun changeTouchFlowEnabled(enabled: Boolean) {
+        touchFlowEnabled = enabled
+        scope.launch { platformServices.preferences.putString(WebTouchFlowEnabledKey, enabled.toString()) }
+    }
+    fun changeThemeMode(mode: QuataThemeMode) {
+        themeMode = mode
+        scope.launch { platformServices.preferences.putString(WebThemeModeKey, mode.storageValue) }
+    }
     fun completeLogin() {
         isSessionReady = true
         currentUserId = authRepository.activeProfileSessionOrNull()?.userId
@@ -451,14 +466,8 @@ private fun QuataWebApp(
                         themeMode = themeMode,
                         webPushOptedIn = webPushOptedIn,
                         accountLifecycleActions = remember(authRepository) { WebAuthAccountLifecycleActions(authRepository) },
-                        onTouchFlowEnabledChange = { enabled ->
-                            touchFlowEnabled = enabled
-                            scope.launch { platformServices.preferences.putString(WebTouchFlowEnabledKey, enabled.toString()) }
-                        },
-                        onThemeModeChange = { mode ->
-                            themeMode = mode
-                            scope.launch { platformServices.preferences.putString(WebThemeModeKey, mode.storageValue) }
-                        },
+                        onTouchFlowEnabledChange = ::changeTouchFlowEnabled,
+                        onThemeModeChange = ::changeThemeMode,
                         onWebPushOptInChange = { enabled ->
                             scope.launch {
                                 val result = if (enabled) {
@@ -491,10 +500,20 @@ private fun QuataWebApp(
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Profile) {
                         WebProfileHost(
                             repository = profileRepository,
+                            platformServices = platformServices,
+                            avatarReferences = profileAvatarReferences,
+                            touchFlowEnabled = touchFlowEnabled,
+                            themeMode = themeMode,
+                            onTouchFlowEnabledChange = ::changeTouchFlowEnabled,
+                            onThemeModeChange = ::changeThemeMode,
                             isLoggingOut = isLoggingOut,
                             onLogout = {
                                 completeLogout()
                             },
+                            // Settings owns the verified password-confirmation lifecycle flow.
+                            // Cuenta performs its first confirmation, then hands off there.
+                            onDeactivateAccount = { navigation.navigate("settings") },
+                            onDeleteAccountData = { navigation.navigate("settings") },
                         )
                     }
                 } else if (navigation.route == "composer") {

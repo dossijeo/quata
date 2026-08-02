@@ -59,6 +59,7 @@ on:
       - "scripts/wasm-baseline-capture-workflow-contract.test.mjs"
       - "scripts/ios-build-workflow-contract.test.mjs"
       - "scripts/web-test-contract.test.mjs"
+      - "scripts/web-profile-appearance-contract.test.mjs"
       - "scripts/android-lint-baseline-ratchet.mjs"
       - "scripts/android-lint-baseline-ratchet.test.mjs"
       - "scripts/web-public-ux-smoke-contract.test.mjs"

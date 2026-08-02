@@ -149,6 +149,25 @@ la UI.
   ambos caches a cero frente a 107 aristas autoritativas; véase
   `docs/PROFILE_FOLLOW_COUNTER_RECONCILIATION_PLAN.md`.
 
+## RLS-006 — `community_emergency_contacts` requires a dedicated rollout audit
+
+- **Detected:** 2026-07-31 while wiring the common Profile screen to the same
+  replace-contacts sequence already used by Android: authenticated DELETE of
+  the actor's rows followed by POST of up to five ordered rows.
+- **Evidence:** the migration inventory does not currently show a dedicated
+  actor/RLS policy for this table. The product flow is therefore constrained in
+  Web and iOS to the renewed session profile ID before a request is made.
+- **Impact:** the deployed table policy still needs a separate, read-only
+  catalog verification and an isolated staging test for foreign-row rejection.
+- **Status:** no policy, schema, grant, or production data was changed. This is
+  a documentation-only finding; do not harden it until the published clients
+  are coordinated.
+- **Temporary compatibility:** Web and iOS now mirror Android's actor-scoped
+  authenticated DELETE-to-POST sequence. This is a compatibility path, not
+  proof of server-side authorization. A failed POST after a successful DELETE
+  can leave the remote set empty; local caches are written only after both
+  requests succeed.
+
 ## RLS-004 — Credenciales y recuperación visibles por SELECT público
 
 - **Detectado:** 2026-07-26 mediante catálogo y contratos Android actuales.

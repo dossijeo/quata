@@ -12,7 +12,8 @@ data class EmergencyContactCandidate(
     val displayName: String,
     val email: String,
     val neighborhood: String,
-    val phone: String = ""
+    val phone: String = "",
+    val avatarUrl: String? = null,
 )
 
 data class UserProfile(
