@@ -61,6 +61,10 @@ internal data class WebProfileAvatarPreparedImage(
 /** Geometry shared by the browser export and its unit tests.  Rotation changes the output axes. */
 internal data class WebProfileAvatarExportGeometry(
     val scale: Float,
+    /** Unrotated image dimensions after the cover scale and user zoom. */
+    val sourceDrawnWidth: Float,
+    val sourceDrawnHeight: Float,
+    /** Dimensions in the output frame after [AvatarImageEditorTransform.quarterTurns]. */
     val outputDrawnWidth: Float,
     val outputDrawnHeight: Float,
     val maxPanX: Float,
@@ -82,12 +86,25 @@ internal fun webProfileAvatarExportGeometry(
     val outputDrawnHeight = if (isQuarterTurn) sourceDrawnWidth else sourceDrawnHeight
     return WebProfileAvatarExportGeometry(
         scale = scale,
+        sourceDrawnWidth = sourceDrawnWidth,
+        sourceDrawnHeight = sourceDrawnHeight,
         outputDrawnWidth = outputDrawnWidth,
         outputDrawnHeight = outputDrawnHeight,
         maxPanX = ((outputDrawnWidth - outputSide) / 2f).coerceAtLeast(0f),
         maxPanY = ((outputDrawnHeight - outputSide) / 2f).coerceAtLeast(0f),
     )
 }
+
+/** Converts a pointer drag in either output frame into the shared normalized crop state. */
+internal fun webProfileAvatarPanAfterDrag(
+    transform: AvatarImageEditorTransform,
+    geometry: WebProfileAvatarExportGeometry,
+    dragX: Float,
+    dragY: Float,
+): AvatarImageEditorTransform = transform.withPan(
+    transform.panX + if (geometry.maxPanX > 0f) dragX / geometry.maxPanX else 0f,
+    transform.panY + if (geometry.maxPanY > 0f) dragY / geometry.maxPanY else 0f,
+)
 
 /** Injectable edge so path/header and cancellation guarantees are testable without a browser DOM. */
 internal interface WebProfileAvatarBinaryTransport {

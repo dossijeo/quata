@@ -36,6 +36,7 @@ test('Web Profile avatar upload is actor-bound, edited square-JPEG and never per
   assert.match(uploader, /context\.translate\(540 \+ Math\.max\(-1, Math\.min\(1, Number\(panX\) \|\| 0\)\) \* maxPanX/);
   assert.match(uploader, /context\.rotate\(turns \* Math\.PI \/ 2\)/);
   assert.match(uploader, /context\.drawImage\(image, -sourceDrawnWidth \/ 2, -sourceDrawnHeight \/ 2, sourceDrawnWidth, sourceDrawnHeight\)/);
+  assert.match(uploader, /webProfileAvatarPanAfterDrag\([\s\S]*dragX \/ geometry\.maxPanX[\s\S]*dragY \/ geometry\.maxPanY/);
   assert.doesNotMatch(uploader, /sourceSide/);
   assert.match(uploader, /canvas\.toBlob[\s\S]*'image\/jpeg', 0\.9/);
   assert.match(uploader, /finally \{[\s\S]*binary\.revokePrepared[\s\S]*references\.release/);
@@ -45,8 +46,11 @@ test('Web Profile avatar upload is actor-bound, edited square-JPEG and never per
 
 test('Web Profile avatar editor is Compose-owned and exposes the complete locked-avatar controls', () => {
   assert.match(editor, /AlertDialog\(/);
-  assert.match(editor, /BrowserCanvasImage\([\s\S]*url = sourceReference/);
-  assert.match(editor, /detectDragGestures[\s\S]*transform\.withPan/);
+  assert.match(editor, /rememberBrowserCanvasImage\(sourceReference\)/);
+  assert.match(editor, /webProfileAvatarExportGeometry\([\s\S]*sourceWidth = ready\.bitmap\.width[\s\S]*outputSide = frameSidePx/);
+  assert.match(editor, /detectDragGestures[\s\S]*webProfileAvatarPanAfterDrag/);
+  assert.match(editor, /AvatarEditorCanvasPreview\(imageState, geometry, transform\)/);
+  assert.match(editor, /Canvas\(Modifier\.fillMaxSize\(\)\)[\s\S]*translate\([\s\S]*transform\.panX \* current\.maxPanX[\s\S]*rotate\(degrees = transform\.quarterTurns \* 90f\)/);
   assert.match(editor, /Slider\([\s\S]*transform\.withZoom/);
   assert.match(editor, /transform = transform\.rotateClockwise\(\)/);
   assert.match(editor, /transform = AvatarImageEditorTransform\.Default/);

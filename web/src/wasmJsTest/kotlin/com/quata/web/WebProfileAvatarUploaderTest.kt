@@ -119,6 +119,57 @@ class WebProfileAvatarUploaderTest {
     }
 
     @Test
+    fun previewAndExportShareTheSameCropForPortraitLandscapeZoomAndEveryQuarterTurn() {
+        val sources = listOf(1200 to 800, 800 to 1200)
+        val transforms = listOf(
+            AvatarImageEditorTransform.Default,
+            AvatarImageEditorTransform.Default.withZoom(2f).withPan(-0.35f, 0.6f),
+        )
+        val turns = listOf(0, 1, 3)
+
+        sources.forEach { (width, height) ->
+            transforms.forEach { base ->
+                turns.forEach { turnsClockwise ->
+                    val transform = (0 until turnsClockwise).fold(base) { value, _ -> value.rotateClockwise() }
+                    val preview = webProfileAvatarExportGeometry(width, height, transform, outputSide = 280)
+                    val export = webProfileAvatarExportGeometry(width, height, transform, outputSide = 1080)
+
+                    assertFloatClose(export.outputDrawnWidth / 1080f, preview.outputDrawnWidth / 280f)
+                    assertFloatClose(export.outputDrawnHeight / 1080f, preview.outputDrawnHeight / 280f)
+                    assertFloatClose(export.maxPanX / 1080f, preview.maxPanX / 280f)
+                    assertFloatClose(export.maxPanY / 1080f, preview.maxPanY / 280f)
+                    assertFloatClose(
+                        export.maxPanX * transform.panX / 1080f,
+                        preview.maxPanX * transform.panX / 280f,
+                    )
+                    assertFloatClose(
+                        export.maxPanY * transform.panY / 1080f,
+                        preview.maxPanY * transform.panY / 280f,
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun previewDragMapsToExportNormalizedPanAndKeepsAZeroOverflowAxisLocked() {
+        val transform = AvatarImageEditorTransform.Default.rotateClockwise()
+        val preview = webProfileAvatarExportGeometry(1200, 800, transform, outputSide = 280)
+        val afterDrag = webProfileAvatarPanAfterDrag(transform, preview, dragX = 100f, dragY = 35f)
+        val export = webProfileAvatarExportGeometry(1200, 800, afterDrag, outputSide = 1080)
+
+        assertFloatClose(0f, preview.maxPanX)
+        assertFloatClose(0f, afterDrag.panX)
+        assertFloatClose(35f, afterDrag.panY * preview.maxPanY)
+        assertFloatClose(afterDrag.panY * export.maxPanY / 1080f, 35f / 280f)
+        val reset = AvatarImageEditorTransform.Default
+        assertEquals(1f, reset.zoom)
+        assertEquals(0f, reset.panX)
+        assertEquals(0f, reset.panY)
+        assertEquals(0, reset.quarterTurns)
+    }
+
+    @Test
     fun prepareFailureReleasesTheOriginalBlobAndDoesNotUploadOrMutate() = runTest {
         val binary = RecordingBinary(failPrepare = true)
         val refs = RecordingReferences()

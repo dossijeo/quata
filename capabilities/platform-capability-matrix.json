@@ -740,12 +740,12 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileAvatarUploader.kt",
-              "sha256": "73337006c45971d5c4058368b19417877517669be7e622b439f5037a9dac0f18",
+              "sha256": "1d0adf2935a95c5fd69b9259893187707a98c40da5239d7dbfddcc0fdf5824d8",
               "role": "implementation"
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebAvatarImageEditor.kt",
-              "sha256": "e1730293f71e56d19454e1fd4bad1bacb0a64bf803772ccb13feb2be2a28d33e",
+              "sha256": "0d74c3a9f439a3cd807ef1fba9d264ed513b364be4dd6275e2134db9b255c37a",
               "role": "adapter"
             }
           ]

@@ -1,12 +1,14 @@
 package com.quata.web
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,18 +24,25 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.quata.core.ui.components.CompactIcon
 import com.quata.feature.postcomposer.imageeditor.AvatarImageEditorTransform
 import com.quata.feature.postcomposer.imageeditor.MaximumAvatarEditorZoom
+import kotlin.math.roundToInt
 
 /**
  * Compose/Wasm counterpart to Android's locked-avatar [QuataImageEditorDialog] flow.  Decode and
@@ -48,6 +57,18 @@ internal fun WebAvatarImageEditor(
     onConfirm: (AvatarImageEditorTransform) -> Unit,
 ) {
     var transform by remember(sourceReference) { mutableStateOf(initialTransform) }
+    var frameSidePx by remember(sourceReference) { mutableIntStateOf(0) }
+    val imageState = rememberBrowserCanvasImage(sourceReference)
+    val geometry = (imageState as? BrowserCanvasImageState.Ready)
+        ?.takeIf { frameSidePx > 0 }
+        ?.let { ready ->
+            webProfileAvatarExportGeometry(
+                sourceWidth = ready.bitmap.width,
+                sourceHeight = ready.bitmap.height,
+                transform = transform,
+                outputSide = frameSidePx,
+            )
+        }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Editar foto de perfil") },
@@ -60,34 +81,20 @@ internal fun WebAvatarImageEditor(
                         .size(280.dp)
                         .clip(RoundedCornerShape(18.dp))
                         .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
-                        .pointerInput(sourceReference, transform.zoom) {
+                        .onSizeChanged { frameSidePx = minOf(it.width, it.height) }
+                        .pointerInput(sourceReference, geometry) {
                             detectDragGestures { change, dragAmount ->
                                 change.consume()
-                                // The preview is 280dp wide.  Normalized state is clamped by the
-                                // common model and maps to the available overflow on export.
-                                transform = transform.withPan(
-                                    transform.panX + dragAmount.x / 140f,
-                                    transform.panY + dragAmount.y / 140f,
-                                )
+                                // `pan * maxPan` is identical in the preview and the 1080 export.
+                                // No axis may move when that axis has no cover overflow.
+                                geometry?.let { current ->
+                                    transform = webProfileAvatarPanAfterDrag(transform, current, dragAmount.x, dragAmount.y)
+                                }
                             }
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    BrowserCanvasImage(
-                        url = sourceReference,
-                        contentDescription = "Vista previa de la foto de perfil",
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        modifier = Modifier
-                            .matchParentSize()
-                            .graphicsLayer {
-                                scaleX = transform.zoom
-                                scaleY = transform.zoom
-                                rotationZ = transform.quarterTurns * 90f
-                                // Translation only has an effect when zoom exposes an overflow.
-                                translationX = transform.panX * 140f * (transform.zoom - 1f)
-                                translationY = transform.panY * 140f * (transform.zoom - 1f)
-                            },
-                    )
+                    AvatarEditorCanvasPreview(imageState, geometry, transform)
                 }
                 Text("Zoom")
                 Slider(
@@ -117,4 +124,29 @@ internal fun WebAvatarImageEditor(
         },
         modifier = Modifier.heightIn(max = 700.dp),
     )
+}
+
+@Composable
+private fun AvatarEditorCanvasPreview(
+    imageState: BrowserCanvasImageState,
+    geometry: WebProfileAvatarExportGeometry?,
+    transform: AvatarImageEditorTransform,
+) {
+    Canvas(Modifier.fillMaxSize()) {
+        val ready = imageState as? BrowserCanvasImageState.Ready ?: return@Canvas
+        val current = geometry ?: return@Canvas
+        withTransform({
+            translate(
+                left = size.width / 2f + transform.panX * current.maxPanX,
+                top = size.height / 2f + transform.panY * current.maxPanY,
+            )
+            rotate(degrees = transform.quarterTurns * 90f)
+        }) {
+            drawImage(
+                image = ready.bitmap,
+                dstOffset = IntOffset(-current.sourceDrawnWidth.roundToInt() / 2, -current.sourceDrawnHeight.roundToInt() / 2),
+                dstSize = IntSize(current.sourceDrawnWidth.roundToInt(), current.sourceDrawnHeight.roundToInt()),
+            )
+        }
+    }
 }
