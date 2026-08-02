@@ -149,8 +149,8 @@ test('classifier fixtures exercise real AA contrast and adversarial coordinate c
   assert.match(classifierFixtureTest, /ratio == 0\.0/);
   assert.match(classifierFixtures, /textRect = NSRect\(x: 65, y: 450/);
   assert.match(classifierFixtures, /y: canvasSize\.height - textRect\.maxY/);
-  assert.match(iosWorkflow, /- "scripts\/ios-public-screenshot-classifier-fixtures\.swift"/);
-  assert.match(iosWorkflow, /- "scripts\/test-ios-public-screenshot-classifier\.sh"/);
+  assert.doesNotMatch(iosWorkflow, /\bpaths:/,
+    'the iOS workflow intentionally runs on every PR and protected-branch push, without a stale route allow-list');
   assert.match(iosWorkflow, /run: bash scripts\/test-ios-public-screenshot-classifier\.sh/);
   assertClassifierFixtureRunner(classifierFixtureTest);
 });

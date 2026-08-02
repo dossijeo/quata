@@ -40,3 +40,15 @@ cancelled, preserving their diagnostic evidence.
 
 `wasm-baseline-capture.yml` still contains a separate, pre-existing actionlint
 compatibility finding and is intentionally outside this lane-policy change.
+
+## Defectos escapados del preflight local
+
+El head `3a94c9c639ebe9af7534aab27e6ec23ff8f32094` de la PR 169 quedó
+invalidado por un defecto de preflight local: el contrato
+`ios-public-simulator-matrix-contract.test.mjs` seguía exigiendo entradas del
+antiguo filtro `paths`, aunque la política aprobada es ejecutar ambos workflows
+en cada PR y push protegido. El contrato estaba en el paso remoto rápido de
+iOS, pero no en la ejecución focal local previa. La corrección exige
+explícitamente la ausencia de `paths`, incorpora ese contrato a
+`test:ci-fast-contracts` (réplica local de los contratos rápidos remotos) y a
+la suite agregada `test:web-wave2-contracts` ejecutada antes de push.
