@@ -28,9 +28,11 @@ Final checks are deliberately named separately:
 - **Analyze java-kotlin** and **Analyze javascript-typescript** are the
   required code-scanning checks.
 
-The required status checks are **Web/Android final certification gate**,
+The required status checks are **PR fast contracts and focal imports**,
+**iOS fast contracts**, **Web/Android final certification gate**,
 **iOS final certification gate**, **Analyze java-kotlin**, and **Analyze
-javascript-typescript**. Each gate always runs and fails
+javascript-typescript**. The fast checks expose classifier or workflow-contract
+mistakes without waiting for expensive runners. Each final gate always runs and fails
 closed unless its `candidate-final` PR has completed every affected final job
 successfully and every unaffected job was actually skipped. Thus a classifier
 mistake, cancellation or failure is never green evidence. The merge manager
