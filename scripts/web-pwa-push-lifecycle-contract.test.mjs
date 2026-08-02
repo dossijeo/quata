@@ -43,7 +43,8 @@ test("subscription renewal remains session-bound and CI executes executable brow
   assert.match(coordinator, /operations\.currentCredentials\(\)/);
   assert.match(coordinator, /operations\.subscribeServer/);
   assert.match(subscription, /PushSubscription\.toJSON\(\)/);
-  assert.match(workflow, /- "scripts\/web-pwa-push-lifecycle-contract\.test\.mjs"/);
+  assert.doesNotMatch(workflow, /\bpaths:/,
+    "the PR workflow must not lose this contract behind a path filter");
   assert.match(workflow, /npm run test:web-wave2-contracts/);
   assert.match(workflow, /wasmJsBrowserTest/);
   const smoke = await source("../scripts/web-browser-smoke.mjs");
