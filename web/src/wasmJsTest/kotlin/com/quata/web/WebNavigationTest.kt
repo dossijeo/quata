@@ -74,6 +74,8 @@ class WebNavigationTest {
         check("".toWebNavigationState().isPublicRoute)
         check("official-bulletin-99".toWebNavigationState().isPublicRoute)
         check("post-publication-123".toWebNavigationState().isPublicRoute)
+        check("notifications".toWebNavigationState().isPublicRoute)
+        check(!"notifications".toWebNavigationState().requiresAuthentication)
         check(!"chat".toWebNavigationState().isPublicRoute)
         check("chat".toWebNavigationState().requiresAuthentication)
         check("profile".toWebNavigationState().requiresAuthentication)
@@ -88,6 +90,30 @@ class WebNavigationTest {
         controller.navigate("official-bulletin-99")
         assertEquals("official-bulletin-99", controller.fragment)
         assertEquals("official-bulletin-99", browserFragment)
+    }
+
+    @Test
+    fun `anonymous notification click returns to feed with pending chat while swipe stays in inbox`() {
+        val click = anonymousNotificationClickEffect("conversation-7")
+        val swipe = anonymousNotificationSwipeEffect()
+        assertEquals(true, click.navigateFeed)
+        assertEquals("chat-conversation-7", click.pendingFragment)
+        assertEquals(false, swipe.navigateFeed)
+        assertNull(swipe.pendingFragment)
+    }
+
+    @Test
+    fun `anonymous Notifications back returns to the public Feed transport`() {
+        var browserFragment = "notifications"
+        val controller = WebNavigationController("notifications") { browserFragment = it }
+
+        controller.navigate("")
+
+        assertRoute("feed", controller.state)
+        assertEquals("", controller.fragment)
+        assertEquals("", browserFragment)
+        assertEquals(WebPostgrestAuthMode.Public, webFeedReadAuthMode(WebFeedReadOperation.Feed))
+        assertEquals(WebPostgrestAuthMode.Public, webFeedReadAuthMode(WebFeedReadOperation.FeedProfiles))
     }
 
     private fun assertRoute(expected: String, navigation: WebNavigationState) {

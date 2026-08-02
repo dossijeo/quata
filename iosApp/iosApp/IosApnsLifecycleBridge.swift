@@ -3,6 +3,12 @@ import UIKit
 import UserNotifications
 import QuataShared
 
+enum IosNotificationPermissionAction: Equatable {
+    case requestAuthorization
+    case openSettings
+    case none
+}
+
 /// Keeps APNs registration at the UIKit boundary.
 ///
 /// Registration is requested only after iOS has granted notification authorization. The bridge
@@ -62,6 +68,19 @@ enum IosApnsAuthorization {
 
     static func shouldRequestRegistrationAfterPrompt(granted: Bool, error: Error?) -> Bool {
         granted && error == nil
+    }
+
+    static func permissionAction(_ status: UNAuthorizationStatus) -> IosNotificationPermissionAction {
+        switch status {
+        case .notDetermined:
+            .requestAuthorization
+        case .denied:
+            .openSettings
+        case .authorized, .provisional, .ephemeral:
+            .none
+        @unknown default:
+            .openSettings
+        }
     }
 }
 

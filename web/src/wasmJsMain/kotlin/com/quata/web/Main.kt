@@ -43,6 +43,13 @@ import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import com.quata.feature.auth.presentation.AuthProductDestination
 import kotlinx.browser.document
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 internal val WebAuthenticatedChromeStrings = QuataAuthenticatedChromeSpanish
@@ -149,14 +156,29 @@ private fun QuataWebApp(
     // Test-only selection is fail-closed: both localhost and the explicit query opt-in are
     // required. All normal browsers retain the remote WebChatRepository above.
     val chatHostRepository = remember { webChatE2eFixtureOrNull() ?: chatRepository }
+    DisposableEffect(chatRepository) {
+        chatRepository.setAppForeground(chatBrowserDocumentIsVisible())
+        val stopObserving = observeChatBrowserDocumentVisibility(chatRepository::setAppForeground)
+        onDispose { stopObserving() }
+    }
     val neighborhoodsRepository = remember(runtimeConfiguration, authRepository) {
         WebNeighborhoodsRepository(
             client = WebPostgrestClient(runtimeConfiguration, authRepository),
             authRepository = authRepository,
         )
     }
+    var isSessionReady by remember { mutableStateOf(false) }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
-    val notificationCount by notificationsRepository.observeNotificationCount().collectAsState(initial = 0)
+    val shouldObserveNotifications = isSessionReady && runtimeConfiguration.isBackendConfigured
+    // A cold polling Flow must survive unrelated shell recompositions. Recreating it here caused
+    // every navigation/layout change to cancel and immediately restart the inbox RPC.
+    val notificationCountFlow = remember(notificationsRepository, shouldObserveNotifications) {
+        webChromeNotificationCount(
+            source = notificationsRepository.observeNotificationCount(),
+            shouldObserve = shouldObserveNotifications,
+        )
+    }
+    val notificationCount by notificationCountFlow.collectAsState(initial = 0)
     val profileAvatarReferences = remember(platformServices) {
         WebProfileAvatarReferenceRegistry(platformServices.filePickerReferences, platformServices.cameraCapture)
     }
@@ -183,7 +205,6 @@ private fun QuataWebApp(
         )
     }
     val incomingShareStore = remember { WebIncomingShareStore() }
-    var isSessionReady by remember { mutableStateOf(false) }
     var currentUserId by remember { mutableStateOf<String?>(null) }
     // Do not treat the first composition as anonymous: persisted Web credentials are restored
     // asynchronously, and private deep links must retain their hash while that resolves.
@@ -495,6 +516,17 @@ private fun QuataWebApp(
                         runtimeConfiguration = runtimeConfiguration,
                         onBack = { navigation.navigate("") },
                         onOpenConversation = navigation::navigateConversation,
+                        canMutate = isSessionReady,
+                        onAuthenticationRequired = { conversationId ->
+                            val effect = anonymousNotificationClickEffect(conversationId)
+                            if (effect.navigateFeed) navigation.navigate("")
+                            requestAuthenticationFor(effect.pendingFragment.orEmpty())
+                        },
+                        onDismissAuthenticationRequired = {
+                            val effect = anonymousNotificationSwipeEffect()
+                            if (effect.navigateFeed) navigation.navigate("")
+                            requestAuthenticationFor(effect.pendingFragment ?: navigation.fragment)
+                        },
                     )
                 } else if (navigation.route == "profile") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Profile) {
@@ -639,6 +671,29 @@ private fun QuataWebApp(
         }
 }
 }
+
+/** A public chrome badge must never cancel the root composition on an anonymous RPC failure. */
+internal fun webChromeNotificationCount(source: Flow<Int>, shouldObserve: Boolean = true, retryDelayMillis: Long = 1_000L): Flow<Int> {
+    if (!shouldObserve) return flowOf(0)
+    return flow {
+    var delayMillis = retryDelayMillis.coerceAtLeast(1L)
+    while (true) {
+        try {
+            source.collect { value -> emit(value) }
+            return@flow
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            delay(delayMillis)
+            delayMillis = (delayMillis * 2L).coerceAtMost(30_000L)
+        }
+    }
+    }
+    }
+
+internal data class AnonymousNotificationAuthEffect(val navigateFeed: Boolean, val pendingFragment: String?)
+internal fun anonymousNotificationClickEffect(conversationId: String) =
+    AnonymousNotificationAuthEffect(navigateFeed = true, pendingFragment = quataChatUrl(conversationId).substringAfter('#'))
+internal fun anonymousNotificationSwipeEffect() = AnonymousNotificationAuthEffect(navigateFeed = false, pendingFragment = null)
 
 internal val webPrimaryNavigationLabels = QuataPrimaryNavigationLabels(
     neighborhoods = "Qüata",

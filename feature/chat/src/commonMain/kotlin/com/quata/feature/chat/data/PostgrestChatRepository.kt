@@ -105,7 +105,9 @@ open class PostgrestChatRepository(
     override suspend fun getConversations(): Result<List<Conversation>> = refreshInbox()
     override fun observeConversations(): Flow<List<Conversation>> = flow {
         while (currentCoroutineContext().isActive) {
-            awaitForeground(); refreshInbox(); emit(conversations.value)
+            awaitForeground()
+            refreshInbox()
+            emit(conversations.value)
             delay(pollIntervalMillis.coerceAtLeast(MinimumPollIntervalMillis))
         }
     }
