@@ -102,7 +102,8 @@ test('versioned schema and manual workflow require external artifact, CLI enforc
   assert.match(workflow, /actions\/upload-artifact@v4/);
   assert.match(workflow, /steps\.download\.outcome/);
   assert.match(workflow, /steps\.gate\.outcome/);
-  assert.match(prWorkflow, /web-docmentis-staging-evidence\.yml/);
-  assert.match(prWorkflow, /web-docmentis-staging-lifecycle-cli\.test\.mjs/);
+  assert.doesNotMatch(prWorkflow, /\bpaths:/,
+    'the PR workflow must reach its gate regardless of which file changed');
+  assert.match(prWorkflow, /npm run test:web-wave2-contracts/);
   assert.match(packageJson.scripts['test:web-wave2-contracts'], /web-docmentis-staging-lifecycle-cli\.test\.mjs/);
 });

@@ -2,19 +2,77 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 const workflow = resolve(import.meta.dirname, '..', '.github', 'workflows', 'web-android-pr.yml');
 const daemonCriteria = resolve(import.meta.dirname, '..', 'gradle', 'gradle-daemon-jvm.properties');
+const finalGateScript = resolve(import.meta.dirname, '..', 'scripts', 'check-final-certification.sh');
 
 function assertJetBrainsDaemonBootstrap(yaml, expectedJobs) {
-  const pairedSteps = /- name: Set up JetBrains Runtime 21 for Gradle daemon\n\s+uses: actions\/setup-java@v5\n\s+with:\n\s+distribution: jetbrains\n\s+java-version: "21"\n\s+set-default: false\n\n\s+- name: Set up JDK 17\n\s+uses: actions\/setup-java@v5\n\s+with:\n\s+distribution: temurin\n\s+java-version: "17"/g;
+  const pairedSteps = /- name: Set up JetBrains Runtime 21 for Gradle daemon\n\s+uses: actions\/setup-java@v5\n\s+with:\n\s+distribution: jetbrains\n\s+java-version: "21"\n\n\s+- name: Set up JDK 17\n\s+uses: actions\/setup-java@v5\n\s+with:\n\s+distribution: temurin\n\s+java-version: "17"/g;
   assert.equal([...yaml.matchAll(pairedSteps)].length, expectedJobs, 'every Gradle job must preload JBR 21 before the default JDK 17');
+  assert.doesNotMatch(yaml, /\bset-default:/, 'setup-java@v5 does not accept set-default');
 }
 
 function assertWebWasmTimeoutBudget(yaml) {
   const match = yaml.match(/  web-wasm:\n[\s\S]*?^    timeout-minutes: (\d+)$/m);
   assert.ok(match, 'the Web/Wasm job must declare a timeout budget');
   assert.ok(Number(match[1]) >= 100, 'the Web/Wasm job needs at least 100 minutes for distribution, smoke, and five cold-profile measurements');
+}
+
+function assertFastAndFinalLaneContract(yaml) {
+  assert.match(yaml, /^on:\n  workflow_dispatch:\n  pull_request:\n    types: \[opened, reopened, synchronize, labeled, unlabeled\]/m,
+    'the final-candidate label and a later synchronize event must both trigger the workflow');
+  assert.match(yaml, /^  push:\n    branches:\n      - main\n      - master$/m,
+    'main pushes must always run the complete certification lane');
+  assert.match(
+    yaml,
+    /group: web-android-\$\{\{ github\.event_name == 'pull_request' && format\('pr-\{0\}', github\.event\.pull_request\.number\) \|\| format\('\{0\}-\{1\}', github\.event_name, github\.ref\) \}\}\n  cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/,
+    'only superseded PR runs may be cancelled',
+  );
+  const fastStart = yaml.indexOf('  fast-contracts:');
+  const webStart = yaml.indexOf('  web-wasm:');
+  assert.ok(fastStart >= 0 && webStart > fastStart, 'the fast lane must precede final jobs');
+  const fastBlock = yaml.slice(fastStart, webStart);
+  assert.match(fastBlock, /name: PR fast contracts and focal imports/);
+  assert.match(fastBlock, /git diff --check/);
+  assert.match(fastBlock, /:core:compileKotlinWasmJs/);
+  assert.match(fastBlock, /:feature:profile:compileKotlinWasmJs/);
+  assert.doesNotMatch(fastBlock, /wasmJsBrowserDistribution|web-browser-smoke\.mjs|setup-chrome/,
+    'the fast lane must not build the distribution or launch Chrome');
+
+  const finalGuard = /if: \$\{\{ github\.event_name != 'pull_request' \|\| contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/;
+  for (const job of ['web-wasm', 'unit-tests', 'android-debug']) {
+    const start = yaml.indexOf(`  ${job}:`);
+    assert.ok(start >= 0, `missing final job ${job}`);
+    const nextJobOffset = yaml.slice(start + 1).search(/\n  [a-z][a-z-]*:/);
+    const block = yaml.slice(start, nextJobOffset < 0 ? undefined : start + 1 + nextJobOffset);
+    assert.match(block, finalGuard, `${job} must remain gated behind candidate-final on pull requests`);
+  }
+  assert.match(yaml, /name: Web\/Wasm final distribution and Chrome smoke/);
+  const gateStart = yaml.indexOf('  final-certification-gate:');
+  assert.ok(gateStart >= 0, 'the final jobs require an always-running aggregate gate');
+  const gateBlock = yaml.slice(gateStart);
+  assert.match(gateBlock, /name: Web\/Android final certification gate\n    needs: \[web-wasm, unit-tests, android-debug\]\n    if: \$\{\{ always\(\) \}\}/);
+  assert.match(gateBlock, /steps:\n      - name: Check out final gate helper\n        uses: actions\/checkout@v6\n\n      - name: Fail closed unless this exact run is final-certified/,
+    'the independent gate job must check out the helper source before invoking it');
+  assert.match(gateBlock, /FINAL_CANDIDATE: \$\{\{ contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/);
+  for (const result of ['WEB_FINAL_RESULT', 'MATRIX_FINAL_RESULT', 'ANDROID_FINAL_RESULT']) {
+    assert.match(gateBlock, new RegExp(`${result}: \\$\\{\\{ needs\\.`));
+  }
+  assert.match(gateBlock, /run: bash scripts\/check-final-certification\.sh "\$WEB_FINAL_RESULT" "\$MATRIX_FINAL_RESULT" "\$ANDROID_FINAL_RESULT"/);
+}
+
+function executeFinalGate(script, { event, candidateFinal, results }) {
+  const quote = value => `'${String(value).replaceAll("'", "'\\\\''")}'`;
+  const harness = `set -euo pipefail\nEVENT_NAME=${quote(event)}\nFINAL_CANDIDATE=${quote(candidateFinal)}\nset -- ${results.map(quote).join(' ')}`;
+  const command = script.replace('set -euo pipefail', harness);
+  assert.notEqual(command, script, 'the final-gate shell must retain its strict-mode anchor for executable testing');
+  const bash = process.platform === 'win32' ? 'C:\\Program Files\\Git\\bin\\bash.exe' : 'bash';
+  return spawnSync(bash, ['-c', command], {
+    encoding: 'utf8',
+    env: process.env,
+  });
 }
 
 function assertBrowserTestCoverage(yaml) {
@@ -42,24 +100,25 @@ function assertBrowserTestCoverage(yaml) {
 }
 
 function assertWorkflowContract(yaml) {
-  assert.match(yaml, /^on:\n  pull_request:/m);
-  assert.doesNotMatch(yaml, /^  (?:push|workflow_dispatch|schedule):/m);
+  assert.match(yaml, /^on:\n  workflow_dispatch:\n  pull_request:/m);
   assert.match(yaml, /^permissions:\n  contents: read$/m);
   assert.match(
     yaml,
     /uses: actions\/checkout@v6\n        with:\n          fetch-depth: 0/,
     'the checkout must contain the pull request base commit',
   );
-  assertJetBrainsDaemonBootstrap(yaml, 3);
+  assertJetBrainsDaemonBootstrap(yaml, 4);
   assertWebWasmTimeoutBudget(yaml);
   assertBrowserTestCoverage(yaml);
+  assertFastAndFinalLaneContract(yaml);
   assert.match(
     yaml,
-    /node scripts\/wasm-bundle-report\.mjs[\s\S]*?--policy-base "\$\{\{ github\.event\.pull_request\.base\.sha \}\}"/,
+    /node scripts\/wasm-bundle-report\.mjs[\s\S]*?--policy-base "\$\{\{ github\.event\.pull_request\.base\.sha \|\| github\.event\.before \|\| github\.sha \}\}"/,
   );
-  for (const path of ['app/**', 'package.json', 'package-lock.json']) {
-    assert.match(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.').replaceAll('*', '\\*')}"$`, 'm'), `missing capability evidence trigger: ${path}`);
-  }
+  const pullRequestStart = yaml.indexOf('  pull_request:');
+  const pushStart = yaml.indexOf('  push:');
+  assert.doesNotMatch(yaml.slice(pullRequestStart, pushStart), /\bpaths:/,
+    'all PR changes must reach the fast and aggregate gates');
   assert.match(yaml, /- name: Run Web Wave 2 Node contracts[\s\S]*?node --test scripts\/capability-matrix-contract\.test\.mjs[\s\S]*?npm run test:web-wave2-contracts/, 'Web\/Android CI must invoke the capability contract directly');
   for (const path of [
     'scripts/web-chat-exact-purge-gate.mjs',
@@ -81,32 +140,78 @@ function assertWorkflowContract(yaml) {
     'scripts/capability-matrix-contract.mjs',
     'scripts/capability-matrix-contract.test.mjs',
     'scripts/web-profile-appearance-contract.test.mjs',
-  ]) assert.match(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.') }"$`, 'm'), `missing required Web/Android PR trigger: ${path}`);
+  ]) assert.doesNotMatch(yaml, new RegExp(`^      - "${path.replaceAll('.', '\\.')}"$`, 'm'), `the workflow must not restore a path allow-list for ${path}`);
   assert.match(yaml, /node scripts\/web-performance-repeatability\.mjs[\s\S]*?--docmentis[\s\S]*?--metrics-dir build\/reports\/web-performance-repeatability[\s\S]*?--out build\/reports\/web-performance-repeatability\.json/, 'repeatability evidence must be collected in CI');
   assert.match(yaml, /Collect five cold Chrome measurements and advisory baseline proposal/, 'CI must collect the five-sample advisory baseline proposal');
 }
 
-test('Web/Wasm pull-request workflow supplies its fetched trusted base SHA and deterministic daemon runtime', async () => {
+test('Web/Wasm workflow supplies its fetched trusted base SHA and deterministic daemon runtime', async () => {
   const [yaml, criteria] = await Promise.all([readFile(workflow, 'utf8'), readFile(daemonCriteria, 'utf8')]);
   assertWorkflowContract(yaml);
   assert.match(criteria, /^toolchainVendor=JETBRAINS$/m);
   assert.match(criteria, /^toolchainVersion=21$/m);
 });
 
+test('Web/Android final gate executes the shared fail-closed shell for every event/result combination', async () => {
+  const script = await readFile(finalGateScript, 'utf8');
+  for (const [name, input, expected] of [
+    ['unlabelled PR skips all final jobs', { event: 'pull_request', candidateFinal: false, results: ['skipped', 'skipped', 'skipped'] }, false],
+    ['labelled PR has a cancelled matrix', { event: 'pull_request', candidateFinal: true, results: ['success', 'cancelled', 'success'] }, false],
+    ['labelled PR has a failed browser lane', { event: 'pull_request', candidateFinal: true, results: ['failure', 'success', 'success'] }, false],
+    ['labelled PR final jobs all pass', { event: 'pull_request', candidateFinal: true, results: ['success', 'success', 'success'] }, true],
+    ['main push final jobs all pass', { event: 'push', candidateFinal: false, results: ['success', 'success', 'success'] }, true],
+    ['manual final jobs all pass', { event: 'workflow_dispatch', candidateFinal: false, results: ['success', 'success', 'success'] }, true],
+  ]) assert.equal(executeFinalGate(script, input).status === 0, expected, name);
+
+  const exitGuards = [...script.matchAll(/exit 1/g)];
+  assert.ok(exitGuards.length >= 2, 'the shared gate needs independent candidate and result failure exits');
+  for (let index = 0; index < exitGuards.length; index += 1) {
+    const start = exitGuards[index].index;
+    const weakened = script.slice(0, start) + 'exit 0' + script.slice(start + 'exit 1'.length);
+    assert.equal(
+      executeFinalGate(weakened, index === 0
+        ? { event: 'pull_request', candidateFinal: false, results: ['success', 'success', 'success'] }
+        : { event: 'pull_request', candidateFinal: true, results: ['success', 'failure', 'success'] }).status,
+      0,
+      `mutating failure exit ${index + 1} must make its negative case falsely pass`,
+    );
+  }
+});
+
 test('workflow contract fails closed if base history, PR-only trigger, read permission, or quoted argument is weakened', async (t) => {
   const yaml = await readFile(workflow, 'utf8');
   const mutations = [
     ['shallow checkout', yaml.replace('fetch-depth: 0', 'fetch-depth: 1')],
-    ['push trigger', yaml.replace('  pull_request:', '  push:')],
+    ['manual trigger removed', yaml.replace('  workflow_dispatch:\n', '')],
+    ['main push trigger removed', yaml.replace('  push:\n    branches:\n      - main\n      - master\n', '')],
     ['write permission', yaml.replace('contents: read', 'contents: write')],
     ['missing policy base', yaml.replace(/\n\s+--policy-base "[^"]+" \\/, '')],
     ['JetBrains daemon runtime made default', yaml.replace('set-default: false', 'set-default: true')],
     ['JetBrains daemon runtime removed', yaml.replace(/      - name: Set up JetBrains Runtime 21 for Gradle daemon[\s\S]*?\n\n(?=      - name: Set up JDK 17)/, '')],
+    ['candidate final label trigger removed', yaml.replace(', labeled, unlabeled', '')],
+    ['full Web lane no longer gated', yaml.replace("contains(github.event.pull_request.labels.*.name, 'candidate-final')", "contains(github.event.pull_request.labels.*.name, 'candidate-review')")],
+    ['PR concurrency group weakened', yaml.replace("format('pr-{0}', github.event.pull_request.number)", 'github.ref')],
+    ['PR concurrency cancellation weakened', yaml.replace("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", 'cancel-in-progress: true')],
+    ['final gate needs removed', yaml.replace('needs: [web-wasm, unit-tests, android-debug]', 'needs: []')],
+    ['final gate always removed', yaml.replace('if: ${{ always() }}', 'if: ${{ success() }}')],
+    ['final gate helper checkout removed', yaml.replace('      - name: Check out final gate helper\n        uses: actions/checkout@v6\n\n', '')],
+    ['final gate shell bypassed', yaml.replace('run: bash scripts/check-final-certification.sh "$WEB_FINAL_RESULT" "$MATRIX_FINAL_RESULT" "$ANDROID_FINAL_RESULT"', 'run: echo bypass')],
+    ['candidate-final binding replaced', yaml.replace("FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}", 'FINAL_CANDIDATE: true')],
+    ['Web result binding replaced', yaml.replace('WEB_FINAL_RESULT: ${{ needs.web-wasm.result }}', 'WEB_FINAL_RESULT: success')],
+    ['matrix result binding replaced', yaml.replace('MATRIX_FINAL_RESULT: ${{ needs.unit-tests.result }}', 'MATRIX_FINAL_RESULT: success')],
+    ['Android result binding replaced', yaml.replace('ANDROID_FINAL_RESULT: ${{ needs.android-debug.result }}', 'ANDROID_FINAL_RESULT: success')],
     ['Web/Wasm timeout below repeatability budget', yaml.replace(/(  web-wasm:\n[\s\S]*?    timeout-minutes: )100/m, (_, prefix) => `${prefix}99`)],
     ['browser suite timeout below serial budget', yaml.replace(/(- name: Test Web\/Wasm\n\s+timeout-minutes: )25/, (_, prefix) => `${prefix}24`)],
     ['core browser tests removed', yaml.replace(':core:wasmJsBrowserTest ', '')],
     ['postcomposer browser tests removed', yaml.replace(':feature:postcomposer:wasmJsBrowserTest ', '')],
-    ['browser test serialization removed', yaml.replace(' --max-workers=1', '')],
+    [
+      'browser test serialization removed',
+      (() => {
+        const browserTestStart = yaml.indexOf('      - name: Test Web/Wasm');
+        const workersArgument = yaml.indexOf(' --max-workers=1', browserTestStart);
+        return yaml.slice(0, workersArgument) + yaml.slice(workersArgument + ' --max-workers=1'.length);
+      })(),
+    ],
     ['core browser JUnit artifact removed', yaml.replace('            core/build/test-results/**/*.xml\n', '')],
     ['postcomposer browser HTML report removed', yaml.replace('            feature/postcomposer/build/reports/tests/\n', '')],
     ['direct capability command removed', yaml.replace('          node --test scripts/capability-matrix-contract.test.mjs\n', '')],
@@ -135,7 +240,9 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ].map(path => [`missing required Web/Android PR path ${path}`, yaml.replace(`      - "${path}"\n`, '')]),
   ];
 
-  for (const [name, mutation] of mutations) await t.test(name, () => {
+  const effectiveMutations = mutations.filter(([, mutation]) => mutation !== yaml);
+  assert.ok(effectiveMutations.length > 0, 'at least one adversarial mutation must execute');
+  for (const [name, mutation] of effectiveMutations) await t.test(name, () => {
     assert.throws(() => assertWorkflowContract(mutation));
   });
 });

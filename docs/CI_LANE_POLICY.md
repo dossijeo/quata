@@ -1,0 +1,54 @@
+# CI lanes and merge policy
+
+Every pull request runs the fast checks (**PR fast contracts and focal
+imports** and **iOS fast contracts**). They validate workflow contracts and
+the diff, then compile a focused Wasm import set. They are diagnostic coverage,
+not release certification.
+
+The expensive final checks run on every `main`/`master` push and manual
+dispatch. For a pull request they run only after the `candidate-final` label
+is present; `pull_request` listens to both `labeled` and `synchronize`, so a
+new commit on a labelled candidate restarts the final lane.
+
+Final checks are deliberately named separately:
+
+- **Web/Wasm final distribution and Chrome smoke** covers the full Wasm test
+  matrix, production distribution and browser smoke.
+- **Kotlin iOS final host, simulator and archive** covers Kotlin iOS targets,
+  XCFramework, Swift host, simulator contracts and the unsigned archive.
+- **Analyze java-kotlin** and **Analyze javascript-typescript** are the
+  required code-scanning checks.
+
+The required status checks are **Web/Android final certification gate**,
+**iOS final certification gate**, **Analyze java-kotlin**, and **Analyze
+javascript-typescript**. Each gate always runs and fails
+closed unless its `candidate-final` PR has completed every final job
+successfully. A skipped, cancelled or failed final job is therefore never
+green evidence. The merge manager applies `candidate-final` only once the diff
+is frozen, waits for both gates on that exact head SHA, then merges or removes
+the label after a material change.
+
+Both workflows deliberately have no `paths` filter: every pull request reaches
+the fast checks and their fail-closed gate, while every `main`/`master` push
+and manual dispatch runs the complete lane. This also means a `labeled` or
+`synchronize` event for `candidate-final` cannot be lost because its diff falls
+outside an old route allow-list.
+
+Concurrency is scoped by pull-request number and cancels only superseded PR
+runs. Push and manual-dispatch runs use stable event/ref groups and are never
+cancelled, preserving their diagnostic evidence.
+
+`wasm-baseline-capture.yml` still contains a separate, pre-existing actionlint
+compatibility finding and is intentionally outside this lane-policy change.
+
+## Defectos escapados del preflight local
+
+El head `3a94c9c639ebe9af7534aab27e6ec23ff8f32094` de la PR 169 quedó
+invalidado por un defecto de preflight local: el contrato
+`ios-public-simulator-matrix-contract.test.mjs` seguía exigiendo entradas del
+antiguo filtro `paths`, aunque la política aprobada es ejecutar ambos workflows
+en cada PR y push protegido. El contrato estaba en el paso remoto rápido de
+iOS, pero no en la ejecución focal local previa. La corrección exige
+explícitamente la ausencia de `paths`, incorpora ese contrato a
+`test:ci-fast-contracts` (réplica local de los contratos rápidos remotos) y a
+la suite agregada `test:web-wave2-contracts` ejecutada antes de push.
