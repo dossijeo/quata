@@ -189,7 +189,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertLessThan(publicInstall.lowerBound, validation.lowerBound)
         XCTAssertTrue(source.contains("runtimeBootstrap.validateRestoredSession"))
         XCTAssertTrue(source.contains("DispatchQueue.main.async"))
-        XCTAssertTrue(source.contains("guard let self, validated else { return }"))
+        XCTAssertTrue(source.contains("guard let self, validated.boolValue else { return }"))
         XCTAssertFalse(source.contains("afterRestoredSessionAttempt: installRestoredFeedSessionIfAvailable()"))
     }
 
