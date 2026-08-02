@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 
 /**
  * Portable notifications inbox backed by the chat conversations already available to a host.
@@ -32,6 +34,7 @@ class ConversationNotificationsRepository(
 
     override fun observeNotifications(): Flow<List<NotificationItem>> = flow {
         while (currentCoroutineContext().isActive) {
+            chatRepository.isAppForeground.filter { it }.first()
             val items = getNotifications().getOrThrow()
             emit(items)
             delay(pollIntervalMillis.coerceAtLeast(1L))

@@ -49,6 +49,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 internal val WebAuthenticatedChromeStrings = QuataAuthenticatedChromeSpanish
@@ -162,7 +163,10 @@ private fun QuataWebApp(
         )
     }
     val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
-    val notificationCount by webChromeNotificationCount(notificationsRepository.observeNotificationCount())
+    val notificationCount by webChromeNotificationCount(
+        source = notificationsRepository.observeNotificationCount(),
+        shouldObserve = isSessionReady && runtimeConfiguration.isBackendConfigured,
+    )
         .collectAsState(initial = 0)
     val profileAvatarReferences = remember(platformServices) {
         WebProfileAvatarReferenceRegistry(platformServices.filePickerReferences, platformServices.cameraCapture)
@@ -654,16 +658,21 @@ private fun QuataWebApp(
 }
 
 /** A public chrome badge must never cancel the root composition on an anonymous RPC failure. */
-internal fun webChromeNotificationCount(source: Flow<Int>, retryDelayMillis: Long = 1_000L): Flow<Int> = flow {
+internal fun webChromeNotificationCount(source: Flow<Int>, shouldObserve: Boolean = true, retryDelayMillis: Long = 1_000L): Flow<Int> {
+    if (!shouldObserve) return flowOf(0)
+    return flow {
+    var delayMillis = retryDelayMillis.coerceAtLeast(1L)
     while (true) {
         try {
             source.collect { value -> emit(value) }
             return@flow
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
-            delay(retryDelayMillis.coerceAtLeast(1L))
+            delay(delayMillis)
+            delayMillis = (delayMillis * 2L).coerceAtMost(30_000L)
         }
     }
+}
 }
 
 internal val webPrimaryNavigationLabels = QuataPrimaryNavigationLabels(
