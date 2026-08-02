@@ -16,7 +16,7 @@ raíz no equivale a GO visual o funcional final en Web/iOS.
 | Presupuesto Wasm | Integrado | Watchdog sin ventanas visibles, baseline Linux aprobado y captura canónica reproducible. | Windows sigue siendo diagnóstico: el artefacto Wasm/JS depende del host. El presupuesto es un gate técnico, no un SLO de producto. |
 | Android | GO limitado | Build, `install -r`, arranque frío y Feed anónimo API-37 con 0 crash/ANR tras cold boot. | Falta matriz autenticada controlada; no se modifica Android publicado ni el Feed anónimo. |
 | iOS CI | GO limitado | CI y contratos Swift/Kotlin siguen siendo gates obligatorios; #156 restauró el acceso Swift/Kotlin requerido por el host. | No prueba IPA/TestFlight/APNs/dispositivo físico. El runner auth debe rechazar explícitamente `SKIPPED`/no ejecutado aunque `xcodebuild` devuelva 0. |
-| iOS simulador | GO funcional suplementario | El postflight de `main` `5d2a52d1` pasó Feed y perfil remoto públicos; auth real ejecutada mediante `.xctestrun` con `QUATA_IOS_AUTH_E2E_FILE`; relanzamiento normal sin reinstalar conserva/restaura sesión; Cuenta/Perfil visual PASS. | SOS es parcial: acceso/estado y 1/5 contactos visibles; no se abrió el subflujo para evitar mutación. CPU-raster no es SLA ni reemplaza CI ARM. |
+| iOS simulador | GO funcional suplementario | El postflight de `main` `5d2a52d1` pasó Feed y perfil remoto públicos; auth real ejecutada mediante `.xctestrun` con `QUATA_IOS_AUTH_E2E_FILE`; relanzamiento normal sin reinstalar conserva/restaura sesión; Cuenta/Perfil visual PASS. | SOS es parcial: acceso/estado y 1/5 contactos visibles; el puntero remoto no automatizó la navegación de forma fiable. No hubo mutaciones. CPU-raster no es SLA ni reemplaza CI ARM. |
 | Crear publicación (#154) | COMÚN con límites | `CreatePostRoot` común está integrado en Android, Wasm e iOS. | La evidencia de #154 no debe presentarse como GO visual/funcional final: validar publicación, adaptadores de medios y paridad autenticada sin modificar RLS. |
 | Cuenta/Perfil/SOS (#156) | COMÚN con límites | `ProfileScreenHost` común integrado; postflight iOS de Feed/perfil público, auth, relanzamiento y Cuenta/Perfil visual PASS. | Completar el subflujo SOS sin ocultar que sólo se verificaron 1/5 contactos; avatar Web continúa contractual sin mutación E2E acreditada. |
 | Pipeline CI (#169) | Integrado, fail-closed | Preflight rápido local exacto, gates finales requeridos y concurrencia por PR sin cancelar evidencia de `main`/manual. | Aún no acredita producto; certifica candidatos ya validados localmente. |
@@ -42,14 +42,19 @@ raíz no equivale a GO visual o funcional final en Web/iOS.
 
 ## Registro de candidato #156 y mejora de preflight
 
-La candidata congelada de #156 requirió **tres rondas finales de certificación**. Dos defectos se
-escaparon del preflight local y se registran para no maquillarlos como incidencias normales de CI:
+La candidata congelada de #156 requirió **tres rondas finales de certificación**. Dos defectos de
+implementación se escaparon del preflight local y se registran para no maquillarlos como incidencias
+normales de CI:
 
 | Defecto escapado del preflight local | Corrección integrada | Gate preventivo |
 | --- | --- | --- |
 | La factoría Kotlin requerida por Swift no estaba disponible al construir el host iOS. | Se restauró la factoría/puente Swift-Kotlin. | Añadido: compilar Kotlin/Native y construir el host Swift localmente antes de publicar. |
 | El gateway de perfil impedía la lectura pública sin sesión. | Se corrigió el fallback público del gateway. | Añadido y ejecutado en `main` `5d2a52d1`: arrancar Feed/perfil público iOS sin sesión y acreditar lectura remota y recuperación. |
-| `xcodebuild` puede devolver `0` aunque el test auth lanzado por `.xctestrun` quede `SKIPPED` o no se ejecute. | El postflight se ejecutó realmente usando `QUATA_IOS_AUTH_E2E_FILE` explícito. | Añadido: el runner auth falla si no encuentra ejecución PASS del test, incluso con exit code 0. |
+
+Hallazgo postflight operativo (no es una tercera corrección integrada de #156): `xcodebuild` puede
+devolver `0` aunque el test auth lanzado por `.xctestrun` quede `SKIPPED` o no se ejecute. El gate
+preventivo añadido exige que el runner falle si no encuentra ejecución PASS, incluso con exit code
+`0`; el postflight ejecutado usó `QUATA_IOS_AUTH_E2E_FILE` explícito.
 
 Las rondas anteriores al congelado sólo fueron diagnósticas; no se reutilizan como evidencia final.
 La evidencia final exige base, head y merge sintético exactos según el modelo operativo.
@@ -102,7 +107,9 @@ Actualización de evidencia: Android exacto `d036` pasó en ese AVD con los reco
 cold-boot y `bootstatus`, pero el seeder XCTest/testmanager agotó 120 s en dos condiciones
 controladas (antes y tras cold boot), por lo que la UI de Notifications **no se ejecutó** y el estado
 es **INFRASTRUCTURE BLOCK**. Evidencia: `C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\notifications\3147b928-ios\runner.log`,
-`seed.log`, `bootstatus.log`; plan/rutas: `C:\Users\PC\Desktop\QÜATA\migration-v2\preflight\pr157\PLAN.md`.
+`C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\notifications\3147b928-ios\seed.log`,
+`C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\notifications\3147b928-ios\bootstatus.log`; plan/rutas:
+`C:\Users\PC\Desktop\QÜATA\migration-v2\preflight\pr157\PLAN.md`.
 
 ## Cierre #170 — clasificador de impacto CI
 
