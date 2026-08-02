@@ -6,6 +6,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -61,7 +63,25 @@ class NotificationCountSubscriptionTest {
         assertEquals(emptyList(), receivedCounts)
     }
 
-    private class CountRepository : NotificationsRepository {
+    @Test
+    fun `failure resubscribes and close cancels recovery`() = runTest {
+        val repository = FailingThenRecoveredCountRepository()
+        val received = mutableListOf<Int>()
+        val subscription = NotificationCountSubscription(repository, this)
+
+        subscription.start(received::add)
+        testScheduler.runCurrent()
+        advanceTimeBy(1_000)
+        testScheduler.runCurrent()
+        assertEquals(listOf(9), received)
+
+        subscription.close()
+        advanceTimeBy(1_000)
+        testScheduler.runCurrent()
+        assertEquals(listOf(9), received)
+    }
+
+    private open class CountRepository : NotificationsRepository {
         val count = MutableStateFlow(0)
 
         override suspend fun getNotifications(): Result<List<NotificationItem>> = Result.success(emptyList())
@@ -70,5 +90,14 @@ class NotificationCountSubscriptionTest {
         override fun observeNotificationCount(): Flow<Int> = count
         override suspend fun markNotificationRead(notification: NotificationItem): Result<Unit> = Result.success(Unit)
         override suspend fun dismissNotification(notification: NotificationItem): Result<Unit> = Result.success(Unit)
+    }
+
+    private class FailingThenRecoveredCountRepository : CountRepository() {
+        var attempts = 0
+        override fun observeNotificationCount(): Flow<Int> = flow {
+            attempts += 1
+            if (attempts == 1) error("count_transport_failed")
+            emit(9)
+        }
     }
 }

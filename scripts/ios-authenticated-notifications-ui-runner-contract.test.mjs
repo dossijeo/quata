@@ -49,3 +49,12 @@ test('runner rejects a green xcodebuild invocation without executed test evidenc
   assert.match(weakened, /xcodebuild test-without-building/);
   assert.match(runner, /run_and_require/);
 });
+
+test('iOS notification factory ignores stale settings callbacks and refreshes the visible inbox', async () => {
+  const swift = await readFile(resolve(root, 'iosApp/iosApp/QuataIosApp.swift'), 'utf8');
+  assert.match(swift, /notificationsFactoryGeneration/);
+  assert.match(swift, /notificationsFactoryGeneration == generation/);
+  assert.match(swift, /isNotificationsVisible/);
+  assert.match(swift, /authenticatedHost\.showNotifications\(\)/);
+  assert.match(swift, /DispatchQueue\.main\.async/);
+});
