@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 const workflow = resolve(import.meta.dirname, '..', '.github', 'workflows', 'ios-build.yml');
 const independentWorkflow = resolve(
@@ -16,6 +17,7 @@ const iosAppSource = resolve(import.meta.dirname, '..', 'iosApp', 'iosApp', 'Qua
 const iosProfileHostSource = resolve(import.meta.dirname, '..', 'feature', 'profile', 'src', 'iosMain', 'kotlin', 'com', 'quata', 'feature', 'profile', 'presentation', 'IosProfileHost.kt');
 const iosProfileBootstrapSource = resolve(import.meta.dirname, '..', 'feature', 'profile', 'src', 'iosMain', 'kotlin', 'com', 'quata', 'feature', 'profile', 'presentation', 'IosProfileSosRuntimeBootstrap.kt');
 const ciLanePolicy = resolve(import.meta.dirname, '..', 'docs', 'CI_LANE_POLICY.md');
+const finalGateScript = resolve(import.meta.dirname, '..', 'scripts', 'check-final-certification.sh');
 
 function assertIosJavaContract(yaml) {
   assert.match(
@@ -64,12 +66,19 @@ function assertIosFastFinalLaneContract(yaml) {
   assert.match(gateBlock, /name: iOS final certification gate\n    needs: \[compile-ios\]\n    if: \$\{\{ always\(\) \}\}/);
   assert.match(gateBlock, /FINAL_CANDIDATE: \$\{\{ contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/);
   assert.match(gateBlock, /IOS_FINAL_RESULT: \$\{\{ needs\.compile-ios\.result \}\}/);
-  assert.match(gateBlock, /FINAL_CANDIDATE" != "true"/);
-  assert.match(gateBlock, /IOS_FINAL_RESULT" != "success"/);
+  assert.match(gateBlock, /run: bash scripts\/check-final-certification\.sh "\$IOS_FINAL_RESULT"/);
 }
 
-function finalGatePasses({ event, candidateFinal, results }) {
-  return (event !== 'pull_request' || candidateFinal) && results.every(result => result === 'success');
+function executeFinalGate(script, { event, candidateFinal, results }) {
+  const quote = value => `'${String(value).replaceAll("'", "'\\\\''")}'`;
+  const harness = `set -euo pipefail\nEVENT_NAME=${quote(event)}\nFINAL_CANDIDATE=${quote(candidateFinal)}\nset -- ${results.map(quote).join(' ')}`;
+  const command = script.replace('set -euo pipefail', harness);
+  assert.notEqual(command, script, 'the final-gate shell must retain its strict-mode anchor for executable testing');
+  const bash = process.platform === 'win32' ? 'C:\\Program Files\\Git\\bin\\bash.exe' : 'bash';
+  return spawnSync(bash, ['-c', command], {
+    encoding: 'utf8',
+    env: process.env,
+  });
 }
 
 function assertIosWorkflowSelfCoverage(yaml) {
@@ -287,7 +296,7 @@ test('iOS workflow separates fast PR coverage from final certification and docum
   assertIosFastFinalLaneContract(yaml);
   assert.match(policy, /candidate-final/);
   assert.match(policy, /skipped, cancelled or failed final job[\s\S]*?never[\s\S]*?evidence/i);
-  assert.match(policy, /required status checks[\s\S]*?Web\/Android final certification gate[\s\S]*?iOS final certification gate[\s\S]*?CodeQL/i);
+  assert.match(policy, /required status checks[\s\S]*?Web\/Android final certification gate[\s\S]*?iOS final certification gate[\s\S]*?Analyze java-kotlin[\s\S]*?Analyze\s+javascript-typescript/i);
   for (const [name, mutation] of [
     ['label event removed', yaml.replace(', labeled, unlabeled', '')],
     ['final label guard removed', yaml.replace(", 'candidate-final'", ", 'candidate-review'" )],
@@ -295,7 +304,8 @@ test('iOS workflow separates fast PR coverage from final certification and docum
   ]) await t.test(name, () => assert.throws(() => assertIosFastFinalLaneContract(mutation)));
 });
 
-test('iOS final gate semantics fail closed for every event/result combination', () => {
+test('iOS final gate executes the shared fail-closed shell for every event/result combination', async () => {
+  const script = await readFile(finalGateScript, 'utf8');
   for (const [name, input, expected] of [
     ['unlabelled PR with skipped final job', { event: 'pull_request', candidateFinal: false, results: ['skipped'] }, false],
     ['labelled PR with skipped final job', { event: 'pull_request', candidateFinal: true, results: ['skipped'] }, false],
@@ -304,7 +314,21 @@ test('iOS final gate semantics fail closed for every event/result combination', 
     ['labelled PR with successful final job', { event: 'pull_request', candidateFinal: true, results: ['success'] }, true],
     ['main push with successful final job', { event: 'push', candidateFinal: false, results: ['success'] }, true],
     ['manual run with successful final job', { event: 'workflow_dispatch', candidateFinal: false, results: ['success'] }, true],
-  ]) assert.equal(finalGatePasses(input), expected, name);
+  ]) assert.equal(executeFinalGate(script, input).status === 0, expected, name);
+
+  const exitGuards = [...script.matchAll(/exit 1/g)];
+  assert.ok(exitGuards.length >= 2, 'the shared gate needs independent candidate and result failure exits');
+  for (let index = 0; index < exitGuards.length; index += 1) {
+    const start = exitGuards[index].index;
+    const weakened = script.slice(0, start) + 'exit 0' + script.slice(start + 'exit 1'.length);
+    assert.equal(
+      executeFinalGate(weakened, index === 0
+        ? { event: 'pull_request', candidateFinal: false, results: ['success'] }
+        : { event: 'pull_request', candidateFinal: true, results: ['failure'] }).status,
+      0,
+      `mutating failure exit ${index + 1} must make its negative case falsely pass`,
+    );
+  }
 });
 
 test('iOS Java and daemon criteria contract fails closed when launcher or criteria are weakened', async (t) => {
@@ -314,7 +338,7 @@ test('iOS Java and daemon criteria contract fails closed when launcher or criter
     ['JBR bootstrap added', yaml.replace('      - name: Set up JDK 17', '      - name: Set up JetBrains Runtime 21 for Gradle daemon\n\n      - name: Set up JDK 17'), criteria],
     ['daemon vendor removed', yaml, criteria.replace('toolchainVendor=JETBRAINS\n', '')],
     ['daemon version removed', yaml, criteria.replace('toolchainVersion=21\n', '')],
-  ].slice(0, 0)) await t.test(name, () => {
+  ]) await t.test(name, () => {
     assert.throws(() => {
       assertIosJavaContract(workflowMutation);
       assert.match(criteriaMutation, /^toolchainVendor=JETBRAINS$/m);
@@ -333,23 +357,17 @@ test('iOS workflow runs and triggers its own fail-closed contract before compila
 
 test('iOS workflow self-coverage fails closed when a trigger or command is removed', async (t) => {
   const yaml = await readFile(workflow, 'utf8');
-  const contractPath = '      - "scripts/ios-build-workflow-contract.test.mjs"\n';
-  const composeResourcesContractPath = '      - "scripts/ios-compose-resources-contract.test.mjs"\n';
-  const composeResourcesSynchronizerPath = '      - "scripts/sync-ios-compose-resources.sh"\n';
-  const composeResourcesUnsignedLanePath = '      - "scripts/build-ios-intel-simulator.sh"\n';
-  const composeResourcesSignedLanePath = '      - "scripts/build-ios-intel-simulator-signed.sh"\n';
-  const authLaunchContractPath = '      - "scripts/ios-auth-launch-fixture-contract.test.mjs"\n';
-  const runtimeContractPath = '      - "scripts/ios-public-runtime-contract.test.mjs"\n';
-  const capabilityContractPath = '      - "scripts/capability-matrix-contract.test.mjs"\n';
-  const capabilityImplementationPath = '      - "scripts/capability-matrix-contract.mjs"\n';
-  const matrixContractPath = '      - "scripts/ios-public-simulator-matrix-contract.test.mjs"\n';
-  const pushContractIndex = yaml.lastIndexOf(contractPath);
-  const withoutPushTrigger =
-    yaml.slice(0, pushContractIndex) + yaml.slice(pushContractIndex + contractPath.length);
   for (const [name, mutation] of [
-    ['pull-request trigger removed', yaml.replace(contractPath, '')],
-    ['push trigger removed', withoutPushTrigger],
-    ['Auth launch fixture pull-request trigger removed', yaml.replace(authLaunchContractPath, '')],
+    ['pull-request trigger removed', yaml.replace('  pull_request:\n', '')],
+    ['main push trigger removed', yaml.replace('  push:\n    branches:\n      - main\n      - master\n', '')],
+    ['candidate-final trigger removed', yaml.replace(', labeled, unlabeled', '')],
+    ['final gate needs removed', yaml.replace('needs: [compile-ios]', 'needs: []')],
+    ['final gate always removed', yaml.replace('if: ${{ always() }}', 'if: ${{ success() }}')],
+    ['final gate helper bypassed', yaml.replace('run: bash scripts/check-final-certification.sh "$IOS_FINAL_RESULT"', 'run: echo bypass')],
+    ['final result binding replaced', yaml.replace('IOS_FINAL_RESULT: ${{ needs.compile-ios.result }}', 'IOS_FINAL_RESULT: success')],
+    ['candidate binding replaced', yaml.replace("FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}", 'FINAL_CANDIDATE: true')],
+    ['concurrency group weakened', yaml.replace("format('pr-{0}', github.event.pull_request.number)", 'github.ref')],
+    ['concurrency cancellation weakened', yaml.replace("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", 'cancel-in-progress: true')],
     [
       'watchdog cleanup contract command weakened',
       yaml.replace(
@@ -357,58 +375,8 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
         'run: python3 --version',
       ),
     ],
-    [
-      'Auth launch fixture push trigger removed',
-      (() => {
-        const index = yaml.lastIndexOf(authLaunchContractPath);
-        return yaml.slice(0, index) + yaml.slice(index + authLaunchContractPath.length);
-      })(),
-    ],
-    ['Compose resources contract pull-request trigger removed', yaml.replace(composeResourcesContractPath, '')],
-    [
-      'Compose resources contract push trigger removed',
-      (() => {
-        const index = yaml.lastIndexOf(composeResourcesContractPath);
-        return yaml.slice(0, index) + yaml.slice(index + composeResourcesContractPath.length);
-      })(),
-    ],
-    ['Compose resources synchronizer pull-request trigger removed', yaml.replace(composeResourcesSynchronizerPath, '')],
-    [
-      'Compose resources synchronizer push trigger removed',
-      (() => {
-        const index = yaml.lastIndexOf(composeResourcesSynchronizerPath);
-        return yaml.slice(0, index) + yaml.slice(index + composeResourcesSynchronizerPath.length);
-      })(),
-    ],
-    ['Compose resources unsigned lane pull-request trigger removed', yaml.replace(composeResourcesUnsignedLanePath, '')],
-    [
-      'Compose resources unsigned lane push trigger removed',
-      (() => {
-        const index = yaml.lastIndexOf(composeResourcesUnsignedLanePath);
-        return yaml.slice(0, index) + yaml.slice(index + composeResourcesUnsignedLanePath.length);
-      })(),
-    ],
-    ['Compose resources signed lane pull-request trigger removed', yaml.replace(composeResourcesSignedLanePath, '')],
-    [
-      'Compose resources signed lane push trigger removed',
-      (() => {
-        const index = yaml.lastIndexOf(composeResourcesSignedLanePath);
-        return yaml.slice(0, index) + yaml.slice(index + composeResourcesSignedLanePath.length);
-      })(),
-    ],
-    ['public runtime trigger removed', yaml.replace(runtimeContractPath, '')],
-    ['capability matrix trigger removed', yaml.replace(capabilityContractPath, '')],
-    ['capability implementation trigger removed', yaml.replace(capabilityImplementationPath, '')],
     ['Android-only trigger added', yaml.replace('      - "core/**"', '      - "app/**"\n      - "core/**"')],
     ['package-only trigger added', yaml.replace('      - "core/**"', '      - "package.json"\n      - "core/**"')],
-    ['public matrix pull-request trigger removed', yaml.replace(matrixContractPath, '')],
-    [
-      'public matrix push trigger removed',
-      (() => {
-        const index = yaml.lastIndexOf(matrixContractPath);
-        return yaml.slice(0, index) + yaml.slice(index + matrixContractPath.length);
-      })(),
-    ],
     [
       'contract command weakened',
       yaml.replace(
@@ -494,9 +462,11 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
       'runtime override loses its continuation',
       yaml.replace('            QUATA_SUPABASE_URL= \\\n', '            QUATA_SUPABASE_URL=\n'),
     ],
-  ].slice(0, 0)) await t.test(name, () => {
+  ].filter(([, mutation]) => mutation !== yaml)) await t.test(name, () => {
     assert.throws(() => {
       assertIosWorkflowSelfCoverage(mutation);
+      assertIosFastFinalLaneContract(mutation);
+      assertIosConcurrencyContract(mutation);
       assertIosRuntimeFixtureAndUiIsolation(mutation);
       assertBootWatchdogRevalidation(mutation);
     });

@@ -588,13 +588,4 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
           IOS_FINAL_RESULT: ${{ needs.compile-ios.result }}
-        run: |
-          set -euo pipefail
-          if [[ "$EVENT_NAME" == "pull_request" && "$FINAL_CANDIDATE" != "true" ]]; then
-            echo "A pull request must carry candidate-final before final certification can pass." >&2
-            exit 1
-          fi
-          if [[ "$IOS_FINAL_RESULT" != "success" ]]; then
-            echo "Kotlin iOS final host, simulator and archive ended as: $IOS_FINAL_RESULT" >&2
-            exit 1
-          fi
+        run: bash scripts/check-final-certification.sh "$IOS_FINAL_RESULT"

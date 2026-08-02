@@ -16,10 +16,12 @@ Final checks are deliberately named separately:
   matrix, production distribution and browser smoke.
 - **Kotlin iOS final host, simulator and archive** covers Kotlin iOS targets,
   XCFramework, Swift host, simulator contracts and the unsigned archive.
-- CodeQL remains its own required security check.
+- **Analyze java-kotlin** and **Analyze javascript-typescript** are the
+  required code-scanning checks.
 
 The required status checks are **Web/Android final certification gate**,
-**iOS final certification gate**, and CodeQL. Each gate always runs and fails
+**iOS final certification gate**, **Analyze java-kotlin**, and **Analyze
+javascript-typescript**. Each gate always runs and fails
 closed unless its `candidate-final` PR has completed every final job
 successfully. A skipped, cancelled or failed final job is therefore never
 green evidence. The merge manager applies `candidate-final` only once the diff

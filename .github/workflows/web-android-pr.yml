@@ -495,15 +495,4 @@ jobs:
           WEB_FINAL_RESULT: ${{ needs.web-wasm.result }}
           MATRIX_FINAL_RESULT: ${{ needs.unit-tests.result }}
           ANDROID_FINAL_RESULT: ${{ needs.android-debug.result }}
-        run: |
-          set -euo pipefail
-          if [[ "$EVENT_NAME" == "pull_request" && "$FINAL_CANDIDATE" != "true" ]]; then
-            echo "A pull request must carry candidate-final before final certification can pass." >&2
-            exit 1
-          fi
-          for result in "$WEB_FINAL_RESULT" "$MATRIX_FINAL_RESULT" "$ANDROID_FINAL_RESULT"; do
-            if [[ "$result" != "success" ]]; then
-              echo "A required final job ended as: $result" >&2
-              exit 1
-            fi
-          done
+        run: bash scripts/check-final-certification.sh "$WEB_FINAL_RESULT" "$MATRIX_FINAL_RESULT" "$ANDROID_FINAL_RESULT"
