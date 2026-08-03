@@ -162,10 +162,11 @@ private fun QuataWebApp(
         val stopObserving = observeChatBrowserDocumentVisibility(chatRepository::setAppForeground)
         onDispose { stopObserving() }
     }
-    val neighborhoodsRepository = remember(runtimeConfiguration, authRepository) {
+    val neighborhoodsRepository = remember(runtimeConfiguration, authRepository, chatRepository) {
         WebNeighborhoodsRepository(
             client = WebPostgrestClient(runtimeConfiguration, authRepository),
             authRepository = authRepository,
+            chatRepository = chatRepository,
         )
     }
     var isSessionReady by remember { mutableStateOf(false) }

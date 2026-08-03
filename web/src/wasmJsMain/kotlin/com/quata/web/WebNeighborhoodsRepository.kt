@@ -2,6 +2,7 @@
 
 package com.quata.web
 
+import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.CommunityMutationOperation
 import com.quata.feature.neighborhoods.domain.CommunityMutationSafety
@@ -33,14 +34,15 @@ internal fun webNeighborhoodsReadAuthMode(operation: WebNeighborhoodsReadOperati
  * Browser read adapter for the Communities directory.
  *
  * Public directory reads use the configured publishable key with [WebPostgrestAuthMode.Public] and
- * omit Authorization. Profile/admin reads stay [WebPostgrestAuthMode.SessionRequired]; community
- * chat, follow and moderation writes are not exposed by the browser transport and fail closed
- * instead of inventing a local-only community state. SB-07 keeps every Communities-owned mutation
- * fail-closed through [CommunityMutationSafety] while RLS-001 is open.
+ * omit Authorization. Profile/admin reads stay [WebPostgrestAuthMode.SessionRequired]. Community
+ * and private chat actions delegate to the same portable chat repository used by Conversations;
+ * follow and moderation writes remain fail-closed through [CommunityMutationSafety] while SB-07
+ * and RLS-001 are open.
  */
 class WebNeighborhoodsRepository(
     private val client: WebPostgrestClient,
     private val authRepository: WebAuthRepository,
+    private val chatRepository: ChatRepository,
     private val pollIntervalMillis: Long = DefaultPollIntervalMillis,
 ) : NeighborhoodRepository {
     private val profileCache = mutableMapOf<String, CommunityUserProfile>()
@@ -52,7 +54,20 @@ class WebNeighborhoodsRepository(
         }
     }
 
-    override suspend fun openNeighborhoodChat(neighborhood: String): Result<String> = unsupported("web_community_chat_not_implemented")
+    override suspend fun openNeighborhoodChat(neighborhood: String): Result<String> = runCatching {
+        authenticatedUserId()
+        openWebNeighborhoodConversation(
+            neighborhood = neighborhood,
+            cachedConversationId = chatRepository::cachedCommunityConversationId,
+            openConversation = { communityId, title ->
+                chatRepository.openCommunityConversation(
+                    communityId = communityId,
+                    title = title,
+                    participantIds = emptyList(),
+                )
+            },
+        ).getOrThrow()
+    }
 
     override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> =
         CommunityMutationSafety.blocked(CommunityMutationOperation.FollowUser)
@@ -60,7 +75,14 @@ class WebNeighborhoodsRepository(
     override suspend fun reportPost(postId: String): Result<Unit> =
         CommunityMutationSafety.blocked(CommunityMutationOperation.ReportPost)
 
-    override suspend fun openPrivateChat(userId: String): Result<String> = unsupported("web_community_private_chat_not_implemented")
+    override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
+        authenticatedUserId()
+        openWebPrivateConversation(
+            userId = userId,
+            cachedConversationId = chatRepository::cachedPrivateConversationId,
+            openConversation = chatRepository::openPrivateConversation,
+        ).getOrThrow()
+    }
 
     override suspend fun isCurrentUserAdmin(): Boolean = runCatching {
         val userId = authenticatedUserId()
@@ -158,8 +180,6 @@ class WebNeighborhoodsRepository(
         is WebPostgrestResult.Failure -> throw WebPostgrestReadException(result)
     }
 
-    private fun <T> unsupported(reason: String): Result<T> = Result.failure(UnsupportedOperationException(reason))
-
     private companion object {
         const val DirectoryLimit = 500
         const val DefaultPollIntervalMillis = 30_000L
@@ -168,6 +188,27 @@ class WebNeighborhoodsRepository(
         const val WallStatsSelect = "id,slug,name,normalized_name,chat_count,chat_last_at"
         val PostgrestIdentifier = Regex("[A-Za-z0-9_-]+")
     }
+}
+
+internal suspend fun openWebNeighborhoodConversation(
+    neighborhood: String,
+    cachedConversationId: suspend (String) -> String?,
+    openConversation: suspend (communityId: String, title: String) -> Result<String>,
+): Result<String> = runCatching {
+    val title = neighborhood.trim().takeIf(String::isNotEmpty)
+        ?: error("web_community_neighborhood_missing")
+    cachedConversationId(title)
+        ?: openConversation(title.normalizedCommunityKey(), title).getOrThrow()
+}
+
+internal suspend fun openWebPrivateConversation(
+    userId: String,
+    cachedConversationId: suspend (String) -> String?,
+    openConversation: suspend (String) -> Result<String>,
+): Result<String> = runCatching {
+    val peerId = userId.trim().takeIf { it.matches(Regex("[A-Za-z0-9_-]+")) }
+        ?: error("web_community_profile_id_invalid")
+    cachedConversationId(peerId) ?: openConversation(peerId).getOrThrow()
 }
 
 private data class WebCommunityWallStats(
