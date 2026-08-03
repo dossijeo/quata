@@ -20,7 +20,6 @@ import com.quata.feature.chat.presentation.conversations.conversationsHostString
 import com.quata.core.ui.components.IosRemoteAvatar
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
-import platform.Foundation.NSDate
 import platform.Foundation.NSLocale
 import platform.UIKit.UIViewController
 
@@ -130,6 +129,6 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
         }
     }
 
-private fun iosChatLanguageTag(): String? = NSLocale.preferredLanguages.firstOrNull()?.toString()
+private fun iosChatLanguageTag(): String? = NSLocale.currentLocale.languageCode
 
-private fun iosChatNowMillis(): Long = (NSDate().timeIntervalSince1970 * 1_000.0).toLong()
+private fun iosChatNowMillis(): Long = currentEpochMillis()

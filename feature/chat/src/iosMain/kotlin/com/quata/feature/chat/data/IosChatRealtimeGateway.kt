@@ -33,6 +33,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import platform.CoreFoundation.CFRelease
+import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionWebSocketMessage
@@ -427,7 +428,9 @@ private class IosChatPhoenixChannel(
     private fun nextRef(): String = (++ref).toString()
 }
 
-private fun iosChatRealtimeNowMillis(): Long = (platform.Foundation.NSDate().timeIntervalSince1970 * 1_000.0).toLong()
+private fun iosChatRealtimeNowMillis(): Long = ((CFAbsoluteTimeGetCurrent() + AppleEpochOffsetSeconds) * 1_000.0).toLong()
+
+private const val AppleEpochOffsetSeconds = 978_307_200.0
 
 private fun String.reachabilityHost(): String? =
     substringAfter("://", this).substringBefore('/').substringBefore('?').substringBefore('@').substringBefore(':').trim().takeIf(String::isNotEmpty)
