@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.quata.feature.neighborhoods.presentation.neighborhoodsScreenStringsForLanguage
@@ -1022,9 +1023,24 @@ private val webNeighborhoodsStrings = WebNeighborhoodsStrings(
 )
 
 private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
-    avatar = { user, _, onClick -> androidx.compose.material3.TextButton(onClick = onClick) {
-        androidx.compose.material3.Text(user.displayName.take(1).uppercase())
-    } },
+    avatar = { user, isLoading, onClick ->
+        Box(contentAlignment = Alignment.Center) {
+            BrowserRemoteAvatar(
+                name = user.displayName,
+                profileId = user.id,
+                avatarUrl = user.avatarUrl,
+                isOfficial = user.isOfficial,
+                isOnline = null,
+                modifier = Modifier.size(44.dp).clickable(onClick = onClick),
+            )
+            if (isLoading) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                )
+            }
+        }
+    },
     profile = CommunityProfilePlatformSlots(
         avatar = { user, modifier, _, openAvatar ->
             BrowserRemoteAvatar(
@@ -1039,7 +1055,11 @@ private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
         attachment = { attachment, open ->
             ProfileAttachmentRowContent(
                 attachment = attachment,
-                audioPlayer = { androidx.compose.material3.Text(attachment.name) },
+                audioPlayer = {
+                    androidx.compose.material3.Button(onClick = open) {
+                        androidx.compose.material3.Text(attachment.name)
+                    }
+                },
                 thumbnail = { androidx.compose.material3.Text("↗") },
                 onOpen = open,
             )

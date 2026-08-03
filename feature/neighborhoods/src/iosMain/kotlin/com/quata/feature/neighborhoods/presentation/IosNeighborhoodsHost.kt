@@ -31,7 +31,6 @@ import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.SharePayload
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.IosRemoteAvatar
-import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
@@ -97,12 +96,11 @@ fun createIosNeighborhoodsHostDependencies(
     listStrings = neighborhoodsScreenStringsForLanguage(languageCode).list,
     usersStrings = neighborhoodsScreenStringsForLanguage(languageCode).members,
     avatar = { user, isLoading, onClick ->
-        // Remote image loading belongs to a separately verified platform media adapter. A
-        // deterministic common fallback keeps this host usable without inventing a URL loader.
         Box(contentAlignment = Alignment.Center) {
-            QuataAvatarFallback(
+            IosRemoteAvatar(
                 name = user.displayName,
                 stableId = user.id,
+                avatarUrl = user.avatarUrl,
                 modifier = Modifier.size(44.dp).clickable(onClick = onClick),
             )
             if (isLoading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
@@ -213,7 +211,9 @@ fun QuataCommunityProfileViewController(
                     attachment = { attachment, open ->
                         ProfileAttachmentRowContent(
                             attachment = attachment,
-                            audioPlayer = { Text(attachment.name) },
+                            audioPlayer = {
+                                Button(onClick = open) { Text(attachment.name) }
+                            },
                             thumbnail = { Text("↗") },
                             onOpen = open,
                         )
