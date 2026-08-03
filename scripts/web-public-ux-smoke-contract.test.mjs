@@ -24,7 +24,7 @@ const privateRecovery = smoke.match(
 test('WEB-UX-001 keeps public deep-link recovery and responsive coverage in the real production smoke', () => {
     assert.match(smoke, /import \{ SMOKE_ROUTE_CONTRACTS \} from '\.\/web-browser-route-contract\.mjs';/);
     assert.match(smoke, /const routeContracts = SMOKE_ROUTE_CONTRACTS;/);
-    for (const fragment of ['auth', 'feed', 'official', 'chat', 'settings', 'share-target', 'share-target-error', 'notifications', 'profile', 'composer', 'communities', 'whats-new', 'about']) {
+    for (const fragment of ['auth', 'feed', 'official', 'chat', 'settings', 'share-target', 'share-target-error', 'notifications', 'profile', 'composer', 'communities', 'whats-new', 'about', 'release-history']) {
         assert.match(routeContract, new RegExp(`fragment: '${fragment}'`));
     }
     assert.match(routeContract, /kind: 'auth'/);
