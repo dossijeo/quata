@@ -155,7 +155,8 @@ test("WhatsNew routes use the source-controlled local catalog and stay inside th
   assert.match(whatsNewHost, /QuataLocalWhatsNewCatalog\.webReleases\(\)/);
   assert.doesNotMatch(whatsNewHost, /rpcClient|quata_android_release_history/);
   assert.match(documentation, /Novedades e Historial de versiones usan el cat[aá]logo local compartido/);
-  assert.match(documentation, /exclusivamente `POST \/rest\/v1\/rpc\/quata_chat_get_inbox`/);
+  assert.match(documentation, /`POST \/rest\/v1\/rpc\/quata_chat_search_conversation_candidates`/);
+  assert.match(documentation, /cuerpo cerrado con actor UUID/);
   assert.match(runner, /excludedRoutes: READ_ONLY_ROUTE_EXCLUSIONS\.flatMap/);
 });
 
@@ -214,7 +215,7 @@ test("real preflight rejects missing scope, privileged environment and non-publi
   );
 });
 
-test("browser policy allows only reads, the exact notification inbox RPC, and declared Auth lifecycle effects", () => {
+test("browser policy allows only declared read RPCs and Auth lifecycle effects", () => {
   const backend = "https://project-ref.supabase.co";
   const decision = (overrides = {}) => backendBrowserRequestDecision({
     backend,
@@ -245,6 +246,58 @@ test("browser policy allows only reads, the exact notification inbox RPC, and de
   });
   assert.equal(notificationInbox.allowed, true);
   assert.equal(notificationInbox.reason, "declared_notification_inbox_read");
+  const candidateBody = {
+    p_actor_profile_id: "00000000-0000-4000-8000-000000000001",
+    p_query: "fixture",
+    p_limit: 30,
+    p_offset: 0,
+  };
+  const candidateRead = decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+    method: "POST",
+    body: JSON.stringify(candidateBody),
+  });
+  assert.equal(candidateRead.allowed, true);
+  assert.equal(candidateRead.reason, "declared_chat_candidate_directory_read");
+  for (const stage of ["compose_auth_bridge_login", "authenticated_browser_restore", "authenticated_route_matrix"]) {
+    assert.equal(decision({
+      url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+      method: "POST",
+      stage,
+      body: JSON.stringify(candidateBody),
+    }).allowed, true);
+  }
+  for (const body of [
+    "{}",
+    "not-json",
+    JSON.stringify({ ...candidateBody, p_limit: 0 }),
+    JSON.stringify({ ...candidateBody, p_limit: 51 }),
+    JSON.stringify({ ...candidateBody, p_offset: -1 }),
+    JSON.stringify({ ...candidateBody, p_actor_profile_id: "not-a-uuid" }),
+    JSON.stringify({ ...candidateBody, unexpected: true }),
+  ]) {
+    assert.equal(decision({
+      url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+      method: "POST",
+      body,
+    }).allowed, false);
+  }
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates_extra`,
+    method: "POST",
+    body: JSON.stringify(candidateBody),
+  }).allowed, false);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+    method: "PATCH",
+    body: JSON.stringify(candidateBody),
+  }).allowed, false);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+    method: "POST",
+    stage: "undeclared_login_like_stage",
+    body: JSON.stringify(candidateBody),
+  }).allowed, false);
   for (const path of [
     "/rest/v1/rpc/quata_chat_get_thread",
     "/rest/v1/rpc/quata_chat_send_message",

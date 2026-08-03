@@ -117,9 +117,9 @@ private fun List<ByteArray>.toIosDataOrNull(): NSData? {
 @OptIn(ExperimentalForeignApi::class)
 private fun String.toIosData(): NSData = encodeToByteArray().toFoundationData()
 
-private fun String.toIosJsonString(): String = buildString(length + 2) {
+internal fun String.toIosJsonString(): String = buildString(length + 2) {
     append('"')
-    forEach { character ->
+    this@toIosJsonString.forEach { character ->
         when (character) {
             '\\' -> append("\\\\")
             '"' -> append("\\\"")

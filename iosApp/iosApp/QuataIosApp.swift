@@ -1622,6 +1622,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 filePicker: services.filePicker,
                 conversationId: conversationId,
                 focusedMessageId: messageId,
+                languageTag: Locale.preferredLanguages.first ?? Locale.current.identifier,
                 onOpenConversation: { [weak self] conversationId in
                     self?.showChat(conversationId: conversationId, messageId: nil)
                 },

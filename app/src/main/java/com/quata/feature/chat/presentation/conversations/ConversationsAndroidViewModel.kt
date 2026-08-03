@@ -10,24 +10,30 @@ import com.quata.feature.chat.presentation.chat.ChatText
 import kotlinx.coroutines.flow.StateFlow
 
 /** Android lifecycle, contacts and resources adapter for shared conversations logic. */
-class ConversationsAndroidViewModel(repository: ChatRepository, context: Context) : ViewModel() {
+class ConversationsAndroidViewModel(repository: ChatRepository, context: Context) : ViewModel(), ConversationsScreenModel {
     private val delegate = ConversationsViewModel(
         repository = repository,
         readContacts = AndroidContactsReader(context).let { reader -> reader::readContacts },
         text = context.applicationContext::conversationText
     )
 
-    val uiState: StateFlow<ConversationsUiState> = delegate.uiState
-    fun onEvent(event: ConversationsUiEvent) = delegate.onEvent(event)
-    fun openNewConversationPicker() = delegate.openNewConversationPicker()
-    fun closeNewConversationPicker() = delegate.closeNewConversationPicker()
-    fun onCandidateQueryChanged(query: String) = delegate.onCandidateQueryChanged(query)
-    fun loadMoreConversationCandidates() = delegate.loadMoreConversationCandidates()
-    fun loadInviteContacts() = delegate.loadInviteContacts()
-    fun openCandidateConversation(candidate: com.quata.feature.chat.domain.ChatConversationCandidate, onOpened: (String) -> Unit) =
+    override val uiState: StateFlow<ConversationsUiState> = delegate.uiState
+    override fun onEvent(event: ConversationsUiEvent) = delegate.onEvent(event)
+    override fun openNewConversationPicker() = delegate.openNewConversationPicker()
+    override fun closeNewConversationPicker() = delegate.closeNewConversationPicker()
+    override fun onCandidateQueryChanged(query: String) = delegate.onCandidateQueryChanged(query)
+    override fun loadMoreConversationCandidates() = delegate.loadMoreConversationCandidates()
+    override fun loadInviteContacts() = delegate.loadInviteContacts()
+    override fun openCandidateConversation(candidate: com.quata.feature.chat.domain.ChatConversationCandidate, onOpened: (String) -> Unit) =
         delegate.openCandidateConversation(candidate, onOpened)
+    override fun toggleNewConversationCandidate(candidate: com.quata.feature.chat.domain.ChatConversationCandidate) =
+        delegate.toggleNewConversationCandidate(candidate)
+    override fun onNewGroupTitleChanged(title: String) = delegate.onNewGroupTitleChanged(title)
+    override fun openSelectedGroupConversation(onOpened: (String) -> Unit) =
+        delegate.openSelectedGroupConversation(onOpened)
+    override fun close() = delegate.close()
 
-    override fun onCleared() = delegate.close()
+    override fun onCleared() = close()
 
     companion object {
         fun factory(repository: ChatRepository, context: Context): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
