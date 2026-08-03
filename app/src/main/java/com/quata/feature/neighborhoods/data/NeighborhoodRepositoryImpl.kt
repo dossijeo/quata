@@ -30,6 +30,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.neighborhoods.domain.distinctByCommunityIdentity
 import com.quata.feature.profile.data.ProfileRemoteDataSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -95,7 +96,7 @@ class NeighborhoodRepositoryImpl(
                         messageCount = wall?.chat_count ?: 0,
                         wallId = wallId,
                     )
-                }.sortedWith(
+                }.distinctByCommunityIdentity().sortedWith(
                     compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }
                         .thenBy { it.name.lowercase() }
                 )

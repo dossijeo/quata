@@ -9,6 +9,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.neighborhoods.domain.distinctByCommunityIdentity
 import com.quata.feature.neighborhoods.domain.isCommunityProfileCacheUsable
 import com.quata.feature.feed.data.IosFeedReadTransport
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
@@ -250,7 +251,7 @@ class IosNeighborhoodsReadRepository(
                 messageCount = 0,
                 wallId = wall?.id,
             )
-        }.sortedBy { it.name.lowercase() }
+        }.distinctByCommunityIdentity().sortedBy { it.name.lowercase() }
     }
 
     private suspend fun loadProfiles(ids: List<String>? = null): List<NeighborhoodUser> = rows(

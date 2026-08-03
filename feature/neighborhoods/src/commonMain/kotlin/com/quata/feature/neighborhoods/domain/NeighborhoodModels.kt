@@ -27,6 +27,18 @@ data class NeighborhoodCommunity(
     val wallId: String? = null,
 )
 
+/**
+ * A wall can be addressed by several backend aliases (slug, display name and normalized name).
+ * Directory adapters may therefore project the same wall more than once while joining profiles.
+ * Collapse those aliases before Compose receives them so lazy-list keys and visible rows remain
+ * one-to-one with the real community.
+ */
+fun Iterable<NeighborhoodCommunity>.distinctByCommunityIdentity(): List<NeighborhoodCommunity> =
+    distinctBy { community ->
+        community.wallId?.trim()?.takeIf(String::isNotEmpty)
+            ?: community.name.trim().lowercase().replace(Regex("\\s+"), " ")
+    }
+
 data class CommunityUserProfile(
     val user: NeighborhoodUser,
     val posts: List<Post>,

@@ -9,6 +9,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.neighborhoods.domain.distinctByCommunityIdentity
 import com.quata.feature.neighborhoods.domain.isCommunityProfileCacheUsable
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
@@ -235,6 +236,7 @@ class WebNeighborhoodsRepository(
                     wallId = wall?.id,
                 )
             }
+            .distinctByCommunityIdentity()
             .sortedWith(compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }.thenBy { it.name.lowercase() })
     }
 

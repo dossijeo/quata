@@ -112,7 +112,7 @@ fun NeighborhoodListContent(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     contentPadding = PaddingValues(bottom = 4.dp)
                 ) {
-                    items(visibleCommunities, key = { it.name }) { community ->
+                    items(visibleCommunities, key = { it.wallId ?: it.name }) { community ->
                         NeighborhoodCardContent(
                             community = community,
                             canOpenChat = community.conversationId != null || community.wallId != null,
