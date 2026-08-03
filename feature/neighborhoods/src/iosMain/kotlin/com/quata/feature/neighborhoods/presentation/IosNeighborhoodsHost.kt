@@ -2,12 +2,6 @@ package com.quata.feature.neighborhoods.presentation
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.PostComment
@@ -87,62 +81,23 @@ fun createIosNeighborhoodsHostDependencies(
 fun QuataNeighborhoodsViewController(
     dependencies: IosNeighborhoodsHostDependencies,
 ): UIViewController = ComposeUIViewController {
-    val state by dependencies.viewModel.uiState.collectAsState()
-    var query by rememberSaveable { mutableStateOf("") }
-    var membersOf by rememberSaveable { mutableStateOf<String?>(null) }
-
-    DisposableEffect(dependencies.viewModel) {
-        dependencies.viewModel.startObservingCommunities()
-        onDispose { dependencies.viewModel.stopObservingCommunities() }
-    }
-
     QuataTheme {
-        val selectedCommunity = state.communities.firstOrNull { it.name == membersOf }
-        if (selectedCommunity == null) {
-            NeighborhoodListContent(
-                padding = PaddingValues(),
-                communities = state.communities,
-                query = query,
-                isLoading = state.isLoading,
-                error = state.error,
-                currentUserId = dependencies.currentUserId,
-                openingNeighborhood = state.openingChatNeighborhood,
-                strings = dependencies.listStrings,
-                onQueryChange = { query = it },
-                onShowUsers = { membersOf = it.name },
-                onOpenChat = { community ->
-                    if (dependencies.currentUserId == null) dependencies.onAuthRequired()
-                    else dependencies.viewModel.openChat(community.name, dependencies.onOpenConversation)
-                },
-            )
-        } else {
-            NeighborhoodUsersContent(
-                padding = PaddingValues(),
-                community = selectedCommunity,
-                currentUserId = dependencies.currentUserId,
-                isOpeningChat = state.openingPrivateChatUserId != null,
-                openingPrivateChatUserId = state.openingPrivateChatUserId,
-                openingProfileUserId = state.openingProfileUserId,
-                followingUserId = state.followingUserId,
-                strings = dependencies.usersStrings,
-                avatar = dependencies.avatar,
-                onBack = { membersOf = null },
-                onFollowUser = { user ->
-                    if (dependencies.currentUserId == null) dependencies.onAuthRequired()
-                    else dependencies.viewModel.toggleFollowUser(user.id)
-                },
-                onOpenProfile = { user ->
-                    // Android treats member-profile inspection as public read access.  Follow
-                    // and chat remain separately gated below.
-                    dependencies.viewModel.openUserProfile(user.id)
-                    dependencies.profileNavigator.openMemberProfile(user.id)
-                },
-                onOpenPrivateChat = { user ->
-                    if (dependencies.currentUserId == null) dependencies.onAuthRequired()
-                    else dependencies.viewModel.openPrivateChat(user.id, dependencies.onOpenConversation)
-                },
-            )
-        }
+        NeighborhoodsScreenHost(
+            currentUserId = dependencies.currentUserId,
+            strings = NeighborhoodsScreenStrings(dependencies.listStrings, dependencies.usersStrings),
+            avatar = dependencies.avatar,
+            onOpenConversation = dependencies.onOpenConversation,
+            onOpenUserProfile = { userId ->
+                // Android treats member-profile inspection as public read access. Follow and
+                // chat remain separately gated by the shared host.
+                dependencies.viewModel.openUserProfile(userId)
+                dependencies.profileNavigator.openMemberProfile(userId)
+            },
+            onAuthRequired = dependencies.onAuthRequired,
+            padding = PaddingValues(),
+            model = dependencies.viewModel,
+            closeModelOnDispose = true,
+        )
     }
 }
 

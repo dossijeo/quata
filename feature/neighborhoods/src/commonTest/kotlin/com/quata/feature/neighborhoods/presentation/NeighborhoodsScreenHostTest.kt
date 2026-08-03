@@ -11,4 +11,10 @@ class NeighborhoodsScreenHostTest {
         assertFalse(canPerformNeighborhoodPrivateAction("   "))
         assertTrue(canPerformNeighborhoodPrivateAction("profile-42"))
     }
+
+    @Test
+    fun `private row progress follows the private conversation request`() {
+        assertFalse(isNeighborhoodPrivateChatOpening(null))
+        assertTrue(isNeighborhoodPrivateChatOpening("profile-42"))
+    }
 }

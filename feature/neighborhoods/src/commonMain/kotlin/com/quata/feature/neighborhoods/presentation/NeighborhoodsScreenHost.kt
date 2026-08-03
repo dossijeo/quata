@@ -40,6 +40,9 @@ data class NeighborhoodsScreenStrings(
 internal fun canPerformNeighborhoodPrivateAction(currentUserId: String?): Boolean =
     !currentUserId.isNullOrBlank()
 
+internal fun isNeighborhoodPrivateChatOpening(openingPrivateChatUserId: String?): Boolean =
+    openingPrivateChatUserId != null
+
 /**
  * Portable directory and members root. Exactly one source of state must be supplied: a platform
  * lifecycle adapter, or a repository for a lightweight host that owns its ViewModel.
@@ -85,7 +88,7 @@ fun NeighborhoodsScreenHost(
             padding = padding,
             community = selected,
             currentUserId = currentUserId,
-            isOpeningChat = state.isOpeningChat,
+            isOpeningChat = isNeighborhoodPrivateChatOpening(state.openingPrivateChatUserId),
             openingPrivateChatUserId = state.openingPrivateChatUserId,
             openingProfileUserId = openingProfileUserId ?: state.openingProfileUserId,
             followingUserId = state.followingUserId,

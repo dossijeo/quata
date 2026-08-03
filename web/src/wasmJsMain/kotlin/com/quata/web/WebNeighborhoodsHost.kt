@@ -22,9 +22,9 @@ import com.quata.feature.neighborhoods.presentation.CommunityProfileCommentInput
 import com.quata.feature.neighborhoods.presentation.CommunityProfileCommentRowContent
 import com.quata.feature.neighborhoods.presentation.CommunityProfileDetailsContent
 import com.quata.feature.neighborhoods.presentation.CommunityProfileHeaderContent
-import com.quata.feature.neighborhoods.presentation.NeighborhoodListContent
 import com.quata.feature.neighborhoods.presentation.NeighborhoodListStrings
-import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersContent
+import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreenHost
+import com.quata.feature.neighborhoods.presentation.NeighborhoodsScreenStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodsViewModel
 import com.quata.feature.neighborhoods.presentation.ProfileKpiContent
@@ -79,18 +79,12 @@ fun WebNeighborhoodsHost(
 ) {
     val viewModel = remember(repository) { NeighborhoodsViewModel(repository) }
     val state by viewModel.uiState.collectAsState()
-    var query by remember { mutableStateOf("") }
-    var selectedNeighborhood by remember { mutableStateOf<String?>(null) }
     var commentDraft by remember { mutableStateOf("") }
     var showComments by remember { mutableStateOf(false) }
     var showRanking by remember { mutableStateOf(false) }
 
     DisposableEffect(viewModel) {
-        viewModel.startObservingCommunities()
-        onDispose {
-            viewModel.stopObservingCommunities()
-            viewModel.close()
-        }
+        onDispose { viewModel.close() }
     }
     androidx.compose.runtime.LaunchedEffect(initialMemberProfileId) {
         initialMemberProfileId?.let(viewModel::openUserProfile)
@@ -151,49 +145,18 @@ fun WebNeighborhoodsHost(
         return
     }
 
-    val selectedCommunity = state.communities.firstOrNull { it.name == selectedNeighborhood }
-    if (selectedCommunity != null) {
-        NeighborhoodUsersContent(
-            padding = padding,
-            community = selectedCommunity,
-            currentUserId = currentUserId,
-            isOpeningChat = state.isOpeningChat,
-            openingPrivateChatUserId = state.openingPrivateChatUserId,
-            openingProfileUserId = state.openingProfileUserId,
-            followingUserId = state.followingUserId,
-            strings = strings.members,
-            avatar = slots.avatar,
-            onBack = { selectedNeighborhood = null },
-            onFollowUser = {
-                if (currentUserId == null) onAuthRequired() else viewModel.toggleFollowUser(it.id)
-            },
-            onOpenProfile = {
-                viewModel.openUserProfile(it.id)
-                onOpenUserRoute(it.id)
-            },
-            onOpenPrivateChat = { user ->
-                if (currentUserId == null) onAuthRequired()
-                else viewModel.openPrivateChat(user.id, onOpenConversation)
-            },
-        )
-        return
-    }
-
-    NeighborhoodListContent(
-        padding = padding,
-        communities = state.communities,
-        query = query,
-        isLoading = state.isLoading,
-        error = state.error,
+    NeighborhoodsScreenHost(
         currentUserId = currentUserId,
-        openingNeighborhood = state.openingChatNeighborhood,
-        strings = strings.list,
-        onQueryChange = { query = it },
-        onShowUsers = { selectedNeighborhood = it.name },
-        onOpenChat = { community ->
-            if (currentUserId == null) onAuthRequired()
-            else viewModel.openChat(community.name, onOpenConversation)
+        strings = NeighborhoodsScreenStrings(strings.list, strings.members),
+        avatar = slots.avatar,
+        onOpenConversation = onOpenConversation,
+        onOpenUserProfile = { userId ->
+            viewModel.openUserProfile(userId)
+            onOpenUserRoute(userId)
         },
+        onAuthRequired = onAuthRequired,
+        padding = padding,
+        model = viewModel,
     )
 }
 
