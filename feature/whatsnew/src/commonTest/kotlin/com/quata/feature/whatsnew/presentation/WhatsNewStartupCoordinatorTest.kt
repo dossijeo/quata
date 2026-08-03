@@ -13,7 +13,7 @@ class WhatsNewStartupCoordinatorTest {
         val acknowledgements = MemoryAcknowledgements()
         val decision = WhatsNewStartupCoordinator(EmptyRepository, acknowledgements).evaluate(12, listOf("es"))
 
-        assertEquals(WhatsNewStartupDecision.Skip, decision.getOrThrow())
+        assertEquals(false, decision.getOrThrow())
         assertEquals(12, acknowledgements.value)
     }
 
@@ -22,7 +22,7 @@ class WhatsNewStartupCoordinatorTest {
         val acknowledgements = MemoryAcknowledgements()
         val decision = WhatsNewStartupCoordinator(PendingRepository, acknowledgements).evaluate(12, listOf("es"))
 
-        assertEquals(WhatsNewStartupDecision.Show, decision.getOrThrow())
+        assertEquals(true, decision.getOrThrow())
         assertNull(acknowledgements.value)
     }
 

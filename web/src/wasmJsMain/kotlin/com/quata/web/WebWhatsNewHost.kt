@@ -14,7 +14,6 @@ import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import com.quata.feature.whatsnew.presentation.ReleaseHistoryContent
 import com.quata.feature.whatsnew.presentation.ReleaseHistoryStrings
 import com.quata.feature.whatsnew.presentation.WhatsNewScreenHost
-import com.quata.feature.whatsnew.presentation.WhatsNewScreenHostStrings
 import com.quata.feature.whatsnew.presentation.WhatsNewStartupAcknowledgementStore
 import com.quata.feature.whatsnew.presentation.WhatsNewStartupCoordinator
 import com.quata.feature.whatsnew.presentation.WhatsNewStrings
@@ -67,12 +66,16 @@ fun WebWhatsNewHost(
     modifier: Modifier = Modifier,
 ) {
     val languageTags = remember { browserWhatsNewLanguageTags() }
+    val pendingCopy = remember(languageTags) { webWhatsNewStrings(languageTags) }
     when (destination) {
         WebWhatsNewDestination.PendingReleases -> WhatsNewScreenHost(
             repository = repository,
             installedVersionCode = installedVersionCode,
             languageTags = languageTags,
-            strings = webWhatsNewScreenHostStrings(languageTags),
+            strings = pendingCopy.strings,
+            loadError = pendingCopy.loadError,
+            saveError = pendingCopy.saveError,
+            retry = pendingCopy.retry,
             onClose = onBack,
             modifier = modifier,
         )
@@ -92,9 +95,6 @@ internal class WebWhatsNewCopy(
     val saveError: String,
     val retry: String,
 )
-
-internal fun webWhatsNewScreenHostStrings(tags: List<String>): WhatsNewScreenHostStrings =
-    webWhatsNewStrings(tags).let { WhatsNewScreenHostStrings(it.strings, it.loadError, it.saveError, it.retry) }
 
 internal fun webWhatsNewStrings(languageTags: List<String>): WebWhatsNewCopy = when {
     languageTags.isSpanish() -> WebWhatsNewCopy(WhatsNewStrings("Novedades", "Anterior", "Siguiente", "Continuar", { "Versión $it" }, { "Novedades de $it" }), "No se pudieron cargar las novedades.", "No se pudo guardar el estado de lectura.", "Reintentar")

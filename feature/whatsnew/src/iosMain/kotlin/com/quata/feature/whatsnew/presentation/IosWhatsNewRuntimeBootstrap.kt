@@ -23,15 +23,13 @@ class IosWhatsNewRuntimeBootstrap internal constructor(
 ) {
     private val startupScope = MainScope()
 
-    fun whatsNewStrings(): WhatsNewStrings = iosWhatsNewStrings(languageTags)
-    fun whatsNewScreenHostStrings(): WhatsNewScreenHostStrings = iosWhatsNewScreenHostStrings(languageTags)
     fun releaseHistoryStrings(): ReleaseHistoryStrings = iosReleaseHistoryStrings(languageTags)
 
     /** Runs the shared first-version decision without blocking UIKit's public Feed. */
     fun evaluateStartup(onDecision: (Boolean) -> Unit) {
         startupScope.launch {
             val decision = startupCoordinator.evaluate(installedVersionCode, languageTags).getOrNull()
-            onDecision(decision == WhatsNewStartupDecision.Show)
+            onDecision(decision == true)
         }
     }
 
@@ -92,12 +90,16 @@ fun QuataIosManagedWhatsNewViewController(
     runtime: IosWhatsNewRuntimeBootstrap,
     onClose: () -> Unit,
 ): UIViewController = ComposeUIViewController {
+    val copy = iosCopy(runtime.languageTags)
     QuataTheme {
         WhatsNewScreenHost(
             repository = runtime.repository,
             installedVersionCode = runtime.installedVersionCode,
             languageTags = runtime.languageTags,
-            strings = runtime.whatsNewScreenHostStrings(),
+            strings = iosWhatsNewStrings(runtime.languageTags),
+            loadError = copy.loadError,
+            saveError = copy.saveError,
+            retry = copy.retry,
             onClose = onClose,
         )
     }
@@ -173,10 +175,6 @@ private fun iosWhatsNewStrings(tags: List<String>): WhatsNewStrings = when {
     tags.isSpanish() -> WhatsNewStrings("Novedades", "Anterior", "Siguiente", "Continuar", { "Version $it" }, { "Novedades de $it" })
     tags.isFrench() -> WhatsNewStrings("Nouveautés", "Précédent", "Suivant", "Continuer", { "Version $it" }, { "Nouveautés de $it" })
     else -> WhatsNewStrings("What's New", "Previous", "Next", "Continue", { "Version $it" }, { "What's new in $it" })
-}
-
-private fun iosWhatsNewScreenHostStrings(tags: List<String>): WhatsNewScreenHostStrings = iosCopy(tags).let { copy ->
-    WhatsNewScreenHostStrings(iosWhatsNewStrings(tags), copy.loadError, copy.saveError, copy.retry)
 }
 
 private fun iosReleaseHistoryStrings(tags: List<String>): ReleaseHistoryStrings = when {

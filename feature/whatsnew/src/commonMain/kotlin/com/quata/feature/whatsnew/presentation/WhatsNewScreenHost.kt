@@ -21,20 +21,16 @@ import com.quata.feature.whatsnew.domain.PendingRelease
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import kotlinx.coroutines.launch
 
-class WhatsNewScreenHostStrings(
-    val content: WhatsNewStrings,
-    val loadError: String,
-    val saveError: String,
-    val retry: String,
-)
-
 /** Shared pending-release state machine for hosts without Android's navigation container. */
 @Composable
 fun WhatsNewScreenHost(
     repository: WhatsNewRepository,
     installedVersionCode: Long?,
     languageTags: List<String>,
-    strings: WhatsNewScreenHostStrings,
+    strings: WhatsNewStrings,
+    loadError: String,
+    saveError: String,
+    retry: String,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -59,8 +55,8 @@ fun WhatsNewScreenHost(
         WhatsNewScreenState.Empty -> LaunchedEffect(onClose) { onClose() }
         WhatsNewScreenState.Error -> CenteredWhatsNewMessage(modifier) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(strings.loadError)
-                Button(onClick = { state = WhatsNewScreenState.Loading; retryToken++ }, modifier = Modifier.padding(top = 12.dp)) { Text(strings.retry) }
+                Text(loadError)
+                Button(onClick = { state = WhatsNewScreenState.Loading; retryToken++ }, modifier = Modifier.padding(top = 12.dp)) { Text(retry) }
             }
         }
         is WhatsNewScreenState.Content -> {
@@ -75,8 +71,8 @@ fun WhatsNewScreenHost(
                 }
             }
             Box(modifier.fillMaxSize()) {
-                WhatsNewContent(current.releases, isCompleting, strings.content, finish, finish)
-                if (saveFailed) Text(strings.saveError, Modifier.align(Alignment.BottomCenter).padding(16.dp))
+                WhatsNewContent(current.releases, isCompleting, strings, finish, finish)
+                if (saveFailed) Text(saveError, Modifier.align(Alignment.BottomCenter).padding(16.dp))
             }
         }
     }

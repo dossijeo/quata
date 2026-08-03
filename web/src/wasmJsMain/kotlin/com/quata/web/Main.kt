@@ -41,7 +41,6 @@ import com.quata.feature.neighborhoods.presentation.NeighborhoodListStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUserRowStrings
 import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
-import com.quata.feature.whatsnew.presentation.WhatsNewStartupDecision
 import com.quata.feature.auth.presentation.AuthProductDestination
 import kotlinx.browser.document
 import kotlinx.coroutines.flow.Flow
@@ -355,7 +354,7 @@ private fun QuataWebApp(
     LaunchedEffect(isSessionResolved, isSessionReady, currentUserId, navigationState.route, whatsNewInstalledVersionCode) {
         if (isSessionResolved && isSessionReady && currentUserId != null && navigationState.route == "feed") {
             val decision = whatsNewStartupCoordinator.evaluate(whatsNewInstalledVersionCode, browserWhatsNewLanguageTags()).getOrNull()
-            if (decision == WhatsNewStartupDecision.Show && navigation.route == "feed") {
+            if (decision == true && navigation.route == "feed") {
                 whatsNewOrigin = WebWhatsNewOrigin.Startup
                 navigation.navigate("whats-new")
             }
