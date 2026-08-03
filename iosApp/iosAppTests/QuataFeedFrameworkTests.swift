@@ -1391,6 +1391,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
                 dependencies: IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
                     repository: communitiesBootstrap.repository,
                     currentUserId: communitiesBootstrap.restoredCurrentUserId(),
+                    languageCode: "es",
                     onOpenConversation: { _ in },
                     onNavigateToProfile: { _ in },
                     onAuthRequired: {},

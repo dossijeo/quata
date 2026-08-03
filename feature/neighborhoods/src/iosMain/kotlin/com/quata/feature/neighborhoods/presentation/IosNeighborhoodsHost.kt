@@ -57,6 +57,7 @@ class IosNeighborhoodsHostDependencies(
 fun createIosNeighborhoodsHostDependencies(
     repository: NeighborhoodRepository,
     currentUserId: String?,
+    languageCode: String,
     onOpenConversation: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
     onAuthRequired: () -> Unit = {},
@@ -64,8 +65,8 @@ fun createIosNeighborhoodsHostDependencies(
     repository = repository,
     viewModel = NeighborhoodsViewModel(repository),
     currentUserId = currentUserId,
-    listStrings = IosNeighborhoodListStrings,
-    usersStrings = IosNeighborhoodUsersStrings,
+    listStrings = neighborhoodsScreenStringsForLanguage(languageCode).list,
+    usersStrings = neighborhoodsScreenStringsForLanguage(languageCode).members,
     avatar = { user, _, _ ->
         // Remote image loading belongs to a separately verified platform media adapter. A
         // deterministic common fallback keeps this host usable without inventing a URL loader.
@@ -166,28 +167,3 @@ fun IosNeighborhoodRankingPanelContent(
         onOpenItem = onOpenPost,
     )
 }
-
-private val IosNeighborhoodListStrings = NeighborhoodListStrings(
-    title = "Communities",
-    searchPlaceholder = "Search communities",
-    loading = "Loading communities…",
-    oneUser = "1 member",
-    users = { "$it members" },
-    oneMessage = "1 message",
-    messages = { "$it messages" },
-    viewUsers = "View members",
-    openChat = "Open chat",
-    timeLabel = { "No recent activity" },
-)
-
-private val IosNeighborhoodUsersStrings = NeighborhoodUsersStrings(
-    title = { "$it members" },
-    subtitle = "Community members",
-    backContentDescription = "Back",
-    memberCount = { "$it members" },
-    row = NeighborhoodUserRowStrings(
-        follow = "Follow",
-        following = "Following",
-        chat = "Chat",
-    ),
-)

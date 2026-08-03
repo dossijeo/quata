@@ -796,6 +796,7 @@ private final class IosAppCompositionRoot {
                 dependencies: IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
                     repository: communitiesBootstrap.repository,
                     currentUserId: communitiesBootstrap.restoredCurrentUserId(),
+                    languageCode: Locale.current.languageCode ?? "en",
                     onOpenConversation: { [weak self] conversationId in
                         guard let self else { return }
                         if self.hasValidatedAuthenticatedSession {

@@ -37,9 +37,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
-import com.quata.feature.neighborhoods.presentation.NeighborhoodListStrings
-import com.quata.feature.neighborhoods.presentation.NeighborhoodUserRowStrings
-import com.quata.feature.neighborhoods.presentation.NeighborhoodUsersStrings
+import com.quata.feature.neighborhoods.presentation.neighborhoodsScreenStringsForLanguage
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import com.quata.feature.auth.presentation.AuthProductDestination
 import kotlinx.browser.document
@@ -987,26 +985,11 @@ internal fun observeBrowserFragmentChanges(onChanged: (String) -> Unit): () -> U
 private const val WebThemeModeKey = "quata_web_theme_mode"
 private const val WebTouchFlowEnabledKey = "quata_web_touch_flow_enabled"
 
+private val webNeighborhoodsScreenStrings = neighborhoodsScreenStringsForLanguage("es")
+
 private val webNeighborhoodsStrings = WebNeighborhoodsStrings(
-    list = NeighborhoodListStrings(
-        title = "Comunidades",
-        searchPlaceholder = "Buscar barrio",
-        loading = "Cargando comunidades…",
-        oneUser = "1 miembro",
-        users = { "$it miembros" },
-        oneMessage = "1 mensaje",
-        messages = { "$it mensajes" },
-        viewUsers = "Ver miembros",
-        openChat = "Abrir conversación",
-        timeLabel = { "Actividad reciente" },
-    ),
-    members = NeighborhoodUsersStrings(
-        title = { "Miembros de $it" },
-        subtitle = "Directorio de la comunidad",
-        backContentDescription = "Volver a comunidades",
-        memberCount = { "$it miembros" },
-        row = NeighborhoodUserRowStrings(follow = "Seguir", following = "Siguiendo", chat = "Chat"),
-    ),
+    list = webNeighborhoodsScreenStrings.list,
+    members = webNeighborhoodsScreenStrings.members,
     commentsTitle = "Comentarios",
     commentsClose = "Cerrar comentarios",
     commentPlaceholder = "Escribe un comentario",
