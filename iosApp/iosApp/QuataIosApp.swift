@@ -596,7 +596,9 @@ private final class IosAppCompositionRoot {
 
     private func installAuthenticatedChatIfAvailable() {
         guard let chatRuntimeBootstrap else { return }
-        authenticatedHost.installAuthenticatedChat(chatRuntimeBootstrap)
+        authenticatedHost.installAuthenticatedChat(chatRuntimeBootstrap) { [weak self] profileId in
+            self?.presentAuthenticatedMemberProfile(profileId: profileId)
+        }
     }
 
     /// Official stays available to anonymous visitors.  It is installed before session
@@ -1596,7 +1598,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Installs the real KMP Chat host after Auth/Feed restored the Keychain-backed session.
     /// The common Chat host receives the optional deep-link target, paging authenticated history
     /// until it resolves or history is exhausted. A missing target keeps the conversation open.
-    func installAuthenticatedChat(_ bootstrap: IosChatRuntimeBootstrap) {
+    func installAuthenticatedChat(
+        _ bootstrap: IosChatRuntimeBootstrap,
+        onOpenProfile: @escaping (String) -> Void
+    ) {
         let services = platformServices.services
         let chatAttachmentConfiguration: IosChatRuntimeConfiguration? = IosPublicRuntimeConfiguration
             .feedConfiguration()
@@ -1662,10 +1667,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                         }
                     }
                 },
-                onOpenAvatar: { [weak self] profileId in
-                    DispatchQueue.main.async {
-                        self?.presentAuthenticatedMemberProfile(profileId: profileId)
-                    }
+                onOpenAvatar: { profileId in
+                    DispatchQueue.main.async { onOpenProfile(profileId) }
                 },
             )
             return QuataChatViewControllerKt.QuataChatViewController(dependencies: dependencies)

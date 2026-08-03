@@ -1350,7 +1350,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
             authSession: feedBootstrap.authSessionForInteractiveLogin(),
         )
 
-        router.installAuthenticatedChat(chatBootstrap)
+        router.installAuthenticatedChat(chatBootstrap, onOpenProfile: { _ in })
         router.showChat(conversationId: "conversation-7", messageId: "message-not-yet-positioned")
 
         XCTAssertEqual(router.children.count, 3)
