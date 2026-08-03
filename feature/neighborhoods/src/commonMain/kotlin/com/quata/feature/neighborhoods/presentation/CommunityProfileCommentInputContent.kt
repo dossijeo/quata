@@ -2,6 +2,7 @@ package com.quata.feature.neighborhoods.presentation
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
@@ -25,7 +26,7 @@ fun CommunityProfileCommentInputContent(
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
