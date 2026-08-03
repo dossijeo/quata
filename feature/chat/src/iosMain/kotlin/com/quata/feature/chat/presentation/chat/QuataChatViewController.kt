@@ -20,7 +20,6 @@ import com.quata.feature.chat.presentation.conversations.conversationsHostString
 import com.quata.core.ui.components.IosRemoteAvatar
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
-import platform.Foundation.NSLocale
 import platform.UIKit.UIViewController
 
 /**
@@ -38,6 +37,7 @@ class IosChatHostDependencies(
     val conversationId: String? = null,
     /** Optional deep-link target; common UI resolves it only against messages already present. */
     val focusedMessageId: String? = null,
+    val languageTag: String,
     val navigationMessage: String = "Quata para iOS",
     /** AVFoundation records AAC in an MP4 container; Web stays on the common WebM default. */
     val audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(
@@ -62,7 +62,7 @@ class IosChatHostDependencies(
 fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewController =
     ComposeUIViewController {
         QuataTheme {
-            val languageTag = iosChatLanguageTag()
+            val languageTag = dependencies.languageTag
             val chatText = remember(languageTag) { { value: ChatText -> chatTextForLanguage(value, languageTag) } }
             val conversationsModel = remember(dependencies.repository, languageTag) {
                 ConversationsViewModel(
@@ -128,7 +128,5 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
             )
         }
     }
-
-private fun iosChatLanguageTag(): String? = NSLocale.currentLocale.languageCode
 
 private fun iosChatNowMillis(): Long = currentEpochMillis()
