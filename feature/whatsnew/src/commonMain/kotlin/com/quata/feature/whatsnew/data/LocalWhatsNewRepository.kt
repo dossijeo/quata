@@ -32,12 +32,15 @@ class LocalWhatsNewRepository(
         installedVersionCode: Long,
         languageTags: List<String>,
     ): Result<List<PendingRelease>> = store.read().map { state ->
-        catalog
-            .asSequence()
-            .filter { it.versionCode <= installedVersionCode }
-            .filter { it.versionCode > (state.lastSeenVersionCode ?: 0L) }
-            .mapNotNull { it.localized(languageTags) }
-            .toList()
+        val pending = mutableListOf<PendingRelease>()
+        val lastSeenVersionCode = state.lastSeenVersionCode ?: 0L
+        for (release in catalog) {
+            if (release.versionCode <= installedVersionCode && release.versionCode > lastSeenVersionCode) {
+                val localized = release.localized(languageTags)
+                if (localized != null) pending.add(localized)
+            }
+        }
+        pending
     }
 
     override suspend fun getReleaseHistory(languageTags: List<String>): Result<List<PendingRelease>> =
