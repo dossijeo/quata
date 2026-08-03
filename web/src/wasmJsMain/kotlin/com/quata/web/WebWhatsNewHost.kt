@@ -44,9 +44,9 @@ internal fun webWhatsNewInstalledVersionCode(configuredVersionCode: Long?): Long
         ?.takeIf { it > 0L }
         ?: QuataLocalWhatsNewCatalog.latestWebVersionCode()
 
-internal fun createWebWhatsNewRepository(): WhatsNewRepository = LocalWhatsNewRepository(
+internal fun createWebWhatsNewRepository(preferences: PreferenceStore): WhatsNewRepository = LocalWhatsNewRepository(
     releases = QuataLocalWhatsNewCatalog.webReleases(),
-    store = WebWhatsNewSeenStateStore(),
+    store = WebWhatsNewStateStore(preferences),
 )
 
 internal fun createWebWhatsNewStartupCoordinator(
@@ -54,7 +54,7 @@ internal fun createWebWhatsNewStartupCoordinator(
     preferences: PreferenceStore,
 ): WhatsNewStartupCoordinator = WhatsNewStartupCoordinator(
     repository = repository,
-    acknowledgementStore = WebWhatsNewStartupAcknowledgementStore(preferences),
+    acknowledgementStore = WebWhatsNewStateStore(preferences),
 )
 
 @Composable
@@ -108,9 +108,11 @@ internal fun webReleaseHistoryStrings(languageTags: List<String>): ReleaseHistor
     else -> ReleaseHistoryStrings("Close", "No releases have been published yet.", "Release history could not be loaded.", "About Quata", "Release history", "Previous", "Next", { "Version $it" }, { "What's new in $it" })
 }
 
-private class WebWhatsNewSeenStateStore : WhatsNewSeenStateStore {
+private class WebWhatsNewStateStore(
+    private val preferences: PreferenceStore,
+) : WhatsNewSeenStateStore, WhatsNewStartupAcknowledgementStore {
     override suspend fun read(): Result<UserReleaseState> = runCatching {
-        val parts = webLocalStorageGet(WebSeenKey)?.split('|')
+        val parts = preferences.getString(WebSeenKey)?.split('|')
         if (parts == null) UserReleaseState(null, null) else {
             require(parts.size == 3 && parts[0] == "v1") { "whats_new_state_invalid" }
             UserReleaseState(parts[1].toLongOrNull(), parts[2].toLongOrNull())
@@ -118,13 +120,9 @@ private class WebWhatsNewSeenStateStore : WhatsNewSeenStateStore {
     }
 
     override suspend fun write(state: UserReleaseState): Result<Unit> = runCatching {
-        webLocalStorageSet(WebSeenKey, "v1|${state.lastSeenVersionCode.orEmpty()}|${state.initializedAtVersionCode.orEmpty()}")
+        preferences.putString(WebSeenKey, "v1|${state.lastSeenVersionCode.orEmpty()}|${state.initializedAtVersionCode.orEmpty()}")
     }
-}
 
-private class WebWhatsNewStartupAcknowledgementStore(
-    private val preferences: PreferenceStore,
-) : WhatsNewStartupAcknowledgementStore {
     override suspend fun readAcknowledgedVersionCode(): Result<Long?> = runCatching {
         preferences.getString(WebStartupAcknowledgementKey)?.toLongOrNull()
     }
@@ -137,8 +135,6 @@ private class WebWhatsNewStartupAcknowledgementStore(
 private fun Long?.orEmpty(): String = this?.toString().orEmpty()
 private const val WebSeenKey = "quata.whatsnew.web.state.v1"
 private const val WebStartupAcknowledgementKey = "quata.whatsnew.web.startup_ack.v1"
-private fun webLocalStorageGet(key: String): String? = js("globalThis.localStorage?.getItem(key) ?? null")
-private fun webLocalStorageSet(key: String, value: String): Unit = js("globalThis.localStorage?.setItem(key, value)")
 internal fun browserWhatsNewLanguageTags(): List<String> = browserLanguageTag().split(',').map(String::trim).filter(String::isNotEmpty).plus("en").distinct()
 private fun browserLanguageTag(): String = js("(globalThis.navigator?.languages && globalThis.navigator.languages.length ? Array.from(globalThis.navigator.languages).join(',') : (globalThis.navigator?.language || 'en'))")
 private fun List<String>.isSpanish(): Boolean = any { it.substringBefore('-').substringBefore('_').equals("es", true) }
