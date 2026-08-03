@@ -11,6 +11,7 @@ import com.quata.feature.chat.data.IosChatAttachmentUploader
 import com.quata.feature.chat.data.IosChatAuthenticatedUserProvider
 import com.quata.feature.chat.data.IosChatPostgrestTransport
 import com.quata.feature.chat.data.IosChatRuntimeConfiguration
+import com.quata.feature.chat.data.IosChatRealtimeGateway
 import com.quata.feature.chat.data.PostgrestChatRepository
 import com.quata.feature.chat.domain.ChatRepository
 
@@ -35,6 +36,7 @@ class IosChatRuntimeBootstrap(
             transport = IosChatPostgrestTransport(configuration, authSession),
             authenticatedUser = IosChatAuthenticatedUserProvider(authSession),
             attachmentUploader = IosChatAttachmentUploader(configuration, authSession),
+            realtimeGateway = IosChatRealtimeGateway(configuration, authSession),
         )
     }
 

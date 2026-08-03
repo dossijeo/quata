@@ -73,6 +73,10 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
             }
             val clipboard = remember { IosClipboardService() }
             DisposableEffect(conversationsModel) { onDispose(conversationsModel::close) }
+            DisposableEffect(dependencies.repository) {
+                dependencies.repository.setAppForeground(true)
+                onDispose { dependencies.repository.setAppForeground(false) }
+            }
             ChatBrowserHostContent(
                 repository = dependencies.repository,
                 audioPlayer = dependencies.audioPlayer,

@@ -148,6 +148,7 @@ private fun QuataWebApp(
     }
     val chatRepository = remember(runtimeConfiguration, authRepository) {
         WebChatRepository(
+            configuration = runtimeConfiguration,
             rpcClient = WebPostgrestRpcClient(runtimeConfiguration, authRepository),
             authRepository = authRepository,
             attachmentUploader = WebChatAttachmentUploader(runtimeConfiguration, authRepository),

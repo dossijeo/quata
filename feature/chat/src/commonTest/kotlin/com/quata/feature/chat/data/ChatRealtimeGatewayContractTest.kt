@@ -109,6 +109,37 @@ class ChatRealtimeGatewayContractTest {
         )
         assertEquals(emptySet(), afterFinalLeave.typingProfileIds("sb:8", "self"))
     }
+
+    @Test
+    fun postgresChangeExtractsTableAndThreadFromNewOrOldRecord() {
+        assertEquals(
+            ChatRealtimeChange("chat_messages", 17L),
+            parseChatRealtimeChange(
+                "postgres_changes",
+                Json.parseToJsonElement("""{"data":{"table":"chat_messages","record":{"thread_id":17}}}"""),
+            ),
+        )
+        assertEquals(
+            ChatRealtimeChange("chat_participants", 9L),
+            parseChatRealtimeChange(
+                "postgres_changes",
+                Json.parseToJsonElement("""{"data":{"table":"chat_participants","old_record":{"thread_id":9}}}"""),
+            ),
+        )
+        assertEquals(null, parseChatRealtimeChange("broadcast", Json.parseToJsonElement("{}")))
+    }
+
+    @Test
+    fun typingBroadcastMatchesThePublishedAndroidEnvelope() {
+        assertEquals(
+            ChatTypingBroadcast("peer", true),
+            parseChatTypingBroadcast(
+                "broadcast",
+                Json.parseToJsonElement("""{"type":"broadcast","event":"typing","payload":{"profile_id":"peer","is_typing":true}}"""),
+            ),
+        )
+        assertEquals(null, parseChatTypingBroadcast("broadcast", Json.parseToJsonElement("""{"event":"other","payload":{}}""")))
+    }
 }
 
 private fun conversation(isGroup: Boolean, isEmergency: Boolean) = Conversation(

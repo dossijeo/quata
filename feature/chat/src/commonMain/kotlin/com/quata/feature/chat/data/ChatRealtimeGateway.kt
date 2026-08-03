@@ -9,6 +9,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 
 /**
  * Platform-owned Supabase Realtime connection for chat.  The common repository owns mapping
@@ -30,6 +31,44 @@ data class ChatRealtimeChange(
     val table: String,
     val threadId: Long? = null,
 )
+
+val ChatRealtimeTables: List<String> = listOf(
+    "chat_threads",
+    "chat_participants",
+    "chat_messages",
+    "chat_attachments",
+    "chat_message_favorites",
+    "chat_message_reads",
+    "chat_message_states",
+)
+
+const val ChatRealtimePostgresTopic = "realtime:public"
+
+fun chatTypingTopic(conversationId: String): String = "realtime:quata-typing-$conversationId"
+
+fun parseChatRealtimeChange(event: String, payload: JsonElement): ChatRealtimeChange? {
+    if (event != "postgres_changes") return null
+    val root = payload as? JsonObject ?: return null
+    val data = root["data"] as? JsonObject ?: root
+    val table = data["table"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank) ?: return null
+    val record = data["record"] as? JsonObject
+    val oldRecord = data["old_record"] as? JsonObject
+    val threadId = record?.get("thread_id")?.jsonPrimitive?.longOrNull
+        ?: oldRecord?.get("thread_id")?.jsonPrimitive?.longOrNull
+    return ChatRealtimeChange(table = table, threadId = threadId)
+}
+
+data class ChatTypingBroadcast(val profileId: String, val isTyping: Boolean)
+
+fun parseChatTypingBroadcast(event: String, payload: JsonElement): ChatTypingBroadcast? {
+    if (event != "broadcast") return null
+    val envelope = payload as? JsonObject ?: return null
+    if (envelope["event"]?.jsonPrimitive?.contentOrNull != "typing") return null
+    val typing = envelope["payload"] as? JsonObject ?: return null
+    val profileId = typing["profile_id"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank) ?: return null
+    val isTyping = typing["is_typing"]?.jsonPrimitive?.booleanOrNull ?: return null
+    return ChatTypingBroadcast(profileId, isTyping)
+}
 
 /** Shared lifecycle rule used by both Phoenix clients and covered without platform sockets. */
 fun shouldConnectChatRealtime(
