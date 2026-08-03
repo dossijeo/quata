@@ -8,7 +8,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.viewinterop.UIKitView
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import com.quata.core.data.toFoundationData
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -32,6 +34,7 @@ import platform.darwin.NSObject
 
 /** Shared iOS boundary for remote avatars used by Feed, Profile and future feature hosts. */
 @Composable
+@OptIn(ExperimentalComposeUiApi::class)
 fun IosRemoteAvatar(
     name: String,
     stableId: String,
@@ -63,6 +66,9 @@ fun IosRemoteAvatar(
                     },
                     update = { it.image = decoded },
                     modifier = Modifier.fillMaxSize(),
+                    // Identity actions belong to the common Compose frame. A decorative
+                    // UIImageView must never consume the tap that opens the public profile.
+                    properties = UIKitInteropProperties(interactionMode = null),
                 )
             }
         },
