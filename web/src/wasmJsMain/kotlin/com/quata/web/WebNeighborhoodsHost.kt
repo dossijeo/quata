@@ -1,6 +1,7 @@
 package com.quata.web
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -76,8 +77,24 @@ fun WebNeighborhoodsHost(
         }
         return
     }
-    if (selectedProfile != null) {
-        CommunityProfileScreenHost(
+    Box {
+        if (initialMemberProfileId == null) {
+            NeighborhoodsScreenHost(
+                currentUserId = currentUserId,
+                strings = NeighborhoodsScreenStrings(strings.list, strings.members),
+                avatar = slots.avatar,
+                onOpenConversation = onOpenConversation,
+                onOpenUserProfile = { userId ->
+                    viewModel.openUserProfile(userId)
+                    onOpenUserRoute(userId)
+                },
+                onAuthRequired = onAuthRequired,
+                padding = padding,
+                model = viewModel,
+            )
+        }
+        if (selectedProfile != null) {
+            CommunityProfileScreenHost(
             profile = selectedProfile,
             currentUserId = currentUserId,
             strings = strings.profile,
@@ -123,21 +140,7 @@ fun WebNeighborhoodsHost(
                 )
             },
             showDismissButton = true,
-        )
-        return
+            )
+        }
     }
-
-    NeighborhoodsScreenHost(
-        currentUserId = currentUserId,
-        strings = NeighborhoodsScreenStrings(strings.list, strings.members),
-        avatar = slots.avatar,
-        onOpenConversation = onOpenConversation,
-        onOpenUserProfile = { userId ->
-            viewModel.openUserProfile(userId)
-            onOpenUserRoute(userId)
-        },
-        onAuthRequired = onAuthRequired,
-        padding = padding,
-        model = viewModel,
-    )
 }

@@ -124,6 +124,14 @@ test('COMMUNITY-PROFILE-ADAPTER-001 Web and iOS keep member identity and audio a
   assert.doesNotMatch(ios, /audioPlayer = \{\s*Text\(attachment\.name\)\s*\}/);
 });
 
+test('COMMUNITY-PROFILE-RETURN-001 Web preserves the Communities source beneath the profile overlay', async () => {
+  const host = await readFile(resolve(import.meta.dirname, '..', 'web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsHost.kt'), 'utf8');
+
+  assert.match(host, /Box\s*\{[\s\S]*?if \(initialMemberProfileId == null\)\s*\{[\s\S]*?NeighborhoodsScreenHost\(/);
+  assert.match(host, /if \(selectedProfile != null\)\s*\{[\s\S]*?CommunityProfileScreenHost\(/);
+  assert.match(host, /showDismissButton = true/);
+});
+
 test('PROF-HEADER-LOADING-001 iOS resolves the profile behind the source avatar halo before presenting it', async () => {
   const ios = await readFile(resolve(import.meta.dirname, '..', 'feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt'), 'utf8');
   const remoteAvatar = await readFile(resolve(import.meta.dirname, '..', 'designsystem/src/iosMain/kotlin/com/quata/core/ui/components/IosRemoteAvatar.kt'), 'utf8');
