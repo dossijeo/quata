@@ -199,9 +199,7 @@ private fun QuataWebApp(
             },
         )
     }
-    val whatsNewRepository: WhatsNewRepository = remember(platformServices.preferences) {
-        createWebWhatsNewRepository(platformServices.preferences)
-    }
+    val whatsNewRepository: WhatsNewRepository = remember { createWebWhatsNewRepository() }
     val whatsNewInstalledVersionCode = remember(runtimeConfiguration.releaseVersionCode) {
         webWhatsNewInstalledVersionCode(runtimeConfiguration.releaseVersionCode)
     }
