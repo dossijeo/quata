@@ -12,16 +12,12 @@ export const READ_ONLY_ROUTE_MATRIX = Object.freeze([
   Object.freeze({ fragment: "settings", route: "settings" }),
   Object.freeze({ fragment: "communities", route: "communities" }),
   Object.freeze({ fragment: "official", route: "official" }),
+  Object.freeze({ fragment: "whats-new", route: "whats-new" }),
+  Object.freeze({ fragment: "about", route: "about" }),
+  Object.freeze({ fragment: "release-history", route: "release-history" }),
 ]);
 
-export const READ_ONLY_ROUTE_EXCLUSIONS = Object.freeze([
-  Object.freeze({
-    fragments: Object.freeze(["whats-new", "about"]),
-    method: "POST",
-    path: "/rest/v1/rpc/quata_android_release_history",
-    reason: "postgrest_rpc_post_not_get_only",
-  }),
-]);
+export const READ_ONLY_ROUTE_EXCLUSIONS = Object.freeze([]);
 
 const NOTIFICATION_INBOX_READ_STAGES = Object.freeze([
   "authenticated_browser_restore",

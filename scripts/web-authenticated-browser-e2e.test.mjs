@@ -131,7 +131,7 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /page\.keyboard\.press\("Enter"\)/);
   assert.deepEqual(
     READ_ONLY_ROUTE_MATRIX.map(route => route.route),
-    ["feed", "profile", "settings", "communities", "official"],
+    ["feed", "profile", "settings", "communities", "official", "whats-new", "about", "release-history"],
   );
   assert.ok(READ_ONLY_ROUTE_MATRIX.every(route => Object.keys(route).sort().join(",") === "fragment,route"));
   assert.match(runner, /globalThis\.location\.hash = fragment/);
@@ -139,20 +139,13 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(main, /notificationCountFlow\.collectAsState\(initial = 0\)/);
 });
 
-test("WhatsNew RPC POST remains explicitly outside the strict GET-only route matrix", () => {
-  assert.deepEqual(READ_ONLY_ROUTE_EXCLUSIONS, [{
-    fragments: ["whats-new", "about"],
-    method: "POST",
-    path: "/rest/v1/rpc/quata_android_release_history",
-    reason: "postgrest_rpc_post_not_get_only",
-  }]);
+test("WhatsNew routes use the source-controlled local catalog and stay inside the strict read-only matrix", () => {
+  assert.deepEqual(READ_ONLY_ROUTE_EXCLUSIONS, []);
   const routedFragments = new Set(READ_ONLY_ROUTE_MATRIX.flatMap(route => [route.fragment, route.route]));
-  for (const fragment of ["whats-new", "about"]) assert.equal(routedFragments.has(fragment), false);
-  assert.match(
-    whatsNewHost,
-    /override suspend fun getReleaseHistory[\s\S]*?releases\("quata_android_release_history"[\s\S]*?private suspend fun releases[\s\S]*?rpcClient\.post\(function,/,
-  );
-  assert.match(documentation, /Novedades usa un RPC de lectura transportado como\s+`POST`/);
+  for (const fragment of ["whats-new", "about", "release-history"]) assert.equal(routedFragments.has(fragment), true);
+  assert.match(whatsNewHost, /QuataLocalWhatsNewCatalog\.releases\(LocalWhatsNewPlatform\.Web\)/);
+  assert.doesNotMatch(whatsNewHost, /rpcClient|quata_android_release_history/);
+  assert.match(documentation, /Novedades e Historial de versiones usan el cat[aá]logo local compartido/);
   assert.match(documentation, /exclusivamente `POST \/rest\/v1\/rpc\/quata_chat_get_inbox`/);
   assert.match(runner, /excludedRoutes: READ_ONLY_ROUTE_EXCLUSIONS\.flatMap/);
 });
