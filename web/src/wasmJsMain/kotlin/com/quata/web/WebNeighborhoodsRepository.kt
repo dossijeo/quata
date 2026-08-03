@@ -46,6 +46,7 @@ class WebNeighborhoodsRepository(
     private val pollIntervalMillis: Long = DefaultPollIntervalMillis,
 ) : NeighborhoodRepository {
     private val profileCache = mutableMapOf<String, CommunityUserProfile>()
+    private var wallsByKey = emptyMap<String, WebCommunityWallStats>()
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flow {
         while (currentCoroutineContext().isActive) {
@@ -58,6 +59,7 @@ class WebNeighborhoodsRepository(
         authenticatedUserId()
         openWebNeighborhoodConversation(
             neighborhood = neighborhood,
+            communityIdForName = { name -> resolveCommunityWall(name)?.id },
             cachedConversationId = chatRepository::cachedCommunityConversationId,
             openConversation = { communityId, title ->
                 chatRepository.openCommunityConversation(
@@ -117,26 +119,13 @@ class WebNeighborhoodsRepository(
 
     private suspend fun loadCommunities(): List<NeighborhoodCommunity> {
         val profiles = loadProfiles(authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.Directory))
-        val walls = client.rows(
-            table = "community_walls_stats",
-            query = mapOf(
-                "select" to WallStatsSelect,
-                "is_active" to "eq.true",
-                "order" to "sort_order.asc,chat_last_at.desc,created_at.desc",
-            ),
-            limit = DirectoryLimit,
-            authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.Directory),
-        ).map(JsonObject::toWallStats)
-        val wallsByKey = walls.mapNotNull { wall ->
-            (wall.normalizedName ?: wall.name?.normalizedCommunityKey())
-                ?.takeIf(String::isNotBlank)
-                ?.let { it to wall }
-        }.toMap()
+        val walls = loadWalls()
         val profilesByNeighborhood = profiles
             .filter { it.neighborhood.isNotBlank() }
             .groupBy { it.neighborhood.normalizedCommunityKey() }
-        return (profilesByNeighborhood.keys + wallsByKey.keys)
+        return (profilesByNeighborhood.keys + walls.mapNotNull(WebCommunityWallStats::primaryCommunityKey))
             .filter(String::isNotBlank)
+            .distinct()
             .map { key ->
                 val wall = wallsByKey[key]
                 val users = profilesByNeighborhood[key].orEmpty().sortedBy { it.displayName.lowercase() }
@@ -152,6 +141,26 @@ class WebNeighborhoodsRepository(
                 )
             }
             .sortedWith(compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }.thenBy { it.name.lowercase() })
+    }
+
+    private suspend fun loadWalls(): List<WebCommunityWallStats> {
+        val walls = client.rows(
+            table = "community_walls_stats",
+            query = mapOf(
+                "select" to WallStatsSelect,
+                "is_active" to "eq.true",
+                "order" to "sort_order.asc,chat_last_at.desc,created_at.desc",
+            ),
+            limit = DirectoryLimit,
+            authMode = webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.Directory),
+        ).map(JsonObject::toWallStats)
+        wallsByKey = walls.flatMap { wall -> wall.communityKeys().map { key -> key to wall } }.toMap()
+        return walls
+    }
+
+    private suspend fun resolveCommunityWall(name: String): WebCommunityWallStats? {
+        if (wallsByKey.isEmpty()) loadWalls()
+        return wallsByKey[name.normalizedCommunityKey()]
     }
 
     private suspend fun loadProfiles(
@@ -192,13 +201,17 @@ class WebNeighborhoodsRepository(
 
 internal suspend fun openWebNeighborhoodConversation(
     neighborhood: String,
+    communityIdForName: suspend (String) -> String?,
     cachedConversationId: suspend (String) -> String?,
     openConversation: suspend (communityId: String, title: String) -> Result<String>,
 ): Result<String> = runCatching {
     val title = neighborhood.trim().takeIf(String::isNotEmpty)
         ?: error("web_community_neighborhood_missing")
     cachedConversationId(title)
-        ?: openConversation(title.normalizedCommunityKey(), title).getOrThrow()
+        ?: communityIdForName(title)
+            ?.takeIf { it.matches(PostgrestUuid) }
+            ?.let { openConversation(it, title).getOrThrow() }
+        ?: error("web_community_wall_not_found")
 }
 
 internal suspend fun openWebPrivateConversation(
@@ -212,6 +225,8 @@ internal suspend fun openWebPrivateConversation(
 }
 
 private data class WebCommunityWallStats(
+    val id: String,
+    val slug: String?,
     val name: String?,
     val normalizedName: String?,
     val chatCount: Int?,
@@ -237,17 +252,31 @@ private fun JsonObject.toNeighborhoodUser(): NeighborhoodUser {
 }
 
 private fun JsonObject.toWallStats(): WebCommunityWallStats = WebCommunityWallStats(
+    id = webCommunityString("id") ?: error("web_community_response_missing_wall_id"),
+    slug = webCommunityString("slug"),
     name = webCommunityString("name"),
     normalizedName = webCommunityString("normalized_name")?.normalizedCommunityKey(),
     chatCount = webCommunityInt("chat_count"),
     chatLastAtMillis = webCommunityString("chat_last_at")?.toWebCommunityEpochMillis(),
 )
 
+private fun WebCommunityWallStats.communityKeys(): Set<String> =
+    listOf(slug, name, normalizedName)
+        .mapNotNull { it?.normalizedCommunityKey()?.takeIf(String::isNotBlank) }
+        .toSet()
+
+private fun WebCommunityWallStats.primaryCommunityKey(): String? =
+    (normalizedName ?: name ?: slug)
+        ?.normalizedCommunityKey()
+        ?.takeIf(String::isNotBlank)
+
 private fun JsonObject.webCommunityString(name: String): String? = this[name]?.jsonPrimitive?.contentOrNull
 
 private fun JsonObject.webCommunityInt(name: String): Int? = this[name]?.jsonPrimitive?.intOrNull
 
 private fun String.normalizedCommunityKey(): String = trim().lowercase().replace(Regex("\\s+"), " ")
+
+private val PostgrestUuid = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}")
 
 private fun List<String>.toPostgrestInFilter(): String = "in.(${joinToString(",")})"
 

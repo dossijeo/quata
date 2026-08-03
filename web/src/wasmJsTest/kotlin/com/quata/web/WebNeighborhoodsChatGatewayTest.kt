@@ -12,6 +12,7 @@ class WebNeighborhoodsChatGatewayTest {
 
         val result = openWebNeighborhoodConversation(
             neighborhood = "  Centro Norte  ",
+            communityIdForName = { error("cached conversation must not resolve its wall") },
             cachedConversationId = { name ->
                 assertEquals("Centro Norte", name)
                 "sb:41"
@@ -30,9 +31,13 @@ class WebNeighborhoodsChatGatewayTest {
     fun communityChatUsesPortableChatMutationWithCanonicalId() = runTest {
         val result = openWebNeighborhoodConversation(
             neighborhood = "  Centro   Norte  ",
+            communityIdForName = { name ->
+                assertEquals("Centro   Norte", name)
+                "20000000-0000-4000-8000-000000000042"
+            },
             cachedConversationId = { null },
             openConversation = { communityId, title ->
-                assertEquals("centro norte", communityId)
+                assertEquals("20000000-0000-4000-8000-000000000042", communityId)
                 assertEquals("Centro   Norte", title)
                 Result.success("sb:42")
             },
@@ -58,9 +63,17 @@ class WebNeighborhoodsChatGatewayTest {
     @Test
     fun invalidCommunityAndPeerIdentifiersFailBeforeMutation() = runTest {
         var mutationCalls = 0
-        val blankCommunity = openWebNeighborhoodConversation("   ", { null }) { _, _ ->
+        val blankCommunity = openWebNeighborhoodConversation("   ", { null }, { null }) { _, _ ->
             mutationCalls += 1
             Result.success("sb:1")
+        }
+        val missingWall = openWebNeighborhoodConversation("Centro", { null }, { null }) { _, _ ->
+            mutationCalls += 1
+            Result.success("sb:3")
+        }
+        val invalidWall = openWebNeighborhoodConversation("Centro", { "centro" }, { null }) { _, _ ->
+            mutationCalls += 1
+            Result.success("sb:4")
         }
         val invalidPeer = openWebPrivateConversation("peer/id", { null }) {
             mutationCalls += 1
@@ -68,6 +81,8 @@ class WebNeighborhoodsChatGatewayTest {
         }
 
         assertTrue(blankCommunity.isFailure)
+        assertTrue(missingWall.isFailure)
+        assertTrue(invalidWall.isFailure)
         assertTrue(invalidPeer.isFailure)
         assertEquals(0, mutationCalls)
     }

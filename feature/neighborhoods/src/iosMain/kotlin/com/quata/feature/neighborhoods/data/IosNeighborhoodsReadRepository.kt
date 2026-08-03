@@ -56,6 +56,7 @@ class IosNeighborhoodsReadRepository(
     private val chatRepository: ChatRepository,
 ) : NeighborhoodRepository {
     private val profileCache = mutableMapOf<String, CommunityUserProfile>()
+    private var wallsByKey = emptyMap<String, IosCommunityWallStats>()
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flow {
         emit(loadCommunities())
@@ -66,11 +67,14 @@ class IosNeighborhoodsReadRepository(
             ?: error("ios_communities_neighborhood_missing")
         val session = authenticatedSession()
         chatRepository.cachedCommunityConversationId(cleanNeighborhood)
-            ?: chatRepository.openCommunityConversation(
-                communityId = cleanNeighborhood.normalizedCommunityKey(),
-                title = cleanNeighborhood,
-                participantIds = listOf(session.userId),
-            ).getOrThrow()
+            ?: resolveCommunityWall(cleanNeighborhood)?.let { wall ->
+                chatRepository.openCommunityConversation(
+                    communityId = wall.id,
+                    title = wall.name ?: cleanNeighborhood,
+                    participantIds = listOf(session.userId),
+                ).getOrThrow()
+            }
+            ?: error("ios_communities_wall_not_found")
     }
 
     override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> =
@@ -116,6 +120,7 @@ class IosNeighborhoodsReadRepository(
     }
 
     private suspend fun loadCommunities(): List<NeighborhoodCommunity> {
+        loadWalls()
         val grouped = loadProfiles()
             .filter { it.neighborhood.isNotBlank() }
             .groupBy { it.neighborhood.normalizedCommunityKey() }
@@ -137,6 +142,7 @@ class IosNeighborhoodsReadRepository(
     }
 
     private suspend fun loadProfiles(ids: List<String>? = null): List<NeighborhoodUser> = rows(
+        table = "community_profiles",
         query = buildMap {
             put("select", ProfileSelect)
             put("order", "display_name.asc")
@@ -145,13 +151,32 @@ class IosNeighborhoodsReadRepository(
         },
     ).map(Map<*, *>::toIosNeighborhoodUser)
 
-    private suspend fun rows(query: Map<String, String>): List<Map<*, *>> {
+    private suspend fun loadWalls(): List<IosCommunityWallStats> {
+        val walls = rows(
+            table = "community_walls_stats",
+            query = mapOf(
+                "select" to WallStatsSelect,
+                "is_active" to "eq.true",
+                "order" to "sort_order.asc,chat_last_at.desc,created_at.desc",
+                "limit" to WallLimit.toString(),
+            ),
+        ).map(Map<*, *>::toIosCommunityWallStats)
+        wallsByKey = walls.flatMap { wall -> wall.communityKeys().map { key -> key to wall } }.toMap()
+        return walls
+    }
+
+    private suspend fun resolveCommunityWall(name: String): IosCommunityWallStats? {
+        if (wallsByKey.isEmpty()) loadWalls()
+        return wallsByKey[name.normalizedCommunityKey()]
+    }
+
+    private suspend fun rows(table: String, query: Map<String, String>): List<Map<*, *>> {
         val baseUrl = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty)
             ?: error("ios_communities_supabase_url_missing")
         val publishableKey = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty)
             ?: error("ios_communities_supabase_publishable_key_missing")
         val session = authSession?.currentSession()
-        val url = NSURL(string = "$baseUrl/rest/v1/community_profiles${query.toIosNeighborhoodQueryString()}")
+        val url = NSURL(string = "$baseUrl/rest/v1/$table${query.toIosNeighborhoodQueryString()}")
             ?: error("ios_communities_url_invalid")
         val requestConfiguration = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
             HTTPAdditionalHeaders = mapOf(
@@ -174,7 +199,9 @@ class IosNeighborhoodsReadRepository(
 
     private companion object {
         const val DirectoryLimit = 500
+        const val WallLimit = 250
         const val ProfileSelect = "id,display_name,phone,country_code,phone_local,barrio,neighborhood,telefono,nombre,avatar_url,avatar,followers_count,following_count,is_admin,is_official"
+        const val WallStatsSelect = "id,slug,name,normalized_name"
     }
 }
 
@@ -259,6 +286,25 @@ private fun Map<*, *>.toIosNeighborhoodUser(): NeighborhoodUser = NeighborhoodUs
     followersCount = iosNeighborhoodInt("followers_count"),
     followingCount = iosNeighborhoodInt("following_count"),
 )
+
+private data class IosCommunityWallStats(
+    val id: String,
+    val slug: String?,
+    val name: String?,
+    val normalizedName: String?,
+)
+
+private fun Map<*, *>.toIosCommunityWallStats(): IosCommunityWallStats = IosCommunityWallStats(
+    id = requiredIosNeighborhoodString("id"),
+    slug = iosNeighborhoodString("slug"),
+    name = iosNeighborhoodString("name"),
+    normalizedName = iosNeighborhoodString("normalized_name"),
+)
+
+private fun IosCommunityWallStats.communityKeys(): Set<String> =
+    listOf(slug, name, normalizedName)
+        .mapNotNull { it?.normalizedCommunityKey()?.takeIf(String::isNotBlank) }
+        .toSet()
 
 private fun Map<*, *>.requiredIosNeighborhoodString(name: String): String =
     iosNeighborhoodString(name) ?: error("ios_communities_response_missing_$name")
