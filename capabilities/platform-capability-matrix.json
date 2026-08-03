@@ -57,7 +57,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebFeedRepository.kt",
-              "sha256": "89310e107382f13c20e8387aca05fb25c5cea064f071d4bf00f528c24ee4c0a3",
+              "sha256": "2bc33d85569b44428014664ac2976efcf9e0eb35b465e61cf208d584ce3db3cb",
               "role": "implementation"
             }
           ]
@@ -72,7 +72,7 @@
             },
             {
               "path": "feature/feed/src/iosMain/kotlin/com/quata/feature/feed/data/IosAuthenticatedFeedRepository.kt",
-              "sha256": "27dd187b16110ac475301ee49afba368d7c0f1b97f0bb10b042d07100816178d",
+              "sha256": "31f04224e9b78fdeec0ac39abd3ca25ce8867a35c893ef970e3128b9d5035743",
               "role": "implementation"
             }
           ]
@@ -118,7 +118,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebFeedRepository.kt",
-              "sha256": "89310e107382f13c20e8387aca05fb25c5cea064f071d4bf00f528c24ee4c0a3",
+              "sha256": "2bc33d85569b44428014664ac2976efcf9e0eb35b465e61cf208d584ce3db3cb",
               "role": "implementation"
             }
           ]
@@ -133,7 +133,7 @@
             },
             {
               "path": "feature/feed/src/iosMain/kotlin/com/quata/feature/feed/data/IosAuthenticatedFeedRepository.kt",
-              "sha256": "27dd187b16110ac475301ee49afba368d7c0f1b97f0bb10b042d07100816178d",
+              "sha256": "31f04224e9b78fdeec0ac39abd3ca25ce8867a35c893ef970e3128b9d5035743",
               "role": "implementation"
             }
           ]
@@ -364,7 +364,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt",
-              "sha256": "1d3daefd789c55acdc83b3108321a1e87ec18659b8360284f8680c91ec586b47",
+              "sha256": "8ad7b575062252291f2605dcb8d91f445438ccce581a8cbfad4e46e309b02f08",
               "role": "implementation"
             }
           ]
@@ -379,7 +379,7 @@
             },
             {
               "path": "feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt",
-              "sha256": "0562663299d1fc091cc06ebf4bad3da3e00782973ca1b128f4ddb9e6af2ed08a",
+              "sha256": "e6d7920727fcab0b9e409e17c155cb8bf30581186029c97493b1f273b3bff69c",
               "role": "implementation"
             }
           ]
@@ -427,7 +427,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt",
-              "sha256": "1d3daefd789c55acdc83b3108321a1e87ec18659b8360284f8680c91ec586b47",
+              "sha256": "8ad7b575062252291f2605dcb8d91f445438ccce581a8cbfad4e46e309b02f08",
               "role": "implementation"
             }
           ]
@@ -442,7 +442,7 @@
             },
             {
               "path": "feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt",
-              "sha256": "0562663299d1fc091cc06ebf4bad3da3e00782973ca1b128f4ddb9e6af2ed08a",
+              "sha256": "e6d7920727fcab0b9e409e17c155cb8bf30581186029c97493b1f273b3bff69c",
               "role": "implementation"
             }
           ]
@@ -485,7 +485,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt",
-              "sha256": "1d3daefd789c55acdc83b3108321a1e87ec18659b8360284f8680c91ec586b47",
+              "sha256": "8ad7b575062252291f2605dcb8d91f445438ccce581a8cbfad4e46e309b02f08",
               "role": "adapter"
             },
             {
@@ -510,7 +510,7 @@
             },
             {
               "path": "feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt",
-              "sha256": "0562663299d1fc091cc06ebf4bad3da3e00782973ca1b128f4ddb9e6af2ed08a",
+              "sha256": "e6d7920727fcab0b9e409e17c155cb8bf30581186029c97493b1f273b3bff69c",
               "role": "adapter"
             },
             {
@@ -558,7 +558,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt",
-              "sha256": "1d3daefd789c55acdc83b3108321a1e87ec18659b8360284f8680c91ec586b47",
+              "sha256": "8ad7b575062252291f2605dcb8d91f445438ccce581a8cbfad4e46e309b02f08",
               "role": "adapter"
             },
             {
@@ -583,7 +583,7 @@
             },
             {
               "path": "feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt",
-              "sha256": "0562663299d1fc091cc06ebf4bad3da3e00782973ca1b128f4ddb9e6af2ed08a",
+              "sha256": "e6d7920727fcab0b9e409e17c155cb8bf30581186029c97493b1f273b3bff69c",
               "role": "adapter"
             },
             {

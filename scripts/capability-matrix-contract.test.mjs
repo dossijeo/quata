@@ -95,3 +95,17 @@ test('evidence paths reject symlinks and canonical paths outside the repository'
     realpath: async (path) => String(path).endsWith('FeedRepository.kt') ? resolve(import.meta.dirname, '..', '..', 'outside.kt') : realpath(path),
   }), /resolved source escapes repository/);
 });
+
+test('REPORT-RPC-001 Web and iOS use the deployed quata_ugc_report actor argument', async () => {
+  const sources = [
+    'web/src/wasmJsMain/kotlin/com/quata/web/WebFeedRepository.kt',
+    'web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt',
+    'feature/feed/src/iosMain/kotlin/com/quata/feature/feed/data/IosAuthenticatedFeedRepository.kt',
+    'feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt',
+  ];
+  for (const relativePath of sources) {
+    const source = await readFile(resolve(import.meta.dirname, '..', relativePath), 'utf8');
+    assert.match(source, /p_actor_profile_id/, `${relativePath} must send the deployed actor argument`);
+    assert.doesNotMatch(source, /p_reporter_id/, `${relativePath} must not send the obsolete reporter argument`);
+  }
+});

@@ -66,7 +66,7 @@ class WebFeedRepository(
     }
     override suspend fun reportPost(postId: String): Result<Post?> = runCatching {
         val userId = authRepository.restoreLocalSession()?.userId ?: error("web_session_missing")
-        client.rpc("quata_ugc_report", "{\"p_reporter_id\":\"$userId\",\"p_target_type\":\"community_post\",\"p_target_id\":\"$postId\",\"p_reason\":\"other\"}").requireWebSuccess()
+        client.rpc("quata_ugc_report", "{\"p_actor_profile_id\":\"$userId\",\"p_target_type\":\"community_post\",\"p_target_id\":\"$postId\",\"p_reason\":\"other\"}").requireWebSuccess()
         refreshPost(postId).getOrThrow()
     }
     override suspend fun addComment(postId: String, comment: PostComment): Result<Post?> = runCatching {

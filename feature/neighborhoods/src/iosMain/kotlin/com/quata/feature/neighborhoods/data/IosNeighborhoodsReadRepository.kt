@@ -111,7 +111,7 @@ class IosNeighborhoodsReadRepository(
         val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
         val targetId = postId.requireIosNeighborhoodIdentifier()
         feedTransport.reportPostRpc(
-            "{\"p_reporter_id\":${actorId.toIosNeighborhoodJsonString()},\"p_target_type\":\"community_post\",\"p_target_id\":${targetId.toIosNeighborhoodJsonString()},\"p_reason\":\"other\"}",
+            "{\"p_actor_profile_id\":${actorId.toIosNeighborhoodJsonString()},\"p_target_type\":\"community_post\",\"p_target_id\":${targetId.toIosNeighborhoodJsonString()},\"p_reason\":\"other\"}",
         ).getOrThrow()
     }
 
@@ -130,7 +130,7 @@ class IosNeighborhoodsReadRepository(
         val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
         val targetId = userId.requireIosNeighborhoodIdentifier()
         feedTransport.reportPostRpc(
-            "{\"p_reporter_id\":${actorId.toIosNeighborhoodJsonString()},\"p_target_type\":\"profile\",\"p_target_id\":${targetId.toIosNeighborhoodJsonString()},\"p_reason\":\"other\"}",
+            "{\"p_actor_profile_id\":${actorId.toIosNeighborhoodJsonString()},\"p_target_type\":\"profile\",\"p_target_id\":${targetId.toIosNeighborhoodJsonString()},\"p_reason\":\"other\"}",
         ).getOrThrow()
     }
 

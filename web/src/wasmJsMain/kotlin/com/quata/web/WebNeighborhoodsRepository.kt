@@ -102,7 +102,7 @@ class WebNeighborhoodsRepository(
         val targetId = postId.requireWebCommunityIdentifier()
         client.rpc(
             "quata_ugc_report",
-            "{\"p_reporter_id\":${actorId.webCommunityJsonString()},\"p_target_type\":\"community_post\",\"p_target_id\":${targetId.webCommunityJsonString()},\"p_reason\":\"other\"}",
+            "{\"p_actor_profile_id\":${actorId.webCommunityJsonString()},\"p_target_type\":\"community_post\",\"p_target_id\":${targetId.webCommunityJsonString()},\"p_reason\":\"other\"}",
         ).requireWebCommunitySuccess()
     }
 
@@ -114,7 +114,7 @@ class WebNeighborhoodsRepository(
         val targetId = userId.requireWebCommunityIdentifier()
         client.rpc(
             "quata_ugc_report",
-            "{\"p_reporter_id\":${actorId.webCommunityJsonString()},\"p_target_type\":\"profile\",\"p_target_id\":${targetId.webCommunityJsonString()},\"p_reason\":\"other\"}",
+            "{\"p_actor_profile_id\":${actorId.webCommunityJsonString()},\"p_target_type\":\"profile\",\"p_target_id\":${targetId.webCommunityJsonString()},\"p_reason\":\"other\"}",
         ).requireWebCommunitySuccess()
     }
 
