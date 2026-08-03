@@ -780,6 +780,9 @@ internal val WebNavigationState.isPublicRoute: Boolean
         route == "communities" ||
         route == "official" ||
         route == "notifications" ||
+        route == "whats-new" ||
+        route == "about" ||
+        route == "release-history" ||
         postId != null ||
         officialPostId != null
 

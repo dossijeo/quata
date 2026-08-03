@@ -76,6 +76,10 @@ class WebNavigationTest {
         check("post-publication-123".toWebNavigationState().isPublicRoute)
         check("notifications".toWebNavigationState().isPublicRoute)
         check(!"notifications".toWebNavigationState().requiresAuthentication)
+        listOf("whats-new", "about", "release-history").forEach { route ->
+            check(route.toWebNavigationState().isPublicRoute)
+            check(!route.toWebNavigationState().requiresAuthentication)
+        }
         check(!"chat".toWebNavigationState().isPublicRoute)
         check("chat".toWebNavigationState().requiresAuthentication)
         check("profile".toWebNavigationState().requiresAuthentication)
