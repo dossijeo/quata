@@ -27,9 +27,6 @@ class LocalWhatsNewRepository(
     private val store: WhatsNewSeenStateStore,
 ) : WhatsNewRepository {
     private val catalog = releases
-        .filter { it.releaseId.isNotBlank() && it.versionCode > 0 && it.notes.hasUsableNote() }
-        .distinctBy(LocalWhatsNewRelease::versionCode)
-        .sortedBy(LocalWhatsNewRelease::versionCode)
 
     override suspend fun getPendingReleases(
         installedVersionCode: Long,
@@ -81,18 +78,15 @@ class LocalWhatsNewRepository(
 }
 
 private fun LocalWhatsNewRelease.localized(languageTags: List<String>): PendingRelease? {
-    val cleanNotes = notes.mapValues { it.value.trim() }.filterValues(String::isNotEmpty)
-    val note = cleanNotes.resolve(languageTags) ?: return null
+    val note = notes.resolve(languageTags)?.trim()?.takeIf(String::isNotEmpty) ?: return null
     return PendingRelease(
         releaseId = releaseId,
         versionCode = versionCode,
         versionName = versionName,
         localizedNote = note,
-        availableLanguageTags = cleanNotes.keys,
+        availableLanguageTags = notes.keys,
     )
 }
-
-private fun Map<String, String>.hasUsableNote(): Boolean = values.any { it.isNotBlank() }
 
 /** Exact tag, language-only tag, English and finally the first stable catalog translation. */
 private fun Map<String, String>.resolve(languageTags: List<String>): String? {
@@ -103,7 +97,7 @@ private fun Map<String, String>.resolve(languageTags: List<String>): String? {
         entries.firstOrNull { it.key.normalizedLanguageTag().substringBefore('-') == language }?.value
     }?.let { return it }
     entries.firstOrNull { it.key.normalizedLanguageTag().substringBefore('-') == "en" }?.value?.let { return it }
-    return entries.sortedBy { it.key.lowercase() }.firstOrNull()?.value
+    return entries.firstOrNull()?.value
 }
 
 private fun String.normalizedLanguageTag(): String = trim().replace('_', '-').lowercase()
