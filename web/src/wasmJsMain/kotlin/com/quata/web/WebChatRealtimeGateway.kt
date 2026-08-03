@@ -395,7 +395,7 @@ private fun webChatRealtimeNowMillis(): Long = webChatRealtimeNowMillisAsDouble(
   socket.onopen = () => onOpen();
   socket.onmessage = event => onMessage(String(event.data ?? ''));
   socket.onclose = () => onClosed();
-  socket.onerror = () => onClosed();
+  socket.onerror = () => { try { socket.close(); } finally { onClosed(); } };
   return socket;
 }""")
 private external fun createWebChatRealtimeSocket(baseUrl: JsString, apiKey: JsString, onOpen: () -> Unit, onMessage: (JsString) -> Unit, onClosed: () -> Unit): JsAny
