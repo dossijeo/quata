@@ -1,20 +1,5 @@
 package com.quata.feature.whatsnew.presentation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.platform.PlatformResult
@@ -22,9 +7,9 @@ import com.quata.feature.whatsnew.data.IosWhatsNewSeenStateStore
 import com.quata.feature.whatsnew.data.LocalWhatsNewPlatform
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
 import com.quata.feature.whatsnew.data.QuataLocalWhatsNewCatalog
-import com.quata.feature.whatsnew.domain.PendingRelease
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import kotlin.concurrent.Volatile
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import platform.Foundation.NSBundle
 import platform.Foundation.NSUserDefaults
@@ -35,9 +20,29 @@ class IosWhatsNewRuntimeBootstrap internal constructor(
     val installedVersionName: String,
     val languageTags: List<String>,
     val repository: WhatsNewRepository,
+    private val startupCoordinator: WhatsNewStartupCoordinator,
 ) {
+    private val startupScope = MainScope()
+
     fun whatsNewStrings(): WhatsNewStrings = iosWhatsNewStrings(languageTags)
+    fun whatsNewScreenHostStrings(): WhatsNewScreenHostStrings = iosWhatsNewScreenHostStrings(languageTags)
     fun releaseHistoryStrings(): ReleaseHistoryStrings = iosReleaseHistoryStrings(languageTags)
+
+    /** Runs the shared first-version decision without blocking UIKit's public Feed. */
+    fun evaluateStartup(onDecision: (Boolean) -> Unit) {
+        startupScope.launch {
+            val decision = startupCoordinator.evaluate(installedVersionCode, languageTags).getOrNull()
+            onDecision(decision == WhatsNewStartupDecision.Show)
+        }
+    }
+
+    /** Persists the installed-version acknowledgement before UIKit returns to Feed. */
+    fun acknowledgeStartup(onComplete: () -> Unit) {
+        startupScope.launch {
+            startupCoordinator.acknowledge(installedVersionCode)
+            onComplete()
+        }
+    }
 }
 
 /**
@@ -74,7 +79,11 @@ fun createIosWhatsNewRuntimeBootstrap(
         releases = QuataLocalWhatsNewCatalog.releases(LocalWhatsNewPlatform.Ios),
         store = IosWhatsNewSeenStateStore(defaults, IosWhatsNewSeenStateStore.DefaultKey),
     )
-    return IosWhatsNewRuntimeBootstrap(versionCode, versionName, languageTags, repository)
+    val startupCoordinator = WhatsNewStartupCoordinator(
+        repository = repository,
+        acknowledgementStore = IosWhatsNewStartupAcknowledgementStore(defaults),
+    )
+    return IosWhatsNewRuntimeBootstrap(versionCode, versionName, languageTags, repository, startupCoordinator)
 }
 
 private val LanguageTagPattern = Regex("^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$")
@@ -85,7 +94,13 @@ fun QuataIosManagedWhatsNewViewController(
     onClose: () -> Unit,
 ): UIViewController = ComposeUIViewController {
     QuataTheme {
-        ManagedWhatsNewContent(runtime, onClose)
+        WhatsNewScreenHost(
+            repository = runtime.repository,
+            installedVersionCode = runtime.installedVersionCode,
+            languageTags = runtime.languageTags,
+            strings = runtime.whatsNewScreenHostStrings(),
+            onClose = onClose,
+        )
     }
 }
 
@@ -101,74 +116,6 @@ fun QuataIosReleaseHistoryViewController(
         onBack = onClose,
     ),
 )
-
-@Composable
-private fun ManagedWhatsNewContent(runtime: IosWhatsNewRuntimeBootstrap, onClose: () -> Unit) {
-    var state by remember(runtime) { mutableStateOf<IosWhatsNewState>(IosWhatsNewState.Loading) }
-    var isCompleting by remember(runtime) { mutableStateOf(false) }
-    var saveFailed by remember(runtime) { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-
-    LaunchedEffect(runtime) {
-        runtime.repository.initializeForNewUser(runtime.installedVersionCode)
-            .onFailure { state = IosWhatsNewState.Error }
-            .onSuccess {
-                state = runtime.repository.getPendingReleases(runtime.installedVersionCode, runtime.languageTags)
-                    .fold(
-                        onSuccess = { if (it.isEmpty()) IosWhatsNewState.Empty else IosWhatsNewState.Content(it) },
-                        onFailure = { IosWhatsNewState.Error },
-                    )
-            }
-    }
-
-    when (val current = state) {
-        IosWhatsNewState.Loading -> CenteredWhatsNewMessage { CircularProgressIndicator() }
-        IosWhatsNewState.Empty -> LaunchedEffect(Unit) { onClose() }
-        IosWhatsNewState.Error -> CenteredWhatsNewMessage { Text(iosCopy(runtime.languageTags).loadError) }
-        is IosWhatsNewState.Content -> {
-            val finish: () -> Unit = finish@{
-                if (isCompleting) return@finish
-                isCompleting = true
-                saveFailed = false
-                scope.launch {
-                    runtime.repository.markReleasesSeen(
-                        upToVersionCode = current.releases.maxOf(PendingRelease::versionCode),
-                        installedVersionCode = runtime.installedVersionCode,
-                    ).onSuccess { onClose() }.onFailure {
-                        isCompleting = false
-                        saveFailed = true
-                    }
-                }
-            }
-            Box(Modifier.fillMaxSize()) {
-                WhatsNewContent(
-                    releases = current.releases,
-                    isCompleting = isCompleting,
-                    strings = runtime.whatsNewStrings(),
-                    onComplete = finish,
-                    onDismiss = finish,
-                )
-                if (saveFailed) {
-                    Text(
-                        iosCopy(runtime.languageTags).saveError,
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CenteredWhatsNewMessage(content: @Composable () -> Unit) =
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
-
-private sealed interface IosWhatsNewState {
-    data object Loading : IosWhatsNewState
-    data object Empty : IosWhatsNewState
-    data object Error : IosWhatsNewState
-    data class Content(val releases: List<PendingRelease>) : IosWhatsNewState
-}
 
 enum class IosWhatsNewRoute { PendingReleases, ReleaseHistory }
 
@@ -195,27 +142,52 @@ class IosWhatsNewRouteDispatcher {
     }
 }
 
-private data class IosWhatsNewCopy(val loadError: String, val saveError: String)
+private class IosWhatsNewStartupAcknowledgementStore(
+    private val defaults: NSUserDefaults,
+) : WhatsNewStartupAcknowledgementStore {
+    override suspend fun readAcknowledgedVersionCode(): Result<Long?> = Result.success(
+        if (defaults.objectForKey(Key) == null) null else defaults.integerForKey(Key),
+    )
 
-private fun iosCopy(tags: List<String>): IosWhatsNewCopy = if (tags.isSpanish()) {
-    IosWhatsNewCopy("No se pudieron cargar las novedades.", "No se pudo guardar el estado de lectura.")
-} else {
-    IosWhatsNewCopy("What's New could not be loaded.", "Read progress could not be saved.")
+    override suspend fun writeAcknowledgedVersionCode(versionCode: Long): Result<Unit> = runCatching {
+        defaults.setInteger(versionCode, forKey = Key)
+    }
+
+    private companion object {
+        const val Key = "quata.whatsnew.startup.acknowledged_version"
+    }
 }
 
-private fun iosWhatsNewStrings(tags: List<String>): WhatsNewStrings = if (tags.isSpanish()) {
-    WhatsNewStrings("Novedades", "Anterior", "Siguiente", "Continuar", { "Version $it" }, { "Novedades de $it" })
-} else {
-    WhatsNewStrings("What's New", "Previous", "Next", "Continue", { "Version $it" }, { "What's new in $it" })
+private data class IosWhatsNewCopy(
+    val loadError: String,
+    val saveError: String,
+    val retry: String,
+)
+
+private fun iosCopy(tags: List<String>): IosWhatsNewCopy = when {
+    tags.isSpanish() -> IosWhatsNewCopy("No se pudieron cargar las novedades.", "No se pudo guardar el estado de lectura.", "Reintentar")
+    tags.isFrench() -> IosWhatsNewCopy("Impossible de charger les nouveautés.", "Impossible d'enregistrer la progression.", "Réessayer")
+    else -> IosWhatsNewCopy("What's New could not be loaded.", "Read progress could not be saved.", "Retry")
 }
 
-private fun iosReleaseHistoryStrings(tags: List<String>): ReleaseHistoryStrings = if (tags.isSpanish()) {
-    ReleaseHistoryStrings("Cerrar", "No hay versiones disponibles.", "No se pudo cargar el historial.", "Acerca de Quata", "Historial de versiones", "Anterior", "Siguiente", { "Version $it" }, { "Novedades de $it" })
-} else {
-    ReleaseHistoryStrings("Close", "No releases are available.", "Release history could not be loaded.", "About Quata", "Release history", "Previous", "Next", { "Version $it" }, { "What's new in $it" })
+private fun iosWhatsNewStrings(tags: List<String>): WhatsNewStrings = when {
+    tags.isSpanish() -> WhatsNewStrings("Novedades", "Anterior", "Siguiente", "Continuar", { "Version $it" }, { "Novedades de $it" })
+    tags.isFrench() -> WhatsNewStrings("Nouveautés", "Précédent", "Suivant", "Continuer", { "Version $it" }, { "Nouveautés de $it" })
+    else -> WhatsNewStrings("What's New", "Previous", "Next", "Continue", { "Version $it" }, { "What's new in $it" })
+}
+
+private fun iosWhatsNewScreenHostStrings(tags: List<String>): WhatsNewScreenHostStrings = iosCopy(tags).let { copy ->
+    WhatsNewScreenHostStrings(iosWhatsNewStrings(tags), copy.loadError, copy.saveError, copy.retry)
+}
+
+private fun iosReleaseHistoryStrings(tags: List<String>): ReleaseHistoryStrings = when {
+    tags.isSpanish() -> ReleaseHistoryStrings("Cerrar", "No hay versiones disponibles.", "No se pudo cargar el historial.", "Acerca de Quata", "Historial de versiones", "Anterior", "Siguiente", { "Version $it" }, { "Novedades de $it" })
+    tags.isFrench() -> ReleaseHistoryStrings("Fermer", "Aucune nouveauté publiée.", "Impossible de charger l'historique des versions.", "À propos de Quata", "Historique des versions", "Précédent", "Suivant", { "Version $it" }, { "Nouveautés de $it" })
+    else -> ReleaseHistoryStrings("Close", "No releases are available.", "Release history could not be loaded.", "About Quata", "Release history", "Previous", "Next", { "Version $it" }, { "What's new in $it" })
 }
 
 private fun List<String>.isSpanish(): Boolean = any { it.substringBefore('-').equals("es", ignoreCase = true) }
+private fun List<String>.isFrench(): Boolean = any { it.substringBefore('-').equals("fr", ignoreCase = true) }
 
 private fun NSBundle.configuredString(key: String): String? =
     objectForInfoDictionaryKey(key)?.toString()?.trim()?.takeIf { it.isNotEmpty() && "$(" !in it }

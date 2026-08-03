@@ -571,6 +571,25 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(router.children.count, 3)
     }
 
+    func testStartupWhatsNewOpensOnlyWhileThePublicFeedIsStillVisible() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let feed = UIViewController()
+        let whatsNew = UIViewController()
+        let notifications = UIViewController()
+        router.installPublicFeed { _ in feed }
+        router.installWhatsNewFactory { whatsNew }
+        router.installNotificationsFactory { notifications }
+
+        XCTAssertTrue(router.showWhatsNewIfFeedVisible())
+        XCTAssertTrue(authenticatedRouteController(in: router) === whatsNew)
+
+        router.showNotifications()
+
+        XCTAssertFalse(router.showWhatsNewIfFeedVisible())
+        XCTAssertTrue(authenticatedRouteController(in: router) === notifications)
+    }
+
     func testPublicRuntimeConfigurationRequiresBothNonEmptyClientSettings() {
         XCTAssertNil(IosPublicRuntimeConfiguration.feedConfiguration(infoDictionary: [
             "QUATA_SUPABASE_URL": "https://deployment.invalid",
