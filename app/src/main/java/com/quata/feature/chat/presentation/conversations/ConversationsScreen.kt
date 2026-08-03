@@ -112,6 +112,69 @@ fun ConversationsScreen(
     onOpenFavorites: () -> Unit = {},
     viewModel: ConversationsAndroidViewModel = viewModel(factory = ConversationsAndroidViewModel.factory(repository, LocalContext.current))
 ) {
+    val context = LocalContext.current
+    var contactsPermissionGranted by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED)
+    }
+    val contactsPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        contactsPermissionGranted = granted
+        if (granted) viewModel.loadInviteContacts()
+    }
+    val languageTag = context.resources.configuration.locales[0]?.toLanguageTag()
+
+    ConversationsScreenHost(
+        padding = padding,
+        model = viewModel,
+        clipboardService = clipboardService,
+        strings = conversationsHostStringsForLanguage(languageTag),
+        onOpenConversation = onOpenConversation,
+        onOpenUserProfile = onOpenUserProfile,
+        openingProfileUserId = openingProfileUserId,
+        onOpenFavorites = onOpenFavorites,
+        contactsPermissionGranted = contactsPermissionGranted,
+        onRequestInviteContactsPermission = {
+            contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+        },
+        remoteConversationAvatar = { presentation, modifier ->
+            AvatarImage(
+                name = presentation.name,
+                avatarUrl = presentation.avatarUrl,
+                profileId = presentation.stableId,
+                modifier = modifier,
+            )
+        },
+        candidateAvatar = { candidate, modifier ->
+            AvatarImage(
+                name = candidate.displayName,
+                avatarUrl = candidate.avatarUrl,
+                profileId = candidate.profileId,
+                modifier = modifier,
+            )
+        },
+        inviteAvatar = { contact, modifier ->
+            QuataAvatarFallback(contact.displayName, contact.id, modifier)
+        },
+        panelHost = { content ->
+            QuataStandardFloatingPanel(onDismiss = viewModel::closeNewConversationPicker, template = quataTheme()) { modifier, landscape ->
+                content(modifier, landscape)
+            }
+        },
+        inviteSheet = { contact, clipboard, dismiss -> InviteChannelSheet(contact, clipboard, dismiss) },
+        nowMillisProvider = System::currentTimeMillis,
+    )
+}
+
+@Composable
+private fun LegacyConversationsScreen(
+    padding: PaddingValues,
+    repository: ChatRepository,
+    clipboardService: ClipboardService,
+    onOpenConversation: (String) -> Unit,
+    onOpenUserProfile: (String) -> Unit = {},
+    openingProfileUserId: String? = null,
+    onOpenFavorites: () -> Unit = {},
+    viewModel: ConversationsAndroidViewModel = viewModel(factory = ConversationsAndroidViewModel.factory(repository, LocalContext.current))
+) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var query by rememberSaveable { mutableStateOf("") }

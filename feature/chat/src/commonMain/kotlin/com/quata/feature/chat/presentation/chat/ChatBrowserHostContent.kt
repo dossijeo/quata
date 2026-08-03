@@ -77,6 +77,8 @@ fun ChatBrowserHostContent(
     onOpenConversation: (String) -> Unit,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    conversationList: @Composable (Modifier) -> Unit,
+    text: (ChatText) -> String,
     focusedMessageId: String? = null,
     modifier: Modifier = Modifier,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(),
@@ -85,12 +87,7 @@ fun ChatBrowserHostContent(
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
 ) {
     if (conversationId == null) {
-        ChatBrowserConversationList(
-            repository = repository,
-            navigationMessage = navigationMessage,
-            onOpenConversation = onOpenConversation,
-            modifier = modifier,
-        )
+        conversationList(modifier)
     } else {
         ChatBrowserConversationDetail(
             repository = repository,
@@ -106,6 +103,7 @@ fun ChatBrowserHostContent(
             audioRecordingConfiguration = audioRecordingConfiguration,
             messageInputOverride = messageInputOverride,
             sendButtonOverride = sendButtonOverride,
+            text = text,
             modifier = modifier,
         )
     }
@@ -275,13 +273,14 @@ private fun ChatBrowserConversationDetail(
     audioRecordingConfiguration: ChatAudioRecordingConfiguration,
     messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)?,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
+    text: (ChatText) -> String,
     modifier: Modifier,
 ) {
     val viewModel = remember(repository, conversationId) {
         ChatViewModel(
             conversationId = conversationId,
             repository = repository,
-            text = { "No se pudieron cargar los mensajes." },
+            text = text,
         )
     }
     val state by viewModel.uiState.collectAsState()
