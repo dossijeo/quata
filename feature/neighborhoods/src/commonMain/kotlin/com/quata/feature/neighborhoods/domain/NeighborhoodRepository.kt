@@ -8,6 +8,7 @@ interface NeighborhoodRepository {
     fun observeCommunities(): Flow<List<NeighborhoodCommunity>>
     suspend fun openNeighborhoodChat(neighborhood: String): Result<String>
     suspend fun toggleFollowUser(userId: String): Result<FollowUserResult>
+    suspend fun toggleProfilePostLike(postId: String): Result<Post?>
     suspend fun addProfileComment(postId: String, comment: PostComment): Result<Post?>
     suspend fun reportPost(postId: String): Result<Unit>
     suspend fun reportProfile(userId: String): Result<Unit>

@@ -10,21 +10,29 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.Post
 import com.quata.core.ui.components.IosRemoteAvatar
+import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.core.ui.components.QuataLiveRankingItem
 
 @Composable
-fun IosFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit, isOnline: Boolean? = null) {
-    IosRemoteAvatar(
-        name = post.author.displayName,
-        stableId = post.author.id,
-        avatarUrl = post.author.avatarUrl,
-        isOfficial = post.author.isOfficial,
-        isOnline = isOnline,
-        modifier = Modifier
-            .size(56.dp)
-            .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
-            .clickable { onOpenUserProfile(post.author.id) },
-    )
+fun IosFeedAuthorAvatar(
+    post: Post,
+    onOpenUserProfile: (String) -> Unit,
+    isOnline: Boolean? = null,
+    isLoading: Boolean = false,
+) {
+    QuataAvatarLoadingHaloContent(isLoading = isLoading, modifier = Modifier.size(56.dp)) {
+        IosRemoteAvatar(
+            name = post.author.displayName,
+            stableId = post.author.id,
+            avatarUrl = post.author.avatarUrl,
+            isOfficial = post.author.isOfficial,
+            isOnline = isOnline,
+            modifier = Modifier
+                .size(56.dp)
+                .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
+                .clickable(enabled = !isLoading) { onOpenUserProfile(post.author.id) },
+        )
+    }
 }
 
 @Composable

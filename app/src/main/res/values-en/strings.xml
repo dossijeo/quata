@@ -414,6 +414,9 @@
     <string name="emoji_flags">Flags</string>
     <string name="neighborhoods_title">Q&#252;ata</string>
     <string name="neighborhoods_loading">Loading districts...</string>
+    <string name="neighborhoods_empty">There are no active communities yet.</string>
+    <string name="neighborhoods_no_results">No communities match this search.</string>
+    <string name="neighborhoods_no_members">This community does not have any users yet.</string>
     <string name="neighborhoods_open_community">Open a community</string>
     <string name="neighborhoods_subtitle">Select or search for a district to open its community chat.</string>
     <string name="neighborhoods_user_count">%1$d users</string>

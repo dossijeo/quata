@@ -9,9 +9,12 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.neighborhoods.domain.isCommunityProfileCacheUsable
 import com.quata.feature.feed.data.IosFeedReadTransport
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
+import com.quata.feature.feed.data.IosAuthenticatedFeedRepository
 import com.quata.feature.feed.data.RemoteFeedReadRepository
+import com.quata.feature.feed.domain.ReadOnlyFeedRepository
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -59,7 +62,7 @@ class IosNeighborhoodsReadRepository(
     private val authSession: IosRenewableAuthSession?,
     private val chatRepository: ChatRepository,
 ) : NeighborhoodRepository {
-    private val profileCache = mutableMapOf<String, CommunityUserProfile>()
+    private val profileCache = mutableMapOf<String, IosCachedCommunityProfile>()
     private var wallsByKey = emptyMap<String, IosCommunityWallStats>()
     private val feedConfiguration = IosFeedRuntimeConfiguration(configuration.supabaseUrl, configuration.supabasePublishableKey)
     private val feedTransport = IosFeedReadTransport(feedConfiguration, authSession)
@@ -126,6 +129,12 @@ class IosNeighborhoodsReadRepository(
         RemoteFeedReadRepository(feedTransport).refreshPost(targetId).getOrThrow()
     }
 
+    override suspend fun toggleProfilePostLike(postId: String): Result<Post?> =
+        IosAuthenticatedFeedRepository(
+            transport = feedTransport,
+            read = ReadOnlyFeedRepository(RemoteFeedReadRepository(feedTransport)),
+        ).toggleLike(postId)
+
     override suspend fun reportProfile(userId: String): Result<Unit> = runCatching {
         val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
         val targetId = userId.requireIosNeighborhoodIdentifier()
@@ -173,10 +182,14 @@ class IosNeighborhoodsReadRepository(
         loadProfiles(listOf(targetId)).firstOrNull() ?: error("ios_communities_profile_not_found")
     }
 
-    override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? = profileCache[userId]
+    override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? {
+        val cached = profileCache[userId] ?: return null
+        if (!isCommunityProfileCacheUsable(cached.cachedAtMillis, iosCommunityNowMillis(), maxAgeMillis)) return null
+        return cached.profile
+    }
 
     override suspend fun cacheUserProfile(profile: CommunityUserProfile) {
-        profileCache[profile.user.id] = profile
+        profileCache[profile.user.id] = IosCachedCommunityProfile(profile, iosCommunityNowMillis())
     }
 
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow {
@@ -213,28 +226,30 @@ class IosNeighborhoodsReadRepository(
             isBlockedByCurrentUser = authSession?.currentSession()?.userId?.let { actorId ->
                 loadProfileBlocks(actorId, targetId).isNotEmpty()
             } ?: false,
-        ).also { profileCache[targetId] = it }
+        ).also { cacheUserProfile(it) }
     }
 
     private suspend fun loadCommunities(): List<NeighborhoodCommunity> {
-        loadWalls()
+        val walls = loadWalls()
         val grouped = loadProfiles()
             .filter { it.neighborhood.isNotBlank() }
             .groupBy { it.neighborhood.normalizedCommunityKey() }
-        return buildList {
-            grouped.forEach { (_, users) ->
-                val name = users.firstOrNull()?.neighborhood?.takeIf(String::isNotBlank) ?: return@forEach
-                add(
-                    NeighborhoodCommunity(
-                        name = name,
-                        users = users.distinctBy(NeighborhoodUser::id).sortedBy { it.displayName.lowercase() },
-                        conversationId = chatRepository.cachedCommunityConversationId(name),
-                        lastMessagePreview = null,
-                        lastMessageAtMillis = null,
-                        messageCount = 0,
-                    ),
-                )
-            }
+        val keys = (grouped.keys + walls.flatMap(IosCommunityWallStats::communityKeys)).distinct()
+        return keys.map { key ->
+            val wall = wallsByKey[key]
+            val users = grouped[key].orEmpty().distinctBy(NeighborhoodUser::id).sortedBy { it.displayName.lowercase() }
+            val name = wall?.name?.takeIf(String::isNotBlank)
+                ?: users.firstOrNull()?.neighborhood?.takeIf(String::isNotBlank)
+                ?: key
+            NeighborhoodCommunity(
+                name = name,
+                users = users,
+                conversationId = chatRepository.cachedCommunityConversationId(name),
+                lastMessagePreview = null,
+                lastMessageAtMillis = null,
+                messageCount = 0,
+                wallId = wall?.id,
+            )
         }.sortedBy { it.name.lowercase() }
     }
 
@@ -503,6 +518,14 @@ private fun String.toIosNeighborhoodQueryComponent(): String = encodeToByteArray
 }
 
 private fun String.normalizedCommunityKey(): String = trim().lowercase().replace(Regex("\\s+"), " ")
+
+private data class IosCachedCommunityProfile(
+    val profile: CommunityUserProfile,
+    val cachedAtMillis: Long,
+)
+
+@OptIn(kotlin.time.ExperimentalTime::class)
+private fun iosCommunityNowMillis(): Long = kotlin.time.Clock.System.now().toEpochMilliseconds()
 
 private fun String.requireIosNeighborhoodIdentifier(): String {
     require(matches(IosNeighborhoodIdentifier)) { "ios_communities_identifier_invalid" }

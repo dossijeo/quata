@@ -995,12 +995,16 @@ fun AppNavGraph(
                 followingUserId = globalProfileState.followingUserId,
                 roleUpdatingUserId = globalProfileState.roleUpdatingUserId,
                 commentingPostId = globalProfileState.commentingPostId,
+                likingPostId = globalProfileState.likingPostId,
                 profileSafetyUpdatingUserId = globalProfileState.profileSafetyUpdatingUserId,
                 currentUserIsAdmin = globalProfileState.currentUserIsAdmin,
                 chatError = globalProfileState.error,
                 onAuthRequired = { requestAuthentication() },
                 onReportPost = { postId ->
                     if (isAuthenticated) globalProfileViewModel.reportProfilePost(postId) else requestAuthentication()
+                },
+                onTogglePostLike = { postId ->
+                    if (isAuthenticated) globalProfileViewModel.toggleProfilePostLike(postId) else requestAuthentication()
                 },
                 onReportProfile = { profileId ->
                     if (isAuthenticated) globalProfileViewModel.reportProfile(profileId) else requestAuthentication()

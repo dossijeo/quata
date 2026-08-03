@@ -3,6 +3,8 @@ package com.quata.feature.chat.presentation.chat
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.quata.core.designsystem.theme.QuataTheme
@@ -20,6 +22,7 @@ import com.quata.feature.chat.presentation.conversations.conversationsHostString
 import com.quata.core.ui.components.IosRemoteAvatar
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
+import com.quata.core.ui.components.IosMemberProfileOpeningState
 import platform.UIKit.UIViewController
 
 /**
@@ -53,6 +56,7 @@ class IosChatHostDependencies(
     val onOpenMap: (String) -> Unit = {},
     /** Host slot for translation UI owned by the launcher. */
     val onTranslateMessage: (String) -> Unit = {},
+    val profileOpeningState: IosMemberProfileOpeningState,
 )
 
 /**
@@ -71,6 +75,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 )
             }
             val clipboard = remember { IosClipboardService() }
+            val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
             DisposableEffect(conversationsModel) { onDispose(conversationsModel::close) }
             DisposableEffect(dependencies.repository) {
                 dependencies.repository.setAppForeground(true)
@@ -87,7 +92,8 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenConversation = dependencies.onOpenConversation,
                 onBackToList = dependencies.onBackToList,
         onOpenAttachment = dependencies.onOpenAttachment,
-        onOpenUserProfile = dependencies.onOpenAvatar,
+                onOpenUserProfile = dependencies.onOpenAvatar,
+                openingProfileUserId = openingProfileUserId,
                 text = chatText,
                 conversationList = { listModifier ->
                     ConversationsScreenHost(
@@ -97,6 +103,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                         strings = conversationsHostStringsForLanguage(languageTag),
                         onOpenConversation = dependencies.onOpenConversation,
                         onOpenUserProfile = dependencies.onOpenAvatar,
+                        openingProfileUserId = openingProfileUserId,
                         remoteConversationAvatar = { presentation, avatarModifier ->
                             IosRemoteAvatar(
                                 name = presentation.name,

@@ -22,7 +22,9 @@ data class NeighborhoodCommunity(
     val conversationId: String?,
     val lastMessagePreview: String?,
     val lastMessageAtMillis: Long?,
-    val messageCount: Int
+    val messageCount: Int,
+    /** Canonical active wall UUID. Null means chat must fail closed unless a cached thread exists. */
+    val wallId: String? = null,
 )
 
 data class CommunityUserProfile(

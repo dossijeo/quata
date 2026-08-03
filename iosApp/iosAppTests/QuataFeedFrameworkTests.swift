@@ -1350,7 +1350,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
             authSession: feedBootstrap.authSessionForInteractiveLogin(),
         )
 
-        router.installAuthenticatedChat(chatBootstrap, onOpenProfile: { _ in })
+        router.installAuthenticatedChat(
+            chatBootstrap,
+            profileOpeningState: IosMemberProfileOpeningState(),
+            onOpenProfile: { _ in }
+        )
         router.showChat(conversationId: "conversation-7", messageId: "message-not-yet-positioned")
 
         XCTAssertEqual(router.children.count, 3)
@@ -1421,6 +1425,22 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(installSource.contains("authenticatedHost.showChat(conversationId: conversationId, messageId: nil)"))
         XCTAssertTrue(installSource.contains("presentAuthenticatedMemberProfile(profileId: profileId)"))
         XCTAssertTrue(installSource.contains("authenticatedHost.presentAuthRequiredPrompt()"))
+    }
+
+    func testMemberProfileOpeningStateRejectsDuplicateNavigationAndIgnoresStaleCompletion() {
+        let state = IosMemberProfileOpeningState()
+
+        XCTAssertTrue(state.begin(profileId: "profile-a"))
+        XCTAssertFalse(state.begin(profileId: "profile-a"))
+        XCTAssertFalse(state.begin(profileId: "profile-b"))
+
+        state.finish(profileId: "profile-b")
+        XCTAssertFalse(state.begin(profileId: "profile-b"))
+
+        state.finish(profileId: "profile-a")
+        XCTAssertTrue(state.begin(profileId: "profile-b"))
+        state.clear()
+        XCTAssertTrue(state.begin(profileId: "profile-c"))
     }
 
     func testAuthenticatedRouterBuildsComposerHostWithRealPublicationAndPlatformAdapters() {

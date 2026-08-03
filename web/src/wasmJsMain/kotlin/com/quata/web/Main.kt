@@ -31,6 +31,7 @@ import com.quata.core.ui.components.QuataPrimaryNavigationMode
 import com.quata.core.ui.components.QuataAuthenticatedChromeSpanish
 import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
+import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.clickable
@@ -606,61 +607,46 @@ private fun QuataWebApp(
                             currentUserId = currentUserId,
                             strings = webNeighborhoodsStrings,
                             slots = webNeighborhoodsSlots,
-                            rankingItems = emptyList(),
                             onOpenConversation = navigation::navigateConversation,
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
                             onOpenUserRoute = { navigation.navigate("communities") },
                             initialMemberProfileId = null,
-                            onOpenRankingItem = { },
                         )
                     }
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Official) {
                         val memberProfileId = feedMemberProfileRoute.profileId
-                        if (memberProfileId != null) {
-                            WebNeighborhoodsHost(
-                                repository = neighborhoodsRepository,
-                                currentUserId = currentUserId,
-                                strings = webNeighborhoodsStrings,
-                                slots = webNeighborhoodsSlots,
-                                rankingItems = emptyList(),
-                                onOpenConversation = navigation::navigateConversation,
-                                onAuthRequired = ::requestAuthenticationForCurrentRoute,
-                                onOpenUserRoute = feedMemberProfileRoute::open,
-                                initialMemberProfileId = memberProfileId,
-                                onInitialMemberProfileClosed = feedMemberProfileRoute::close,
-                                onOpenRankingItem = { },
-                            )
-                        } else {
+                        Box(Modifier.fillMaxSize()) {
                             WebOfficialHost(
                                 repository = officialRepository,
                                 shareService = platformServices.share,
                                 officialPostId = navigation.officialPostId,
                                 currentUserId = currentUserId,
+                                openingProfileUserId = memberProfileId,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 onCreateOfficialPost = { navigation.navigate("composer") },
                             )
-                        }
-                    }
-                } else if (navigation.route == "chat" || navigation.chatConversationId != null) {
-                    WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Chat) {
-                        val memberProfileId = feedMemberProfileRoute.profileId
-                        if (memberProfileId != null) {
+                            if (memberProfileId != null) {
                             WebNeighborhoodsHost(
                                 repository = neighborhoodsRepository,
                                 currentUserId = currentUserId,
                                 strings = webNeighborhoodsStrings,
                                 slots = webNeighborhoodsSlots,
-                                rankingItems = emptyList(),
                                 onOpenConversation = navigation::navigateConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
                                 onInitialMemberProfileClosed = feedMemberProfileRoute::close,
-                                onOpenRankingItem = { },
+                                showInitialLoadingSurface = false,
                             )
-                        } else {
+                            }
+                        }
+                    }
+                } else if (navigation.route == "chat" || navigation.chatConversationId != null) {
+                    WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Chat) {
+                        val memberProfileId = feedMemberProfileRoute.profileId
+                        Box(Modifier.fillMaxSize()) {
                             WebChatHost(
                                 repository = chatHostRepository,
                                 audioPlayer = platformServices.audioPlayer,
@@ -673,13 +659,40 @@ private fun QuataWebApp(
                                 onOpenConversation = navigation::navigateConversation,
                                 onBackToList = { navigation.navigate("chat") },
                                 onOpenUserProfile = feedMemberProfileRoute::open,
+                                openingProfileUserId = memberProfileId,
                             )
+                            if (memberProfileId != null) {
+                            WebNeighborhoodsHost(
+                                repository = neighborhoodsRepository,
+                                currentUserId = currentUserId,
+                                strings = webNeighborhoodsStrings,
+                                slots = webNeighborhoodsSlots,
+                                onOpenConversation = navigation::navigateConversation,
+                                onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                                onOpenUserRoute = feedMemberProfileRoute::open,
+                                initialMemberProfileId = memberProfileId,
+                                onInitialMemberProfileClosed = feedMemberProfileRoute::close,
+                                showInitialLoadingSurface = false,
+                            )
+                            }
                         }
                     }
                 } else {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Feed) {
                         val memberProfileId = feedMemberProfileRoute.profileId
-                        if (memberProfileId != null) {
+                        Box(Modifier.fillMaxSize()) {
+                            WebFeedHost(
+                                repository = feedRepository,
+                                shareService = platformServices.share,
+                                presence = feedPresence,
+                                sharedPostId = navigation.postId,
+                                currentUserId = currentUserId,
+                                openingProfileUserId = memberProfileId,
+                                onAuthRequired = ::requestAuthenticationForCurrentRoute,
+                                onCreatePost = { navigation.navigate("composer") },
+                                onOpenUserProfile = feedMemberProfileRoute::open,
+                            )
+                            if (memberProfileId != null) {
                             // Keep Feed selected in the primary navigation. This is the same
                             // shared member profile used by Communities, presented in-place over
                             // the Feed route rather than redirecting the user to another tab.
@@ -688,25 +701,14 @@ private fun QuataWebApp(
                                 currentUserId = currentUserId,
                                 strings = webNeighborhoodsStrings,
                                 slots = webNeighborhoodsSlots,
-                                rankingItems = emptyList(),
                                 onOpenConversation = navigation::navigateConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
                                 onInitialMemberProfileClosed = feedMemberProfileRoute::close,
-                                onOpenRankingItem = { },
+                                showInitialLoadingSurface = false,
                             )
-                        } else {
-                            WebFeedHost(
-                                repository = feedRepository,
-                                shareService = platformServices.share,
-                                presence = feedPresence,
-                                sharedPostId = navigation.postId,
-                                currentUserId = currentUserId,
-                                onAuthRequired = ::requestAuthenticationForCurrentRoute,
-                                onCreatePost = { navigation.navigate("composer") },
-                                onOpenUserProfile = feedMemberProfileRoute::open,
-                            )
+                            }
                         }
                     }
                 }
@@ -1011,46 +1013,35 @@ private val webNeighborhoodsStrings = WebNeighborhoodsStrings(
     list = webNeighborhoodsScreenStrings.list,
     members = webNeighborhoodsScreenStrings.members,
     profile = communityProfileStringsForLanguage("es"),
-    ranking = com.quata.core.ui.components.QuataLiveRankingStrings(
-        title = "Ranking",
-        subtitle = "Actividad de la comunidad",
-        monitoredPosts = "Publicaciones seguidas",
-        updated = "Actualizado recientemente",
-        live = "EN DIRECTO",
-        close = "Cerrar ranking",
-        openPost = "Abrir publicación",
-    ),
 )
 
 private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
     avatar = { user, isLoading, onClick ->
-        Box(contentAlignment = Alignment.Center) {
+        QuataAvatarLoadingHaloContent(isLoading = isLoading, modifier = Modifier.size(44.dp)) {
             BrowserRemoteAvatar(
                 name = user.displayName,
                 profileId = user.id,
                 avatarUrl = user.avatarUrl,
                 isOfficial = user.isOfficial,
                 isOnline = null,
-                modifier = Modifier.size(44.dp).clickable(onClick = onClick),
+                modifier = Modifier.fillMaxSize().clickable(enabled = !isLoading, onClick = onClick),
             )
-            if (isLoading) {
-                androidx.compose.material3.CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp,
-                )
-            }
         }
     },
     profile = CommunityProfilePlatformSlots(
-        avatar = { user, modifier, _, openAvatar ->
-            BrowserRemoteAvatar(
-                name = user.displayName,
-                profileId = user.id,
-                avatarUrl = user.avatarUrl,
-                isOfficial = user.isOfficial,
-                isOnline = null,
-                modifier = modifier.then(openAvatar?.let { Modifier.clickable(onClick = it) } ?: Modifier),
-            )
+        avatar = { user, modifier, loading, openAvatar ->
+            QuataAvatarLoadingHaloContent(isLoading = loading, modifier = modifier) {
+                BrowserRemoteAvatar(
+                    name = user.displayName,
+                    profileId = user.id,
+                    avatarUrl = user.avatarUrl,
+                    isOfficial = user.isOfficial,
+                    isOnline = null,
+                    modifier = Modifier.fillMaxSize().then(
+                        openAvatar?.let { Modifier.clickable(enabled = !loading, onClick = it) } ?: Modifier,
+                    ),
+                )
+            }
         },
         attachment = { attachment, open ->
             ProfileAttachmentRowContent(
@@ -1079,7 +1070,6 @@ private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
         openAttachment = { attachment -> openWebCommunityResource(attachment.uri) },
         sharePost = { post -> openWebCommunityResource(quataPostUrl(post.id)) },
     ),
-    rankingAvatar = { item -> androidx.compose.material3.Text(item.title.take(1).uppercase()) },
 )
 
 private fun openWebCommunityResource(url: String): Unit =

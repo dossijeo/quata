@@ -9,6 +9,7 @@ import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.neighborhoods.domain.isCommunityProfileCacheUsable
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import kotlinx.coroutines.currentCoroutineContext
@@ -48,7 +49,7 @@ class WebNeighborhoodsRepository(
     private val feedRepository: WebFeedRepository,
     private val pollIntervalMillis: Long = DefaultPollIntervalMillis,
 ) : NeighborhoodRepository {
-    private val profileCache = mutableMapOf<String, CommunityUserProfile>()
+    private val profileCache = mutableMapOf<String, WebCachedCommunityProfile>()
     private var wallsByKey = emptyMap<String, WebCommunityWallStats>()
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flow {
@@ -109,6 +110,9 @@ class WebNeighborhoodsRepository(
     override suspend fun addProfileComment(postId: String, comment: PostComment): Result<Post?> =
         feedRepository.addComment(postId, comment)
 
+    override suspend fun toggleProfilePostLike(postId: String): Result<Post?> =
+        feedRepository.toggleLike(postId)
+
     override suspend fun reportProfile(userId: String): Result<Unit> = runCatching {
         val actorId = authenticatedUserId().requireWebCommunityIdentifier()
         val targetId = userId.requireWebCommunityIdentifier()
@@ -155,10 +159,14 @@ class WebNeighborhoodsRepository(
             ?: error("web_community_profile_not_found")
     }
 
-    override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? = profileCache[userId]
+    override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? {
+        val cached = profileCache[userId] ?: return null
+        if (!isCommunityProfileCacheUsable(cached.cachedAtMillis, webCommunityNowMillis(), maxAgeMillis)) return null
+        return cached.profile
+    }
 
     override suspend fun cacheUserProfile(profile: CommunityUserProfile) {
-        profileCache[profile.user.id] = profile
+        profileCache[profile.user.id] = WebCachedCommunityProfile(profile, webCommunityNowMillis())
     }
 
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow {
@@ -199,7 +207,7 @@ class WebNeighborhoodsRepository(
             isBlockedByCurrentUser = authRepository.sessionForAuthenticatedRequest()?.userId?.let { actorId ->
                 loadProfileBlocks(actorId, userId).isNotEmpty()
             } ?: false,
-        ).also { profileCache[userId] = it }
+        ).also { cacheUserProfile(it) }
     }
 
     private suspend fun loadCommunities(): List<NeighborhoodCommunity> {
@@ -224,6 +232,7 @@ class WebNeighborhoodsRepository(
                     lastMessagePreview = null,
                     lastMessageAtMillis = wall?.chatLastAtMillis,
                     messageCount = wall?.chatCount ?: 0,
+                    wallId = wall?.id,
                 )
             }
             .sortedWith(compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }.thenBy { it.name.lowercase() })
@@ -350,14 +359,23 @@ internal suspend fun openWebNeighborhoodConversation(
         ?: error("web_community_wall_not_found")
 }
 
-/** Active walls enrich profile-backed communities but never create empty directory cards. */
+/** The public directory includes every profile-backed community and every active wall. */
 internal fun webCommunityDirectoryKeys(
     profileKeys: Collection<String>,
     activeWallKeys: Collection<String>,
 ): List<String> {
-    val profiles = profileKeys.filter(String::isNotBlank).distinct()
-    return (profiles + activeWallKeys.filter(profiles::contains)).distinct()
+    val profiles = profileKeys.filter(String::isNotBlank)
+    val activeWalls = activeWallKeys.filter(String::isNotBlank)
+    return (profiles + activeWalls).distinct()
 }
+
+private data class WebCachedCommunityProfile(
+    val profile: CommunityUserProfile,
+    val cachedAtMillis: Long,
+)
+
+@OptIn(kotlin.time.ExperimentalTime::class)
+private fun webCommunityNowMillis(): Long = kotlin.time.Clock.System.now().toEpochMilliseconds()
 
 internal suspend fun openWebPrivateConversation(
     userId: String,

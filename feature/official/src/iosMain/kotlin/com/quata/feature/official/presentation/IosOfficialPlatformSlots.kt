@@ -23,6 +23,7 @@ import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.unit.dp
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.QuataAvatarFrameContent
+import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.feature.official.domain.OfficialMediaType
@@ -53,8 +54,21 @@ import platform.AVFoundation.AVURLAsset
 import platform.CoreMedia.CMTimeMakeWithSeconds
 
 /** iOS-only native render seams; they do not own any Official state or navigation. */
-internal fun iosOfficialPlatformSlots(shareService: ShareService, viewerFactory: IosOfficialMediaViewerFactory?, canCreateOfficialPost: Boolean, closeLabel: String) = OfficialFeedScreenPlatformSlots(
-    avatar = { post, modifier -> IosOfficialAvatar(post.author.displayName, post.author.id, post.author.avatarUrl, modifier) },
+internal fun iosOfficialPlatformSlots(
+    shareService: ShareService,
+    viewerFactory: IosOfficialMediaViewerFactory?,
+    canCreateOfficialPost: Boolean,
+    closeLabel: String,
+    openingProfileUserId: String?,
+) = OfficialFeedScreenPlatformSlots(
+    avatar = { post, modifier ->
+        QuataAvatarLoadingHaloContent(
+            isLoading = openingProfileUserId == post.author.id,
+            modifier = modifier,
+        ) {
+            IosOfficialAvatar(post.author.displayName, post.author.id, post.author.avatarUrl, Modifier.fillMaxSize())
+        }
+    },
     media = { post, modifier, open -> IosOfficialMedia(post, open, modifier) },
     article = { post, modifier -> QuataRichTextRenderer(post.contentHtml, modifier, post.contentPlain) },
     mediaViewer = { post, dismiss -> IosOfficialNativeViewer(post, viewerFactory, closeLabel, dismiss) },

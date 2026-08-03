@@ -77,11 +77,12 @@ class NeighborhoodRepositoryImpl(
                     .flatMap { wall -> wall.communityKeys().map { key -> key to wall } }
                     .toMap()
 
-                usersByNeighborhood.mapNotNull { (neighborhoodKey, neighborhoodUsers) ->
-                    val neighborhoodName = neighborhoodUsers
-                        .firstNotNullOfOrNull { user -> user.neighborhood.trim().takeIf { it.isNotBlank() } }
-                        ?: return@mapNotNull null
+                (usersByNeighborhood.keys + wallsByNeighborhood.keys).distinct().map { neighborhoodKey ->
+                    val neighborhoodUsers = usersByNeighborhood[neighborhoodKey].orEmpty()
                     val wall = wallsByNeighborhood[neighborhoodKey]
+                    val neighborhoodName = wall?.name?.takeIf { it.isNotBlank() }
+                        ?: neighborhoodUsers.firstNotNullOfOrNull { user -> user.neighborhood.trim().takeIf { it.isNotBlank() } }
+                        ?: neighborhoodKey
                     val wallId = wall?.id
                     NeighborhoodCommunity(
                         name = neighborhoodName,
@@ -91,13 +92,14 @@ class NeighborhoodRepositoryImpl(
                         conversationId = wallId?.let(::wallConversationId),
                         lastMessagePreview = null,
                         lastMessageAtMillis = wall?.chat_last_at?.toEpochMillisOrNull(),
-                        messageCount = wall?.chat_count ?: 0
+                        messageCount = wall?.chat_count ?: 0,
+                        wallId = wallId,
                     )
                 }.sortedWith(
                     compareByDescending<NeighborhoodCommunity> { it.lastMessageAtMillis ?: 0L }
                         .thenBy { it.name.lowercase() }
                 )
-            }.catch { emit(emptyList()) }
+            }
             combine(communitiesFlow, chatRepository.observeConversations()) { communities, conversations ->
                 communities.map { community ->
                     val communityConversation = conversations.firstOrNull { conversation ->
@@ -132,8 +134,10 @@ class NeighborhoodRepositoryImpl(
 
         val wall = supabaseApi.getActiveWallsStats()
             .firstOrNull { wall -> wall.matchesNeighborhood(cleanNeighborhood) }
-        val communityId = wall?.id ?: cleanNeighborhood.normalizeName()
-        val communityTitle = wall?.name?.takeIf { it.isNotBlank() } ?: cleanNeighborhood
+        val resolvedWall = wall ?: error("No existe un muro activo para esta comunidad")
+        val communityId = resolvedWall.id
+        require(runCatching { java.util.UUID.fromString(communityId) }.isSuccess) { "ID de muro no valido" }
+        val communityTitle = resolvedWall.name?.takeIf { it.isNotBlank() } ?: cleanNeighborhood
         chatRepository.openCommunityConversation(
             communityId = communityId,
             title = communityTitle,
@@ -158,6 +162,18 @@ class NeighborhoodRepositoryImpl(
             isFollowing = toggle.active == true,
             currentUser = session.toNeighborhoodUser()
         )
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
+    override suspend fun toggleProfilePostLike(postId: String): Result<Post?> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.togglePostLike(postId) ?: error("Publicacion no encontrada")
+        } else {
+            val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+            supabaseApi.toggleLike(postId, session.userId)
+            // The profile observer owns the authoritative refreshed projection. Keeping a null
+            // payload preserves the common optimistic value until that snapshot arrives.
+            null
+        }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun reportPost(postId: String): Result<Unit> = runCatching {

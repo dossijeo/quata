@@ -7,8 +7,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import com.quata.core.model.PostComment
-import com.quata.core.ui.components.QuataLiveRankingItem
-import com.quata.core.ui.components.QuataLiveRankingStrings
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.presentation.CommunityProfilePlatformSlots
@@ -26,14 +24,12 @@ data class WebNeighborhoodsStrings(
     val list: NeighborhoodListStrings,
     val members: NeighborhoodUsersStrings,
     val profile: CommunityProfileStrings,
-    val ranking: QuataLiveRankingStrings,
 )
 
 /** Browser-owned visual boundaries: image loading, media rendering and route handling stay outside commonMain. */
 class WebNeighborhoodsSlots(
     val avatar: @Composable (NeighborhoodUser, Boolean, () -> Unit) -> Unit,
     val profile: CommunityProfilePlatformSlots,
-    val rankingAvatar: @Composable (QuataLiveRankingItem) -> Unit,
 )
 
 /**
@@ -49,14 +45,13 @@ fun WebNeighborhoodsHost(
     currentUserId: String?,
     strings: WebNeighborhoodsStrings,
     slots: WebNeighborhoodsSlots,
-    rankingItems: List<QuataLiveRankingItem>,
     onOpenConversation: (String) -> Unit,
     onAuthRequired: () -> Unit,
     onOpenUserRoute: (String) -> Unit,
     /** Feed author navigation enters the existing shared Community member profile surface. */
     initialMemberProfileId: String? = null,
     onInitialMemberProfileClosed: () -> Unit = {},
-    onOpenRankingItem: (String) -> Unit,
+    showInitialLoadingSurface: Boolean = true,
     padding: PaddingValues = PaddingValues(),
 ) {
     val viewModel = remember(repository) { NeighborhoodsViewModel(repository) }
@@ -71,12 +66,14 @@ fun WebNeighborhoodsHost(
 
     val selectedProfile = state.selectedProfile
     if (selectedProfile == null && initialMemberProfileId != null) {
-        CommunityProfileLoadStateContent(
-            isLoading = state.openingProfileUserId != null || state.error == null,
-            errorMessage = state.error,
-            backLabel = strings.profile.back,
-            onBack = onInitialMemberProfileClosed,
-        )
+        if (showInitialLoadingSurface || state.error != null) {
+            CommunityProfileLoadStateContent(
+                isLoading = state.openingProfileUserId != null || state.error == null,
+                errorMessage = state.error,
+                backLabel = strings.profile.back,
+                onBack = onInitialMemberProfileClosed,
+            )
+        }
         return
     }
     if (selectedProfile != null) {
@@ -90,6 +87,7 @@ fun WebNeighborhoodsHost(
             followingUserId = state.followingUserId,
             roleUpdatingUserId = state.roleUpdatingUserId,
             commentingPostId = state.commentingPostId,
+            likingPostId = state.likingPostId,
             profileSafetyUpdatingUserId = state.profileSafetyUpdatingUserId,
             currentUserIsAdmin = state.currentUserIsAdmin,
             openingProfileUserId = state.openingProfileUserId,
@@ -112,6 +110,7 @@ fun WebNeighborhoodsHost(
             },
             onSetUserRoles = viewModel::setUserRoles,
             onReportPost = viewModel::reportProfilePost,
+            onTogglePostLike = viewModel::toggleProfilePostLike,
             onReportProfile = viewModel::reportProfile,
             onSetProfileBlocked = viewModel::setProfileBlocked,
             onAddComment = viewModel::addProfileComment,

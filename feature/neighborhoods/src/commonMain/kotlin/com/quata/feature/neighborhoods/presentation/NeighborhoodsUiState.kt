@@ -14,6 +14,7 @@ data class NeighborhoodsUiState(
     val followingUserId: String? = null,
     val roleUpdatingUserId: String? = null,
     val commentingPostId: String? = null,
+    val likingPostId: String? = null,
     val profileSafetyUpdatingUserId: String? = null,
     val currentUserIsAdmin: Boolean = false,
     val selectedProfile: CommunityUserProfile? = null,

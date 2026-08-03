@@ -7,13 +7,13 @@ import kotlin.test.assertTrue
 
 class WebNeighborhoodsChatGatewayTest {
     @Test
-    fun directoryExcludesActiveWallsWithoutPublicProfiles() {
+    fun directoryKeepsActiveWallsWithoutPublicProfiles() {
         val keys = webCommunityDirectoryKeys(
             profileKeys = listOf("50 viviendas", "caidassa"),
             activeWallKeys = listOf("caidassa", "empty-wall"),
         )
 
-        assertEquals(listOf("50 viviendas", "caidassa"), keys)
+        assertEquals(listOf("50 viviendas", "caidassa", "empty-wall"), keys)
     }
 
     @Test

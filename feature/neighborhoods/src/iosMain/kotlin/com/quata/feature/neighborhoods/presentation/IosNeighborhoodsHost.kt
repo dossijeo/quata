@@ -34,6 +34,7 @@ import com.quata.core.ui.components.IosRemoteAvatar
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
+import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
@@ -72,7 +73,6 @@ class IosNeighborhoodsHostDependencies(
     /** Public Communities may browse anonymously; writes/navigation acquire Auth at the shell. */
     val onAuthRequired: () -> Unit = {},
     val profileNavigator: IosCommunityProfileNavigator,
-    val onOpenAttachment: (ProfileAttachment) -> Unit,
 )
 
 /**
@@ -96,20 +96,18 @@ fun createIosNeighborhoodsHostDependencies(
     listStrings = neighborhoodsScreenStringsForLanguage(languageCode).list,
     usersStrings = neighborhoodsScreenStringsForLanguage(languageCode).members,
     avatar = { user, isLoading, onClick ->
-        Box(contentAlignment = Alignment.Center) {
+        QuataAvatarLoadingHaloContent(isLoading = isLoading, modifier = Modifier.size(44.dp)) {
             IosRemoteAvatar(
                 name = user.displayName,
                 stableId = user.id,
                 avatarUrl = user.avatarUrl,
-                modifier = Modifier.size(44.dp).clickable(onClick = onClick),
+                modifier = Modifier.fillMaxSize().clickable(enabled = !isLoading, onClick = onClick),
             )
-            if (isLoading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
         }
     },
     onOpenConversation = onOpenConversation,
     onAuthRequired = onAuthRequired,
     profileNavigator = IosCommunityProfileNavigator(onNavigateToProfile),
-    onOpenAttachment = {},
 )
 
 /** Creates an injectable UIKit host for the common Neighborhoods list and member surfaces. */
@@ -214,14 +212,15 @@ fun QuataCommunityProfileViewController(
                 strings = communityProfileStringsForLanguage(dependencies.languageCode),
                 slots = CommunityProfilePlatformSlots(
                     avatar = { user, modifier, loading, openAvatar ->
-                        Box(contentAlignment = Alignment.Center) {
+                        QuataAvatarLoadingHaloContent(isLoading = loading, modifier = modifier) {
                             IosRemoteAvatar(
                                 name = user.displayName,
                                 stableId = user.id,
                                 avatarUrl = user.avatarUrl,
-                                modifier = modifier.then(openAvatar?.let { Modifier.clickable(onClick = it) } ?: Modifier),
+                                modifier = Modifier.fillMaxSize().then(
+                                    openAvatar?.let { Modifier.clickable(enabled = !loading, onClick = it) } ?: Modifier,
+                                ),
                             )
-                            if (loading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                         }
                     },
                     attachment = { attachment, open ->
@@ -272,6 +271,7 @@ fun QuataCommunityProfileViewController(
                 followingUserId = state.followingUserId,
                 roleUpdatingUserId = state.roleUpdatingUserId,
                 commentingPostId = state.commentingPostId,
+                likingPostId = state.likingPostId,
                 profileSafetyUpdatingUserId = state.profileSafetyUpdatingUserId,
                 currentUserIsAdmin = state.currentUserIsAdmin,
                 openingProfileUserId = state.openingProfileUserId,
@@ -288,6 +288,7 @@ fun QuataCommunityProfileViewController(
                 onOpenUserProfile = viewModel::openUserProfile,
                 onSetUserRoles = viewModel::setUserRoles,
                 onReportPost = viewModel::reportProfilePost,
+                onTogglePostLike = viewModel::toggleProfilePostLike,
                 onReportProfile = viewModel::reportProfile,
                 onSetProfileBlocked = viewModel::setProfileBlocked,
                 onAddComment = viewModel::addProfileComment,

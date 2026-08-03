@@ -140,6 +140,8 @@ fun NeighborhoodsScreen(
                 title = stringResource(R.string.neighborhoods_open_community),
                 searchPlaceholder = stringResource(R.string.neighborhoods_subtitle),
                 loading = stringResource(R.string.neighborhoods_loading),
+                empty = stringResource(R.string.neighborhoods_empty),
+                noResults = stringResource(R.string.neighborhoods_no_results),
                 oneUser = stringResource(R.string.neighborhoods_one_user),
                 users = { count -> context.getString(R.string.neighborhoods_user_count, count) },
                 oneMessage = stringResource(R.string.neighborhoods_one_message),
@@ -156,6 +158,7 @@ fun NeighborhoodsScreen(
                     if (count == 1) context.getString(R.string.neighborhoods_one_user)
                     else context.getString(R.string.neighborhoods_user_count, count)
                 },
+                empty = stringResource(R.string.neighborhoods_no_members),
                 row = NeighborhoodUserRowStrings(
                     stringResource(R.string.common_follow),
                     stringResource(R.string.common_following),
@@ -194,11 +197,13 @@ fun CommunityProfileScreen(
     followingUserId: String? = null,
     roleUpdatingUserId: String? = null,
     commentingPostId: String? = null,
+    likingPostId: String? = null,
     profileSafetyUpdatingUserId: String? = null,
     currentUserIsAdmin: Boolean = false,
     chatError: String? = null,
     onAuthRequired: () -> Unit = {},
     onReportPost: (String) -> Unit = {},
+    onTogglePostLike: (String) -> Unit = {},
     onReportProfile: (String) -> Unit = {},
     onSetProfileBlocked: (String, Boolean) -> Unit = { _, _ -> },
     onAddComment: (String, PostComment) -> Unit = { _, _ -> },
@@ -289,22 +294,6 @@ fun CommunityProfileScreen(
                         modifier = Modifier.fillMaxWidth().height(430.dp),
                     )
                     post.videoUrl != null && loaded -> ProfileVideoPlayer(post.videoUrl.orEmpty())
-                    post.videoUrl != null -> Box(
-                        modifier = Modifier.fillMaxWidth().height(430.dp).clickable(onClick = load),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Box(
-                            modifier = Modifier.size(86.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.42f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CompactIcon(
-                                imageVector = Icons.Filled.Pause,
-                                contentDescription = null,
-                                modifier = Modifier.size(50.dp),
-                                tint = Color.White,
-                            )
-                        }
-                    }
                 }
             },
             openAttachment = { attachment ->
@@ -322,6 +311,7 @@ fun CommunityProfileScreen(
         followingUserId = followingUserId,
         roleUpdatingUserId = roleUpdatingUserId,
         commentingPostId = commentingPostId,
+        likingPostId = likingPostId,
         profileSafetyUpdatingUserId = profileSafetyUpdatingUserId,
         currentUserIsAdmin = currentUserIsAdmin,
         openingProfileUserId = openingProfileUserId,
@@ -333,6 +323,7 @@ fun CommunityProfileScreen(
         onOpenUserProfile = onOpenUserProfile,
         onSetUserRoles = onSetUserRoles,
         onReportPost = onReportPost,
+        onTogglePostLike = onTogglePostLike,
         onReportProfile = onReportProfile,
         onSetProfileBlocked = onSetProfileBlocked,
         onAddComment = onAddComment,

@@ -261,6 +261,48 @@ class NeighborhoodsViewModel(
         }
     }
 
+    fun toggleProfilePostLike(postId: String) {
+        if (_uiState.value.likingPostId != null) return
+        val before = _uiState.value.selectedProfile ?: return
+        val beforePost = before.posts.firstOrNull { it.id == postId } ?: return
+        val nextLiked = !beforePost.isLikedByCurrentUser
+        val optimistic = before.copy(posts = before.posts.map { post ->
+            if (post.id == postId) {
+                post.copy(
+                    isLikedByCurrentUser = nextLiked,
+                    likesCount = (post.likesCount + if (nextLiked) 1 else -1).coerceAtLeast(0),
+                )
+            } else post
+        })
+        _uiState.value = _uiState.value.copy(
+            selectedProfile = optimistic,
+            likingPostId = postId,
+            error = null,
+        )
+        scope.launch {
+            repository.toggleProfilePostLike(postId)
+                .onSuccess { persisted ->
+                    val current = _uiState.value.selectedProfile
+                    val resolved = if (persisted == null || current == null) current else current.copy(
+                        posts = current.posts.map { if (it.id == postId) persisted else it },
+                    )
+                    resolved?.let { repository.cacheUserProfile(it) }
+                    _uiState.value = _uiState.value.copy(
+                        selectedProfile = resolved,
+                        likingPostId = null,
+                        error = null,
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        selectedProfile = before,
+                        likingPostId = null,
+                        error = error.message ?: "No se pudo actualizar el me gusta",
+                    )
+                }
+        }
+    }
+
     fun reportProfile(userId: String) {
         if (_uiState.value.profileSafetyUpdatingUserId != null) return
         scope.launch {

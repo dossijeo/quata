@@ -18,6 +18,7 @@ class NeighborhoodsAndroidViewModel(repository: NeighborhoodRepository) : ViewMo
     override fun openUserProfile(userId: String) = delegate.openUserProfile(userId)
     fun closeUserProfile() = delegate.closeUserProfile()
     fun reportProfilePost(postId: String) = delegate.reportProfilePost(postId)
+    fun toggleProfilePostLike(postId: String) = delegate.toggleProfilePostLike(postId)
     fun addProfileComment(postId: String, comment: PostComment) = delegate.addProfileComment(postId, comment)
     fun reportProfile(userId: String) = delegate.reportProfile(userId)
     fun setProfileBlocked(userId: String, blocked: Boolean) = delegate.setProfileBlocked(userId, blocked)

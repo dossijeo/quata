@@ -29,7 +29,7 @@ const catalog = {
   'official.interact': ['mutation', ['deletePost', 'toggleLike', 'addComment', 'reportComment'], ['implemented', 'implemented', 'implemented']],
   'official.publish': ['mutation', ['createPost', 'createPosts'], ['implemented', 'blocked', 'blocked']],
   'communities.read': ['flow', ['observeCommunities', 'isCurrentUserAdmin', 'getCachedUserProfile', 'cacheUserProfile', 'observeUserProfile', 'getUserProfile'], ['implemented', 'implemented', 'implemented']],
-  'communities.mutate': ['mutation', ['toggleFollowUser', 'addProfileComment', 'reportPost', 'reportProfile', 'setProfileBlocked', 'setUserRoles'], ['implemented', 'implemented', 'implemented']],
+  'communities.mutate': ['mutation', ['toggleFollowUser', 'toggleProfilePostLike', 'addProfileComment', 'reportPost', 'reportProfile', 'setProfileBlocked', 'setUserRoles'], ['implemented', 'implemented', 'implemented']],
   'communities.community-chat.open': ['mutation', ['openNeighborhoodChat'], ['implemented', 'implemented', 'implemented']],
   'communities.private-chat.open': ['mutation', ['openPrivateChat'], ['implemented', 'implemented', 'implemented']],
   'composer.publish': ['mutation', ['createPost'], ['implemented', 'contract-only', 'blocked']],

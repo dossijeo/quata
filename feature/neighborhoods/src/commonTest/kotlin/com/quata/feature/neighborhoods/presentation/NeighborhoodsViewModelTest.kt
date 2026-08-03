@@ -81,6 +81,29 @@ class NeighborhoodsViewModelTest {
         model.close()
     }
 
+    @Test
+    fun `profile post like is optimistic and rolls back on backend failure`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        repository.likeResult = CompletableDeferred()
+
+        model.toggleProfilePostLike("post-a")
+        runCurrent()
+        assertTrue(model.uiState.value.selectedProfile?.posts?.single()?.isLikedByCurrentUser == true)
+        assertEquals(1, model.uiState.value.selectedProfile?.posts?.single()?.likesCount)
+        assertEquals("post-a", model.uiState.value.likingPostId)
+
+        repository.likeResult.complete(Result.failure(IllegalStateException("denied")))
+        advanceUntilIdle()
+        assertFalse(model.uiState.value.selectedProfile?.posts?.single()?.isLikedByCurrentUser == true)
+        assertEquals(0, model.uiState.value.selectedProfile?.posts?.single()?.likesCount)
+        assertEquals(null, model.uiState.value.likingPostId)
+        assertEquals("denied", model.uiState.value.error)
+        model.close()
+    }
+
     private fun kotlinx.coroutines.test.TestScope.model(repository: FakeNeighborhoodRepository): NeighborhoodsViewModel {
         val dispatcher = StandardTestDispatcher(testScheduler)
         return NeighborhoodsViewModel(repository, AppDispatchers(dispatcher, dispatcher, dispatcher))
@@ -90,10 +113,12 @@ class NeighborhoodsViewModelTest {
 private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var followResult = CompletableDeferred(Result.success(FollowUserResult("a", true, user("me"))))
     var commentResult = CompletableDeferred<Result<Post?>>(Result.success(null))
+    var likeResult = CompletableDeferred<Result<Post?>>(Result.success(null))
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
     override suspend fun openNeighborhoodChat(neighborhood: String) = Result.success("community")
     override suspend fun toggleFollowUser(userId: String) = followResult.await()
+    override suspend fun toggleProfilePostLike(postId: String) = likeResult.await()
     override suspend fun addProfileComment(postId: String, comment: PostComment) = commentResult.await()
     override suspend fun reportPost(postId: String) = Result.success(Unit)
     override suspend fun reportProfile(userId: String) = Result.success(Unit)

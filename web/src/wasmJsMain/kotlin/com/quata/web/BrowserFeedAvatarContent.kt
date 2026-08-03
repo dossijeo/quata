@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.model.Post
 import com.quata.core.ui.components.QuataAvatarFrameContent
 import com.quata.core.ui.components.QuataLiveRankingItem
+import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 
 /**
  * Browser image adapter for the shared Feed identity slots.
@@ -24,17 +25,25 @@ import com.quata.core.ui.components.QuataLiveRankingItem
  * same common fallback rather than leaving an empty native element in the reel.
  */
 @Composable
-fun BrowserFeedAuthorAvatar(post: Post, onOpenUserProfile: (String) -> Unit, isOnline: Boolean? = null, modifier: Modifier = Modifier.size(56.dp)) {
-    BrowserRemoteAvatar(
-        name = post.author.displayName,
-        profileId = post.author.id,
-        avatarUrl = post.author.avatarUrl,
-        isOfficial = post.author.isOfficial,
-        isOnline = isOnline,
-        modifier = modifier
-            .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
-            .clickable { onOpenUserProfile(post.author.id) },
-    )
+fun BrowserFeedAuthorAvatar(
+    post: Post,
+    onOpenUserProfile: (String) -> Unit,
+    isOnline: Boolean? = null,
+    isLoading: Boolean = false,
+    modifier: Modifier = Modifier.size(56.dp),
+) {
+    QuataAvatarLoadingHaloContent(isLoading = isLoading, modifier = modifier) {
+        BrowserRemoteAvatar(
+            name = post.author.displayName,
+            profileId = post.author.id,
+            avatarUrl = post.author.avatarUrl,
+            isOfficial = post.author.isOfficial,
+            isOnline = isOnline,
+            modifier = Modifier.fillMaxSize()
+                .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
+                .clickable(enabled = !isLoading) { onOpenUserProfile(post.author.id) },
+        )
+    }
 }
 
 @Composable

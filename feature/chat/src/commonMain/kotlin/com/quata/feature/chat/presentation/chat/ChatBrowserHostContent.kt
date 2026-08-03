@@ -42,6 +42,7 @@ import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataAvatarFallback
+import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationListRow
 import com.quata.feature.chat.presentation.conversations.ConversationsListContent
@@ -81,6 +82,7 @@ fun ChatBrowserHostContent(
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
     onOpenUserProfile: (String) -> Unit,
+    openingProfileUserId: String? = null,
     conversationList: @Composable (Modifier) -> Unit,
     text: (ChatText) -> String,
     focusedMessageId: String? = null,
@@ -104,6 +106,7 @@ fun ChatBrowserHostContent(
             onBackToList = onBackToList,
             onOpenAttachment = onOpenAttachment,
             onOpenUserProfile = onOpenUserProfile,
+            openingProfileUserId = openingProfileUserId,
             focusedMessageId = focusedMessageId,
             audioRecordingConfiguration = audioRecordingConfiguration,
             messageInputOverride = messageInputOverride,
@@ -275,6 +278,7 @@ private fun ChatBrowserConversationDetail(
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
     onOpenUserProfile: (String) -> Unit,
+    openingProfileUserId: String?,
     focusedMessageId: String?,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration,
     messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)?,
@@ -378,11 +382,18 @@ private fun ChatBrowserConversationDetail(
             strings = ChatConversationDetailStrings("Editado", "Mensaje eliminado", "Reenviado"),
             showSenderAvatar = { message -> !message.isMine },
             avatar = { message ->
-                QuataAvatarFallback(
-                    name = message.senderName,
-                    stableId = message.senderId,
-                    modifier = Modifier.size(34.dp).clickable { onOpenUserProfile(message.senderId) },
-                )
+                QuataAvatarLoadingHaloContent(
+                    isLoading = openingProfileUserId == message.senderId,
+                    modifier = Modifier.size(38.dp),
+                ) {
+                    QuataAvatarFallback(
+                        name = message.senderName,
+                        stableId = message.senderId,
+                        modifier = Modifier.size(34.dp).clickable(
+                            enabled = openingProfileUserId != message.senderId,
+                        ) { onOpenUserProfile(message.senderId) },
+                    )
+                }
             },
             onOpenLink = { url -> onOpenAttachment(PlatformFile(reference = url)) },
             onMessageClick = { message ->
