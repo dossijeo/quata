@@ -1405,6 +1405,24 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(services.activeViewController() === authenticatedRouteController(in: router))
     }
 
+    func testCommunitiesCallbacksMarshalUIKitNavigationToTheMainQueue() throws {
+        let appSourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("iosApp/QuataIosApp.swift")
+        let source = try String(contentsOf: appSourceURL, encoding: .utf8)
+        let installStart = try XCTUnwrap(source.range(of: "private func installCommunitiesIfAvailable()"))
+        let installEnd = try XCTUnwrap(
+            source.range(of: "fileprivate func presentAuthenticatedMemberProfile", range: installStart.upperBound..<source.endIndex),
+        )
+        let installSource = source[installStart.lowerBound..<installEnd.lowerBound]
+
+        XCTAssertEqual(installSource.components(separatedBy: "DispatchQueue.main.async").count - 1, 3)
+        XCTAssertTrue(installSource.contains("authenticatedHost.showChat(conversationId: conversationId, messageId: nil)"))
+        XCTAssertTrue(installSource.contains("presentAuthenticatedMemberProfile(profileId: profileId)"))
+        XCTAssertTrue(installSource.contains("authenticatedHost.presentAuthRequiredPrompt()"))
+    }
+
     func testAuthenticatedRouterBuildsComposerHostWithRealPublicationAndPlatformAdapters() {
         let services = makePlatformServiceComposition()
         let router = IosFeedHostContainerViewController(platformServices: services)

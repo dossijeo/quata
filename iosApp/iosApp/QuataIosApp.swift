@@ -798,18 +798,25 @@ private final class IosAppCompositionRoot {
                     currentUserId: communitiesBootstrap.restoredCurrentUserId(),
                     languageCode: Locale.current.languageCode ?? "en",
                     onOpenConversation: { [weak self] conversationId in
-                        guard let self else { return }
-                        if self.hasValidatedAuthenticatedSession {
-                            self.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
-                        } else {
-                            self.authenticatedHost.presentAuthRequiredPrompt()
+                        DispatchQueue.main.async {
+                            guard let self else { return }
+                            if self.hasValidatedAuthenticatedSession {
+                                self.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                            } else {
+                                self.authenticatedHost.presentAuthRequiredPrompt()
+                            }
                         }
                     },
                     onNavigateToProfile: { [weak self] profileId in
-                        guard let self else { return }
-                        self.presentAuthenticatedMemberProfile(profileId: profileId)
+                        DispatchQueue.main.async {
+                            self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                        }
                     },
-                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+                    onAuthRequired: { [weak self] in
+                        DispatchQueue.main.async {
+                            self?.authenticatedHost.presentAuthRequiredPrompt()
+                        }
+                    },
                 ),
             )
         }
