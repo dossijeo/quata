@@ -22,10 +22,10 @@ class ConversationsViewModel(
     private val readContacts: () -> List<ChatInviteContact> = { emptyList() },
     private val text: (com.quata.feature.chat.presentation.chat.ChatText) -> String = { "Chat error" },
     private val dispatchers: AppDispatchers = AppDispatchers()
-) {
+) : ConversationsScreenModel {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
     private val _uiState = MutableStateFlow(ConversationsUiState())
-    val uiState: StateFlow<ConversationsUiState> = _uiState.asStateFlow()
+    override val uiState: StateFlow<ConversationsUiState> = _uiState.asStateFlow()
     private var conversationsJob: Job? = null
     private var usersJob: Job? = null
     private var pendingDeleteJob: Job? = null
@@ -39,7 +39,7 @@ class ConversationsViewModel(
         }
     }
 
-    fun onEvent(event: ConversationsUiEvent) {
+    override fun onEvent(event: ConversationsUiEvent) {
         when (event) {
             ConversationsUiEvent.Refresh -> observe()
             ConversationsUiEvent.RestoreDeletedConversation -> restoreDeletedConversation()
@@ -47,7 +47,7 @@ class ConversationsViewModel(
         }
     }
 
-    fun openNewConversationPicker() {
+    override fun openNewConversationPicker() {
         _uiState.value = _uiState.value.copy(
             isNewConversationPickerOpen = true,
             candidateQuery = "",
@@ -65,7 +65,7 @@ class ConversationsViewModel(
         loadConversationCandidates(reset = true)
     }
 
-    fun closeNewConversationPicker() {
+    override fun closeNewConversationPicker() {
         candidateSearchJob?.cancel()
         candidatePageJob?.cancel()
         _uiState.value = _uiState.value.copy(
@@ -81,7 +81,7 @@ class ConversationsViewModel(
         )
     }
 
-    fun onCandidateQueryChanged(query: String) {
+    override fun onCandidateQueryChanged(query: String) {
         _uiState.value = _uiState.value.copy(
             candidateQuery = query,
             conversationCandidates = emptyList(),
@@ -96,13 +96,13 @@ class ConversationsViewModel(
         }
     }
 
-    fun loadMoreConversationCandidates() {
+    override fun loadMoreConversationCandidates() {
         if (!_uiState.value.isNewConversationPickerOpen) return
         if (_uiState.value.isCandidateInitialLoading || _uiState.value.isCandidatePageLoading || !_uiState.value.candidateHasMore) return
         loadConversationCandidates(reset = false)
     }
 
-    fun loadInviteContacts() {
+    override fun loadInviteContacts() {
         val state = _uiState.value
         if (!state.isNewConversationPickerOpen || state.isInviteContactsLoading) return
         _uiState.value = state.copy(isInviteContactsLoading = true, inviteContactsError = null)
@@ -134,7 +134,7 @@ class ConversationsViewModel(
         }
     }
 
-    fun openCandidateConversation(candidate: ChatConversationCandidate, onOpened: (String) -> Unit) {
+    override fun openCandidateConversation(candidate: ChatConversationCandidate, onOpened: (String) -> Unit) {
         if (_uiState.value.openingCandidateProfileId != null) return
         _uiState.value = _uiState.value.copy(openingCandidateProfileId = candidate.profileId, candidateError = null)
         scope.launch {
@@ -156,7 +156,7 @@ class ConversationsViewModel(
     }
 
     /** Shared group-composer state; the host chooses its visual presentation and navigation. */
-    fun toggleNewConversationCandidate(candidate: ChatConversationCandidate) {
+    override fun toggleNewConversationCandidate(candidate: ChatConversationCandidate) {
         if (_uiState.value.isOpeningGroupConversation) return
         _uiState.value = _uiState.value.let { state ->
             state.copy(
@@ -168,11 +168,11 @@ class ConversationsViewModel(
         }
     }
 
-    fun onNewGroupTitleChanged(title: String) {
+    override fun onNewGroupTitleChanged(title: String) {
         _uiState.value = _uiState.value.copy(newGroupTitle = title.take(120), candidateError = null)
     }
 
-    fun openSelectedGroupConversation(onOpened: (String) -> Unit) {
+    override fun openSelectedGroupConversation(onOpened: (String) -> Unit) {
         val state = _uiState.value
         val participantIds = state.selectedNewConversationProfileIds.toList()
         if (state.isOpeningGroupConversation || participantIds.size < 2) return
@@ -296,7 +296,7 @@ class ConversationsViewModel(
         }
     }
 
-    fun close() {
+    override fun close() {
         conversationsJob?.cancel()
         usersJob?.cancel()
         pendingDeleteJob?.cancel()

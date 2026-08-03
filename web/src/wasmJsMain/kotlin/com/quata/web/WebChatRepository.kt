@@ -14,6 +14,7 @@ import com.quata.feature.chat.data.UploadedChatAttachment
  * reconciliation and chat state live in feature:chat/commonMain.
  */
 class WebChatRepository(
+    configuration: WebRuntimeConfiguration,
     rpcClient: WebPostgrestRpcClient,
     authRepository: WebAuthRepository,
     attachmentUploader: WebChatAttachmentUploader,
@@ -27,6 +28,7 @@ class WebChatRepository(
         attachmentUploader.upload(profileId, file).toCommonAttachment()
     },
     pollIntervalMillis = pollIntervalMillis,
+    realtimeGateway = WebChatRealtimeGateway(configuration, authRepository),
 ) {
     private companion object {
         const val DefaultPollIntervalMillis = 30_000L

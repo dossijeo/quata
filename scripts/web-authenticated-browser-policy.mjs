@@ -12,20 +12,17 @@ export const READ_ONLY_ROUTE_MATRIX = Object.freeze([
   Object.freeze({ fragment: "settings", route: "settings" }),
   Object.freeze({ fragment: "communities", route: "communities" }),
   Object.freeze({ fragment: "official", route: "official" }),
+  Object.freeze({ fragment: "whats-new", route: "whats-new" }),
+  Object.freeze({ fragment: "about", route: "about" }),
+  Object.freeze({ fragment: "release-history", route: "release-history" }),
 ]);
 
-export const READ_ONLY_ROUTE_EXCLUSIONS = Object.freeze([
-  Object.freeze({
-    fragments: Object.freeze(["whats-new", "about"]),
-    method: "POST",
-    path: "/rest/v1/rpc/quata_android_release_history",
-    reason: "postgrest_rpc_post_not_get_only",
-  }),
-]);
+export const READ_ONLY_ROUTE_EXCLUSIONS = Object.freeze([]);
 
 const NOTIFICATION_INBOX_READ_STAGES = Object.freeze([
   "authenticated_browser_restore",
   "authenticated_route_matrix",
+  "authenticated_settings_push_consent",
   "authenticated_navigation_stress",
   "native_auth_control_logout",
   "compose_auth_bridge_logout",
@@ -122,6 +119,15 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
     return Object.freeze({ backendApi: true, allowed: true, reason: "declared_notification_inbox_read" });
   }
 
+  if (
+    normalizedMethod === "POST" &&
+    parsed.pathname === "/rest/v1/rpc/quata_chat_search_conversation_candidates" &&
+    (NOTIFICATION_INBOX_READ_STAGES.includes(stage) || AUTH_LOGIN_STAGES.includes(stage)) &&
+    isConversationCandidateReadBody(body)
+  ) {
+    return Object.freeze({ backendApi: true, allowed: true, reason: "declared_chat_candidate_directory_read" });
+  }
+
   const action = safeJson(body)?.action;
   if (
     normalizedMethod === "POST" &&
@@ -166,4 +172,16 @@ function safeJson(value) {
   } catch {
     return {};
   }
+}
+
+function isConversationCandidateReadBody(value) {
+  const parsed = safeJson(value);
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") return false;
+  const keys = Object.keys(parsed).sort();
+  const expected = ["p_actor_profile_id", "p_limit", "p_offset", "p_query"];
+  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(parsed.p_actor_profile_id) &&
+    typeof parsed.p_query === "string" &&
+    Number.isInteger(parsed.p_limit) && parsed.p_limit >= 1 && parsed.p_limit <= 50 &&
+    Number.isInteger(parsed.p_offset) && parsed.p_offset >= 0;
 }

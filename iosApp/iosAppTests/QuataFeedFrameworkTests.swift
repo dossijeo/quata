@@ -71,6 +71,25 @@ final class QuataFeedFrameworkTests: XCTestCase {
         return MountedRouter(window: window, router: router)
     }
 
+    private func dismissPresentedRouterModal(_ mounted: MountedRouter) {
+        let root = mounted.router
+        guard root.presentedViewController != nil else { return }
+
+        // `present(_:animated:)` may establish `presentedViewController` before UIKit has
+        // completed its appearance transaction. Yield one main-queue turn while this router's
+        // window is still key, then dismiss and wait on the real completion callback. This keeps
+        // cleanup tied to UIKit state instead of a timing delay or a later tearDown fallback.
+        mounted.window.makeKeyAndVisible()
+        let presentationSettled = expectation(description: "Router modal presentation settled")
+        DispatchQueue.main.async { presentationSettled.fulfill() }
+        wait(for: [presentationSettled], timeout: 1)
+
+        let dismissed = expectation(description: "Router modal dismissed")
+        root.dismissAuthRequiredPrompt { dismissed.fulfill() }
+        wait(for: [dismissed], timeout: 1)
+        XCTAssertNil(root.presentedViewController)
+    }
+
     func testAppRegistersTheStableQuataCustomUrlScheme() {
         let appBundle = Bundle(for: AppDelegate.self)
 
@@ -341,19 +360,20 @@ final class QuataFeedFrameworkTests: XCTestCase {
             ("quata-ios-settings-host", { $0.showSettings() }),
         ]
 
+        let mounted = mountRouter()
+        let router = mounted.router
+        let publicFeed = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+        router.installChatFactory { _, _ in UIViewController() }
+        router.installNotificationsFactory { UIViewController() }
+        router.installProfileSosFactory { UIViewController() }
+        router.installCommunitiesFactory { UIViewController() }
+        router.installComposerFactory { UIViewController() }
+        router.installSettingsFactory { UIViewController() }
+
         for (protectedIdentifier, openRoute) in protectedRoutes {
-            let mounted = mountRouter()
-            let router = mounted.router
-            let publicFeed = UIViewController()
-            router.installPublicFeed { _ in publicFeed }
             let prompt = UIViewController()
             router.installAuthRequiredPromptFactory { prompt }
-            router.installChatFactory { _, _ in UIViewController() }
-            router.installNotificationsFactory { UIViewController() }
-            router.installProfileSosFactory { UIViewController() }
-            router.installCommunitiesFactory { UIViewController() }
-            router.installComposerFactory { UIViewController() }
-            router.installSettingsFactory { UIViewController() }
 
             openRoute(router)
 
@@ -362,6 +382,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
             XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
             XCTAssertFalse(router.children.contains { $0.view.accessibilityIdentifier == protectedIdentifier })
             XCTAssertEqual(router.children.count, 3)
+            dismissPresentedRouterModal(mounted)
         }
     }
 
@@ -569,6 +590,25 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(router.children.contains { $0 === releaseHistory })
         XCTAssertEqual(releaseHistory.view.accessibilityIdentifier, "quata-ios-release-history-host")
         XCTAssertEqual(router.children.count, 3)
+    }
+
+    func testStartupWhatsNewOpensOnlyWhileThePublicFeedIsStillVisible() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let feed = UIViewController()
+        let whatsNew = UIViewController()
+        let notifications = UIViewController()
+        router.installPublicFeed { _ in feed }
+        router.installWhatsNewFactory { whatsNew }
+        router.installNotificationsFactory { notifications }
+
+        XCTAssertTrue(router.showWhatsNewIfFeedVisible())
+        XCTAssertTrue(authenticatedRouteController(in: router) === whatsNew)
+
+        router.showNotifications()
+
+        XCTAssertFalse(router.showWhatsNewIfFeedVisible())
+        XCTAssertTrue(authenticatedRouteController(in: router) === notifications)
     }
 
     func testPublicRuntimeConfigurationRequiresBothNonEmptyClientSettings() {

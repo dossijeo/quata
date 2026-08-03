@@ -67,6 +67,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -103,6 +104,69 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun ConversationsScreen(
+    padding: PaddingValues,
+    repository: ChatRepository,
+    clipboardService: ClipboardService,
+    onOpenConversation: (String) -> Unit,
+    onOpenUserProfile: (String) -> Unit = {},
+    openingProfileUserId: String? = null,
+    onOpenFavorites: () -> Unit = {},
+    viewModel: ConversationsAndroidViewModel = viewModel(factory = ConversationsAndroidViewModel.factory(repository, LocalContext.current))
+) {
+    val context = LocalContext.current
+    var contactsPermissionGranted by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED)
+    }
+    val contactsPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        contactsPermissionGranted = granted
+        if (granted) viewModel.loadInviteContacts()
+    }
+    val languageTag = LocalConfiguration.current.locales[0]?.toLanguageTag()
+
+    ConversationsScreenHost(
+        padding = padding,
+        model = viewModel,
+        clipboardService = clipboardService,
+        strings = conversationsHostStringsForLanguage(languageTag),
+        onOpenConversation = onOpenConversation,
+        onOpenUserProfile = onOpenUserProfile,
+        openingProfileUserId = openingProfileUserId,
+        onOpenFavorites = onOpenFavorites,
+        contactsPermissionGranted = contactsPermissionGranted,
+        onRequestInviteContactsPermission = {
+            contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+        },
+        remoteConversationAvatar = { presentation, modifier ->
+            AvatarImage(
+                name = presentation.name,
+                avatarUrl = presentation.avatarUrl,
+                profileId = presentation.stableId,
+                modifier = modifier,
+            )
+        },
+        candidateAvatar = { candidate, modifier ->
+            AvatarImage(
+                name = candidate.displayName,
+                avatarUrl = candidate.avatarUrl,
+                profileId = candidate.profileId,
+                modifier = modifier,
+            )
+        },
+        inviteAvatar = { contact, modifier ->
+            QuataAvatarFallback(contact.displayName, contact.id, modifier)
+        },
+        panelHost = { content ->
+            QuataStandardFloatingPanel(onDismiss = viewModel::closeNewConversationPicker, template = quataTheme()) { modifier, landscape ->
+                content(modifier, landscape)
+            }
+        },
+        inviteSheet = { contact, clipboard, dismiss -> InviteChannelSheet(contact, clipboard, dismiss) },
+        nowMillisProvider = System::currentTimeMillis,
+    )
+}
+
+@Composable
+private fun LegacyConversationsScreen(
     padding: PaddingValues,
     repository: ChatRepository,
     clipboardService: ClipboardService,

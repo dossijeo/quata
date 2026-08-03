@@ -21,7 +21,8 @@ import com.quata.MainActivity
 import com.quata.R
 import com.quata.core.model.Conversation
 import com.quata.core.navigation.quataChatUrl
-import com.quata.core.text.localizedSosPreview
+import com.quata.core.text.SosPreviewCatalog
+import com.quata.core.text.resolveLocalizedSosPreview
 
 class NotificationFactory(private val context: Context) {
     fun showChatPush(
@@ -33,8 +34,8 @@ class NotificationFactory(private val context: Context) {
     ) {
         if (!hasNotificationPermission()) return
         val notificationId = chatNotificationId(conversationId)
-        val localizedBody = localizedPushBody(bodyKey.ifBlank { body.notificationBodyKeyOrNull().orEmpty() })
-            ?: context.localizedSosPreview(body)
+        val localizedBody = resolveLocalizedSosPreview(body, context.sosPreviewCatalog())
+            ?: localizedPushBody(bodyKey.ifBlank { body.notificationBodyKeyOrNull().orEmpty() })
             ?: body
         val intent = Intent(context, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
@@ -72,7 +73,7 @@ class NotificationFactory(private val context: Context) {
         val contentTitle = conversation.notificationTitle().ifBlank {
             context.getString(R.string.common_chat)
         }.boldNotificationTitle()
-        val contentText = (context.localizedSosPreview(conversation.lastMessagePreview) ?: conversation.lastMessagePreview)
+        val contentText = (resolveLocalizedSosPreview(conversation.lastMessagePreview, context.sosPreviewCatalog()) ?: conversation.lastMessagePreview)
             .takeIf { it.isNotBlank() }
             ?: context.getString(R.string.notification_new_message)
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -284,3 +285,6 @@ class NotificationFactory(private val context: Context) {
         const val REPLY_SENT_DISMISS_TIMEOUT_MILLIS = 500L
     }
 }
+
+private fun Context.sosPreviewCatalog(): SosPreviewCatalog =
+    SosPreviewCatalog.forLanguage(resources.configuration.locales[0]?.language)

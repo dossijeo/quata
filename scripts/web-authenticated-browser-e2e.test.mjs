@@ -120,6 +120,17 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
   assert.match(runner, /fixtureState\.notificationInboxReads < 1/);
+  assert.match(runner, /MAX_AUTHENTICATED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 16/);
+  assert.match(runner, /\{ name: "browser_back_forward"[\s\S]*?\{ name: "primary_forward"/);
+  assert.match(runner, /if \(cycle === 1\) \{\s+for \(const \[index, fragment\] of sequence\.fragments\.entries\(\)\)/);
+  assert.match(runner, /globalThis\.history\[historyMethod\]\(globalThis\.history\.state, "", nextURL\)/);
+  assert.match(runner, /globalThis\.dispatchEvent\(new HashChangeEvent\("hashchange"/);
+  assert.match(runner, /globalThis\.history\[historyDirection\]\(\), direction/);
+  assert.doesNotMatch(runner, /page\.goBack\(\)|page\.goForward\(\)/);
+  assert.match(main, /var hasEvaluatedWhatsNewStartup by remember \{ mutableStateOf\(false\) \}/);
+  assert.match(main, /!hasEvaluatedWhatsNewStartup[\s\S]*?hasEvaluatedWhatsNewStartup = true[\s\S]*?navigationState\.route != "feed"/);
+  assert.doesNotMatch(main, /LaunchedEffect\([^\n]*navigationState\.route[^\n]*whatsNewInstalledVersionCode/);
+  assert.match(runner, /authenticated_inbox_read_storm/);
   assert.match(runner, /notificationInboxReads: productReadEvidence\.notificationInboxReads/);
   assert.match(runner, /notificationInboxReadStages: productReadEvidence\.notificationInboxReadStages/);
   assert.doesNotMatch(runner, /chatExcluded/);
@@ -129,27 +140,23 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /page\.keyboard\.press\("Enter"\)/);
   assert.deepEqual(
     READ_ONLY_ROUTE_MATRIX.map(route => route.route),
-    ["feed", "profile", "settings", "communities", "official"],
+    ["feed", "profile", "settings", "communities", "official", "whats-new", "about", "release-history"],
   );
   assert.ok(READ_ONLY_ROUTE_MATRIX.every(route => Object.keys(route).sort().join(",") === "fragment,route"));
   assert.match(runner, /globalThis\.location\.hash = fragment/);
+  assert.match(main, /val notificationCountFlow = remember\(notificationsRepository, shouldObserveNotifications\)/);
+  assert.match(main, /notificationCountFlow\.collectAsState\(initial = 0\)/);
 });
 
-test("WhatsNew RPC POST remains explicitly outside the strict GET-only route matrix", () => {
-  assert.deepEqual(READ_ONLY_ROUTE_EXCLUSIONS, [{
-    fragments: ["whats-new", "about"],
-    method: "POST",
-    path: "/rest/v1/rpc/quata_android_release_history",
-    reason: "postgrest_rpc_post_not_get_only",
-  }]);
+test("WhatsNew routes use the source-controlled local catalog and stay inside the strict read-only matrix", () => {
+  assert.deepEqual(READ_ONLY_ROUTE_EXCLUSIONS, []);
   const routedFragments = new Set(READ_ONLY_ROUTE_MATRIX.flatMap(route => [route.fragment, route.route]));
-  for (const fragment of ["whats-new", "about"]) assert.equal(routedFragments.has(fragment), false);
-  assert.match(
-    whatsNewHost,
-    /override suspend fun getReleaseHistory[\s\S]*?releases\("quata_android_release_history"[\s\S]*?private suspend fun releases[\s\S]*?rpcClient\.post\(function,/,
-  );
-  assert.match(documentation, /Novedades usa un RPC de lectura transportado como\s+`POST`/);
-  assert.match(documentation, /exclusivamente `POST \/rest\/v1\/rpc\/quata_chat_get_inbox`/);
+  for (const fragment of ["whats-new", "about", "release-history"]) assert.equal(routedFragments.has(fragment), true);
+  assert.match(whatsNewHost, /QuataLocalWhatsNewCatalog\.webReleases\(\)/);
+  assert.doesNotMatch(whatsNewHost, /rpcClient|quata_android_release_history/);
+  assert.match(documentation, /Novedades e Historial de versiones usan el cat[aá]logo local compartido/);
+  assert.match(documentation, /`POST \/rest\/v1\/rpc\/quata_chat_search_conversation_candidates`/);
+  assert.match(documentation, /cuerpo cerrado con actor UUID/);
   assert.match(runner, /excludedRoutes: READ_ONLY_ROUTE_EXCLUSIONS\.flatMap/);
 });
 
@@ -208,7 +215,7 @@ test("real preflight rejects missing scope, privileged environment and non-publi
   );
 });
 
-test("browser policy allows only reads, the exact notification inbox RPC, and declared Auth lifecycle effects", () => {
+test("browser policy allows only declared read RPCs and Auth lifecycle effects", () => {
   const backend = "https://project-ref.supabase.co";
   const decision = (overrides = {}) => backendBrowserRequestDecision({
     backend,
@@ -239,6 +246,58 @@ test("browser policy allows only reads, the exact notification inbox RPC, and de
   });
   assert.equal(notificationInbox.allowed, true);
   assert.equal(notificationInbox.reason, "declared_notification_inbox_read");
+  const candidateBody = {
+    p_actor_profile_id: "00000000-0000-4000-8000-000000000001",
+    p_query: "fixture",
+    p_limit: 30,
+    p_offset: 0,
+  };
+  const candidateRead = decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+    method: "POST",
+    body: JSON.stringify(candidateBody),
+  });
+  assert.equal(candidateRead.allowed, true);
+  assert.equal(candidateRead.reason, "declared_chat_candidate_directory_read");
+  for (const stage of ["compose_auth_bridge_login", "authenticated_browser_restore", "authenticated_route_matrix"]) {
+    assert.equal(decision({
+      url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+      method: "POST",
+      stage,
+      body: JSON.stringify(candidateBody),
+    }).allowed, true);
+  }
+  for (const body of [
+    "{}",
+    "not-json",
+    JSON.stringify({ ...candidateBody, p_limit: 0 }),
+    JSON.stringify({ ...candidateBody, p_limit: 51 }),
+    JSON.stringify({ ...candidateBody, p_offset: -1 }),
+    JSON.stringify({ ...candidateBody, p_actor_profile_id: "not-a-uuid" }),
+    JSON.stringify({ ...candidateBody, unexpected: true }),
+  ]) {
+    assert.equal(decision({
+      url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+      method: "POST",
+      body,
+    }).allowed, false);
+  }
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates_extra`,
+    method: "POST",
+    body: JSON.stringify(candidateBody),
+  }).allowed, false);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+    method: "PATCH",
+    body: JSON.stringify(candidateBody),
+  }).allowed, false);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_chat_search_conversation_candidates`,
+    method: "POST",
+    stage: "undeclared_login_like_stage",
+    body: JSON.stringify(candidateBody),
+  }).allowed, false);
   for (const path of [
     "/rest/v1/rpc/quata_chat_get_thread",
     "/rest/v1/rpc/quata_chat_send_message",
@@ -316,6 +375,14 @@ test("navigation stress permits only the exact read-only inbox RPC", () => {
   const decide = (path, method = "POST") => backendBrowserRequestDecision({ backend, url: `${backend}${path}`, method, stage: "authenticated_navigation_stress", body: "{}" });
   assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox").allowed, true);
   for (const path of ["/rest/v1/rpc/quata_chat_get_inbox_extra", "/rest/v1/rpc/quata_chat_send_message"]) assert.equal(decide(path).allowed, false);
+  assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox", "PATCH").allowed, false);
+});
+
+test("native push consent also permits only the exact read-only inbox RPC", () => {
+  const backend = "https://project-ref.supabase.co";
+  const decide = (path, method = "POST") => backendBrowserRequestDecision({ backend, url: `${backend}${path}`, method, stage: "authenticated_settings_push_consent", body: "{}" });
+  assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox").allowed, true);
+  assert.equal(decide("/rest/v1/rpc/quata_chat_send_message").allowed, false);
   assert.equal(decide("/rest/v1/rpc/quata_chat_get_inbox", "PATCH").allowed, false);
 });
 

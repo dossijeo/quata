@@ -4,12 +4,14 @@
 Chrome real. El modo predeterminado es hermético: sirve un backend fixture local, bloquea toda red
 externa y ejecuta login, recarga/restauración, el GET de Profile a través del producto, una matriz
 de rutas de solo lectura y logout mediante `WebAuthRepository` y `WebPushSessionCoordinator`.
-Chat y Novedades no forman parte de este carril: Novedades usa un RPC de lectura transportado como
-`POST`, y la mensajería remota conserva su propio E2E, datos y limpieza. La insignia global de
-Notifications reutiliza exclusivamente `POST /rest/v1/rpc/quata_chat_get_inbox`; el runner lo
-admite sólo durante los stages declarados de login, restauración, la matriz autenticada y el logout
-mientras la sesión aún existe, lo responde con un sobre vacío en el fixture y lo registra como
-evidencia de lectura. Ningún otro RPC o POST queda permitido.
+Chat no forma parte de este carril: la mensajería remota conserva su propio E2E, datos y limpieza.
+Novedades e Historial de versiones usan el catálogo local compartido y sí forman parte de la matriz
+sin mutaciones backend. La insignia global de
+Notifications reutiliza `POST /rest/v1/rpc/quata_chat_get_inbox` y el directorio de Conversaciones
+usa `POST /rest/v1/rpc/quata_chat_search_conversation_candidates`; ambos RPC son lecturas declaradas.
+El runner los admite sólo durante los stages autenticados previstos. Para el directorio exige además
+la ruta exacta y un cuerpo cerrado con actor UUID, query de texto, límite `1..50` y offset no negativo.
+El fixture responde ambos con sobres vacíos; ningún otro RPC o POST de producto queda permitido.
 
 ```powershell
 .\gradlew.bat :web:wasmJsBrowserDistribution --no-daemon
@@ -31,8 +33,8 @@ La matriz autenticada recorre Feed, Profile, Settings, Communities y Official me
 links publicados por el propio producto. El gate observa los GET autenticados emitidos por
 `WebProfileHost`/`WebProfileRemoteGateway`; no fabrica un `fetch` paralelo. En el navegador se
 permiten GET/HEAD/OPTIONS, dos efectos POST declarados: `web_login` durante login y
-`quata-web-push/logout` durante la limpieza, y la lectura exacta de inbox que exige la insignia de
-Notifications. Cualquier otro POST/PUT/PATCH/DELETE, incluido cualquier otro RPC PostgREST, se
+`quata-web-push/logout` durante la limpieza, y las lecturas RPC exactas de inbox y del directorio de
+Conversaciones. Cualquier otro POST/PUT/PATCH/DELETE, incluido cualquier otro RPC PostgREST, se
 aborta en origen y hace fallar el resultado.
 
 ## Modo backend real, opt-in

@@ -274,6 +274,7 @@ private final class IosAppCompositionRoot {
     }()
     private var notificationCountObserver: IosNotificationCountObserver?
     private var notificationCountObservationID = UUID()
+    private var notificationsFactoryGeneration = 0
     /// Official is a public, read-only browser.  Unlike the private verticals it is deliberately
     /// independent from Keychain restoration, so a valid public deployment can open a shared
     /// Official link before login and never sends a restored bearer token for that read.
@@ -356,14 +357,28 @@ private final class IosAppCompositionRoot {
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            if let self, self.hasValidatedAuthenticatedSession, let chatRuntimeBootstrap = self.chatRuntimeBootstrap {
+                chatRuntimeBootstrap.repository().setAppForeground(isForeground: true)
+            }
             self?.authenticatedHost.restoreRouteAfterForeground()
+            self?.installNotificationsIfAvailable()
             self?.presentPendingExternalShareIfAvailable()
+        }
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self, self.hasValidatedAuthenticatedSession, let chatRuntimeBootstrap = self.chatRuntimeBootstrap else { return }
+            chatRuntimeBootstrap.repository().setAppForeground(isForeground: false)
         }
         deepLinkDispatcher.attachHost(host: authenticatedRouteDispatcher)
         installSettings()
         installWhatsNewIfAvailable()
         installPublicFeedIfConfigured()
+        evaluateWhatsNewStartupIfAvailable()
         installPublicOfficialIfConfigured()
+        installNotificationsIfAvailable()
         installCommunitiesIfAvailable()
         IosAuthLifecycleBootstrap.installBindings(
             afterRestoredSessionAttempt: false,
@@ -507,6 +522,14 @@ private final class IosAppCompositionRoot {
     @discardableResult
     private func installRestoredFeedSessionIfAvailable() -> Bool {
         guard let runtimeBootstrap, hasValidatedAuthenticatedSession else { return false }
+        // A restoration/login completion can race with didEnterBackground.  Seed the newly
+        // composed Chat repository from UIKit's current state before any private factory starts
+        // observing it, otherwise a missed background transition leaves polling active.
+        if let chatRuntimeBootstrap {
+            chatRuntimeBootstrap.repository().setAppForeground(
+                isForeground: UIApplication.shared.applicationState == .active
+            )
+        }
         authenticatedHost.installFeedFactory { postId in
             QuataFeedViewControllerKt.QuataFeedViewController(
                 dependencies: runtimeBootstrap.authenticatedDependencies(
@@ -629,36 +652,76 @@ private final class IosAppCompositionRoot {
     /// Android exposes the inbox from the shared header without a session.  Its detail action
     /// delegates to `showChat`, which remains the single private-route gate.
     private func installNotificationsIfAvailable() {
-        guard let bootstrap = notificationsRuntimeBootstrap else { return }
+        notificationsFactoryGeneration += 1
+        let generation = notificationsFactoryGeneration
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            DispatchQueue.main.async {
+                guard let self, self.notificationsFactoryGeneration == generation else { return }
+                self.installNotifications(authorizationStatus: settings.authorizationStatus)
+            }
+        }
+    }
+
+    private func installNotifications(authorizationStatus: UNAuthorizationStatus) {
+        let authenticated = hasValidatedAuthenticatedSession
+        let bootstrap = authenticated ? notificationsRuntimeBootstrap : nil
+        let repository = bootstrap?.repository()
+            ?? IosAnonymousNotificationsRepositoryKt.createIosAnonymousNotificationsRepository()
         installAuthenticatedNotifications(
             IosNotificationsHostKt.createIosNotificationsHostDependencies(
-                repository: bootstrap.repository(),
+                repository: repository,
                 timestampNowMillis: Int64(Date().timeIntervalSince1970 * 1_000),
+                notificationPermissionActionLabel: notificationPermissionActionLabel(for: authorizationStatus),
                 onBack: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
                 onOpenConversation: { [weak self] conversationId in
                     self?.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
                 },
-                onRequestNotificationPermission: {
-                    // Permission is a UIKit/system concern. This invokes the real iOS prompt;
-                    // APNs token registration remains the existing AppDelegate bridge. Request
-                    // it from this completion as the authorization sheet is not guaranteed to
-                    // produce another applicationDidBecomeActive callback.
-                    UNUserNotificationCenter.current().requestAuthorization(
-                        options: [.alert, .badge, .sound]
-                    ) { granted, error in
-                        guard IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(
-                            granted: granted,
-                            error: error
-                        ) else { return }
-                        IosApnsLifecycleBridge.shared.requestRegistrationIfAuthorized()
-                    }
+                onNotificationPermissionAction: { [weak self] in
+                    self?.performNotificationPermissionAction(for: authorizationStatus)
                 },
                 // Conversation navigation above is the real host action. This common callback
                 // is observability only and must not manufacture a URL or a route.
                 onHandleDeepLink: { _ in },
+                canMutate: authenticated,
+                onAuthenticationRequired: { [weak self] item in
+                    self?.authenticatedHost.showChat(conversationId: item.conversationId, messageId: nil)
+                },
+                onDismissAuthenticationRequired: { [weak self] _ in
+                    self?.authenticatedHost.presentAuthRequiredPrompt()
+                },
             ),
         )
-        installNotificationCountObserver(bootstrap)
+        if let bootstrap { installNotificationCountObserver(bootstrap) }
+        if authenticatedHost.isNotificationsVisible {
+            authenticatedHost.showNotifications()
+        }
+    }
+
+    private func performNotificationPermissionAction(for status: UNAuthorizationStatus) {
+        switch IosApnsAuthorization.permissionAction(status) {
+        case .requestAuthorization:
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { [weak self] granted, error in
+                if IosApnsAuthorization.shouldRequestRegistrationAfterPrompt(granted: granted, error: error) {
+                    IosApnsLifecycleBridge.shared.requestRegistrationIfAuthorized()
+                }
+                DispatchQueue.main.async {
+                    self?.installNotificationsIfAvailable()
+                }
+            }
+        case .openSettings:
+            guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+            UIApplication.shared.open(url)
+        case .none:
+            break
+        }
+    }
+
+    private func notificationPermissionActionLabel(for status: UNAuthorizationStatus) -> String? {
+        switch IosApnsAuthorization.permissionAction(status) {
+        case .requestAuthorization: return "Permitir notificaciones"
+        case .openSettings: return "Abrir ajustes"
+        case .none: return nil
+        }
     }
 
     private func installNotificationCountObserver(_ bootstrap: IosNotificationsRuntimeBootstrap) {
@@ -833,7 +896,11 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installWhatsNewFactory { [weak self] in
             IosWhatsNewRuntimeBootstrapKt.QuataIosManagedWhatsNewViewController(
                 runtime: whatsNewRuntimeBootstrap,
-                onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                onClose: {
+                    whatsNewRuntimeBootstrap.acknowledgeStartup { [weak self] in
+                        self?.authenticatedHost.showFeed(postId: nil)
+                    }
+                },
             )
         }
         authenticatedHost.installReleaseHistoryFactory { [weak self] in
@@ -841,6 +908,16 @@ private final class IosAppCompositionRoot {
                 runtime: whatsNewRuntimeBootstrap,
                 onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
             )
+        }
+    }
+
+    /// Evaluates the shared version/catalog state only after the public Feed is installed.
+    /// The router refuses a late decision if a deep link or user action already left Feed.
+    private func evaluateWhatsNewStartupIfAvailable() {
+        guard let whatsNewRuntimeBootstrap else { return }
+        whatsNewRuntimeBootstrap.evaluateStartup { [weak self] shouldShow in
+            guard shouldShow.boolValue else { return }
+            self?.authenticatedHost.showWhatsNewIfFeedVisible()
         }
     }
 
@@ -944,6 +1021,7 @@ private final class IosAppCompositionRoot {
                 self?.closeNotificationCountObserver()
                 self?.installPublicFeedIfConfigured()
                 self?.installPublicOfficialIfConfigured()
+                self?.installNotificationsIfAvailable()
                 self?.installAuthenticationIfConfigured()
             },
         )
@@ -1106,6 +1184,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var onLoggedOut: (() -> Void)?
     private var isLoggingOut = false
     private var pendingRoute: PendingRoute?
+    private var visibleRoute: PendingRoute?
+    var isNotificationsVisible: Bool {
+        if case .notifications? = visibleRoute { return true }
+        return false
+    }
     private var hasAuthenticatedSession = false
     private var hasPublicFeed = false
     private lazy var primaryNavigationHost = IosPrimaryNavigationHost(
@@ -1539,6 +1622,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 filePicker: services.filePicker,
                 conversationId: conversationId,
                 focusedMessageId: messageId,
+                languageTag: Locale.preferredLanguages.first ?? Locale.current.identifier,
                 onOpenConversation: { [weak self] conversationId in
                     self?.showChat(conversationId: conversationId, messageId: nil)
                 },
@@ -1678,6 +1762,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func showSettings() { route(.settings) }
 
     func showWhatsNew() { route(.whatsNew) }
+
+    /// Startup evaluation is asynchronous. Never replace a route selected while it was running.
+    @discardableResult
+    func showWhatsNewIfFeedVisible() -> Bool {
+        guard case .feed? = visibleRoute, whatsNewFactory != nil else { return false }
+        showWhatsNew()
+        return true
+    }
 
     func showReleaseHistory() { route(.releaseHistory) }
 
@@ -1889,6 +1981,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     private func showRouteController(_ controller: UIViewController, route: PendingRoute) {
+        visibleRoute = route
         // Public Official/deep-link routes may be resolved before the Feed factory has been
         // installed. They still belong to the application viewport and therefore get the same
         // shared shell as Feed rather than becoming a full-screen UIKit exception.

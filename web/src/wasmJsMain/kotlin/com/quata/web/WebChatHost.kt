@@ -7,8 +7,15 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import com.quata.core.platform.BrowserClipboardService
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.AudioRecordingReferenceReleaser
@@ -20,6 +27,13 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
+import com.quata.feature.chat.presentation.chat.chatTextForLanguage
+import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
+import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
+import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
+import com.quata.feature.chat.presentation.conversations.conversationsHostStringsForLanguage
+import com.quata.core.ui.components.QuataAvatarFallback
+import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import kotlinx.coroutines.launch
 
 /** Browser adapter: hash navigation and safe URL opening stay at the platform boundary. */
@@ -42,9 +56,16 @@ fun WebChatHost(
         audioRecordingReferences ?: (resolvedAudioRecorder as? AudioRecordingReferenceReleaser)
     }
     val scope = rememberCoroutineScope()
+    val languageTag = browserChatLanguageTag()
+    val chatText = remember(languageTag) { { value: com.quata.feature.chat.presentation.chat.ChatText -> chatTextForLanguage(value, languageTag) } }
+    val conversationsModel = remember(repository, languageTag) {
+        ConversationsViewModel(repository = repository, text = chatText)
+    }
+    val clipboard = remember { BrowserClipboardService() }
+    DisposableEffect(conversationsModel) { onDispose(conversationsModel::close) }
     DisposableEffect(repository) {
-        repository.setAppForeground(browserDocumentIsVisible())
-        val stopObserving = observeBrowserDocumentVisibility(repository::setAppForeground)
+        repository.setAppForeground(chatBrowserDocumentIsVisible())
+        val stopObserving = observeChatBrowserDocumentVisibility(repository::setAppForeground)
         onDispose {
             stopObserving()
             repository.setAppForeground(false)
@@ -61,18 +82,76 @@ fun WebChatHost(
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
+        text = chatText,
+        conversationList = { listModifier ->
+            ConversationsScreenHost(
+                padding = PaddingValues(),
+                model = conversationsModel,
+                clipboardService = clipboard,
+                strings = conversationsHostStringsForLanguage(languageTag),
+                onOpenConversation = onOpenConversation,
+                remoteConversationAvatar = { presentation, avatarModifier ->
+                    WebConversationAvatar(presentation, avatarModifier)
+                },
+                candidateAvatar = { candidate, avatarModifier ->
+                    WebConversationAvatar(
+                        ConversationAvatarPresentation(
+                            kind = com.quata.feature.chat.presentation.conversations.ConversationAvatarKind.Private,
+                            name = candidate.displayName,
+                            stableId = candidate.profileId,
+                            avatarUrl = candidate.avatarUrl,
+                            profileId = candidate.profileId,
+                            isMuted = false,
+                            isLoading = false,
+                        ),
+                        avatarModifier,
+                    )
+                },
+                inviteAvatar = { contact, avatarModifier ->
+                    QuataAvatarFallback(contact.displayName, contact.id, avatarModifier)
+                },
+                panelHost = { content ->
+                    QuataStandardFloatingPanelContent(onDismiss = conversationsModel::closeNewConversationPicker) { panelModifier, landscape ->
+                        content(panelModifier, landscape)
+                    }
+                },
+                nowMillisProvider = ::webChatNowMillis,
+                modifier = listModifier,
+            )
+        },
         messageInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, "Mensaje", modifier.height(56.dp), inputType = "text") },
         sendButtonOverride = { enabled, onClick, modifier -> WebNativeButton("Enviar", enabled, onClick, modifier.height(48.dp)) },
         modifier = modifier,
     )
 }
 
-private fun browserDocumentIsVisible(): Boolean = js(
+@Composable
+private fun WebConversationAvatar(presentation: ConversationAvatarPresentation, modifier: Modifier) {
+    Box(modifier.clip(CircleShape)) {
+        QuataAvatarFallback(presentation.name, presentation.stableId, Modifier.fillMaxSize())
+        presentation.avatarUrl?.takeIf(::isSafeWebAvatarUrl)?.let { url ->
+            BrowserCanvasImage(url, presentation.name, ContentScale.Crop, Modifier.fillMaxSize())
+        }
+    }
+}
+
+private fun isSafeWebAvatarUrl(value: String): Boolean =
+    value.startsWith("https://", ignoreCase = true) || value.startsWith("http://", ignoreCase = true)
+
+@JsFun("() => globalThis.navigator?.language || globalThis.document?.documentElement?.lang || 'en'")
+private external fun browserChatLanguageTag(): String
+
+@JsFun("() => Date.now()")
+private external fun webChatNowMillisAsDouble(): Double
+
+private fun webChatNowMillis(): Long = webChatNowMillisAsDouble().toLong()
+
+internal fun chatBrowserDocumentIsVisible(): Boolean = js(
     "globalThis.document?.visibilityState !== 'hidden'",
 )
 
 /** Pauses the repository polling loops on background tabs and unregisters with the host. */
-private fun observeBrowserDocumentVisibility(onChanged: (Boolean) -> Unit): () -> Unit = js(
+internal fun observeChatBrowserDocumentVisibility(onChanged: (Boolean) -> Unit): () -> Unit = js(
     """
     (() => {
     const document = globalThis.document;

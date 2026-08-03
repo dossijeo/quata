@@ -11,8 +11,9 @@ export const SMOKE_ROUTE_CONTRACTS = Object.freeze([
     { fragment: 'profile', kind: 'private', returnRoute: 'profile' },
     { fragment: 'composer', kind: 'private', returnRoute: 'composer' },
     { fragment: 'communities', kind: 'public', route: 'communities' },
-    { fragment: 'whats-new', kind: 'private', returnRoute: 'whats-new' },
-    { fragment: 'about', kind: 'private', returnRoute: 'about' },
+    { fragment: 'whats-new', kind: 'public', route: 'whats-new' },
+    { fragment: 'about', kind: 'public', route: 'about' },
+    { fragment: 'release-history', kind: 'public', route: 'release-history' },
 ]);
 
 export const SMOKE_ROUTE_FRAGMENTS = Object.freeze(SMOKE_ROUTE_CONTRACTS.map(({ fragment }) => fragment));

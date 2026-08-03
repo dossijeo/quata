@@ -39,14 +39,17 @@ const FIXTURE = Object.freeze({
   webSessionToken: "fixture-web-session-token",
 });
 const PRIMARY_NAVIGATION_STRESS_SEQUENCES = Object.freeze([
+  { name: "browser_back_forward", fragments: ["communities", "chat", "official", "", "profile"] },
   { name: "primary_forward", fragments: ["communities", "chat", "official", "", "profile", "communities"] },
   { name: "primary_reverse", fragments: ["", "official", "chat", "communities", "profile", ""] },
   { name: "feed_official_toggle", fragments: ["", "official"] },
   { name: "communities_chat_toggle", fragments: ["communities", "chat"] },
-  { name: "browser_back_forward", fragments: ["communities", "chat", "official", "", "profile"] },
   { name: "direct_fragments", fragments: ["communities", "chat", "official", "", "profile"] },
 ]);
 const NAVIGATION_STRESS_CYCLES = 50;
+// Chat is intentionally remounted throughout the matrix and performs one initial inbox read.
+// This bound permits those route reads while still rejecting the former 2,000+ badge restarts.
+const MAX_AUTHENTICATED_INBOX_READS = NAVIGATION_STRESS_CYCLES * 16;
 const PRIVATE_RETURN_FRAGMENT = "chat-sb%3Ateam%2F42?message=msg%209";
 const PRIVATE_RETURN_ROUTE = "chat/sb:team/42";
 
@@ -234,6 +237,9 @@ try {
 
   stage = "authenticated_navigation_stress";
   report.navigationStress = await runAuthenticatedNavigationStress(page, browserDiagnostics);
+  if (productReadEvidence.notificationInboxReads > MAX_AUTHENTICATED_INBOX_READS) {
+    throw new Error("authenticated_inbox_read_storm");
+  }
   report.navigationStress.finalShellScreenshot = await captureShellScreenshot(page, options.output);
   report.steps.push("authenticated_navigation_stress_6_sequences_50_cycles");
 
@@ -421,6 +427,16 @@ async function startServer(distribution, state, configuration) {
         }
         state.notificationInboxReads += 1;
         return json(response, 200, { threads: [], messages: [], profiles: [] });
+      }
+      if (url.pathname === "/rest/v1/rpc/quata_chat_search_conversation_candidates") {
+        const body = await jsonBody(request);
+        if (request.method !== "POST" || request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
+            body.p_actor_profile_id !== FIXTURE.profileId || typeof body.p_query !== "string" ||
+            !Number.isInteger(body.p_limit) || body.p_limit < 1 || body.p_limit > 50 ||
+            !Number.isInteger(body.p_offset) || body.p_offset < 0 || Object.keys(body).length !== 4) {
+          return json(response, 405, { error: "fixture_chat_candidate_directory_read_forbidden" });
+        }
+        return json(response, 200, { items: [], has_more: false, next_offset: body.p_offset, total: 0, actor_neighborhood: "Fixture District" });
       }
       if (url.pathname.startsWith("/rest/v1/")) {
         if (request.method !== "GET") return json(response, 405, { error: "fixture_product_mutation_forbidden" });
@@ -703,7 +719,14 @@ async function runAuthenticatedNavigationStress(page, diagnostics) {
     const diagnosticsAtStart = diagnostics.length;
     for (let cycle = 1; cycle <= NAVIGATION_STRESS_CYCLES; cycle += 1) {
       if (sequence.name === "browser_back_forward") {
-        for (const fragment of sequence.fragments) await navigateStressFragment(page, fragment);
+        // Build one bounded history chain before the high-volume route stress. Reusing it
+        // keeps the browser's same-document history limit from turning a product assertion
+        // into a test-runner artifact after hundreds of hash navigations.
+        if (cycle === 1) {
+          for (const [index, fragment] of sequence.fragments.entries()) {
+            await seedStressHistoryFragment(page, fragment, index === 0 ? "replaceState" : "pushState");
+          }
+        }
         for (let index = 1; index < sequence.fragments.length; index += 1) {
           const expected = expectedRouteForFragment(sequence.fragments.at(-1 - index));
           await navigateHistory(page, "back", index, expected);
@@ -730,9 +753,20 @@ async function runAuthenticatedNavigationStress(page, diagnostics) {
   return { status: "passed", sequences: results, knownFixtureConsoleErrors: knownFixtureConsoleErrors.length, unexpectedConsoleErrors: unexpectedConsoleErrors.length, uncaughtExceptions: pageErrors.length };
 }
 
+async function seedStressHistoryFragment(page, fragment, method) {
+  const expected = expectedRouteForFragment(fragment);
+  await page.evaluate(({ value, historyMethod }) => {
+    const oldURL = globalThis.location.href;
+    const nextURL = value ? `#${value}` : `${globalThis.location.pathname}${globalThis.location.search}`;
+    globalThis.history[historyMethod](globalThis.history.state, "", nextURL);
+    globalThis.dispatchEvent(new HashChangeEvent("hashchange", { oldURL, newURL: globalThis.location.href }));
+  }, { value: fragment, historyMethod: method });
+  await waitForShellRoute(page, expected);
+}
+
 async function navigateHistory(page, direction, index, expected) {
   const before = await page.evaluate(() => ({ hash: location.hash, route: localStorage.getItem("web.navigation.route") }));
-  await (direction === "back" ? page.goBack() : page.goForward());
+  await page.evaluate(historyDirection => globalThis.history[historyDirection](), direction);
   try { await waitForShellRoute(page, expected); }
   catch (error) {
     navigationStressFailure = { direction, index, expected, before, after: await page.evaluate(() => ({ hash: location.hash, route: localStorage.getItem("web.navigation.route"), shellRoute: document.documentElement.getAttribute("data-quata-shell-route"), selected: document.documentElement.getAttribute("data-quata-primary-selected-route") })), error: error.message };
