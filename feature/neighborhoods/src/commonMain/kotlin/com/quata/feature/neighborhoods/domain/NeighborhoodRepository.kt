@@ -1,12 +1,17 @@
 package com.quata.feature.neighborhoods.domain
 
+import com.quata.core.model.Post
+import com.quata.core.model.PostComment
 import kotlinx.coroutines.flow.Flow
 
 interface NeighborhoodRepository {
     fun observeCommunities(): Flow<List<NeighborhoodCommunity>>
     suspend fun openNeighborhoodChat(neighborhood: String): Result<String>
     suspend fun toggleFollowUser(userId: String): Result<FollowUserResult>
+    suspend fun addProfileComment(postId: String, comment: PostComment): Result<Post?>
     suspend fun reportPost(postId: String): Result<Unit>
+    suspend fun reportProfile(userId: String): Result<Unit>
+    suspend fun setProfileBlocked(userId: String, blocked: Boolean): Result<Boolean>
     suspend fun openPrivateChat(userId: String): Result<String>
     suspend fun isCurrentUserAdmin(): Boolean
     suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean): Result<NeighborhoodUser>

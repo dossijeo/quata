@@ -30,7 +30,8 @@ data class CommunityUserProfile(
     val posts: List<Post>,
     val attachments: List<ProfileAttachment> = emptyList(),
     val followers: List<NeighborhoodUser> = emptyList(),
-    val following: List<NeighborhoodUser> = emptyList()
+    val following: List<NeighborhoodUser> = emptyList(),
+    val isBlockedByCurrentUser: Boolean = false,
 )
 
 data class FollowUserResult(

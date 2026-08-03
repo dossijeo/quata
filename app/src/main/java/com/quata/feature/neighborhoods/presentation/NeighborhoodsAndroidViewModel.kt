@@ -3,6 +3,7 @@ package com.quata.feature.neighborhoods.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
+import com.quata.core.model.PostComment
 import kotlinx.coroutines.flow.StateFlow
 
 /** Android lifecycle adapter for shared communities presentation logic. */
@@ -17,6 +18,9 @@ class NeighborhoodsAndroidViewModel(repository: NeighborhoodRepository) : ViewMo
     override fun openUserProfile(userId: String) = delegate.openUserProfile(userId)
     fun closeUserProfile() = delegate.closeUserProfile()
     fun reportProfilePost(postId: String) = delegate.reportProfilePost(postId)
+    fun addProfileComment(postId: String, comment: PostComment) = delegate.addProfileComment(postId, comment)
+    fun reportProfile(userId: String) = delegate.reportProfile(userId)
+    fun setProfileBlocked(userId: String, blocked: Boolean) = delegate.setProfileBlocked(userId, blocked)
     fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean) = delegate.setUserRoles(userId, isAdmin, isOfficial)
 
     override fun close() = delegate.close()

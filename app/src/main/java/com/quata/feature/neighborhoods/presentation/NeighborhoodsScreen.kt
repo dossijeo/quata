@@ -193,12 +193,15 @@ fun CommunityProfileScreen(
     isRefreshingProfile: Boolean = false,
     followingUserId: String? = null,
     roleUpdatingUserId: String? = null,
+    commentingPostId: String? = null,
+    profileSafetyUpdatingUserId: String? = null,
     currentUserIsAdmin: Boolean = false,
     chatError: String? = null,
     onAuthRequired: () -> Unit = {},
     onReportPost: (String) -> Unit = {},
     onReportProfile: (String) -> Unit = {},
-    onBlockProfile: (String) -> Unit = {},
+    onSetProfileBlocked: (String, Boolean) -> Unit = { _, _ -> },
+    onAddComment: (String, PostComment) -> Unit = { _, _ -> },
     onBack: () -> Unit,
     onFollow: () -> Unit,
     onFollowUser: (String) -> Unit = { onFollow() },
@@ -207,216 +210,144 @@ fun CommunityProfileScreen(
     onOpenUserProfile: (String) -> Unit = {},
     openingProfileUserId: String? = null
 ) {
-    val isOwnProfile = profile.user.id == currentUserId
-    val isFollowingLoading = followingUserId == profile.user.id
-    var showPosts by rememberSaveable(profile.user.id) { mutableStateOf(false) }
-    var userListTitle by rememberSaveable(profile.user.id) { mutableStateOf<String?>(null) }
-    var selectedAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
-    var pendingProfileAction by remember { mutableStateOf<ProfileModerationAction?>(null) }
     val context = LocalContext.current
     val template = quataTheme()
-    val avatarUrl = profile.user.avatarUrl?.trim()?.takeIf { it.isNotBlank() }
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    LaunchedEffect(showPosts) {
-        if (showPosts) listState.animateScrollToItem(2)
-    }
-    ProfileModerationConfirmation(
-        action = pendingProfileAction,
-        strings = ProfileModerationConfirmationStrings(
-            reportTitle = stringResource(R.string.moderation_report_title),
-            blockTitle = stringResource(R.string.moderation_block_title),
-            reportMessage = stringResource(R.string.moderation_report_profile_confirm),
-            blockMessage = stringResource(R.string.moderation_block_profile_confirm),
-            cancel = stringResource(R.string.common_cancel),
-            report = stringResource(R.string.moderation_report),
-            block = stringResource(R.string.moderation_block)
+    var selectedProfileAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
+    CommunityProfileScreenHost(
+        profile = profile,
+        currentUserId = currentUserId,
+        strings = CommunityProfileStrings(
+            posts = stringResource(R.string.neighborhoods_posts),
+            followers = stringResource(R.string.neighborhoods_followers),
+            following = stringResource(R.string.neighborhoods_following),
+            followersOf = { context.getString(R.string.neighborhoods_followers_of, it) },
+            followingOf = { context.getString(R.string.neighborhoods_following_of, it) },
+            actions = ProfileActionStrings(
+                follow = stringResource(R.string.common_follow),
+                following = stringResource(R.string.common_following),
+                chat = stringResource(R.string.common_chat),
+            ),
+            userRow = NeighborhoodUserRowStrings(
+                follow = stringResource(R.string.common_follow),
+                following = stringResource(R.string.common_following),
+                chat = stringResource(R.string.common_chat),
+            ),
+            moderation = ProfileModerationStrings(
+                report = stringResource(R.string.moderation_report),
+                block = stringResource(R.string.moderation_block),
+                unblock = stringResource(R.string.moderation_unblock),
+            ),
+            moderationConfirmation = ProfileModerationConfirmationStrings(
+                reportTitle = stringResource(R.string.moderation_report_title),
+                blockTitle = stringResource(R.string.moderation_block_title),
+                unblockTitle = stringResource(R.string.moderation_unblock_title),
+                reportMessage = stringResource(R.string.moderation_report_profile_confirm),
+                blockMessage = stringResource(R.string.moderation_block_profile_confirm),
+                unblockMessage = stringResource(R.string.moderation_unblock_profile_confirm),
+                cancel = stringResource(R.string.common_cancel),
+                report = stringResource(R.string.moderation_report),
+                block = stringResource(R.string.moderation_block),
+                unblock = stringResource(R.string.moderation_unblock),
+            ),
+            roles = ProfileRoleStrings(
+                title = stringResource(R.string.profile_admin_controls_title),
+                admin = stringResource(R.string.profile_admin_role),
+                official = stringResource(R.string.profile_official_role),
+            ),
+            attachments = ProfileAttachmentsStrings(
+                title = stringResource(R.string.neighborhoods_attachments),
+                empty = stringResource(R.string.neighborhoods_no_attachments),
+            ),
+            galleryTitle = stringResource(R.string.neighborhoods_photos_videos),
+            emptyGallery = stringResource(R.string.neighborhoods_no_visible_posts),
+            back = stringResource(R.string.common_back),
+            comments = CommunityProfileCommentsDialogStrings(
+                title = stringResource(R.string.feed_comments),
+                closeContentDescription = stringResource(R.string.common_close),
+                placeholder = stringResource(R.string.comments_placeholder),
+                sendLabel = stringResource(R.string.common_send),
+            ),
         ),
-        onDismiss = { pendingProfileAction = null },
-        onConfirm = { action ->
-            pendingProfileAction = null
-            if (action == ProfileModerationAction.Block) onBlockProfile(profile.user.id)
-            else onReportProfile(profile.user.id)
-        }
-    )
-    CommunityProfileSheetContent(
-        sheetState = sheetState,
-        containerColor = template.colors.background,
-        contentColor = template.colors.textPrimary,
-        onDismiss = onBack,
-    ) {
-        if (userListTitle != null) {
-            ProfileUsersListContent(
-                title = if (userListTitle == "followers") {
-                    stringResource(R.string.neighborhoods_followers_of, profile.user.displayName)
-                } else {
-                    stringResource(R.string.neighborhoods_following_of, profile.user.displayName)
-                },
-                users = if (userListTitle == "followers") profile.followers else profile.following,
-                currentUserId = currentUserId,
-                onBack = { userListTitle = null },
-                onFollowUser = { user ->
-                    if (currentUserId == null) onAuthRequired() else onFollowUser(user.id)
-                },
-                onOpenProfile = { user -> onOpenUserProfile(user.id) },
-                onOpenPrivateChat = { user ->
-                    if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(user.id)
-                },
-                isOpeningChat = isOpeningChat,
-                openingProfileUserId = openingProfileUserId,
-                followingUserId = followingUserId
-            )
-        } else {
-            CommunityProfileDetailsContent(
-                listState = listState,
-                modifier = Modifier.heightIn(max = 780.dp),
-                header = {
-                    CommunityProfileHeaderContent(
-                        displayName = profile.user.displayName,
-                        neighborhood = profile.user.neighborhood,
-                        avatar = {
-                        ProfileAvatar(
-                            profile.user,
-                            Modifier
-                                .size(92.dp)
-                                .clickable(enabled = avatarUrl != null) {
-                                    val imageUri = avatarUrl ?: return@clickable
-                                    selectedAttachment = AttachmentPreview(
-                                        name = profile.user.displayName,
-                                        uri = imageUri,
-                                        mimeType = "image/jpeg"
-                                    )
-                                },
-                            isLoading = isRefreshingProfile
-                        )
-                        },
-                        kpis = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        ProfileKpi(profile.user.postsCount, stringResource(R.string.neighborhoods_posts), Modifier.weight(1f), onClick = { showPosts = true })
-                        ProfileKpi(profile.user.followersCount, stringResource(R.string.neighborhoods_followers), Modifier.weight(1f), onClick = {
-                            userListTitle = "followers"
-                        })
-                        ProfileKpi(profile.user.followingCount, stringResource(R.string.neighborhoods_following), Modifier.weight(1f), onClick = {
-                            userListTitle = "following"
-                        })
-                            }
-                        },
-                        primaryActions = {
-                            ProfilePrimaryActions(
-                        isOwnProfile = isOwnProfile,
-                        isFollowing = profile.user.isFollowing,
-                        isFollowingLoading = isFollowingLoading,
-                        isOpeningChat = isOpeningChat,
-                        strings = ProfileActionStrings(
-                            follow = stringResource(R.string.common_follow),
-                            following = stringResource(R.string.common_following),
-                            chat = stringResource(R.string.common_chat)
-                        ),
-                        onFollow = { if (currentUserId == null) onAuthRequired() else onFollowUser(profile.user.id) },
-                        onChat = { if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(profile.user.id) }
-                            )
-                        },
-                        moderationActions = {
-                            ProfileModerationActions(
-                        visible = !isOwnProfile,
-                        strings = ProfileModerationStrings(
-                            report = stringResource(R.string.moderation_report),
-                            block = stringResource(R.string.moderation_block)
-                        ),
-                        onReport = {
-                            if (currentUserId == null) onAuthRequired() else pendingProfileAction = ProfileModerationAction.Report
-                        },
-                        onBlock = {
-                            if (currentUserId == null) onAuthRequired() else pendingProfileAction = ProfileModerationAction.Block
-                        }
-                            )
-                        },
-                        adminControls = if (currentUserIsAdmin && !isOwnProfile) {
-                            {
-                                Spacer(Modifier.height(14.dp))
-                                ProfileRoleControlsContent(
-                            user = profile.user,
-                            isUpdating = roleUpdatingUserId == profile.user.id,
-                            strings = ProfileRoleStrings(
-                                title = stringResource(R.string.profile_admin_controls_title),
-                                admin = stringResource(R.string.profile_admin_role),
-                                official = stringResource(R.string.profile_official_role)
-                            ),
-                            onSetRoles = { isAdmin, isOfficial ->
-                                onSetUserRoles(profile.user.id, isAdmin, isOfficial)
-                            }
-                                )
-                            }
-                        } else null,
-                        errorMessage = chatError?.let { error ->
-                            {
-                                Spacer(Modifier.height(10.dp))
-                                Text(error, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                            }
-                        }
+        slots = CommunityProfilePlatformSlots(
+            avatar = { user, modifier, loading, openAvatar ->
+                ProfileAvatarWithLoadingHalo(
+                    name = user.displayName,
+                    avatarUrl = user.avatarUrl,
+                    profileId = user.id,
+                    isOfficial = user.isOfficial,
+                    isLoading = loading,
+                    modifier = modifier.then(openAvatar?.let { Modifier.clickable(onClick = it) } ?: Modifier),
+                )
+            },
+            attachment = { attachment, open -> ProfileAttachmentRow(attachment, open) },
+            postMedia = { post, loaded, load ->
+                when {
+                    post.imageUrl != null -> AsyncImage(
+                        model = post.imageUrl,
+                        contentDescription = post.imageTitle(),
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxWidth().height(430.dp),
                     )
-                },
-                attachments = {
-                    ProfileAttachmentsSection(
-                        attachments = profile.attachments,
-                        onOpenAttachment = { attachment ->
-                            val preview = attachment.toAttachmentPreview()
-                            if (preview.isMedia) {
-                                selectedAttachment = preview
-                            } else {
-                                context.openAttachmentWithDocumentReaderOrChooser(
-                                    attachment = preview,
-                                    isDarkMode = template.resolvedTheme == QuataResolvedTheme.Dark
-                                )
-                            }
-                        }
-                    )
-                    Spacer(Modifier.height(18.dp))
-                },
-                gallery = if (showPosts) {
-                    {
-                        val pagerState = rememberPagerState(pageCount = { profile.posts.size })
-                        ProfileGalleryHeader(
-                            title = stringResource(R.string.neighborhoods_photos_videos),
-                            currentIndex = (pagerState.currentPage + 1).takeIf { profile.posts.isNotEmpty() },
-                            total = profile.posts.size,
-                            emptyLabel = stringResource(R.string.neighborhoods_no_visible_posts).takeIf { profile.posts.isEmpty() }
-                        )
-                        if (profile.posts.isNotEmpty()) {
-                            ProfilePostsPager(
-                                posts = profile.posts,
-                                pagerState = pagerState,
-                                canParticipate = currentUserId != null,
-                                onAuthRequired = onAuthRequired,
-                                onReportPost = onReportPost
+                    post.videoUrl != null && loaded -> ProfileVideoPlayer(post.videoUrl.orEmpty())
+                    post.videoUrl != null -> Box(
+                        modifier = Modifier.fillMaxWidth().height(430.dp).clickable(onClick = load),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            modifier = Modifier.size(86.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.42f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CompactIcon(
+                                imageVector = Icons.Filled.Pause,
+                                contentDescription = null,
+                                modifier = Modifier.size(50.dp),
+                                tint = Color.White,
                             )
                         }
                     }
-                } else null,
-            )
-        }
-    }
-    selectedAttachment?.let { attachment ->
-        AttachmentViewerDialog(
-            attachment = attachment,
-            onDismiss = { selectedAttachment = null }
-        )
-    }
-}
-
-@Composable
-private fun ProfileAttachmentsSection(
-    attachments: List<ProfileAttachment>,
-    onOpenAttachment: (ProfileAttachment) -> Unit
-) {
-    ProfileAttachmentsContent(
-        attachments = attachments,
-        strings = ProfileAttachmentsStrings(
-            title = stringResource(R.string.neighborhoods_attachments),
-            empty = stringResource(R.string.neighborhoods_no_attachments)
+                }
+            },
+            openAttachment = { attachment ->
+                val preview = attachment.toAttachmentPreview()
+                if (preview.isMedia) {
+                    selectedProfileAttachment = preview
+                } else {
+                    context.openAttachmentWithDocumentReaderOrChooser(preview, template.resolvedTheme == QuataResolvedTheme.Dark)
+                }
+            },
+            sharePost = context::shareProfilePost,
         ),
-        attachmentItem = { attachment -> ProfileAttachmentRow(attachment, onOpen = { onOpenAttachment(attachment) }) }
+        isOpeningChat = isOpeningChat,
+        isRefreshingProfile = isRefreshingProfile,
+        followingUserId = followingUserId,
+        roleUpdatingUserId = roleUpdatingUserId,
+        commentingPostId = commentingPostId,
+        profileSafetyUpdatingUserId = profileSafetyUpdatingUserId,
+        currentUserIsAdmin = currentUserIsAdmin,
+        openingProfileUserId = openingProfileUserId,
+        errorMessage = chatError,
+        onAuthRequired = onAuthRequired,
+        onBack = onBack,
+        onFollowUser = onFollowUser,
+        onOpenPrivateChat = onOpenPrivateChat,
+        onOpenUserProfile = onOpenUserProfile,
+        onSetUserRoles = onSetUserRoles,
+        onReportPost = onReportPost,
+        onReportProfile = onReportProfile,
+        onSetProfileBlocked = onSetProfileBlocked,
+        onAddComment = onAddComment,
+        createComment = { post, draft ->
+            PostComment(
+                id = "profile_${post.id}_${System.currentTimeMillis()}",
+                authorName = context.getString(R.string.comments_you),
+                message = draft,
+                timestamp = context.getString(R.string.common_now),
+            )
+        },
     )
+    selectedProfileAttachment?.let { attachment ->
+        AttachmentViewerDialog(attachment = attachment, onDismiss = { selectedProfileAttachment = null })
+    }
 }
 
 @Composable
@@ -439,170 +370,6 @@ private fun ProfileAttachmentRow(attachment: ProfileAttachment, onOpen: () -> Un
 private fun ProfileAttachment.toAttachmentPreview(): AttachmentPreview =
     AttachmentPreview(name = name, uri = uri, mimeType = mimeType)
 
-
-@Composable
-private fun NeighborhoodUserRow(
-    user: NeighborhoodUser,
-    isOwnUser: Boolean,
-    isFollowingLoading: Boolean,
-    isOpeningChat: Boolean,
-    isProfileLoading: Boolean,
-    onFollowUser: () -> Unit,
-    onOpenProfile: () -> Unit,
-    onOpenPrivateChat: () -> Unit
-) {
-    NeighborhoodUserRowContent(
-        user = user,
-        isOwnUser = isOwnUser,
-        isFollowingLoading = isFollowingLoading,
-        isOpeningChat = isOpeningChat,
-        strings = NeighborhoodUserRowStrings(
-            follow = stringResource(R.string.common_follow),
-            following = stringResource(R.string.common_following),
-            chat = stringResource(R.string.common_chat)
-        ),
-        avatar = {
-            ClickableProfileAvatar(
-                name = user.displayName,
-                avatarUrl = user.avatarUrl,
-                profileId = user.id,
-                isOfficial = user.isOfficial,
-                isLoading = isProfileLoading,
-                onClick = onOpenProfile,
-                modifier = Modifier.size(48.dp)
-            )
-        },
-        onFollowUser = onFollowUser,
-        onOpenPrivateChat = onOpenPrivateChat
-    )
-}
-
-@Composable
-private fun ProfileUsersListContent(
-    title: String,
-    users: List<NeighborhoodUser>,
-    currentUserId: String?,
-    onBack: () -> Unit,
-    onFollowUser: (NeighborhoodUser) -> Unit,
-    onOpenProfile: (NeighborhoodUser) -> Unit,
-    onOpenPrivateChat: (NeighborhoodUser) -> Unit,
-    isOpeningChat: Boolean,
-    openingProfileUserId: String?,
-    followingUserId: String?
-) {
-    ProfileUsersListCommon(title, users, currentUserId, isOpeningChat, openingProfileUserId, followingUserId, NeighborhoodUserRowStrings(stringResource(R.string.common_follow), stringResource(R.string.common_following), stringResource(R.string.common_chat)), stringResource(R.string.common_back), { user, loading, click -> ClickableProfileAvatar(user.displayName, user.avatarUrl, user.isOfficial, user.id, loading, click, Modifier.size(48.dp)) }, onBack, onFollowUser, onOpenProfile, onOpenPrivateChat)
-}
-
-@Composable
-private fun ProfileAvatar(user: NeighborhoodUser, modifier: Modifier = Modifier, isLoading: Boolean = false) {
-    ProfileAvatarWithLoadingHalo(
-        name = user.displayName,
-        avatarUrl = user.avatarUrl,
-        profileId = user.id,
-        isOfficial = user.isOfficial,
-        isLoading = isLoading,
-        modifier = modifier
-    )
-}
-
-@Composable
-private fun ProfileKpi(value: Int, label: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) =
-    ProfileKpiContent(value, label, modifier, onClick)
-
-@Composable
-private fun ProfilePostsPager(
-    posts: List<Post>,
-    pagerState: androidx.compose.foundation.pager.PagerState,
-    canParticipate: Boolean,
-    onAuthRequired: () -> Unit,
-    onReportPost: (String) -> Unit
-) {
-    val context = LocalContext.current
-    ProfilePostsPagerContent(
-        posts = posts,
-        pagerState = pagerState,
-        postPreview = { post, commentsCount, onOpenComments ->
-            ProfilePostPreview(
-                post = post,
-                commentsCount = commentsCount,
-                canParticipate = canParticipate,
-                onOpenComments = onOpenComments,
-                onAuthRequired = onAuthRequired,
-                onShare = { context.shareProfilePost(post) },
-                onReport = {
-                    if (!post.isReportedByCurrentUser) {
-                        if (canParticipate) {
-                            onReportPost(post.id)
-                            Toast.makeText(context, context.getString(R.string.feed_report_success), Toast.LENGTH_SHORT).show()
-                        } else {
-                            onAuthRequired()
-                        }
-                    }
-                },
-            )
-        },
-        commentsDialog = { post, localComments, onAddComment, onDismiss ->
-            ProfileCommentsDialog(
-                post = post,
-                localComments = localComments,
-                canParticipate = canParticipate,
-                onAuthRequired = onAuthRequired,
-                onAddComment = onAddComment,
-                onDismiss = onDismiss,
-            )
-        },
-    )
-}
-
-@Composable
-private fun ProfilePostPreview(
-    post: Post,
-    commentsCount: Int,
-    canParticipate: Boolean,
-    onOpenComments: () -> Unit,
-    onAuthRequired: () -> Unit,
-    onShare: () -> Unit,
-    onReport: () -> Unit
-) {
-    CommunityProfilePostPreviewContent(
-        post = post,
-        commentsCount = commentsCount,
-        canParticipate = canParticipate,
-        onOpenComments = onOpenComments,
-        onAuthRequired = onAuthRequired,
-        onShare = onShare,
-        onReport = onReport,
-        media = { isVideoLoaded, onLoadVideo ->
-            when {
-            post.imageUrl != null -> AsyncImage(
-                model = post.imageUrl,
-                contentDescription = post.imageTitle(),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().height(430.dp),
-            )
-            post.videoUrl != null && isVideoLoaded -> ProfileVideoPlayer(post.videoUrl.orEmpty())
-            post.videoUrl != null -> Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(430.dp)
-                    .clickable(onClick = onLoadVideo),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(86.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.42f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CompactIcon(Icons.Filled.Pause, contentDescription = null, tint = Color.White, modifier = Modifier.size(50.dp))
-                }
-            }
-            else -> Unit
-        }
-        },
-    )
-}
 
 @Composable
 private fun ProfileVideoPlayer(videoUrl: String) {
@@ -657,41 +424,6 @@ private fun ProfileVideoPlayer(videoUrl: String) {
             }
             playerView.findQuataTextureView()?.applyQuataVideoPlaybackTransform(playbackRotation)
         }
-    )
-}
-
-@Composable
-private fun ProfileCommentsDialog(
-    post: Post,
-    localComments: List<PostComment>,
-    canParticipate: Boolean,
-    onAuthRequired: () -> Unit,
-    onAddComment: (PostComment) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val currentUserName = stringResource(R.string.comments_you)
-    val nowLabel = stringResource(R.string.common_now)
-    CommunityProfileCommentsDialogContent(
-        post = post,
-        localComments = localComments,
-        canParticipate = canParticipate,
-        strings = CommunityProfileCommentsDialogStrings(
-            title = stringResource(R.string.feed_comments),
-            closeContentDescription = stringResource(R.string.common_close),
-            placeholder = stringResource(R.string.comments_placeholder),
-            sendLabel = stringResource(R.string.common_send),
-        ),
-        onAuthRequired = onAuthRequired,
-        createComment = { draft ->
-            com.quata.core.model.PostComment(
-                id = "profile_${post.id}_${System.currentTimeMillis()}",
-                authorName = currentUserName,
-                message = draft,
-                timestamp = nowLabel,
-            )
-        },
-        onAddComment = onAddComment,
-        onDismiss = onDismiss,
     )
 }
 

@@ -4,12 +4,16 @@ import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.data.toFoundationData
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
-import com.quata.feature.neighborhoods.domain.CommunityMutationOperation
-import com.quata.feature.neighborhoods.domain.CommunityMutationSafety
 import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
+import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.feed.data.IosFeedReadTransport
+import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
+import com.quata.feature.feed.data.RemoteFeedReadRepository
+import com.quata.core.model.Post
+import com.quata.core.model.PostComment
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
@@ -45,9 +49,9 @@ data class IosNeighborhoodsRuntimeConfiguration(
  *
  * It uses URLSession and the same renewable Keychain session as Auth/Feed/Chat. Directory and
  * profile reads are real PostgREST snapshots; there is deliberately no fabricated local data or
- * unverified realtime subscription. Follow, moderation and report mutations remain explicit
- * failures until their RLS contracts have iOS E2E evidence. SB-07 additionally keeps every
- * Communities-owned mutation fail-closed through [CommunityMutationSafety] while RLS-001 is open.
+ * unverified realtime subscription. Authenticated mutations use the same deployed tables and
+ * allowlisted RPCs as Android. Existing backend-policy findings remain documented separately and
+ * are not replaced with a client-side fallback.
  */
 @OptIn(ExperimentalForeignApi::class)
 class IosNeighborhoodsReadRepository(
@@ -57,6 +61,8 @@ class IosNeighborhoodsReadRepository(
 ) : NeighborhoodRepository {
     private val profileCache = mutableMapOf<String, CommunityUserProfile>()
     private var wallsByKey = emptyMap<String, IosCommunityWallStats>()
+    private val feedConfiguration = IosFeedRuntimeConfiguration(configuration.supabaseUrl, configuration.supabasePublishableKey)
+    private val feedTransport = IosFeedReadTransport(feedConfiguration, authSession)
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flow {
         emit(loadCommunities())
@@ -77,11 +83,67 @@ class IosNeighborhoodsReadRepository(
             ?: error("ios_communities_wall_not_found")
     }
 
-    override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> =
-        CommunityMutationSafety.blocked(CommunityMutationOperation.FollowUser)
+    override suspend fun toggleFollowUser(userId: String): Result<FollowUserResult> = runCatching {
+        val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
+        val targetId = userId.requireIosNeighborhoodIdentifier()
+        require(actorId != targetId) { "ios_communities_follow_self" }
+        val existing = loadFollows(actorId, targetId)
+        val following = if (existing.isEmpty()) {
+            feedTransport.mutate(
+                table = "community_profile_follows",
+                method = "POST",
+                body = "{\"follower_profile_id\":${actorId.toIosNeighborhoodJsonString()},\"followed_profile_id\":${targetId.toIosNeighborhoodJsonString()}}",
+            ).getOrThrow()
+            true
+        } else {
+            feedTransport.mutate(
+                table = "community_profile_follows",
+                method = "DELETE",
+                query = mapOf("follower_profile_id" to "eq.$actorId", "followed_profile_id" to "eq.$targetId"),
+            ).getOrThrow()
+            false
+        }
+        val actor = loadProfiles(listOf(actorId)).firstOrNull() ?: error("ios_communities_actor_profile_missing")
+        FollowUserResult(targetId, following, actor)
+    }
 
-    override suspend fun reportPost(postId: String): Result<Unit> =
-        CommunityMutationSafety.blocked(CommunityMutationOperation.ReportPost)
+    override suspend fun reportPost(postId: String): Result<Unit> = runCatching {
+        val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
+        val targetId = postId.requireIosNeighborhoodIdentifier()
+        feedTransport.reportPostRpc(
+            "{\"p_reporter_id\":${actorId.toIosNeighborhoodJsonString()},\"p_target_type\":\"community_post\",\"p_target_id\":${targetId.toIosNeighborhoodJsonString()},\"p_reason\":\"other\"}",
+        ).getOrThrow()
+    }
+
+    override suspend fun addProfileComment(postId: String, comment: PostComment): Result<Post?> = runCatching {
+        val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
+        val targetId = postId.requireIosNeighborhoodIdentifier()
+        feedTransport.mutate(
+            table = "community_comments",
+            method = "POST",
+            body = "{\"post_id\":${targetId.toIosNeighborhoodJsonString()},\"profile_id\":${actorId.toIosNeighborhoodJsonString()},\"body\":${comment.message.toIosNeighborhoodJsonString()}}",
+        ).getOrThrow()
+        RemoteFeedReadRepository(feedTransport).refreshPost(targetId).getOrThrow()
+    }
+
+    override suspend fun reportProfile(userId: String): Result<Unit> = runCatching {
+        val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
+        val targetId = userId.requireIosNeighborhoodIdentifier()
+        feedTransport.reportPostRpc(
+            "{\"p_reporter_id\":${actorId.toIosNeighborhoodJsonString()},\"p_target_type\":\"profile\",\"p_target_id\":${targetId.toIosNeighborhoodJsonString()},\"p_reason\":\"other\"}",
+        ).getOrThrow()
+    }
+
+    override suspend fun setProfileBlocked(userId: String, blocked: Boolean): Result<Boolean> = runCatching {
+        val actorId = authenticatedSession().userId.requireIosNeighborhoodIdentifier()
+        val targetId = userId.requireIosNeighborhoodIdentifier()
+        require(actorId != targetId) { "ios_communities_block_self" }
+        feedTransport.profileModerationRpc(
+            blocked = blocked,
+            body = "{\"p_actor_profile_id\":${actorId.toIosNeighborhoodJsonString()},\"p_profile_id\":${targetId.toIosNeighborhoodJsonString()}}",
+        ).getOrThrow()
+        blocked
+    }
 
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         require(userId.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
@@ -99,7 +161,17 @@ class IosNeighborhoodsReadRepository(
         userId: String,
         isAdmin: Boolean,
         isOfficial: Boolean,
-    ): Result<NeighborhoodUser> = CommunityMutationSafety.blocked(CommunityMutationOperation.SetUserRoles)
+    ): Result<NeighborhoodUser> = runCatching {
+        check(isCurrentUserAdmin()) { "ios_communities_admin_required" }
+        val targetId = userId.requireIosNeighborhoodIdentifier()
+        feedTransport.mutate(
+            table = "community_profiles",
+            method = "PATCH",
+            query = mapOf("id" to "eq.$targetId"),
+            body = "{\"is_admin\":$isAdmin,\"is_official\":$isOfficial}",
+        ).getOrThrow()
+        loadProfiles(listOf(targetId)).firstOrNull() ?: error("ios_communities_profile_not_found")
+    }
 
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?): CommunityUserProfile? = profileCache[userId]
 
@@ -112,11 +184,36 @@ class IosNeighborhoodsReadRepository(
     }
 
     override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> = runCatching {
-        require(userId.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
-        val user = loadProfiles(listOf(userId)).firstOrNull() ?: error("ios_communities_profile_not_found")
-        // The iOS endpoint is verified only for directory/profile reads. Do not infer a timeline
-        // from unrelated Feed endpoints until its profile-post contract is exercised.
-        CommunityUserProfile(user = user, posts = emptyList()).also { profileCache[userId] = it }
+        val targetId = userId.requireIosNeighborhoodIdentifier()
+        val user = loadProfiles(listOf(targetId)).firstOrNull() ?: error("ios_communities_profile_not_found")
+        val followers = loadFollows(followedId = targetId)
+        val following = loadFollows(followerId = targetId)
+        val relatedIds = (followers.map(IosCommunityFollow::followerId) + following.map(IosCommunityFollow::followedId)).distinct()
+        val related = loadProfiles(relatedIds).associateBy(NeighborhoodUser::id)
+        val actorFollowing = authSession?.currentSession()?.userId?.let { actorId ->
+            loadFollows(followerId = actorId).map(IosCommunityFollow::followedId).toSet()
+        }.orEmpty()
+        val posts = RemoteFeedReadRepository(
+            IosFeedReadTransport(feedConfiguration, authSession, targetId),
+        ).loadOlderFeedPage(beforeCreatedAt = null, limit = ProfilePostLimit).getOrThrow()
+        val actorId = authSession?.currentSession()?.userId
+        val attachments = actorId?.let { loadSharedAttachments(it, targetId, user.displayName) }.orEmpty()
+        val enriched = user.copy(
+            isFollowing = targetId in actorFollowing,
+            followersCount = followers.size,
+            followingCount = following.size,
+            postsCount = posts.size,
+        )
+        CommunityUserProfile(
+            user = enriched,
+            posts = posts,
+            attachments = attachments,
+            followers = followers.mapNotNull { related[it.followerId]?.copy(isFollowing = it.followerId in actorFollowing) },
+            following = following.mapNotNull { related[it.followedId]?.copy(isFollowing = it.followedId in actorFollowing) },
+            isBlockedByCurrentUser = authSession?.currentSession()?.userId?.let { actorId ->
+                loadProfileBlocks(actorId, targetId).isNotEmpty()
+            } ?: false,
+        ).also { profileCache[targetId] = it }
     }
 
     private suspend fun loadCommunities(): List<NeighborhoodCommunity> {
@@ -150,6 +247,51 @@ class IosNeighborhoodsReadRepository(
             ids?.takeIf { it.isNotEmpty() }?.let { put("id", it.toIosNeighborhoodInFilter()) }
         },
     ).map(Map<*, *>::toIosNeighborhoodUser)
+
+    private suspend fun loadFollows(
+        followerId: String? = null,
+        followedId: String? = null,
+    ): List<IosCommunityFollow> = rows(
+        table = "community_profile_follows",
+        query = buildMap {
+            put("select", "id,follower_profile_id,followed_profile_id,created_at")
+            followerId?.let { put("follower_profile_id", "eq.${it.requireIosNeighborhoodIdentifier()}") }
+            followedId?.let { put("followed_profile_id", "eq.${it.requireIosNeighborhoodIdentifier()}") }
+            put("limit", DirectoryLimit.toString())
+        },
+    ).map { row ->
+        IosCommunityFollow(
+            followerId = row.requiredIosNeighborhoodString("follower_profile_id"),
+            followedId = row.requiredIosNeighborhoodString("followed_profile_id"),
+        )
+    }
+
+    private suspend fun loadProfileBlocks(actorId: String, targetId: String): List<Map<*, *>> = rows(
+        table = "chat_profile_blocks",
+        query = mapOf(
+            "select" to "id",
+            "thread_id" to "is.null",
+            "blocker_profile_id" to "eq.${actorId.requireIosNeighborhoodIdentifier()}",
+            "blocked_profile_id" to "eq.${targetId.requireIosNeighborhoodIdentifier()}",
+            "limit" to "1",
+        ),
+    )
+
+    private suspend fun loadSharedAttachments(
+        actorId: String,
+        targetId: String,
+        defaultSenderName: String,
+    ): List<ProfileAttachment> {
+        val payload = feedTransport.sharedAttachmentsRpc(
+            "{\"p_actor_profile_id\":${actorId.requireIosNeighborhoodIdentifier().toIosNeighborhoodJsonString()}," +
+                "\"p_peer_profile_id\":${targetId.requireIosNeighborhoodIdentifier().toIosNeighborhoodJsonString()}," +
+                "\"p_limit\":120,\"p_offset\":0}",
+        ).getOrThrow()
+        return (payload["files"] as? List<*>).orEmpty()
+            .mapNotNull { (it as? Map<*, *>)?.toProfileAttachment(defaultSenderName) }
+            .distinctBy { "${it.uri.substringBefore('?').lowercase()}|${it.name.lowercase()}" }
+            .sortedByDescending { it.sentAtMillis ?: 0L }
+    }
 
     private suspend fun loadWalls(): List<IosCommunityWallStats> {
         val walls = rows(
@@ -200,6 +342,7 @@ class IosNeighborhoodsReadRepository(
     private companion object {
         const val DirectoryLimit = 500
         const val WallLimit = 250
+        const val ProfilePostLimit = 200
         const val ProfileSelect = "id,display_name,phone,country_code,phone_local,barrio,neighborhood,telefono,nombre,avatar_url,avatar,followers_count,following_count,is_admin,is_official"
         const val WallStatsSelect = "id,slug,name,normalized_name"
     }
@@ -294,6 +437,8 @@ private data class IosCommunityWallStats(
     val normalizedName: String?,
 )
 
+private data class IosCommunityFollow(val followerId: String, val followedId: String)
+
 private fun Map<*, *>.toIosCommunityWallStats(): IosCommunityWallStats = IosCommunityWallStats(
     id = requiredIosNeighborhoodString("id"),
     slug = iosNeighborhoodString("slug"),
@@ -321,6 +466,26 @@ private fun Map<*, *>.iosNeighborhoodBoolean(name: String): Boolean = when (iosN
 
 private fun Map<*, *>.iosNeighborhoodInt(name: String): Int = iosNeighborhoodString(name)?.toIntOrNull() ?: 0
 
+private fun Map<*, *>.toProfileAttachment(defaultSenderName: String): ProfileAttachment? {
+    val thumbnail = this["thumb"] as? Map<*, *>
+    val uri = iosNeighborhoodString("url")
+        ?: iosNeighborhoodString("file_url")
+        ?: thumbnail?.iosNeighborhoodString("url")
+        ?: iosNeighborhoodString("thumb")
+        ?: return null
+    val name = iosNeighborhoodString("name")
+        ?: iosNeighborhoodString("file_name")
+        ?: uri.substringBefore('?').substringAfterLast('/').ifBlank { "file" }
+    return ProfileAttachment(
+        id = "sb:${iosNeighborhoodString("id") ?: uri.hashCode()}",
+        name = name,
+        uri = uri,
+        mimeType = iosNeighborhoodString("mime_type"),
+        sentAtMillis = iosNeighborhoodString("created_at_millis")?.toLongOrNull(),
+        senderName = iosNeighborhoodString("sender_name")?.takeIf(String::isNotBlank) ?: defaultSenderName,
+    )
+}
+
 private fun Collection<String>.toIosNeighborhoodInFilter(): String = "in.(${distinct().joinToString(",") {
     require(it.matches(IosNeighborhoodIdentifier)) { "ios_communities_profile_id_invalid" }
     it
@@ -338,5 +503,16 @@ private fun String.toIosNeighborhoodQueryComponent(): String = encodeToByteArray
 }
 
 private fun String.normalizedCommunityKey(): String = trim().lowercase().replace(Regex("\\s+"), " ")
+
+private fun String.requireIosNeighborhoodIdentifier(): String {
+    require(matches(IosNeighborhoodIdentifier)) { "ios_communities_identifier_invalid" }
+    return this
+}
+
+private fun String.toIosNeighborhoodJsonString(): String = buildString {
+    append('"')
+    for (char in this@toIosNeighborhoodJsonString) append(if (char == '"' || char == '\\') "\\$char" else char)
+    append('"')
+}
 
 private val IosNeighborhoodIdentifier = Regex("[A-Za-z0-9_-]+")

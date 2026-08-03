@@ -52,7 +52,7 @@ data class IosFeedMediaSnapshot(
 )
 
 @Composable
-internal fun BoxScope.IosFeedMediaSlot(
+fun BoxScope.IosFeedMediaSlot(
     post: Post,
     isCurrent: Boolean,
     initialPositionMs: Long,

@@ -585,10 +585,13 @@
     <string name="ugc_terms_accept_error">We could not save your acceptance. Check your connection and try again.</string>
     <string name="moderation_report">Report</string>
     <string name="moderation_block">Block</string>
+    <string name="moderation_unblock">Unblock</string>
     <string name="moderation_report_title">Report profile</string>
     <string name="moderation_block_title">Block profile</string>
+    <string name="moderation_unblock_title">Unblock profile</string>
     <string name="moderation_report_profile_confirm">Send this profile to the Q&#252;ata moderation team for review?</string>
     <string name="moderation_block_profile_confirm">This person will no longer be able to send you messages. You can still report their content separately.</string>
+    <string name="moderation_unblock_profile_confirm">This person will be able to contact you again.</string>
     <string name="moderation_report_sent">Report sent for review</string>
     <string name="moderation_profile_blocked">Profile blocked</string>
     <string name="moderation_report_message_title">Report message</string>

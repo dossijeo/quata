@@ -82,7 +82,19 @@ class WebFeedRepository(
         client.delete("community_posts", mapOf("id" to "eq.${postId.requirePostgrestIdentifier()}")).requireWebSuccess()
     }
 
-    private companion object { const val DefaultPollIntervalMillis = 30_000L }
+    /** Real profile timeline projection reused by the global public-profile surface. */
+    internal suspend fun getProfilePosts(profileId: String): Result<List<Post>> {
+        val repository = RemoteFeedReadRepository(
+            transport = WebFeedReadTransport(client, authRepository, profileId.requirePostgrestIdentifier()),
+            pollIntervalMillis = DefaultPollIntervalMillis,
+        )
+        return repository.loadOlderFeedPage(beforeCreatedAt = null, limit = ProfilePostLimit)
+    }
+
+    private companion object {
+        const val DefaultPollIntervalMillis = 30_000L
+        const val ProfilePostLimit = 200
+    }
 }
 
 private fun WebPostgrestResult.requireWebSuccess() {
@@ -109,6 +121,7 @@ internal fun webFeedReadAuthMode(operation: WebFeedReadOperation): WebPostgrestA
 private class WebFeedReadTransport(
     private val client: WebPostgrestClient,
     private val authRepository: WebAuthRepository,
+    private val profileId: String? = null,
 ) : FeedReadTransport {
     override suspend fun fetchPosts(request: FeedRemotePostRequest): Result<List<FeedRemotePost>> = runCatching {
         val query = buildMap {
@@ -116,6 +129,7 @@ private class WebFeedReadTransport(
             put("order", "created_at.desc")
             request.beforeCreatedAt?.let { put("created_at", "lt.$it") }
             request.postId?.let { put("id", "eq.${it.requirePostgrestIdentifier()}") }
+            profileId?.let { put("profile_id", "eq.$it") }
         }
         client.rows(
             table = "community_posts",

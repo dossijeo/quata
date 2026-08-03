@@ -8,6 +8,8 @@ import com.quata.core.data.MockData
 import com.quata.core.model.AuthSession
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
+import com.quata.core.model.Post
+import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.core.session.SessionManager
 import com.quata.data.supabase.CommunityComment
@@ -167,6 +169,34 @@ class NeighborhoodRepositoryImpl(
         }
         Unit
     }.mapFailureToUserFacing(appContext, R.string.error_load_chats)
+
+    override suspend fun addProfileComment(postId: String, comment: PostComment): Result<Post?> = runCatching {
+        if (AppConfig.USE_MOCK_BACKEND) {
+            MockData.addComment(postId, comment)
+        } else {
+            val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+            supabaseApi.addComment(postId, session.userId, comment.message)
+                ?: error("No se pudo publicar el comentario")
+            null
+        }
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
+    override suspend fun reportProfile(userId: String): Result<Unit> = runCatching {
+        if (!AppConfig.USE_MOCK_BACKEND) {
+            val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+            supabaseApi.reportUgc(session.userId, "profile", userId, "other")
+        }
+        Unit
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
+
+    override suspend fun setProfileBlocked(userId: String, blocked: Boolean): Result<Boolean> = runCatching {
+        if (!AppConfig.USE_MOCK_BACKEND) {
+            val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+            if (blocked) supabaseApi.blockProfile(session.userId, userId)
+            else supabaseApi.unblockProfile(session.userId, userId)
+        }
+        blocked
+    }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun openPrivateChat(userId: String): Result<String> = runCatching {
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
@@ -384,7 +414,10 @@ class NeighborhoodRepositoryImpl(
             posts = posts,
             attachments = attachments,
             followers = followerUsers,
-            following = followingUsers
+            following = followingUsers,
+            isBlockedByCurrentUser = currentUserId?.let { actorId ->
+                supabaseApi.hasGlobalProfileBlock(actorId, userId)
+            } ?: false,
         )
     }
 

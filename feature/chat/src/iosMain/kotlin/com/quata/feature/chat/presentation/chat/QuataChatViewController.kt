@@ -86,7 +86,8 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 navigationMessage = dependencies.navigationMessage,
                 onOpenConversation = dependencies.onOpenConversation,
                 onBackToList = dependencies.onBackToList,
-                onOpenAttachment = dependencies.onOpenAttachment,
+        onOpenAttachment = dependencies.onOpenAttachment,
+        onOpenUserProfile = dependencies.onOpenAvatar,
                 text = chatText,
                 conversationList = { listModifier ->
                     ConversationsScreenHost(

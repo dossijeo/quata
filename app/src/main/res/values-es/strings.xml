@@ -580,10 +580,13 @@
     <string name="ugc_terms_accept_error">No hemos podido guardar tu aceptaci&#243;n. Comprueba la conexi&#243;n e int&#233;ntalo de nuevo.</string>
     <string name="moderation_report">Denunciar</string>
     <string name="moderation_block">Bloquear</string>
+    <string name="moderation_unblock">Desbloquear</string>
     <string name="moderation_report_title">Denunciar perfil</string>
     <string name="moderation_block_title">Bloquear perfil</string>
+    <string name="moderation_unblock_title">Desbloquear perfil</string>
     <string name="moderation_report_profile_confirm">&#191;Enviar este perfil al equipo de moderaci&#243;n de Q&#252;ata para que lo revise?</string>
     <string name="moderation_block_profile_confirm">Esta persona dejar&#225; de poder enviarte mensajes. Puedes denunciar su contenido por separado.</string>
+    <string name="moderation_unblock_profile_confirm">Esta persona podr&#225; volver a ponerse en contacto contigo.</string>
     <string name="moderation_report_sent">Denuncia enviada para revisi&#243;n</string>
     <string name="moderation_profile_blocked">Perfil bloqueado</string>
     <string name="moderation_report_message_title">Denunciar mensaje</string>

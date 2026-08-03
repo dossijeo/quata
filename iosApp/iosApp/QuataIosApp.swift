@@ -824,23 +824,35 @@ private final class IosAppCompositionRoot {
 
     /// Feed and Communities share the existing authenticated member-profile presentation.
     fileprivate func presentAuthenticatedMemberProfile(profileId: String) {
-        guard let configuration = runtimeConfiguration else { return }
+        let authenticated = hasValidatedAuthenticatedSession
+        guard let communitiesBootstrap = authenticated ? communitiesRuntimeBootstrap : publicCommunitiesRuntimeBootstrap else { return }
         let onClose: () -> Void = { [weak self] in
             guard let self else { return }
             self.authenticatedHost.dismiss(animated: true)
         }
-        let dependencies = hasValidatedAuthenticatedSession && profileSosRuntimeBootstrap != nil
-            ? profileSosRuntimeBootstrap!.memberProfileHostDependencies(profileId: profileId, onClose: onClose)
-            : IosProfileSosRuntimeBootstrapKt.createIosPublicMemberProfileHostDependencies(
-                configuration: IosProfileRuntimeConfiguration(
-                    supabaseUrl: configuration.supabaseUrl,
-                    supabasePublishableKey: configuration.supabasePublishableKey,
-                ),
-                profileId: profileId,
-                onClose: onClose,
-            )
-        let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
-            dependencies: dependencies,
+        let dependencies = IosNeighborhoodsHostKt.createIosCommunityProfileHostDependencies(
+            repository: communitiesBootstrap.repository,
+            profileId: profileId,
+            currentUserId: communitiesBootstrap.restoredCurrentUserId(),
+            languageCode: Locale.current.languageCode ?? "en",
+            mediaFactory: IosFeedNativeMediaFactory.shared,
+            documentOpener: platformServices.services.documentOpener,
+            shareService: platformServices.services.share,
+            onClose: onClose,
+            onOpenConversation: { [weak self] conversationId in
+                guard let self else { return }
+                self.authenticatedHost.dismiss(animated: true) {
+                    if self.hasValidatedAuthenticatedSession {
+                        self.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                    } else {
+                        self.authenticatedHost.presentAuthRequiredPrompt()
+                    }
+                }
+            },
+            onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+        )
+        let controller = IosNeighborhoodsHostKt.QuataCommunityProfileViewController(
+            dependencies: dependencies
         )
         controller.modalPresentationStyle = .fullScreen
         authenticatedHost.present(controller, animated: true)
@@ -1648,6 +1660,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                         DispatchQueue.main.async {
                             self?.presentRemoteAttachmentDownloadFailureNotice()
                         }
+                    }
+                },
+                onOpenAvatar: { [weak self] profileId in
+                    DispatchQueue.main.async {
+                        self?.presentAuthenticatedMemberProfile(profileId: profileId)
                     }
                 },
             )

@@ -2,16 +2,35 @@ package com.quata.feature.neighborhoods.presentation
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
-import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.PostComment
+import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.navigation.quataPostUrl
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.SharePayload
+import com.quata.core.platform.ShareService
+import com.quata.core.ui.components.IosRemoteAvatar
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
@@ -20,6 +39,9 @@ import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.feed.presentation.IosFeedMediaFactory
+import com.quata.feature.feed.presentation.IosFeedMediaSlot
+import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
 /**
@@ -113,6 +135,155 @@ fun QuataNeighborhoodsViewController(
             model = dependencies.viewModel,
             closeModelOnDispose = true,
         )
+    }
+}
+
+class IosCommunityProfileHostDependencies(
+    val repository: NeighborhoodRepository,
+    val profileId: String,
+    val currentUserId: String?,
+    val languageCode: String,
+    val mediaFactory: IosFeedMediaFactory,
+    val documentOpener: DocumentOpenService,
+    val shareService: ShareService,
+    val onClose: () -> Unit,
+    val onOpenConversation: (String) -> Unit,
+    val onAuthRequired: () -> Unit,
+)
+
+fun createIosCommunityProfileHostDependencies(
+    repository: NeighborhoodRepository,
+    profileId: String,
+    currentUserId: String?,
+    languageCode: String,
+    mediaFactory: IosFeedMediaFactory,
+    documentOpener: DocumentOpenService,
+    shareService: ShareService,
+    onClose: () -> Unit,
+    onOpenConversation: (String) -> Unit,
+    onAuthRequired: () -> Unit,
+): IosCommunityProfileHostDependencies = IosCommunityProfileHostDependencies(
+    repository = repository,
+    profileId = profileId,
+    currentUserId = currentUserId,
+    languageCode = languageCode,
+    mediaFactory = mediaFactory,
+    documentOpener = documentOpener,
+    shareService = shareService,
+    onClose = onClose,
+    onOpenConversation = onOpenConversation,
+    onAuthRequired = onAuthRequired,
+)
+
+/** UIKit adapter for the same complete public-profile Compose root used by Android and Web. */
+fun QuataCommunityProfileViewController(
+    dependencies: IosCommunityProfileHostDependencies,
+): UIViewController = ComposeUIViewController {
+    val viewModel = remember(dependencies.repository) { NeighborhoodsViewModel(dependencies.repository) }
+    val scope = rememberCoroutineScope()
+    val state by viewModel.uiState.collectAsState()
+    LaunchedEffect(dependencies.profileId) { viewModel.openUserProfile(dependencies.profileId) }
+    DisposableEffect(viewModel) { onDispose { viewModel.close() } }
+    QuataTheme {
+        val profile = state.selectedProfile
+        if (profile == null) {
+            CommunityProfileLoadStateContent(
+                isLoading = state.openingProfileUserId != null || state.error == null,
+                errorMessage = state.error,
+                backLabel = communityProfileStringsForLanguage(dependencies.languageCode).back,
+                onBack = dependencies.onClose,
+            )
+        } else {
+            CommunityProfileScreenHost(
+                profile = profile,
+                currentUserId = dependencies.currentUserId,
+                strings = communityProfileStringsForLanguage(dependencies.languageCode),
+                slots = CommunityProfilePlatformSlots(
+                    avatar = { user, modifier, loading, openAvatar ->
+                        Box(contentAlignment = Alignment.Center) {
+                            IosRemoteAvatar(
+                                name = user.displayName,
+                                stableId = user.id,
+                                avatarUrl = user.avatarUrl,
+                                modifier = modifier.then(openAvatar?.let { Modifier.clickable(onClick = it) } ?: Modifier),
+                            )
+                            if (loading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                        }
+                    },
+                    attachment = { attachment, open ->
+                        ProfileAttachmentRowContent(
+                            attachment = attachment,
+                            audioPlayer = { Text(attachment.name) },
+                            thumbnail = { Text("↗") },
+                            onOpen = open,
+                        )
+                    },
+                    postMedia = { post, loaded, _ ->
+                        var position by remember(post.id) { mutableLongStateOf(0L) }
+                        var muted by remember(post.id) { mutableStateOf(true) }
+                        IosFeedMediaSlot(
+                            post = post,
+                            isCurrent = loaded || post.videoUrl == null,
+                            initialPositionMs = position,
+                            onPositionChanged = { position = it },
+                            isMuted = muted,
+                            onMuteChange = { muted = it },
+                            mediaFactory = dependencies.mediaFactory,
+                        )
+                    },
+                    openAttachment = { attachment ->
+                        scope.launch {
+                            dependencies.documentOpener.open(
+                                PlatformFile(
+                                    reference = attachment.uri,
+                                    displayName = attachment.name,
+                                    mimeType = attachment.mimeType,
+                                ),
+                            )
+                        }
+                    },
+                    sharePost = { post ->
+                        scope.launch {
+                            dependencies.shareService.share(
+                                SharePayload(text = quataPostUrl(post.id), title = post.text.take(80)),
+                            )
+                        }
+                    },
+                ),
+                isOpeningChat = state.openingPrivateChatUserId != null,
+                isRefreshingProfile = state.refreshingProfileUserId == profile.user.id,
+                followingUserId = state.followingUserId,
+                roleUpdatingUserId = state.roleUpdatingUserId,
+                commentingPostId = state.commentingPostId,
+                profileSafetyUpdatingUserId = state.profileSafetyUpdatingUserId,
+                currentUserIsAdmin = state.currentUserIsAdmin,
+                openingProfileUserId = state.openingProfileUserId,
+                errorMessage = state.error,
+                onAuthRequired = dependencies.onAuthRequired,
+                onBack = { if (viewModel.closeUserProfile()) dependencies.onClose() },
+                onFollowUser = viewModel::toggleFollowUser,
+                onOpenPrivateChat = { userId ->
+                    viewModel.openPrivateChat(userId) { conversationId ->
+                        viewModel.clearUserProfile()
+                        dependencies.onOpenConversation(conversationId)
+                    }
+                },
+                onOpenUserProfile = viewModel::openUserProfile,
+                onSetUserRoles = viewModel::setUserRoles,
+                onReportPost = viewModel::reportProfilePost,
+                onReportProfile = viewModel::reportProfile,
+                onSetProfileBlocked = viewModel::setProfileBlocked,
+                onAddComment = viewModel::addProfileComment,
+                createComment = { post, draft ->
+                    PostComment(
+                        id = "profile_${post.id}_${draft.hashCode()}",
+                        authorName = "You",
+                        message = draft,
+                        timestamp = "Now",
+                    )
+                },
+            )
+        }
     }
 }
 
