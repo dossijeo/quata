@@ -7,6 +7,16 @@ import kotlin.test.assertTrue
 
 class WebNeighborhoodsChatGatewayTest {
     @Test
+    fun directoryExcludesActiveWallsWithoutPublicProfiles() {
+        val keys = webCommunityDirectoryKeys(
+            profileKeys = listOf("50 viviendas", "caidassa"),
+            activeWallKeys = listOf("caidassa", "empty-wall"),
+        )
+
+        assertEquals(listOf("50 viviendas", "caidassa"), keys)
+    }
+
+    @Test
     fun communityChatReusesCachedConversationWithoutMutation() = runTest {
         var opened = false
 

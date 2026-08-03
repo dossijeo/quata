@@ -123,9 +123,10 @@ class WebNeighborhoodsRepository(
         val profilesByNeighborhood = profiles
             .filter { it.neighborhood.isNotBlank() }
             .groupBy { it.neighborhood.normalizedCommunityKey() }
-        return (profilesByNeighborhood.keys + walls.mapNotNull(WebCommunityWallStats::primaryCommunityKey))
-            .filter(String::isNotBlank)
-            .distinct()
+        return webCommunityDirectoryKeys(
+            profileKeys = profilesByNeighborhood.keys,
+            activeWallKeys = walls.flatMap(WebCommunityWallStats::communityKeys),
+        )
             .map { key ->
                 val wall = wallsByKey[key]
                 val users = profilesByNeighborhood[key].orEmpty().sortedBy { it.displayName.lowercase() }
@@ -214,6 +215,15 @@ internal suspend fun openWebNeighborhoodConversation(
         ?: error("web_community_wall_not_found")
 }
 
+/** Active walls enrich profile-backed communities but never create empty directory cards. */
+internal fun webCommunityDirectoryKeys(
+    profileKeys: Collection<String>,
+    activeWallKeys: Collection<String>,
+): List<String> {
+    val profiles = profileKeys.filter(String::isNotBlank).distinct()
+    return (profiles + activeWallKeys.filter(profiles::contains)).distinct()
+}
+
 internal suspend fun openWebPrivateConversation(
     userId: String,
     cachedConversationId: suspend (String) -> String?,
@@ -264,11 +274,6 @@ private fun WebCommunityWallStats.communityKeys(): Set<String> =
     listOf(slug, name, normalizedName)
         .mapNotNull { it?.normalizedCommunityKey()?.takeIf(String::isNotBlank) }
         .toSet()
-
-private fun WebCommunityWallStats.primaryCommunityKey(): String? =
-    (normalizedName ?: name ?: slug)
-        ?.normalizedCommunityKey()
-        ?.takeIf(String::isNotBlank)
 
 private fun JsonObject.webCommunityString(name: String): String? = this[name]?.jsonPrimitive?.contentOrNull
 
