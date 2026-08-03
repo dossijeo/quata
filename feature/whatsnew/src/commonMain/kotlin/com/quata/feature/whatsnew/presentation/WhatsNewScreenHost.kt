@@ -34,7 +34,9 @@ fun WhatsNewScreenHost(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var state by remember(repository, installedVersionCode, languageTags) { mutableStateOf<WhatsNewScreenState>(WhatsNewScreenState.Loading) }
+    var releases by remember(repository, installedVersionCode, languageTags) { mutableStateOf<List<PendingRelease>?>(null) }
+    var isLoading by remember(repository, installedVersionCode, languageTags) { mutableStateOf(true) }
+    var loadFailed by remember(repository, installedVersionCode, languageTags) { mutableStateOf(false) }
     var retryToken by remember { mutableStateOf(0) }
     var isCompleting by remember { mutableStateOf(false) }
     var saveFailed by remember { mutableStateOf(false) }
@@ -42,36 +44,40 @@ fun WhatsNewScreenHost(
 
     LaunchedEffect(repository, installedVersionCode, languageTags, retryToken) {
         if (installedVersionCode == null) {
-            state = WhatsNewScreenState.Empty
+            isLoading = false
             return@LaunchedEffect
         }
-        state = repository.getPendingReleases(installedVersionCode, languageTags).fold(
-            onSuccess = { if (it.isEmpty()) WhatsNewScreenState.Empty else WhatsNewScreenState.Content(it) },
-            onFailure = { WhatsNewScreenState.Error },
+        repository.getPendingReleases(installedVersionCode, languageTags).fold(
+            onSuccess = { releases = it; isLoading = false },
+            onFailure = { loadFailed = true; isLoading = false },
         )
     }
-    when (val current = state) {
-        WhatsNewScreenState.Loading -> CenteredWhatsNewMessage(modifier) { CircularProgressIndicator() }
-        WhatsNewScreenState.Empty -> LaunchedEffect(onClose) { onClose() }
-        WhatsNewScreenState.Error -> CenteredWhatsNewMessage(modifier) {
+    when {
+        isLoading -> CenteredWhatsNewMessage(modifier) { CircularProgressIndicator() }
+        loadFailed -> CenteredWhatsNewMessage(modifier) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(loadError)
-                Button(onClick = { state = WhatsNewScreenState.Loading; retryToken++ }, modifier = Modifier.padding(top = 12.dp)) { Text(retry) }
+                Button(
+                    onClick = { releases = null; loadFailed = false; isLoading = true; retryToken++ },
+                    modifier = Modifier.padding(top = 12.dp),
+                ) { Text(retry) }
             }
         }
-        is WhatsNewScreenState.Content -> {
+        releases.isNullOrEmpty() -> LaunchedEffect(onClose) { onClose() }
+        else -> {
+            val currentReleases = releases.orEmpty()
             val finish: () -> Unit = finish@{
                 if (isCompleting) return@finish
                 isCompleting = true
                 saveFailed = false
                 scope.launch {
-                    repository.markReleasesSeen(current.releases.maxOf(PendingRelease::versionCode), installedVersionCode!!)
+                    repository.markReleasesSeen(currentReleases.maxOf(PendingRelease::versionCode), installedVersionCode!!)
                         .onSuccess { onClose() }
                         .onFailure { isCompleting = false; saveFailed = true }
                 }
             }
             Box(modifier.fillMaxSize()) {
-                WhatsNewContent(current.releases, isCompleting, strings, finish, finish)
+                WhatsNewContent(currentReleases, isCompleting, strings, finish, finish)
                 if (saveFailed) Text(saveError, Modifier.align(Alignment.BottomCenter).padding(16.dp))
             }
         }
@@ -81,10 +87,3 @@ fun WhatsNewScreenHost(
 @Composable
 private fun CenteredWhatsNewMessage(modifier: Modifier, content: @Composable () -> Unit) =
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
-
-private sealed interface WhatsNewScreenState {
-    data object Loading : WhatsNewScreenState
-    data object Empty : WhatsNewScreenState
-    data object Error : WhatsNewScreenState
-    class Content(val releases: List<PendingRelease>) : WhatsNewScreenState
-}
