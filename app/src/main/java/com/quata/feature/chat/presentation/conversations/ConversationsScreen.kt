@@ -67,6 +67,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -120,7 +121,7 @@ fun ConversationsScreen(
         contactsPermissionGranted = granted
         if (granted) viewModel.loadInviteContacts()
     }
-    val languageTag = context.resources.configuration.locales[0]?.toLanguageTag()
+    val languageTag = LocalConfiguration.current.locales[0]?.toLanguageTag()
 
     ConversationsScreenHost(
         padding = padding,
