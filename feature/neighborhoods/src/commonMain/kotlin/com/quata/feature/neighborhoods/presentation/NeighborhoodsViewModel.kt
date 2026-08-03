@@ -136,9 +136,11 @@ class NeighborhoodsViewModel(
         }
     }
 
-    override fun openUserProfile(userId: String) {
+    override fun openUserProfile(userId: String) = openUserProfile(userId, addCurrentToBackStack = true)
+
+    private fun openUserProfile(userId: String, addCurrentToBackStack: Boolean) {
         val currentProfileId = _uiState.value.selectedProfile?.user?.id
-        if (currentProfileId != null && currentProfileId != userId && profileBackStack.lastOrNull() != currentProfileId) {
+        if (addCurrentToBackStack && currentProfileId != null && currentProfileId != userId && profileBackStack.lastOrNull() != currentProfileId) {
             profileBackStack += currentProfileId
         }
         profileJob?.cancel()
@@ -196,7 +198,7 @@ class NeighborhoodsViewModel(
     fun closeUserProfile(): Boolean {
         val previousProfileId = profileBackStack.removeLastOrNull()
         if (previousProfileId != null) {
-            openUserProfile(previousProfileId)
+            openUserProfile(previousProfileId, addCurrentToBackStack = false)
             return false
         }
         clearUserProfile()
