@@ -4,7 +4,6 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.platform.PlatformResult
 import com.quata.feature.whatsnew.data.IosWhatsNewSeenStateStore
-import com.quata.feature.whatsnew.data.LocalWhatsNewPlatform
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
 import com.quata.feature.whatsnew.data.QuataLocalWhatsNewCatalog
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
@@ -76,7 +75,7 @@ fun createIosWhatsNewRuntimeBootstrap(
         ?.let(::listOf)
         ?: listOf("en")
     val repository = LocalWhatsNewRepository(
-        releases = QuataLocalWhatsNewCatalog.releases(LocalWhatsNewPlatform.Ios),
+        releases = QuataLocalWhatsNewCatalog.iosReleases(),
         store = IosWhatsNewSeenStateStore(defaults, IosWhatsNewSeenStateStore.DefaultKey),
     )
     val startupCoordinator = WhatsNewStartupCoordinator(

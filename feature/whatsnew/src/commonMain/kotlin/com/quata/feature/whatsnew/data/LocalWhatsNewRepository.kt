@@ -4,7 +4,7 @@ import com.quata.feature.whatsnew.domain.PendingRelease
 import com.quata.feature.whatsnew.domain.UserReleaseState
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 
-data class LocalWhatsNewRelease(
+class LocalWhatsNewRelease(
     val releaseId: String,
     val versionCode: Long,
     val versionName: String?,

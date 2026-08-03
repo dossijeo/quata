@@ -9,23 +9,23 @@ import kotlinx.coroutines.test.runTest
 class QuataLocalWhatsNewCatalogTest {
     @Test
     fun webAndIosCatalogsAreRealVersionedAndPlatformSpecific() {
-        val web = QuataLocalWhatsNewCatalog.releases(LocalWhatsNewPlatform.Web)
-        val ios = QuataLocalWhatsNewCatalog.releases(LocalWhatsNewPlatform.Ios)
+        val web = QuataLocalWhatsNewCatalog.webReleases()
+        val ios = QuataLocalWhatsNewCatalog.iosReleases()
 
         assertTrue(web.isNotEmpty())
         assertTrue(ios.isNotEmpty())
         assertTrue(web.all { it.releaseId.startsWith("web-") && it.versionCode > 0 })
         assertTrue(ios.all { it.releaseId.startsWith("ios-") && it.versionCode > 0 })
         assertNotEquals(web.map { it.releaseId }, ios.map { it.releaseId })
-        assertTrue(QuataLocalWhatsNewCatalog.latestVersionCode(LocalWhatsNewPlatform.Web) > 0)
-        assertTrue(QuataLocalWhatsNewCatalog.latestVersionCode(LocalWhatsNewPlatform.Ios) > 0)
+        assertTrue(QuataLocalWhatsNewCatalog.latestWebVersionCode() > 0)
+        assertTrue(ios.maxOf(LocalWhatsNewRelease::versionCode) > 0)
     }
 
     @Test
     fun everyPlatformCatalogResolvesSpanishEnglishAndFrench() = runTest {
-        LocalWhatsNewPlatform.entries.forEach { platform ->
+        listOf(QuataLocalWhatsNewCatalog.webReleases(), QuataLocalWhatsNewCatalog.iosReleases()).forEach { releases ->
             val repository = LocalWhatsNewRepository(
-                QuataLocalWhatsNewCatalog.releases(platform),
+                releases,
                 CatalogSeenStateStore,
             )
 

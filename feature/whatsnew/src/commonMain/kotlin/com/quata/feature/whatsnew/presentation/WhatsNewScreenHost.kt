@@ -21,7 +21,7 @@ import com.quata.feature.whatsnew.domain.PendingRelease
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import kotlinx.coroutines.launch
 
-data class WhatsNewScreenHostStrings(
+class WhatsNewScreenHostStrings(
     val content: WhatsNewStrings,
     val loadError: String,
     val saveError: String,
@@ -90,5 +90,5 @@ private sealed interface WhatsNewScreenState {
     data object Loading : WhatsNewScreenState
     data object Empty : WhatsNewScreenState
     data object Error : WhatsNewScreenState
-    data class Content(val releases: List<PendingRelease>) : WhatsNewScreenState
+    class Content(val releases: List<PendingRelease>) : WhatsNewScreenState
 }

@@ -143,7 +143,7 @@ test("WhatsNew routes use the source-controlled local catalog and stay inside th
   assert.deepEqual(READ_ONLY_ROUTE_EXCLUSIONS, []);
   const routedFragments = new Set(READ_ONLY_ROUTE_MATRIX.flatMap(route => [route.fragment, route.route]));
   for (const fragment of ["whats-new", "about", "release-history"]) assert.equal(routedFragments.has(fragment), true);
-  assert.match(whatsNewHost, /QuataLocalWhatsNewCatalog\.releases\(LocalWhatsNewPlatform\.Web\)/);
+  assert.match(whatsNewHost, /QuataLocalWhatsNewCatalog\.webReleases\(\)/);
   assert.doesNotMatch(whatsNewHost, /rpcClient|quata_android_release_history/);
   assert.match(documentation, /Novedades e Historial de versiones usan el cat[aá]logo local compartido/);
   assert.match(documentation, /exclusivamente `POST \/rest\/v1\/rpc\/quata_chat_get_inbox`/);

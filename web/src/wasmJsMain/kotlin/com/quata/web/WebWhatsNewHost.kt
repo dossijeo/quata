@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.quata.core.platform.PreferenceStore
-import com.quata.feature.whatsnew.data.LocalWhatsNewPlatform
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
 import com.quata.feature.whatsnew.data.QuataLocalWhatsNewCatalog
 import com.quata.feature.whatsnew.data.WhatsNewSeenStateStore
@@ -44,10 +43,10 @@ internal fun webWhatsNewSourceKind(): String = "common-source-controlled-web"
 internal fun webWhatsNewInstalledVersionCode(configuredVersionCode: Long?): Long =
     configuredVersionCode
         ?.takeIf { it > 0L }
-        ?: QuataLocalWhatsNewCatalog.latestVersionCode(LocalWhatsNewPlatform.Web)
+        ?: QuataLocalWhatsNewCatalog.latestWebVersionCode()
 
 internal fun createWebWhatsNewRepository(): WhatsNewRepository = LocalWhatsNewRepository(
-    releases = QuataLocalWhatsNewCatalog.releases(LocalWhatsNewPlatform.Web),
+    releases = QuataLocalWhatsNewCatalog.webReleases(),
     store = WebWhatsNewSeenStateStore(),
 )
 
@@ -87,7 +86,7 @@ fun WebWhatsNewHost(
     }
 }
 
-internal data class WebWhatsNewCopy(
+internal class WebWhatsNewCopy(
     val strings: WhatsNewStrings,
     val loadError: String,
     val saveError: String,

@@ -1,7 +1,5 @@
 package com.quata.feature.whatsnew.data
 
-enum class LocalWhatsNewPlatform { Web, Ios }
-
 /**
  * Source-controlled release notes for clients whose version numbers are independent from Android.
  *
@@ -11,13 +9,9 @@ enum class LocalWhatsNewPlatform { Web, Ios }
  * entries and platform-owned seen-state stores.
  */
 object QuataLocalWhatsNewCatalog {
-    fun releases(platform: LocalWhatsNewPlatform): List<LocalWhatsNewRelease> = when (platform) {
-        LocalWhatsNewPlatform.Web -> WebReleases
-        LocalWhatsNewPlatform.Ios -> IosReleases
-    }
-
-    fun latestVersionCode(platform: LocalWhatsNewPlatform): Long =
-        releases(platform).maxOf(LocalWhatsNewRelease::versionCode)
+    fun webReleases(): List<LocalWhatsNewRelease> = WebReleases
+    fun iosReleases(): List<LocalWhatsNewRelease> = IosReleases
+    fun latestWebVersionCode(): Long = WebReleases.maxOf(LocalWhatsNewRelease::versionCode)
 
     private val WebReleases = listOf(
         LocalWhatsNewRelease(
