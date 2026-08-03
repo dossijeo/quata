@@ -123,3 +123,17 @@ test('COMMUNITY-PROFILE-ADAPTER-001 Web and iOS keep member identity and audio a
   assert.doesNotMatch(web, /audioPlayer = \{\s*(?:androidx\.compose\.material3\.)?Text\(attachment\.name\)\s*\}/);
   assert.doesNotMatch(ios, /audioPlayer = \{\s*Text\(attachment\.name\)\s*\}/);
 });
+
+test('PROF-HEADER-LOADING-001 iOS resolves the profile behind the source avatar halo before presenting it', async () => {
+  const ios = await readFile(resolve(import.meta.dirname, '..', 'feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt'), 'utf8');
+  const swift = await readFile(resolve(import.meta.dirname, '..', 'iosApp/iosApp/QuataIosApp.swift'), 'utf8');
+  const listHost = ios.slice(ios.indexOf('fun QuataNeighborhoodsViewController'), ios.indexOf('class IosCommunityProfileHostDependencies'));
+  const profileHost = ios.slice(ios.indexOf('class IosCommunityProfileHostDependencies'));
+
+  assert.match(listHost, /onOpenUserProfile = \{ userId ->[\s\S]*?dependencies\.viewModel\.openUserProfile\(userId\)/);
+  assert.doesNotMatch(listHost, /profileNavigator\.openMemberProfile\(userId\)/);
+  assert.match(listHost, /val profile = state\.selectedProfile[\s\S]*?profileNavigator\.openMemberProfile\(profile\)/);
+  assert.match(profileHost, /val profile = state\.selectedProfile \?: dependencies\.initialProfile/);
+  assert.match(profileHost, /state\.selectedProfile == null && dependencies\.initialProfile != null/);
+  assert.match(swift, /presentAuthenticatedMemberProfile\(profileId: profile\.user\.id, initialProfile: profile\)/);
+});

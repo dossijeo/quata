@@ -809,9 +809,9 @@ private final class IosAppCompositionRoot {
                             }
                         }
                     },
-                    onNavigateToProfile: { [weak self] profileId in
+                    onNavigateToProfile: { [weak self] profile in
                         DispatchQueue.main.async {
-                            self?.presentAuthenticatedMemberProfile(profileId: profileId)
+                            self?.presentAuthenticatedMemberProfile(profileId: profile.user.id, initialProfile: profile)
                         }
                     },
                     onAuthRequired: { [weak self] in
@@ -825,7 +825,10 @@ private final class IosAppCompositionRoot {
     }
 
     /// Feed and Communities share the existing authenticated member-profile presentation.
-    fileprivate func presentAuthenticatedMemberProfile(profileId: String) {
+    fileprivate func presentAuthenticatedMemberProfile(
+        profileId: String,
+        initialProfile: CommunityUserProfile? = nil
+    ) {
         let authenticated = hasValidatedAuthenticatedSession
         guard let communitiesBootstrap = authenticated ? communitiesRuntimeBootstrap : publicCommunitiesRuntimeBootstrap else { return }
         let onClose: () -> Void = { [weak self] in
@@ -835,6 +838,7 @@ private final class IosAppCompositionRoot {
         let dependencies = IosNeighborhoodsHostKt.createIosCommunityProfileHostDependencies(
             repository: communitiesBootstrap.repository,
             profileId: profileId,
+            initialProfile: initialProfile,
             currentUserId: communitiesBootstrap.restoredCurrentUserId(),
             languageCode: Locale.current.languageCode ?? "en",
             mediaFactory: IosFeedNativeMediaFactory.shared,

@@ -49,7 +49,7 @@ import platform.UIKit.UIViewController
  * or create a local profile model.
  */
 fun interface IosCommunityProfileNavigator {
-    fun openMemberProfile(profileId: String)
+    fun openMemberProfile(profile: CommunityUserProfile)
 }
 
 /**
@@ -87,7 +87,7 @@ fun createIosNeighborhoodsHostDependencies(
     currentUserId: String?,
     languageCode: String,
     onOpenConversation: (String) -> Unit,
-    onNavigateToProfile: (String) -> Unit,
+    onNavigateToProfile: (CommunityUserProfile) -> Unit,
     onAuthRequired: () -> Unit = {},
 ): IosNeighborhoodsHostDependencies = IosNeighborhoodsHostDependencies(
     repository = repository,
@@ -116,6 +116,18 @@ fun createIosNeighborhoodsHostDependencies(
 fun QuataNeighborhoodsViewController(
     dependencies: IosNeighborhoodsHostDependencies,
 ): UIViewController = ComposeUIViewController {
+    val state by dependencies.viewModel.uiState.collectAsState()
+    var presentedProfileId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.selectedProfile) {
+        val profile = state.selectedProfile
+        if (profile == null) {
+            presentedProfileId = null
+        } else if (presentedProfileId != profile.user.id) {
+            presentedProfileId = profile.user.id
+            dependencies.profileNavigator.openMemberProfile(profile)
+            dependencies.viewModel.clearUserProfile()
+        }
+    }
     QuataTheme {
         NeighborhoodsScreenHost(
             currentUserId = dependencies.currentUserId,
@@ -124,9 +136,10 @@ fun QuataNeighborhoodsViewController(
             onOpenConversation = dependencies.onOpenConversation,
             onOpenUserProfile = { userId ->
                 // Android treats member-profile inspection as public read access. Follow and
-                // chat remain separately gated by the shared host.
+                // chat remain separately gated by the shared host. Keep this host visible while
+                // the common ViewModel resolves the real profile: the member avatar owns the
+                // loading halo, and navigation happens only after data is available.
                 dependencies.viewModel.openUserProfile(userId)
-                dependencies.profileNavigator.openMemberProfile(userId)
             },
             onAuthRequired = dependencies.onAuthRequired,
             padding = PaddingValues(),
@@ -139,6 +152,7 @@ fun QuataNeighborhoodsViewController(
 class IosCommunityProfileHostDependencies(
     val repository: NeighborhoodRepository,
     val profileId: String,
+    val initialProfile: CommunityUserProfile?,
     val currentUserId: String?,
     val languageCode: String,
     val mediaFactory: IosFeedMediaFactory,
@@ -152,6 +166,7 @@ class IosCommunityProfileHostDependencies(
 fun createIosCommunityProfileHostDependencies(
     repository: NeighborhoodRepository,
     profileId: String,
+    initialProfile: CommunityUserProfile?,
     currentUserId: String?,
     languageCode: String,
     mediaFactory: IosFeedMediaFactory,
@@ -163,6 +178,7 @@ fun createIosCommunityProfileHostDependencies(
 ): IosCommunityProfileHostDependencies = IosCommunityProfileHostDependencies(
     repository = repository,
     profileId = profileId,
+    initialProfile = initialProfile,
     currentUserId = currentUserId,
     languageCode = languageCode,
     mediaFactory = mediaFactory,
@@ -183,7 +199,7 @@ fun QuataCommunityProfileViewController(
     LaunchedEffect(dependencies.profileId) { viewModel.openUserProfile(dependencies.profileId) }
     DisposableEffect(viewModel) { onDispose { viewModel.close() } }
     QuataTheme {
-        val profile = state.selectedProfile
+        val profile = state.selectedProfile ?: dependencies.initialProfile
         if (profile == null) {
             CommunityProfileLoadStateContent(
                 isLoading = state.openingProfileUserId != null || state.error == null,
@@ -251,7 +267,8 @@ fun QuataCommunityProfileViewController(
                     },
                 ),
                 isOpeningChat = state.openingPrivateChatUserId != null,
-                isRefreshingProfile = state.refreshingProfileUserId == profile.user.id,
+                isRefreshingProfile = state.refreshingProfileUserId == profile.user.id ||
+                    (state.selectedProfile == null && dependencies.initialProfile != null),
                 followingUserId = state.followingUserId,
                 roleUpdatingUserId = state.roleUpdatingUserId,
                 commentingPostId = state.commentingPostId,
