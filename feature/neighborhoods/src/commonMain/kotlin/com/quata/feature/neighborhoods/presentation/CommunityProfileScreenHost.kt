@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
@@ -99,6 +104,8 @@ fun CommunityProfileScreenHost(
     onSetProfileBlocked: ((String, Boolean) -> Unit)?,
     onAddComment: (String, PostComment) -> Unit,
     createComment: (Post, String) -> PostComment,
+    /** Web has no system back affordance and its Compose sheet cannot rely on swipe dismissal. */
+    showDismissButton: Boolean = false,
 ) {
     val isOwnProfile = profile.user.id == currentUserId
     var showPosts by rememberSaveable(profile.user.id) { mutableStateOf(false) }
@@ -130,6 +137,13 @@ fun CommunityProfileScreenHost(
         contentColor = template.colors.textPrimary,
         onDismiss = onBack,
     ) {
+        if (showDismissButton) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                CompactIconButton(onClick = onBack) {
+                    CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back)
+                }
+            }
+        }
         val selectedList = userList
         if (selectedList != null) {
             val users = if (selectedList == ProfileUserList.Followers) profile.followers else profile.following

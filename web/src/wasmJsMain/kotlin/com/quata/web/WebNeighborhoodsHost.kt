@@ -122,6 +122,7 @@ fun WebNeighborhoodsHost(
                     timestamp = "Ahora",
                 )
             },
+            showDismissButton = true,
         )
         return
     }
