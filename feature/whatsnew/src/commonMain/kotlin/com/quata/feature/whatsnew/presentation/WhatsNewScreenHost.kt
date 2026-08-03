@@ -49,13 +49,8 @@ fun WhatsNewScreenHost(
             state = WhatsNewScreenState.Empty
             return@LaunchedEffect
         }
-        state = repository.initializeForNewUser(installedVersionCode).fold(
-            onSuccess = {
-                repository.getPendingReleases(installedVersionCode, languageTags).fold(
-                    onSuccess = { if (it.isEmpty()) WhatsNewScreenState.Empty else WhatsNewScreenState.Content(it) },
-                    onFailure = { WhatsNewScreenState.Error },
-                )
-            },
+        state = repository.getPendingReleases(installedVersionCode, languageTags).fold(
+            onSuccess = { if (it.isEmpty()) WhatsNewScreenState.Empty else WhatsNewScreenState.Content(it) },
             onFailure = { WhatsNewScreenState.Error },
         )
     }
