@@ -4,7 +4,7 @@ import com.quata.feature.whatsnew.domain.PendingRelease
 import com.quata.feature.whatsnew.domain.UserReleaseState
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 
-data class LocalWhatsNewRelease(
+class LocalWhatsNewRelease(
     val releaseId: String,
     val versionCode: Long,
     val versionName: String?,
@@ -27,20 +27,20 @@ class LocalWhatsNewRepository(
     private val store: WhatsNewSeenStateStore,
 ) : WhatsNewRepository {
     private val catalog = releases
-        .filter { it.releaseId.isNotBlank() && it.versionCode > 0 && it.notes.hasUsableNote() }
-        .distinctBy(LocalWhatsNewRelease::versionCode)
-        .sortedBy(LocalWhatsNewRelease::versionCode)
 
     override suspend fun getPendingReleases(
         installedVersionCode: Long,
         languageTags: List<String>,
     ): Result<List<PendingRelease>> = store.read().map { state ->
-        catalog
-            .asSequence()
-            .filter { it.versionCode <= installedVersionCode }
-            .filter { it.versionCode > (state.lastSeenVersionCode ?: 0L) }
-            .mapNotNull { it.localized(languageTags) }
-            .toList()
+        val pending = mutableListOf<PendingRelease>()
+        val lastSeenVersionCode = state.lastSeenVersionCode ?: 0L
+        for (release in catalog) {
+            if (release.versionCode <= installedVersionCode && release.versionCode > lastSeenVersionCode) {
+                val localized = release.localized(languageTags)
+                if (localized != null) pending.add(localized)
+            }
+        }
+        pending
     }
 
     override suspend fun getReleaseHistory(languageTags: List<String>): Result<List<PendingRelease>> =
@@ -81,18 +81,15 @@ class LocalWhatsNewRepository(
 }
 
 private fun LocalWhatsNewRelease.localized(languageTags: List<String>): PendingRelease? {
-    val cleanNotes = notes.mapValues { it.value.trim() }.filterValues(String::isNotEmpty)
-    val note = cleanNotes.resolve(languageTags) ?: return null
+    val note = notes.resolve(languageTags)?.trim()?.takeIf(String::isNotEmpty) ?: return null
     return PendingRelease(
         releaseId = releaseId,
         versionCode = versionCode,
         versionName = versionName,
         localizedNote = note,
-        availableLanguageTags = cleanNotes.keys,
+        availableLanguageTags = notes.keys,
     )
 }
-
-private fun Map<String, String>.hasUsableNote(): Boolean = values.any { it.isNotBlank() }
 
 /** Exact tag, language-only tag, English and finally the first stable catalog translation. */
 private fun Map<String, String>.resolve(languageTags: List<String>): String? {
@@ -103,7 +100,7 @@ private fun Map<String, String>.resolve(languageTags: List<String>): String? {
         entries.firstOrNull { it.key.normalizedLanguageTag().substringBefore('-') == language }?.value
     }?.let { return it }
     entries.firstOrNull { it.key.normalizedLanguageTag().substringBefore('-') == "en" }?.value?.let { return it }
-    return entries.sortedBy { it.key.lowercase() }.firstOrNull()?.value
+    return entries.firstOrNull()?.value
 }
 
 private fun String.normalizedLanguageTag(): String = trim().replace('_', '-').lowercase()

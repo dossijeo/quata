@@ -199,10 +199,12 @@ private fun QuataWebApp(
             },
         )
     }
-    val whatsNewRepository: WhatsNewRepository = remember(runtimeConfiguration, authRepository) {
-        WebWhatsNewRepository(
-            rpcClient = WebPostgrestRpcClient(runtimeConfiguration, authRepository),
-        )
+    val whatsNewRepository: WhatsNewRepository = remember { createWebWhatsNewRepository() }
+    val whatsNewInstalledVersionCode = remember(runtimeConfiguration.releaseVersionCode) {
+        webWhatsNewInstalledVersionCode(runtimeConfiguration.releaseVersionCode)
+    }
+    val whatsNewStartupCoordinator = remember(whatsNewRepository, platformServices.preferences) {
+        createWebWhatsNewStartupCoordinator(whatsNewRepository, platformServices.preferences)
     }
     val incomingShareStore = remember { WebIncomingShareStore() }
     var currentUserId by remember { mutableStateOf<String?>(null) }
@@ -213,6 +215,8 @@ private fun QuataWebApp(
     // Preserve the exact hash that led to the common login screen so a successful web_login
     // resumes the product journey instead of dropping the person at an unrelated destination.
     var pendingAuthenticationFragment by remember { mutableStateOf<String?>(null) }
+    var whatsNewOrigin by remember { mutableStateOf<WebWhatsNewOrigin?>(null) }
+    var hasEvaluatedWhatsNewStartup by remember { mutableStateOf(false) }
     // Auth is a full-screen product flow.  The participation gate is a separate common
     // dialog over the public shell, mirroring Android's AppNavGraph contract.
     var isAuthRequiredPromptOpen by remember { mutableStateOf(false) }
@@ -348,6 +352,17 @@ private fun QuataWebApp(
         onDispose(stopObserving)
     }
     val navigationState = navigation.state
+    LaunchedEffect(isSessionResolved, isSessionReady, currentUserId, whatsNewInstalledVersionCode) {
+        if (isSessionResolved && isSessionReady && currentUserId != null && !hasEvaluatedWhatsNewStartup) {
+            hasEvaluatedWhatsNewStartup = true
+            if (navigationState.route != "feed") return@LaunchedEffect
+            val decision = whatsNewStartupCoordinator.evaluate(whatsNewInstalledVersionCode, browserWhatsNewLanguageTags()).getOrNull()
+            if (decision == true && navigation.route == "feed") {
+                whatsNewOrigin = WebWhatsNewOrigin.Startup
+                navigation.navigate("whats-new")
+            }
+        }
+    }
     LaunchedEffect(navigationState, runtimeConfiguration.isBackendConfigured) {
         platformServices.preferences.putString("web.runtime.backend_configured", runtimeConfiguration.isBackendConfigured.toString())
         platformServices.preferences.putString("web.navigation.route", navigationState.route)
@@ -446,7 +461,10 @@ private fun QuataWebApp(
                 isNotificationBouncing = false,
                 isOnline = true,
                 strings = WebAuthenticatedChromeStrings,
-                onLogoClick = { navigation.navigate("about") },
+                onLogoClick = {
+                    whatsNewOrigin = WebWhatsNewOrigin.Settings
+                    navigation.navigate("about")
+                },
                 // Android exposes the Notifications surface from the public header.  Its
                 // repository may render an empty/error state anonymously; opening a private
                 // conversation from it is still handled by the route-level participation gate.
@@ -504,11 +522,26 @@ private fun QuataWebApp(
                             completeLogout()
                         },
                     )
-                } else if (navigation.route == "whats-new" || navigation.route == "about") {
+                } else if (webWhatsNewDestination(navigation.route) != null) {
+                    val destination = requireNotNull(webWhatsNewDestination(navigation.route))
+                    val origin = whatsNewOrigin ?: WebWhatsNewOrigin.DeepLink
                     WebWhatsNewHost(
+                        destination = destination,
                         repository = whatsNewRepository,
-                        installedVersionCode = runtimeConfiguration.releaseVersionCode,
-                        onBack = { navigation.navigate("settings") },
+                        installedVersionCode = whatsNewInstalledVersionCode,
+                        onBack = {
+                            val returnFragment = webWhatsNewReturnFragment(origin)
+                            if (origin == WebWhatsNewOrigin.Startup) {
+                                scope.launch {
+                                    whatsNewStartupCoordinator.acknowledge(whatsNewInstalledVersionCode)
+                                    navigation.navigate(returnFragment)
+                                    whatsNewOrigin = null
+                                }
+                            } else {
+                                navigation.navigate(returnFragment)
+                                whatsNewOrigin = null
+                            }
+                        },
                     )
                 } else if (navigation.route == "notifications") {
                     WebNotificationsHost(
@@ -749,6 +782,9 @@ internal val WebNavigationState.isPublicRoute: Boolean
         route == "communities" ||
         route == "official" ||
         route == "notifications" ||
+        route == "whats-new" ||
+        route == "about" ||
+        route == "release-history" ||
         postId != null ||
         officialPostId != null
 
@@ -839,7 +875,10 @@ internal fun String.toWebNavigationState(): WebNavigationState {
     if (trim('/').equals("settings", ignoreCase = true)) {
         return WebNavigationState(route = "settings", message = "Apariencia de Quata Web.")
     }
-    if (trim('/').equals("whats-new", ignoreCase = true) || trim('/').equals("about", ignoreCase = true)) {
+    if (trim('/').equals("whats-new", ignoreCase = true) ||
+        trim('/').equals("about", ignoreCase = true) ||
+        trim('/').equals("release-history", ignoreCase = true)
+    ) {
         return WebNavigationState(route = trim('/').lowercase(), message = "Novedades e historial de versiones de Quata Web.")
     }
     if (trim('/').equals("notifications", ignoreCase = true)) {

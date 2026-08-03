@@ -376,6 +376,7 @@ private final class IosAppCompositionRoot {
         installSettings()
         installWhatsNewIfAvailable()
         installPublicFeedIfConfigured()
+        evaluateWhatsNewStartupIfAvailable()
         installPublicOfficialIfConfigured()
         installNotificationsIfAvailable()
         installCommunitiesIfAvailable()
@@ -895,7 +896,11 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installWhatsNewFactory { [weak self] in
             IosWhatsNewRuntimeBootstrapKt.QuataIosManagedWhatsNewViewController(
                 runtime: whatsNewRuntimeBootstrap,
-                onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                onClose: {
+                    whatsNewRuntimeBootstrap.acknowledgeStartup { [weak self] in
+                        self?.authenticatedHost.showFeed(postId: nil)
+                    }
+                },
             )
         }
         authenticatedHost.installReleaseHistoryFactory { [weak self] in
@@ -903,6 +908,16 @@ private final class IosAppCompositionRoot {
                 runtime: whatsNewRuntimeBootstrap,
                 onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
             )
+        }
+    }
+
+    /// Evaluates the shared version/catalog state only after the public Feed is installed.
+    /// The router refuses a late decision if a deep link or user action already left Feed.
+    private func evaluateWhatsNewStartupIfAvailable() {
+        guard let whatsNewRuntimeBootstrap else { return }
+        whatsNewRuntimeBootstrap.evaluateStartup { [weak self] shouldShow in
+            guard shouldShow.boolValue else { return }
+            self?.authenticatedHost.showWhatsNewIfFeedVisible()
         }
     }
 
@@ -1746,6 +1761,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func showSettings() { route(.settings) }
 
     func showWhatsNew() { route(.whatsNew) }
+
+    /// Startup evaluation is asynchronous. Never replace a route selected while it was running.
+    @discardableResult
+    func showWhatsNewIfFeedVisible() -> Bool {
+        guard case .feed? = visibleRoute, whatsNewFactory != nil else { return false }
+        showWhatsNew()
+        return true
+    }
 
     func showReleaseHistory() { route(.releaseHistory) }
 
