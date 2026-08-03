@@ -27,8 +27,8 @@ class WebWhatsNewContractTest {
 
     @Test
     fun localizedCopyFallsBackToEnglish() {
-        assertEquals("Novedades", webWhatsNewStrings(listOf("es-ES")).strings.title)
-        assertEquals("Nouveautés", webWhatsNewStrings(listOf("fr-FR")).strings.title)
-        assertEquals("What's New", webWhatsNewStrings(listOf("de-DE")).strings.title)
+        assertEquals("Novedades", webWhatsNewStrings(listOf("es-ES")).title)
+        assertEquals("Nouveautés", webWhatsNewStrings(listOf("fr-FR")).title)
+        assertEquals("What's New", webWhatsNewStrings(listOf("de-DE")).title)
     }
 }

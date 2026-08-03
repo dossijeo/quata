@@ -1,10 +1,8 @@
 package com.quata.feature.whatsnew.presentation
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,41 +26,28 @@ fun WhatsNewScreenHost(
     installedVersionCode: Long?,
     languageTags: List<String>,
     strings: WhatsNewStrings,
-    loadError: String,
     saveError: String,
-    retry: String,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var releases by remember(repository, installedVersionCode, languageTags) { mutableStateOf<List<PendingRelease>?>(null) }
     var isLoading by remember(repository, installedVersionCode, languageTags) { mutableStateOf(true) }
-    var loadFailed by remember(repository, installedVersionCode, languageTags) { mutableStateOf(false) }
-    var retryToken by remember { mutableStateOf(0) }
     var isCompleting by remember { mutableStateOf(false) }
     var saveFailed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(repository, installedVersionCode, languageTags, retryToken) {
+    LaunchedEffect(repository, installedVersionCode, languageTags) {
         if (installedVersionCode == null) {
             isLoading = false
             return@LaunchedEffect
         }
         repository.getPendingReleases(installedVersionCode, languageTags).fold(
             onSuccess = { releases = it; isLoading = false },
-            onFailure = { loadFailed = true; isLoading = false },
+            onFailure = { releases = emptyList(); isLoading = false },
         )
     }
     when {
         isLoading -> CenteredWhatsNewMessage(modifier) { CircularProgressIndicator() }
-        loadFailed -> CenteredWhatsNewMessage(modifier) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(loadError)
-                Button(
-                    onClick = { releases = null; loadFailed = false; isLoading = true; retryToken++ },
-                    modifier = Modifier.padding(top = 12.dp),
-                ) { Text(retry) }
-            }
-        }
         releases.isNullOrEmpty() -> LaunchedEffect(onClose) { onClose() }
         else -> {
             val currentReleases = releases.orEmpty()

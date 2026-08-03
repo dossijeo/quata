@@ -90,16 +90,13 @@ fun QuataIosManagedWhatsNewViewController(
     runtime: IosWhatsNewRuntimeBootstrap,
     onClose: () -> Unit,
 ): UIViewController = ComposeUIViewController {
-    val copy = iosCopy(runtime.languageTags)
     QuataTheme {
         WhatsNewScreenHost(
             repository = runtime.repository,
             installedVersionCode = runtime.installedVersionCode,
             languageTags = runtime.languageTags,
             strings = iosWhatsNewStrings(runtime.languageTags),
-            loadError = copy.loadError,
-            saveError = copy.saveError,
-            retry = copy.retry,
+            saveError = iosWhatsNewSaveError(runtime.languageTags),
             onClose = onClose,
         )
     }
@@ -159,16 +156,10 @@ private class IosWhatsNewStartupAcknowledgementStore(
     }
 }
 
-private data class IosWhatsNewCopy(
-    val loadError: String,
-    val saveError: String,
-    val retry: String,
-)
-
-private fun iosCopy(tags: List<String>): IosWhatsNewCopy = when {
-    tags.isSpanish() -> IosWhatsNewCopy("No se pudieron cargar las novedades.", "No se pudo guardar el estado de lectura.", "Reintentar")
-    tags.isFrench() -> IosWhatsNewCopy("Impossible de charger les nouveautés.", "Impossible d'enregistrer la progression.", "Réessayer")
-    else -> IosWhatsNewCopy("What's New could not be loaded.", "Read progress could not be saved.", "Retry")
+private fun iosWhatsNewSaveError(tags: List<String>): String = when {
+    tags.isSpanish() -> "No se pudo guardar el estado de lectura."
+    tags.isFrench() -> "Impossible d'enregistrer la progression."
+    else -> "Read progress could not be saved."
 }
 
 private fun iosWhatsNewStrings(tags: List<String>): WhatsNewStrings = when {

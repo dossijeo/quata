@@ -66,16 +66,13 @@ fun WebWhatsNewHost(
     modifier: Modifier = Modifier,
 ) {
     val languageTags = remember { browserWhatsNewLanguageTags() }
-    val pendingCopy = remember(languageTags) { webWhatsNewStrings(languageTags) }
     when (destination) {
         WebWhatsNewDestination.PendingReleases -> WhatsNewScreenHost(
             repository = repository,
             installedVersionCode = installedVersionCode,
             languageTags = languageTags,
-            strings = pendingCopy.strings,
-            loadError = pendingCopy.loadError,
-            saveError = pendingCopy.saveError,
-            retry = pendingCopy.retry,
+            strings = webWhatsNewStrings(languageTags),
+            saveError = webWhatsNewSaveError(languageTags),
             onClose = onBack,
             modifier = modifier,
         )
@@ -89,17 +86,16 @@ fun WebWhatsNewHost(
     }
 }
 
-internal class WebWhatsNewCopy(
-    val strings: WhatsNewStrings,
-    val loadError: String,
-    val saveError: String,
-    val retry: String,
-)
+internal fun webWhatsNewStrings(languageTags: List<String>): WhatsNewStrings = when {
+    languageTags.isSpanish() -> WhatsNewStrings("Novedades", "Anterior", "Siguiente", "Continuar", { "Versión $it" }, { "Novedades de $it" })
+    languageTags.isFrench() -> WhatsNewStrings("Nouveautés", "Précédent", "Suivant", "Continuer", { "Version $it" }, { "Nouveautés de $it" })
+    else -> WhatsNewStrings("What's New", "Previous", "Next", "Continue", { "Version $it" }, { "What's new in $it" })
+}
 
-internal fun webWhatsNewStrings(languageTags: List<String>): WebWhatsNewCopy = when {
-    languageTags.isSpanish() -> WebWhatsNewCopy(WhatsNewStrings("Novedades", "Anterior", "Siguiente", "Continuar", { "Versión $it" }, { "Novedades de $it" }), "No se pudieron cargar las novedades.", "No se pudo guardar el estado de lectura.", "Reintentar")
-    languageTags.isFrench() -> WebWhatsNewCopy(WhatsNewStrings("Nouveautés", "Précédent", "Suivant", "Continuer", { "Version $it" }, { "Nouveautés de $it" }), "Impossible de charger les nouveautés.", "Impossible d'enregistrer la progression.", "Réessayer")
-    else -> WebWhatsNewCopy(WhatsNewStrings("What's New", "Previous", "Next", "Continue", { "Version $it" }, { "What's new in $it" }), "What's New could not be loaded.", "Read progress could not be saved.", "Retry")
+internal fun webWhatsNewSaveError(languageTags: List<String>): String = when {
+    languageTags.isSpanish() -> "No se pudo guardar el estado de lectura."
+    languageTags.isFrench() -> "Impossible d'enregistrer la progression."
+    else -> "Read progress could not be saved."
 }
 
 internal fun webReleaseHistoryStrings(languageTags: List<String>): ReleaseHistoryStrings = when {
