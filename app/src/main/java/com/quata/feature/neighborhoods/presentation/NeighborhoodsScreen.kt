@@ -132,102 +132,36 @@ fun NeighborhoodsScreen(
     onAuthRequired: () -> Unit = {},
     viewModel: NeighborhoodsAndroidViewModel = viewModel(factory = NeighborhoodsAndroidViewModel.factory(repository))
 ) {
-    val state by viewModel.uiState.collectAsState()
-    var selectedCommunity by rememberSaveable { mutableStateOf<String?>(null) }
-    var neighborhoodQuery by rememberSaveable { mutableStateOf("") }
-    val canParticipate = currentUserId != null
-    val communityForDialog = state.communities.firstOrNull { it.name == selectedCommunity }
-    DisposableEffect(viewModel) {
-        viewModel.startObservingCommunities()
-        onDispose { viewModel.stopObservingCommunities() }
-    }
-
-    if (communityForDialog != null) {
-        NeighborhoodUsersScreen(
-            padding = padding,
-            community = communityForDialog,
-            currentUserId = currentUserId,
-            isOpeningChat = state.isOpeningChat,
-            openingPrivateChatUserId = state.openingPrivateChatUserId,
-            openingProfileUserId = openingProfileUserId,
-            followingUserId = state.followingUserId,
-            onBack = { selectedCommunity = null },
-            onFollowUser = { user ->
-                if (canParticipate) viewModel.toggleFollowUser(user.id) else onAuthRequired()
-            },
-            onOpenProfile = { onOpenUserProfile(it.id) },
-            onOpenPrivateChat = { user ->
-                if (canParticipate) {
-                    viewModel.openPrivateChat(user.id) { conversationId ->
-                        selectedCommunity = null
-                        onOpenConversation(conversationId)
-                    }
-                } else {
-                    onAuthRequired()
-                }
-            }
-        )
-        return
-    }
-
     val context = LocalContext.current
-    NeighborhoodListContent(
-        padding = padding,
-        communities = state.communities,
-        query = neighborhoodQuery,
-        isLoading = state.isLoading,
-        error = state.error,
+    NeighborhoodsScreenHost(
         currentUserId = currentUserId,
-        openingNeighborhood = state.openingChatNeighborhood,
-        strings = NeighborhoodListStrings(
-            title = stringResource(R.string.neighborhoods_open_community),
-            searchPlaceholder = stringResource(R.string.neighborhoods_subtitle),
-            loading = stringResource(R.string.neighborhoods_loading),
-            oneUser = stringResource(R.string.neighborhoods_one_user),
-            users = { count -> context.getString(R.string.neighborhoods_user_count, count) },
-            oneMessage = stringResource(R.string.neighborhoods_one_message),
-            messages = { count -> context.getString(R.string.neighborhoods_message_count, count) },
-            viewUsers = stringResource(R.string.neighborhoods_view_users),
-            openChat = stringResource(R.string.neighborhoods_open_chat),
-            timeLabel = { communityTimeLabel(context, it) }
-        ),
-        onQueryChange = { neighborhoodQuery = it },
-        onShowUsers = { selectedCommunity = it.name },
-        onOpenChat = { community ->
-            if (canParticipate) viewModel.openChat(community.name, onOpenConversation) else onAuthRequired()
-        }
-    )
-}
-
-@Composable
-private fun NeighborhoodUsersScreen(
-    padding: PaddingValues,
-    community: NeighborhoodCommunity,
-    currentUserId: String?,
-    isOpeningChat: Boolean,
-    openingPrivateChatUserId: String?,
-    openingProfileUserId: String?,
-    followingUserId: String?,
-    onBack: () -> Unit,
-    onFollowUser: (NeighborhoodUser) -> Unit,
-    onOpenProfile: (NeighborhoodUser) -> Unit,
-    onOpenPrivateChat: (NeighborhoodUser) -> Unit
-) {
-    val context = LocalContext.current
-    NeighborhoodUsersContent(
-        padding = padding,
-        community = community,
-        currentUserId = currentUserId,
-        isOpeningChat = isOpeningChat,
-        openingPrivateChatUserId = openingPrivateChatUserId,
-        openingProfileUserId = openingProfileUserId,
-        followingUserId = followingUserId,
-        strings = NeighborhoodUsersStrings(
-            title = { name -> context.getString(R.string.neighborhoods_users_title, name) },
-            subtitle = stringResource(R.string.neighborhoods_users_subtitle),
-            backContentDescription = stringResource(R.string.common_back),
-            memberCount = { count -> if (count == 1) context.getString(R.string.neighborhoods_one_user) else context.getString(R.string.neighborhoods_user_count, count) },
-            row = NeighborhoodUserRowStrings(stringResource(R.string.common_follow), stringResource(R.string.common_following), stringResource(R.string.common_chat))
+        strings = NeighborhoodsScreenStrings(
+            list = NeighborhoodListStrings(
+                title = stringResource(R.string.neighborhoods_open_community),
+                searchPlaceholder = stringResource(R.string.neighborhoods_subtitle),
+                loading = stringResource(R.string.neighborhoods_loading),
+                oneUser = stringResource(R.string.neighborhoods_one_user),
+                users = { count -> context.getString(R.string.neighborhoods_user_count, count) },
+                oneMessage = stringResource(R.string.neighborhoods_one_message),
+                messages = { count -> context.getString(R.string.neighborhoods_message_count, count) },
+                viewUsers = stringResource(R.string.neighborhoods_view_users),
+                openChat = stringResource(R.string.neighborhoods_open_chat),
+                timeLabel = { communityTimeLabel(context, it) },
+            ),
+            members = NeighborhoodUsersStrings(
+                title = { name -> context.getString(R.string.neighborhoods_users_title, name) },
+                subtitle = stringResource(R.string.neighborhoods_users_subtitle),
+                backContentDescription = stringResource(R.string.common_back),
+                memberCount = { count ->
+                    if (count == 1) context.getString(R.string.neighborhoods_one_user)
+                    else context.getString(R.string.neighborhoods_user_count, count)
+                },
+                row = NeighborhoodUserRowStrings(
+                    stringResource(R.string.common_follow),
+                    stringResource(R.string.common_following),
+                    stringResource(R.string.common_chat),
+                ),
+            ),
         ),
         avatar = { user, isLoading, onClick ->
             ClickableProfileAvatar(
@@ -237,13 +171,15 @@ private fun NeighborhoodUsersScreen(
                 profileId = user.id,
                 isLoading = isLoading,
                 onClick = onClick,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(48.dp),
             )
         },
-        onBack = onBack,
-        onFollowUser = onFollowUser,
-        onOpenProfile = onOpenProfile,
-        onOpenPrivateChat = onOpenPrivateChat
+        onOpenConversation = onOpenConversation,
+        onOpenUserProfile = onOpenUserProfile,
+        onAuthRequired = onAuthRequired,
+        padding = padding,
+        model = viewModel,
+        openingProfileUserId = openingProfileUserId,
     )
 }
 
