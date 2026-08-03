@@ -1,7 +1,14 @@
 package com.quata.feature.neighborhoods.presentation
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.PostComment
@@ -67,10 +74,17 @@ fun createIosNeighborhoodsHostDependencies(
     currentUserId = currentUserId,
     listStrings = neighborhoodsScreenStringsForLanguage(languageCode).list,
     usersStrings = neighborhoodsScreenStringsForLanguage(languageCode).members,
-    avatar = { user, _, _ ->
+    avatar = { user, isLoading, onClick ->
         // Remote image loading belongs to a separately verified platform media adapter. A
         // deterministic common fallback keeps this host usable without inventing a URL loader.
-        QuataAvatarFallback(name = user.displayName, stableId = user.id)
+        Box(contentAlignment = Alignment.Center) {
+            QuataAvatarFallback(
+                name = user.displayName,
+                stableId = user.id,
+                modifier = Modifier.size(44.dp).clickable(onClick = onClick),
+            )
+            if (isLoading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+        }
     },
     onOpenConversation = onOpenConversation,
     onAuthRequired = onAuthRequired,
