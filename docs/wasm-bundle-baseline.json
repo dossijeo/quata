@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "revision": "dfe82ff3798cfdbd790f16cab7778bfd3c817009",
+  "revision": "568c60c7beb894b1fe19979f0b2b018ae9ff3405",
   "distribution": "web/build/dist/wasmJs/productionExecutable",
   "files": [
     {
@@ -20,19 +20,19 @@
       "contributor": "Skiko"
     },
     {
-      "path": "1e096acabdeff2a33810.wasm",
+      "path": "b2cc186aad5c3d6d0219.wasm",
       "extension": ".wasm",
-      "bytes": 7076458,
-      "gzipBytes": 1920297,
-      "sha256": "81817efe5e96048267df0ba0cfdca94b9076124ba6b91b2ccd3357f1593c3904",
+      "bytes": 8114046,
+      "gzipBytes": 2158833,
+      "sha256": "7d2f49ba521e8861cd1e1a8fe91bf7676bbcae9ba7b60da80e67ee1506389346",
       "contributor": "Kotlin/Wasm application"
     },
     {
       "path": "web.js",
       "extension": ".js",
-      "bytes": 633302,
-      "gzipBytes": 116899,
-      "sha256": "7a85d6b7afd818e94a0a8a9b1273690f6e1384bc6d5b1d80e8e5e14fa6d56f02",
+      "bytes": 641245,
+      "gzipBytes": 118939,
+      "sha256": "7a4971c365325bebad73d4951ed24400fc3b0e7b1875b820975e66a34916caca",
       "contributor": "JavaScript runtime/chunks"
     },
     {
@@ -207,16 +207,16 @@
       "path": "quata-source-revision.txt",
       "extension": ".txt",
       "bytes": 41,
-      "gzipBytes": 59,
-      "sha256": "9fbee1a7fd037b0d73266e51770147d36aac226c044a62a3b5f163f2f7ef2b9a",
+      "gzipBytes": 60,
+      "sha256": "d812bec762fb3961bfe36ecc057af8adb1dacd6a16fc86c0a5fd95e64fc33edc",
       "contributor": "Static/runtime assets"
     }
   ],
   "totals": {
-    "bytes": 36391596,
-    "gzipBytes": 14505933
+    "bytes": 37437127,
+    "gzipBytes": 14746510
   },
-  "inventorySha256": "8116f6561727c5616d842b157c74931617255a43b2b7694dcc7338bdf127c5b2",
+  "inventorySha256": "0214e3aaee581ecb629038e42927f21f3f75181c9dc1cf43ba2a44d73cfd4695",
   "contributors": [
     {
       "name": "DocMentis",
@@ -233,20 +233,20 @@
     {
       "name": "Kotlin/Wasm application",
       "files": 1,
-      "bytes": 7076458,
-      "gzipBytes": 1920297
+      "bytes": 8114046,
+      "gzipBytes": 2158833
     },
     {
       "name": "JavaScript runtime/chunks",
       "files": 4,
-      "bytes": 643105,
-      "gzipBytes": 120375
+      "bytes": 651048,
+      "gzipBytes": 122415
     },
     {
       "name": "Static/runtime assets",
       "files": 18,
       "bytes": 353349,
-      "gzipBytes": 340639
+      "gzipBytes": 340640
     }
   ],
   "notes": [
@@ -257,13 +257,13 @@
   "capture": {
     "schemaVersion": 2,
     "trustedRef": "origin/main",
-    "sourceRevision": "dfe82ff3798cfdbd790f16cab7778bfd3c817009",
+    "sourceRevision": "568c60c7beb894b1fe19979f0b2b018ae9ff3405",
     "sourceTree": {
       "algorithm": "git-ls-tree-sha256-v1",
-      "revision": "dfe82ff3798cfdbd790f16cab7778bfd3c817009",
-      "sha256": "f896c1e207d8f69f747911bad37f9edbcba78923725c16a5218e948887eec7b3"
+      "revision": "568c60c7beb894b1fe19979f0b2b018ae9ff3405",
+      "sha256": "d263993bc04cf0ddf81fa627312d9ec9fdfbc4c9260e1318df43e50fe18cd6e2"
     },
-    "inventorySha256": "8116f6561727c5616d842b157c74931617255a43b2b7694dcc7338bdf127c5b2",
+    "inventorySha256": "0214e3aaee581ecb629038e42927f21f3f75181c9dc1cf43ba2a44d73cfd4695",
     "command": ":web:wasmJsBrowserDistribution"
   }
 }
