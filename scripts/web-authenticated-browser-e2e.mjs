@@ -428,6 +428,16 @@ async function startServer(distribution, state, configuration) {
         state.notificationInboxReads += 1;
         return json(response, 200, { threads: [], messages: [], profiles: [] });
       }
+      if (url.pathname === "/rest/v1/rpc/quata_chat_search_conversation_candidates") {
+        const body = await jsonBody(request);
+        if (request.method !== "POST" || request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
+            body.p_actor_profile_id !== FIXTURE.profileId || typeof body.p_query !== "string" ||
+            !Number.isInteger(body.p_limit) || body.p_limit < 1 || body.p_limit > 50 ||
+            !Number.isInteger(body.p_offset) || body.p_offset < 0 || Object.keys(body).length !== 4) {
+          return json(response, 405, { error: "fixture_chat_candidate_directory_read_forbidden" });
+        }
+        return json(response, 200, { items: [], has_more: false, next_offset: body.p_offset, total: 0, actor_neighborhood: "Fixture District" });
+      }
       if (url.pathname.startsWith("/rest/v1/")) {
         if (request.method !== "GET") return json(response, 405, { error: "fixture_product_mutation_forbidden" });
         return json(response, 200, []);
