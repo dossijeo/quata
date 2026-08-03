@@ -39,11 +39,11 @@ const FIXTURE = Object.freeze({
   webSessionToken: "fixture-web-session-token",
 });
 const PRIMARY_NAVIGATION_STRESS_SEQUENCES = Object.freeze([
+  { name: "browser_back_forward", fragments: ["communities", "chat", "official", "", "profile"] },
   { name: "primary_forward", fragments: ["communities", "chat", "official", "", "profile", "communities"] },
   { name: "primary_reverse", fragments: ["", "official", "chat", "communities", "profile", ""] },
   { name: "feed_official_toggle", fragments: ["", "official"] },
   { name: "communities_chat_toggle", fragments: ["communities", "chat"] },
-  { name: "browser_back_forward", fragments: ["communities", "chat", "official", "", "profile"] },
   { name: "direct_fragments", fragments: ["communities", "chat", "official", "", "profile"] },
 ]);
 const NAVIGATION_STRESS_CYCLES = 50;
@@ -709,7 +709,14 @@ async function runAuthenticatedNavigationStress(page, diagnostics) {
     const diagnosticsAtStart = diagnostics.length;
     for (let cycle = 1; cycle <= NAVIGATION_STRESS_CYCLES; cycle += 1) {
       if (sequence.name === "browser_back_forward") {
-        for (const fragment of sequence.fragments) await navigateStressFragment(page, fragment);
+        // Build one bounded history chain before the high-volume route stress. Reusing it
+        // keeps the browser's same-document history limit from turning a product assertion
+        // into a test-runner artifact after hundreds of hash navigations.
+        if (cycle === 1) {
+          for (const [index, fragment] of sequence.fragments.entries()) {
+            await seedStressHistoryFragment(page, fragment, index === 0 ? "replaceState" : "pushState");
+          }
+        }
         for (let index = 1; index < sequence.fragments.length; index += 1) {
           const expected = expectedRouteForFragment(sequence.fragments.at(-1 - index));
           await navigateHistory(page, "back", index, expected);
@@ -736,9 +743,20 @@ async function runAuthenticatedNavigationStress(page, diagnostics) {
   return { status: "passed", sequences: results, knownFixtureConsoleErrors: knownFixtureConsoleErrors.length, unexpectedConsoleErrors: unexpectedConsoleErrors.length, uncaughtExceptions: pageErrors.length };
 }
 
+async function seedStressHistoryFragment(page, fragment, method) {
+  const expected = expectedRouteForFragment(fragment);
+  await page.evaluate(({ value, historyMethod }) => {
+    const oldURL = globalThis.location.href;
+    const nextURL = value ? `#${value}` : `${globalThis.location.pathname}${globalThis.location.search}`;
+    globalThis.history[historyMethod](globalThis.history.state, "", nextURL);
+    globalThis.dispatchEvent(new HashChangeEvent("hashchange", { oldURL, newURL: globalThis.location.href }));
+  }, { value: fragment, historyMethod: method });
+  await waitForShellRoute(page, expected);
+}
+
 async function navigateHistory(page, direction, index, expected) {
   const before = await page.evaluate(() => ({ hash: location.hash, route: localStorage.getItem("web.navigation.route") }));
-  await (direction === "back" ? page.goBack() : page.goForward());
+  await page.evaluate(historyDirection => globalThis.history[historyDirection](), direction);
   try { await waitForShellRoute(page, expected); }
   catch (error) {
     navigationStressFailure = { direction, index, expected, before, after: await page.evaluate(() => ({ hash: location.hash, route: localStorage.getItem("web.navigation.route"), shellRoute: document.documentElement.getAttribute("data-quata-shell-route"), selected: document.documentElement.getAttribute("data-quata-primary-selected-route") })), error: error.message };

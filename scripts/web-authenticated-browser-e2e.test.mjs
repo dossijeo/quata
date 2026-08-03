@@ -121,6 +121,15 @@ test("fixture fails closed on external network while proving the notification in
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
   assert.match(runner, /fixtureState\.notificationInboxReads < 1/);
   assert.match(runner, /MAX_AUTHENTICATED_INBOX_READS = NAVIGATION_STRESS_CYCLES \* 16/);
+  assert.match(runner, /\{ name: "browser_back_forward"[\s\S]*?\{ name: "primary_forward"/);
+  assert.match(runner, /if \(cycle === 1\) \{\s+for \(const \[index, fragment\] of sequence\.fragments\.entries\(\)\)/);
+  assert.match(runner, /globalThis\.history\[historyMethod\]\(globalThis\.history\.state, "", nextURL\)/);
+  assert.match(runner, /globalThis\.dispatchEvent\(new HashChangeEvent\("hashchange"/);
+  assert.match(runner, /globalThis\.history\[historyDirection\]\(\), direction/);
+  assert.doesNotMatch(runner, /page\.goBack\(\)|page\.goForward\(\)/);
+  assert.match(main, /var hasEvaluatedWhatsNewStartup by remember \{ mutableStateOf\(false\) \}/);
+  assert.match(main, /!hasEvaluatedWhatsNewStartup[\s\S]*?hasEvaluatedWhatsNewStartup = true[\s\S]*?navigationState\.route != "feed"/);
+  assert.doesNotMatch(main, /LaunchedEffect\([^\n]*navigationState\.route[^\n]*whatsNewInstalledVersionCode/);
   assert.match(runner, /authenticated_inbox_read_storm/);
   assert.match(runner, /notificationInboxReads: productReadEvidence\.notificationInboxReads/);
   assert.match(runner, /notificationInboxReadStages: productReadEvidence\.notificationInboxReadStages/);

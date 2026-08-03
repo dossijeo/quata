@@ -216,6 +216,7 @@ private fun QuataWebApp(
     // resumes the product journey instead of dropping the person at an unrelated destination.
     var pendingAuthenticationFragment by remember { mutableStateOf<String?>(null) }
     var whatsNewOrigin by remember { mutableStateOf<WebWhatsNewOrigin?>(null) }
+    var hasEvaluatedWhatsNewStartup by remember { mutableStateOf(false) }
     // Auth is a full-screen product flow.  The participation gate is a separate common
     // dialog over the public shell, mirroring Android's AppNavGraph contract.
     var isAuthRequiredPromptOpen by remember { mutableStateOf(false) }
@@ -351,8 +352,10 @@ private fun QuataWebApp(
         onDispose(stopObserving)
     }
     val navigationState = navigation.state
-    LaunchedEffect(isSessionResolved, isSessionReady, currentUserId, navigationState.route, whatsNewInstalledVersionCode) {
-        if (isSessionResolved && isSessionReady && currentUserId != null && navigationState.route == "feed") {
+    LaunchedEffect(isSessionResolved, isSessionReady, currentUserId, whatsNewInstalledVersionCode) {
+        if (isSessionResolved && isSessionReady && currentUserId != null && !hasEvaluatedWhatsNewStartup) {
+            hasEvaluatedWhatsNewStartup = true
+            if (navigationState.route != "feed") return@LaunchedEffect
             val decision = whatsNewStartupCoordinator.evaluate(whatsNewInstalledVersionCode, browserWhatsNewLanguageTags()).getOrNull()
             if (decision == true && navigation.route == "feed") {
                 whatsNewOrigin = WebWhatsNewOrigin.Startup
