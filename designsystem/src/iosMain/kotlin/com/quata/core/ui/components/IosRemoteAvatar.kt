@@ -1,5 +1,6 @@
 package com.quata.core.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -8,9 +9,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.viewinterop.UIKitView
-import androidx.compose.ui.viewinterop.UIKitInteropProperties
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.decodeToImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import com.quata.core.data.toFoundationData
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -27,14 +28,10 @@ import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionDataDelegateProtocol
 import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLSessionTask
-import platform.UIKit.UIImage
-import platform.UIKit.UIImageView
-import platform.UIKit.UIViewContentMode
 import platform.darwin.NSObject
 
 /** Shared iOS boundary for remote avatars used by Feed, Profile and future feature hosts. */
 @Composable
-@OptIn(ExperimentalComposeUiApi::class)
 fun IosRemoteAvatar(
     name: String,
     stableId: String,
@@ -44,7 +41,7 @@ fun IosRemoteAvatar(
     isOnline: Boolean? = null,
 ) {
     val imageUrl = avatarUrl?.trim()?.takeIf(::isIosRemoteAvatarUrl)
-    var image by remember(imageUrl) { mutableStateOf<UIImage?>(null) }
+    var image by remember(imageUrl) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(imageUrl) {
         image = if (imageUrl == null) null else loadIosRemoteAvatarOrNull(imageUrl)
     }
@@ -56,19 +53,11 @@ fun IosRemoteAvatar(
         modifier = modifier,
         avatar = image?.let { decoded ->
             {
-                UIKitView(
-                    factory = {
-                        UIImageView().apply {
-                            contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill
-                            clipsToBounds = true
-                            image = decoded
-                        }
-                    },
-                    update = { it.image = decoded },
+                Image(
+                    bitmap = decoded,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
-                    // Identity actions belong to the common Compose frame. A decorative
-                    // UIImageView must never consume the tap that opens the public profile.
-                    properties = UIKitInteropProperties(interactionMode = null),
                 )
             }
         },
@@ -78,10 +67,12 @@ fun IosRemoteAvatar(
 internal fun isIosRemoteAvatarUrl(value: String): Boolean =
     value.startsWith("https://") || value.startsWith("http://")
 
-private suspend fun loadIosRemoteAvatarOrNull(url: String): UIImage? =
+private suspend fun loadIosRemoteAvatarOrNull(url: String): ImageBitmap? =
     runCatching { iosRemoteAvatarData(NSURL(string = url) ?: return@runCatching null) }
         .getOrNull()
-        ?.let { UIImage(data = it) }
+        ?.toIosRemoteAvatarBytes()
+        ?.takeIf(ByteArray::isNotEmpty)
+        ?.let { encoded -> runCatching { encoded.decodeToImageBitmap() }.getOrNull() }
 
 @OptIn(ExperimentalForeignApi::class)
 private suspend fun iosRemoteAvatarData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->

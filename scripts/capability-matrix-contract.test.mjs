@@ -137,5 +137,7 @@ test('PROF-HEADER-LOADING-001 iOS resolves the profile behind the source avatar 
   assert.match(profileHost, /val profile = state\.selectedProfile \?: dependencies\.initialProfile/);
   assert.match(profileHost, /state\.selectedProfile == null && dependencies\.initialProfile != null/);
   assert.match(swift, /presentAuthenticatedMemberProfile\(profileId: profile\.user\.id, initialProfile: profile\)/);
-  assert.match(remoteAvatar, /UIKitInteropProperties\(interactionMode = null\)/);
+  assert.match(remoteAvatar, /encoded\.decodeToImageBitmap\(\)/);
+  assert.match(remoteAvatar, /Image\([\s\S]*?contentScale = ContentScale\.Crop/);
+  assert.doesNotMatch(remoteAvatar, /UIKitView|UIImageView|UIImage\(data/);
 });
