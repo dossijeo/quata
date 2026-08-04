@@ -22,7 +22,9 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
 
-        let chatsNavigation = app.buttons["Chats"].firstMatch
+        let chatsNavigation = app.buttons.matching(
+            NSPredicate(format: "label == %@ OR label == %@", "Chats", "Chats, Chats"),
+        ).firstMatch
         XCTAssertTrue(chatsNavigation.waitForExistence(timeout: 10), "The authenticated shell must expose Chats.")
         chatsNavigation.tap()
         let chat = app.descendants(matching: .any)
