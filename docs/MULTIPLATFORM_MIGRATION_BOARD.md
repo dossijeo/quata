@@ -4,11 +4,12 @@
 > Este tablero es una fotografía de progreso y no puede redefinir los gates, la arquitectura ni el
 > presupuesto de ejecución establecidos allí.
 
-## Foto de control — 2026-08-02
+## Foto de control — 2026-08-04
 
-**HEAD integrado:** `main` `4c719072c7a0dafafdce583e7b34157df5fc3f61` (PR #170), posterior a #154, #156 y #169. El proyecto sigue incompleto:
-las raíces comunes de Crear publicación y Cuenta/Perfil/SOS están integradas, pero integración de
-raíz no equivale a GO visual o funcional final en Web/iOS.
+**HEAD integrado:** `main` `702fb7174a758778e4f5d8f2ded0b6853378208f` (PR #175), posterior a #154,
+#156, #159, #168, #169, #170, #172, #173 y #174. El proyecto sigue incompleto: #175 integra las
+raíces comunes de Comunidades y perfil público global, pero conserva límites `PROF-*`,
+`FLOW-COMMUNITY-CHAT` y overlays dependientes según `SCREEN_MIGRATION_INVENTORY_V2.md`.
 
 | Área | Estado | Qué acredita | Límite vigente |
 | --- | --- | --- | --- |
@@ -19,6 +20,8 @@ raíz no equivale a GO visual o funcional final en Web/iOS.
 | iOS simulador | GO funcional suplementario | El postflight de `main` `5d2a52d1` pasó Feed y perfil remoto públicos; auth real ejecutada mediante `.xctestrun` con `QUATA_IOS_AUTH_E2E_FILE`; relanzamiento normal sin reinstalar conserva/restaura sesión; Cuenta/Perfil visual PASS. | SOS es parcial: acceso/estado y 1/5 contactos visibles; el puntero remoto no automatizó la navegación de forma fiable. No hubo mutaciones. CPU-raster no es SLA ni reemplaza CI ARM. |
 | Crear publicación (#154) | COMÚN con límites | `CreatePostRoot` común está integrado en Android, Wasm e iOS. | La evidencia de #154 no debe presentarse como GO visual/funcional final: validar publicación, adaptadores de medios y paridad autenticada sin modificar RLS. |
 | Cuenta/Perfil/SOS (#156) | COMÚN con límites | `ProfileScreenHost` común integrado; postflight iOS de Feed/perfil público, auth, relanzamiento y Cuenta/Perfil visual PASS. | Completar el subflujo SOS sin ocultar que sólo se verificaron 1/5 contactos; avatar Web continúa contractual sin mutación E2E acreditada. |
+| Comunidades/perfil público (#175) | COMÚN con límites | `NeighborhoodsScreenHost` y `CommunityProfileScreenHost` integrados en Android, Wasm e iOS; repositorios reales, entradas globales y gate de sesión conectados. | P2 vigentes: mutaciones `PROF-*`, entradas visuales desde Oficial/Conversaciones/Chat, listas anidadas, contenido/overlays, Chat↔Perfil, back Android de miembros y estados de error/retorno. |
+| Feed iOS medios (#175) | COMÚN con límites | Gradiente URL/hash detrás de vídeo, superficies UIKit/AVPlayer transparentes, controles Compose play/pause y mute global conectado a `AVPlayer`; evidencia exacta del merge `5fd040ae`. | Duración/seek iOS de `OVR-MEDIA` continúa pendiente; no atribuye GO a los demás overlays de Feed. |
 | Pipeline CI (#169) | Integrado, fail-closed | Preflight rápido local exacto, gates finales requeridos y concurrencia por PR sin cancelar evidencia de `main`/manual. | Aún no acredita producto; certifica candidatos ya validados localmente. |
 | RLS/DB | Sin cambios | Esta ola no cambió RLS, DDL, funciones, grants ni datos de Supabase. | Hallazgos existentes siguen abiertos; no se endurecen políticas mientras convivan clientes publicados. |
 
@@ -39,6 +42,11 @@ raíz no equivale a GO visual o funcional final en Web/iOS.
 | [#156](https://github.com/dossijeo/quata/pull/156) | `5d2a52d1` | `ProfileScreenHost` común; postflight iOS PASS para lectura pública, auth/relanzamiento y Cuenta/Perfil visual. SOS parcial; avatar Web contractual sin mutación E2E. |
 | [#169](https://github.com/dossijeo/quata/pull/169) | `1fe3bf74` | Pipeline CI fail-closed: lane rápida replicable localmente y certificación final separada/exacta. |
 | [#170](https://github.com/dossijeo/quata/pull/170) | `4c719072` | Clasificador de impacto fail-closed integrado; certificación final exacta verde y rama remota limpiada. |
+| [#159](https://github.com/dossijeo/quata/pull/159) | `568c60c7` | Raíces comunes de Novedades e Historial; permanecen postflights de versión, catálogo, cierre y retorno. |
+| [#172](https://github.com/dossijeo/quata/pull/172) | `72552d86` | `NotificationsHostContent` común en Android, Wasm e iOS; destinos/mutaciones y postflight integrado continúan como límites. |
+| [#174](https://github.com/dossijeo/quata/pull/174) | `ff088b55` | Baseline Wasm actualizado sobre las integraciones anteriores. |
+| [#173](https://github.com/dossijeo/quata/pull/173) | `855f167f` | `ConversationsScreenHost` y transporte realtime común; Chat Web/iOS sigue siendo fallback browser-style. |
+| [#175](https://github.com/dossijeo/quata/pull/175) | `702fb717` | Comunidades y perfil público global pasan a raíces comunes con límites; Feed iOS integra gradiente de medios y controles globales. Candidato exacto final: base `855f167f`, head `aee41fa7`, merge sintético `5fd040ae`; gates protegidos verdes. |
 
 ## Registro de candidato #156 y mejora de preflight
 
@@ -127,13 +135,12 @@ no una nueva evidencia de producto.
 
 ## Próxima cola
 
-1. Completar el postflight de #156 pendiente: subflujo SOS (el PASS actual cubre acceso/estado y 1/5 contactos, no su mutación) y comparación Android↔Wasm↔iOS donde corresponda. Acreditar o dejar pendiente la subida real de avatar Web con datos temporales y limpieza.
-2. Ejecutar el postflight de #154: Crear publicación común en Web/iOS con sesión real, adaptadores de medios y comparación visual; no convertir sus contratos en un GO no probado.
-3. Desbloquear el handshake XCTest de Notificaciones para convertir la preparación local #157 en una candidata; repetir después sus gates exactos. El Android `d036` API 37 es PASS exacto local, pero no integrado; el seeder iOS no ejecutó UI y continúa bloqueado por infraestructura.
-4. Aplicar el modelo de integración secuencial/ejecución paralela: una candidata final, preflight local completo, merge sintético y CI como certificación. Preparar localmente la siguiente unidad mientras CI está activo, sin publicar candidatos adicionales.
-5. Cerrar la evidencia #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado con `QUATA_IOS_AUTH_E2E_FILE` y relanzamiento sin reinstalar.
-6. Cerrar #154 con comparación 1:1 Android/Web/iOS y E2E desechable Storage/PostgREST/rollback; mantener Web contract-only e iOS blocked hasta entonces y corregir el inventario legado en una actualización documental separada.
-7. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
+1. Preparar desde `702fb717` la siguiente vertical de producto según el inventario: `SCR-CHAT` o `SCR-OFFICIAL-EDITOR`, con plantilla G completa antes de escribir código y sin reutilizar ciegamente ramas históricas.
+2. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y duración/seek iOS de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
+3. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
+4. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
+5. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado.
+6. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
 
 ## Decisiones vigentes
 

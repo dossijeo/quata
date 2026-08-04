@@ -1,5 +1,15 @@
 # Matriz de evidencia para la auditoría final KMP
 
+> **DOCUMENTO HISTÓRICO (MP-A14).** Esta matriz conserva la procedencia de evidencias del corte
+> `ea0322c1`/`d8652326`; no describe el estado consolidado actual de `main`, no define la cola y no
+> autoriza cambios de backend. Para alcance vigente usar
+> [`SCREEN_MIGRATION_INVENTORY_V2.md`](./SCREEN_MIGRATION_INVENTORY_V2.md); para método y gates usar
+> [`MULTIPLATFORM_MIGRATION_OPERATING_MODEL.md`](./MULTIPLATFORM_MIGRATION_OPERATING_MODEL.md), y
+> para la foto operativa usar [`MULTIPLATFORM_MIGRATION_BOARD.md`](./MULTIPLATFORM_MIGRATION_BOARD.md).
+> Todas las afirmaciones RLS de este archivo son históricas y deben revalidarse contra el backend
+> actual antes de cualquier diagnóstico; durante la migración no se endurecen ni despliegan políticas
+> que puedan romper Android publicado o la Web antigua.
+
 > **Actualización posterior a MP-A14 (2026-07-29):** el corte operativo es
 > `d8652326f61d93f33bb860d64565ad74e3e80ed5`. PRs #99–#106 aportan evidencia
 > posterior a la reconciliación histórica de abajo: Web público y Android siguen

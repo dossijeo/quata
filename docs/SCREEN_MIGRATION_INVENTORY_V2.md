@@ -1,80 +1,206 @@
-# Inventario de pantallas — migración Compose Multiplatform v2
+# Inventario maestro de pantallas y flujos — migración Compose Multiplatform
 
 > Fuente de verdad del método de trabajo: [`MULTIPLATFORM_MIGRATION_OPERATING_MODEL.md`](./MULTIPLATFORM_MIGRATION_OPERATING_MODEL.md).
-> Este inventario describe el estado del producto; si una regla operativa entra en conflicto con él,
-> prevalece el modelo operativo.
+> Este documento es la fuente de verdad del **alcance de producto** de la migración. El tablero y el
+> registro de ejecución pueden ordenar el trabajo, pero no pueden omitir ni declarar terminada una
+> superficie incluida aquí.
 
-Base auditada: `main` en `4c719072c7a0dafafdce583e7b34157df5fc3f61` (2 de agosto de 2026), después de #154, #156, #169 y #170.
+Base consolidada auditada: `main` en `702fb7174a758778e4f5d8f2ded0b6853378208f`
+(4 de agosto de 2026), después de #154, #156, #159, #168, #169, #170, #172, #173, #174 y #175.
 
-Android sigue siendo la referencia de producto. En este inventario **COMÚN** significa que Android,
-Wasm e iOS invocan la misma raíz Compose de `commonMain`; los servicios del sistema, el transporte y
-los renderizadores de medios pueden seguir siendo adaptadores de plataforma. No implica que todas las
-mutaciones o la comparación visual estén cerradas. **PARCIAL** significa que se comparten ViewModels o
-componentes, pero todavía hay una composición, flujo o sustituto específico de plataforma.
+Android es la referencia funcional y visual. El objetivo no es que las tres plataformas tengan
+archivos con nombres parecidos: Android, Wasm e iOS deben consumir la misma raíz Compose de
+`commonMain`, con adaptadores de plataforma únicamente para capacidades del sistema.
+
+## Cómo se mantiene este inventario
+
+1. Cada pantalla, panel global o subflujo tiene un identificador estable. Una PR debe citar los ID que
+   modifica y no puede atribuirse el cierre de filas que no haya validado.
+2. Una fila sólo pasa a **GO** si satisface la Definition of Done del modelo operativo en Android,
+   Wasm e iOS sobre el candidato integrado exacto. Un host, ViewModel, test o build aislado no es GO.
+3. Una pantalla principal no queda terminada si alguno de sus subflujos obligatorios permanece
+   `AUSENTE`, `FALLBACK` o `PARCIAL`. Puede indicarse `COMÚN con límites`, enumerando esos ID.
+4. Después de cada merge se actualizan en el mismo lote: SHA base, estado, PR integrada, límites,
+   evidencia y siguiente bloqueo. No se conserva como vigente el estado de una rama ya obsoleta.
+5. Las candidatas abiertas son trabajo en curso. Sus checks históricos no modifican el estado de
+   `main` y deben repetirse sobre el nuevo head/merge sintético cuando cambie su base.
+6. Si aparece en Android una ruta, overlay, diálogo o modo funcional no registrado, se añade aquí
+   **antes** de asignar su migración. El inventario nunca se reduce para hacer coincidir la cola.
 
 ## Estados
 
-- **COMÚN / revisar**: raíz común comprobada en código; falta evidencia visual o funcional suficiente.
-- **COMÚN con límites**: raíz común, pero hay una capacidad concreta incompleta o no verificada.
-- **PARCIAL**: existen piezas comunes, no una pantalla equivalente completa en las tres plataformas.
-- **FALLBACK**: ruta de producto monta un host simplificado o alternativo.
-- **AUSENTE**: no hay ruta de producto equivalente demostrada.
+- **GO**: raíz común conectada y equivalencia funcional/visual acreditada en las tres plataformas.
+- **COMÚN con límites**: raíz común en `main`; quedan subflujos o evidencias concretas pendientes.
+- **PARCIAL**: se comparten modelos, ViewModels o contenidos, pero no la composición completa.
+- **FALLBACK**: alguna plataforma monta una pantalla alternativa, simplificada o browser-style.
+- **AUSENTE**: no existe una superficie de producto equivalente conectada.
+- **NO APLICA**: herramienta interna deliberadamente específica de plataforma y no parte del producto.
 
-## Pantallas de producto
+## A. Pantallas y paneles principales
 
-| Pantalla Android de referencia | Android y raíz común actual | Wasm actual | iOS actual | Estado y bloqueo siguiente |
+| ID | Superficie Android de referencia | Entradas y responsabilidad | Estado consolidado en `main` | Candidato o siguiente cierre |
 |---|---|---|---|---|
-| `LoginScreen.kt` — `LoginScreen` | Android llama a `LoginScreenHost`. Login, registro y recuperación se agrupan en `AuthProductHostContent` común. | `WebLoginHost` llama a `AuthProductHostContent` con `WebAuthRepository`; conserva sólo sesión, Web Push y preferencias en el borde Web. Login y restauración de sesión Web ya tienen evidencia acreditada. | `QuataAuthViewController` llama a `AuthProductHostContent` con repositorio/sesión iOS. #168 acredita compilación/host y renderer público, pero no el fallback de sesión restaurada caducada. | **COMÚN con evidencia Web parcial.** El seeder CI de #168 quedó `SKIPPED` sin `QUATA_IOS_AUTH_E2E_FILE` y la prueba local cambió data-container al instalar; repetir el fallback sin reinstalar ni borrar datos. Siguen pendientes retorno a ruta, logout completo y ciclo Web Push. |
-| `RegisterScreen.kt` — `RegisterScreen` | Android llama a `RegisterScreenHost`. | Se llega mediante la navegación común de `AuthProductHostContent`; disponibilidad depende de la configuración pública Web y del backend. | Se llega mediante esa misma navegación; el alta iOS continúa cerrada si faltan los ajustes públicos/challenge requeridos. | **COMÚN con límites.** No introducir rutas ni formularios paralelos; comprobar el contrato de alta configurado en cada plataforma. |
-| `ForgotPasswordScreen.kt` — `ForgotPasswordScreen` | Android llama a `ForgotPasswordScreenHost`. | Ruta común dentro de `AuthProductHostContent`. | Ruta común dentro de `AuthProductHostContent`. | **COMÚN / revisar.** Falta E2E de recuperación, no extracción de otra raíz. |
-| `FeedScreen.kt` \| `CutreFeed` | Android llama a `FeedScreenHost`. | `WebFeedHost` llama a la misma raíz; el antiguo **CutreFeed** ya no debe tratarse como ruta de producto. La protección contra pager vacío de #146 evita el `IndexOutOfBoundsException` durante la navegación. | `QuataFeedViewController` llama a esa raíz con adaptadores iOS de medios, avatar, presencia y compartición, pero no pasa `isLandscape`: se queda en el valor por defecto `false`. | **COMÚN — GO visual global PR #138, con deuda iOS concreta.** La raíz está compartida; siguen defectos de shell/navegación y glifos emoji en Wasm. En iOS Feed falta inyectar la información real de ventana/orientación y repetir la comparación landscape; no atribuirle la adaptación ya acreditada sólo para Oficial. |
-| `OfficialFeedScreen.kt` — `OfficialFeedScreen` | Android llama a `OfficialFeedScreenHost`. | `WebOfficialHost` llama a `OfficialFeedScreenHost`. | `QuataOfficialViewController` llama a `OfficialFeedScreenHost`; la raíz consulta `rememberQuataWindowLayoutInfo` y PR #141 corrigió su adaptación horizontal. | **COMÚN — GO Android/Web/iOS PR #141.** Se conserva ese GO acreditado. El pendiente concreto es retorno a autenticación desde Oficial dentro del shell Web, no una nueva ronda genérica de paridad visual. |
-| `OfficialPostEditorScreen.kt` — `OfficialPostEditorScreen` | Editor Android completo y específico de Android. | La navegación actual redirige a `composer`; no hay un editor oficial equivalente probado. | El router expone fábrica para editor, pero la composición de producto no demuestra el editor Android. | **AUSENTE/PARCIAL P0.** Extraer una raíz de editor común y dejar picker, cámara, medios, traducción y permisos como slots. No confundir el feed oficial común con su editor. |
-| `NeighborhoodsScreen.kt` — directorio | Android conserva la orquestación completa. Listas, miembros y varias secciones están en `commonMain`. | `WebNeighborhoodsHost` es un host propio; algunos callbacks/datos se inyectan vacíos (ranking y comentarios). | `QuataNeighborhoodsViewController` usa host iOS propio, con adaptadores y subrutas específicas. | **PARCIAL P0.** Crear una raíz común del directorio y sus transiciones; no aceptar listas comunes como equivalencia de flujo. |
-| `NeighborhoodsScreen.kt` — `CommunityProfileScreen` | Perfil comunitario completo en la composición Android. | Se abre a través de `WebNeighborhoodsHost`; adjuntos, ranking y comentarios no son equivalentes en todas las rutas. | Hay detalle/perfil de miembro y piezas iOS, no una raíz de perfil comunitario completa demostrada. | **PARCIAL/AUSENTE P0.** Extraer perfil comunitario, posts, comentarios, roles y acciones a un host común. |
-| `ConversationsScreen.kt` — `ConversationsScreen` | Inbox Android completo; comparte ViewModel y contenidos de lista/picker/invitaciones. | La lista se resuelve dentro de `ChatBrowserHostContent`, que es una composición alternativa. | El controlador de chat iOS usa también `ChatBrowserHostContent`. | **FALLBACK/PARCIAL P0.** Sustituir el host browser por una raíz `ConversationsScreenHost` derivada de Android; conservar avatar, contactos y navegación como adaptadores. |
-| `ChatScreen.kt` — `ChatScreen` | Chat Android completo. Hay numerosas burbujas, estados y ViewModels en común. | `WebChatHost` monta `ChatBrowserHostContent` y sustituye campos por controles nativos Web. | `QuataChatViewController` monta `ChatBrowserHostContent`; no propaga varios slots declarados (avatar, mapa, traducción). | **FALLBACK/PARCIAL P0.** La raíz compartida actual es explícitamente browser-style, no la pantalla Android. Migrar la composición Android, dejando grabador, reproductor, picker, mapa y visor como adaptadores. |
-| `NotificationsScreen.kt` — `NotificationsScreen` | Android llama a `NotificationsHostContent`. El APK exacto `d036` se validó en `Pixel_9` API 37: público `Feed → Avisos vacío → Volver` y autenticado `Feed → Avisos` con badge 4/dato Gabriel `→ Volver`, sin mutaciones; API 35 estable fue restaurado. | `WebNotificationsHost` llama a `NotificationsHostContent`; el recorrido auth/visual/navegación de la preparación `3147` pasó localmente. | `QuataNotificationsViewController` llama a `NotificationsHostContent`. El product build/auth previo pasa, pero el seeder XCTest de `3147` agotó el handshake testmanager a 120 s antes y después de cold boot; la UI no se ejecutó. | **COMÚN con límites; #157 no integrada.** Android exacto PASS no sustituye un gate integrado. iOS es **INFRASTRUCTURE BLOCK**, no una Inbox negra confirmada. Rutas/evidencia: `C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\notifications\3147b928-ios\runner.log`, `C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\notifications\3147b928-ios\seed.log`, `C:\Users\PC\Desktop\QÜATA\migration-v2\evidence\notifications\3147b928-ios\bootstatus.log` y `C:\Users\PC\Desktop\QÜATA\migration-v2\preflight\pr157\PLAN.md`. |
-| `ProfileScreen.kt` — `ProfileScreen` / Cuenta y SOS | #156 integra `ProfileScreenHost` como raíz Compose común y Android monta esa raíz. | #156 sustituye la composición parcial por el host común; el editor de avatar Web existe con contratos de selección, transformación y subida. | #156 monta `IosProfileHost`/SOS sobre la raíz común con gateway y uploader iOS. El postflight de `main` `5d2a52d1` acredita Feed y perfil remoto públicos, auth real y relanzamiento normal, además de Cuenta/Perfil visual. | **COMÚN con límites.** El postflight iOS PASS acredita acceso, estado y 1/5 contactos SOS visibles, no el flujo completo: el puntero remoto no automatizó la navegación de forma fiable. No hubo mutaciones. La mutación E2E de avatar Web no está acreditada: no se guardó/subió un avatar desechable, por lo que sigue como capacidad contractual pendiente. |
-| `CreatePostScreen.kt` — `CreatePostScreen` | #154 extrajo e integró `CreatePostRoot` como raíz común; Android la monta con sus adaptadores de captura/pipeline. | #154 sustituye el host alternativo por `CreatePostRoot` y un transporte Web de borde. | #154 sustituye el host iOS alternativo por `CreatePostRoot` y adaptadores iOS de medios/transporte. | **COMÚN con límites.** Ya no es AUSENTE/FALLBACK. La publicación real, picker/cámara/exportación y paridad visual autenticada requieren postflight; #154 no aporta por sí sola un GO visual final. No cambiar RLS para cerrar esos checks. |
-| `WhatsNewScreen.kt` — `WhatsNewScreen` | Android consume `WhatsNewContent`. | `WebWhatsNewHost` consume `WhatsNewContent`. | El bootstrap/controlador iOS consume `WhatsNewContent`. | **COMÚN / revisar.** Confirmar descubribilidad y datos/versionado en los flujos reales. |
-| `ReleaseHistoryScreen.kt` — `ReleaseHistoryScreen` | Android consume `ReleaseHistoryContent`. | Web llega desde el host de Novedades/ruta hash. | Hay controlador y bootstrap iOS para `ReleaseHistoryContent`. | **COMÚN / revisar.** Falta validación de navegación, catálogo y aspecto; no una reescritura visual. |
+| `SCR-AUTH-LOGIN` | `LoginScreen` | Entrada anónima, restauración de sesión, errores, navegación y retorno a la ruta solicitada. | **COMÚN con límites.** `AuthProductHostContent` se consume en Android, Wasm e iOS. Faltan recorridos finales de sesión caducada, retorno y logout. | Validación funcional real; no crear formularios HTML ni Swift alternativos. |
+| `SCR-AUTH-REGISTER` | `RegisterScreen` | Alta, validación, challenge/configuración pública y retorno. | **COMÚN con límites.** Comparte raíz de Auth; falta E2E real en los despliegues configurados. | Cerrar como subflujo de Auth sin sustituir backend por mensajes de “no disponible”. |
+| `SCR-AUTH-RECOVERY` | `ForgotPasswordScreen` | Solicitud, confirmación, errores y regreso al login. | **COMÚN con límites.** Raíz compartida; falta E2E de recuperación. | Evidencia funcional y de navegación en las tres plataformas. |
+| `SCR-FEED` | `FeedScreen` | Feed principal, paginación, acciones de publicación, perfiles, detalle, comentarios, medios, ranking y traducción. | **COMÚN con límites.** `FeedScreenHost` es común. #175 integra en iOS el gradiente determinista URL/hash detrás del medio, controles Compose de play/pause y mute global conectado a `AVPlayer`; persisten deuda landscape iOS, emoji Wasm y subflujos `OVR-PUBLIC-PROFILE`, `OVR-POST-DETAIL`, `OVR-COMMENTS`, `OVR-MEDIA`, `OVR-LIVE-RANKING` y `FLOW-TRANSLATOR`. | Conservar la evidencia exacta `feed/5fd040ae-ios-gradient`; cerrar duración/seek iOS y los demás límites por ID sin reabrir la raíz. |
+| `SCR-OFFICIAL` | `OfficialFeedScreen` | Canal oficial, detalle, medios, comentarios, perfiles, traducción y acciones autorizadas. | **COMÚN con límites.** `OfficialFeedScreenHost` está integrado; retorno a Auth y overlays transversales siguen pendientes. | Mantener el GO ya acreditado de la raíz y validar sólo los límites afectados. |
+| `SCR-OFFICIAL-EDITOR` | `OfficialPostEditorScreen` | Crear/editar publicación oficial, adjuntos, traducción, permisos, publicación y errores. | **AUSENTE/PARCIAL.** No existe equivalencia completa conectada en Wasm/iOS. | PR draft #161 es candidata histórica y está retrasada respecto de `main`; reconstruir desde `main`, no reparar ciegamente su cadena de commits. |
+| `SCR-COMMUNITIES` | `NeighborhoodsScreen` | Directorio, búsqueda, comunidades, miembros, secciones, navegación y estados vacío/error. | **COMÚN con límites.** #175 integra `NeighborhoodsScreenHost` como raíz consumida por Android, Wasm e iOS, con repositorios reales y gate de sesión para acciones privadas. | Quedan `FLOW-COMMUNITY-CHAT`, back de sistema Android en la subruta de miembros y recorridos funcionales/visuales de error y retorno. |
+| `OVR-PUBLIC-PROFILE` | `CommunityProfileScreen` | **Panel global**, no subpantalla exclusiva de Comunidades. Se abre desde Feed, Oficial, Comunidades, Conversaciones y Chat. Incluye cabecera, seguidores/seguidos, publicaciones/galería, comentarios, seguir, conversación privada, roles, administración, reporte, bloqueo y adjuntos. | **COMÚN con límites.** #175 integra `CommunityProfileScreenHost` en Android, Wasm e iOS y conecta las entradas globales; no cierra por ello las mutaciones ni todos los recorridos `PROF-*`. | Mantener pendientes los límites enumerados en `PROF-ENTRY`, `PROF-HEADER`, `PROF-FOLLOW`, `PROF-FOLLOW-LISTS`, `PROF-CONTENT`, `PROF-PRIVATE-CHAT`, `PROF-ROLES` y `PROF-SAFETY`. |
+| `SCR-CONVERSATIONS` | `ConversationsScreen` | Inbox, búsqueda, favoritos, candidato de nueva conversación, invitaciones, avatares y entrada a Chat/perfil. | **COMÚN con límites.** #173 integró `ConversationsScreenHost` y transporte realtime por plataforma. | Postflight de los subflujos `CONV-*`; no confundir la lista visible con el flujo completo. |
+| `SCR-CHAT` | `ChatScreen` | Conversación privada/grupal, mensajes, realtime, adjuntos, audio, reenvío, perfiles, traducción, mapa/SOS y administración. | **FALLBACK/PARCIAL.** #173 mejora transporte e integración, pero Web/iOS aún conservan `ChatBrowserHostContent`; no equivale a la pantalla Android completa. | Migrar la composición Android a una raíz común y cerrar `CHAT-*` individualmente. |
+| `SCR-NOTIFICATIONS` | `NotificationsScreen` | Lista, badge, apertura de destino, marcado/estado, vacío/error, perfil y retorno. | **COMÚN con límites.** #172 integró `NotificationsHostContent` en las tres plataformas. | Postflight funcional/visual del SHA integrado y destinos reales; ya no debe figurar “#157 no integrada”. |
+| `SCR-ACCOUNT` | `ProfileScreen` | Cuenta propia, datos, avatar, preferencias vinculadas, seguridad, ciclo de cuenta y acceso a SOS. | **COMÚN con límites.** #156 integró `ProfileScreenHost`. No equivale al perfil público `OVR-PUBLIC-PROFILE`. | Cerrar `ACCOUNT-*`, avatar Web real y navegación/retorno. |
+| `SCR-SOS` | subflujo SOS de `ProfileScreen` | Configuración, contactos, alta/baja, estado, permisos, errores y persistencia real. | **COMÚN con límites.** La raíz está integrada, pero sólo se acreditó acceso parcial y 1/5 contactos; no las mutaciones. | E2E reversible con los cinco contactos/estados y limpieza posterior. |
+| `SCR-CREATE-POST` | `CreatePostScreen` | Texto, audiencia/destino, adjuntos, ubicación, edición de medios, publicación, progreso, cancelación, rollback y errores. | **COMÚN con límites.** #154 integró `CreatePostRoot`; faltan operaciones reales y `POST-*`. | Postflight autenticado con backend/Storage real y limpieza; no dar GO sólo porque abre el compositor. |
+| `SCR-WHATS-NEW` | `WhatsNewScreen` | Descubrimiento de versión, contenido, cierre y persistencia de visto. | **COMÚN con límites.** #159 integró la raíz común; #174 actualizó baseline Wasm. | Validar aparición real, versión, cierre y no repetición. |
+| `SCR-RELEASE-HISTORY` | `ReleaseHistoryScreen` | Catálogo, navegación desde About/Novedades, detalle y retorno. | **COMÚN con límites.** #159 integrado. | Validar catálogo y navegación en ruta real; enlazado con `OVR-ABOUT`. |
 
-La entrada solicitada se conserva con su nombre visible: `FeedScreen.kt | CutreFeed`. Describe el
-fallback histórico, no una segunda pantalla que deba mantenerse.
+## B. Capacidades obligatorias de pantallas complejas
 
-## Superficies transversales que bloquean validación real
+Estas filas evitan declarar GO por haber validado únicamente la primera pantalla visible. No todas
+requieren una PR independiente, pero todas requieren estado y evidencia propios.
 
-| Superficie | Hecho comprobado | Pendiente prioritario |
+### Perfil público global (`OVR-PUBLIC-PROFILE`)
+
+| ID | Capacidad | Estado consolidado y bloqueo siguiente |
 |---|---|---|
-| Shell, navegación y deep links | Android mantiene su grafo; Wasm usa `Main.kt`/hash; iOS usa `IosAuthenticatedHostRouter` en Swift. Wasm monta `QuataAuthenticatedShellChrome` también para Feed y Oficial anónimos: header/navegación permanecen visibles. Auth a pantalla completa y las rutas privadas gated son excepciones explícitas al shell. | Repetir paridad visual/navegación de las excepciones y del retorno a ruta tras Auth; validar transiciones repetidas contra el error del pager ya corregido. |
-| Emoji y glifos | El feed común y Oficial usan catálogo/controles comunes; capturas Wasm muestran tofu en texto, comentarios y menús. | Resolver renderizado/atlas/fuentes para Wasm y contrastar con Android; no convertir los emoji en HTML alternativo. |
-| Adaptación iOS | Oficial obtiene layout con `rememberQuataWindowLayoutInfo` dentro de su raíz común y #141 corrigió el tamaño/landscape. Feed tiene un parámetro `isLandscape`, pero `QuataFeedViewController` no lo inyecta y lo deja en `false`. | Corregir Feed iOS con una fuente real de tamaño/orientación y repetir su comparación landscape. No declarar que la mejora de Oficial cubre Feed. |
-| Visualizador de documentos/Office | Android conserva lector vendorizado; Web usa DocMentis e iOS Quick Look. | Compartir estado, selección y chrome cuando se migre el flujo que los invoca; los renderizadores son adaptadores, no una razón para duplicar pantallas. |
-| Ajustes y cierre de sesión | Web tiene `WebSettingsHost`; iOS tiene `QuataSettingsViewController`; Android los integra con perfil/grafo. Perfil/Cuenta ya monta `ProfileScreenHost` común. | Validar rutas, logout y retorno; mantener los mecanismos de Web Push y Keychain como bordes de plataforma. |
-| Cuenta, Perfil y SOS (#156) | `ProfileScreenHost` común ya está integrado en Android, Wasm e iOS. En iOS `main` `5d2a52d1` pasó Feed/perfil público remoto, auth real mediante `.xctestrun`, relanzamiento y visual de Cuenta/Perfil. | Completar SOS: sólo se observó acceso/estado y 1/5 contactos; el puntero remoto no automatizó de forma fiable la navegación al subflujo y no hubo mutaciones. Registrar una subida de avatar Web temporal y su limpieza, o mantenerla explícitamente contractual. |
+| `PROF-ENTRY` | Abrir desde Feed, Oficial, Comunidades, Conversaciones y Chat; volver al origen sin perder estado. | **COMÚN con límites (#175).** Entradas y raíz están conectadas; falta evidencia visual desde Oficial, Conversaciones y Chat y cerrar las pilas de retorno encadenadas. |
+| `PROF-HEADER` | Avatar, identidad, comunidad/rol, biografía y metadatos. | **COMÚN con límites (#175).** Datos/carga/error y apertura inmediata con caché están conectados; falta biografía y comparación completa de estados. |
+| `PROF-FOLLOW` | Seguir/dejar de seguir y contadores. | **COMÚN con límites (#175).** Callbacks y repositorio real están conectados; falta E2E reversible de éxito, error, actualización y rollback. |
+| `PROF-FOLLOW-LISTS` | Listas de seguidores y seguidos y apertura encadenada de perfiles. | **COMÚN con límites (#175).** Listas y navegación existen; faltan paginación, perfiles anidados y retorno completo. |
+| `PROF-CONTENT` | Publicaciones, galería, detalle, comentarios y adjuntos. | **COMÚN con límites (#175).** Contenido real se monta en la raíz, pero `OVR-POST-DETAIL`, `OVR-COMMENTS` y `OVR-MEDIA` permanecen parciales. |
+| `PROF-PRIVATE-CHAT` | Crear o abrir conversación privada. | **COMÚN con límites (#175).** Resolución y callback real conectados; falta acreditar éxito/error y retorno Chat↔Perfil. |
+| `PROF-ROLES` | Roles, permisos y acciones administrativas de comunidad. | **COMÚN con límites (#175).** Controles y mutaciones están conectados según sesión; falta E2E reversible por rol y error. |
+| `PROF-SAFETY` | Reportar, bloquear/desbloquear y moderar cuando corresponda. | **COMÚN con límites (#175).** Confirmaciones/callbacks reales conectados; falta persistencia E2E, error, rollback y limpieza. |
 
-## Superficies internas y transversales de Android
+### Conversaciones (`SCR-CONVERSATIONS`)
 
-| Superficie | Estado actual | Tratamiento |
+| ID | Capacidad | Estado actual / pendiente |
 |---|---|---|
-| `NeighborhoodUsersScreen` (privada en `NeighborhoodsScreen.kt`) | Subruta Android de miembros; se apoya en contenidos comunes pero la navegación del directorio sigue parcial. | Migrarla junto con la futura raíz común de Comunidades, no como reemplazo autónomo. |
-| `RichTextEditorQaScreen.kt` | Herramienta de QA en Android, expuesta desde `AppNavGraph`; no es una ruta de producto. | Mantener Android-only salvo que el editor común requiera una aplicación de demostración. No bloquea la migración funcional. |
-| `QuataSplashScreen` | Está en `designsystem/commonMain`; Android la monta desde `MainActivity`. | Es una superficie común reutilizable. Revisar su conexión con los launchers Web/iOS y el shell, sin reimplementarla por plataforma. |
-| `ShareToQuataDialog` | Diálogo Android de recepción/elección de destino. Web e iOS disponen de hosts de share/inbox y adaptadores propios. | Tratarlo como flujo transversal: compartir destino, estado y errores al migrar el compositor/chat; los mecanismos de entrega del sistema permanecen por plataforma. |
+| `CONV-INBOX` | Lista, paginación, unread, tiempo y realtime. | Raíz común integrada en #173; requiere postflight integrado. |
+| `CONV-SEARCH-FAVORITES` | Búsqueda y favoritos. | Verificar comportamiento y estados vacío/error por plataforma. |
+| `CONV-NEW` | Selector de candidatos y creación/apertura. | Verificar directorio real, unicidad y errores. |
+| `CONV-INVITES` | Invitaciones/solicitudes y aceptar/rechazar. | No cerrar sin mutaciones reales reversibles. |
+| `CONV-PROFILE` | Avatar → `OVR-PUBLIC-PROFILE` y retorno. | Depende de perfil global; no basta un callback no vacío. |
 
-## Criterio de ejecución y evidencia
+### Chat (`SCR-CHAT`)
 
-1. Antes de asignar código, revisar la pantalla Android y señalar la raíz, eventos, datos y servicios que deben ser comunes.
-2. El agente de implementación sustituye el fallback por esa raíz en una rama aislada y sólo compila los destinos afectados.
-3. Antes de abrir una candidata final, el agente ejecuta el preflight rápido exacto de CI (contratos rápidos, imports Wasm focales y `diff --check`). El gate es fail-closed: no cuentan jobs finales omitidos, cancelados o fallidos.
-4. El agente abre una PR. Un revisor independiente arranca la rama, captura Android y Wasm o iOS en la misma ruta y compara el resultado.
-5. Sólo tras verificar la raíz común, compilación y comparación visual se integra. Las pruebas funcionales autenticadas del usuario se registran por plataforma; no se usan fixtures como evidencia de backend.
-6. No se cambian políticas RLS ni esquema de Supabase para cerrar una pantalla. Una limitación de backend se documenta como tal.
+| ID | Capacidad | Estado actual / pendiente |
+|---|---|---|
+| `CHAT-MESSAGES` | Historial, paginación, envío, edición/borrado si aplica, errores y realtime. | Transporte común/parcial; composición Web/iOS todavía fallback. |
+| `CHAT-COMPOSER` | Compositor de texto, estado de escritura, respuesta, edición, cancelación de modo, emoji y envío con adjunto. | Android conserva banners y modos propios dentro de `ChatScreen`; extraer estado y composición comunes sin perder `FLOW-EMOJI`. |
+| `CHAT-MESSAGE-ACTIONS` | Selección y acciones copiar, responder, reenviar, editar, reportar, favorito y borrar, con confirmaciones y permisos. | Android monta el modo en la cabecera; Web/iOS fallback no acredita equivalencia ni confirmaciones. `CHAT-FORWARD` y `CHAT-FAVORITES` conservan además estado propio. |
+| `CHAT-FAVORITES` | Ruta/lista de mensajes favoritos, apertura del mensaje/conversación origen y alta/baja de favorito. | Android usa la conversación especial `FavoriteMessagesConversationId`; inventariar carga, vacío/error, retorno y foco exacto. |
+| `CHAT-NOTIFICATIONS` | Silenciar/reactivar notificaciones de una conversación y reflejar el estado en cabecera/lista. | Mutación y persistencia reales pendientes de equivalencia Web/iOS y evidencia de retorno. |
+| `CHAT-FOCUSED-MESSAGE` | Abrir Chat enfocando un mensaje desde notificación, favoritos, reenvío o deep link; paginar hasta encontrarlo, resaltarlo y consumir el foco una sola vez. | Android mantiene `focusedMessageId` y posicionamiento propio; Web/iOS deben acreditar el mismo contrato, incluido mensaje ausente/error. |
+| `CHAT-ATTACHMENTS` | Picker, imágenes, vídeo, documentos, subida, descarga y visor. | Adaptadores de sistema permitidos; estado/chrome/errores deben ser comunes. |
+| `CHAT-AUDIO` | Grabación, permisos, envío y reproducción. | Adaptadores nativos; flujo de producto aún sin equivalencia acreditada. |
+| `CHAT-FORWARD` | Reenvío y selector de destinos. | Debe reutilizar selector/estado común, sin controles Web/Swift paralelos. |
+| `CHAT-GROUP` | Miembros, altas/bajas, nombre, roles y acciones administrativas. | Inventariar permisos y mutaciones; falta GO. |
+| `CHAT-LOCATION-SOS` | Mapa, ubicación y mensajes SOS cuando corresponda. | Mapa es adaptador; modelo, navegación y estados deben ser comunes. |
+| `CHAT-TRANSLATION` | Traducción de mensajes/comentarios. | Depende de `FLOW-TRANSLATOR`; no aceptar callback vacío. |
+| `CHAT-PROFILE` | Avatar/miembro → perfil global y retorno. | Depende de `OVR-PUBLIC-PROFILE`. |
 
-## Orden técnico actual
+### Crear publicación (`SCR-CREATE-POST`)
 
-`paridad/postflight shell y Auth → Feed/Oficial (paridad y emojis) → Conversaciones/Chat → Comunidades/perfil comunitario → postflight Perfil/Cuenta/SOS y Create Post (avatar, publicación, Storage/PostgREST/rollback y paridad) → Editor oficial → Notificaciones → Novedades/Historial`.
+| ID | Capacidad | Estado actual / pendiente |
+|---|---|---|
+| `POST-TEXT-DESTINATION` | Texto, audiencia/comunidad, validación y borrador. | Raíz común integrada; falta postflight completo. |
+| `POST-PICKER-CAMERA` | Galería, cámara, permisos y cancelación. | Adaptadores de plataforma; flujo y resultado comunes. |
+| `POST-IMAGE-EDITOR` | Recorte, rotación/transformación, preview, aceptar/cancelar. | Android conserva composición/editor específico; modelos comunes parciales. |
+| `POST-VIDEO-EDITOR` | Preview, recorte, rotación, duración, subtítulos/exportación y cancelación. | Android conserva editor/pipeline específico; equivalencia no demostrada. |
+| `POST-LOCATION` | Selección/eliminación de ubicación y permisos. | Validar en las tres plataformas con adaptador de mapa/ubicación. |
+| `POST-PUBLISH` | Storage/PostgREST, progreso, éxito, error, reintento y rollback. | Falta E2E autenticado reversible y limpieza. |
 
-Este orden parte de rutas existentes en Android y de bloqueos observables en `main`; no declara que
-una capacidad esté terminada sólo porque exista un ViewModel o una pantalla de prueba.
+### Cuenta y SOS (`SCR-ACCOUNT`, `SCR-SOS`)
+
+| ID | Capacidad | Estado actual / pendiente |
+|---|---|---|
+| `ACCOUNT-AVATAR` | Selección, edición, subida, persistencia y rollback. | Contratos presentes; falta mutación Web/iOS acreditada y limpieza. |
+| `ACCOUNT-SETTINGS` | Acceso a Ajustes y regreso a Cuenta. | Depende de `SCR-SETTINGS`. |
+| `ACCOUNT-DEACTIVATE` | Desactivar cuenta con confirmación y error. | No consta como flujo multiplataforma cerrado. |
+| `ACCOUNT-DATA-DELETE` | Solicitud/borrado de datos y confirmaciones. | No consta como flujo multiplataforma cerrado. |
+| `SOS-CONTACTS` | Lista completa, añadir/eliminar/actualizar y estados límite. | Sólo evidencia parcial; mutaciones pendientes. |
+
+## C. Pantallas secundarias, overlays y flujos transversales
+
+| ID | Superficie | Referencia/entradas | Estado y obligación |
+|---|---|---|---|
+| `SCR-SETTINGS` | Ajustes, apariencia y cierre de sesión | Android lo integra con Perfil/grafo; Web tiene `WebSettingsHost`; iOS `QuataSettingsViewController`. | **PARCIAL.** Validar una composición común o justificar cada control como adaptador; tema, idioma/preferencias, logout, limpieza de sesión/Push y retorno deben coincidir. |
+| `OVR-POST-DETAIL` | Detalle de publicación/artículo | Feed, Oficial y perfil público; Android dispone de paneles de detalle y en común existen `FeedPostDetailHostContent` y `OfficialPostDetailPanelContent`. | **PARCIAL.** Validar contenido completo, autor→perfil, acciones, enlace/artículo, comentarios, medios, back y restauración de scroll; una tarjeta del feed no demuestra el detalle. |
+| `OVR-COMMENTS` | Panel/lista de comentarios | Feed, Oficial y perfil público. | **PARCIAL.** Estado, paginación, creación, respuesta, perfil, traducción y errores deben ser comunes; teclado es borde de plataforma. |
+| `OVR-MEDIA` | Detalle/visor de imagen, vídeo y adjuntos | Feed, Oficial, perfil, Chat y documentos. | **PARCIAL.** #175 acredita en Feed iOS gradiente URL/hash, superficie nativa transparente, play/pause y mute global real; duración/seek iOS y los visores/retornos de las demás entradas siguen pendientes. |
+| `OVR-LIVE-RANKING` | Ranking/panel Live | Feed y perfiles/comunidades donde Android lo ofrezca. | **PARCIAL/AUSENTE.** No se permiten datos o callbacks vacíos en Web/iOS. |
+| `FLOW-TRANSLATOR` | Traductor Fang y backdrop global | Feed, Oficial, Chat y comentarios; Android captura fondo y monta modo global. | **PARCIAL.** Modelos, trigger y backdrop tienen piezas comunes, pero algunos hosts comunes usan `onClick = {}`. Requiere activación, estado, texto, errores y salida equivalentes; captura/render nativo puede ser adaptador. |
+| `OVR-ABOUT` | About QÜATA | Menú/shell; enlaza versión, historial, legales y acciones informativas. | **PARCIAL.** Android lo monta en `AppNavGraph`; no estaba inventariado. Debe compartir contenido y navegación hacia `SCR-RELEASE-HISTORY`/legales. |
+| `OVR-UGC-TERMS` | Aceptación de términos UGC | Primer uso o acción moderada. | **PARCIAL.** Existe contenido Compose común, pero falta inventariar persistencia, aceptar/rechazar, documentos y bloqueo del flujo. |
+| `FLOW-LEGAL-DOCUMENTS` | Privacidad, términos y documentos legales | Auth, Ajustes y About. | **PARCIAL.** El renderer puede ser WebView/Quick Look/lector Android; selección, título, error y retorno son comunes. |
+| `OVR-AUTH-REQUIRED` | Diálogo de autenticación requerida | Acciones privadas desde rutas públicas. | **COMÚN con límites.** Existe contenido común; validar destino original, cancelar, autenticar y regresar sin perder contexto. |
+| `FLOW-EXTERNAL-SHARE` | Compartir hacia QÜATA | Android `ShareToQuataDialog`, Web Share Target e iOS Share Extension/inbox. | **PARCIAL.** Payload/estado tienen piezas comunes; validar texto, URL, Blob/archivo, selector de destinos, envío, descarte, errores y limpieza. |
+| `FLOW-COMMUNITY-CHAT` | Comunidad/perfil → conversación | Directorio, perfil público y muro; resuelve comunidad, wall UUID y conversación autorizada antes de abrir Chat. | **COMÚN con límites (#175).** La resolución real y navegación están conectadas; faltan recorridos completos de éxito, comunidad sin muro/chat, permisos, error y retorno. |
+| `FLOW-DOCUMENT-VIEWER` | Visor de PDF/Office/documentos | Adjuntos de Feed/Oficial/Chat y legales. | **PARCIAL.** Renderizadores son adaptadores; chrome, carga, error, descarga/compartir y retorno deben estar conectados. |
+| `FLOW-SHELL-NAV` | Shell, navegación, deep links y retorno | Grafo Android, hash router Wasm y router iOS. | **PARCIAL.** Validar rutas públicas/privadas, Auth fullscreen, back, deep link, restauración y navegación repetida. |
+| `FLOW-EMOJI` | Catálogo, picker y render de emoji | Feed, Oficial, comentarios y Chat. | **PARCIAL.** Tofu/glifos Wasm pendientes; no sustituir por HTML alternativo. |
+| `FLOW-RICH-TEXT` | Edición y preview de texto enriquecido | Editor oficial y cualquier compositor que exponga formato/enlaces; Android conserva `QuataRichTextEditor`. | **PARCIAL.** Modelo, toolbar, selección, HTML/serialización, preview, errores y accesibilidad deben ser comunes. `RichTextEditorQaScreen` sólo es banco de prueba, no evidencia de producto. |
+| `FLOW-SPLASH-STARTUP` | Splash, bootstrap y arranque | Launchers Android/Wasm/iOS, restauración de sesión y Novedades. | **PARCIAL.** `QuataSplashScreen` es común; comprobar secuencia, error, sesión y transición sin flashes/fallbacks. |
+| `FLOW-IOS-LAYOUT` | Tamaño, orientación, insets y teclado | Todas las pantallas iOS. | **TRANSVERSAL pendiente.** Oficial corrigió landscape; Feed aún debe recibir layout real. Cada pantalla conserva su propia evidencia visual. |
+
+## D. Superficies internas o deliberadamente no equivalentes
+
+| ID | Superficie | Tratamiento |
+|---|---|---|
+| `INT-NEIGHBORHOOD-USERS` | `NeighborhoodUsersScreen` privada en Android | Es parte funcional de `SCR-COMMUNITIES`; no puede usarse como reemplazo autónomo del directorio común. |
+| `INT-RICH-TEXT-QA` | `RichTextEditorQaScreen` | Herramienta interna Android. **NO APLICA** como pantalla de producto, salvo que se cree una demo multiplataforma explícita. |
+| `INT-PLATFORM-PERMISSIONS` | Diálogos del sistema, picker, cámara, micrófono, notificaciones | Son adaptadores nativos. El estado previo/posterior, denegación y recuperación pertenecen al flujo común que los invoca. |
+
+## E. Dependencias entre verticales
+
+- `OVR-PUBLIC-PROFILE` es global. `SCR-COMMUNITIES` no puede declararlo cerrado únicamente porque
+  el avatar del directorio sea accionable.
+- `SCR-CONVERSATIONS` depende de `OVR-PUBLIC-PROFILE` para avatares y de `SCR-CHAT` para completar
+  navegación. Puede quedar común con límites mientras Chat siga fallback, pero no GO global.
+- `SCR-CHAT`, `SCR-FEED`, `SCR-OFFICIAL`, `OVR-POST-DETAIL` y `OVR-COMMENTS` dependen de
+  `FLOW-TRANSLATOR`, `OVR-MEDIA` y `FLOW-EMOJI` según las capacidades visibles en Android.
+- `SCR-CREATE-POST` no obtiene GO hasta cerrar los `POST-*` aplicables, aunque `CreatePostRoot`
+  compile en los tres targets.
+- `SCR-ACCOUNT` no cierra `SCR-SOS`, `SCR-SETTINGS` ni `OVR-PUBLIC-PROFILE`; son superficies
+  diferentes aunque compartan datos de perfil.
+
+## F. Cola consolidada desde esta base
+
+1. Migrar `SCR-CHAT` desde el fallback browser-style a la composición común y cerrar `CHAT-*`.
+2. Reconstruir `SCR-OFFICIAL-EDITOR` desde `main`; no invertir jornadas en reconciliar una candidata
+   histórica si su diff es más costoso que reextraer la vertical.
+3. Cerrar los límites post-#175 de `SCR-COMMUNITIES`, `OVR-PUBLIC-PROFILE`, `PROF-*`,
+   `FLOW-COMMUNITY-CHAT` y `OVR-MEDIA` mediante E2E reversibles y entradas/retornos globales.
+4. Ejecutar postflight focal de integraciones ya presentes: `SCR-NOTIFICATIONS`,
+   `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y
+   `SCR-CREATE-POST`, actualizando aquí los límites cerrados.
+5. Planificar las superficies que antes estaban omitidas: `SCR-SETTINGS`, `FLOW-TRANSLATOR`,
+   `OVR-ABOUT`, `OVR-UGC-TERMS`, `FLOW-LEGAL-DOCUMENTS`, `FLOW-EXTERNAL-SHARE`, `FLOW-RICH-TEXT`,
+   editores de medios y overlays de detalle/comentarios/medios/ranking.
+6. Cerrar deuda transversal de shell, emoji, arranque y layout iOS sin reabrir raíces que ya estén
+   acreditadas y cuyo diff no haya cambiado.
+
+## G. Plantilla obligatoria para preparar una candidata
+
+Antes de escribir código, el agente añade a su plan una tabla como ésta y la referencia en el
+informe de evidencia:
+
+| Campo | Contenido obligatorio |
+|---|---|
+| IDs afectados | Una o más filas exactas de este inventario. |
+| Android de referencia | Archivo/composable, entradas, overlays y estado de sesión. |
+| Raíz común prevista | Composable de `commonMain` que consumirán Android, Wasm e iOS. |
+| Datos y lecturas | Repositorios/endpoints reales, carga, vacío y error. |
+| Eventos y mutaciones | Callback por callback, éxito, error, rollback y limpieza. |
+| Navegación | Entradas, back/return, Auth requerida, deep links y destinos secundarios. |
+| Adaptadores permitidos | Sólo servicios/renderizadores de sistema; nunca UI de producto paralela. |
+| Plataformas afectadas | Resultado del clasificador y compilaciones locales requeridas. |
+| Evidencia pendiente | Funcional, visual Android↔Wasm/Android↔iOS, SHA y sesión equivalente. |
+
+No se promociona una candidata si existe un callback de producto vacío, un control visible sin
+función, una ruta alternativa simplificada, datos de ejemplo usados como producto o un ID dependiente
+que la PR pretende declarar cerrado sin haberlo validado.
