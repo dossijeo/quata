@@ -166,7 +166,7 @@ private fun IosFeedVideoPlayback(
         onSeek = surface::seekTo,
         onEnded = { surface.seekTo(0L); surface.play() },
         onError = surface::retry,
-        onToggleMute = { onMuteChange(!isMuted) },
+        onToggleMute = { onMuteChange(toggledFeedMutedState(isMuted)) },
         modifier = Modifier.fillMaxSize(),
     )
 }

@@ -28,6 +28,7 @@ import com.quata.feature.feed.presentation.ReelMediaSurfaceContent
 import com.quata.feature.feed.presentation.VideoPlaybackFeedback
 import com.quata.feature.feed.presentation.VideoPlaybackState
 import com.quata.feature.feed.presentation.VideoPlaybackStrings
+import com.quata.feature.feed.presentation.toggledFeedMutedState
 import kotlinx.browser.document
 import kotlinx.coroutines.delay
 import org.w3c.dom.HTMLVideoElement
@@ -254,7 +255,7 @@ private fun BrowserFeedVideoContent(
                 play(showFeedback = false)
             }
         },
-        onToggleMute = { onMuteChange(!isMuted) },
+        onToggleMute = { onMuteChange(toggledFeedMutedState(isMuted)) },
         modifier = Modifier.fillMaxSize(),
     )
 }

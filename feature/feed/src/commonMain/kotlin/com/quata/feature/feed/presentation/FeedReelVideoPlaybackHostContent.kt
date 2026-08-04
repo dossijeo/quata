@@ -119,7 +119,7 @@ fun FeedReelVideoPlaybackHostContent(
         ) {
             CompactIconButton(onClick = { toggle(showFeedback = false) }) {
                 CompactIcon(
-                    imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    imageVector = feedPlaybackPlayPauseIcon(state.isPlaying),
                     contentDescription = if (state.isPlaying) strings.pause else strings.play,
                     tint = Color.White,
                 )
@@ -138,15 +138,13 @@ fun FeedReelVideoPlaybackHostContent(
                 text = formatFeedReelPlaybackTime(state.positionMs, state.durationMs),
                 color = Color.White,
                 fontSize = 12.sp,
+                maxLines = 1,
+                softWrap = false,
             )
             if (state.showMuteButton) {
                 CompactIconButton(onClick = onToggleMute) {
                     CompactIcon(
-                        imageVector = if (state.isMuted) {
-                            Icons.AutoMirrored.Filled.VolumeOff
-                        } else {
-                            Icons.AutoMirrored.Filled.VolumeUp
-                        },
+                        imageVector = feedPlaybackVolumeIcon(state.isMuted),
                         contentDescription = if (state.isMuted) strings.unmute else strings.mute,
                         tint = Color.White,
                     )
@@ -155,6 +153,15 @@ fun FeedReelVideoPlaybackHostContent(
         }
     }
 }
+
+internal fun feedPlaybackVolumeIcon(isMuted: Boolean): ImageVector =
+    if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp
+
+internal fun feedPlaybackPlayPauseIcon(isPlaying: Boolean): ImageVector =
+    if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow
+
+/** Single product-level transition shared by every Feed renderer. */
+fun toggledFeedMutedState(isMuted: Boolean): Boolean = !isMuted
 
 /**
  * Keeps the Android reel-feedback silhouette while avoiding font-dependent control glyphs.

@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -126,7 +125,6 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
  */
 fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewController = ComposeUIViewController {
     QuataTheme {
-        var muted by rememberSaveable { mutableStateOf(false) }
         val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
         FeedScreenHost(
             padding = PaddingValues(),
@@ -134,14 +132,14 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
             focusedPostId = dependencies.initialPostId,
             presence = dependencies.presence,
             slots = FeedScreenPlatformSlots(
-                media = { post, isCurrent, initialPositionMs, onPositionChanged ->
+                media = { post, isCurrent, initialPositionMs, onPositionChanged, isFeedMuted, onFeedMuteChange ->
                     IosFeedMediaSlot(
                         post = post,
                         isCurrent = isCurrent,
                         initialPositionMs = initialPositionMs,
                         onPositionChanged = onPositionChanged,
-                        isMuted = muted,
-                        onMuteChange = { muted = it },
+                        isMuted = isFeedMuted,
+                        onMuteChange = onFeedMuteChange,
                         mediaFactory = dependencies.mediaFactory,
                     )
                 },
