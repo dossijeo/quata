@@ -251,7 +251,7 @@ data class ChatScreenHostSlots(
     val onBack: () -> Unit,
     val subtitle: (Conversation?, Set<String>) -> String?,
     val composer: @Composable (Modifier) -> Unit,
-    val attachment: (@Composable (Message, Modifier) -> Unit)? = null,
+    val attachment: (@Composable (Message, Boolean, Modifier) -> Unit)? = null,
     val deliveryIndicator: (@Composable (Message, Boolean) -> Unit)? = null,
     val favoriteMarker: (@Composable (Message, Boolean) -> Unit)? = null,
     val specialMessageBody: (@Composable (Message, Boolean) -> Boolean)? = null,

@@ -50,7 +50,7 @@ fun ChatConversationDetailContent(
     messageTimestamp: (Message) -> String = { it.sentAt },
     translatableTextModifier: (Message, Modifier) -> Modifier = { _, value -> value },
     composer: @Composable (Modifier) -> Unit,
-    attachment: (@Composable (Message, Modifier) -> Unit)? = null,
+    attachment: (@Composable (Message, Boolean, Modifier) -> Unit)? = null,
     deliveryIndicator: (@Composable (Message, Boolean) -> Unit)? = null,
     favoriteMarker: (@Composable (Message, Boolean) -> Unit)? = null,
     specialMessageBody: (@Composable (Message, Boolean) -> Boolean)? = null,
@@ -110,9 +110,10 @@ fun ChatConversationDetailContent(
                 }
             }
             items(messages, key = Message::composeKey) { message ->
+                val isMessageSelected = message.id == selectedMessageId || message.id == highlightedMessageId
                 ChatConversationMessageContent(
                     message = message,
-                    isSelected = message.id == selectedMessageId || message.id == highlightedMessageId,
+                    isSelected = isMessageSelected,
                     strings = strings,
                     showSenderAvatar = showSenderAvatar(message),
                     avatar = { avatar(message) },
@@ -120,10 +121,12 @@ fun ChatConversationDetailContent(
                     onClick = { onMessageClick(message) },
                     timestamp = messageTimestamp(message),
                     translatableTextModifier = translatableTextModifier,
-                    attachment = attachment?.let { slot -> { bubbleModifier -> slot(message, bubbleModifier) } },
-                    deliveryIndicator = deliveryIndicator?.let { slot -> { slot(message, message.id == selectedMessageId) } },
-                    favoriteMarker = favoriteMarker?.let { slot -> { slot(message, message.id == selectedMessageId) } },
-                    specialMessageBody = specialMessageBody?.let { slot -> { slot(message, message.id == selectedMessageId) } },
+                    attachment = attachment?.let { slot ->
+                        { bubbleModifier -> slot(message, isMessageSelected, bubbleModifier) }
+                    },
+                    deliveryIndicator = deliveryIndicator?.let { slot -> { slot(message, isMessageSelected) } },
+                    favoriteMarker = favoriteMarker?.let { slot -> { slot(message, isMessageSelected) } },
+                    specialMessageBody = specialMessageBody?.let { slot -> { slot(message, isMessageSelected) } },
                     actions = messageActions?.let { slot -> { actionsModifier -> slot(message, actionsModifier) } },
                 )
             }

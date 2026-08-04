@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -108,6 +107,7 @@ fun ChatProductHostContent(
     modifier: Modifier = Modifier,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(),
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
+    conversationModel: ChatViewModel? = null,
 ) {
     if (conversationId == null) {
         conversationList(modifier)
@@ -139,6 +139,7 @@ fun ChatProductHostContent(
             focusedMessageId = focusedMessageId,
             text = text,
             modifier = modifier,
+            conversationModel = conversationModel,
         )
     }
 }
@@ -175,6 +176,7 @@ private fun ChatCommonConversationHost(
     focusedMessageId: String?,
     text: (ChatText) -> String,
     modifier: Modifier,
+    conversationModel: ChatViewModel?,
 ) {
     val scope = rememberCoroutineScope()
     val template = quataTheme()
@@ -188,8 +190,14 @@ private fun ChatCommonConversationHost(
     var recordingError by remember { mutableStateOf<String?>(null) }
     var pendingAudioRecording by remember { mutableStateOf<AudioRecording?>(null) }
     var viewedMedia by remember(conversationId) { mutableStateOf<PlatformFile?>(null) }
-    val viewModel = remember(repository, conversationId) {
-        ChatViewModel(conversationId = conversationId, repository = repository, text = text, isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId)
+    val ownsViewModel = conversationModel == null
+    val viewModel = remember(repository, conversationId, conversationModel) {
+        conversationModel ?: ChatViewModel(
+            conversationId = conversationId,
+            repository = repository,
+            text = text,
+            isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId,
+        )
     }
     val state by viewModel.uiState.collectAsState()
     val chromeStrings = remember(languageTag) { chatChromeStringsForLanguage(languageTag) }
@@ -226,7 +234,7 @@ private fun ChatCommonConversationHost(
             viewModel.setConversationVisible(false)
             viewModel.cleanupEmptyConversationIfNeeded()
             repository.setActiveConversation(null)
-            viewModel.close()
+            if (ownsViewModel) viewModel.close()
         }
     }
     ChatScreenHost(
@@ -444,7 +452,9 @@ private fun ChatCommonConversationHost(
                     modifier = composerModifier,
                 )
             },
-            attachment = { message, attachmentModifier ->
+            attachment = { message, isSelected, attachmentModifier ->
+                val template = quataTheme()
+                val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
                 ChatBrowserAttachmentContent(
                     message = message,
                     audioPlayer = audioPlayer,
@@ -462,6 +472,7 @@ private fun ChatCommonConversationHost(
                     attachmentLabel = chromeStrings.attachment,
                     playAudioLabel = chromeStrings.playAudio,
                     pauseAudioLabel = chromeStrings.pauseAudio,
+                    textColor = textColor,
                     launch = audioLifecycle::launch,
                     modifier = attachmentModifier,
                 )
@@ -557,6 +568,7 @@ private fun ChatBrowserAttachmentContent(
     attachmentLabel: String = "Attachment",
     playAudioLabel: String = "Play audio",
     pauseAudioLabel: String = "Pause audio",
+    textColor: androidx.compose.ui.graphics.Color,
     launch: ((suspend () -> Unit) -> Unit),
     modifier: Modifier,
 ) {
@@ -580,13 +592,13 @@ private fun ChatBrowserAttachmentContent(
     if (kind != ChatAttachmentKind.Audio) {
         ChatDocumentAttachmentContent(
             name = displayName,
-            textColor = MaterialTheme.colorScheme.onSurface,
+            textColor = textColor,
             onOpen = { onOpenAttachment(file) },
             icon = {
                 CompactIcon(
                     if (kind == ChatAttachmentKind.Document) Icons.Filled.AttachFile else Icons.AutoMirrored.Filled.InsertDriveFile,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = textColor,
                 )
             },
             modifier = modifier,
@@ -602,7 +614,7 @@ private fun ChatBrowserAttachmentContent(
             visiblePlayback.positionMillis.toFloat() / visiblePlayback.durationMillis.toFloat()
         } else 0f,
         displayText = displayName,
-        textColor = MaterialTheme.colorScheme.onSurface,
+        textColor = textColor,
         playPauseDescription = if (visiblePlayback.isPlaying) pauseAudioLabel else playAudioLabel,
         onTogglePlayback = {
             launch {
