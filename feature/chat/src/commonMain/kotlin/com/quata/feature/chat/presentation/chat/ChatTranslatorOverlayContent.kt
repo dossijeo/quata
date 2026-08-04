@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -168,7 +169,7 @@ fun ChatTranslatorOverlayContent(
         val messageShiftPx = (
             with(density) { 148.dp.toPx() } - firstMessageTopPx
         ).coerceAtLeast(0f)
-        QuataTranslatorBackdrop(background = null, frostedTexture = null, modifier = Modifier.fillMaxSize())
+        QuataTranslatorBackdrop(background = null, modifier = Modifier.fillMaxSize())
         boxes.forEach { box ->
             val left = with(density) { (box.bounds.left - overlayOrigin.x).coerceAtLeast(0f).toDp() }
             val top = with(density) {
@@ -330,30 +331,30 @@ private fun TranslatorModeHeader(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TranslatorSparkle()
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     strings.activeTitle,
                     color = Color.White,
                     fontWeight = FontWeight.Black,
-                    fontSize = 15.sp,
+                    fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(3.dp))
                 Text(strings.instruction, color = Color.White, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(10.dp))
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
                     .clickable(role = Role.Button, onClick = onDismiss)
                     .semantics { contentDescription = strings.exit }
-                    .padding(horizontal = 2.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    modifier = Modifier.size(22.dp).border(2.dp, Color.White, CircleShape),
+                    modifier = Modifier.size(26.dp).border(2.dp, Color.White, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text("X", color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp)
@@ -367,17 +368,17 @@ private fun TranslatorModeHeader(
 
 @Composable
 private fun TranslatorSparkle() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Row {
-            SparkleDot(6)
-            Spacer(Modifier.width(3.dp))
-            SparkleDot(12)
+    Column(
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            SparkleDot(8)
+            SparkleDot(15)
         }
-        Spacer(Modifier.height(2.dp))
-        Row {
-            SparkleDot(13)
-            Spacer(Modifier.width(4.dp))
-            SparkleDot(7)
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            SparkleDot(16)
+            SparkleDot(9)
         }
     }
 }
