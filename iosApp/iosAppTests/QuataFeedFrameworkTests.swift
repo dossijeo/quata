@@ -815,6 +815,46 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNotNil(generator)
     }
 
+    func testIosFeedNativeMediaSurfacesKeepTheComposeGradientVisible() {
+        let image = IosFeedNativeMediaFactory.shared.createImage(url: "")
+        let video = IosFeedNativeMediaFactory.shared.createVideo(url: "")
+        defer {
+            image.dispose()
+            video.dispose()
+        }
+
+        [image, video].forEach { surface in
+            surface.configureBackground(
+                startArgb: Int32(bitPattern: 0xFF0F172A),
+                endArgb: Int32(bitPattern: 0xFF1D4ED8)
+            )
+            let view = surface.nativeView()
+            XCTAssertFalse(view.isOpaque)
+            XCTAssertEqual(view.backgroundColor, .clear)
+            XCTAssertTrue(view.layer.sublayers?.first is CAGradientLayer)
+            XCTAssertEqual((view.layer.sublayers?.first as? CAGradientLayer)?.colors?.count, 2)
+        }
+    }
+
+    func testIosFeedNativeVideoSurfaceAppliesGlobalMuteChangesToAvPlayer() throws {
+        let localFixtureUrl = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quata-feed-mute-contract.mp4")
+            .absoluteString
+        let surface = IosFeedNativeMediaFactory.shared.createVideo(url: localFixtureUrl)
+        defer { surface.dispose() }
+        let view = surface.nativeView()
+        let playerLayer = try XCTUnwrap(
+            view.layer.sublayers?.compactMap { $0 as? AVPlayerLayer }.first
+        )
+        let player = try XCTUnwrap(playerLayer.player)
+
+        surface.configure(isActive: false, isMuted: true, initialPositionMs: 0)
+        XCTAssertTrue(player.isMuted)
+
+        surface.configure(isActive: false, isMuted: false, initialPositionMs: 0)
+        XCTAssertFalse(player.isMuted)
+    }
+
     func testIosVideoThumbnailAdmissionBuildsBoundedFirstFrameRequestForExistingLocalReference() {
         // This existing directory deliberately is not a video fixture. The test covers only
         // admission and must not claim that AVFoundation decoded a simulator asset.

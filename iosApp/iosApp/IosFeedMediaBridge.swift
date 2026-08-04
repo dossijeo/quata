@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import QuartzCore
 import UIKit
 import QuataShared
 
@@ -18,10 +19,23 @@ final class IosFeedNativeMediaFactory: NSObject, IosFeedMediaFactory {
 }
 
 private final class IosFeedMediaContainerView: UIView {
+    let gradientLayer = CAGradientLayer()
     var playerLayer: AVPlayerLayer?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        gradientLayer.startPoint = CGPoint(x: 0, y: 0)
+        gradientLayer.endPoint = CGPoint(x: 1, y: 1)
+        layer.addSublayer(gradientLayer)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        gradientLayer.frame = bounds
         playerLayer?.frame = bounds
     }
 }
@@ -39,9 +53,13 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
     init(imageURL: URL?) {
         super.init()
         root.clipsToBounds = true
+        root.isOpaque = false
+        root.backgroundColor = .clear
         imageView.frame = root.bounds
         imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         imageView.contentMode = .scaleAspectFill
+        imageView.isOpaque = false
+        imageView.backgroundColor = .clear
         root.addSubview(imageView)
         guard let imageURL else { return }
         imageTask = URLSession.shared.dataTask(with: imageURL) { [weak self] data, _, _ in
@@ -54,12 +72,16 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
     init(videoURL: URL?) {
         super.init()
         root.clipsToBounds = true
+        root.isOpaque = false
+        root.backgroundColor = .clear
         guard let videoURL else { reportedError = "feed_video_url_invalid"; return }
         let player = AVPlayer(url: videoURL)
         player.actionAtItemEnd = .none
         let layer = AVPlayerLayer(player: player)
         layer.frame = root.bounds
         layer.videoGravity = .resizeAspectFill
+        layer.isOpaque = false
+        layer.backgroundColor = UIColor.clear.cgColor
         root.layer.addSublayer(layer)
         root.playerLayer = layer
         self.player = player
@@ -75,6 +97,10 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
     deinit { dispose() }
 
     func nativeView() -> UIView { root }
+
+    func configureBackground(startArgb: Int32, endArgb: Int32) {
+        root.gradientLayer.colors = [uiColor(argb: startArgb).cgColor, uiColor(argb: endArgb).cgColor]
+    }
 
     func configure(isActive: Bool, isMuted: Bool, initialPositionMs: Int64) {
         guard let player else { return }
@@ -146,5 +172,15 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
         guard let player else { return }
         player.seek(to: .zero)
         if active { player.play() }
+    }
+
+    private func uiColor(argb: Int32) -> UIColor {
+        let value = UInt32(bitPattern: argb)
+        return UIColor(
+            red: CGFloat((value >> 16) & 0xFF) / 255,
+            green: CGFloat((value >> 8) & 0xFF) / 255,
+            blue: CGFloat(value & 0xFF) / 255,
+            alpha: CGFloat((value >> 24) & 0xFF) / 255
+        )
     }
 }

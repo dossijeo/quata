@@ -5,13 +5,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.UIKitView
 import com.quata.core.model.Post
+import com.quata.core.ui.textCanvasBrush
+import com.quata.core.ui.textCanvasPattern
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import kotlinx.coroutines.delay
 import platform.UIKit.UIView
@@ -31,6 +35,7 @@ interface IosFeedMediaFactory {
 /** UIKit/AVFoundation driver contract; it contains no Feed state or Compose controls. */
 interface IosFeedMediaSurface {
     fun nativeView(): UIView
+    fun configureBackground(startArgb: Int, endArgb: Int)
     fun configure(isActive: Boolean, isMuted: Boolean, initialPositionMs: Long)
     fun play()
     fun pause()
@@ -63,27 +68,41 @@ fun BoxScope.IosFeedMediaSlot(
 ) {
     val videoUrl = post.videoUrl?.trim().orEmpty()
     val imageUrl = post.imageUrl?.trim().orEmpty()
+    val backgroundSeed = iosFeedMediaBackgroundSeed(videoUrl, imageUrl)
+    val backgroundPattern = remember(backgroundSeed) { textCanvasPattern(backgroundSeed) }
     val surface = remember(post.id, videoUrl, imageUrl) {
         if (videoUrl.isNotEmpty()) mediaFactory.createVideo(videoUrl) else mediaFactory.createImage(imageUrl)
     }
     DisposableEffect(surface) { onDispose(surface::dispose) }
-    if (videoUrl.isEmpty()) {
-        UIKitView(
-            factory = surface::nativeView,
-            update = { surface.configure(isActive = false, isMuted = true, initialPositionMs = 0L) },
-            modifier = Modifier.fillMaxSize(),
+    SideEffect {
+        surface.configureBackground(
+            startArgb = backgroundPattern.start.toArgb(),
+            endArgb = backgroundPattern.end.toArgb(),
         )
-        return
     }
-    IosFeedVideoPlayback(
-        surface = surface,
-        isCurrent = isCurrent,
-        initialPositionMs = initialPositionMs,
-        isMuted = isMuted,
-        onMuteChange = onMuteChange,
-        onPositionChanged = onPositionChanged,
-    )
+    ReelMediaSurfaceContent(background = textCanvasBrush(backgroundSeed)) {
+        if (videoUrl.isEmpty()) {
+            UIKitView(
+                factory = surface::nativeView,
+                update = { surface.configure(isActive = false, isMuted = true, initialPositionMs = 0L) },
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            IosFeedVideoPlayback(
+                surface = surface,
+                isCurrent = isCurrent,
+                initialPositionMs = initialPositionMs,
+                isMuted = isMuted,
+                onMuteChange = onMuteChange,
+                onPositionChanged = onPositionChanged,
+            )
+        }
+    }
 }
+
+/** Keeps the iOS native renderer on the same URL-derived visual surface as Android and Wasm. */
+internal fun iosFeedMediaBackgroundSeed(videoUrl: String, imageUrl: String): String =
+    videoUrl.ifEmpty { imageUrl }
 
 @Composable
 private fun IosFeedVideoPlayback(
