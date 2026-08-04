@@ -93,7 +93,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 dependencies.repository.setAppForeground(true)
                 onDispose { dependencies.repository.setAppForeground(false) }
             }
-            ChatBrowserHostContent(
+            ChatProductHostContent(
                 repository = dependencies.repository,
                 audioPlayer = dependencies.audioPlayer,
                 audioRecorder = dependencies.audioRecorder,

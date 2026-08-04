@@ -31,7 +31,7 @@ import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.feature.chat.domain.ChatRepository
-import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
+import com.quata.feature.chat.presentation.chat.ChatProductHostContent
 import com.quata.feature.chat.presentation.chat.ChatMediaPlatformSlots
 import com.quata.feature.chat.presentation.chat.FangChatTranslationGateway
 import com.quata.feature.chat.presentation.chat.chatTranslationDirectionForLanguage
@@ -87,7 +87,7 @@ fun WebChatHost(
             repository.setAppForeground(false)
         }
     }
-    ChatBrowserHostContent(
+    ChatProductHostContent(
         repository = repository,
         audioPlayer = audioPlayer,
         audioRecorder = resolvedAudioRecorder,
