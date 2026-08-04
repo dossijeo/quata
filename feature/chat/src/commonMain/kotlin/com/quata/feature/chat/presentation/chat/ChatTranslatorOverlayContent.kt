@@ -1,25 +1,26 @@
 package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,13 +33,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.language.QuataTranslationLanguage
 import com.quata.core.language.TextTranslator
 import com.quata.core.language.TranslatorBoxState
@@ -76,9 +85,9 @@ class FangChatTranslationGateway(
 }
 
 data class ChatTranslatorStrings(
-    val title: String,
-    val close: String,
-    val direction: String,
+    val contentDescription: String,
+    val activeTitle: String,
+    val exit: String,
     val instruction: String,
     val error: String,
 )
@@ -95,16 +104,25 @@ fun chatTranslationDirectionForLanguage(languageTag: String?): ChatTranslationDi
 fun chatTranslatorStringsForLanguage(languageTag: String?): ChatTranslatorStrings =
     when (languageTag?.substringBefore('-')?.substringBefore('_')?.lowercase()) {
         "fr" -> ChatTranslatorStrings(
-            title = "Traducteur Fang", close = "Fermer", direction = "Sens",
-            instruction = "Touchez un message pour le traduire.", error = "Traduction impossible. Touchez pour réessayer.",
+            contentDescription = "Traducteur Fang",
+            activeTitle = "Mode traducteur actif",
+            exit = "Quitter",
+            instruction = "Touchez un message pour le traduire",
+            error = "Traduction impossible. Touchez pour réessayer.",
         )
         "en" -> ChatTranslatorStrings(
-            title = "Fang translator", close = "Close", direction = "Direction",
-            instruction = "Tap a message to translate it.", error = "Translation failed. Tap to retry.",
+            contentDescription = "Fang translator",
+            activeTitle = "Translator mode active",
+            exit = "Exit",
+            instruction = "Tap any message to translate it",
+            error = "Translation failed. Tap to retry.",
         )
         else -> ChatTranslatorStrings(
-            title = "Traductor Fang", close = "Cerrar", direction = "Dirección",
-            instruction = "Toca un mensaje para traducirlo.", error = "No se pudo traducir. Toca para reintentar.",
+            contentDescription = "Traductor Fang",
+            activeTitle = "Modo traductor activo",
+            exit = "Salir",
+            instruction = "Toca cualquier mensaje para traducirlo",
+            error = "No se pudo traducir. Toca para reintentar.",
         )
     }
 
@@ -117,8 +135,8 @@ private data class ChatTranslatorBoxUiState(
 /**
  * Portable Fang mode for `CHAT-TRANSLATION` / `FLOW-TRANSLATOR`.
  *
- * The live common Chat remains visible under this overlay. Registered bubble bounds drive the
- * tappable translation surfaces, while platform code supplies only the HTTP transport.
+ * The shared Android visual contract is reproduced by this common root. Platform code only
+ * supplies the HTTP transport; the frosted backdrop, copy, bubbles and interactions stay common.
  */
 @Composable
 fun ChatTranslatorOverlayContent(
@@ -131,7 +149,6 @@ fun ChatTranslatorOverlayContent(
 ) {
     val scope = rememberCoroutineScope()
     val states = remember { mutableStateMapOf<String, ChatTranslatorBoxUiState>() }
-    var direction by remember(initialDirection) { mutableStateOf(initialDirection) }
     var overlayOrigin by remember { mutableStateOf(Offset.Zero) }
     val boxes = registry.visibleBoxes
     val visibleIds = boxes.map { it.id }.toSet()
@@ -153,10 +170,13 @@ fun ChatTranslatorOverlayContent(
             val height = with(density) { box.bounds.height.coerceAtLeast(48f).toDp() }.coerceAtMost(maxHeight)
             val state = states[box.id]
             val translated = state?.translation?.takeIf { it.showTranslation }?.translation
-            Surface(
-                color = if (translated != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                contentColor = if (translated != null) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                shape = RoundedCornerShape(20.dp),
+            TranslatorMessageSurface(
+                displayText = box.displayText,
+                originalText = box.text,
+                translatedText = translated,
+                directionLabel = state?.translation?.directionLabel,
+                failedText = strings.error.takeIf { state?.failed == true },
+                loading = state?.loading == true,
                 modifier = Modifier
                     .offset(left, top)
                     .size(width, height)
@@ -167,7 +187,7 @@ fun ChatTranslatorOverlayContent(
                         } else {
                             states[box.id] = ChatTranslatorBoxUiState(loading = true)
                             scope.launch {
-                                states[box.id] = runCatching { gateway.translate(box.text, direction) }
+                                states[box.id] = runCatching { gateway.translate(box.text, initialDirection) }
                                     .fold(
                                         onSuccess = { ChatTranslatorBoxUiState(translation = it) },
                                         onFailure = { ChatTranslatorBoxUiState(failed = true) },
@@ -175,57 +195,227 @@ fun ChatTranslatorOverlayContent(
                             }
                         }
                     },
-            ) {
-                Box(Modifier.fillMaxSize().padding(12.dp)) {
-                    Text(
-                        text = when {
-                            state?.failed == true -> strings.error
-                            translated != null -> translated
-                            else -> box.text
-                        },
-                        maxLines = 5,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.align(Alignment.CenterStart),
-                    )
-                    if (state?.loading == true) {
-                        CircularProgressIndicator(Modifier.align(Alignment.BottomEnd).size(18.dp), strokeWidth = 2.dp)
-                    }
-                    state?.translation?.directionLabel?.takeIf { translated != null }?.let { label ->
-                        Text(label, style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.TopEnd))
-                    }
-                }
-            }
+            )
         }
-        Surface(
-            shape = RoundedCornerShape(22.dp),
-            tonalElevation = 6.dp,
-            modifier = Modifier.align(Alignment.TopCenter).padding(16.dp),
-        ) {
-            Row(
-                modifier = Modifier.padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text(strings.title, fontWeight = FontWeight.Black)
-                    Text(strings.instruction, style = MaterialTheme.typography.labelSmall)
-                }
-                Button(onClick = {
-                    direction = direction.reversed()
-                    states.clear()
-                }) { Text("${strings.direction}: ${direction.label}") }
-                IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, strings.close) }
-            }
-        }
-        Text(
-            text = strings.instruction,
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.bodySmall,
+        TranslatorModeHeader(
+            strings = strings,
+            onDismiss = onDismiss,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(start = 24.dp, top = 26.dp, end = 24.dp),
+        )
+        TranslatorModeFooter(
+            instruction = strings.instruction,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))
-                .padding(14.dp),
+                .padding(bottom = 30.dp),
         )
+    }
+}
+
+@Composable
+private fun TranslatorMessageSurface(
+    displayText: String,
+    originalText: String,
+    translatedText: String?,
+    directionLabel: String?,
+    failedText: String?,
+    loading: Boolean,
+    modifier: Modifier,
+) {
+    val template = quataTheme()
+    val parts = remember(displayText, originalText, translatedText) {
+        ChatTranslatorMessageParts.from(displayText, translatedText ?: originalText)
+    }
+    val translated = translatedText != null
+    val bubbleColor = when {
+        translated -> template.colors.accent.copy(alpha = 0.94f)
+        loading -> template.colors.accent.copy(alpha = 0.18f)
+        parts.isMine -> template.colors.chatMine
+        else -> template.colors.chatOther
+    }
+    val textColor = if (parts.isMine || translated) template.colors.accentContent else template.colors.textPrimary
+    Surface(
+        color = bubbleColor,
+        contentColor = textColor,
+        shape = RoundedCornerShape(20.dp),
+        modifier = modifier,
+    ) {
+        Box(Modifier.fillMaxSize().padding(14.dp)) {
+            Column(Modifier.fillMaxSize()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        parts.sender,
+                        color = textColor,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (translated && directionLabel != null) {
+                        TranslatorDirectionBadge(directionLabel)
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(
+                        parts.timestamp,
+                        color = textColor.copy(alpha = 0.56f),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = failedText ?: parts.message,
+                    color = textColor,
+                    fontSize = 16.sp,
+                    lineHeight = 21.sp,
+                    maxLines = 5,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.BottomEnd).size(16.dp),
+                    color = template.colors.accent,
+                    strokeWidth = 2.dp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TranslatorDirectionBadge(label: String) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.Black.copy(alpha = 0.22f))
+            .padding(horizontal = 6.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("T", color = Color.White, fontWeight = FontWeight.Black, fontSize = 10.sp, lineHeight = 10.sp)
+        Spacer(Modifier.width(4.dp))
+        Text(label, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp, lineHeight = 10.sp)
+    }
+}
+
+@Composable
+private fun TranslatorModeHeader(
+    strings: ChatTranslatorStrings,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = Color.Transparent,
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 10.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .background(
+                    brush = Brush.linearGradient(listOf(Color(0xFFFF6A00), Color(0xFFFF7F1A))),
+                    shape = RoundedCornerShape(18.dp),
+                )
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TranslatorSparkle()
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    strings.activeTitle,
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(strings.instruction, color = Color.White, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.width(10.dp))
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable(role = Role.Button, onClick = onDismiss)
+                    .semantics { contentDescription = strings.exit }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier.size(26.dp).border(2.dp, Color.White, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("X", color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                }
+                Spacer(Modifier.width(6.dp))
+                Text(strings.exit, color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TranslatorSparkle() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row {
+            SparkleDot(8)
+            Spacer(Modifier.width(3.dp))
+            SparkleDot(15)
+        }
+        Spacer(Modifier.height(2.dp))
+        Row {
+            SparkleDot(16)
+            Spacer(Modifier.width(4.dp))
+            SparkleDot(9)
+        }
+    }
+}
+
+@Composable
+private fun SparkleDot(size: Int) {
+    Box(Modifier.size(size.dp).clip(CircleShape).background(Color.White))
+}
+
+@Composable
+private fun TranslatorModeFooter(instruction: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.TouchApp,
+            contentDescription = null,
+            tint = Color(0xFFFF6A00),
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            instruction,
+            color = Color.White.copy(alpha = 0.88f),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+        )
+    }
+}
+
+private data class ChatTranslatorMessageParts(
+    val isMine: Boolean,
+    val sender: String,
+    val timestamp: String,
+    val message: String,
+) {
+    companion object {
+        fun from(displayText: String, message: String): ChatTranslatorMessageParts {
+            val header = displayText.lineSequence().firstOrNull().orEmpty().split(" | ", limit = 3)
+            return ChatTranslatorMessageParts(
+                isMine = header.getOrNull(0) == "mine",
+                sender = header.getOrNull(1).orEmpty(),
+                timestamp = header.getOrNull(2).orEmpty(),
+                message = message,
+            )
+        }
     }
 }

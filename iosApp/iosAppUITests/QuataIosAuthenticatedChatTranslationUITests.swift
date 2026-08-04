@@ -44,8 +44,9 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
         XCTAssertTrue(translator.waitForExistence(timeout: 10), "Chat must expose its shared translator trigger.")
         translator.tap()
 
-        let instruction = app.staticTexts["Toca un mensaje para traducirlo."].firstMatch
+        let instruction = app.staticTexts["Toca cualquier mensaje para traducirlo"].firstMatch
         XCTAssertTrue(instruction.waitForExistence(timeout: 10), "The shared translator overlay must be visible.")
+        XCTAssertTrue(app.staticTexts["Modo traductor activo"].waitForExistence(timeout: 5))
         attachScreenshot(app, name: "chat-translation-overlay")
 
         let overlayMessage = app.buttons["Mbolo"].firstMatch
@@ -61,7 +62,7 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
         )
         attachScreenshot(app, name: "chat-translation-result")
 
-        let close = app.buttons["Cerrar"].firstMatch
+        let close = app.buttons["Salir"].firstMatch
         XCTAssertTrue(close.waitForExistence(timeout: 5))
         close.tap()
         XCTAssertTrue(chat.waitForExistence(timeout: 5), "Closing the translator must preserve Chat.")

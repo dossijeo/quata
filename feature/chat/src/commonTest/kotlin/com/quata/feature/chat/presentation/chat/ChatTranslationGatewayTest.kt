@@ -35,6 +35,23 @@ class ChatTranslationGatewayTest {
         assertEquals(QuataTranslationLanguage.Spanish, chatTranslationDirectionForLanguage("es").target)
     }
 
+    @Test
+    fun sharedOverlayCopyMatchesThePublishedAndroidContract() {
+        val spanish = chatTranslatorStringsForLanguage("es-ES")
+        assertEquals("Traductor Fang", spanish.contentDescription)
+        assertEquals("Modo traductor activo", spanish.activeTitle)
+        assertEquals("Toca cualquier mensaje para traducirlo", spanish.instruction)
+        assertEquals("Salir", spanish.exit)
+
+        val english = chatTranslatorStringsForLanguage("en")
+        assertEquals("Translator mode active", english.activeTitle)
+        assertEquals("Tap any message to translate it", english.instruction)
+
+        val french = chatTranslatorStringsForLanguage("fr-FR")
+        assertEquals("Mode traducteur actif", french.activeTitle)
+        assertEquals("Touchez un message pour le traduire", french.instruction)
+    }
+
     private class CapturingTranslator : TextTranslator {
         var text: String? = null
         var source: QuataTranslationLanguage? = null

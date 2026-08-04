@@ -118,7 +118,7 @@ fun ChatScreenHost(
                     trailing = trailing@{
                         slots.trailingActions.invoke(this@trailing)
                         FangTranslatorTriggerContent(
-                            contentDescription = slots.translatorStrings.title,
+                            contentDescription = slots.translatorStrings.contentDescription,
                             onClick = { translatorActive = true },
                             enabled = state.messages.any { !it.isDeleted && it.text.isNotBlank() },
                         )
@@ -192,6 +192,14 @@ fun ChatScreenHost(
                     if (message.isDeleted || message.text.isBlank()) value else value.quataTranslatableText(
                         id = "chat-message:${message.composeKey()}",
                         text = message.text,
+                        displayText = buildString {
+                            append(if (message.isMine) "mine" else "other")
+                            append(" | ")
+                            append(message.senderName)
+                            append(" | ")
+                            appendLine(message.sentAt)
+                            append(message.text)
+                        },
                     )
                 },
                 composer = if (isFavoritesConversation) ({}) else slots.composer,
