@@ -58,6 +58,7 @@ import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.presentation.chatDisplayTitle
 import com.quata.feature.chat.presentation.conversations.ConversationListRow
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarContent
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarKind
@@ -261,7 +262,7 @@ private fun ChatCommonConversationHost(
             },
             conversationAvatar = { conversation ->
                 conversation?.let {
-                    val title = it.title.ifBlank { chromeStrings.untitledConversation }
+                    val title = it.chatDisplayTitle().ifBlank { chromeStrings.untitledConversation }
                     ConversationAvatarContent(
                         presentation = resolveConversationAvatarPresentation(
                             conversation = it,

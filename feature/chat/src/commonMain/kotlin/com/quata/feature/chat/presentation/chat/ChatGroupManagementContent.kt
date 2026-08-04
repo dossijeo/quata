@@ -35,6 +35,7 @@ import com.quata.core.model.User
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.QuataConfirmationDialogContent
+import com.quata.feature.chat.presentation.chatDisplayTitle
 
 data class ChatMemberPresentation(
     val id: String,
@@ -98,7 +99,7 @@ fun ChatGroupManagementContent(
     val canInvite = canInviteToChat(conversation, state.currentUser)
 
     ChatConversationTitleBarContent(
-        title = conversation?.title?.ifBlank { strings.untitledConversation } ?: strings.untitledConversation,
+        title = conversation?.chatDisplayTitle()?.ifBlank { strings.untitledConversation } ?: strings.untitledConversation,
         subtitle = subtitle,
         expandable = conversation?.isGroup == true,
         compact = compact,
