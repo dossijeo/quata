@@ -258,6 +258,14 @@ data class CommunityProfileFollow(
 )
 
 @Serializable
+data class ChatProfileBlock(
+    val id: Long? = null,
+    val blocker_profile_id: String? = null,
+    val blocked_profile_id: String? = null,
+    val thread_id: Long? = null,
+)
+
+@Serializable
 data class CommunityProfileFollowCreate(val follower_profile_id: String, val followed_profile_id: String)
 
 @Serializable

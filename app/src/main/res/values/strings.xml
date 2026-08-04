@@ -466,6 +466,9 @@
     <string name="emoji_flags">Flags</string>
     <string name="neighborhoods_title">Q&#252;ata</string>
     <string name="neighborhoods_loading">Cargando barrios</string>
+    <string name="neighborhoods_empty">There are no active communities yet.</string>
+    <string name="neighborhoods_no_results">No communities match this search.</string>
+    <string name="neighborhoods_no_members">This community does not have any users yet.</string>
     <string name="neighborhoods_open_community">Open a community</string>
     <string name="neighborhoods_subtitle">Select or search for a district to open its community chat.</string>
     <string name="neighborhoods_user_count">%1$d users</string>
@@ -585,12 +588,14 @@
     <string name="ugc_terms_accept_error">We could not save your acceptance. Check your connection and try again.</string>
     <string name="moderation_report">Report</string>
     <string name="moderation_block">Block</string>
+    <string name="moderation_unblock">Unblock</string>
     <string name="moderation_report_title">Report profile</string>
     <string name="moderation_block_title">Block profile</string>
+    <string name="moderation_unblock_title">Unblock profile</string>
     <string name="moderation_report_profile_confirm">Send this profile to the Q&#252;ata moderation team for review?</string>
     <string name="moderation_block_profile_confirm">This person will no longer be able to send you messages. You can still report their content separately.</string>
+    <string name="moderation_unblock_profile_confirm">This person will be able to contact you again.</string>
     <string name="moderation_report_sent">Report sent for review</string>
-    <string name="moderation_profile_blocked">Profile blocked</string>
     <string name="moderation_report_message_title">Report message</string>
     <string name="moderation_report_message_confirm">Send this message to the Q&#252;ata moderation team for review?</string>
     <string name="chat_error_report_message">The message could not be reported</string>

@@ -20,13 +20,17 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
         }
         androidMain.dependencies { }
         // The iOS Communities adapter opens only through the established Chat domain contract.
         // Keeping this dependency platform-scoped avoids coupling the shared Communities domain
         // or presentation code to Chat while allowing the UIKit composition root to reuse its
         // authenticated repository.
-        iosMain.dependencies { implementation(project(":feature:chat")) }
+        iosMain.dependencies {
+            implementation(project(":feature:chat"))
+            implementation(project(":feature:feed"))
+        }
         wasmJsMain.dependencies { }
     }
 }

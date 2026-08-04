@@ -29,6 +29,7 @@ fun WebOfficialHost(
     shareService: ShareService,
     officialPostId: String?,
     currentUserId: String?,
+    openingProfileUserId: String? = null,
     onAuthRequired: () -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onCreateOfficialPost: () -> Unit,
@@ -45,7 +46,14 @@ fun WebOfficialHost(
     strings = defaultOfficialFeedScreenStrings(webOfficialLanguageTag()),
     modifier = modifier,
     slots = OfficialFeedScreenPlatformSlots(
-        avatar = { post, avatarModifier -> BrowserFeedAuthorAvatar(post.asFeedPost(), onOpenUserProfile, modifier = avatarModifier) },
+        avatar = { post, avatarModifier ->
+            BrowserFeedAuthorAvatar(
+                post.asFeedPost(),
+                onOpenUserProfile,
+                isLoading = openingProfileUserId == post.author.id,
+                modifier = avatarModifier,
+            )
+        },
         media = { post, mediaModifier, open ->
             OfficialPostMediaFrameContent(
                 onOpenMedia = open,

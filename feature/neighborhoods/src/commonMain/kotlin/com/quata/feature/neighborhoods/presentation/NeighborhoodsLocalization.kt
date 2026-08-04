@@ -1,0 +1,167 @@
+package com.quata.feature.neighborhoods.presentation
+
+/** Localized copy shared by non-Android hosts; Android continues to consume its resources. */
+fun neighborhoodsScreenStringsForLanguage(languageTag: String?): NeighborhoodsScreenStrings =
+    when (languageTag?.substringBefore('-')?.lowercase()) {
+        "es" -> NeighborhoodsScreenStrings(
+            list = NeighborhoodListStrings(
+                title = "Abre una comunidad",
+                searchPlaceholder = "Selecciona o busca un barrio para abrir su chat comunitario.",
+                loading = "Cargando barrios…",
+                empty = "Todavía no hay comunidades activas.",
+                noResults = "No hay comunidades para esta búsqueda.",
+                oneUser = "1 usuario",
+                users = { "$it usuarios" },
+                oneMessage = "1 mensaje",
+                messages = { "$it mensajes" },
+                viewUsers = "Ver usuarios",
+                openChat = "Abrir chat",
+                timeLabel = { if (it == null) "Nuevo" else "Actividad reciente" },
+            ),
+            members = NeighborhoodUsersStrings(
+                title = { "Usuarios · $it" },
+                subtitle = "Comunidad creada por usuarios de QUATA",
+                backContentDescription = "Volver",
+                memberCount = { if (it == 1) "1 usuario" else "$it usuarios" },
+                empty = "Esta comunidad todavía no tiene usuarios.",
+                row = NeighborhoodUserRowStrings("Seguir", "Siguiendo", "Chat"),
+            ),
+        )
+        "fr" -> NeighborhoodsScreenStrings(
+            list = NeighborhoodListStrings(
+                title = "Ouvre une communauté",
+                searchPlaceholder = "Sélectionne ou cherche un quartier pour ouvrir son chat communautaire.",
+                loading = "Chargement des quartiers…",
+                empty = "Il n’y a pas encore de communautés actives.",
+                noResults = "Aucune communauté ne correspond à cette recherche.",
+                oneUser = "1 utilisateur",
+                users = { "$it utilisateurs" },
+                oneMessage = "1 message",
+                messages = { "$it messages" },
+                viewUsers = "Voir les utilisateurs",
+                openChat = "Ouvrir le chat",
+                timeLabel = { if (it == null) "Nouveau" else "Activité récente" },
+            ),
+            members = NeighborhoodUsersStrings(
+                title = { "Utilisateurs · $it" },
+                subtitle = "Communauté créée par les utilisateurs de QUATA",
+                backContentDescription = "Retour",
+                memberCount = { if (it == 1) "1 utilisateur" else "$it utilisateurs" },
+                empty = "Cette communauté n’a pas encore d’utilisateurs.",
+                row = NeighborhoodUserRowStrings("Suivre", "Suivi", "Chat"),
+            ),
+        )
+        else -> NeighborhoodsScreenStrings(
+            list = NeighborhoodListStrings(
+                title = "Open a community",
+                searchPlaceholder = "Select or search for a district to open its community chat.",
+                loading = "Loading districts…",
+                empty = "There are no active communities yet.",
+                noResults = "No communities match this search.",
+                oneUser = "1 user",
+                users = { "$it users" },
+                oneMessage = "1 message",
+                messages = { "$it messages" },
+                viewUsers = "View users",
+                openChat = "Open chat",
+                timeLabel = { if (it == null) "New" else "Recent activity" },
+            ),
+            members = NeighborhoodUsersStrings(
+                title = { "Users · $it" },
+                subtitle = "Community created by QUATA users",
+                backContentDescription = "Back",
+                memberCount = { if (it == 1) "1 user" else "$it users" },
+                empty = "This community does not have any users yet.",
+                row = NeighborhoodUserRowStrings("Follow", "Following", "Chat"),
+            ),
+        )
+    }
+
+/** Complete public-profile copy consumed by the same root on Web and iOS. */
+fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileStrings =
+    when (languageTag?.substringBefore('-')?.lowercase()) {
+        "es" -> CommunityProfileStrings(
+            posts = "Publicaciones",
+            followers = "Seguidores",
+            following = "Siguiendo",
+            followersOf = { "Seguidores de $it" },
+            followingOf = { "Personas que sigue $it" },
+            actions = ProfileActionStrings("Seguir", "Siguiendo", "Chat"),
+            userRow = NeighborhoodUserRowStrings("Seguir", "Siguiendo", "Chat"),
+            moderation = ProfileModerationStrings("Reportar", "Bloquear", "Desbloquear"),
+            moderationConfirmation = ProfileModerationConfirmationStrings(
+                reportTitle = "Reportar perfil",
+                blockTitle = "Bloquear perfil",
+                unblockTitle = "Desbloquear perfil",
+                reportMessage = "¿Quieres reportar este perfil?",
+                blockMessage = "¿Quieres bloquear este perfil?",
+                unblockMessage = "¿Quieres desbloquear este perfil?",
+                cancel = "Cancelar",
+                report = "Reportar",
+                block = "Bloquear",
+                unblock = "Desbloquear",
+            ),
+            roles = ProfileRoleStrings("Administración", "Administrador", "Oficial"),
+            attachments = ProfileAttachmentsStrings("Adjuntos", "No hay adjuntos compartidos."),
+            galleryTitle = "Fotos y vídeos",
+            emptyGallery = "No hay publicaciones visibles.",
+            back = "Volver",
+            comments = CommunityProfileCommentsDialogStrings("Comentarios", "Cerrar comentarios", "Escribe un comentario", "Enviar"),
+        )
+        "fr" -> CommunityProfileStrings(
+            posts = "Publications",
+            followers = "Abonnés",
+            following = "Abonnements",
+            followersOf = { "Abonnés de $it" },
+            followingOf = { "Personnes suivies par $it" },
+            actions = ProfileActionStrings("Suivre", "Suivi", "Chat"),
+            userRow = NeighborhoodUserRowStrings("Suivre", "Suivi", "Chat"),
+            moderation = ProfileModerationStrings("Signaler", "Bloquer", "Débloquer"),
+            moderationConfirmation = ProfileModerationConfirmationStrings(
+                reportTitle = "Signaler le profil",
+                blockTitle = "Bloquer le profil",
+                unblockTitle = "Débloquer le profil",
+                reportMessage = "Voulez-vous signaler ce profil ?",
+                blockMessage = "Voulez-vous bloquer ce profil ?",
+                unblockMessage = "Voulez-vous débloquer ce profil ?",
+                cancel = "Annuler",
+                report = "Signaler",
+                block = "Bloquer",
+                unblock = "Débloquer",
+            ),
+            roles = ProfileRoleStrings("Administration", "Administrateur", "Officiel"),
+            attachments = ProfileAttachmentsStrings("Pièces jointes", "Aucune pièce jointe partagée."),
+            galleryTitle = "Photos et vidéos",
+            emptyGallery = "Aucune publication visible.",
+            back = "Retour",
+            comments = CommunityProfileCommentsDialogStrings("Commentaires", "Fermer les commentaires", "Écrire un commentaire", "Envoyer"),
+        )
+        else -> CommunityProfileStrings(
+            posts = "Posts",
+            followers = "Followers",
+            following = "Following",
+            followersOf = { "Followers of $it" },
+            followingOf = { "People followed by $it" },
+            actions = ProfileActionStrings("Follow", "Following", "Chat"),
+            userRow = NeighborhoodUserRowStrings("Follow", "Following", "Chat"),
+            moderation = ProfileModerationStrings("Report", "Block", "Unblock"),
+            moderationConfirmation = ProfileModerationConfirmationStrings(
+                reportTitle = "Report profile",
+                blockTitle = "Block profile",
+                unblockTitle = "Unblock profile",
+                reportMessage = "Do you want to report this profile?",
+                blockMessage = "Do you want to block this profile?",
+                unblockMessage = "Do you want to unblock this profile?",
+                cancel = "Cancel",
+                report = "Report",
+                block = "Block",
+                unblock = "Unblock",
+            ),
+            roles = ProfileRoleStrings("Administration", "Administrator", "Official"),
+            attachments = ProfileAttachmentsStrings("Attachments", "No shared attachments."),
+            galleryTitle = "Photos and videos",
+            emptyGallery = "No visible posts.",
+            back = "Back",
+            comments = CommunityProfileCommentsDialogStrings("Comments", "Close comments", "Write a comment", "Send"),
+        )
+    }

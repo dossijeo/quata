@@ -6,6 +6,7 @@ import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
+import com.quata.core.model.PostComment
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,14 +20,15 @@ import kotlinx.coroutines.launch
 class NeighborhoodsViewModel(
     private val repository: NeighborhoodRepository,
     dispatchers: AppDispatchers = AppDispatchers()
-) {
+) : NeighborhoodsScreenModel {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
     private val _uiState = MutableStateFlow(NeighborhoodsUiState())
-    val uiState: StateFlow<NeighborhoodsUiState> = _uiState.asStateFlow()
+    override val uiState: StateFlow<NeighborhoodsUiState> = _uiState.asStateFlow()
     private var communitiesJob: Job? = null
     private var profileJob: Job? = null
+    private val profileBackStack = mutableListOf<String>()
 
-    fun startObservingCommunities() {
+    override fun startObservingCommunities() {
         if (communitiesJob?.isActive == true) return
         communitiesJob = scope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
@@ -47,12 +49,12 @@ class NeighborhoodsViewModel(
         }
     }
 
-    fun stopObservingCommunities() {
+    override fun stopObservingCommunities() {
         communitiesJob?.cancel()
         communitiesJob = null
     }
 
-    fun openChat(neighborhood: String, onOpened: (String) -> Unit) {
+    override fun openChat(neighborhood: String, onOpened: (String) -> Unit) {
         if (_uiState.value.openingChatNeighborhood != null) return
         scope.launch {
             _uiState.value = _uiState.value.copy(
@@ -78,10 +80,20 @@ class NeighborhoodsViewModel(
         }
     }
 
-    fun toggleFollowUser(userId: String) {
+    override fun toggleFollowUser(userId: String) {
         if (_uiState.value.followingUserId == userId) return
+        val before = _uiState.value
+        val optimisticProfile = before.selectedProfile?.optimisticallyToggleFollow(userId)
+        val optimisticCommunities = before.communities.map { community ->
+            community.copy(users = community.users.map { user -> user.optimisticallyToggleFollow(userId) })
+        }
         scope.launch {
-            _uiState.value = _uiState.value.copy(followingUserId = userId, error = null)
+            _uiState.value = before.copy(
+                followingUserId = userId,
+                selectedProfile = optimisticProfile,
+                communities = optimisticCommunities,
+                error = null,
+            )
             repository.toggleFollowUser(userId)
                 .onSuccess { result ->
                     val currentState = _uiState.value
@@ -98,7 +110,7 @@ class NeighborhoodsViewModel(
                     )
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.value = before.copy(
                         followingUserId = null,
                         error = error.message ?: "No se pudo actualizar el seguimiento"
                     )
@@ -106,7 +118,7 @@ class NeighborhoodsViewModel(
         }
     }
 
-    fun openPrivateChat(userId: String, onOpened: (String) -> Unit) {
+    override fun openPrivateChat(userId: String, onOpened: (String) -> Unit) {
         if (_uiState.value.openingPrivateChatUserId != null) return
         scope.launch {
             _uiState.value = _uiState.value.copy(openingPrivateChatUserId = userId, error = null)
@@ -124,7 +136,13 @@ class NeighborhoodsViewModel(
         }
     }
 
-    fun openUserProfile(userId: String) {
+    override fun openUserProfile(userId: String) = openUserProfile(userId, addCurrentToBackStack = true)
+
+    private fun openUserProfile(userId: String, addCurrentToBackStack: Boolean) {
+        val currentProfileId = _uiState.value.selectedProfile?.user?.id
+        if (addCurrentToBackStack && currentProfileId != null && currentProfileId != userId && profileBackStack.lastOrNull() != currentProfileId) {
+            profileBackStack += currentProfileId
+        }
         profileJob?.cancel()
         scope.launch {
             val currentUserIsAdmin = repository.isCurrentUserAdmin()
@@ -176,9 +194,21 @@ class NeighborhoodsViewModel(
         }
     }
 
-    fun closeUserProfile() {
+    /** Returns true only when the global overlay should be dismissed by its platform host. */
+    fun closeUserProfile(): Boolean {
+        val previousProfileId = profileBackStack.removeLastOrNull()
+        if (previousProfileId != null) {
+            openUserProfile(previousProfileId, addCurrentToBackStack = false)
+            return false
+        }
+        clearUserProfile()
+        return true
+    }
+
+    fun clearUserProfile() {
         profileJob?.cancel()
         profileJob = null
+        profileBackStack.clear()
         _uiState.value = _uiState.value.copy(
             openingProfileUserId = null,
             refreshingProfileUserId = null,
@@ -196,6 +226,122 @@ class NeighborhoodsViewModel(
             if (profileUserId != null) {
                 refreshSelectedProfile(profileUserId)
             }
+        }
+    }
+
+    fun addProfileComment(postId: String, comment: PostComment) {
+        if (_uiState.value.commentingPostId != null) return
+        val before = _uiState.value.selectedProfile ?: return
+        val optimistic = before.copy(posts = before.posts.map { post ->
+            if (post.id == postId) post.copy(comments = post.comments + comment) else post
+        })
+        _uiState.value = _uiState.value.copy(
+            selectedProfile = optimistic,
+            commentingPostId = postId,
+            error = null,
+        )
+        scope.launch {
+            repository.addProfileComment(postId, comment)
+                .onSuccess { persisted ->
+                    val current = _uiState.value.selectedProfile
+                    _uiState.value = _uiState.value.copy(
+                        selectedProfile = if (persisted == null || current == null) current else current.copy(
+                            posts = current.posts.map { if (it.id == postId) persisted else it },
+                        ),
+                        commentingPostId = null,
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        selectedProfile = before,
+                        commentingPostId = null,
+                        error = error.message ?: "No se pudo publicar el comentario",
+                    )
+                }
+        }
+    }
+
+    fun toggleProfilePostLike(postId: String) {
+        if (_uiState.value.likingPostId != null) return
+        val before = _uiState.value.selectedProfile ?: return
+        val beforePost = before.posts.firstOrNull { it.id == postId } ?: return
+        val nextLiked = !beforePost.isLikedByCurrentUser
+        val optimistic = before.copy(posts = before.posts.map { post ->
+            if (post.id == postId) {
+                post.copy(
+                    isLikedByCurrentUser = nextLiked,
+                    likesCount = (post.likesCount + if (nextLiked) 1 else -1).coerceAtLeast(0),
+                )
+            } else post
+        })
+        _uiState.value = _uiState.value.copy(
+            selectedProfile = optimistic,
+            likingPostId = postId,
+            error = null,
+        )
+        scope.launch {
+            repository.toggleProfilePostLike(postId)
+                .onSuccess { persisted ->
+                    val current = _uiState.value.selectedProfile
+                    val resolved = if (persisted == null || current == null) current else current.copy(
+                        posts = current.posts.map { if (it.id == postId) persisted else it },
+                    )
+                    resolved?.let { repository.cacheUserProfile(it) }
+                    _uiState.value = _uiState.value.copy(
+                        selectedProfile = resolved,
+                        likingPostId = null,
+                        error = null,
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        selectedProfile = before,
+                        likingPostId = null,
+                        error = error.message ?: "No se pudo actualizar el me gusta",
+                    )
+                }
+        }
+    }
+
+    fun reportProfile(userId: String) {
+        if (_uiState.value.profileSafetyUpdatingUserId != null) return
+        scope.launch {
+            _uiState.value = _uiState.value.copy(profileSafetyUpdatingUserId = userId, error = null)
+            repository.reportProfile(userId)
+                .onSuccess { _uiState.value = _uiState.value.copy(profileSafetyUpdatingUserId = null) }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        profileSafetyUpdatingUserId = null,
+                        error = error.message ?: "No se pudo reportar el perfil",
+                    )
+                }
+        }
+    }
+
+    fun setProfileBlocked(userId: String, blocked: Boolean) {
+        if (_uiState.value.profileSafetyUpdatingUserId != null) return
+        val before = _uiState.value.selectedProfile ?: return
+        _uiState.value = _uiState.value.copy(
+            selectedProfile = before.copy(isBlockedByCurrentUser = blocked),
+            profileSafetyUpdatingUserId = userId,
+            error = null,
+        )
+        scope.launch {
+            repository.setProfileBlocked(userId, blocked)
+                .onSuccess { persisted ->
+                    val current = _uiState.value.selectedProfile
+                    _uiState.value = _uiState.value.copy(
+                        selectedProfile = current?.copy(isBlockedByCurrentUser = persisted),
+                        profileSafetyUpdatingUserId = null,
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        selectedProfile = before,
+                        profileSafetyUpdatingUserId = null,
+                        error = error.message ?: "No se pudo actualizar el bloqueo",
+                    )
+                }
         }
     }
 
@@ -350,12 +496,27 @@ class NeighborhoodsViewModel(
         return copy(followingCount = (followingCount + followingDelta).coerceAtLeast(0))
     }
 
+    private fun CommunityUserProfile.optimisticallyToggleFollow(targetUserId: String): CommunityUserProfile = copy(
+        user = user.optimisticallyToggleFollow(targetUserId),
+        followers = followers.map { it.optimisticallyToggleFollow(targetUserId) },
+        following = following.map { it.optimisticallyToggleFollow(targetUserId) },
+    )
+
+    private fun NeighborhoodUser.optimisticallyToggleFollow(targetUserId: String): NeighborhoodUser {
+        if (id != targetUserId) return this
+        val next = !isFollowing
+        return copy(
+            isFollowing = next,
+            followersCount = (followersCount + if (next) 1 else -1).coerceAtLeast(0),
+        )
+    }
+
     companion object {
         private const val PROFILE_CACHE_FRESH_MILLIS = 5 * 60_000L
 
     }
 
-    fun close() {
+    override fun close() {
         communitiesJob?.cancel()
         profileJob?.cancel()
         scope.coroutineContext.cancel()

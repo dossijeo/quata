@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +41,8 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.ui.components.QuataAvatarFallback
+import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationListRow
 import com.quata.feature.chat.presentation.conversations.ConversationsListContent
@@ -77,6 +81,8 @@ fun ChatBrowserHostContent(
     onOpenConversation: (String) -> Unit,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    onOpenUserProfile: (String) -> Unit,
+    openingProfileUserId: String? = null,
     conversationList: @Composable (Modifier) -> Unit,
     text: (ChatText) -> String,
     focusedMessageId: String? = null,
@@ -99,6 +105,8 @@ fun ChatBrowserHostContent(
             navigationMessage = navigationMessage,
             onBackToList = onBackToList,
             onOpenAttachment = onOpenAttachment,
+            onOpenUserProfile = onOpenUserProfile,
+            openingProfileUserId = openingProfileUserId,
             focusedMessageId = focusedMessageId,
             audioRecordingConfiguration = audioRecordingConfiguration,
             messageInputOverride = messageInputOverride,
@@ -269,6 +277,8 @@ private fun ChatBrowserConversationDetail(
     navigationMessage: String,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    onOpenUserProfile: (String) -> Unit,
+    openingProfileUserId: String?,
     focusedMessageId: String?,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration,
     messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)?,
@@ -371,7 +381,20 @@ private fun ChatBrowserConversationDetail(
             onFocusedMessageHandled = { pendingFocusedMessageId = null },
             strings = ChatConversationDetailStrings("Editado", "Mensaje eliminado", "Reenviado"),
             showSenderAvatar = { message -> !message.isMine },
-            avatar = {},
+            avatar = { message ->
+                QuataAvatarLoadingHaloContent(
+                    isLoading = openingProfileUserId == message.senderId,
+                    modifier = Modifier.size(38.dp),
+                ) {
+                    QuataAvatarFallback(
+                        name = message.senderName,
+                        stableId = message.senderId,
+                        modifier = Modifier.size(34.dp).clickable(
+                            enabled = openingProfileUserId != message.senderId,
+                        ) { onOpenUserProfile(message.senderId) },
+                    )
+                }
+            },
             onOpenLink = { url -> onOpenAttachment(PlatformFile(reference = url)) },
             onMessageClick = { message ->
                 deepLinkRequest = cancelChatMessageDeepLinkRequest(deepLinkRequest)

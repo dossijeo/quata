@@ -27,7 +27,7 @@ class IosAuthenticatedFeedRepository(
     }
     override suspend fun reportPost(postId: String): Result<Post?> = runCatching {
         val userId = transport.currentUserId().getOrThrow() ?: error("ios_feed_session_missing")
-        transport.reportPostRpc("{\"p_reporter_id\":\"$userId\",\"p_target_type\":\"community_post\",\"p_target_id\":\"$postId\",\"p_reason\":\"other\"}").getOrThrow()
+        transport.reportPostRpc("{\"p_actor_profile_id\":\"$userId\",\"p_target_type\":\"community_post\",\"p_target_id\":\"$postId\",\"p_reason\":\"other\"}").getOrThrow()
         refreshPost(postId).getOrThrow()
     }
     override suspend fun addComment(postId: String, comment: PostComment): Result<Post?> = runCatching {

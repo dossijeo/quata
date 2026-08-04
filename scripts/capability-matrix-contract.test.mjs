@@ -15,9 +15,10 @@ test('CAPABILITY-DRIFT-001 emits the mandatory operation-complete Web/iOS/Androi
   assert.deepEqual(emitted.find(({ id }) => id === 'official.read').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'official.interact').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'official.publish').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });
-  assert.deepEqual(emitted.find(({ id }) => id === 'communities.community-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });
-  assert.deepEqual(emitted.find(({ id }) => id === 'communities.private-chat.open').platforms, { android: 'implemented', web: 'blocked', ios: 'implemented' });
-  assert.deepEqual(emitted.find(({ id }) => id === 'communities.mutate').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'communities.community-chat.open').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'communities.private-chat.open').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'communities.read').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'communities.mutate').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'composer.publish').platforms, { android: 'implemented', web: 'contract-only', ios: 'blocked' });
 });
 
@@ -93,4 +94,58 @@ test('evidence paths reject symlinks and canonical paths outside the repository'
   await assert.rejects(() => validateCapabilityMatrix(original, {
     realpath: async (path) => String(path).endsWith('FeedRepository.kt') ? resolve(import.meta.dirname, '..', '..', 'outside.kt') : realpath(path),
   }), /resolved source escapes repository/);
+});
+
+test('REPORT-RPC-001 Web and iOS use the deployed quata_ugc_report actor argument', async () => {
+  const sources = [
+    'web/src/wasmJsMain/kotlin/com/quata/web/WebFeedRepository.kt',
+    'web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsRepository.kt',
+    'feature/feed/src/iosMain/kotlin/com/quata/feature/feed/data/IosAuthenticatedFeedRepository.kt',
+    'feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/data/IosNeighborhoodsReadRepository.kt',
+  ];
+  for (const relativePath of sources) {
+    const source = await readFile(resolve(import.meta.dirname, '..', relativePath), 'utf8');
+    assert.match(source, /p_actor_profile_id/, `${relativePath} must send the deployed actor argument`);
+    assert.doesNotMatch(source, /p_reporter_id/, `${relativePath} must not send the obsolete reporter argument`);
+  }
+});
+
+test('COMMUNITY-PROFILE-ADAPTER-001 Web and iOS keep member identity and audio actions functional', async () => {
+  const web = await readFile(resolve(import.meta.dirname, '..', 'web/src/wasmJsMain/kotlin/com/quata/web/Main.kt'), 'utf8');
+  const ios = await readFile(resolve(import.meta.dirname, '..', 'feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt'), 'utf8');
+  const webMembers = web.slice(web.indexOf('private val webNeighborhoodsSlots'), web.indexOf('profile = CommunityProfilePlatformSlots'));
+  const iosMembers = ios.slice(ios.indexOf('fun createIosNeighborhoodsHostDependencies'), ios.indexOf('onOpenConversation = onOpenConversation'));
+
+  assert.match(webMembers, /BrowserRemoteAvatar\([\s\S]*?avatarUrl = user\.avatarUrl/);
+  assert.match(iosMembers, /IosRemoteAvatar\([\s\S]*?avatarUrl = user\.avatarUrl/);
+  assert.match(web, /audioPlayer = \{[\s\S]*?Button\(onClick = open\)/);
+  assert.match(ios, /audioPlayer = \{[\s\S]*?Button\(onClick = open\)/);
+  assert.doesNotMatch(web, /audioPlayer = \{\s*(?:androidx\.compose\.material3\.)?Text\(attachment\.name\)\s*\}/);
+  assert.doesNotMatch(ios, /audioPlayer = \{\s*Text\(attachment\.name\)\s*\}/);
+});
+
+test('COMMUNITY-PROFILE-RETURN-001 Web preserves the Communities source beneath the profile overlay', async () => {
+  const host = await readFile(resolve(import.meta.dirname, '..', 'web/src/wasmJsMain/kotlin/com/quata/web/WebNeighborhoodsHost.kt'), 'utf8');
+
+  assert.match(host, /Box\s*\{[\s\S]*?if \(initialMemberProfileId == null\)\s*\{[\s\S]*?NeighborhoodsScreenHost\(/);
+  assert.match(host, /if \(selectedProfile != null\)\s*\{[\s\S]*?CommunityProfileScreenHost\(/);
+  assert.match(host, /showDismissButton = true/);
+});
+
+test('PROF-HEADER-LOADING-001 iOS resolves the profile behind the source avatar halo before presenting it', async () => {
+  const ios = await readFile(resolve(import.meta.dirname, '..', 'feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt'), 'utf8');
+  const remoteAvatar = await readFile(resolve(import.meta.dirname, '..', 'designsystem/src/iosMain/kotlin/com/quata/core/ui/components/IosRemoteAvatar.kt'), 'utf8');
+  const swift = await readFile(resolve(import.meta.dirname, '..', 'iosApp/iosApp/QuataIosApp.swift'), 'utf8');
+  const listHost = ios.slice(ios.indexOf('fun QuataNeighborhoodsViewController'), ios.indexOf('class IosCommunityProfileHostDependencies'));
+  const profileHost = ios.slice(ios.indexOf('class IosCommunityProfileHostDependencies'));
+
+  assert.match(listHost, /onOpenUserProfile = \{ userId ->[\s\S]*?dependencies\.viewModel\.openUserProfile\(userId\)/);
+  assert.doesNotMatch(listHost, /profileNavigator\.openMemberProfile\(userId\)/);
+  assert.match(listHost, /val profile = state\.selectedProfile[\s\S]*?profileNavigator\.openMemberProfile\(profile\)/);
+  assert.match(profileHost, /val profile = state\.selectedProfile \?: dependencies\.initialProfile/);
+  assert.match(profileHost, /state\.selectedProfile == null && dependencies\.initialProfile != null/);
+  assert.match(swift, /presentAuthenticatedMemberProfile\(profileId: profile\.user\.id, initialProfile: profile\)/);
+  assert.match(remoteAvatar, /encoded\.decodeToImageBitmap\(\)/);
+  assert.match(remoteAvatar, /Image\([\s\S]*?contentScale = ContentScale\.Crop/);
+  assert.doesNotMatch(remoteAvatar, /UIKitView|UIImageView|UIImage\(data/);
 });

@@ -432,6 +432,9 @@
     <string name="emoji_flags">Drapeaux</string>
     <string name="neighborhoods_title">Q&#252;ata</string>
     <string name="neighborhoods_loading">Chargement quartiers...</string>
+    <string name="neighborhoods_empty">Il n’y a pas encore de communautés actives.</string>
+    <string name="neighborhoods_no_results">Aucune communauté ne correspond à cette recherche.</string>
+    <string name="neighborhoods_no_members">Cette communauté n’a pas encore d’utilisateurs.</string>
     <string name="neighborhoods_open_community">Ouvre une communaute</string>
     <string name="neighborhoods_subtitle">Selectionne ou cherche un quartier pour ouvrir son chat communautaire.</string>
     <string name="neighborhoods_user_count">%1$d utilisateurs</string>
@@ -580,12 +583,14 @@
     <string name="ugc_terms_accept_error">Impossible d\'enregistrer votre acceptation. V&#233;rifiez la connexion et r&#233;essayez.</string>
     <string name="moderation_report">Signaler</string>
     <string name="moderation_block">Bloquer</string>
+    <string name="moderation_unblock">D&#233;bloquer</string>
     <string name="moderation_report_title">Signaler le profil</string>
     <string name="moderation_block_title">Bloquer le profil</string>
+    <string name="moderation_unblock_title">D&#233;bloquer le profil</string>
     <string name="moderation_report_profile_confirm">Envoyer ce profil &#224; l\'&#233;quipe de mod&#233;ration de Q&#252;ata pour examen&#160;?</string>
     <string name="moderation_block_profile_confirm">Cette personne ne pourra plus vous envoyer de messages. Vous pouvez toujours signaler son contenu s&#233;par&#233;ment.</string>
+    <string name="moderation_unblock_profile_confirm">Cette personne pourra &#224; nouveau vous contacter.</string>
     <string name="moderation_report_sent">Signalement envoy&#233; pour examen</string>
-    <string name="moderation_profile_blocked">Profil bloqu&#233;</string>
     <string name="moderation_report_message_title">Signaler le message</string>
     <string name="moderation_report_message_confirm">Envoyer ce message &#224; l\'&#233;quipe de mod&#233;ration de Q&#252;ata pour examen&#160;?</string>
     <string name="chat_error_report_message">Impossible de signaler le message</string>

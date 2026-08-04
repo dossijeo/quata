@@ -46,6 +46,8 @@ data class NeighborhoodListStrings(
     val title: String,
     val searchPlaceholder: String,
     val loading: String,
+    val empty: String,
+    val noResults: String,
     val oneUser: String,
     val users: (Int) -> String,
     val oneMessage: String,
@@ -96,17 +98,24 @@ fun NeighborhoodListContent(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(strings.loading, color = template.colors.textSecondary, fontWeight = FontWeight.SemiBold)
                 }
+            } else if (visibleCommunities.isEmpty() && error == null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        if (query.isBlank()) strings.empty else strings.noResults,
+                        color = template.colors.textSecondary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     contentPadding = PaddingValues(bottom = 4.dp)
                 ) {
-                    items(visibleCommunities, key = { it.name }) { community ->
+                    items(visibleCommunities, key = { it.wallId ?: it.name }) { community ->
                         NeighborhoodCardContent(
                             community = community,
-                            canOpenChat = currentUserId?.let { id -> community.users.any { it.id != id } }
-                                ?: community.users.isNotEmpty(),
+                            canOpenChat = community.conversationId != null || community.wallId != null,
                             isOpeningChat = openingNeighborhood == community.name,
                             strings = strings,
                             onShowUsers = { onShowUsers(community) },

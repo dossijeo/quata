@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.feature.official.data.IosOfficialReadRepository
@@ -12,6 +14,7 @@ import com.quata.feature.official.domain.OfficialRepository
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.platform.IosShareService
 import com.quata.core.platform.ShareService
+import com.quata.core.ui.components.IosMemberProfileOpeningState
 import platform.UIKit.UIViewController
 
 /** Narrow Swift-owned native viewer contract; it never owns pager or Official state. */
@@ -41,6 +44,7 @@ class IosOfficialHostDependencies(
     val onAuthRequired: () -> Unit = {},
     val onOpenUserProfile: (String) -> Unit = {},
     val onCreateOfficialPost: () -> Unit = {},
+    val profileOpeningState: IosMemberProfileOpeningState,
 )
 
 /**
@@ -58,6 +62,7 @@ fun createIosOfficialHostDependencies(
     onAuthRequired: () -> Unit = {}, onOpenUserProfile: (String) -> Unit = {},
     onCreateOfficialPost: () -> Unit = {},
     canCreateOfficialPost: Boolean = false,
+    profileOpeningState: IosMemberProfileOpeningState,
 ): IosOfficialHostDependencies = IosOfficialHostDependencies(
     repository = repository,
     officialPostId = officialPostId,
@@ -68,6 +73,7 @@ fun createIosOfficialHostDependencies(
     onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
     onCreateOfficialPost = onCreateOfficialPost,
     canCreateOfficialPost = canCreateOfficialPost,
+    profileOpeningState = profileOpeningState,
 )
 
 /**
@@ -83,12 +89,14 @@ fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
     shareService: ShareService = IosShareService(),
     mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
     onAuthRequired: () -> Unit = {}, onOpenUserProfile: (String) -> Unit = {},
+    profileOpeningState: IosMemberProfileOpeningState,
 ): IosOfficialHostDependencies = createIosOfficialHostDependencies(
     repository = IosOfficialReadRepository(configuration = configuration),
     officialPostId = officialPostId,
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
     onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
+    profileOpeningState = profileOpeningState,
 )
 
 /** Authenticated iOS path reuses the renewable Keychain session for reviewed Official writes. */
@@ -104,6 +112,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     onCreateOfficialPost: () -> Unit = {},
     canCreateOfficialPost: Boolean = false,
     preferredLanguageTag: String? = null,
+    profileOpeningState: IosMemberProfileOpeningState,
 ): IosOfficialHostDependencies = createIosOfficialHostDependencies(
     repository = IosOfficialReadRepository(configuration = configuration, authSession = authSession, preferredLanguageTag = preferredLanguageTag),
     officialPostId = officialPostId,
@@ -115,6 +124,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     onOpenUserProfile = onOpenUserProfile,
     canCreateOfficialPost = canCreateOfficialPost,
     onCreateOfficialPost = onCreateOfficialPost,
+    profileOpeningState = profileOpeningState,
 )
 
 /**
@@ -125,6 +135,7 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
     ComposeUIViewController {
         QuataTheme {
             val strings = defaultOfficialFeedScreenStrings(dependencies.preferredLanguageTag)
+            val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
             OfficialFeedScreenHost(
                 padding = PaddingValues(),
                 repository = dependencies.repository,
@@ -134,7 +145,13 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
                 onAuthRequired = dependencies.onAuthRequired,
                 onOpenUserProfile = dependencies.onOpenUserProfile,
                 onCreateOfficialPost = dependencies.onCreateOfficialPost,
-                slots = iosOfficialPlatformSlots(dependencies.shareService, dependencies.mediaViewerFactory, dependencies.canCreateOfficialPost, strings.close),
+                slots = iosOfficialPlatformSlots(
+                    dependencies.shareService,
+                    dependencies.mediaViewerFactory,
+                    dependencies.canCreateOfficialPost,
+                    strings.close,
+                    openingProfileUserId,
+                ),
                 onFocusedPostHandled = {},
                 modifier = Modifier,
             )

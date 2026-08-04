@@ -34,7 +34,10 @@ fun CommunityProfileCommentsPanelContent(
     commentRow: @Composable (PostComment) -> Unit,
     input: @Composable () -> Unit
 ) {
-    QuataFloatingPanelContent(onDismiss = onDismiss) { panelModifier, _ ->
+    QuataFloatingPanelContent(
+        onDismiss = onDismiss,
+        landscapeWidthFraction = 0.68f,
+    ) { panelModifier, _ ->
         Column(panelModifier.padding(18.dp)) {
             Box(Modifier.fillMaxWidth()) {
                 Text(

@@ -40,6 +40,7 @@ data class IosFeedRuntimeConfiguration(
 class IosFeedReadTransport(
     private val configuration: IosFeedRuntimeConfiguration,
     private val authSession: IosRenewableAuthSession? = null,
+    private val profileId: String? = null,
 ) : FeedReadTransport {
     override suspend fun fetchPosts(request: FeedRemotePostRequest): Result<List<FeedRemotePost>> = runCatching {
         val query = buildMap {
@@ -48,6 +49,7 @@ class IosFeedReadTransport(
             put("limit", request.limit.coerceAtLeast(1).toString())
             request.beforeCreatedAt?.takeIf(String::isNotBlank)?.let { put("created_at", "lt.$it") }
             request.postId?.takeIf(String::isNotBlank)?.let { put("id", "eq.${it.requireIosPostgrestIdentifier()}") }
+            profileId?.takeIf(String::isNotBlank)?.let { put("profile_id", "eq.${it.requireIosPostgrestIdentifier()}") }
         }
         getRows("community_posts", query).map { it.toFeedRemotePost() }
     }
@@ -115,6 +117,47 @@ class IosFeedReadTransport(
         }
         NSURLSessionConfiguration.ephemeralSessionConfiguration().apply { HTTPAdditionalHeaders = headers }
             .iosData(url, request.method, request.body.encodeToByteArray().toFoundationData())
+    }
+
+    /** Authenticated profile block/unblock boundary limited to the two deployed moderation RPCs. */
+    suspend fun profileModerationRpc(blocked: Boolean, body: String): Result<Unit> = runCatching {
+        require(authSession != null) { "ios_feed_session_missing" }
+        val session = authSession.currentSession()?.takeIf { it.bearerToken.isNotBlank() }
+            ?: error("ios_feed_session_missing")
+        val base = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty)
+            ?: error("ios_feed_supabase_url_missing")
+        val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty)
+            ?: error("ios_feed_supabase_publishable_key_missing")
+        val procedure = if (blocked) "quata_profile_block" else "quata_profile_unblock"
+        val url = NSURL(string = "$base/rest/v1/rpc/$procedure") ?: error("ios_feed_url_invalid")
+        val headers = iosFeedPublicHeaders(key).toMutableMap().apply {
+            put("Authorization", "Bearer ${session.bearerToken}")
+            put("Prefer", "return=representation")
+            put("Content-Type", "application/json")
+        }
+        NSURLSessionConfiguration.ephemeralSessionConfiguration().apply { HTTPAdditionalHeaders = headers }
+            .iosData(url, "POST", body.encodeToByteArray().toFoundationData())
+    }
+
+    /** Authenticated shared-attachment RPC used by the global public-profile gallery. */
+    suspend fun sharedAttachmentsRpc(body: String): Result<Map<*, *>> = runCatching {
+        require(authSession != null) { "ios_feed_session_missing" }
+        val session = authSession.currentSession()?.takeIf { it.bearerToken.isNotBlank() }
+            ?: error("ios_feed_session_missing")
+        val base = configuration.supabaseUrl.trim().trimEnd('/').takeIf(String::isNotEmpty)
+            ?: error("ios_feed_supabase_url_missing")
+        val key = configuration.supabasePublishableKey.trim().takeIf(String::isNotEmpty)
+            ?: error("ios_feed_supabase_publishable_key_missing")
+        val url = NSURL(string = "$base/rest/v1/rpc/quata_chat_list_shared_attachments")
+            ?: error("ios_feed_url_invalid")
+        val headers = iosFeedPublicHeaders(key).toMutableMap().apply {
+            put("Authorization", "Bearer ${session.bearerToken}")
+            put("Content-Type", "application/json")
+        }
+        val data = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply { HTTPAdditionalHeaders = headers }
+            .iosData(url, "POST", body.encodeToByteArray().toFoundationData())
+        NSJSONSerialization.JSONObjectWithData(data, options = 0u, error = null) as? Map<*, *>
+            ?: error("ios_feed_shared_attachments_invalid")
     }
 
     private suspend fun getRows(table: String, query: Map<String, String>): List<Map<*, *>> {

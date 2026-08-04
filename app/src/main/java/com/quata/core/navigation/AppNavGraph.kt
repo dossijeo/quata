@@ -994,28 +994,26 @@ fun AppNavGraph(
                 isRefreshingProfile = globalProfileState.refreshingProfileUserId == profile.user.id,
                 followingUserId = globalProfileState.followingUserId,
                 roleUpdatingUserId = globalProfileState.roleUpdatingUserId,
+                commentingPostId = globalProfileState.commentingPostId,
+                likingPostId = globalProfileState.likingPostId,
+                profileSafetyUpdatingUserId = globalProfileState.profileSafetyUpdatingUserId,
                 currentUserIsAdmin = globalProfileState.currentUserIsAdmin,
                 chatError = globalProfileState.error,
                 onAuthRequired = { requestAuthentication() },
                 onReportPost = { postId ->
                     if (isAuthenticated) globalProfileViewModel.reportProfilePost(postId) else requestAuthentication()
                 },
-                onReportProfile = { profileId ->
-                    appScope.launch {
-                        container.moderationRepository.report(ModerationTarget.Profile, profileId)
-                            .onSuccess { Toast.makeText(appContext, R.string.moderation_report_sent, Toast.LENGTH_SHORT).show() }
-                            .onFailure { Toast.makeText(appContext, it.toUserFacingMessage(appContext), Toast.LENGTH_LONG).show() }
-                    }
+                onTogglePostLike = { postId ->
+                    if (isAuthenticated) globalProfileViewModel.toggleProfilePostLike(postId) else requestAuthentication()
                 },
-                onBlockProfile = { profileId ->
-                    appScope.launch {
-                        container.moderationRepository.blockProfile(profileId)
-                            .onSuccess {
-                                Toast.makeText(appContext, R.string.moderation_profile_blocked, Toast.LENGTH_SHORT).show()
-                                globalProfileViewModel.closeUserProfile()
-                            }
-                            .onFailure { Toast.makeText(appContext, it.toUserFacingMessage(appContext), Toast.LENGTH_LONG).show() }
-                    }
+                onReportProfile = { profileId ->
+                    if (isAuthenticated) globalProfileViewModel.reportProfile(profileId) else requestAuthentication()
+                },
+                onSetProfileBlocked = { profileId, blocked ->
+                    if (isAuthenticated) globalProfileViewModel.setProfileBlocked(profileId, blocked) else requestAuthentication()
+                },
+                onAddComment = { postId, comment ->
+                    if (isAuthenticated) globalProfileViewModel.addProfileComment(postId, comment) else requestAuthentication()
                 },
                 onBack = { globalProfileViewModel.closeUserProfile() },
                 onFollow = {

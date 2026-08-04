@@ -5,6 +5,7 @@ import com.quata.core.platform.ShareService
 import com.quata.core.session.IosSupabaseAuthRuntimeConfiguration
 import com.quata.core.session.IosSupabaseAuthSessionRefresher
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
+import com.quata.core.ui.components.IosMemberProfileOpeningState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -41,6 +42,7 @@ class IosFeedRuntimeBootstrap(
         initialPostId: String? = null,
         onAuthRequired: () -> Unit = {},
         onCreatePost: () -> Unit = {},
+        profileOpeningState: IosMemberProfileOpeningState,
     ): IosFeedHostDependencies = iosPublicPostgrestReadOnlyFeedHostDependencies(
             configuration = configuration,
             mediaFactory = mediaFactory,
@@ -49,6 +51,7 @@ class IosFeedRuntimeBootstrap(
             initialPostId = initialPostId,
             onAuthRequired = onAuthRequired,
             onCreatePost = onCreatePost,
+            profileOpeningState = profileOpeningState,
         )
 
     fun authenticatedDependencies(
@@ -58,9 +61,10 @@ class IosFeedRuntimeBootstrap(
         onOpenUserProfile: (String) -> Unit = {},
         onAuthRequired: () -> Unit = {},
         onCreatePost: () -> Unit = {},
+        profileOpeningState: IosMemberProfileOpeningState,
     ): IosFeedHostDependencies = iosAuthenticatedPostgrestFeedHostDependencies(
         configuration, authSession, mediaFactory, shareService, initialPostId, onOpenUserProfile,
-        onAuthRequired, onCreatePost,
+        onAuthRequired, onCreatePost, profileOpeningState,
     )
 
     /** Returns whether a Keychain record exists; do not use this to mount authenticated UI. */

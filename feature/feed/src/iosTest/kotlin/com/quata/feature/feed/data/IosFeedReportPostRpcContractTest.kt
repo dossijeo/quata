@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 class IosFeedReportPostRpcContractTest {
     @Test
     fun reportPostUsesTheReviewedAuthenticatedRpcEndpointAndPayload() {
-        val body = "{\"p_reporter_id\":\"user-7\",\"p_target_type\":\"community_post\",\"p_target_id\":\"post-9\",\"p_reason\":\"other\"}"
+        val body = "{\"p_actor_profile_id\":\"user-7\",\"p_target_type\":\"community_post\",\"p_target_id\":\"post-9\",\"p_reason\":\"other\"}"
         val request = iosFeedReportPostRpcRequest("https://deployment.invalid/", body)
 
         assertEquals("POST", request.method)

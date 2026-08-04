@@ -14,6 +14,7 @@ import com.quata.feature.chat.data.IosChatRuntimeConfiguration
 import com.quata.feature.chat.data.IosChatRealtimeGateway
 import com.quata.feature.chat.data.PostgrestChatRepository
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.core.ui.components.IosMemberProfileOpeningState
 
 /**
  * Authenticated runtime composition for Chat. It shares the iOS Keychain owner with Auth/Feed
@@ -60,6 +61,8 @@ class IosChatRuntimeBootstrap(
         onOpenConversation: (String) -> Unit,
         onBackToList: () -> Unit,
         onOpenAttachment: (PlatformFile) -> Unit,
+        onOpenAvatar: (String) -> Unit,
+        profileOpeningState: IosMemberProfileOpeningState,
     ): IosChatHostDependencies = IosChatHostDependencies(
         repository = repository(),
         audioPlayer = audioPlayer,
@@ -71,6 +74,8 @@ class IosChatRuntimeBootstrap(
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
         onOpenAttachment = onOpenAttachment,
+        onOpenAvatar = onOpenAvatar,
+        profileOpeningState = profileOpeningState,
     )
 }
 

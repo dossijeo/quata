@@ -22,15 +22,30 @@ data class NeighborhoodCommunity(
     val conversationId: String?,
     val lastMessagePreview: String?,
     val lastMessageAtMillis: Long?,
-    val messageCount: Int
+    val messageCount: Int,
+    /** Canonical active wall UUID. Null means chat must fail closed unless a cached thread exists. */
+    val wallId: String? = null,
 )
+
+/**
+ * A wall can be addressed by several backend aliases (slug, display name and normalized name).
+ * Directory adapters may therefore project the same wall more than once while joining profiles.
+ * Collapse those aliases before Compose receives them so lazy-list keys and visible rows remain
+ * one-to-one with the real community.
+ */
+fun Iterable<NeighborhoodCommunity>.distinctByCommunityIdentity(): List<NeighborhoodCommunity> =
+    distinctBy { community ->
+        community.wallId?.trim()?.takeIf(String::isNotEmpty)
+            ?: community.name.trim().lowercase().replace(Regex("\\s+"), " ")
+    }
 
 data class CommunityUserProfile(
     val user: NeighborhoodUser,
     val posts: List<Post>,
     val attachments: List<ProfileAttachment> = emptyList(),
     val followers: List<NeighborhoodUser> = emptyList(),
-    val following: List<NeighborhoodUser> = emptyList()
+    val following: List<NeighborhoodUser> = emptyList(),
+    val isBlockedByCurrentUser: Boolean = false,
 )
 
 data class FollowUserResult(

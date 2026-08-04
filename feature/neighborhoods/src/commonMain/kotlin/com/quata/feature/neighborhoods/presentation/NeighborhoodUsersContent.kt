@@ -2,6 +2,7 @@ package com.quata.feature.neighborhoods.presentation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +33,7 @@ data class NeighborhoodUsersStrings(
     val subtitle: String,
     val backContentDescription: String,
     val memberCount: (Int) -> String,
+    val empty: String,
     val row: NeighborhoodUserRowStrings
 )
 
@@ -66,18 +68,24 @@ fun NeighborhoodUsersContent(
             Spacer(Modifier.height(18.dp))
             NeighborhoodCountPill(strings.memberCount(community.users.size))
             Spacer(Modifier.height(16.dp))
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 22.dp), modifier = Modifier.fillMaxSize()) {
-                items(community.users, key = { it.id }) { user ->
-                    NeighborhoodUserRowContent(
-                        user = user,
-                        isOwnUser = user.id == currentUserId,
-                        isFollowingLoading = followingUserId == user.id,
-                        isOpeningChat = isOpeningChat && openingPrivateChatUserId == user.id,
-                        strings = strings.row,
-                        avatar = { avatar(user, openingProfileUserId == user.id) { onOpenProfile(user) } },
-                        onFollowUser = { onFollowUser(user) },
-                        onOpenPrivateChat = { onOpenPrivateChat(user) }
-                    )
+            if (community.users.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(strings.empty, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                }
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 22.dp), modifier = Modifier.fillMaxSize()) {
+                    items(community.users, key = { it.id }) { user ->
+                        NeighborhoodUserRowContent(
+                            user = user,
+                            isOwnUser = user.id == currentUserId,
+                            isFollowingLoading = followingUserId == user.id,
+                            isOpeningChat = isOpeningChat && openingPrivateChatUserId == user.id,
+                            strings = strings.row,
+                            avatar = { avatar(user, openingProfileUserId == user.id) { onOpenProfile(user) } },
+                            onFollowUser = { onFollowUser(user) },
+                            onOpenPrivateChat = { onOpenPrivateChat(user) }
+                        )
+                    }
                 }
             }
         }

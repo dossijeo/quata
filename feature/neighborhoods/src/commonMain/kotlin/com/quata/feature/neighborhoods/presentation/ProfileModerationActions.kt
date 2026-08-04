@@ -18,13 +18,16 @@ import com.quata.core.ui.components.CompactIcon
 
 data class ProfileModerationStrings(
     val report: String,
-    val block: String
+    val block: String,
+    val unblock: String,
 )
 
 /** Platform-neutral entry points; confirmation and mutation stay with the host. */
 @Composable
 fun ProfileModerationActions(
     visible: Boolean,
+    isBlocked: Boolean,
+    isUpdating: Boolean,
     strings: ProfileModerationStrings,
     onReport: () -> Unit,
     onBlock: () -> Unit
@@ -35,15 +38,15 @@ fun ProfileModerationActions(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        TextButton(onClick = onReport, modifier = Modifier.weight(1f)) {
+        TextButton(onClick = onReport, enabled = !isUpdating, modifier = Modifier.weight(1f)) {
             CompactIcon(Icons.Filled.Flag, contentDescription = null, modifier = Modifier.size(17.dp))
             Spacer(Modifier.width(6.dp))
             Text(strings.report)
         }
-        TextButton(onClick = onBlock, modifier = Modifier.weight(1f)) {
+        TextButton(onClick = onBlock, enabled = !isUpdating, modifier = Modifier.weight(1f)) {
             CompactIcon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(17.dp))
             Spacer(Modifier.width(6.dp))
-            Text(strings.block)
+            Text(if (isBlocked) strings.unblock else strings.block)
         }
     }
 }

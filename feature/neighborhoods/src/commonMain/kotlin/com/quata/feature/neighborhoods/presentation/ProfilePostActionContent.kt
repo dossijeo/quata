@@ -23,6 +23,7 @@ fun ProfilePostActionContent(
     icon: ImageVector,
     count: String?,
     tint: Color = Color.White,
+    enabled: Boolean = true,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -34,13 +35,13 @@ fun ProfilePostActionContent(
             modifier = Modifier
                 .size(42.dp)
                 .background(Color.Black.copy(alpha = 0.42f), CircleShape)
-                .clickable(onClick = onClick),
+                .clickable(enabled = enabled, onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = tint,
+                tint = tint.copy(alpha = if (enabled) tint.alpha else tint.alpha * 0.55f),
                 modifier = Modifier.size(20.dp)
             )
         }

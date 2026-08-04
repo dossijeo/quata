@@ -49,6 +49,8 @@ fun WebChatHost(
     navigationMessage: String,
     onOpenConversation: (String) -> Unit,
     onBackToList: () -> Unit,
+    onOpenUserProfile: (String) -> Unit,
+    openingProfileUserId: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val resolvedAudioRecorder = remember(audioRecorder) { audioRecorder ?: BrowserAudioRecorderService() }
@@ -82,6 +84,8 @@ fun WebChatHost(
         onOpenConversation = onOpenConversation,
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
+        onOpenUserProfile = onOpenUserProfile,
+        openingProfileUserId = openingProfileUserId,
         text = chatText,
         conversationList = { listModifier ->
             ConversationsScreenHost(
@@ -90,6 +94,8 @@ fun WebChatHost(
                 clipboardService = clipboard,
                 strings = conversationsHostStringsForLanguage(languageTag),
                 onOpenConversation = onOpenConversation,
+                onOpenUserProfile = onOpenUserProfile,
+                openingProfileUserId = openingProfileUserId,
                 remoteConversationAvatar = { presentation, avatarModifier ->
                     WebConversationAvatar(presentation, avatarModifier)
                 },

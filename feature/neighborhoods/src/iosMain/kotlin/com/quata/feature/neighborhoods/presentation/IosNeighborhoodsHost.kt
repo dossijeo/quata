@@ -1,24 +1,47 @@
 package com.quata.feature.neighborhoods.presentation
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
-import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.model.PostComment
-import com.quata.core.ui.components.QuataAvatarFallback
+import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.navigation.quataPostUrl
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.SharePayload
+import com.quata.core.platform.ShareService
+import com.quata.core.ui.components.IosRemoteAvatar
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
+import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+import com.quata.feature.feed.presentation.IosFeedMediaFactory
+import com.quata.feature.feed.presentation.IosFeedMediaSlot
+import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
 /**
@@ -27,7 +50,7 @@ import platform.UIKit.UIViewController
  * or create a local profile model.
  */
 fun interface IosCommunityProfileNavigator {
-    fun openMemberProfile(profileId: String)
+    fun openMemberProfile(profile: CommunityUserProfile)
 }
 
 /**
@@ -50,7 +73,6 @@ class IosNeighborhoodsHostDependencies(
     /** Public Communities may browse anonymously; writes/navigation acquire Auth at the shell. */
     val onAuthRequired: () -> Unit = {},
     val profileNavigator: IosCommunityProfileNavigator,
-    val onOpenAttachment: (ProfileAttachment) -> Unit,
 )
 
 /**
@@ -63,24 +85,29 @@ class IosNeighborhoodsHostDependencies(
 fun createIosNeighborhoodsHostDependencies(
     repository: NeighborhoodRepository,
     currentUserId: String?,
+    languageCode: String,
     onOpenConversation: (String) -> Unit,
-    onNavigateToProfile: (String) -> Unit,
+    onNavigateToProfile: (CommunityUserProfile) -> Unit,
     onAuthRequired: () -> Unit = {},
 ): IosNeighborhoodsHostDependencies = IosNeighborhoodsHostDependencies(
     repository = repository,
     viewModel = NeighborhoodsViewModel(repository),
     currentUserId = currentUserId,
-    listStrings = IosNeighborhoodListStrings,
-    usersStrings = IosNeighborhoodUsersStrings,
-    avatar = { user, _, _ ->
-        // Remote image loading belongs to a separately verified platform media adapter. A
-        // deterministic common fallback keeps this host usable without inventing a URL loader.
-        QuataAvatarFallback(name = user.displayName, stableId = user.id)
+    listStrings = neighborhoodsScreenStringsForLanguage(languageCode).list,
+    usersStrings = neighborhoodsScreenStringsForLanguage(languageCode).members,
+    avatar = { user, isLoading, onClick ->
+        QuataAvatarLoadingHaloContent(isLoading = isLoading, modifier = Modifier.size(44.dp)) {
+            IosRemoteAvatar(
+                name = user.displayName,
+                stableId = user.id,
+                avatarUrl = user.avatarUrl,
+                modifier = Modifier.fillMaxSize().clickable(enabled = !isLoading, onClick = onClick),
+            )
+        }
     },
     onOpenConversation = onOpenConversation,
     onAuthRequired = onAuthRequired,
     profileNavigator = IosCommunityProfileNavigator(onNavigateToProfile),
-    onOpenAttachment = {},
 )
 
 /** Creates an injectable UIKit host for the common Neighborhoods list and member surfaces. */
@@ -88,58 +115,190 @@ fun QuataNeighborhoodsViewController(
     dependencies: IosNeighborhoodsHostDependencies,
 ): UIViewController = ComposeUIViewController {
     val state by dependencies.viewModel.uiState.collectAsState()
-    var query by rememberSaveable { mutableStateOf("") }
-    var membersOf by rememberSaveable { mutableStateOf<String?>(null) }
-
-    DisposableEffect(dependencies.viewModel) {
-        dependencies.viewModel.startObservingCommunities()
-        onDispose { dependencies.viewModel.stopObservingCommunities() }
+    var presentedProfileId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.selectedProfile) {
+        val profile = state.selectedProfile
+        if (profile == null) {
+            presentedProfileId = null
+        } else if (presentedProfileId != profile.user.id) {
+            presentedProfileId = profile.user.id
+            dependencies.profileNavigator.openMemberProfile(profile)
+            dependencies.viewModel.clearUserProfile()
+        }
     }
-
     QuataTheme {
-        val selectedCommunity = state.communities.firstOrNull { it.name == membersOf }
-        if (selectedCommunity == null) {
-            NeighborhoodListContent(
-                padding = PaddingValues(),
-                communities = state.communities,
-                query = query,
-                isLoading = state.isLoading,
-                error = state.error,
-                currentUserId = dependencies.currentUserId,
-                openingNeighborhood = state.openingChatNeighborhood,
-                strings = dependencies.listStrings,
-                onQueryChange = { query = it },
-                onShowUsers = { membersOf = it.name },
-                onOpenChat = { community ->
-                    if (dependencies.currentUserId == null) dependencies.onAuthRequired()
-                    else dependencies.viewModel.openChat(community.name, dependencies.onOpenConversation)
-                },
+        NeighborhoodsScreenHost(
+            currentUserId = dependencies.currentUserId,
+            strings = NeighborhoodsScreenStrings(dependencies.listStrings, dependencies.usersStrings),
+            avatar = dependencies.avatar,
+            onOpenConversation = dependencies.onOpenConversation,
+            onOpenUserProfile = { userId ->
+                // Android treats member-profile inspection as public read access. Follow and
+                // chat remain separately gated by the shared host. Keep this host visible while
+                // the common ViewModel resolves the real profile: the member avatar owns the
+                // loading halo, and navigation happens only after data is available.
+                dependencies.viewModel.openUserProfile(userId)
+            },
+            onAuthRequired = dependencies.onAuthRequired,
+            padding = PaddingValues(),
+            model = dependencies.viewModel,
+            closeModelOnDispose = true,
+        )
+    }
+}
+
+class IosCommunityProfileHostDependencies(
+    val repository: NeighborhoodRepository,
+    val profileId: String,
+    val initialProfile: CommunityUserProfile?,
+    val currentUserId: String?,
+    val languageCode: String,
+    val mediaFactory: IosFeedMediaFactory,
+    val documentOpener: DocumentOpenService,
+    val shareService: ShareService,
+    val onClose: () -> Unit,
+    val onOpenConversation: (String) -> Unit,
+    val onAuthRequired: () -> Unit,
+)
+
+fun createIosCommunityProfileHostDependencies(
+    repository: NeighborhoodRepository,
+    profileId: String,
+    initialProfile: CommunityUserProfile?,
+    currentUserId: String?,
+    languageCode: String,
+    mediaFactory: IosFeedMediaFactory,
+    documentOpener: DocumentOpenService,
+    shareService: ShareService,
+    onClose: () -> Unit,
+    onOpenConversation: (String) -> Unit,
+    onAuthRequired: () -> Unit,
+): IosCommunityProfileHostDependencies = IosCommunityProfileHostDependencies(
+    repository = repository,
+    profileId = profileId,
+    initialProfile = initialProfile,
+    currentUserId = currentUserId,
+    languageCode = languageCode,
+    mediaFactory = mediaFactory,
+    documentOpener = documentOpener,
+    shareService = shareService,
+    onClose = onClose,
+    onOpenConversation = onOpenConversation,
+    onAuthRequired = onAuthRequired,
+)
+
+/** UIKit adapter for the same complete public-profile Compose root used by Android and Web. */
+fun QuataCommunityProfileViewController(
+    dependencies: IosCommunityProfileHostDependencies,
+): UIViewController = ComposeUIViewController {
+    val viewModel = remember(dependencies.repository) { NeighborhoodsViewModel(dependencies.repository) }
+    val scope = rememberCoroutineScope()
+    val state by viewModel.uiState.collectAsState()
+    LaunchedEffect(dependencies.profileId) { viewModel.openUserProfile(dependencies.profileId) }
+    DisposableEffect(viewModel) { onDispose { viewModel.close() } }
+    QuataTheme {
+        val profile = state.selectedProfile ?: dependencies.initialProfile
+        if (profile == null) {
+            CommunityProfileLoadStateContent(
+                isLoading = state.openingProfileUserId != null || state.error == null,
+                errorMessage = state.error,
+                backLabel = communityProfileStringsForLanguage(dependencies.languageCode).back,
+                onBack = dependencies.onClose,
             )
         } else {
-            NeighborhoodUsersContent(
-                padding = PaddingValues(),
-                community = selectedCommunity,
+            CommunityProfileScreenHost(
+                profile = profile,
                 currentUserId = dependencies.currentUserId,
+                strings = communityProfileStringsForLanguage(dependencies.languageCode),
+                slots = CommunityProfilePlatformSlots(
+                    avatar = { user, modifier, loading, openAvatar ->
+                        QuataAvatarLoadingHaloContent(isLoading = loading, modifier = modifier) {
+                            IosRemoteAvatar(
+                                name = user.displayName,
+                                stableId = user.id,
+                                avatarUrl = user.avatarUrl,
+                                modifier = Modifier.fillMaxSize().then(
+                                    openAvatar?.let { Modifier.clickable(enabled = !loading, onClick = it) } ?: Modifier,
+                                ),
+                            )
+                        }
+                    },
+                    attachment = { attachment, open ->
+                        ProfileAttachmentRowContent(
+                            attachment = attachment,
+                            audioPlayer = {
+                                Button(onClick = open) { Text(attachment.name) }
+                            },
+                            thumbnail = { Text("↗") },
+                            onOpen = open,
+                        )
+                    },
+                    postMedia = { post, loaded, _ ->
+                        var position by remember(post.id) { mutableLongStateOf(0L) }
+                        var muted by remember(post.id) { mutableStateOf(true) }
+                        IosFeedMediaSlot(
+                            post = post,
+                            isCurrent = loaded || post.videoUrl == null,
+                            initialPositionMs = position,
+                            onPositionChanged = { position = it },
+                            isMuted = muted,
+                            onMuteChange = { muted = it },
+                            mediaFactory = dependencies.mediaFactory,
+                        )
+                    },
+                    openAttachment = { attachment ->
+                        scope.launch {
+                            dependencies.documentOpener.open(
+                                PlatformFile(
+                                    reference = attachment.uri,
+                                    displayName = attachment.name,
+                                    mimeType = attachment.mimeType,
+                                ),
+                            )
+                        }
+                    },
+                    sharePost = { post ->
+                        scope.launch {
+                            dependencies.shareService.share(
+                                SharePayload(text = quataPostUrl(post.id), title = post.text.take(80)),
+                            )
+                        }
+                    },
+                ),
                 isOpeningChat = state.openingPrivateChatUserId != null,
-                openingPrivateChatUserId = state.openingPrivateChatUserId,
-                openingProfileUserId = state.openingProfileUserId,
+                isRefreshingProfile = state.refreshingProfileUserId == profile.user.id ||
+                    (state.selectedProfile == null && dependencies.initialProfile != null),
                 followingUserId = state.followingUserId,
-                strings = dependencies.usersStrings,
-                avatar = dependencies.avatar,
-                onBack = { membersOf = null },
-                onFollowUser = { user ->
-                    if (dependencies.currentUserId == null) dependencies.onAuthRequired()
-                    else dependencies.viewModel.toggleFollowUser(user.id)
+                roleUpdatingUserId = state.roleUpdatingUserId,
+                commentingPostId = state.commentingPostId,
+                likingPostId = state.likingPostId,
+                profileSafetyUpdatingUserId = state.profileSafetyUpdatingUserId,
+                currentUserIsAdmin = state.currentUserIsAdmin,
+                openingProfileUserId = state.openingProfileUserId,
+                errorMessage = state.error,
+                onAuthRequired = dependencies.onAuthRequired,
+                onBack = { if (viewModel.closeUserProfile()) dependencies.onClose() },
+                onFollowUser = viewModel::toggleFollowUser,
+                onOpenPrivateChat = { userId ->
+                    viewModel.openPrivateChat(userId) { conversationId ->
+                        viewModel.clearUserProfile()
+                        dependencies.onOpenConversation(conversationId)
+                    }
                 },
-                onOpenProfile = { user ->
-                    // Android treats member-profile inspection as public read access.  Follow
-                    // and chat remain separately gated below.
-                    dependencies.viewModel.openUserProfile(user.id)
-                    dependencies.profileNavigator.openMemberProfile(user.id)
-                },
-                onOpenPrivateChat = { user ->
-                    if (dependencies.currentUserId == null) dependencies.onAuthRequired()
-                    else dependencies.viewModel.openPrivateChat(user.id, dependencies.onOpenConversation)
+                onOpenUserProfile = viewModel::openUserProfile,
+                onSetUserRoles = viewModel::setUserRoles,
+                onReportPost = viewModel::reportProfilePost,
+                onTogglePostLike = viewModel::toggleProfilePostLike,
+                onReportProfile = viewModel::reportProfile,
+                onSetProfileBlocked = viewModel::setProfileBlocked,
+                onAddComment = viewModel::addProfileComment,
+                createComment = { post, draft ->
+                    PostComment(
+                        id = "profile_${post.id}_${draft.hashCode()}",
+                        authorName = "You",
+                        message = draft,
+                        timestamp = "Now",
+                    )
                 },
             )
         }
@@ -211,28 +370,3 @@ fun IosNeighborhoodRankingPanelContent(
         onOpenItem = onOpenPost,
     )
 }
-
-private val IosNeighborhoodListStrings = NeighborhoodListStrings(
-    title = "Communities",
-    searchPlaceholder = "Search communities",
-    loading = "Loading communities…",
-    oneUser = "1 member",
-    users = { "$it members" },
-    oneMessage = "1 message",
-    messages = { "$it messages" },
-    viewUsers = "View members",
-    openChat = "Open chat",
-    timeLabel = { "No recent activity" },
-)
-
-private val IosNeighborhoodUsersStrings = NeighborhoodUsersStrings(
-    title = { "$it members" },
-    subtitle = "Community members",
-    backContentDescription = "Back",
-    memberCount = { "$it members" },
-    row = NeighborhoodUserRowStrings(
-        follow = "Follow",
-        following = "Following",
-        chat = "Chat",
-    ),
-)

@@ -11,12 +11,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
@@ -27,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 
 /** Portable state published by a reel playback engine to the shared visual host. */
 data class VideoPlaybackState(
@@ -110,16 +113,17 @@ fun FeedReelVideoPlaybackHostContent(
                 .padding(start = 12.dp, end = 96.dp, bottom = 8.dp)
                 .fillMaxWidth()
                 .background(Color.Black.copy(alpha = 0.42f), RoundedCornerShape(18.dp))
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = if (state.isPlaying) strings.pause else strings.play,
-                color = Color.White,
-                fontSize = 12.sp,
-                modifier = Modifier.clickable { toggle(showFeedback = false) },
-            )
+            CompactIconButton(onClick = { toggle(showFeedback = false) }) {
+                CompactIcon(
+                    imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = if (state.isPlaying) strings.pause else strings.play,
+                    tint = Color.White,
+                )
+            }
             ReelTimelineThumbContent(
                 progress = (state.positionMs.toFloat() / state.durationMs.coerceAtLeast(1L).toFloat())
                     .coerceIn(0f, 1f),
@@ -127,7 +131,7 @@ fun FeedReelVideoPlaybackHostContent(
                     onSeek((progress * state.durationMs.coerceAtLeast(1L).toFloat()).toLong())
                 },
                 modifier = Modifier
-                    .width(120.dp)
+                    .weight(1f)
                     .height(30.dp),
             )
             Text(
@@ -136,12 +140,17 @@ fun FeedReelVideoPlaybackHostContent(
                 fontSize = 12.sp,
             )
             if (state.showMuteButton) {
-                Text(
-                    text = if (state.isMuted) strings.unmute else strings.mute,
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    modifier = Modifier.clickable(onClick = onToggleMute),
-                )
+                CompactIconButton(onClick = onToggleMute) {
+                    CompactIcon(
+                        imageVector = if (state.isMuted) {
+                            Icons.AutoMirrored.Filled.VolumeOff
+                        } else {
+                            Icons.AutoMirrored.Filled.VolumeUp
+                        },
+                        contentDescription = if (state.isMuted) strings.unmute else strings.mute,
+                        tint = Color.White,
+                    )
+                }
             }
         }
     }

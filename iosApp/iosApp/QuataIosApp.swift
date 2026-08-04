@@ -329,6 +329,10 @@ private final class IosAppCompositionRoot {
             chatRepository: chatRuntimeBootstrap.repository(),
         )
     }()
+    /// One observable request identity keeps the Android loading treatment across every iOS
+    /// source route while Kotlin resolves the real public profile before UIKit navigates.
+    private let memberProfileOpeningState = IosMemberProfileOpeningState()
+    private var memberProfilePreloader: IosCommunityProfilePreloader?
     /// The extension writes only to the App Group. This authenticated app runtime reuses the
     /// existing Keychain session and real Chat repository when the user opens the handoff URL.
     private lazy var externalShareRuntimeBootstrap: IosExternalShareRuntimeBootstrap? = {
@@ -505,6 +509,7 @@ private final class IosAppCompositionRoot {
                     initialPostId: postId,
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onCreatePost: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+                    profileOpeningState: self.memberProfileOpeningState,
                 ),
             )
         }
@@ -541,6 +546,7 @@ private final class IosAppCompositionRoot {
                     },
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onCreatePost: { [weak self] in self?.authenticatedHost.showComposer() },
+                    profileOpeningState: self.memberProfileOpeningState,
                 ),
             )
         }
@@ -596,7 +602,12 @@ private final class IosAppCompositionRoot {
 
     private func installAuthenticatedChatIfAvailable() {
         guard let chatRuntimeBootstrap else { return }
-        authenticatedHost.installAuthenticatedChat(chatRuntimeBootstrap)
+        authenticatedHost.installAuthenticatedChat(
+            chatRuntimeBootstrap,
+            profileOpeningState: memberProfileOpeningState
+        ) { [weak self] profileId in
+            self?.presentAuthenticatedMemberProfile(profileId: profileId)
+        }
     }
 
     /// Official stays available to anonymous visitors.  It is installed before session
@@ -629,6 +640,7 @@ private final class IosAppCompositionRoot {
                         onCreateOfficialPost: onCreateOfficialPost,
                         canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
                         preferredLanguageTag: Locale.preferredLanguages.first,
+                        profileOpeningState: self.memberProfileOpeningState,
                     )
                 )
             }
@@ -644,6 +656,7 @@ private final class IosAppCompositionRoot {
                     onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                     onCreateOfficialPost: onCreateOfficialPost,
                     canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
+                    profileOpeningState: self.memberProfileOpeningState,
                 ),
             )
         }
@@ -788,54 +801,118 @@ private final class IosAppCompositionRoot {
     /// Communities mirrors Android's anonymous browser.  The KMP host receives a nullable
     /// current user; its chat/follow/profile actions ask the shared Auth gate when it is nil.
     private func installCommunitiesIfAvailable() {
-        guard let runtimeBootstrap, let profileSosRuntimeBootstrap else { return }
+        guard runtimeBootstrap != nil, profileSosRuntimeBootstrap != nil else { return }
         let authenticated = hasValidatedAuthenticatedSession
         guard let communitiesBootstrap = authenticated ? communitiesRuntimeBootstrap : publicCommunitiesRuntimeBootstrap else { return }
+        memberProfilePreloader?.close()
+        memberProfilePreloader = IosCommunityProfilePreloader(repository: communitiesBootstrap.repository)
+        memberProfileOpeningState.clear()
         authenticatedHost.installCommunitiesFactory { [weak self] in
             IosNeighborhoodsHostKt.QuataNeighborhoodsViewController(
                 dependencies: IosNeighborhoodsHostKt.createIosNeighborhoodsHostDependencies(
                     repository: communitiesBootstrap.repository,
                     currentUserId: communitiesBootstrap.restoredCurrentUserId(),
+                    languageCode: Locale.current.languageCode ?? "en",
                     onOpenConversation: { [weak self] conversationId in
-                        guard let self else { return }
-                        if self.hasValidatedAuthenticatedSession {
-                            self.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
-                        } else {
-                            self.authenticatedHost.presentAuthRequiredPrompt()
+                        DispatchQueue.main.async {
+                            guard let self else { return }
+                            if self.hasValidatedAuthenticatedSession {
+                                self.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                            } else {
+                                self.authenticatedHost.presentAuthRequiredPrompt()
+                            }
                         }
                     },
-                    onNavigateToProfile: { [weak self] profileId in
-                        guard let self else { return }
-                        self.presentAuthenticatedMemberProfile(profileId: profileId)
+                    onNavigateToProfile: { [weak self] profile in
+                        DispatchQueue.main.async {
+                            self?.presentAuthenticatedMemberProfile(profileId: profile.user.id, initialProfile: profile)
+                        }
                     },
-                    onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+                    onAuthRequired: { [weak self] in
+                        DispatchQueue.main.async {
+                            self?.authenticatedHost.presentAuthRequiredPrompt()
+                        }
+                    },
                 ),
             )
         }
     }
 
     /// Feed and Communities share the existing authenticated member-profile presentation.
-    fileprivate func presentAuthenticatedMemberProfile(profileId: String) {
-        guard let configuration = runtimeConfiguration else { return }
+    fileprivate func presentAuthenticatedMemberProfile(
+        profileId: String,
+        initialProfile: CommunityUserProfile? = nil
+    ) {
+        if initialProfile == nil {
+            guard memberProfileOpeningState.begin(profileId: profileId) else { return }
+            guard let memberProfilePreloader else {
+                memberProfileOpeningState.finish(profileId: profileId)
+                presentMemberProfileLoadFailure(message: nil)
+                return
+            }
+            memberProfilePreloader.load(profileId: profileId) { [weak self] profile, errorMessage in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.memberProfileOpeningState.finish(profileId: profileId)
+                    guard let profile else {
+                        self.presentMemberProfileLoadFailure(message: errorMessage)
+                        return
+                    }
+                    self.presentAuthenticatedMemberProfile(profileId: profileId, initialProfile: profile)
+                }
+            }
+            return
+        }
+        let authenticated = hasValidatedAuthenticatedSession
+        guard let communitiesBootstrap = authenticated ? communitiesRuntimeBootstrap : publicCommunitiesRuntimeBootstrap else { return }
         let onClose: () -> Void = { [weak self] in
             guard let self else { return }
             self.authenticatedHost.dismiss(animated: true)
         }
-        let dependencies = hasValidatedAuthenticatedSession && profileSosRuntimeBootstrap != nil
-            ? profileSosRuntimeBootstrap!.memberProfileHostDependencies(profileId: profileId, onClose: onClose)
-            : IosProfileSosRuntimeBootstrapKt.createIosPublicMemberProfileHostDependencies(
-                configuration: IosProfileRuntimeConfiguration(
-                    supabaseUrl: configuration.supabaseUrl,
-                    supabasePublishableKey: configuration.supabasePublishableKey,
-                ),
-                profileId: profileId,
-                onClose: onClose,
-            )
-        let controller = IosMemberProfileHostKt.QuataMemberProfileViewController(
-            dependencies: dependencies,
+        let dependencies = IosNeighborhoodsHostKt.createIosCommunityProfileHostDependencies(
+            repository: communitiesBootstrap.repository,
+            profileId: profileId,
+            initialProfile: initialProfile,
+            currentUserId: communitiesBootstrap.restoredCurrentUserId(),
+            languageCode: Locale.current.languageCode ?? "en",
+            mediaFactory: IosFeedNativeMediaFactory.shared,
+            documentOpener: platformServices.services.documentOpener,
+            shareService: platformServices.services.share,
+            onClose: onClose,
+            onOpenConversation: { [weak self] conversationId in
+                guard let self else { return }
+                self.authenticatedHost.dismiss(animated: true) {
+                    if self.hasValidatedAuthenticatedSession {
+                        self.authenticatedHost.showChat(conversationId: conversationId, messageId: nil)
+                    } else {
+                        self.authenticatedHost.presentAuthRequiredPrompt()
+                    }
+                }
+            },
+            onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
+        )
+        let controller = IosNeighborhoodsHostKt.QuataCommunityProfileViewController(
+            dependencies: dependencies
         )
         controller.modalPresentationStyle = .fullScreen
         authenticatedHost.present(controller, animated: true)
+    }
+
+    private func presentMemberProfileLoadFailure(message: String?) {
+        let alert = UIAlertController(
+            title: NSLocalizedString("ios_member_profile_load_title", value: "Perfil", comment: ""),
+            message: message ?? NSLocalizedString(
+                "ios_member_profile_load_message",
+                value: "No se pudo cargar el perfil. Inténtalo de nuevo.",
+                comment: ""
+            ),
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("common_close", value: "Cerrar", comment: ""),
+            style: .default
+        ))
+        authenticatedHost.present(alert, animated: true)
     }
 
     /// Composer is an authenticated in-app route. It receives real UIKit media services and the
@@ -1576,7 +1653,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// Installs the real KMP Chat host after Auth/Feed restored the Keychain-backed session.
     /// The common Chat host receives the optional deep-link target, paging authenticated history
     /// until it resolves or history is exhausted. A missing target keeps the conversation open.
-    func installAuthenticatedChat(_ bootstrap: IosChatRuntimeBootstrap) {
+    func installAuthenticatedChat(
+        _ bootstrap: IosChatRuntimeBootstrap,
+        profileOpeningState: IosMemberProfileOpeningState,
+        onOpenProfile: @escaping (String) -> Void
+    ) {
         let services = platformServices.services
         let chatAttachmentConfiguration: IosChatRuntimeConfiguration? = IosPublicRuntimeConfiguration
             .feedConfiguration()
@@ -1642,6 +1723,10 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                         }
                     }
                 },
+                onOpenAvatar: { profileId in
+                    DispatchQueue.main.async { onOpenProfile(profileId) }
+                },
+                profileOpeningState: profileOpeningState,
             )
             return QuataChatViewControllerKt.QuataChatViewController(dependencies: dependencies)
         }

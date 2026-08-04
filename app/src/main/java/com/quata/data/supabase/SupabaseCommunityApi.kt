@@ -730,6 +730,17 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         }
     }
 
+    suspend fun hasGlobalProfileBlock(blockerProfileId: String, blockedProfileId: String): Boolean =
+        client.getSingleOrNull<ChatProfileBlock>(
+            "chat_profile_blocks",
+            mapOf(
+                "select" to "id",
+                "thread_id" to "is.null",
+                "blocker_profile_id" to "eq.$blockerProfileId",
+                "blocked_profile_id" to "eq.$blockedProfileId",
+            ),
+        ) != null
+
     suspend fun getEmergencyContacts(
         profileId: String,
         cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST

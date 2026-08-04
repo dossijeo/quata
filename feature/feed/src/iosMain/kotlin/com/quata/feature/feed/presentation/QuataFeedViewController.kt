@@ -3,6 +3,7 @@ package com.quata.feature.feed.presentation
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -18,6 +19,7 @@ import com.quata.feature.feed.data.IosFeedReadTransport
 import com.quata.feature.feed.data.IosFeedRuntimeConfiguration
 import com.quata.feature.feed.data.IosAuthenticatedFeedRepository
 import com.quata.core.session.IosRenewableAuthSession
+import com.quata.core.ui.components.IosMemberProfileOpeningState
 import com.quata.feature.feed.data.RemoteFeedReadRepository
 import platform.UIKit.UIViewController
 
@@ -38,6 +40,7 @@ class IosFeedHostDependencies(
     /** Capability gate owned by the UIKit app router; the Feed remains publicly readable. */
     val onAuthRequired: () -> Unit = {},
     val onCreatePost: () -> Unit = {},
+    val profileOpeningState: IosMemberProfileOpeningState,
 )
 
 /**
@@ -52,6 +55,7 @@ fun iosReadOnlyFeedHostDependencies(
     initialPostId: String? = null,
     onAuthRequired: () -> Unit = {},
     onCreatePost: () -> Unit = {},
+    profileOpeningState: IosMemberProfileOpeningState,
 ): IosFeedHostDependencies = IosFeedHostDependencies(
     repository = ReadOnlyFeedRepository(readRepository),
     mediaFactory = mediaFactory,
@@ -60,6 +64,7 @@ fun iosReadOnlyFeedHostDependencies(
     initialPostId = initialPostId,
     onAuthRequired = onAuthRequired,
     onCreatePost = onCreatePost,
+    profileOpeningState = profileOpeningState,
 )
 
 /**
@@ -75,6 +80,7 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     initialPostId: String? = null,
     onAuthRequired: () -> Unit = {},
     onCreatePost: () -> Unit = {},
+    profileOpeningState: IosMemberProfileOpeningState,
 ): IosFeedHostDependencies = iosReadOnlyFeedHostDependencies(
     readRepository = RemoteFeedReadRepository(IosFeedReadTransport(configuration)),
     mediaFactory = mediaFactory,
@@ -83,6 +89,7 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     initialPostId = initialPostId,
     onAuthRequired = onAuthRequired,
     onCreatePost = onCreatePost,
+    profileOpeningState = profileOpeningState,
 )
 
 /** Authenticated launch path: it shares the Keychain session owner and enables reviewed writes. */
@@ -95,6 +102,7 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
     onOpenUserProfile: (String) -> Unit = {},
     onAuthRequired: () -> Unit = {},
     onCreatePost: () -> Unit = {},
+    profileOpeningState: IosMemberProfileOpeningState,
 ): IosFeedHostDependencies {
     val transport = IosFeedReadTransport(configuration, authSession)
     val read = RemoteFeedReadRepository(transport)
@@ -107,6 +115,7 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
         presence = IosFeedPresence(configuration, authSession),
         onAuthRequired = onAuthRequired,
         onCreatePost = onCreatePost,
+        profileOpeningState = profileOpeningState,
     )
 }
 
@@ -118,6 +127,7 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
 fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewController = ComposeUIViewController {
     QuataTheme {
         var muted by rememberSaveable { mutableStateOf(false) }
+        val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
         FeedScreenHost(
             padding = PaddingValues(),
             repository = dependencies.repository,
@@ -135,9 +145,22 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
                         mediaFactory = dependencies.mediaFactory,
                     )
                 },
-                avatar = { post -> IosFeedAuthorAvatar(post, dependencies.onOpenUserProfile) },
+                avatar = { post ->
+                    IosFeedAuthorAvatar(
+                        post = post,
+                        onOpenUserProfile = dependencies.onOpenUserProfile,
+                        isLoading = openingProfileUserId == post.author.id,
+                    )
+                },
                 rankingAvatar = { item -> IosFeedRankingAvatar(item) },
-                avatarWithPresence = { post, isOnline -> IosFeedAuthorAvatar(post, dependencies.onOpenUserProfile, isOnline) },
+                avatarWithPresence = { post, isOnline ->
+                    IosFeedAuthorAvatar(
+                        post = post,
+                        onOpenUserProfile = dependencies.onOpenUserProfile,
+                        isOnline = isOnline,
+                        isLoading = openingProfileUserId == post.author.id,
+                    )
+                },
                 rankingAvatarWithPresence = { item, isOnline -> IosFeedRankingAvatar(item, isOnline) },
                 share = dependencies.shareService::share,
                 showComposeMessage = true,
