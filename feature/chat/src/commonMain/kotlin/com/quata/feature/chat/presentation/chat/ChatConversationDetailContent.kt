@@ -51,6 +51,7 @@ fun ChatConversationDetailContent(
     attachment: (@Composable (Message, Modifier) -> Unit)? = null,
     deliveryIndicator: (@Composable (Message) -> Unit)? = null,
     favoriteMarker: (@Composable (Message) -> Unit)? = null,
+    specialMessageBody: (@Composable (Message) -> Boolean)? = null,
     messageActions: (@Composable (Message, Modifier) -> Unit)? = null,
     typingIndicator: (@Composable () -> Unit)? = null,
     /** Shown inside the history viewport while the first backend snapshot is pending. */
@@ -118,6 +119,7 @@ fun ChatConversationDetailContent(
                     attachment = attachment?.let { slot -> { bubbleModifier -> slot(message, bubbleModifier) } },
                     deliveryIndicator = deliveryIndicator?.let { slot -> { slot(message) } },
                     favoriteMarker = favoriteMarker?.let { slot -> { slot(message) } },
+                    specialMessageBody = specialMessageBody?.let { slot -> { slot(message) } },
                     actions = messageActions?.let { slot -> { actionsModifier -> slot(message, actionsModifier) } },
                 )
             }
@@ -141,6 +143,7 @@ private fun ChatConversationMessageContent(
     attachment: (@Composable (Modifier) -> Unit)?,
     deliveryIndicator: (@Composable () -> Unit)?,
     favoriteMarker: (@Composable () -> Unit)?,
+    specialMessageBody: (@Composable () -> Boolean)?,
     actions: (@Composable (Modifier) -> Unit)?,
 ) {
     val template = quataTheme()
@@ -179,9 +182,10 @@ private fun ChatConversationMessageContent(
                 }
             },
             body = {
+                val specialBodyRendered = specialMessageBody?.invoke() == true
                 if (message.isDeleted) {
                     androidx.compose.material3.Text(strings.deletedMessage, color = textColor.copy(alpha = 0.68f))
-                } else if (message.text.isNotBlank()) {
+                } else if (!specialBodyRendered && message.text.isNotBlank()) {
                     ChatLinkifiedTextContent(
                         text = message.text,
                         color = textColor,
@@ -190,7 +194,7 @@ private fun ChatConversationMessageContent(
                     )
                 }
                 attachment?.let { slot ->
-                    if (message.text.isNotBlank() || message.isDeleted) Spacer(Modifier.padding(top = 6.dp))
+                    if ((!specialBodyRendered && message.text.isNotBlank()) || message.isDeleted) Spacer(Modifier.padding(top = 6.dp))
                     slot(Modifier.fillMaxWidth())
                 }
             },

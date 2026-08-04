@@ -149,6 +149,7 @@ fun ChatScreenHost(
                 attachment = slots.attachment,
                 deliveryIndicator = slots.deliveryIndicator,
                 favoriteMarker = slots.favoriteMarker,
+                specialMessageBody = slots.specialMessageBody,
                 messageActions = slots.messageActions,
                 typingIndicator = slots.typingIndicator(state.typingProfileIds),
                 initialContent = if (state.isLoading && state.messages.isEmpty()) slots.loadingContent else null,
@@ -195,6 +196,7 @@ data class ChatScreenHostSlots(
     val attachment: (@Composable (Message, Modifier) -> Unit)? = null,
     val deliveryIndicator: (@Composable (Message) -> Unit)? = null,
     val favoriteMarker: (@Composable (Message) -> Unit)? = null,
+    val specialMessageBody: (@Composable (Message) -> Boolean)? = null,
     val messageActions: (@Composable (Message, Modifier) -> Unit)? = null,
     val typingIndicator: @Composable (Set<String>) -> (@Composable () -> Unit)?,
     val loadingContent: @Composable () -> Unit = {

@@ -1724,6 +1724,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                         }
                     }
                 },
+                onOpenMap: { value in
+                    guard let url = URL(string: value),
+                          ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { return }
+                    UIApplication.shared.open(url)
+                },
                 onOpenAvatar: { profileId in
                     DispatchQueue.main.async { onOpenProfile(profileId) }
                 },

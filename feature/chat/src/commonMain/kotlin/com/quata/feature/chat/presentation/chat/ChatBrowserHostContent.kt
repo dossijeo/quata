@@ -14,6 +14,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +46,7 @@ import com.quata.core.platform.PlatformResult
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
+import com.quata.core.ui.components.CompactIcon
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationListRow
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarContent
@@ -87,6 +90,7 @@ fun ChatBrowserHostContent(
     onOpenConversation: (String) -> Unit,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    onOpenMap: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     openingProfileUserId: String? = null,
     onCopyMessage: (String) -> Unit,
@@ -116,6 +120,7 @@ fun ChatBrowserHostContent(
             onBackToList = onBackToList,
             onOpenConversation = onOpenConversation,
             onOpenAttachment = onOpenAttachment,
+            onOpenMap = onOpenMap,
             onOpenUserProfile = onOpenUserProfile,
             onCopyMessage = onCopyMessage,
             openingProfileUserId = openingProfileUserId,
@@ -145,6 +150,7 @@ private fun ChatCommonConversationHost(
     onBackToList: () -> Unit,
     onOpenConversation: (String) -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    onOpenMap: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onCopyMessage: (String) -> Unit,
     openingProfileUserId: String?,
@@ -411,6 +417,31 @@ private fun ChatCommonConversationHost(
                 )
             },
             messageActions = { _, _ -> },
+            specialMessageBody = { message ->
+                val sos = remember(message.text) { resolveChatSosPresentation(message.text) }
+                if (sos == null) {
+                    false
+                } else {
+                    ChatSosLocationContent(
+                        title = sos.title,
+                        body = sos.body,
+                        locationLabel = sos.locationLabel,
+                        mapsUrl = sos.mapsUrl,
+                        age = sos.age,
+                        accuracy = sos.accuracy,
+                        speed = sos.speed,
+                        isUpdate = sos.isUpdate,
+                        isUnavailable = sos.isUnavailable,
+                        unavailableLabel = "Ubicación no disponible",
+                        openMapsLabel = "Abrir en mapas",
+                        textColor = MaterialTheme.colorScheme.onSurface,
+                        accentColor = MaterialTheme.colorScheme.primary,
+                        onOpenMaps = onOpenMap,
+                        mapPreviewIcon = { CompactIcon(Icons.Filled.LocationOn, "Ubicación") },
+                    )
+                    true
+                }
+            },
             typingIndicator = { typing ->
                 if (typing.isEmpty()) null else { { Text("Escribiendo…", Modifier.padding(14.dp)) } }
             },
