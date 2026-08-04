@@ -107,7 +107,10 @@ fun ChatScreenHost(
                 ChatGroupManagementContent(
                     conversation = state.conversation, state = state, navigationAction = slots.navigationAction,
                     conversationAvatar = { slots.conversationAvatar(state.conversation) }, subtitle = slots.subtitle(state.conversation, state.typingProfileIds), compact = slots.compactHeader,
-                    trailing = slots.trailingActions, onOpenProfile = slots.onOpenUserProfile, onEvent = model::onEvent,
+                    memberAvatar = slots.memberAvatar,
+                    trailing = slots.trailingActions, onOpenProfile = slots.onOpenUserProfile,
+                    onLoadMoreParticipants = model::loadMoreParticipantCandidates,
+                    onEvent = model::onEvent,
                 )
             }
             val focusedLoadFailure = deepLinkRequest as? ChatMessageDeepLinkRequest.LoadFailed
@@ -179,6 +182,7 @@ data class ChatScreenHostSlots(
     val compactHeader: Boolean,
     val navigationAction: @Composable () -> Unit,
     val conversationAvatar: @Composable (Conversation?) -> Unit,
+    val memberAvatar: @Composable (ChatMemberPresentation) -> Unit,
     val trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
     val messageAvatar: @Composable (Message) -> Unit,
     val onOpenLink: (String) -> Unit,

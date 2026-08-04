@@ -47,6 +47,7 @@ import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationListRow
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarContent
+import com.quata.feature.chat.presentation.conversations.ConversationAvatarKind
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.ConversationsListContent
 import com.quata.feature.chat.presentation.conversations.ConversationsUiEvent
@@ -189,6 +190,27 @@ private fun ChatCommonConversationHost(
                         ),
                         onOpenUserProfile = onOpenUserProfile,
                         remoteAvatar = remoteConversationAvatar,
+                    )
+                }
+            },
+            memberAvatar = { member ->
+                QuataAvatarLoadingHaloContent(
+                    isLoading = openingProfileUserId == member.id,
+                    modifier = Modifier.size(38.dp),
+                ) {
+                    remoteConversationAvatar(
+                        ConversationAvatarPresentation(
+                            kind = ConversationAvatarKind.Private,
+                            name = member.name,
+                            stableId = member.id,
+                            avatarUrl = member.avatarUrl,
+                            profileId = member.id.takeIf { member.canOpenProfile },
+                            isMuted = false,
+                            isLoading = openingProfileUserId == member.id,
+                        ),
+                        Modifier.size(34.dp).clickable(
+                            enabled = member.canOpenProfile && openingProfileUserId != member.id,
+                        ) { onOpenUserProfile(member.id) },
                     )
                 }
             },
