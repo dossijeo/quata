@@ -496,7 +496,7 @@ private fun ChatCommonConversationHost(
     viewedMedia?.let { file ->
         val kind = chatAttachmentKind(file)
         QuataFullscreenMediaOverlayContent(
-            title = file.displayName ?: "Adjunto",
+            title = file.displayName ?: chromeStrings.attachment,
             onDismiss = { viewedMedia = null },
         ) { mediaModifier ->
             mediaSlots.viewer(file, kind, mediaModifier)
