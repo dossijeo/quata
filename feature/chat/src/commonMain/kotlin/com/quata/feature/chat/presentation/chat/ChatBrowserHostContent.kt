@@ -103,6 +103,7 @@ fun ChatBrowserHostContent(
     translationGateway: ChatTranslationGateway,
     translatorStrings: ChatTranslatorStrings,
     translationDirection: ChatTranslationDirection,
+    languageTag: String?,
     conversationList: @Composable (Modifier) -> Unit,
     text: (ChatText) -> String,
     focusedMessageId: String? = null,
@@ -136,6 +137,7 @@ fun ChatBrowserHostContent(
             translationGateway = translationGateway,
             translatorStrings = translatorStrings,
             translationDirection = translationDirection,
+            languageTag = languageTag,
             focusedMessageId = focusedMessageId,
             text = text,
             modifier = modifier,
@@ -171,6 +173,7 @@ private fun ChatCommonConversationHost(
     translationGateway: ChatTranslationGateway,
     translatorStrings: ChatTranslatorStrings,
     translationDirection: ChatTranslationDirection,
+    languageTag: String?,
     focusedMessageId: String?,
     text: (ChatText) -> String,
     modifier: Modifier,
@@ -238,6 +241,7 @@ private fun ChatCommonConversationHost(
             translatorStrings = translatorStrings,
             translationGateway = translationGateway,
             translationDirection = translationDirection,
+            messageTimestamp = { message -> chatMessageTimestampLabel(message, languageTag) },
             compactHeader = false,
             navigationAction = {
                 Button(onClick = onBackToList, modifier = Modifier.semantics { testTag = "chat.back" }) {

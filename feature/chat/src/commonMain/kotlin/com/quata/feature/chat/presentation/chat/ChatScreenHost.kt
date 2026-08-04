@@ -197,7 +197,7 @@ fun ChatScreenHost(
                             append(" | ")
                             append(message.senderName)
                             append(" | ")
-                            appendLine(message.sentAt)
+                            appendLine(slots.messageTimestamp(message))
                             append(message.text)
                         },
                     )
@@ -250,6 +250,7 @@ data class ChatScreenHostSlots(
     val translatorStrings: ChatTranslatorStrings,
     val translationGateway: ChatTranslationGateway,
     val translationDirection: ChatTranslationDirection,
+    val messageTimestamp: (Message) -> String,
     val compactHeader: Boolean,
     val navigationAction: @Composable () -> Unit,
     val conversationAvatar: @Composable (Conversation?) -> Unit,

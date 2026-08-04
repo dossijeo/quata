@@ -127,6 +127,7 @@ fun WebChatHost(
         translationGateway = translationGateway,
         translatorStrings = chatTranslatorStringsForLanguage(languageTag),
         translationDirection = chatTranslationDirectionForLanguage(languageTag),
+        languageTag = languageTag,
         text = chatText,
         conversationList = { listModifier ->
             ConversationsScreenHost(
