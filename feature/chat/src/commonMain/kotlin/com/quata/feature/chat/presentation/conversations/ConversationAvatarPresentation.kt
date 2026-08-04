@@ -70,6 +70,10 @@ fun resolveMessageAvatarPresentation(
     isLoading = openingProfileUserId == message.senderId,
 )
 
+/** Android only reserves the sender-avatar gutter for incoming messages in group conversations. */
+fun shouldShowMessageSenderAvatar(conversation: Conversation?, message: Message): Boolean =
+    conversation?.isGroup == true && !message.isMine
+
 @Composable
 fun ConversationAvatarContent(
     presentation: ConversationAvatarPresentation,

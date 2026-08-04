@@ -25,6 +25,7 @@ import com.quata.designsystem.translation.LocalQuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatableTextRegistry
 import com.quata.designsystem.translation.quataTranslatableText
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.presentation.conversations.shouldShowMessageSenderAvatar
 
 /**
  * Product root shared by Android, Wasm and iOS for the read side of `SCR-CHAT`.
@@ -163,7 +164,7 @@ fun ChatScreenHost(
                 messages = state.messages,
                 selectedMessageId = state.selectedMessageId,
                 strings = slots.messageStrings,
-                showSenderAvatar = { message -> !message.isMine },
+                showSenderAvatar = { message -> shouldShowMessageSenderAvatar(state.conversation, message) },
                 avatar = slots.messageAvatar,
                 onOpenLink = slots.onOpenLink,
                 messageTimestamp = slots.messageTimestamp,

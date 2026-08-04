@@ -90,6 +90,16 @@ class ConversationAvatarPresentationTest {
         assertFalse(result.isLoading)
     }
 
+    @Test fun senderAvatarGutterMatchesAndroidGroupRule() {
+        val incoming = message(isMine = false)
+        val mine = message(isMine = true)
+
+        assertTrue(shouldShowMessageSenderAvatar(conversation(isGroup = true), incoming))
+        assertFalse(shouldShowMessageSenderAvatar(conversation(isGroup = true), mine))
+        assertFalse(shouldShowMessageSenderAvatar(conversation(isGroup = false), incoming))
+        assertFalse(shouldShowMessageSenderAvatar(null, incoming))
+    }
+
     private fun resolve(value: Conversation, users: Map<String, User>, opening: String? = null) =
         resolveConversationAvatarPresentation(value, me, users, "Grupo", opening)
 
@@ -97,4 +107,14 @@ class ConversationAvatarPresentationTest {
         participantIds: List<String> = emptyList(), isGroup: Boolean = false, isEmergency: Boolean = false,
         avatarUrl: String? = null, isMuted: Boolean = false,
     ) = Conversation("conversation", "Grupo", avatarUrl, "", participantIds = participantIds, isGroup = isGroup, isEmergency = isEmergency, isMuted = isMuted)
+
+    private fun message(isMine: Boolean) = Message(
+        id = if (isMine) "mine" else "incoming",
+        conversationId = "conversation",
+        senderId = if (isMine) me.id else other.id,
+        senderName = if (isMine) me.displayName else other.displayName,
+        text = "Hola",
+        sentAt = "2026-08-04T08:03:00Z",
+        isMine = isMine,
+    )
 }
