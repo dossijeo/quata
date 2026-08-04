@@ -210,6 +210,7 @@ private fun ChatCommonConversationHost(
             onBack = onBackToList,
             onCopyMessage = onCopyMessage,
             onOpenMessageConversation = { targetConversationId, _ -> onOpenConversation(targetConversationId) },
+            onOpenUserProfile = onOpenUserProfile,
             subtitle = { _, typing -> if (typing.isNotEmpty()) "Escribiendo…" else navigationMessage },
             composer = { composerModifier ->
                 ChatComposerContent(

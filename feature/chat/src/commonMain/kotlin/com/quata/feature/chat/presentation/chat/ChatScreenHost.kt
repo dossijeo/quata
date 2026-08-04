@@ -101,15 +101,9 @@ fun ChatScreenHost(
                     onEvent = model::onEvent,
                 )
             } else {
-                ChatConversationTitleBarContent(
-                    title = state.conversation?.title ?: slots.strings.untitledConversation,
-                    subtitle = slots.subtitle(state.conversation, state.typingProfileIds),
-                    expandable = false,
-                    compact = slots.compactHeader,
-                    onToggleExpanded = {},
-                    navigationAction = slots.navigationAction,
-                    avatar = { slots.conversationAvatar(state.conversation) },
-                    trailingActions = slots.trailingActions,
+                ChatGroupManagementContent(
+                    conversation = state.conversation, state = state, onEvent = model::onEvent,
+                    onOpenProfile = slots.onOpenUserProfile, onBack = slots.onBack, trailing = slots.trailingActions,
                 )
             }
             val focusedLoadFailure = deepLinkRequest as? ChatMessageDeepLinkRequest.LoadFailed
@@ -186,6 +180,7 @@ data class ChatScreenHostSlots(
     val onOpenLink: (String) -> Unit,
     val onCopyMessage: (String) -> Unit,
     val onOpenMessageConversation: (String, String) -> Unit,
+    val onOpenUserProfile: (String) -> Unit,
     val onBack: () -> Unit,
     val subtitle: (Conversation?, Set<String>) -> String?,
     val composer: @Composable (Modifier) -> Unit,
