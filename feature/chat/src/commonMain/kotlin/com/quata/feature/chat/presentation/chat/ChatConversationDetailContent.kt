@@ -47,6 +47,7 @@ fun ChatConversationDetailContent(
     avatar: @Composable (Message) -> Unit,
     onOpenLink: (String) -> Unit,
     onMessageClick: (Message) -> Unit,
+    translatableTextModifier: (Message, Modifier) -> Modifier = { _, value -> value },
     composer: @Composable (Modifier) -> Unit,
     attachment: (@Composable (Message, Modifier) -> Unit)? = null,
     deliveryIndicator: (@Composable (Message) -> Unit)? = null,
@@ -116,6 +117,7 @@ fun ChatConversationDetailContent(
                     avatar = { avatar(message) },
                     onOpenLink = onOpenLink,
                     onClick = { onMessageClick(message) },
+                    translatableTextModifier = translatableTextModifier,
                     attachment = attachment?.let { slot -> { bubbleModifier -> slot(message, bubbleModifier) } },
                     deliveryIndicator = deliveryIndicator?.let { slot -> { slot(message) } },
                     favoriteMarker = favoriteMarker?.let { slot -> { slot(message) } },
@@ -140,6 +142,7 @@ private fun ChatConversationMessageContent(
     avatar: @Composable () -> Unit,
     onOpenLink: (String) -> Unit,
     onClick: () -> Unit,
+    translatableTextModifier: (Message, Modifier) -> Modifier,
     attachment: (@Composable (Modifier) -> Unit)?,
     deliveryIndicator: (@Composable () -> Unit)?,
     favoriteMarker: (@Composable () -> Unit)?,
@@ -153,7 +156,7 @@ private fun ChatConversationMessageContent(
         isSelected = isSelected,
         showSenderAvatar = showSenderAvatar,
         avatar = avatar,
-        bubbleModifier = Modifier.clickable(onClick = onClick),
+        bubbleModifier = translatableTextModifier(message, Modifier.clickable(onClick = onClick)),
     ) {
         ChatMessageBubbleContent(
             header = {

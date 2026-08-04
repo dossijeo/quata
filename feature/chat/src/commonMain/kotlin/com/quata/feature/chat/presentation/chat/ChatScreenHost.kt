@@ -10,6 +10,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -25,6 +26,10 @@ import com.quata.core.model.Message
 import com.quata.core.navigation.AppDestinations
 import com.quata.designsystem.chat.ProceduralChatBackgroundCanvas
 import com.quata.designsystem.chat.proceduralChatBackgroundSpec
+import com.quata.designsystem.translation.FangTranslatorTriggerContent
+import com.quata.designsystem.translation.LocalQuataTranslatableTextRegistry
+import com.quata.designsystem.translation.QuataTranslatableTextRegistry
+import com.quata.designsystem.translation.quataTranslatableText
 import com.quata.feature.chat.domain.ChatRepository
 
 /**
@@ -51,6 +56,8 @@ fun ChatScreenHost(
 ) {
     val state by model.uiState.collectAsState()
     val template = quataTheme()
+    val translatorRegistry = remember(conversationId) { QuataTranslatableTextRegistry() }
+    var translatorActive by remember(conversationId) { mutableStateOf(false) }
     var deepLinkRequest by remember(conversationId, focusedMessageId) {
         mutableStateOf(chatMessageDeepLinkRequest(focusedMessageId))
     }
@@ -108,7 +115,14 @@ fun ChatScreenHost(
                     conversation = state.conversation, state = state, navigationAction = slots.navigationAction,
                     conversationAvatar = { slots.conversationAvatar(state.conversation) }, subtitle = slots.subtitle(state.conversation, state.typingProfileIds), compact = slots.compactHeader,
                     memberAvatar = slots.memberAvatar,
-                    trailing = slots.trailingActions, onOpenProfile = slots.onOpenUserProfile,
+                    trailing = trailing@{
+                        slots.trailingActions.invoke(this@trailing)
+                        FangTranslatorTriggerContent(
+                            contentDescription = slots.translatorStrings.title,
+                            onClick = { translatorActive = true },
+                            enabled = state.messages.any { !it.isDeleted && it.text.isNotBlank() },
+                        )
+                    }, onOpenProfile = slots.onOpenUserProfile,
                     onLoadMoreParticipants = model::loadMoreParticipantCandidates,
                     onEvent = model::onEvent,
                 )
@@ -155,7 +169,8 @@ fun ChatScreenHost(
                     },
                 )
             }
-            ChatConversationDetailContent(
+            CompositionLocalProvider(LocalQuataTranslatableTextRegistry provides translatorRegistry) {
+                ChatConversationDetailContent(
                 messages = state.messages,
                 selectedMessageId = state.selectedMessageId,
                 strings = slots.messageStrings,
@@ -173,6 +188,12 @@ fun ChatScreenHost(
                         model.onEvent(ChatUiEvent.MessageSelected(message.id.takeUnless { it == state.selectedMessageId }))
                     }
                 },
+                translatableTextModifier = { message, value ->
+                    if (message.isDeleted || message.text.isBlank()) value else value.quataTranslatableText(
+                        id = "chat-message:${message.composeKey()}",
+                        text = message.text,
+                    )
+                },
                 composer = if (isFavoritesConversation) ({}) else slots.composer,
                 attachment = slots.attachment,
                 deliveryIndicator = slots.deliveryIndicator,
@@ -187,6 +208,7 @@ fun ChatScreenHost(
                 onFocusedMessageHandled = { deepLinkRequest = ChatMessageDeepLinkRequest.NoTarget },
                 modifier = Modifier.weight(1f),
             )
+            }
         }
         if (state.isForwardDialogOpen) {
             ChatForwardPickerContent(
@@ -194,6 +216,15 @@ fun ChatScreenHost(
                 onEvent = model::onEvent,
                 onQueryChanged = model::onForwardCandidateQueryChanged,
                 onLoadMore = model::loadMoreForwardConversationCandidates,
+            )
+        }
+        if (translatorActive) {
+            ChatTranslatorOverlayContent(
+                registry = translatorRegistry,
+                gateway = slots.translationGateway,
+                initialDirection = slots.translationDirection,
+                strings = slots.translatorStrings,
+                onDismiss = { translatorActive = false },
             )
         }
     }
@@ -208,6 +239,9 @@ data class ChatScreenHostStrings(
 data class ChatScreenHostSlots(
     val strings: ChatScreenHostStrings,
     val messageStrings: ChatConversationDetailStrings,
+    val translatorStrings: ChatTranslatorStrings,
+    val translationGateway: ChatTranslationGateway,
+    val translationDirection: ChatTranslationDirection,
     val compactHeader: Boolean,
     val navigationAction: @Composable () -> Unit,
     val conversationAvatar: @Composable (Conversation?) -> Unit,

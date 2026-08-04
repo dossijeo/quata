@@ -10,6 +10,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.platform.IosClipboardService
+import com.quata.core.language.FangTranslationService
+import com.quata.core.language.IosTranslationHttpTransport
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
@@ -62,8 +64,6 @@ class IosChatHostDependencies(
     val onOpenAvatar: (String) -> Unit = {},
     /** Host slot for map/location attachment navigation. */
     val onOpenMap: (String) -> Unit,
-    /** Host slot for translation UI owned by the launcher. */
-    val onTranslateMessage: (String) -> Unit = {},
     val profileOpeningState: IosMemberProfileOpeningState,
 )
 
@@ -83,6 +83,9 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 )
             }
             val clipboard = remember { IosClipboardService() }
+            val translationGateway = remember {
+                FangChatTranslationGateway(FangTranslationService(transport = IosTranslationHttpTransport()))
+            }
             val scope = rememberCoroutineScope()
             val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
             DisposableEffect(conversationsModel) { onDispose(conversationsModel::close) }
@@ -119,6 +122,9 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                     downloader = dependencies.attachmentDownloader,
                     viewerFactory = dependencies.mediaViewerFactory,
                 ),
+                translationGateway = translationGateway,
+                translatorStrings = chatTranslatorStringsForLanguage(languageTag),
+                translationDirection = chatTranslationDirectionForLanguage(languageTag),
                 text = chatText,
                 conversationList = { listModifier ->
                     ConversationsScreenHost(

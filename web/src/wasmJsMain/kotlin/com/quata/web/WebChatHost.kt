@@ -16,6 +16,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.quata.core.platform.BrowserClipboardService
+import com.quata.core.language.BrowserTranslationHttpTransport
+import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.AudioRecordingReferenceReleaser
@@ -31,6 +33,9 @@ import com.quata.core.platform.PlatformResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
 import com.quata.feature.chat.presentation.chat.ChatMediaPlatformSlots
+import com.quata.feature.chat.presentation.chat.FangChatTranslationGateway
+import com.quata.feature.chat.presentation.chat.chatTranslationDirectionForLanguage
+import com.quata.feature.chat.presentation.chat.chatTranslatorStringsForLanguage
 import com.quata.feature.chat.presentation.chat.chatTextForLanguage
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
@@ -70,6 +75,9 @@ fun WebChatHost(
         ConversationsViewModel(repository = repository, text = chatText)
     }
     val clipboard = remember { BrowserClipboardService() }
+    val translationGateway = remember {
+        FangChatTranslationGateway(FangTranslationService(transport = BrowserTranslationHttpTransport()))
+    }
     DisposableEffect(conversationsModel) { onDispose(conversationsModel::close) }
     DisposableEffect(repository) {
         repository.setAppForeground(chatBrowserDocumentIsVisible())
@@ -116,6 +124,9 @@ fun WebChatHost(
                 BrowserChatMediaContent(file, kind, viewer = true, modifier = mediaModifier)
             },
         ),
+        translationGateway = translationGateway,
+        translatorStrings = chatTranslatorStringsForLanguage(languageTag),
+        translationDirection = chatTranslationDirectionForLanguage(languageTag),
         text = chatText,
         conversationList = { listModifier ->
             ConversationsScreenHost(
