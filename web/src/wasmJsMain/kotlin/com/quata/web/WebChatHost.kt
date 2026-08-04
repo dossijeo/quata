@@ -109,7 +109,7 @@ fun WebChatHost(
         onOpenMessageConversation = onOpenMessageConversation,
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
-        onOpenMap = ::openWebExternalLink,
+        onOpenExternalLink = ::openWebExternalLink,
         onOpenUserProfile = onOpenUserProfile,
         openingProfileUserId = openingProfileUserId,
         onCopyMessage = { value -> scope.launch { clipboard.writeText(value) } },

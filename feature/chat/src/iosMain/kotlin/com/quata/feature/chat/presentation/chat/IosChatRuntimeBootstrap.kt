@@ -69,7 +69,7 @@ class IosChatRuntimeBootstrap(
         onOpenMessageConversation: (String, String) -> Unit,
         onBackToList: () -> Unit,
         onOpenAttachment: (PlatformFile) -> Unit,
-        onOpenMap: (String) -> Unit,
+        onOpenExternalLink: (String) -> Unit,
         onOpenAvatar: (String) -> Unit,
         profileOpeningState: IosMemberProfileOpeningState,
     ): IosChatHostDependencies = IosChatHostDependencies(
@@ -87,7 +87,7 @@ class IosChatRuntimeBootstrap(
         onOpenMessageConversation = onOpenMessageConversation,
         onBackToList = onBackToList,
         onOpenAttachment = onOpenAttachment,
-        onOpenMap = onOpenMap,
+        onOpenExternalLink = onOpenExternalLink,
         onOpenAvatar = onOpenAvatar,
         profileOpeningState = profileOpeningState,
     )

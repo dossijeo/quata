@@ -62,8 +62,8 @@ class IosChatHostDependencies(
     val onOpenAttachment: (PlatformFile) -> Unit,
     /** Host slot reserved for a platform avatar/profile destination. */
     val onOpenAvatar: (String) -> Unit = {},
-    /** Host slot for map/location attachment navigation. */
-    val onOpenMap: (String) -> Unit,
+    /** Host slot for validated HTTP(S) links, including map/location destinations. */
+    val onOpenExternalLink: (String) -> Unit,
     val profileOpeningState: IosMemberProfileOpeningState,
 )
 
@@ -106,7 +106,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenMessageConversation = dependencies.onOpenMessageConversation,
                 onBackToList = dependencies.onBackToList,
                 onOpenAttachment = dependencies.onOpenAttachment,
-                onOpenMap = dependencies.onOpenMap,
+                onOpenExternalLink = dependencies.onOpenExternalLink,
                 onOpenUserProfile = dependencies.onOpenAvatar,
                 openingProfileUserId = openingProfileUserId,
                 onCopyMessage = { value -> scope.launch { clipboard.writeText(value) } },

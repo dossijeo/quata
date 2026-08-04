@@ -1728,7 +1728,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                         }
                     }
                 },
-                onOpenMap: { value in
+                onOpenExternalLink: { value in
                     guard let url = URL(string: value),
                           ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { return }
                     UIApplication.shared.open(url)

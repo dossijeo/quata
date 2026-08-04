@@ -94,7 +94,7 @@ fun ChatBrowserHostContent(
     onOpenMessageConversation: (String, String) -> Unit,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
-    onOpenMap: (String) -> Unit,
+    onOpenExternalLink: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     openingProfileUserId: String? = null,
     onCopyMessage: (String) -> Unit,
@@ -128,7 +128,7 @@ fun ChatBrowserHostContent(
             onOpenConversation = onOpenConversation,
             onOpenMessageConversation = onOpenMessageConversation,
             onOpenAttachment = onOpenAttachment,
-            onOpenMap = onOpenMap,
+            onOpenExternalLink = onOpenExternalLink,
             onOpenUserProfile = onOpenUserProfile,
             onCopyMessage = onCopyMessage,
             openingProfileUserId = openingProfileUserId,
@@ -164,7 +164,7 @@ private fun ChatCommonConversationHost(
     onOpenConversation: (String) -> Unit,
     onOpenMessageConversation: (String, String) -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
-    onOpenMap: (String) -> Unit,
+    onOpenExternalLink: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onCopyMessage: (String) -> Unit,
     openingProfileUserId: String?,
@@ -300,7 +300,7 @@ private fun ChatCommonConversationHost(
                     )
                 }
             },
-            onOpenLink = { url -> onOpenAttachment(PlatformFile(reference = url)) },
+            onOpenLink = onOpenExternalLink,
             onBack = onBackToList,
             onCopyMessage = onCopyMessage,
             onOpenMessageConversation = onOpenMessageConversation,
@@ -467,7 +467,7 @@ private fun ChatCommonConversationHost(
                         openMapsLabel = "Abrir en mapas",
                         textColor = MaterialTheme.colorScheme.onSurface,
                         accentColor = MaterialTheme.colorScheme.primary,
-                        onOpenMaps = onOpenMap,
+                        onOpenMaps = onOpenExternalLink,
                         mapPreviewIcon = { CompactIcon(Icons.Filled.LocationOn, "Ubicación") },
                     )
                     true
