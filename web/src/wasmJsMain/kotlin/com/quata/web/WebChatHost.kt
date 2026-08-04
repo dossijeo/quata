@@ -30,6 +30,7 @@ import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
+import com.quata.feature.chat.presentation.chat.ChatMediaPlatformSlots
 import com.quata.feature.chat.presentation.chat.chatTextForLanguage
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
@@ -107,6 +108,14 @@ fun WebChatHost(
         remoteConversationAvatar = { presentation, avatarModifier ->
             WebConversationAvatar(presentation, avatarModifier)
         },
+        mediaSlots = ChatMediaPlatformSlots(
+            preview = { file, kind, mediaModifier ->
+                BrowserChatMediaContent(file, kind, viewer = false, modifier = mediaModifier)
+            },
+            viewer = { file, kind, mediaModifier ->
+                BrowserChatMediaContent(file, kind, viewer = true, modifier = mediaModifier)
+            },
+        ),
         text = chatText,
         conversationList = { listModifier ->
             ConversationsScreenHost(

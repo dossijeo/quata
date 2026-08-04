@@ -855,6 +855,31 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(player.isMuted)
     }
 
+    func testIosChatMediaViewerUsesOnlyLocalFilesAndOwnsNativePlaybackControls() throws {
+        let imageUrl = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quata-chat-media-contract.png")
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).image { context in
+            UIColor.systemOrange.setFill()
+            context.cgContext.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+        try XCTUnwrap(image.pngData()).write(to: imageUrl)
+        defer { try? FileManager.default.removeItem(at: imageUrl) }
+
+        let imageSurface = IosChatNativeMediaFactory.shared.create(
+            localUrl: imageUrl.absoluteString,
+            isVideo: false
+        )
+        defer { imageSurface.dispose() }
+        XCTAssertTrue(imageSurface.nativeView().subviews.first is UIImageView)
+
+        let rejectedRemote = IosChatNativeMediaFactory.shared.create(
+            localUrl: "https://example.invalid/untrusted.mp4",
+            isVideo: true
+        )
+        defer { rejectedRemote.dispose() }
+        XCTAssertTrue(rejectedRemote.nativeView().subviews.isEmpty)
+    }
+
     func testIosVideoThumbnailAdmissionBuildsBoundedFirstFrameRequestForExistingLocalReference() {
         // This existing directory deliberately is not a video fixture. The test covers only
         // admission and must not claim that AVFoundation decoded a simulator asset.

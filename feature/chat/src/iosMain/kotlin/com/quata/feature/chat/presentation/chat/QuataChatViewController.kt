@@ -16,6 +16,7 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.data.IosChatAttachmentDownloader
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarKind
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
@@ -41,6 +42,8 @@ class IosChatHostDependencies(
     val audioRecorder: AudioRecorderService,
     val filePicker: FilePickerService,
     val cameraCapture: CameraCaptureService,
+    val attachmentDownloader: IosChatAttachmentDownloader,
+    val mediaViewerFactory: IosChatMediaViewerFactory,
     val conversationId: String? = null,
     /** Optional deep-link target; common UI resolves it only against messages already present. */
     val focusedMessageId: String? = null,
@@ -99,7 +102,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenConversation = dependencies.onOpenConversation,
                 onOpenMessageConversation = dependencies.onOpenMessageConversation,
                 onBackToList = dependencies.onBackToList,
-        onOpenAttachment = dependencies.onOpenAttachment,
+                onOpenAttachment = dependencies.onOpenAttachment,
                 onOpenMap = dependencies.onOpenMap,
                 onOpenUserProfile = dependencies.onOpenAvatar,
                 openingProfileUserId = openingProfileUserId,
@@ -112,6 +115,10 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                         modifier = avatarModifier,
                     )
                 },
+                mediaSlots = iosChatMediaPlatformSlots(
+                    downloader = dependencies.attachmentDownloader,
+                    viewerFactory = dependencies.mediaViewerFactory,
+                ),
                 text = chatText,
                 conversationList = { listModifier ->
                     ConversationsScreenHost(

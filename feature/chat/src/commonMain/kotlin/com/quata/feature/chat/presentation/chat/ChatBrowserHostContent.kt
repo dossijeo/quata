@@ -15,6 +15,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -47,6 +49,7 @@ import com.quata.core.navigation.AppDestinations
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationListRow
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarContent
@@ -96,6 +99,7 @@ fun ChatBrowserHostContent(
     openingProfileUserId: String? = null,
     onCopyMessage: (String) -> Unit,
     remoteConversationAvatar: @Composable (ConversationAvatarPresentation, Modifier) -> Unit,
+    mediaSlots: ChatMediaPlatformSlots,
     conversationList: @Composable (Modifier) -> Unit,
     text: (ChatText) -> String,
     focusedMessageId: String? = null,
@@ -127,6 +131,7 @@ fun ChatBrowserHostContent(
             onCopyMessage = onCopyMessage,
             openingProfileUserId = openingProfileUserId,
             remoteConversationAvatar = remoteConversationAvatar,
+            mediaSlots = mediaSlots,
             focusedMessageId = focusedMessageId,
             text = text,
             modifier = modifier,
@@ -158,6 +163,7 @@ private fun ChatCommonConversationHost(
     onCopyMessage: (String) -> Unit,
     openingProfileUserId: String?,
     remoteConversationAvatar: @Composable (ConversationAvatarPresentation, Modifier) -> Unit,
+    mediaSlots: ChatMediaPlatformSlots,
     focusedMessageId: String?,
     text: (ChatText) -> String,
     modifier: Modifier,
@@ -172,12 +178,19 @@ private fun ChatCommonConversationHost(
     var recordingElapsedSeconds by remember { mutableLongStateOf(0L) }
     var recordingError by remember { mutableStateOf<String?>(null) }
     var pendingAudioRecording by remember { mutableStateOf<AudioRecording?>(null) }
+    var viewedMedia by remember(conversationId) { mutableStateOf<PlatformFile?>(null) }
     val viewModel = remember(repository, conversationId) {
         ChatViewModel(conversationId = conversationId, repository = repository, text = text, isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId)
     }
     val state by viewModel.uiState.collectAsState()
     val usersById = remember(state.participantCandidates, state.currentUser) {
         (state.participantCandidates + listOfNotNull(state.currentUser)).associateBy { it.id }
+    }
+    fun openAttachment(file: PlatformFile) {
+        when (chatAttachmentKind(file)) {
+            ChatAttachmentKind.Image, ChatAttachmentKind.Video -> viewedMedia = file
+            else -> onOpenAttachment(file)
+        }
     }
     LaunchedEffect(isRecordingAudio) {
         if (!isRecordingAudio) return@LaunchedEffect
@@ -313,7 +326,7 @@ private fun ChatCommonConversationHost(
                             }
                         }
                     },
-                    onOpenPendingAttachment = { state.attachmentUri?.let { onOpenAttachment(PlatformFile(it, state.attachmentName, state.attachmentMimeType)) } },
+                    onOpenPendingAttachment = { state.attachmentUri?.let { openAttachment(PlatformFile(it, state.attachmentName, state.attachmentMimeType)) } },
                     onClearAttachment = {
                         val recording = pendingAudioRecording
                         pendingAudioRecording = null
@@ -414,7 +427,8 @@ private fun ChatCommonConversationHost(
                         audioPlayback = updatedPlayback
                         audioFailed = failed
                     },
-                    onOpenAttachment = onOpenAttachment,
+                    onOpenAttachment = ::openAttachment,
+                    mediaPreview = mediaSlots.preview,
                     launch = audioLifecycle::launch,
                     modifier = attachmentModifier,
                 )
@@ -450,6 +464,15 @@ private fun ChatCommonConversationHost(
             },
         ),
     )
+    viewedMedia?.let { file ->
+        val kind = chatAttachmentKind(file)
+        QuataFullscreenMediaOverlayContent(
+            title = file.displayName ?: "Adjunto",
+            onDismiss = { viewedMedia = null },
+        ) { mediaModifier ->
+            mediaSlots.viewer(file, kind, mediaModifier)
+        }
+    }
 }
 
 @Composable
@@ -616,6 +639,7 @@ private fun ChatBrowserConversationDetail(
     openingProfileUserId: String?,
     focusedMessageId: String?,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration,
+    mediaSlots: ChatMediaPlatformSlots,
     messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)?,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
     text: (ChatText) -> String,
@@ -891,6 +915,7 @@ private fun ChatBrowserConversationDetail(
                         audioFailed = failed
                     },
                     onOpenAttachment = onOpenAttachment,
+                    mediaPreview = mediaSlots.preview,
                     launch = audioLifecycle::launch,
                     modifier = attachmentModifier,
                 )
@@ -923,6 +948,7 @@ private fun ChatBrowserAttachmentContent(
     failed: Boolean,
     onPlaybackChanged: (String?, AudioPlaybackState, Boolean) -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    mediaPreview: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
     launch: ((suspend () -> Unit) -> Unit),
     modifier: Modifier,
 ) {
@@ -930,13 +956,32 @@ private fun ChatBrowserAttachmentContent(
     if (reference.isBlank()) return
     val mimeType = message.attachmentMimeType.orEmpty()
     val displayName = message.attachmentName?.takeIf { it.isNotBlank() } ?: "Adjunto"
-    if (!mimeType.startsWith("audio/", ignoreCase = true)) {
-        Surface(modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(displayName)
-                Button(onClick = { onOpenAttachment(PlatformFile(reference, displayName, mimeType)) }) { Text("Abrir adjunto") }
-            }
-        }
+    val file = PlatformFile(reference, displayName, mimeType)
+    val kind = chatAttachmentKind(file)
+    if (kind == ChatAttachmentKind.Image || kind == ChatAttachmentKind.Video) {
+        ChatMediaAttachmentContent(
+            file = file,
+            kind = kind,
+            media = mediaPreview,
+            onOpen = { onOpenAttachment(file) },
+            modifier = modifier,
+        )
+        return
+    }
+    if (kind != ChatAttachmentKind.Audio) {
+        ChatDocumentAttachmentContent(
+            name = displayName,
+            textColor = MaterialTheme.colorScheme.onSurface,
+            onOpen = { onOpenAttachment(file) },
+            icon = {
+                CompactIcon(
+                    if (kind == ChatAttachmentKind.Document) Icons.Filled.AttachFile else Icons.AutoMirrored.Filled.InsertDriveFile,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+            modifier = modifier,
+        )
         return
     }
     val isActive = activeAudioReference == reference

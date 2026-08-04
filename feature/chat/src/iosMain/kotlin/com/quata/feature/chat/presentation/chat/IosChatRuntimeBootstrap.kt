@@ -9,6 +9,7 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.data.IosChatAttachmentUploader
+import com.quata.feature.chat.data.IosChatAttachmentDownloader
 import com.quata.feature.chat.data.IosChatAuthenticatedUserProvider
 import com.quata.feature.chat.data.IosChatPostgrestTransport
 import com.quata.feature.chat.data.IosChatRuntimeConfiguration
@@ -41,6 +42,9 @@ class IosChatRuntimeBootstrap(
             realtimeGateway = IosChatRealtimeGateway(configuration, authSession),
         )
     }
+    private val attachmentDownloader: IosChatAttachmentDownloader by lazy {
+        IosChatAttachmentDownloader(configuration, authSession)
+    }
 
     /** One repository instance preserves the common polling/state flows across route transitions. */
     fun repository(): ChatRepository = chatRepository
@@ -57,6 +61,7 @@ class IosChatRuntimeBootstrap(
         audioRecorder: AudioRecorderService,
         filePicker: FilePickerService,
         cameraCapture: CameraCaptureService,
+        mediaViewerFactory: IosChatMediaViewerFactory,
         conversationId: String?,
         focusedMessageId: String?,
         languageTag: String,
@@ -73,6 +78,8 @@ class IosChatRuntimeBootstrap(
         audioRecorder = audioRecorder,
         filePicker = filePicker,
         cameraCapture = cameraCapture,
+        attachmentDownloader = attachmentDownloader,
+        mediaViewerFactory = mediaViewerFactory,
         conversationId = conversationId,
         focusedMessageId = focusedMessageId,
         languageTag = languageTag,
