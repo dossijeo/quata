@@ -87,24 +87,25 @@ private enum class ChatConfirmation { Delete, Report }
 @Composable
 fun ChatForwardPickerContent(
     state: ChatUiState,
+    strings: ChatChromeStrings,
     onEvent: (ChatUiEvent) -> Unit,
     onQueryChanged: (String) -> Unit,
     onLoadMore: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = { onEvent(ChatUiEvent.CloseForwardDialog) },
-        title = { Text("Reenviar mensaje") },
+        title = { Text(strings.forwardTitle) },
         text = {
             Column {
                 OutlinedTextField(
                     value = state.forwardCandidateQuery,
                     onValueChange = onQueryChanged,
-                    label = { Text("Buscar") },
+                    label = { Text(strings.search) },
                 )
                 if (state.isForwardCandidateInitialLoading) {
-                    Text("Buscando personas…")
+                    Text(strings.searchingPeople)
                 } else if (state.forwardConversationCandidates.isEmpty() && state.forwardCandidateError == null) {
-                    Text("No se encontraron personas.")
+                    Text(strings.noPeopleFound)
                 }
                 state.forwardConversationCandidates.forEach { candidate ->
                     Button(onClick = { onEvent(ChatUiEvent.ForwardProfileToggled(candidate.profileId)) }) {
@@ -117,7 +118,7 @@ fun ChatForwardPickerContent(
                         onClick = onLoadMore,
                         enabled = !state.isForwardCandidatePageLoading,
                     ) {
-                        Text(if (state.isForwardCandidatePageLoading) "Cargando…" else "Cargar más")
+                        Text(if (state.isForwardCandidatePageLoading) strings.loading else strings.loadMore)
                     }
                 }
             }
@@ -126,9 +127,9 @@ fun ChatForwardPickerContent(
             Button(
                 onClick = { onEvent(ChatUiEvent.SendForward) },
                 enabled = state.selectedForwardProfileIds.isNotEmpty() && !state.isConversationActionInProgress,
-            ) { Text("Reenviar") }
+            ) { Text(strings.forwardMessage) }
         },
-        dismissButton = { Button(onClick = { onEvent(ChatUiEvent.CloseForwardDialog) }) { Text("Cancelar") } },
+        dismissButton = { Button(onClick = { onEvent(ChatUiEvent.CloseForwardDialog) }) { Text(strings.cancel) } },
     )
 }
 
@@ -136,6 +137,7 @@ fun ChatForwardPickerContent(
 @Composable
 fun ChatComposerContent(
     state: ChatUiState,
+    strings: ChatChromeStrings,
     onEvent: (ChatUiEvent) -> Unit,
     onPickDocument: () -> Unit,
     onPickGallery: () -> Unit,
@@ -162,31 +164,31 @@ fun ChatComposerContent(
         }
     }
     Column(modifier.fillMaxWidth()) {
-        state.editingMessage?.let { ChatComposerModeBannerContent("Editando mensaje", onClear = { onEvent(ChatUiEvent.CancelEdit) }) }
-        state.replyToMessage?.let { ChatComposerModeBannerContent("Respondiendo a ${it.senderName}", onClear = { onEvent(ChatUiEvent.ClearReply) }) }
+        state.editingMessage?.let { ChatComposerModeBannerContent(strings.editingMessage, onClear = { onEvent(ChatUiEvent.CancelEdit) }) }
+        state.replyToMessage?.let { ChatComposerModeBannerContent(strings.replyingTo(it.senderName), onClear = { onEvent(ChatUiEvent.ClearReply) }) }
         state.attachmentName?.let { name ->
             ChatPendingAttachmentOverlayContent(
                 name = name,
                 surfaceColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
                 textColor = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
                 onOpen = onOpenPendingAttachment,
-                preview = { Text("Adjunto preparado") },
-                clearAction = { clearModifier -> CompactIconButton(onClick = onClearAttachment, modifier = clearModifier) { CompactIcon(Icons.Filled.Delete, "Quitar adjunto") } },
+                preview = { Text(strings.attachmentReady) },
+                clearAction = { clearModifier -> CompactIconButton(onClick = onClearAttachment, modifier = clearModifier) { CompactIcon(Icons.Filled.Delete, strings.removeAttachment) } },
                 modifier = Modifier.fillMaxWidth().padding(12.dp),
             )
         }
         if (isRecordingAudio) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
-                Text("Grabando ${recordingElapsedLabel.orEmpty()}")
+                Text(strings.recording(recordingElapsedLabel.orEmpty()))
                 androidx.compose.foundation.layout.Row {
                     onStopRecording?.let { stop ->
                         Button(onClick = stop) {
-                            CompactIcon(Icons.Filled.Stop, "Detener grabación")
-                            Text("Detener y adjuntar")
+                            CompactIcon(Icons.Filled.Stop, strings.stopRecording)
+                            Text(strings.stopAndAttach)
                         }
                     }
                     onCancelRecording?.let { cancel ->
-                        Button(onClick = cancel) { Text("Cancelar") }
+                        Button(onClick = cancel) { Text(strings.cancel) }
                     }
                 }
             }
@@ -203,7 +205,7 @@ fun ChatComposerContent(
             modifier = Modifier.padding(horizontal = 12.dp),
         )
         if (attachmentsVisible) ChatAttachmentQuickPanelContent(
-            strings = ChatAttachmentQuickPanelStrings("Archivo", "Galería"),
+            strings = ChatAttachmentQuickPanelStrings(strings.chooseFile, strings.chooseGallery),
             onPickFile = { attachmentsVisible = false; onPickDocument() },
             onPickGallery = { attachmentsVisible = false; onPickGallery() },
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
@@ -214,7 +216,7 @@ fun ChatComposerContent(
         val cameraAction: (@Composable (Modifier) -> Unit)? = if (onCamera != null) {
             { cameraModifier ->
                 CompactIconButton(onClick = onCamera, modifier = cameraModifier) {
-                    CompactIcon(Icons.Filled.PhotoCamera, "Cámara")
+                    CompactIcon(Icons.Filled.PhotoCamera, strings.openCamera)
                 }
             }
         } else null
@@ -222,14 +224,14 @@ fun ChatComposerContent(
             state.messageText.isNotBlank() || state.attachmentUri != null -> {
                 {
                     CompactIconButton(onClick = { onEvent(ChatUiEvent.Send) }) {
-                        CompactIcon(Icons.Filled.Send, "Enviar")
+                        CompactIcon(Icons.Filled.Send, strings.send)
                     }
                 }
             }
             !isRecordingAudio && onRecordAudio != null -> {
                 {
                     CompactIconButton(onClick = onRecordAudio) {
-                        CompactIcon(Icons.Filled.Mic, "Grabar audio")
+                        CompactIcon(Icons.Filled.Mic, strings.recordAudio)
                     }
                 }
             }
@@ -242,9 +244,9 @@ fun ChatComposerContent(
                     fieldValue = it
                     onEvent(ChatUiEvent.MessageChanged(it.text))
                 },
-                placeholder = { Text("Mensaje") }, modifier = inputModifier,
-                leadingIcon = { CompactIconButton(onClick = { emojiVisible = !emojiVisible; attachmentsVisible = false }) { CompactIcon(Icons.Filled.InsertEmoticon, "Emoji") } },
-                trailingIcon = { CompactIconButton(onClick = { attachmentsVisible = !attachmentsVisible; emojiVisible = false }) { CompactIcon(Icons.Filled.AttachFile, "Adjuntar") } },
+                placeholder = { Text(strings.message) }, modifier = inputModifier,
+                leadingIcon = { CompactIconButton(onClick = { emojiVisible = !emojiVisible; attachmentsVisible = false }) { CompactIcon(Icons.Filled.InsertEmoticon, strings.emoji) } },
+                trailingIcon = { CompactIconButton(onClick = { attachmentsVisible = !attachmentsVisible; emojiVisible = false }) { CompactIcon(Icons.Filled.AttachFile, strings.attach) } },
             ) },
             cameraAction = cameraAction,
             primaryAction = primaryAction,

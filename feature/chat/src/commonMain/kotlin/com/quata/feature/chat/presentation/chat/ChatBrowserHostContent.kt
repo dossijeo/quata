@@ -320,6 +320,7 @@ private fun ChatCommonConversationHost(
             composer = { composerModifier ->
                 ChatComposerContent(
                     state = state,
+                    strings = chromeStrings,
                     onEvent = viewModel::onEvent,
                     onPickDocument = {
                         scope.launch {

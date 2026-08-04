@@ -126,7 +126,7 @@ fun ChatScreenHost(
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     ) {
                         Text(notice, modifier = Modifier.weight(1f))
-                        Button(onClick = { model.onEvent(ChatUiEvent.ClearNotice) }) { Text("Cerrar") }
+                        Button(onClick = { model.onEvent(ChatUiEvent.ClearNotice) }) { Text(slots.chromeStrings.close) }
                     }
                 }
             }
@@ -140,7 +140,7 @@ fun ChatScreenHost(
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     ) {
                         Text(error, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
-                        Button(onClick = { model.onEvent(ChatUiEvent.ClearError) }) { Text("Cerrar") }
+                        Button(onClick = { model.onEvent(ChatUiEvent.ClearError) }) { Text(slots.chromeStrings.close) }
                     }
                 }
             }
@@ -210,6 +210,7 @@ fun ChatScreenHost(
         if (state.isForwardDialogOpen) {
             ChatForwardPickerContent(
                 state = state,
+                strings = slots.chromeStrings,
                 onEvent = model::onEvent,
                 onQueryChanged = model::onForwardCandidateQueryChanged,
                 onLoadMore = model::loadMoreForwardConversationCandidates,

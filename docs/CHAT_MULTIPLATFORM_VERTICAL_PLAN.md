@@ -81,6 +81,10 @@ durante esta migración: se documenta y se mantiene compatibilidad con Android y
   flecha compacta de Android y un catálogo EN/ES/FR que replica el copy de recursos Android para
   accesibilidad, menús, miembros, selección y confirmaciones. Compilar o localizar estos controles
   no cierra todavía sus mutaciones ni la equivalencia visual completa.
+- `CHAT-COMPOSER`/`CHAT-FORWARD`/`CHAT-ATTACHMENTS`/`CHAT-AUDIO`: el mismo catálogo alimenta
+  placeholder, banners de edición/respuesta, selector de reenvío, adjunto pendiente, panel rápido,
+  cámara, grabación y envío; los controles siguen siendo Compose comunes y los servicios de sistema
+  continúan inyectados como adaptadores.
 
 ## Resultado local de la unidad 1 (pendiente de preflight integrado)
 
