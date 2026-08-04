@@ -633,7 +633,12 @@ private fun QuataWebApp(
                                 currentUserId = currentUserId,
                                 strings = webNeighborhoodsStrings,
                                 slots = webNeighborhoodsSlots,
-                                onOpenConversation = navigation::navigateConversation,
+                                onOpenConversation = { conversationId ->
+                                    feedMemberProfileRoute.openConversation(
+                                        conversationId = conversationId,
+                                        navigate = navigation::navigateConversation,
+                                    )
+                                },
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
@@ -667,7 +672,12 @@ private fun QuataWebApp(
                                 currentUserId = currentUserId,
                                 strings = webNeighborhoodsStrings,
                                 slots = webNeighborhoodsSlots,
-                                onOpenConversation = navigation::navigateConversation,
+                                onOpenConversation = { conversationId ->
+                                    feedMemberProfileRoute.openConversation(
+                                        conversationId = conversationId,
+                                        navigate = navigation::navigateConversation,
+                                    )
+                                },
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
@@ -701,7 +711,12 @@ private fun QuataWebApp(
                                 currentUserId = currentUserId,
                                 strings = webNeighborhoodsStrings,
                                 slots = webNeighborhoodsSlots,
-                                onOpenConversation = navigation::navigateConversation,
+                                onOpenConversation = { conversationId ->
+                                    feedMemberProfileRoute.openConversation(
+                                        conversationId = conversationId,
+                                        navigate = navigation::navigateConversation,
+                                    )
+                                },
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,

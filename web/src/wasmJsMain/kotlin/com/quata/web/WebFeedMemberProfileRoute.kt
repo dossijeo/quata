@@ -22,4 +22,12 @@ internal class WebFeedMemberProfileRoute {
     fun close() {
         profileId = null
     }
+
+    fun openConversation(
+        conversationId: String,
+        navigate: (String) -> Unit,
+    ) {
+        close()
+        navigate(conversationId)
+    }
 }
