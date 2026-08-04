@@ -455,6 +455,9 @@ private fun ChatCommonConversationHost(
                     onOpenAttachment = ::openAttachment,
                     mediaPreview = mediaSlots.preview,
                     playVideoLabel = chromeStrings.playVideo,
+                    attachmentLabel = chromeStrings.attachment,
+                    playAudioLabel = chromeStrings.playAudio,
+                    pauseAudioLabel = chromeStrings.pauseAudio,
                     launch = audioLifecycle::launch,
                     modifier = attachmentModifier,
                 )
@@ -976,13 +979,16 @@ private fun ChatBrowserAttachmentContent(
     onOpenAttachment: (PlatformFile) -> Unit,
     mediaPreview: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
     playVideoLabel: String = "Play video",
+    attachmentLabel: String = "Attachment",
+    playAudioLabel: String = "Play audio",
+    pauseAudioLabel: String = "Pause audio",
     launch: ((suspend () -> Unit) -> Unit),
     modifier: Modifier,
 ) {
     val reference = message.attachmentUri.orEmpty()
     if (reference.isBlank()) return
     val mimeType = message.attachmentMimeType.orEmpty()
-    val displayName = message.attachmentName?.takeIf { it.isNotBlank() } ?: "Adjunto"
+    val displayName = message.attachmentName?.takeIf { it.isNotBlank() } ?: attachmentLabel
     val file = PlatformFile(reference, displayName, mimeType)
     val kind = chatAttachmentKind(file)
     if (kind == ChatAttachmentKind.Image || kind == ChatAttachmentKind.Video) {
@@ -1022,7 +1028,7 @@ private fun ChatBrowserAttachmentContent(
         } else 0f,
         displayText = displayName,
         textColor = MaterialTheme.colorScheme.onSurface,
-        playPauseDescription = if (visiblePlayback.isPlaying) "Pausar audio" else "Reproducir audio",
+        playPauseDescription = if (visiblePlayback.isPlaying) pauseAudioLabel else playAudioLabel,
         onTogglePlayback = {
             launch {
                 val result = when {
