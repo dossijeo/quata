@@ -36,6 +36,7 @@ required_resources=(
   "drawable/quata_community_emoji_atlas_food_drink.png"
   "drawable/quata_community_emoji_atlas_objects_symbols.png"
   "drawable/quata_community_emoji_atlas_flags.png"
+  "drawable/quata_translator_frosted_texture.jpg"
 )
 
 [[ -d "$app_bundle" ]] || { echo "iOS app bundle does not exist: $app_bundle" >&2; exit 1; }
