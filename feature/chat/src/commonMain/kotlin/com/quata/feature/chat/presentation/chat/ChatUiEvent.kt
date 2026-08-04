@@ -22,6 +22,7 @@ sealed class ChatUiEvent {
     data object DeleteSelectedMessage : ChatUiEvent()
     data object ReportSelectedMessage : ChatUiEvent()
     data object ClearNotice : ChatUiEvent()
+    data object ClearError : ChatUiEvent()
     data object OpenForwardDialog : ChatUiEvent()
     data object CloseForwardDialog : ChatUiEvent()
     data object SendForward : ChatUiEvent()

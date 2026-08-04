@@ -113,6 +113,34 @@ fun ChatScreenHost(
                     onEvent = model::onEvent,
                 )
             }
+            state.notice?.let { notice ->
+                androidx.compose.material3.Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    androidx.compose.foundation.layout.Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Text(notice, modifier = Modifier.weight(1f))
+                        Button(onClick = { model.onEvent(ChatUiEvent.ClearNotice) }) { Text("Cerrar") }
+                    }
+                }
+            }
+            state.error?.let { error ->
+                androidx.compose.material3.Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    androidx.compose.foundation.layout.Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        Text(error, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
+                        Button(onClick = { model.onEvent(ChatUiEvent.ClearError) }) { Text("Cerrar") }
+                    }
+                }
+            }
             val focusedLoadFailure = deepLinkRequest as? ChatMessageDeepLinkRequest.LoadFailed
             if (state.messageLoadFailure != null || focusedLoadFailure != null) {
                 ChatReadFailureContent(
