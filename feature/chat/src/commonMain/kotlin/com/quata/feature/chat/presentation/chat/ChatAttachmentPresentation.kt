@@ -58,6 +58,7 @@ fun ChatMediaAttachmentContent(
     kind: ChatAttachmentKind,
     media: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
     onOpen: () -> Unit,
+    playVideoLabel: String,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -79,7 +80,7 @@ fun ChatMediaAttachmentContent(
             ) {
                 Icon(
                     imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = "Reproducir vídeo",
+                    contentDescription = playVideoLabel,
                     modifier = Modifier.padding(12.dp).size(38.dp),
                 )
             }

@@ -454,6 +454,7 @@ private fun ChatCommonConversationHost(
                     },
                     onOpenAttachment = ::openAttachment,
                     mediaPreview = mediaSlots.preview,
+                    playVideoLabel = chromeStrings.playVideo,
                     launch = audioLifecycle::launch,
                     modifier = attachmentModifier,
                 )
@@ -974,6 +975,7 @@ private fun ChatBrowserAttachmentContent(
     onPlaybackChanged: (String?, AudioPlaybackState, Boolean) -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
     mediaPreview: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
+    playVideoLabel: String = "Play video",
     launch: ((suspend () -> Unit) -> Unit),
     modifier: Modifier,
 ) {
@@ -989,6 +991,7 @@ private fun ChatBrowserAttachmentContent(
             kind = kind,
             media = mediaPreview,
             onOpen = { onOpenAttachment(file) },
+            playVideoLabel = playVideoLabel,
             modifier = modifier,
         )
         return

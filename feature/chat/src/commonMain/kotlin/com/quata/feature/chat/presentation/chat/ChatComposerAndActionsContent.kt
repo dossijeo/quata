@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Forward
 import androidx.compose.material.icons.automirrored.filled.Reply
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -16,7 +17,6 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.InsertEmoticon
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Stop
@@ -224,7 +224,7 @@ fun ChatComposerContent(
             state.messageText.isNotBlank() || state.attachmentUri != null -> {
                 {
                     CompactIconButton(onClick = { onEvent(ChatUiEvent.Send) }) {
-                        CompactIcon(Icons.Filled.Send, strings.send)
+                        CompactIcon(Icons.AutoMirrored.Filled.Send, strings.send)
                     }
                 }
             }
