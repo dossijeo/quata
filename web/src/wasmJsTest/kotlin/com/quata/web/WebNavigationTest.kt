@@ -57,7 +57,20 @@ class WebNavigationTest {
 
         assertRoute("chat/sb:team/42", navigation)
         assertEquals("sb:team/42", navigation.chatConversationId)
+        assertEquals("msg 9", navigation.chatMessageId)
         assertNull(navigation.postId)
+    }
+
+    @Test
+    fun favoriteNavigationPreservesTheExactSourceMessage() {
+        var browserFragment = ""
+        val controller = WebNavigationController("chat") { browserFragment = it }
+
+        controller.navigateConversation("sb:team/42", "msg 9")
+
+        assertEquals("sb:team/42", controller.chatConversationId)
+        assertEquals("msg 9", controller.chatMessageId)
+        assertEquals("chat-sb%3Ateam%2F42?message=msg%209", browserFragment)
     }
 
     @Test

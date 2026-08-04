@@ -1708,6 +1708,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 onOpenConversation: { [weak self] conversationId in
                     self?.showChat(conversationId: conversationId, messageId: nil)
                 },
+                onOpenMessageConversation: { [weak self] conversationId, messageId in
+                    self?.showChat(conversationId: conversationId, messageId: messageId)
+                },
                 onBackToList: { [weak self] in
                     self?.openChatList()
                 },

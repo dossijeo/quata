@@ -51,6 +51,7 @@ class IosChatHostDependencies(
         mimeType = ChatAudioRecordingConfiguration.IOS_MIME_TYPE,
     ),
     val onOpenConversation: (String) -> Unit,
+    val onOpenMessageConversation: (String, String) -> Unit,
     val onBackToList: () -> Unit,
     /** Host slot for image/document/audio/map URIs selected from a shared bubble. */
     val onOpenAttachment: (PlatformFile) -> Unit,
@@ -96,6 +97,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 focusedMessageId = dependencies.focusedMessageId,
                 navigationMessage = dependencies.navigationMessage,
                 onOpenConversation = dependencies.onOpenConversation,
+                onOpenMessageConversation = dependencies.onOpenMessageConversation,
                 onBackToList = dependencies.onBackToList,
         onOpenAttachment = dependencies.onOpenAttachment,
                 onOpenMap = dependencies.onOpenMap,
