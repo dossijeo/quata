@@ -84,7 +84,8 @@ durante esta migración: se documenta y se mantiene compatibilidad con Android y
 - `CHAT-COMPOSER`/`CHAT-FORWARD`/`CHAT-ATTACHMENTS`/`CHAT-AUDIO`: el mismo catálogo alimenta
   placeholder, banners de edición/respuesta, selector de reenvío, adjunto pendiente, panel rápido,
   cámara, grabación y envío; los controles siguen siendo Compose comunes y los servicios de sistema
-  continúan inyectados como adaptadores.
+  continúan inyectados como adaptadores. También localiza los fallos/estados no soportados de
+  selector, galería, cámara y grabación; un error de plataforma ya no rompe el idioma del flujo.
 
 ## Resultado local de la unidad 1 (pendiente de preflight integrado)
 

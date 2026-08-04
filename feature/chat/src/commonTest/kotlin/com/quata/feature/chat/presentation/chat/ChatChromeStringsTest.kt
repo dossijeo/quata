@@ -19,6 +19,8 @@ class ChatChromeStringsTest {
         assertEquals("Respondiendo a Gabrielu", strings.replyingTo("Gabrielu"))
         assertEquals("Foto/vídeo de galería", strings.chooseGallery)
         assertEquals("Grabando 00:08", strings.recording("00:08"))
+        assertEquals("No se pudo abrir la cámara.", strings.cameraError)
+        assertEquals("La grabación de audio no está disponible.", strings.audioUnsupported)
         assertEquals("Gabrielu (tú)", strings.memberLabel("Gabrielu", true))
         assertEquals("3 miembros", strings.memberCount(3))
     }
@@ -29,6 +31,7 @@ class ChatChromeStringsTest {
 
         assertEquals("Mute conversation", strings.muteConversation)
         assertEquals("Delete message", strings.deleteMessage)
+        assertEquals("The gallery could not be opened.", strings.galleryError)
         assertEquals("2 members", strings.memberCount(2))
     }
 }

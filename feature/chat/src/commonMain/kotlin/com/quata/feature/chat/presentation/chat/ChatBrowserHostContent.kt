@@ -328,10 +328,10 @@ private fun ChatCommonConversationHost(
                                     pendingAudioRecording?.let { recording -> audioRecordingReferences?.release(recording) }
                                     pendingAudioRecording = null
                                     attachmentPickerError = null
-                                    viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.reference, it.displayName ?: "Adjunto", it.mimeType))
+                                    viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.reference, it.displayName ?: chromeStrings.attachment, it.mimeType))
                                 }
-                                is PlatformResult.Failure -> attachmentPickerError = result.reason ?: "No se pudo abrir el selector de archivos."
-                                PlatformResult.Unsupported -> attachmentPickerError = "El selector de archivos no está disponible en esta plataforma."
+                                is PlatformResult.Failure -> attachmentPickerError = result.reason ?: chromeStrings.filePickerError
+                                PlatformResult.Unsupported -> attachmentPickerError = chromeStrings.filePickerUnsupported
                                 PlatformResult.Cancelled -> attachmentPickerError = null
                             }
                         }
@@ -343,10 +343,10 @@ private fun ChatCommonConversationHost(
                                     pendingAudioRecording?.let { recording -> audioRecordingReferences?.release(recording) }
                                     pendingAudioRecording = null
                                     attachmentPickerError = null
-                                    viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.reference, it.displayName ?: "Adjunto", it.mimeType))
+                                    viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.reference, it.displayName ?: chromeStrings.attachment, it.mimeType))
                                 }
-                                is PlatformResult.Failure -> attachmentPickerError = result.reason ?: "No se pudo abrir la galería."
-                                PlatformResult.Unsupported -> attachmentPickerError = "La galería no está disponible en esta plataforma."
+                                is PlatformResult.Failure -> attachmentPickerError = result.reason ?: chromeStrings.galleryError
+                                PlatformResult.Unsupported -> attachmentPickerError = chromeStrings.galleryUnsupported
                                 PlatformResult.Cancelled -> attachmentPickerError = null
                             }
                         }
@@ -368,13 +368,13 @@ private fun ChatCommonConversationHost(
                                     viewModel.onEvent(
                                         ChatUiEvent.AttachmentSelected(
                                             result.value.reference,
-                                            result.value.displayName ?: "Foto",
+                                            result.value.displayName ?: chromeStrings.photo,
                                             result.value.mimeType ?: "image/jpeg",
                                         ),
                                     )
                                 }
-                                is PlatformResult.Failure -> attachmentPickerError = result.reason ?: "No se pudo abrir la cámara."
-                                PlatformResult.Unsupported -> attachmentPickerError = "La cámara no está disponible en este dispositivo."
+                                is PlatformResult.Failure -> attachmentPickerError = result.reason ?: chromeStrings.cameraError
+                                PlatformResult.Unsupported -> attachmentPickerError = chromeStrings.cameraUnsupported
                                 PlatformResult.Cancelled -> attachmentPickerError = null
                             }
                         }
@@ -387,9 +387,9 @@ private fun ChatCommonConversationHost(
                                     recordingElapsedSeconds = 0L
                                     recordingError = null
                                 }
-                                is PlatformResult.Failure -> recordingError = result.reason ?: "No se pudo iniciar la grabación."
+                                is PlatformResult.Failure -> recordingError = result.reason ?: chromeStrings.audioStartError
                                 PlatformResult.Cancelled -> recordingError = null
-                                PlatformResult.Unsupported -> recordingError = "La grabación de audio no está disponible."
+                                PlatformResult.Unsupported -> recordingError = chromeStrings.audioUnsupported
                             }
                         }
                     },
@@ -408,14 +408,14 @@ private fun ChatCommonConversationHost(
                                     viewModel.onEvent(
                                         ChatUiEvent.AttachmentSelected(
                                             result.value.file.reference,
-                                            result.value.file.displayName ?: "Nota de voz",
+                                            result.value.file.displayName ?: chromeStrings.voiceNote,
                                             result.value.mimeType,
                                         ),
                                     )
                                 }
                                 is PlatformResult.Failure -> {
                                     isRecordingAudio = false
-                                    recordingError = result.reason ?: "No se pudo guardar la grabación."
+                                    recordingError = result.reason ?: chromeStrings.audioSaveError
                                 }
                                 PlatformResult.Cancelled -> {
                                     isRecordingAudio = false
@@ -423,7 +423,7 @@ private fun ChatCommonConversationHost(
                                 }
                                 PlatformResult.Unsupported -> {
                                     isRecordingAudio = false
-                                    recordingError = "La grabación de audio no está disponible."
+                                    recordingError = chromeStrings.audioUnsupported
                                 }
                             }
                         }
