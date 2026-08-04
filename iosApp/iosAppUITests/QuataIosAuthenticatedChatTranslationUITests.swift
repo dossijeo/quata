@@ -60,9 +60,12 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
             translatedDirection.waitForExistence(timeout: 35),
             "A real Fang response must expose its direction label instead of a callback-only success.",
         )
+        XCTAssertTrue(app.staticTexts["pan de trigo"].waitForExistence(timeout: 5))
         attachScreenshot(app, name: "chat-translation-result")
 
-        let close = app.buttons["Salir"].firstMatch
+        let close = app.buttons
+            .matching(NSPredicate(format: "label CONTAINS %@", "Salir"))
+            .firstMatch
         XCTAssertTrue(close.waitForExistence(timeout: 5))
         close.tap()
         XCTAssertTrue(chat.waitForExistence(timeout: 5), "Closing the translator must preserve Chat.")

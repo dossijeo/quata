@@ -162,10 +162,18 @@ fun ChatTranslatorOverlayContent(
             .onGloballyPositioned { overlayOrigin = it.boundsInWindow().topLeft },
     ) {
         val density = LocalDensity.current
+        val firstMessageTopPx = boxes.minOfOrNull { box ->
+            (box.bounds.top - overlayOrigin.y).coerceAtLeast(0f)
+        } ?: 0f
+        val messageShiftPx = (
+            with(density) { 148.dp.toPx() } - firstMessageTopPx
+        ).coerceAtLeast(0f)
         QuataTranslatorBackdrop(background = null, frostedTexture = null, modifier = Modifier.fillMaxSize())
         boxes.forEach { box ->
             val left = with(density) { (box.bounds.left - overlayOrigin.x).coerceAtLeast(0f).toDp() }
-            val top = with(density) { (box.bounds.top - overlayOrigin.y).coerceAtLeast(0f).toDp() }
+            val top = with(density) {
+                ((box.bounds.top - overlayOrigin.y).coerceAtLeast(0f) + messageShiftPx).toDp()
+            }
             val width = with(density) { box.bounds.width.coerceAtLeast(64f).toDp() }.coerceAtMost(maxWidth)
             val height = with(density) { box.bounds.height.coerceAtLeast(48f).toDp() }.coerceAtMost(maxHeight)
             val state = states[box.id]
@@ -328,7 +336,7 @@ private fun TranslatorModeHeader(
                     strings.activeTitle,
                     color = Color.White,
                     fontWeight = FontWeight.Black,
-                    fontSize = 16.sp,
+                    fontSize = 15.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
