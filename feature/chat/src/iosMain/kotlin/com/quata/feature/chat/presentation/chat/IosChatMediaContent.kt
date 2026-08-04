@@ -60,10 +60,10 @@ private fun IosChatMediaPreview(
     downloader: IosChatAttachmentDownloader,
     modifier: Modifier,
 ) {
-    val local = rememberIosChatMediaDownload(file, downloader)
-    var image by remember(local?.reference, kind) { mutableStateOf<UIImage?>(null) }
-    LaunchedEffect(local?.reference, kind) {
-        image = local?.let { decodeIosChatMediaPreview(it, kind) }
+    val download = rememberIosChatMediaDownload(file, downloader)
+    var image by remember(download.file?.reference, kind) { mutableStateOf<UIImage?>(null) }
+    LaunchedEffect(download.file?.reference, kind) {
+        image = download.file?.let { decodeIosChatMediaPreview(it, kind) }
     }
     Box(modifier, contentAlignment = Alignment.Center) {
         val decoded = image
@@ -78,7 +78,7 @@ private fun IosChatMediaPreview(
                 update = { it.image = decoded },
                 modifier = Modifier.fillMaxSize(),
             )
-        } else if (local == null) {
+        } else if (download.isLoading) {
             CircularProgressIndicator()
         } else {
             Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = file.displayName)
@@ -94,14 +94,16 @@ private fun IosChatMediaViewer(
     viewerFactory: IosChatMediaViewerFactory,
     modifier: Modifier,
 ) {
-    val local = rememberIosChatMediaDownload(file, downloader)
-    val surface = remember(local?.reference, kind, viewerFactory) {
-        local?.let { viewerFactory.create(it.reference, kind == ChatAttachmentKind.Video) }
+    val download = rememberIosChatMediaDownload(file, downloader)
+    val surface = remember(download.file?.reference, kind, viewerFactory) {
+        download.file?.let { viewerFactory.create(it.reference, kind == ChatAttachmentKind.Video) }
     }
     DisposableEffect(surface) { onDispose { surface?.dispose() } }
     Box(modifier, contentAlignment = Alignment.Center) {
-        if (surface == null) {
+        if (download.isLoading) {
             CircularProgressIndicator()
+        } else if (surface == null) {
+            Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = file.displayName)
         } else {
             UIKitView(factory = surface::nativeView, modifier = Modifier.fillMaxSize())
         }
@@ -109,21 +111,30 @@ private fun IosChatMediaViewer(
 }
 
 @Composable
+private data class IosChatMediaDownloadState(
+    val file: PlatformFile? = null,
+    val isLoading: Boolean = true,
+)
+
+@Composable
 private fun rememberIosChatMediaDownload(
     remote: PlatformFile,
     downloader: IosChatAttachmentDownloader,
-): PlatformFile? {
-    var local by remember(remote.reference) { mutableStateOf<PlatformFile?>(null) }
+): IosChatMediaDownloadState {
+    var state by remember(remote.reference) { mutableStateOf(IosChatMediaDownloadState()) }
     LaunchedEffect(remote.reference, remote.displayName, remote.mimeType, downloader) {
-        local = when (val result = downloader.download(remote.reference, remote.displayName)) {
-            is PlatformResult.Success -> result.value
-            is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> null
+        state = IosChatMediaDownloadState()
+        state = when (val result = downloader.download(remote.reference, remote.displayName)) {
+            is PlatformResult.Success -> IosChatMediaDownloadState(file = result.value, isLoading = false)
+            is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported ->
+                IosChatMediaDownloadState(isLoading = false)
         }
     }
-    DisposableEffect(local, downloader) {
-        onDispose { local?.let(downloader::discard) }
+    val localFile = state.file
+    DisposableEffect(localFile, downloader) {
+        onDispose { localFile?.let(downloader::discard) }
     }
-    return local
+    return state
 }
 
 @OptIn(ExperimentalForeignApi::class)
