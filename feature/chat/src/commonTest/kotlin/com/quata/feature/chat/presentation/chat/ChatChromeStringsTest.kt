@@ -11,6 +11,7 @@ class ChatChromeStringsTest {
         assertEquals("Silenciar conversación", strings.muteConversation)
         assertEquals("Reintentar", strings.retry)
         assertEquals("Mensajes favoritos", strings.favoriteMessages)
+        assertEquals("favorito", strings.favoriteMarker)
         assertEquals("Añadir nuevos participantes", strings.addParticipants)
         assertEquals("Abandonar conversación", strings.leaveConversation)
         assertEquals("Borrar conversación", strings.deleteConversation)

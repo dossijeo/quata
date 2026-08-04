@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -34,7 +35,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Message
+import com.quata.core.model.MessageDeliveryState
 import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
@@ -463,7 +466,25 @@ private fun ChatCommonConversationHost(
                     modifier = attachmentModifier,
                 )
             },
-            messageActions = { _, _ -> },
+            deliveryIndicator = { message ->
+                val template = quataTheme()
+                val textColor = if (message.isMine) template.colors.accentContent else template.colors.textPrimary
+                ChatMessageDeliveryIndicatorContent(
+                    state = if (message.isPending) MessageDeliveryState.Pending else message.deliveryState,
+                    tint = textColor.copy(alpha = 0.62f),
+                    readTint = template.colors.accent,
+                )
+            },
+            favoriteMarker = { message ->
+                val template = quataTheme()
+                val textColor = if (message.isMine) template.colors.accentContent else template.colors.textPrimary
+                CompactIcon(
+                    imageVector = Icons.Filled.StarBorder,
+                    contentDescription = chromeStrings.favoriteMarker,
+                    tint = textColor.copy(alpha = 0.62f),
+                    modifier = Modifier.size(15.dp),
+                )
+            },
             specialMessageBody = { message ->
                 val sos = remember(message.text, sosStrings) { resolveChatSosPresentation(message.text, sosStrings) }
                 if (sos == null) {
