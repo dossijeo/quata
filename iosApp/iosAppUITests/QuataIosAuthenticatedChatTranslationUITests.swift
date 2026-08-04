@@ -29,6 +29,9 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
         let deepLink = URL(
             string: "quata://egquata.com/#chat-\(encodedConversation)?message=\(messageID)",
         )!
+        guard #available(iOS 16.4, *) else {
+            throw XCTSkip("Opening a deep link from XCUITest requires iOS 16.4 or newer.")
+        }
         app.open(deepLink)
 
         let chat = app.descendants(matching: .any)
