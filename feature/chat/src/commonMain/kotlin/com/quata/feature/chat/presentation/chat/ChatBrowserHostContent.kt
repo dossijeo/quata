@@ -41,6 +41,7 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.navigation.AppDestinations
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.feature.chat.domain.ChatRepository
@@ -143,7 +144,7 @@ private fun ChatCommonConversationHost(
     val scope = rememberCoroutineScope()
     var attachmentPickerError by remember { mutableStateOf<String?>(null) }
     val viewModel = remember(repository, conversationId) {
-        ChatViewModel(conversationId = conversationId, repository = repository, text = text)
+        ChatViewModel(conversationId = conversationId, repository = repository, text = text, isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId)
     }
     val state by viewModel.uiState.collectAsState()
     val usersById = remember(state.participantCandidates, state.currentUser) {

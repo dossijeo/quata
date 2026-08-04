@@ -92,8 +92,11 @@ fun ChatScreenHost(
         )
         Box(Modifier.fillMaxSize().background(template.colors.scrim))
         Column(Modifier.fillMaxSize()) {
+            val isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId
             val selectedMessage = state.messages.firstOrNull { it.id == state.selectedMessageId }
-            if (selectedMessage != null) {
+            if (isFavoritesConversation) {
+                FavoriteMessagesHeaderContent("Mensajes favoritos", "Volver", slots.onBack)
+            } else if (selectedMessage != null) {
                 ChatSelectedMessageActionsContent(
                     message = selectedMessage,
                     compact = slots.compactHeader,
@@ -102,8 +105,9 @@ fun ChatScreenHost(
                 )
             } else {
                 ChatGroupManagementContent(
-                    conversation = state.conversation, state = state, onEvent = model::onEvent,
-                    onOpenProfile = slots.onOpenUserProfile, onBack = slots.onBack, trailing = slots.trailingActions,
+                    conversation = state.conversation, state = state, navigationAction = slots.navigationAction,
+                    conversationAvatar = { slots.conversationAvatar(state.conversation) }, subtitle = slots.subtitle(state.conversation, state.typingProfileIds), compact = slots.compactHeader,
+                    trailing = slots.trailingActions, onOpenProfile = slots.onOpenUserProfile, onEvent = model::onEvent,
                 )
             }
             val focusedLoadFailure = deepLinkRequest as? ChatMessageDeepLinkRequest.LoadFailed
@@ -138,7 +142,7 @@ fun ChatScreenHost(
                         model.onEvent(ChatUiEvent.MessageSelected(message.id.takeUnless { it == state.selectedMessageId }))
                     }
                 },
-                composer = slots.composer,
+                composer = if (isFavoritesConversation) ({}) else slots.composer,
                 attachment = slots.attachment,
                 deliveryIndicator = slots.deliveryIndicator,
                 favoriteMarker = slots.favoriteMarker,
