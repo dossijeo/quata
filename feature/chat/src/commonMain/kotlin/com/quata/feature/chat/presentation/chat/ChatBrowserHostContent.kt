@@ -86,6 +86,7 @@ fun ChatBrowserHostContent(
     onOpenAttachment: (PlatformFile) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     openingProfileUserId: String? = null,
+    onCopyMessage: (String) -> Unit,
     remoteConversationAvatar: @Composable (ConversationAvatarPresentation, Modifier) -> Unit,
     conversationList: @Composable (Modifier) -> Unit,
     text: (ChatText) -> String,
@@ -101,11 +102,14 @@ fun ChatBrowserHostContent(
     } else {
         ChatCommonConversationHost(
             repository = repository,
+            filePicker = filePicker,
             conversationId = conversationId,
             navigationMessage = navigationMessage,
             onBackToList = onBackToList,
+            onOpenConversation = onOpenConversation,
             onOpenAttachment = onOpenAttachment,
             onOpenUserProfile = onOpenUserProfile,
+            onCopyMessage = onCopyMessage,
             openingProfileUserId = openingProfileUserId,
             remoteConversationAvatar = remoteConversationAvatar,
             focusedMessageId = focusedMessageId,
@@ -122,17 +126,21 @@ fun ChatBrowserHostContent(
 @Composable
 private fun ChatCommonConversationHost(
     repository: ChatRepository,
+    filePicker: FilePickerService,
     conversationId: String,
     navigationMessage: String,
     onBackToList: () -> Unit,
+    onOpenConversation: (String) -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
     onOpenUserProfile: (String) -> Unit,
+    onCopyMessage: (String) -> Unit,
     openingProfileUserId: String?,
     remoteConversationAvatar: @Composable (ConversationAvatarPresentation, Modifier) -> Unit,
     focusedMessageId: String?,
     text: (ChatText) -> String,
     modifier: Modifier,
 ) {
+    val scope = rememberCoroutineScope()
     val viewModel = remember(repository, conversationId) {
         ChatViewModel(conversationId = conversationId, repository = repository, text = text)
     }
@@ -199,23 +207,38 @@ private fun ChatCommonConversationHost(
             },
             onOpenLink = { url -> onOpenAttachment(PlatformFile(reference = url)) },
             onBack = onBackToList,
+            onCopyMessage = onCopyMessage,
+            onOpenMessageConversation = { targetConversationId, _ -> onOpenConversation(targetConversationId) },
             subtitle = { _, typing -> if (typing.isNotEmpty()) "Escribiendo…" else navigationMessage },
             composer = { composerModifier ->
-                Surface(composerModifier) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = state.messageText,
-                            onValueChange = { viewModel.onEvent(ChatUiEvent.MessageChanged(it)) },
-                            label = { Text("Mensaje") },
-                            modifier = Modifier.fillMaxWidth().semantics { testTag = "chat.message" },
-                        )
-                        Button(
-                            onClick = { viewModel.onEvent(ChatUiEvent.Send) },
-                            enabled = state.messageText.isNotBlank(),
-                            modifier = Modifier.semantics { testTag = "chat.send" },
-                        ) { Text("Enviar") }
-                    }
-                }
+                ChatComposerContent(
+                    state = state,
+                    onEvent = viewModel::onEvent,
+                    onPickDocument = {
+                        scope.launch {
+                            when (val result = filePicker.pick(FilePickerRequest(source = FilePickerSource.Documents))) {
+                                is PlatformResult.Success -> result.value.firstOrNull()?.let {
+                                    viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.reference, it.displayName ?: "Adjunto", it.mimeType))
+                                }
+                                else -> Unit
+                            }
+                        }
+                    },
+                    onPickGallery = {
+                        scope.launch {
+                            when (val result = filePicker.pick(FilePickerRequest(source = FilePickerSource.Gallery))) {
+                                is PlatformResult.Success -> result.value.firstOrNull()?.let {
+                                    viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.reference, it.displayName ?: "Adjunto", it.mimeType))
+                                }
+                                else -> Unit
+                            }
+                        }
+                    },
+                    onOpenPendingAttachment = { state.attachmentUri?.let { onOpenAttachment(PlatformFile(it, state.attachmentName, state.attachmentMimeType)) } },
+                    onCamera = null,
+                    onRecordAudio = null,
+                    modifier = composerModifier,
+                )
             },
             attachment = { message, attachmentModifier ->
                 message.attachmentUri?.takeIf { it.isNotBlank() }?.let { reference ->
@@ -227,13 +250,7 @@ private fun ChatCommonConversationHost(
                     ) { Text(message.attachmentName ?: "Abrir adjunto") }
                 }
             },
-            messageActions = { message, actionsModifier ->
-                if (message.id == state.selectedMessageId && !message.isLocalEcho) {
-                    Button(onClick = { viewModel.onEvent(ChatUiEvent.StartReply) }, modifier = actionsModifier) {
-                        Text("Responder")
-                    }
-                }
-            },
+            messageActions = { _, _ -> },
             typingIndicator = { typing ->
                 if (typing.isEmpty()) null else { { Text("Escribiendo…", Modifier.padding(14.dp)) } }
             },

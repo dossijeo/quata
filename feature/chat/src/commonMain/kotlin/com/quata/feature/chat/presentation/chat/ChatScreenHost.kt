@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
+import com.quata.core.navigation.AppDestinations
 import com.quata.designsystem.chat.ProceduralChatBackgroundCanvas
 import com.quata.designsystem.chat.proceduralChatBackgroundSpec
 import com.quata.feature.chat.domain.ChatRepository
@@ -91,16 +92,26 @@ fun ChatScreenHost(
         )
         Box(Modifier.fillMaxSize().background(template.colors.scrim))
         Column(Modifier.fillMaxSize()) {
-            ChatConversationTitleBarContent(
-                title = state.conversation?.title ?: slots.strings.untitledConversation,
-                subtitle = slots.subtitle(state.conversation, state.typingProfileIds),
-                expandable = false,
-                compact = slots.compactHeader,
-                onToggleExpanded = {},
-                navigationAction = slots.navigationAction,
-                avatar = { slots.conversationAvatar(state.conversation) },
-                trailingActions = slots.trailingActions,
-            )
+            val selectedMessage = state.messages.firstOrNull { it.id == state.selectedMessageId }
+            if (selectedMessage != null) {
+                ChatSelectedMessageActionsContent(
+                    message = selectedMessage,
+                    compact = slots.compactHeader,
+                    onCopy = slots.onCopyMessage,
+                    onEvent = model::onEvent,
+                )
+            } else {
+                ChatConversationTitleBarContent(
+                    title = state.conversation?.title ?: slots.strings.untitledConversation,
+                    subtitle = slots.subtitle(state.conversation, state.typingProfileIds),
+                    expandable = false,
+                    compact = slots.compactHeader,
+                    onToggleExpanded = {},
+                    navigationAction = slots.navigationAction,
+                    avatar = { slots.conversationAvatar(state.conversation) },
+                    trailingActions = slots.trailingActions,
+                )
+            }
             val focusedLoadFailure = deepLinkRequest as? ChatMessageDeepLinkRequest.LoadFailed
             if (state.messageLoadFailure != null || focusedLoadFailure != null) {
                 ChatReadFailureContent(
@@ -123,7 +134,9 @@ fun ChatScreenHost(
                 avatar = slots.messageAvatar,
                 onOpenLink = slots.onOpenLink,
                 onMessageClick = { message ->
-                    model.onEvent(ChatUiEvent.MessageSelected(message.id.takeUnless { it == state.selectedMessageId }))
+                    if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+                        slots.onOpenMessageConversation(message.conversationId, message.id)
+                    } else model.onEvent(ChatUiEvent.MessageSelected(message.id.takeUnless { it == state.selectedMessageId }))
                 },
                 composer = slots.composer,
                 attachment = slots.attachment,
@@ -137,6 +150,13 @@ fun ChatScreenHost(
                 focusedMessageId = focusedMessage?.id,
                 onFocusedMessageHandled = { deepLinkRequest = ChatMessageDeepLinkRequest.NoTarget },
                 modifier = Modifier.weight(1f),
+            )
+        }
+        if (state.isForwardDialogOpen) {
+            ChatForwardPickerContent(
+                state = state,
+                onEvent = model::onEvent,
+                onQueryChanged = model::onForwardCandidateQueryChanged,
             )
         }
     }
@@ -157,6 +177,8 @@ data class ChatScreenHostSlots(
     val trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
     val messageAvatar: @Composable (Message) -> Unit,
     val onOpenLink: (String) -> Unit,
+    val onCopyMessage: (String) -> Unit,
+    val onOpenMessageConversation: (String, String) -> Unit,
     val onBack: () -> Unit,
     val subtitle: (Conversation?, Set<String>) -> String?,
     val composer: @Composable (Modifier) -> Unit,

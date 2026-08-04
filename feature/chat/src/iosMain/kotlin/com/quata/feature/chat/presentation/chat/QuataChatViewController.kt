@@ -6,6 +6,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.platform.IosClipboardService
@@ -24,6 +25,7 @@ import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.IosMemberProfileOpeningState
 import platform.UIKit.UIViewController
+import kotlinx.coroutines.launch
 
 /**
  * iOS composition input for the shared chat list, bubble stream and composer.
@@ -75,6 +77,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 )
             }
             val clipboard = remember { IosClipboardService() }
+            val scope = rememberCoroutineScope()
             val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
             DisposableEffect(conversationsModel) { onDispose(conversationsModel::close) }
             DisposableEffect(dependencies.repository) {
@@ -94,6 +97,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
         onOpenAttachment = dependencies.onOpenAttachment,
                 onOpenUserProfile = dependencies.onOpenAvatar,
                 openingProfileUserId = openingProfileUserId,
+                onCopyMessage = { value -> scope.launch { clipboard.writeText(value) } },
                 remoteConversationAvatar = { presentation, avatarModifier ->
                     IosRemoteAvatar(
                         name = presentation.name,
