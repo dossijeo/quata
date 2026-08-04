@@ -109,8 +109,6 @@ fun ChatBrowserHostContent(
     modifier: Modifier = Modifier,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(),
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
-    messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
-    sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
 ) {
     if (conversationId == null) {
         conversationList(modifier)
