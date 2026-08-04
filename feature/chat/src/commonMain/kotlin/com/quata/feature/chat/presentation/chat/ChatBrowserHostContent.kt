@@ -477,18 +477,18 @@ private fun ChatCommonConversationHost(
                     modifier = attachmentModifier,
                 )
             },
-            deliveryIndicator = { message ->
+            deliveryIndicator = { message, isSelected ->
                 val template = quataTheme()
-                val textColor = if (message.isMine) template.colors.accentContent else template.colors.textPrimary
+                val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
                 ChatMessageDeliveryIndicatorContent(
                     state = if (message.isPending) MessageDeliveryState.Pending else message.deliveryState,
                     tint = textColor.copy(alpha = 0.62f),
                     readTint = template.colors.accent,
                 )
             },
-            favoriteMarker = { message ->
+            favoriteMarker = { message, isSelected ->
                 val template = quataTheme()
-                val textColor = if (message.isMine) template.colors.accentContent else template.colors.textPrimary
+                val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
                 CompactIcon(
                     imageVector = Icons.Filled.StarBorder,
                     contentDescription = chromeStrings.favoriteMarker,
@@ -496,11 +496,14 @@ private fun ChatCommonConversationHost(
                     modifier = Modifier.size(15.dp),
                 )
             },
-            specialMessageBody = { message ->
+            specialMessageBody = { message, isSelected ->
                 val sos = remember(message.text, sosStrings) { resolveChatSosPresentation(message.text, sosStrings) }
                 if (sos == null) {
                     false
                 } else {
+                    val template = quataTheme()
+                    val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
+                    val accentColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent
                     ChatSosLocationContent(
                         title = sos.title,
                         body = sos.body,
@@ -513,14 +516,14 @@ private fun ChatCommonConversationHost(
                         isUnavailable = sos.isUnavailable,
                         unavailableLabel = sosStrings.locationUnavailable,
                         openMapsLabel = sosStrings.openMaps,
-                        textColor = MaterialTheme.colorScheme.onSurface,
-                        accentColor = MaterialTheme.colorScheme.primary,
+                        textColor = textColor,
+                        accentColor = accentColor,
                         onOpenMaps = onOpenExternalLink,
                         mapPreviewIcon = {
                             CompactIcon(
                                 imageVector = Icons.Filled.LocationOn,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = accentColor,
                                 modifier = Modifier.size(42.dp),
                             )
                         },

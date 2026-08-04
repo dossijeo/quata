@@ -51,9 +51,9 @@ fun ChatConversationDetailContent(
     translatableTextModifier: (Message, Modifier) -> Modifier = { _, value -> value },
     composer: @Composable (Modifier) -> Unit,
     attachment: (@Composable (Message, Modifier) -> Unit)? = null,
-    deliveryIndicator: (@Composable (Message) -> Unit)? = null,
-    favoriteMarker: (@Composable (Message) -> Unit)? = null,
-    specialMessageBody: (@Composable (Message) -> Boolean)? = null,
+    deliveryIndicator: (@Composable (Message, Boolean) -> Unit)? = null,
+    favoriteMarker: (@Composable (Message, Boolean) -> Unit)? = null,
+    specialMessageBody: (@Composable (Message, Boolean) -> Boolean)? = null,
     messageActions: (@Composable (Message, Modifier) -> Unit)? = null,
     typingIndicator: (@Composable () -> Unit)? = null,
     /** Shown inside the history viewport while the first backend snapshot is pending. */
@@ -121,9 +121,9 @@ fun ChatConversationDetailContent(
                     timestamp = messageTimestamp(message),
                     translatableTextModifier = translatableTextModifier,
                     attachment = attachment?.let { slot -> { bubbleModifier -> slot(message, bubbleModifier) } },
-                    deliveryIndicator = deliveryIndicator?.let { slot -> { slot(message) } },
-                    favoriteMarker = favoriteMarker?.let { slot -> { slot(message) } },
-                    specialMessageBody = specialMessageBody?.let { slot -> { slot(message) } },
+                    deliveryIndicator = deliveryIndicator?.let { slot -> { slot(message, message.id == selectedMessageId) } },
+                    favoriteMarker = favoriteMarker?.let { slot -> { slot(message, message.id == selectedMessageId) } },
+                    specialMessageBody = specialMessageBody?.let { slot -> { slot(message, message.id == selectedMessageId) } },
                     actions = messageActions?.let { slot -> { actionsModifier -> slot(message, actionsModifier) } },
                 )
             }
@@ -153,7 +153,7 @@ private fun ChatConversationMessageContent(
     actions: (@Composable (Modifier) -> Unit)?,
 ) {
     val template = quataTheme()
-    val textColor = if (message.isMine) template.colors.accentContent else template.colors.textPrimary
+    val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
     ChatMessageBubbleLayoutContent(
         isMine = message.isMine,
         isSelected = isSelected,
@@ -195,7 +195,7 @@ private fun ChatConversationMessageContent(
                     ChatLinkifiedTextContent(
                         text = message.text,
                         color = textColor,
-                        linkColor = template.colors.accent,
+                        linkColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.accent,
                         onOpenLink = onOpenLink,
                     )
                 }
