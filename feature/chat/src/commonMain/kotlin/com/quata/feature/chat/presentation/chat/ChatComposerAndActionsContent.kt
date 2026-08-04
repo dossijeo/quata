@@ -47,6 +47,7 @@ import com.quata.core.ui.components.insertAtSelection
 fun ChatSelectedMessageActionsContent(
     message: Message,
     compact: Boolean,
+    strings: ChatChromeStrings,
     onCopy: (String) -> Unit,
     onEvent: (ChatUiEvent) -> Unit,
     modifier: Modifier = Modifier,
@@ -54,23 +55,23 @@ fun ChatSelectedMessageActionsContent(
     var confirmation by remember(message.id) { mutableStateOf<ChatConfirmation?>(null) }
     ChatSelectedMessageActionBarContent(
         compact = compact,
-        navigationAction = { CompactIconButton(onClick = { onEvent(ChatUiEvent.MessageSelected(null)) }) { CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, "Cerrar selección") } },
+        navigationAction = { CompactIconButton(onClick = { onEvent(ChatUiEvent.MessageSelected(null)) }) { CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.closeSelection) } },
         actions = {
-            CompactIconButton(onClick = { onCopy(message.text); onEvent(ChatUiEvent.MessageSelected(null)) }) { CompactIcon(Icons.Filled.ContentCopy, "Copiar") }
-            CompactIconButton(onClick = { onEvent(ChatUiEvent.StartReply) }) { CompactIcon(Icons.AutoMirrored.Filled.Reply, "Responder") }
-            CompactIconButton(onClick = { onEvent(ChatUiEvent.OpenForwardDialog) }) { CompactIcon(Icons.AutoMirrored.Filled.Forward, "Reenviar") }
-            if (message.isMine && !message.isDeleted) CompactIconButton(onClick = { onEvent(ChatUiEvent.StartEdit) }) { CompactIcon(Icons.Filled.Edit, "Editar") }
-            if (!message.isMine && !message.isDeleted) CompactIconButton(onClick = { confirmation = ChatConfirmation.Report }) { CompactIcon(Icons.Filled.Flag, "Reportar") }
-            CompactIconButton(onClick = { onEvent(ChatUiEvent.ToggleFavoriteSelected) }) { CompactIcon(if (message.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder, "Favorito") }
-            if (message.isMine && !message.isDeleted) CompactIconButton(onClick = { confirmation = ChatConfirmation.Delete }) { CompactIcon(Icons.Filled.Delete, "Borrar") }
+            CompactIconButton(onClick = { onCopy(message.text); onEvent(ChatUiEvent.MessageSelected(null)) }) { CompactIcon(Icons.Filled.ContentCopy, strings.copyMessage) }
+            CompactIconButton(onClick = { onEvent(ChatUiEvent.StartReply) }) { CompactIcon(Icons.AutoMirrored.Filled.Reply, strings.replyMessage) }
+            CompactIconButton(onClick = { onEvent(ChatUiEvent.OpenForwardDialog) }) { CompactIcon(Icons.AutoMirrored.Filled.Forward, strings.forwardMessage) }
+            if (message.isMine && !message.isDeleted) CompactIconButton(onClick = { onEvent(ChatUiEvent.StartEdit) }) { CompactIcon(Icons.Filled.Edit, strings.editMessage) }
+            if (!message.isMine && !message.isDeleted) CompactIconButton(onClick = { confirmation = ChatConfirmation.Report }) { CompactIcon(Icons.Filled.Flag, strings.reportMessage) }
+            CompactIconButton(onClick = { onEvent(ChatUiEvent.ToggleFavoriteSelected) }) { CompactIcon(if (message.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder, strings.favoriteMessage) }
+            if (message.isMine && !message.isDeleted) CompactIconButton(onClick = { confirmation = ChatConfirmation.Delete }) { CompactIcon(Icons.Filled.Delete, strings.deleteMessage) }
         },
         modifier = modifier,
     )
     confirmation?.let { action ->
         QuataConfirmationDialogContent(
-            title = if (action == ChatConfirmation.Delete) "Eliminar mensaje" else "Reportar mensaje",
-            message = if (action == ChatConfirmation.Delete) "Esta acción eliminará el mensaje." else "¿Quieres reportar este mensaje?",
-            confirmLabel = "Confirmar", dismissLabel = "Cancelar",
+            title = if (action == ChatConfirmation.Delete) strings.deleteMessage else strings.reportMessage,
+            message = if (action == ChatConfirmation.Delete) strings.deleteMessageConfirm else strings.reportMessageConfirm,
+            confirmLabel = strings.confirm, dismissLabel = strings.cancel,
             onDismiss = { confirmation = null },
             onConfirm = {
                 onEvent(if (action == ChatConfirmation.Delete) ChatUiEvent.DeleteSelectedMessage else ChatUiEvent.ReportSelectedMessage)

@@ -94,6 +94,7 @@ fun ChatScreenHost(
                 ChatSelectedMessageActionsContent(
                     message = selectedMessage,
                     compact = slots.compactHeader,
+                    strings = slots.chromeStrings,
                     onCopy = slots.onCopyMessage,
                     onEvent = model::onEvent,
                 )
@@ -101,6 +102,7 @@ fun ChatScreenHost(
                 ChatGroupManagementContent(
                     conversation = state.conversation, state = state, navigationAction = slots.navigationAction,
                     conversationAvatar = { slots.conversationAvatar(state.conversation) }, subtitle = slots.subtitle(state.conversation, state.typingProfileIds), compact = slots.compactHeader,
+                    strings = slots.chromeStrings,
                     memberAvatar = slots.memberAvatar,
                     trailing = trailing@{
                         slots.trailingActions.invoke(this@trailing)
@@ -233,6 +235,7 @@ data class ChatScreenHostStrings(
 /** Platform boundaries for `ChatScreenHost`; none of these are product-owned parallel UIs. */
 data class ChatScreenHostSlots(
     val strings: ChatScreenHostStrings,
+    val chromeStrings: ChatChromeStrings,
     val messageStrings: ChatConversationDetailStrings,
     val translatorStrings: ChatTranslatorStrings,
     val translationGateway: ChatTranslationGateway,

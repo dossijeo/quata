@@ -15,6 +15,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.LocationOn
@@ -49,6 +50,7 @@ import com.quata.core.navigation.AppDestinations
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationListRow
@@ -193,6 +195,7 @@ private fun ChatCommonConversationHost(
         ChatViewModel(conversationId = conversationId, repository = repository, text = text, isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId)
     }
     val state by viewModel.uiState.collectAsState()
+    val chromeStrings = remember(languageTag) { chatChromeStringsForLanguage(languageTag) }
     val usersById = remember(state.participantCandidates, state.currentUser) {
         (state.participantCandidates + listOfNotNull(state.currentUser)).associateBy { it.id }
     }
@@ -236,16 +239,17 @@ private fun ChatCommonConversationHost(
         modifier = modifier,
         model = viewModel,
         slots = ChatScreenHostSlots(
-            strings = ChatScreenHostStrings("Conversación", "Reintentar mensajes"),
-            messageStrings = ChatConversationDetailStrings("Editado", "Mensaje eliminado", "Reenviado"),
+            strings = ChatScreenHostStrings(chromeStrings.untitledConversation, chromeStrings.retryMessages),
+            chromeStrings = chromeStrings,
+            messageStrings = ChatConversationDetailStrings(chromeStrings.edited, chromeStrings.deletedMessage, chromeStrings.forwarded),
             translatorStrings = translatorStrings,
             translationGateway = translationGateway,
             translationDirection = translationDirection,
             messageTimestamp = { message -> chatMessageTimestampLabel(message, languageTag) },
             compactHeader = false,
             navigationAction = {
-                Button(onClick = onBackToList, modifier = Modifier.semantics { testTag = "chat.back" }) {
-                    Text("Volver a conversaciones")
+                CompactIconButton(onClick = onBackToList, modifier = Modifier.semantics { testTag = "chat.back" }) {
+                    CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, chromeStrings.back)
                 }
             },
             conversationAvatar = { conversation ->
@@ -305,7 +309,14 @@ private fun ChatCommonConversationHost(
             onCopyMessage = onCopyMessage,
             onOpenMessageConversation = onOpenMessageConversation,
             onOpenUserProfile = onOpenUserProfile,
-            subtitle = { _, typing -> if (typing.isNotEmpty()) "Escribiendo…" else navigationMessage },
+            subtitle = { conversation, typing ->
+                when {
+                    typing.isNotEmpty() -> chromeStrings.typing
+                    navigationMessage.isNotBlank() -> navigationMessage
+                    conversation?.isGroup == true -> chromeStrings.memberCount(conversation.participantIds.size)
+                    else -> null
+                }
+            },
             composer = { composerModifier ->
                 ChatComposerContent(
                     state = state,
@@ -474,7 +485,7 @@ private fun ChatCommonConversationHost(
                 }
             },
             typingIndicator = { typing ->
-                if (typing.isEmpty()) null else { { Text("Escribiendo…", Modifier.padding(14.dp)) } }
+                if (typing.isEmpty()) null else { { Text(chromeStrings.typing, Modifier.padding(14.dp)) } }
             },
         ),
     )

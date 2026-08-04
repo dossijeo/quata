@@ -1,6 +1,6 @@
 # Plan de vertical común — Chat
 
-Base de preparación: `main` `702fb7174a758778e4f5d8f2ded0b6853378208f` (PR #175 integrada).
+Base de preparación: `main` `97b325afab3cf35739d795d3a1457e5ee1c2376c` (documentación posterior a #175 integrada).
 
 Estado de producto de partida: `SCR-CHAT` permanece **FALLBACK/PARCIAL**. Android monta la
 composición completa `ChatScreen`; Wasm e iOS montan `ChatBrowserHostContent`, una composición
@@ -71,6 +71,16 @@ pero no sustituyen una raíz de producto común.
 Hasta completar las cinco unidades, `SCR-CHAT` sólo podrá declararse **COMÚN con límites** y el
 informe enumerará los IDs aún no acreditados. Ninguna carencia de RLS autoriza cambios de política
 durante esta migración: se documenta y se mantiene compatibilidad con Android y Web antigua.
+
+## Identidad visual común contrastada con Android
+
+- `CHAT-TRANSLATION`/`FLOW-TRANSLATOR`: la raíz Compose común conserva el overlay de cristal
+  esmerilado, cabecera naranja, pie, copy exacto y burbuja traducida de Android. El host iOS real
+  acredita activación, traducción backend y retorno en `evidence/chat/22ede9ba-ios-translation`.
+- `SCR-CHAT`/`CHAT-MESSAGE-ACTIONS`/`CHAT-GROUP`/`CHAT-NOTIFICATIONS`: la cabecera común usa la
+  flecha compacta de Android y un catálogo EN/ES/FR que replica el copy de recursos Android para
+  accesibilidad, menús, miembros, selección y confirmaciones. Compilar o localizar estos controles
+  no cierra todavía sus mutaciones ni la equivalencia visual completa.
 
 ## Resultado local de la unidad 1 (pendiente de preflight integrado)
 

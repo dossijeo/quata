@@ -85,6 +85,7 @@ fun ChatGroupManagementContent(
     memberAvatar: @Composable (ChatMemberPresentation) -> Unit,
     subtitle: String?,
     compact: Boolean,
+    strings: ChatChromeStrings,
     trailing: @Composable RowScope.() -> Unit,
     onOpenProfile: (String) -> Unit,
     onLoadMoreParticipants: () -> Unit,
@@ -97,7 +98,7 @@ fun ChatGroupManagementContent(
     val canInvite = canInviteToChat(conversation, state.currentUser)
 
     ChatConversationTitleBarContent(
-        title = conversation?.title?.ifBlank { "Conversación" } ?: "Conversación",
+        title = conversation?.title?.ifBlank { strings.untitledConversation } ?: strings.untitledConversation,
         subtitle = subtitle,
         expandable = conversation?.isGroup == true,
         compact = compact,
@@ -107,11 +108,11 @@ fun ChatGroupManagementContent(
         trailingActions = {
             trailing()
             CompactIconButton(onClick = { menuExpanded = true }) {
-                CompactIcon(Icons.Filled.MoreVert, "Opciones")
+                CompactIcon(Icons.Filled.MoreVert, strings.options)
             }
             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                 DropdownMenuItem(
-                    text = { Text(if (conversation?.isMuted == true) "Reactivar avisos" else "Silenciar") },
+                    text = { Text(if (conversation?.isMuted == true) strings.reactivateNotifications else strings.muteConversation) },
                     leadingIcon = {
                         CompactIcon(
                             if (conversation?.isMuted == true) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
@@ -124,7 +125,7 @@ fun ChatGroupManagementContent(
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Permitir invitaciones") },
+                    text = { Text(strings.allowMemberInvites) },
                     leadingIcon = { Checkbox(checked = conversation?.canMembersInvite == true, onCheckedChange = null) },
                     enabled = isModerator,
                     onClick = {
@@ -133,7 +134,7 @@ fun ChatGroupManagementContent(
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Añadir participantes") },
+                    text = { Text(strings.addParticipants) },
                     leadingIcon = { CompactIcon(Icons.Filled.PersonAdd, null) },
                     enabled = canInvite,
                     onClick = {
@@ -142,7 +143,7 @@ fun ChatGroupManagementContent(
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Salir") },
+                    text = { Text(strings.leaveConversation) },
                     leadingIcon = { CompactIcon(Icons.Filled.PersonRemove, null) },
                     onClick = {
                         menuExpanded = false
@@ -150,7 +151,7 @@ fun ChatGroupManagementContent(
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Eliminar conversación") },
+                    text = { Text(strings.deleteConversation) },
                     leadingIcon = { CompactIcon(Icons.Filled.Delete, null) },
                     onClick = {
                         menuExpanded = false
@@ -174,9 +175,8 @@ fun ChatGroupManagementContent(
                     memberAvatar(member)
                     Text(
                         text = buildString {
-                            append(member.name)
-                            if (member.isSelf) append(" (tú)")
-                            if (member.isModerator) append(" · moderador")
+                            append(strings.memberLabel(member.name, member.isSelf))
+                            if (member.isModerator) append(" · ${strings.moderator}")
                         },
                         modifier = Modifier.weight(1f).clickable(
                             enabled = member.canOpenProfile,
@@ -185,14 +185,14 @@ fun ChatGroupManagementContent(
                     )
                     if (isModerator && !member.isSelf) {
                         CompactIconButton(onClick = { memberMenuExpanded = true }) {
-                            CompactIcon(Icons.Filled.MoreVert, "Gestionar ${member.name}")
+                            CompactIcon(Icons.Filled.MoreVert, strings.manageMember(member.name))
                         }
                         DropdownMenu(
                             expanded = memberMenuExpanded,
                             onDismissRequest = { memberMenuExpanded = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text(if (member.isModerator) "Quitar moderador" else "Nombrar moderador") },
+                                text = { Text(if (member.isModerator) strings.removeModerator else strings.promoteModerator) },
                                 leadingIcon = { CompactIcon(Icons.Filled.Security, null) },
                                 onClick = {
                                     memberMenuExpanded = false
@@ -204,7 +204,7 @@ fun ChatGroupManagementContent(
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("Bloquear") },
+                                text = { Text(strings.blockUser) },
                                 leadingIcon = { CompactIcon(Icons.Filled.Block, null) },
                                 onClick = {
                                     memberMenuExpanded = false
@@ -212,7 +212,7 @@ fun ChatGroupManagementContent(
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("Expulsar") },
+                                text = { Text(strings.removeParticipant) },
                                 leadingIcon = { CompactIcon(Icons.Filled.PersonRemove, null) },
                                 onClick = {
                                     memberMenuExpanded = false
@@ -232,16 +232,17 @@ fun ChatGroupManagementContent(
             onEvent = onEvent,
             onOpenProfile = onOpenProfile,
             onLoadMore = onLoadMoreParticipants,
+            strings = strings,
         )
     }
 
     confirmation?.let { action ->
-        val copy = action.confirmationCopy()
+        val copy = action.confirmationCopy(strings)
         QuataConfirmationDialogContent(
             title = copy.first,
             message = copy.second,
-            confirmLabel = "Confirmar",
-            dismissLabel = "Cancelar",
+            confirmLabel = strings.confirm,
+            dismissLabel = strings.cancel,
             onConfirm = {
                 onEvent(action.event)
                 confirmation = null
@@ -251,13 +252,13 @@ fun ChatGroupManagementContent(
     }
 }
 
-private fun ChatManagementConfirmation.confirmationCopy(): Pair<String, String> = when (this) {
-    ChatManagementConfirmation.Leave -> "Salir de la conversación" to "¿Quieres salir de esta conversación?"
-    ChatManagementConfirmation.Delete -> "Eliminar conversación" to "¿Quieres eliminar esta conversación?"
-    is ChatManagementConfirmation.Promote -> "Nombrar moderador" to "¿Quieres nombrar moderadora a esta persona?"
-    is ChatManagementConfirmation.Demote -> "Quitar moderador" to "¿Quieres retirar el rol de moderación?"
-    is ChatManagementConfirmation.Block -> "Bloquear participante" to "¿Quieres bloquear y retirar a esta persona?"
-    is ChatManagementConfirmation.Remove -> "Expulsar participante" to "¿Quieres retirar a esta persona de la conversación?"
+private fun ChatManagementConfirmation.confirmationCopy(strings: ChatChromeStrings): Pair<String, String> = when (this) {
+    ChatManagementConfirmation.Leave -> strings.leaveConversation to strings.leaveConversationConfirm
+    ChatManagementConfirmation.Delete -> strings.deleteConversation to strings.deleteConversationConfirm
+    is ChatManagementConfirmation.Promote -> strings.promoteModerator to strings.promoteModeratorConfirm
+    is ChatManagementConfirmation.Demote -> strings.removeModerator to strings.removeModeratorConfirm
+    is ChatManagementConfirmation.Block -> strings.blockUser to strings.blockUserConfirm
+    is ChatManagementConfirmation.Remove -> strings.removeParticipant to strings.removeParticipantConfirm
 }
 
 @Composable
@@ -266,21 +267,22 @@ private fun ChatParticipantsPickerContent(
     onEvent: (ChatUiEvent) -> Unit,
     onOpenProfile: (String) -> Unit,
     onLoadMore: () -> Unit,
+    strings: ChatChromeStrings,
 ) {
     AlertDialog(
         onDismissRequest = { onEvent(ChatUiEvent.CloseAddParticipants) },
-        title = { Text("Añadir participantes") },
+        title = { Text(strings.addParticipants) },
         text = {
             Column {
                 OutlinedTextField(
                     value = state.participantCandidateQuery,
                     onValueChange = { onEvent(ChatUiEvent.ParticipantSearchChanged(it)) },
-                    label = { Text("Buscar") },
+                    label = { Text(strings.search) },
                 )
                 when {
-                    state.isParticipantCandidateInitialLoading -> Text("Buscando personas…")
+                    state.isParticipantCandidateInitialLoading -> Text(strings.searchingPeople)
                     state.participantCandidateError != null -> Text(state.participantCandidateError)
-                    state.participantConversationCandidates.isEmpty() -> Text("No se encontraron personas.")
+                    state.participantConversationCandidates.isEmpty() -> Text(strings.noPeopleFound)
                 }
                 state.participantConversationCandidates.forEach { candidate ->
                     Row(
@@ -299,7 +301,7 @@ private fun ChatParticipantsPickerContent(
                 }
                 if (state.participantCandidateHasMore && !state.isParticipantCandidateInitialLoading) {
                     Button(onClick = onLoadMore, enabled = !state.isParticipantCandidatePageLoading) {
-                        Text(if (state.isParticipantCandidatePageLoading) "Cargando…" else "Cargar más")
+                        Text(if (state.isParticipantCandidatePageLoading) strings.loading else strings.loadMore)
                     }
                 }
             }
@@ -308,10 +310,10 @@ private fun ChatParticipantsPickerContent(
             Button(
                 onClick = { onEvent(ChatUiEvent.AddSelectedParticipants) },
                 enabled = state.selectedParticipantIds.isNotEmpty() && !state.isConversationActionInProgress,
-            ) { Text("Añadir") }
+            ) { Text(strings.add) }
         },
         dismissButton = {
-            Button(onClick = { onEvent(ChatUiEvent.CloseAddParticipants) }) { Text("Cancelar") }
+            Button(onClick = { onEvent(ChatUiEvent.CloseAddParticipants) }) { Text(strings.cancel) }
         },
     )
 }
