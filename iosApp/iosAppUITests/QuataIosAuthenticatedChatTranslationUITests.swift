@@ -8,10 +8,8 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
         guard environment["QUATA_IOS_AUTH_UI_E2E"] == "1" else {
             throw XCTSkip("Authenticated Chat translation UI gate is opt-in.")
         }
-        guard let threadID = environment["QUATA_IOS_CHAT_E2E_THREAD_ID"],
-              let messageID = environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"],
-              !threadID.isEmpty,
-              !messageID.isEmpty else {
+        guard environment["QUATA_IOS_CHAT_E2E_THREAD_ID"]?.isEmpty == false,
+              environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]?.isEmpty == false else {
             throw XCTSkip("Disposable Chat fixture IDs are not configured.")
         }
 
@@ -24,20 +22,17 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
 
-        let encodedConversation = "sb:\(threadID)"
-            .addingPercentEncoding(withAllowedCharacters: .alphanumerics)!
-        let deepLink = URL(
-            string: "quata://egquata.com/#chat-\(encodedConversation)?message=\(messageID)",
-        )!
-        guard #available(iOS 16.4, *) else {
-            throw XCTSkip("Opening a deep link from XCUITest requires iOS 16.4 or newer.")
-        }
-        app.open(deepLink)
-
+        let chatsNavigation = app.buttons["Chats"].firstMatch
+        XCTAssertTrue(chatsNavigation.waitForExistence(timeout: 10), "The authenticated shell must expose Chats.")
+        chatsNavigation.tap()
         let chat = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-chat-host")
             .firstMatch
-        XCTAssertTrue(chat.waitForExistence(timeout: 20), "The real deep link must mount Chat.")
+        XCTAssertTrue(chat.waitForExistence(timeout: 20), "The authenticated navigation must mount Chat.")
+
+        let fixturePreview = app.staticTexts["Mbolo"].firstMatch
+        XCTAssertTrue(fixturePreview.waitForExistence(timeout: 20), app.debugDescription)
+        fixturePreview.tap()
         XCTAssertTrue(app.staticTexts["Mbolo"].firstMatch.waitForExistence(timeout: 20), app.debugDescription)
         attachScreenshot(app, name: "chat-translation-before")
 
