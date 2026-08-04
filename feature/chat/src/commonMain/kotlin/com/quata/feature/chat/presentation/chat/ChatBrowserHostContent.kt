@@ -81,6 +81,7 @@ fun ChatBrowserHostContent(
     audioPlayer: AudioPlayerService,
     audioRecorder: AudioRecorderService,
     filePicker: FilePickerService,
+    capturePhoto: suspend () -> PlatformResult<PlatformFile>,
     conversationId: String?,
     navigationMessage: String,
     onOpenConversation: (String) -> Unit,
@@ -109,6 +110,7 @@ fun ChatBrowserHostContent(
             audioRecordingReferences = audioRecordingReferences,
             audioRecordingConfiguration = audioRecordingConfiguration,
             filePicker = filePicker,
+            capturePhoto = capturePhoto,
             conversationId = conversationId,
             navigationMessage = navigationMessage,
             onBackToList = onBackToList,
@@ -137,6 +139,7 @@ private fun ChatCommonConversationHost(
     audioRecordingReferences: AudioRecordingReferenceReleaser?,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration,
     filePicker: FilePickerService,
+    capturePhoto: suspend () -> PlatformResult<PlatformFile>,
     conversationId: String,
     navigationMessage: String,
     onBackToList: () -> Unit,
@@ -308,7 +311,27 @@ private fun ChatCommonConversationHost(
                         viewModel.onEvent(ChatUiEvent.ClearAttachment)
                         if (recording != null) scope.launch { audioRecordingReferences?.release(recording) }
                     },
-                    onCamera = null,
+                    onCamera = {
+                        scope.launch {
+                            when (val result = capturePhoto()) {
+                                is PlatformResult.Success -> {
+                                    pendingAudioRecording?.let { recording -> audioRecordingReferences?.release(recording) }
+                                    pendingAudioRecording = null
+                                    attachmentPickerError = null
+                                    viewModel.onEvent(
+                                        ChatUiEvent.AttachmentSelected(
+                                            result.value.reference,
+                                            result.value.displayName ?: "Foto",
+                                            result.value.mimeType ?: "image/jpeg",
+                                        ),
+                                    )
+                                }
+                                is PlatformResult.Failure -> attachmentPickerError = result.reason ?: "No se pudo abrir la cámara."
+                                PlatformResult.Unsupported -> attachmentPickerError = "La cámara no está disponible en este dispositivo."
+                                PlatformResult.Cancelled -> attachmentPickerError = null
+                            }
+                        }
+                    },
                     onRecordAudio = {
                         scope.launch {
                             when (val result = audioRecorder.start(audioRecordingConfiguration.toPlatformOptions())) {

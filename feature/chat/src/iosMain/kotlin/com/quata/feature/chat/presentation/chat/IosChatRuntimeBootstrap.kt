@@ -6,6 +6,7 @@ import com.quata.core.session.IosSupabaseAuthSessionRefresher
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.data.IosChatAttachmentUploader
 import com.quata.feature.chat.data.IosChatAuthenticatedUserProvider
@@ -55,6 +56,7 @@ class IosChatRuntimeBootstrap(
         audioPlayer: AudioPlayerService,
         audioRecorder: AudioRecorderService,
         filePicker: FilePickerService,
+        cameraCapture: CameraCaptureService,
         conversationId: String?,
         focusedMessageId: String?,
         languageTag: String,
@@ -68,6 +70,7 @@ class IosChatRuntimeBootstrap(
         audioPlayer = audioPlayer,
         audioRecorder = audioRecorder,
         filePicker = filePicker,
+        cameraCapture = cameraCapture,
         conversationId = conversationId,
         focusedMessageId = focusedMessageId,
         languageTag = languageTag,

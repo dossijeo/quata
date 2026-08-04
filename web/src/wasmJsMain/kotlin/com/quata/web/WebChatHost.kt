@@ -24,7 +24,10 @@ import com.quata.core.platform.DocumentPreviewKind
 import com.quata.core.platform.DocumentSupport
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.FilePickerRequest
+import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
 import com.quata.feature.chat.presentation.chat.chatTextForLanguage
@@ -79,6 +82,15 @@ fun WebChatHost(
         audioRecorder = resolvedAudioRecorder,
         audioRecordingReferences = resolvedRecordingReferences,
         filePicker = filePicker,
+        capturePhoto = {
+            when (val result = filePicker.pick(FilePickerRequest(source = FilePickerSource.Camera))) {
+                is PlatformResult.Success -> result.value.firstOrNull()?.let { PlatformResult.Success(it) }
+                    ?: PlatformResult.Failure("camera_capture_empty")
+                is PlatformResult.Failure -> result
+                PlatformResult.Cancelled -> PlatformResult.Cancelled
+                PlatformResult.Unsupported -> PlatformResult.Unsupported
+            }
+        },
         conversationId = conversationId,
         navigationMessage = navigationMessage,
         onOpenConversation = onOpenConversation,

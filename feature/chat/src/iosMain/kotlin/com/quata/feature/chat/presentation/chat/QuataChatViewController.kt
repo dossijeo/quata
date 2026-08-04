@@ -13,6 +13,7 @@ import com.quata.core.platform.IosClipboardService
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarKind
@@ -39,6 +40,7 @@ class IosChatHostDependencies(
     val audioPlayer: AudioPlayerService,
     val audioRecorder: AudioRecorderService,
     val filePicker: FilePickerService,
+    val cameraCapture: CameraCaptureService,
     val conversationId: String? = null,
     /** Optional deep-link target; common UI resolves it only against messages already present. */
     val focusedMessageId: String? = null,
@@ -89,6 +91,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 audioPlayer = dependencies.audioPlayer,
                 audioRecorder = dependencies.audioRecorder,
                 filePicker = dependencies.filePicker,
+                capturePhoto = { dependencies.cameraCapture.capturePhoto() },
                 conversationId = dependencies.conversationId,
                 focusedMessageId = dependencies.focusedMessageId,
                 navigationMessage = dependencies.navigationMessage,

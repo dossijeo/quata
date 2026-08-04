@@ -1701,6 +1701,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 audioPlayer: chatAudioPlayer,
                 audioRecorder: services.audioRecorder,
                 filePicker: services.filePicker,
+                cameraCapture: services.cameraCapture,
                 conversationId: conversationId,
                 focusedMessageId: messageId,
                 languageTag: Locale.preferredLanguages.first ?? Locale.current.identifier,
