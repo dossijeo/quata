@@ -848,6 +848,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
         )
         let player = try XCTUnwrap(playerLayer.player)
 
+        // A native AVPlayerLayer must not cover the hash-derived gradient with its light
+        // placeholder before a real frame is ready for display.
+        XCTAssertFalse(playerLayer.isReadyForDisplay)
+        XCTAssertEqual(playerLayer.opacity, 0)
+
         surface.configure(isActive: false, isMuted: true, initialPositionMs: 0)
         XCTAssertTrue(player.isMuted)
 
