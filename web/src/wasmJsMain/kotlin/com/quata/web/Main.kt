@@ -232,7 +232,9 @@ private fun QuataWebApp(
     var authInitialDestination by remember { mutableStateOf(AuthProductDestination.Login) }
     // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
     // authenticated shell level so navigation does not manufacture a second browser profile UI.
-    val feedMemberProfileRoute = remember { WebFeedMemberProfileRoute() }
+    val feedMemberProfileRoute = remember(navigation) {
+        WebFeedMemberProfileRoute(navigation::navigateConversation)
+    }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
     var webPushOptedIn by remember { mutableStateOf(false) }
@@ -633,10 +635,7 @@ private fun QuataWebApp(
                                 currentUserId = currentUserId,
                                 strings = webNeighborhoodsStrings,
                                 slots = webNeighborhoodsSlots,
-                                onOpenConversation = { conversationId ->
-                                    feedMemberProfileRoute.close()
-                                    navigation.navigateConversation(conversationId)
-                                },
+                                onOpenConversation = feedMemberProfileRoute::openConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
@@ -670,10 +669,7 @@ private fun QuataWebApp(
                                 currentUserId = currentUserId,
                                 strings = webNeighborhoodsStrings,
                                 slots = webNeighborhoodsSlots,
-                                onOpenConversation = { conversationId ->
-                                    feedMemberProfileRoute.close()
-                                    navigation.navigateConversation(conversationId)
-                                },
+                                onOpenConversation = feedMemberProfileRoute::openConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,
@@ -707,10 +703,7 @@ private fun QuataWebApp(
                                 currentUserId = currentUserId,
                                 strings = webNeighborhoodsStrings,
                                 slots = webNeighborhoodsSlots,
-                                onOpenConversation = { conversationId ->
-                                    feedMemberProfileRoute.close()
-                                    navigation.navigateConversation(conversationId)
-                                },
+                                onOpenConversation = feedMemberProfileRoute::openConversation,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
                                 initialMemberProfileId = memberProfileId,

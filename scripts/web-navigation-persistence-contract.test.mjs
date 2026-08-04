@@ -16,7 +16,7 @@ test("Web navigation persistence follows the current Compose navigation state", 
 
 test("global profile Chat actions consume the overlay route before navigation", () => {
   const wiredTransitions = main.match(
-    /onOpenConversation = \{ conversationId ->\s*feedMemberProfileRoute\.close\(\)\s*navigation\.navigateConversation\(conversationId\)\s*\}/g,
+    /onOpenConversation = feedMemberProfileRoute::openConversation/g,
   );
   assert.equal(
     wiredTransitions?.length,

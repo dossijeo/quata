@@ -11,7 +11,9 @@ import androidx.compose.runtime.setValue
  * profile is open. Calling [close] consumes the request so a later recomposition cannot reopen
  * the previous profile after the user returned to the reel.
  */
-internal class WebFeedMemberProfileRoute {
+internal class WebFeedMemberProfileRoute(
+    private val navigateConversation: (String) -> Unit,
+) {
     var profileId: String? by mutableStateOf(null)
         private set
 
@@ -21,5 +23,10 @@ internal class WebFeedMemberProfileRoute {
 
     fun close() {
         profileId = null
+    }
+
+    fun openConversation(conversationId: String) {
+        close()
+        navigateConversation(conversationId)
     }
 }
