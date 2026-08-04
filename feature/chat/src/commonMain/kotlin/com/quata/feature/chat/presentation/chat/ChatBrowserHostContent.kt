@@ -141,6 +141,7 @@ private fun ChatCommonConversationHost(
     modifier: Modifier,
 ) {
     val scope = rememberCoroutineScope()
+    var attachmentPickerError by remember { mutableStateOf<String?>(null) }
     val viewModel = remember(repository, conversationId) {
         ChatViewModel(conversationId = conversationId, repository = repository, text = text)
     }
@@ -218,9 +219,12 @@ private fun ChatCommonConversationHost(
                         scope.launch {
                             when (val result = filePicker.pick(FilePickerRequest(source = FilePickerSource.Documents))) {
                                 is PlatformResult.Success -> result.value.firstOrNull()?.let {
+                                    attachmentPickerError = null
                                     viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.reference, it.displayName ?: "Adjunto", it.mimeType))
                                 }
-                                else -> Unit
+                                is PlatformResult.Failure -> attachmentPickerError = result.reason ?: "No se pudo abrir el selector de archivos."
+                                PlatformResult.Unsupported -> attachmentPickerError = "El selector de archivos no está disponible en esta plataforma."
+                                PlatformResult.Cancelled -> attachmentPickerError = null
                             }
                         }
                     },
@@ -228,15 +232,19 @@ private fun ChatCommonConversationHost(
                         scope.launch {
                             when (val result = filePicker.pick(FilePickerRequest(source = FilePickerSource.Gallery))) {
                                 is PlatformResult.Success -> result.value.firstOrNull()?.let {
+                                    attachmentPickerError = null
                                     viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.reference, it.displayName ?: "Adjunto", it.mimeType))
                                 }
-                                else -> Unit
+                                is PlatformResult.Failure -> attachmentPickerError = result.reason ?: "No se pudo abrir la galería."
+                                PlatformResult.Unsupported -> attachmentPickerError = "La galería no está disponible en esta plataforma."
+                                PlatformResult.Cancelled -> attachmentPickerError = null
                             }
                         }
                     },
                     onOpenPendingAttachment = { state.attachmentUri?.let { onOpenAttachment(PlatformFile(it, state.attachmentName, state.attachmentMimeType)) } },
                     onCamera = null,
                     onRecordAudio = null,
+                    attachmentError = attachmentPickerError,
                     modifier = composerModifier,
                 )
             },

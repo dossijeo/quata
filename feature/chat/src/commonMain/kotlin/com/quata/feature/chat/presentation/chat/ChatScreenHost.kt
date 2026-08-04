@@ -136,7 +136,13 @@ fun ChatScreenHost(
                 onMessageClick = { message ->
                     if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
                         slots.onOpenMessageConversation(message.conversationId, message.id)
-                    } else model.onEvent(ChatUiEvent.MessageSelected(message.id.takeUnless { it == state.selectedMessageId }))
+                    } else if (message.isLocalEcho) {
+                        if (message.deliveryState == com.quata.core.model.MessageDeliveryState.Failed) {
+                            message.clientMessageId?.let(model::retryPendingMessage)
+                        }
+                    } else {
+                        model.onEvent(ChatUiEvent.MessageSelected(message.id.takeUnless { it == state.selectedMessageId }))
+                    }
                 },
                 composer = slots.composer,
                 attachment = slots.attachment,
@@ -157,6 +163,7 @@ fun ChatScreenHost(
                 state = state,
                 onEvent = model::onEvent,
                 onQueryChanged = model::onForwardCandidateQueryChanged,
+                onLoadMore = model::loadMoreForwardConversationCandidates,
             )
         }
     }

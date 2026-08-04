@@ -17,8 +17,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ChatComposerInputRowContent(
     textInput: @Composable (Modifier) -> Unit,
-    cameraAction: @Composable (Modifier) -> Unit,
-    primaryAction: @Composable () -> Unit,
+    cameraAction: (@Composable (Modifier) -> Unit)?,
+    primaryAction: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -28,9 +28,13 @@ fun ChatComposerInputRowContent(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         textInput(Modifier.weight(1f).requiredHeightIn(min = 62.dp))
-        Spacer(Modifier.width(8.dp))
-        cameraAction(Modifier)
-        Spacer(Modifier.width(6.dp))
-        primaryAction()
+        cameraAction?.let { action ->
+            Spacer(Modifier.width(8.dp))
+            action(Modifier)
+        }
+        primaryAction?.let { action ->
+            Spacer(Modifier.width(6.dp))
+            action()
+        }
     }
 }

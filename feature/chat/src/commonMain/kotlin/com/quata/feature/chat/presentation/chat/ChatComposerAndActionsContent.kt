@@ -24,11 +24,14 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.Message
 import com.quata.core.ui.components.CompactIcon
@@ -36,6 +39,7 @@ import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.CommunityEmojiPanelContent
 import com.quata.core.ui.components.QuataConfirmationDialogContent
 import com.quata.core.ui.components.communityEmojiSections
+import com.quata.core.ui.components.insertAtSelection
 
 /** Common selection action chrome backed by [ChatUiEvent]; confirmation stays in commonMain. */
 @Composable
@@ -83,6 +87,7 @@ fun ChatForwardPickerContent(
     state: ChatUiState,
     onEvent: (ChatUiEvent) -> Unit,
     onQueryChanged: (String) -> Unit,
+    onLoadMore: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = { onEvent(ChatUiEvent.CloseForwardDialog) },
@@ -94,12 +99,25 @@ fun ChatForwardPickerContent(
                     onValueChange = onQueryChanged,
                     label = { Text("Buscar") },
                 )
+                if (state.isForwardCandidateInitialLoading) {
+                    Text("Buscando personas…")
+                } else if (state.forwardConversationCandidates.isEmpty() && state.forwardCandidateError == null) {
+                    Text("No se encontraron personas.")
+                }
                 state.forwardConversationCandidates.forEach { candidate ->
                     Button(onClick = { onEvent(ChatUiEvent.ForwardProfileToggled(candidate.profileId)) }) {
                         Text(if (candidate.profileId in state.selectedForwardProfileIds) "✓ ${candidate.displayName}" else candidate.displayName)
                     }
                 }
                 state.forwardCandidateError?.let { Text(it) }
+                if (state.forwardCandidateHasMore && !state.isForwardCandidateInitialLoading) {
+                    Button(
+                        onClick = onLoadMore,
+                        enabled = !state.isForwardCandidatePageLoading,
+                    ) {
+                        Text(if (state.isForwardCandidatePageLoading) "Cargando…" else "Cargar más")
+                    }
+                }
             }
         },
         confirmButton = {
@@ -122,10 +140,19 @@ fun ChatComposerContent(
     onOpenPendingAttachment: () -> Unit,
     onCamera: (() -> Unit)?,
     onRecordAudio: (() -> Unit)?,
+    attachmentError: String? = null,
     modifier: Modifier = Modifier,
 ) {
     var emojiVisible by remember { mutableStateOf(false) }
     var attachmentsVisible by remember { mutableStateOf(false) }
+    var fieldValue by remember {
+        mutableStateOf(TextFieldValue(state.messageText, TextRange(state.messageText.length)))
+    }
+    LaunchedEffect(state.messageText) {
+        if (fieldValue.text != state.messageText) {
+            fieldValue = TextFieldValue(state.messageText, TextRange(state.messageText.length))
+        }
+    }
     Column(modifier.fillMaxWidth()) {
         state.editingMessage?.let { ChatComposerModeBannerContent("Editando mensaje", onClear = { onEvent(ChatUiEvent.CancelEdit) }) }
         state.replyToMessage?.let { ChatComposerModeBannerContent("Respondiendo a ${it.senderName}", onClear = { onEvent(ChatUiEvent.ClearReply) }) }
@@ -142,7 +169,10 @@ fun ChatComposerContent(
         }
         if (emojiVisible) CommunityEmojiPanelContent(
             sections = communityEmojiSections(),
-            onEmojiClick = { onEvent(ChatUiEvent.MessageChanged(state.messageText + it)) },
+            onEmojiClick = { emoji ->
+                fieldValue = fieldValue.insertAtSelection(emoji)
+                onEvent(ChatUiEvent.MessageChanged(fieldValue.text))
+            },
             modifier = Modifier.padding(horizontal = 12.dp),
         )
         if (attachmentsVisible) ChatAttachmentQuickPanelContent(
@@ -151,22 +181,46 @@ fun ChatComposerContent(
             onPickGallery = { attachmentsVisible = false; onPickGallery() },
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
         )
+        attachmentError?.let {
+            Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 12.dp))
+        }
+        val cameraAction: (@Composable (Modifier) -> Unit)? = if (onCamera != null) {
+            { cameraModifier ->
+                CompactIconButton(onClick = onCamera, modifier = cameraModifier) {
+                    CompactIcon(Icons.Filled.PhotoCamera, "Cámara")
+                }
+            }
+        } else null
+        val primaryAction: (@Composable () -> Unit)? = when {
+            state.messageText.isNotBlank() || state.attachmentUri != null -> {
+                {
+                    CompactIconButton(onClick = { onEvent(ChatUiEvent.Send) }) {
+                        CompactIcon(Icons.Filled.Send, "Enviar")
+                    }
+                }
+            }
+            onRecordAudio != null -> {
+                {
+                    CompactIconButton(onClick = onRecordAudio) {
+                        CompactIcon(Icons.Filled.Mic, "Grabar audio")
+                    }
+                }
+            }
+            else -> null
+        }
         ChatComposerInputRowContent(
             textInput = { inputModifier -> OutlinedTextField(
-                value = state.messageText, onValueChange = { onEvent(ChatUiEvent.MessageChanged(it)) },
+                value = fieldValue,
+                onValueChange = {
+                    fieldValue = it
+                    onEvent(ChatUiEvent.MessageChanged(it.text))
+                },
                 placeholder = { Text("Mensaje") }, modifier = inputModifier,
                 leadingIcon = { CompactIconButton(onClick = { emojiVisible = !emojiVisible; attachmentsVisible = false }) { CompactIcon(Icons.Filled.InsertEmoticon, "Emoji") } },
                 trailingIcon = { CompactIconButton(onClick = { attachmentsVisible = !attachmentsVisible; emojiVisible = false }) { CompactIcon(Icons.Filled.AttachFile, "Adjuntar") } },
             ) },
-            cameraAction = { cameraModifier ->
-                if (onCamera != null) CompactIconButton(onClick = onCamera, modifier = cameraModifier) { CompactIcon(Icons.Filled.PhotoCamera, "Cámara") }
-            },
-            primaryAction = {
-                val send = state.messageText.isNotBlank() || state.attachmentUri != null
-                CompactIconButton(onClick = { if (send) onEvent(ChatUiEvent.Send) else onRecordAudio?.invoke() }) {
-                    CompactIcon(if (send) Icons.Filled.Send else Icons.Filled.Mic, if (send) "Enviar" else "Grabar audio")
-                }
-            },
+            cameraAction = cameraAction,
+            primaryAction = primaryAction,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
         )
     }
