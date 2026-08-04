@@ -70,9 +70,9 @@ private class IosTranslationDelegate(
     private val chunks = mutableListOf<ByteArray>()
 
     override fun URLSession(session: NSURLSession, dataTask: NSURLSessionDataTask, didReceiveData: NSData) {
-        if (didReceiveData.length > 0uL) {
-            chunks += didReceiveData.bytes?.readBytes(didReceiveData.length.toInt()).orEmpty()
-        }
+        val length = didReceiveData.length.toInt()
+        val bytes = didReceiveData.bytes ?: return
+        if (length > 0) chunks.add(bytes.readBytes(length))
     }
 
     override fun URLSession(session: NSURLSession, task: NSURLSessionTask, didCompleteWithError: NSError?) {
