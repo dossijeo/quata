@@ -11,10 +11,10 @@ class WebRepositoryReadAuthModeTest {
     }
 
     @Test
-    fun communitiesCallSitesKeepDirectoryPublicAndIdentityReadsPrivate() {
+    fun communitiesCallSitesKeepDirectoryAndProfilesPublicAndAdminIdentityPrivate() {
         assertEquals(WebPostgrestAuthMode.Public, webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.Directory))
         assertEquals(WebPostgrestAuthMode.SessionRequired, webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.CurrentUserAdmin))
-        assertEquals(WebPostgrestAuthMode.SessionRequired, webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.UserProfile))
+        assertEquals(WebPostgrestAuthMode.Public, webNeighborhoodsReadAuthMode(WebNeighborhoodsReadOperation.UserProfile))
     }
 
     @Test

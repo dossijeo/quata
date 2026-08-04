@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -133,6 +134,7 @@ fun NeighborhoodsScreen(
     viewModel: NeighborhoodsAndroidViewModel = viewModel(factory = NeighborhoodsAndroidViewModel.factory(repository))
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     NeighborhoodsScreenHost(
         currentUserId = currentUserId,
         strings = NeighborhoodsScreenStrings(
@@ -143,20 +145,20 @@ fun NeighborhoodsScreen(
                 empty = stringResource(R.string.neighborhoods_empty),
                 noResults = stringResource(R.string.neighborhoods_no_results),
                 oneUser = stringResource(R.string.neighborhoods_one_user),
-                users = { count -> context.getString(R.string.neighborhoods_user_count, count) },
+                users = { count -> resources.getString(R.string.neighborhoods_user_count, count) },
                 oneMessage = stringResource(R.string.neighborhoods_one_message),
-                messages = { count -> context.getString(R.string.neighborhoods_message_count, count) },
+                messages = { count -> resources.getString(R.string.neighborhoods_message_count, count) },
                 viewUsers = stringResource(R.string.neighborhoods_view_users),
                 openChat = stringResource(R.string.neighborhoods_open_chat),
                 timeLabel = { communityTimeLabel(context, it) },
             ),
             members = NeighborhoodUsersStrings(
-                title = { name -> context.getString(R.string.neighborhoods_users_title, name) },
+                title = { name -> resources.getString(R.string.neighborhoods_users_title, name) },
                 subtitle = stringResource(R.string.neighborhoods_users_subtitle),
                 backContentDescription = stringResource(R.string.common_back),
                 memberCount = { count ->
-                    if (count == 1) context.getString(R.string.neighborhoods_one_user)
-                    else context.getString(R.string.neighborhoods_user_count, count)
+                    if (count == 1) resources.getString(R.string.neighborhoods_one_user)
+                    else resources.getString(R.string.neighborhoods_user_count, count)
                 },
                 empty = stringResource(R.string.neighborhoods_no_members),
                 row = NeighborhoodUserRowStrings(
@@ -216,6 +218,7 @@ fun CommunityProfileScreen(
     openingProfileUserId: String? = null
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val template = quataTheme()
     var selectedProfileAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
     CommunityProfileScreenHost(
@@ -225,8 +228,8 @@ fun CommunityProfileScreen(
             posts = stringResource(R.string.neighborhoods_posts),
             followers = stringResource(R.string.neighborhoods_followers),
             following = stringResource(R.string.neighborhoods_following),
-            followersOf = { context.getString(R.string.neighborhoods_followers_of, it) },
-            followingOf = { context.getString(R.string.neighborhoods_following_of, it) },
+            followersOf = { resources.getString(R.string.neighborhoods_followers_of, it) },
+            followingOf = { resources.getString(R.string.neighborhoods_following_of, it) },
             actions = ProfileActionStrings(
                 follow = stringResource(R.string.common_follow),
                 following = stringResource(R.string.common_following),
@@ -330,9 +333,9 @@ fun CommunityProfileScreen(
         createComment = { post, draft ->
             PostComment(
                 id = "profile_${post.id}_${System.currentTimeMillis()}",
-                authorName = context.getString(R.string.comments_you),
+                authorName = resources.getString(R.string.comments_you),
                 message = draft,
-                timestamp = context.getString(R.string.common_now),
+                timestamp = resources.getString(R.string.common_now),
             )
         },
     )

@@ -591,7 +591,6 @@
     <string name="moderation_block_profile_confirm">Cette personne ne pourra plus vous envoyer de messages. Vous pouvez toujours signaler son contenu s&#233;par&#233;ment.</string>
     <string name="moderation_unblock_profile_confirm">Cette personne pourra &#224; nouveau vous contacter.</string>
     <string name="moderation_report_sent">Signalement envoy&#233; pour examen</string>
-    <string name="moderation_profile_blocked">Profil bloqu&#233;</string>
     <string name="moderation_report_message_title">Signaler le message</string>
     <string name="moderation_report_message_confirm">Envoyer ce message &#224; l\'&#233;quipe de mod&#233;ration de Q&#252;ata pour examen&#160;?</string>
     <string name="chat_error_report_message">Impossible de signaler le message</string>

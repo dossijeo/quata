@@ -596,7 +596,6 @@
     <string name="moderation_block_profile_confirm">This person will no longer be able to send you messages. You can still report their content separately.</string>
     <string name="moderation_unblock_profile_confirm">This person will be able to contact you again.</string>
     <string name="moderation_report_sent">Report sent for review</string>
-    <string name="moderation_profile_blocked">Profile blocked</string>
     <string name="moderation_report_message_title">Report message</string>
     <string name="moderation_report_message_confirm">Send this message to the Q&#252;ata moderation team for review?</string>
     <string name="chat_error_report_message">The message could not be reported</string>

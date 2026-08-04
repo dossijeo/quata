@@ -591,7 +591,6 @@
     <string name="moderation_block_profile_confirm">Esta persona dejar&#225; de poder enviarte mensajes. Puedes denunciar su contenido por separado.</string>
     <string name="moderation_unblock_profile_confirm">Esta persona podr&#225; volver a ponerse en contacto contigo.</string>
     <string name="moderation_report_sent">Denuncia enviada para revisi&#243;n</string>
-    <string name="moderation_profile_blocked">Perfil bloqueado</string>
     <string name="moderation_report_message_title">Denunciar mensaje</string>
     <string name="moderation_report_message_confirm">&#191;Enviar este mensaje al equipo de moderaci&#243;n de Q&#252;ata para que lo revise?</string>
     <string name="chat_error_report_message">No se ha podido denunciar el mensaje</string>
