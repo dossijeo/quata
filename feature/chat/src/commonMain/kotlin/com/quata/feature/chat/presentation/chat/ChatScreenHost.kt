@@ -1,7 +1,5 @@
 package com.quata.feature.chat.presentation.chat
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,14 +16,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.navigation.AppDestinations
-import com.quata.designsystem.chat.ProceduralChatBackgroundCanvas
-import com.quata.designsystem.chat.proceduralChatBackgroundSpec
 import com.quata.designsystem.translation.FangTranslatorTriggerContent
 import com.quata.designsystem.translation.LocalQuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatableTextRegistry
@@ -55,7 +49,6 @@ fun ChatScreenHost(
     },
 ) {
     val state by model.uiState.collectAsState()
-    val template = quataTheme()
     val translatorRegistry = remember(conversationId) { QuataTranslatableTextRegistry() }
     var translatorActive by remember(conversationId) { mutableStateOf(false) }
     var deepLinkRequest by remember(conversationId, focusedMessageId) {
@@ -88,18 +81,12 @@ fun ChatScreenHost(
         if (state.shouldCloseConversation) slots.onBack()
     }
 
-    Box(modifier.fillMaxSize().background(template.colors.background)) {
-        ProceduralChatBackgroundCanvas(
-            spec = proceduralChatBackgroundSpec(
-                conversationName = conversationId,
-                templateId = "${template.id}-clouds-v3",
-                paletteCount = template.colors.chatBackgroundPalettes.size,
-            ),
-            palettes = template.colors.chatBackgroundPalettes,
-        )
-        Box(Modifier.fillMaxSize().background(template.colors.scrim))
+    val isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId
+    ChatProductScaffold(
+        conversationName = conversationId.takeUnless { isFavoritesConversation },
+        modifier = modifier,
+    ) {
         Column(Modifier.fillMaxSize()) {
-            val isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId
             val selectedMessage = state.messages.firstOrNull { it.id == state.selectedMessageId }
             if (isFavoritesConversation) {
                 FavoriteMessagesHeaderContent("Mensajes favoritos", "Volver", slots.onBack)
