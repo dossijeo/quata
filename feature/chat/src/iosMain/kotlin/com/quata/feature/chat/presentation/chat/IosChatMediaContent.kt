@@ -2,15 +2,13 @@ package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,12 +42,13 @@ interface IosChatMediaViewerSurface {
 internal fun iosChatMediaPlatformSlots(
     downloader: IosChatAttachmentDownloader,
     viewerFactory: IosChatMediaViewerFactory,
+    retryLabel: String,
 ) = ChatMediaPlatformSlots(
     preview = { file, kind, modifier ->
-        IosChatMediaPreview(file, kind, downloader, modifier)
+        IosChatMediaPreview(file, kind, downloader, retryLabel, modifier)
     },
     viewer = { file, kind, modifier ->
-        IosChatMediaViewer(file, kind, downloader, viewerFactory, modifier)
+        IosChatMediaViewer(file, kind, downloader, viewerFactory, retryLabel, modifier)
     },
 )
 
@@ -58,9 +57,11 @@ private fun IosChatMediaPreview(
     file: PlatformFile,
     kind: ChatAttachmentKind,
     downloader: IosChatAttachmentDownloader,
+    retryLabel: String,
     modifier: Modifier,
 ) {
-    val download = rememberIosChatMediaDownload(file, downloader)
+    var retryKey by remember(file.reference) { mutableIntStateOf(0) }
+    val download = rememberIosChatMediaDownload(file, downloader, retryKey)
     var image by remember(download.file?.reference, kind) { mutableStateOf<UIImage?>(null) }
     LaunchedEffect(download.file?.reference, kind) {
         image = download.file?.let { decodeIosChatMediaPreview(it, kind) }
@@ -81,7 +82,10 @@ private fun IosChatMediaPreview(
         } else if (download.isLoading) {
             CircularProgressIndicator()
         } else {
-            Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = file.displayName)
+            ChatMediaLoadFailureContent(
+                retryLabel = retryLabel,
+                onRetry = { retryKey += 1 },
+            )
         }
     }
 }
@@ -92,9 +96,11 @@ private fun IosChatMediaViewer(
     kind: ChatAttachmentKind,
     downloader: IosChatAttachmentDownloader,
     viewerFactory: IosChatMediaViewerFactory,
+    retryLabel: String,
     modifier: Modifier,
 ) {
-    val download = rememberIosChatMediaDownload(file, downloader)
+    var retryKey by remember(file.reference) { mutableIntStateOf(0) }
+    val download = rememberIosChatMediaDownload(file, downloader, retryKey)
     val surface = remember(download.file?.reference, kind, viewerFactory) {
         download.file?.let { viewerFactory.create(it.reference, kind == ChatAttachmentKind.Video) }
     }
@@ -103,7 +109,10 @@ private fun IosChatMediaViewer(
         if (download.isLoading) {
             CircularProgressIndicator()
         } else if (surface == null) {
-            Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = file.displayName)
+            ChatMediaLoadFailureContent(
+                retryLabel = retryLabel,
+                onRetry = { retryKey += 1 },
+            )
         } else {
             UIKitView(factory = surface::nativeView, modifier = Modifier.fillMaxSize())
         }
@@ -119,9 +128,10 @@ private data class IosChatMediaDownloadState(
 private fun rememberIosChatMediaDownload(
     remote: PlatformFile,
     downloader: IosChatAttachmentDownloader,
+    retryKey: Int,
 ): IosChatMediaDownloadState {
-    var state by remember(remote.reference) { mutableStateOf(IosChatMediaDownloadState()) }
-    LaunchedEffect(remote.reference, remote.displayName, remote.mimeType, downloader) {
+    var state by remember(remote.reference, retryKey) { mutableStateOf(IosChatMediaDownloadState()) }
+    LaunchedEffect(remote.reference, remote.displayName, remote.mimeType, downloader, retryKey) {
         state = IosChatMediaDownloadState()
         state = when (val result = downloader.download(remote.reference, remote.displayName)) {
             is PlatformResult.Success -> IosChatMediaDownloadState(file = result.value, isLoading = false)

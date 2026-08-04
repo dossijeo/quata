@@ -121,6 +121,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 mediaSlots = iosChatMediaPlatformSlots(
                     downloader = dependencies.attachmentDownloader,
                     viewerFactory = dependencies.mediaViewerFactory,
+                    retryLabel = chatChromeStringsForLanguage(languageTag).retry,
                 ),
                 translationGateway = translationGateway,
                 translatorStrings = chatTranslatorStringsForLanguage(languageTag),

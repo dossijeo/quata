@@ -88,7 +88,8 @@ durante esta migración: se documenta y se mantiene compatibilidad con Android y
   selector, galería, cámara y grabación; un error de plataforma ya no rompe el idioma del flujo.
 - `CHAT-ATTACHMENTS`/`OVR-MEDIA`: Wasm usa imagen canvas y vídeo HTML real; iOS descarga de forma
   autenticada y usa thumbnail AVFoundation/visor UIKit. El adaptador iOS distingue carga de fallo
-  terminal para no dejar un spinner infinito; el retry visual común sigue pendiente de evidencia.
+  terminal para no dejar un spinner infinito; el fallback y retry son Compose comunes y el
+  adaptador conserva sólo descarga/decoder. Falta acreditar el retry con un fallo controlado real.
 
 ## Resultado local de la unidad 1 (pendiente de preflight integrado)
 
