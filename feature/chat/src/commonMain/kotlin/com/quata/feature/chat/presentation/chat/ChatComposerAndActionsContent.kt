@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -138,8 +139,14 @@ fun ChatComposerContent(
     onPickDocument: () -> Unit,
     onPickGallery: () -> Unit,
     onOpenPendingAttachment: () -> Unit,
+    onClearAttachment: () -> Unit,
     onCamera: (() -> Unit)?,
     onRecordAudio: (() -> Unit)?,
+    isRecordingAudio: Boolean = false,
+    recordingElapsedLabel: String? = null,
+    recordingError: String? = null,
+    onStopRecording: (() -> Unit)? = null,
+    onCancelRecording: (() -> Unit)? = null,
     attachmentError: String? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -163,9 +170,28 @@ fun ChatComposerContent(
                 textColor = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
                 onOpen = onOpenPendingAttachment,
                 preview = { Text("Adjunto preparado") },
-                clearAction = { clearModifier -> CompactIconButton(onClick = { onEvent(ChatUiEvent.ClearAttachment) }, modifier = clearModifier) { CompactIcon(Icons.Filled.Delete, "Quitar adjunto") } },
+                clearAction = { clearModifier -> CompactIconButton(onClick = onClearAttachment, modifier = clearModifier) { CompactIcon(Icons.Filled.Delete, "Quitar adjunto") } },
                 modifier = Modifier.fillMaxWidth().padding(12.dp),
             )
+        }
+        if (isRecordingAudio) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+                Text("Grabando ${recordingElapsedLabel.orEmpty()}")
+                androidx.compose.foundation.layout.Row {
+                    onStopRecording?.let { stop ->
+                        Button(onClick = stop) {
+                            CompactIcon(Icons.Filled.Stop, "Detener grabación")
+                            Text("Detener y adjuntar")
+                        }
+                    }
+                    onCancelRecording?.let { cancel ->
+                        Button(onClick = cancel) { Text("Cancelar") }
+                    }
+                }
+            }
+        }
+        recordingError?.let {
+            Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 12.dp))
         }
         if (emojiVisible) CommunityEmojiPanelContent(
             sections = communityEmojiSections(),
@@ -199,7 +225,7 @@ fun ChatComposerContent(
                     }
                 }
             }
-            onRecordAudio != null -> {
+            !isRecordingAudio && onRecordAudio != null -> {
                 {
                     CompactIconButton(onClick = onRecordAudio) {
                         CompactIcon(Icons.Filled.Mic, "Grabar audio")

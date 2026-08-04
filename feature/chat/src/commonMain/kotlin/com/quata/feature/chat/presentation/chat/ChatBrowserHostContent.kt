@@ -104,6 +104,10 @@ fun ChatBrowserHostContent(
     } else {
         ChatCommonConversationHost(
             repository = repository,
+            audioPlayer = audioPlayer,
+            audioRecorder = audioRecorder,
+            audioRecordingReferences = audioRecordingReferences,
+            audioRecordingConfiguration = audioRecordingConfiguration,
             filePicker = filePicker,
             conversationId = conversationId,
             navigationMessage = navigationMessage,
@@ -128,6 +132,10 @@ fun ChatBrowserHostContent(
 @Composable
 private fun ChatCommonConversationHost(
     repository: ChatRepository,
+    audioPlayer: AudioPlayerService,
+    audioRecorder: AudioRecorderService,
+    audioRecordingReferences: AudioRecordingReferenceReleaser?,
+    audioRecordingConfiguration: ChatAudioRecordingConfiguration,
     filePicker: FilePickerService,
     conversationId: String,
     navigationMessage: String,
@@ -144,6 +152,14 @@ private fun ChatCommonConversationHost(
 ) {
     val scope = rememberCoroutineScope()
     var attachmentPickerError by remember { mutableStateOf<String?>(null) }
+    val audioLifecycle = remember(audioPlayer) { ChatAudioPlaybackLifecycleOwner(audioPlayer) }
+    var activeAudioReference by remember { mutableStateOf<String?>(null) }
+    var audioPlayback by remember { mutableStateOf(AudioPlaybackState()) }
+    var audioFailed by remember { mutableStateOf(false) }
+    var isRecordingAudio by remember { mutableStateOf(false) }
+    var recordingElapsedSeconds by remember { mutableLongStateOf(0L) }
+    var recordingError by remember { mutableStateOf<String?>(null) }
+    var pendingAudioRecording by remember { mutableStateOf<AudioRecording?>(null) }
     val viewModel = remember(repository, conversationId) {
         ChatViewModel(conversationId = conversationId, repository = repository, text = text, isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId)
     }
@@ -151,10 +167,26 @@ private fun ChatCommonConversationHost(
     val usersById = remember(state.participantCandidates, state.currentUser) {
         (state.participantCandidates + listOfNotNull(state.currentUser)).associateBy { it.id }
     }
-    DisposableEffect(viewModel) {
+    LaunchedEffect(isRecordingAudio) {
+        if (!isRecordingAudio) return@LaunchedEffect
+        while (isRecordingAudio) {
+            delay(1_000L)
+            recordingElapsedSeconds += 1L
+        }
+    }
+    LaunchedEffect(activeAudioReference, audioPlayback.isPlaying) {
+        if (activeAudioReference == null || !audioPlayback.isPlaying) return@LaunchedEffect
+        while (audioPlayback.isPlaying) {
+            delay(250L)
+            audioPlayback = audioPlayer.state()
+        }
+    }
+    DisposableEffect(viewModel, audioRecorder, audioPlayer) {
         repository.setActiveConversation(conversationId)
         viewModel.setConversationVisible(true)
         onDispose {
+            if (isRecordingAudio) scope.launch { audioRecorder.cancel() }
+            audioLifecycle.dispose()
             viewModel.setConversationVisible(false)
             viewModel.cleanupEmptyConversationIfNeeded()
             repository.setActiveConversation(null)
@@ -243,6 +275,8 @@ private fun ChatCommonConversationHost(
                         scope.launch {
                             when (val result = filePicker.pick(FilePickerRequest(source = FilePickerSource.Documents))) {
                                 is PlatformResult.Success -> result.value.firstOrNull()?.let {
+                                    pendingAudioRecording?.let { recording -> audioRecordingReferences?.release(recording) }
+                                    pendingAudioRecording = null
                                     attachmentPickerError = null
                                     viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.reference, it.displayName ?: "Adjunto", it.mimeType))
                                 }
@@ -256,6 +290,8 @@ private fun ChatCommonConversationHost(
                         scope.launch {
                             when (val result = filePicker.pick(FilePickerRequest(source = FilePickerSource.Gallery))) {
                                 is PlatformResult.Success -> result.value.firstOrNull()?.let {
+                                    pendingAudioRecording?.let { recording -> audioRecordingReferences?.release(recording) }
+                                    pendingAudioRecording = null
                                     attachmentPickerError = null
                                     viewModel.onEvent(ChatUiEvent.AttachmentSelected(it.reference, it.displayName ?: "Adjunto", it.mimeType))
                                 }
@@ -266,21 +302,90 @@ private fun ChatCommonConversationHost(
                         }
                     },
                     onOpenPendingAttachment = { state.attachmentUri?.let { onOpenAttachment(PlatformFile(it, state.attachmentName, state.attachmentMimeType)) } },
+                    onClearAttachment = {
+                        val recording = pendingAudioRecording
+                        pendingAudioRecording = null
+                        viewModel.onEvent(ChatUiEvent.ClearAttachment)
+                        if (recording != null) scope.launch { audioRecordingReferences?.release(recording) }
+                    },
                     onCamera = null,
-                    onRecordAudio = null,
+                    onRecordAudio = {
+                        scope.launch {
+                            when (val result = audioRecorder.start(audioRecordingConfiguration.toPlatformOptions())) {
+                                is PlatformResult.Success -> {
+                                    isRecordingAudio = true
+                                    recordingElapsedSeconds = 0L
+                                    recordingError = null
+                                }
+                                is PlatformResult.Failure -> recordingError = result.reason ?: "No se pudo iniciar la grabación."
+                                PlatformResult.Cancelled -> recordingError = null
+                                PlatformResult.Unsupported -> recordingError = "La grabación de audio no está disponible."
+                            }
+                        }
+                    },
+                    isRecordingAudio = isRecordingAudio,
+                    recordingElapsedLabel = recordingElapsedSeconds.toDurationLabel(),
+                    recordingError = recordingError,
+                    onStopRecording = {
+                        scope.launch {
+                            when (val result = audioRecorder.stop()) {
+                                is PlatformResult.Success -> {
+                                    isRecordingAudio = false
+                                    recordingElapsedSeconds = result.value.durationMillis / 1_000L
+                                    recordingError = null
+                                    pendingAudioRecording?.let { previous -> audioRecordingReferences?.release(previous) }
+                                    pendingAudioRecording = result.value
+                                    viewModel.onEvent(
+                                        ChatUiEvent.AttachmentSelected(
+                                            result.value.file.reference,
+                                            result.value.file.displayName ?: "Nota de voz",
+                                            result.value.mimeType,
+                                        ),
+                                    )
+                                }
+                                is PlatformResult.Failure -> {
+                                    isRecordingAudio = false
+                                    recordingError = result.reason ?: "No se pudo guardar la grabación."
+                                }
+                                PlatformResult.Cancelled -> {
+                                    isRecordingAudio = false
+                                    recordingError = null
+                                }
+                                PlatformResult.Unsupported -> {
+                                    isRecordingAudio = false
+                                    recordingError = "La grabación de audio no está disponible."
+                                }
+                            }
+                        }
+                    },
+                    onCancelRecording = {
+                        scope.launch {
+                            audioRecorder.cancel()
+                            isRecordingAudio = false
+                            recordingElapsedSeconds = 0L
+                            recordingError = null
+                        }
+                    },
                     attachmentError = attachmentPickerError,
                     modifier = composerModifier,
                 )
             },
             attachment = { message, attachmentModifier ->
-                message.attachmentUri?.takeIf { it.isNotBlank() }?.let { reference ->
-                    Button(
-                        onClick = {
-                            onOpenAttachment(PlatformFile(reference, message.attachmentName, message.attachmentMimeType))
-                        },
-                        modifier = attachmentModifier,
-                    ) { Text(message.attachmentName ?: "Abrir adjunto") }
-                }
+                ChatBrowserAttachmentContent(
+                    message = message,
+                    audioPlayer = audioPlayer,
+                    activeAudioReference = activeAudioReference,
+                    playback = audioPlayback,
+                    failed = audioFailed,
+                    onPlaybackChanged = { reference, updatedPlayback, failed ->
+                        activeAudioReference = reference
+                        audioPlayback = updatedPlayback
+                        audioFailed = failed
+                    },
+                    onOpenAttachment = onOpenAttachment,
+                    launch = audioLifecycle::launch,
+                    modifier = attachmentModifier,
+                )
             },
             messageActions = { _, _ -> },
             typingIndicator = { typing ->
