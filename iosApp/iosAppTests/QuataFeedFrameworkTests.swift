@@ -1423,7 +1423,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         XCTAssertEqual(installSource.components(separatedBy: "DispatchQueue.main.async").count - 1, 3)
         XCTAssertTrue(installSource.contains("authenticatedHost.showChat(conversationId: conversationId, messageId: nil)"))
-        XCTAssertTrue(installSource.contains("presentAuthenticatedMemberProfile(profileId: profileId)"))
+        XCTAssertTrue(
+            installSource.contains(
+                "presentAuthenticatedMemberProfile(profileId: profile.user.id, initialProfile: profile)"
+            )
+        )
         XCTAssertTrue(installSource.contains("authenticatedHost.presentAuthRequiredPrompt()"))
     }
 
