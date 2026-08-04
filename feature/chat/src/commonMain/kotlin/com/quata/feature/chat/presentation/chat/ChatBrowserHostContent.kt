@@ -196,6 +196,7 @@ private fun ChatCommonConversationHost(
     }
     val state by viewModel.uiState.collectAsState()
     val chromeStrings = remember(languageTag) { chatChromeStringsForLanguage(languageTag) }
+    val sosStrings = remember(languageTag) { chatSosStringsForLanguage(languageTag) }
     val usersById = remember(state.participantCandidates, state.currentUser) {
         (state.participantCandidates + listOfNotNull(state.currentUser)).associateBy { it.id }
     }
@@ -464,7 +465,7 @@ private fun ChatCommonConversationHost(
             },
             messageActions = { _, _ -> },
             specialMessageBody = { message ->
-                val sos = remember(message.text) { resolveChatSosPresentation(message.text) }
+                val sos = remember(message.text, sosStrings) { resolveChatSosPresentation(message.text, sosStrings) }
                 if (sos == null) {
                     false
                 } else {
@@ -478,12 +479,19 @@ private fun ChatCommonConversationHost(
                         speed = sos.speed,
                         isUpdate = sos.isUpdate,
                         isUnavailable = sos.isUnavailable,
-                        unavailableLabel = "Ubicación no disponible",
-                        openMapsLabel = "Abrir en mapas",
+                        unavailableLabel = sosStrings.locationUnavailable,
+                        openMapsLabel = sosStrings.openMaps,
                         textColor = MaterialTheme.colorScheme.onSurface,
                         accentColor = MaterialTheme.colorScheme.primary,
                         onOpenMaps = onOpenExternalLink,
-                        mapPreviewIcon = { CompactIcon(Icons.Filled.LocationOn, "Ubicación") },
+                        mapPreviewIcon = {
+                            CompactIcon(
+                                imageVector = Icons.Filled.LocationOn,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(42.dp),
+                            )
+                        },
                     )
                     true
                 }

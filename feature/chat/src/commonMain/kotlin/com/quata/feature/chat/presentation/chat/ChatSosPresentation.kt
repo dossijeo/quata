@@ -16,26 +16,95 @@ data class ChatSosPresentation(
     val isUnavailable: Boolean,
 )
 
-fun resolveChatSosPresentation(raw: String): ChatSosPresentation? {
+data class ChatSosStrings(
+    val userFallback: String,
+    val defaultAlert: (String) -> String,
+    val locationUpdate: String,
+    val locationUpdatedBody: String,
+    val location: (String) -> String,
+    val approximateLocation: (String) -> String,
+    val locationAge: (String) -> String,
+    val locationAccuracy: (String) -> String,
+    val locationSpeed: (String) -> String,
+    val ageLessThanMinute: String,
+    val distanceMeters: (String) -> String,
+    val speedKmh: (String) -> String,
+    val locationUnavailable: String,
+    val openMaps: String,
+)
+
+fun chatSosStringsForLanguage(languageTag: String?): ChatSosStrings =
+    when (languageTag?.substringBefore('-')?.substringBefore('_')?.lowercase()) {
+        "es" -> ChatSosStrings(
+            userFallback = "Usuario",
+            defaultAlert = { sender -> "🚨 SOS REAL: $sender necesita ayuda urgente. Eres uno de sus contactos de emergencia en QUATA." },
+            locationUpdate = "Actualizacion de ubicacion SOS",
+            locationUpdatedBody = "Se ha obtenido una ubicacion mas precisa.",
+            location = { url -> "📍 Ubicación: $url" },
+            approximateLocation = { url -> "Ubicacion aproximada: $url" },
+            locationAge = { value -> "Antiguedad de ubicacion: $value" },
+            locationAccuracy = { value -> "Precision: $value" },
+            locationSpeed = { value -> "Velocidad: $value" },
+            ageLessThanMinute = "menos de 1 minuto",
+            distanceMeters = { value -> "$value m" },
+            speedKmh = { value -> "$value km/h" },
+            locationUnavailable = "📍 Ubicación no disponible",
+            openMaps = "Abrir ubicación en Google Maps",
+        )
+        "fr" -> ChatSosStrings(
+            userFallback = "Utilisateur",
+            defaultAlert = { sender -> "🚨 SOS REEL : $sender a besoin d'aide urgente. Tu es un de ses contacts SOS sur QUATA." },
+            locationUpdate = "Mise a jour de position SOS",
+            locationUpdatedBody = "Une position plus precise a ete obtenue.",
+            location = { url -> "📍 Position : $url" },
+            approximateLocation = { url -> "Position approximative : $url" },
+            locationAge = { value -> "Age de la position : $value" },
+            locationAccuracy = { value -> "Precision : $value" },
+            locationSpeed = { value -> "Vitesse : $value" },
+            ageLessThanMinute = "moins d'1 minute",
+            distanceMeters = { value -> "$value m" },
+            speedKmh = { value -> "$value km/h" },
+            locationUnavailable = "📍 Position indisponible",
+            openMaps = "Ouvrir la position dans Google Maps",
+        )
+        else -> ChatSosStrings(
+            userFallback = "User",
+            defaultAlert = { sender -> "🚨 REAL SOS: $sender needs urgent help. You are one of their emergency contacts in QUATA." },
+            locationUpdate = "SOS location update",
+            locationUpdatedBody = "A more precise location has been obtained.",
+            location = { url -> "📍 Location: $url" },
+            approximateLocation = { url -> "Location (approximate): $url" },
+            locationAge = { value -> "Location age: $value" },
+            locationAccuracy = { value -> "Accuracy: $value" },
+            locationSpeed = { value -> "Speed: $value" },
+            ageLessThanMinute = "less than 1 minute",
+            distanceMeters = { value -> "$value m" },
+            speedKmh = { value -> "$value km/h" },
+            locationUnavailable = "📍 Location unavailable",
+            openMaps = "Open location in Google Maps",
+        )
+    }
+
+fun resolveChatSosPresentation(raw: String, strings: ChatSosStrings): ChatSosPresentation? {
     raw.parseSosShortcode()?.let { message ->
-        val sender = message.senderName.ifBlank { "Usuario" }
+        val sender = message.senderName.ifBlank { strings.userFallback }
         val update = message.kind == SosShortcodeKind.LocationUpdate
         return ChatSosPresentation(
-            title = if (update) "Actualización de ubicación SOS" else message.customMessage ?: "SOS real de $sender",
-            body = if (update) "La ubicación se ha actualizado." else null,
-            locationLabel = message.mapsUrl?.let { if (update) "Ubicación: $it" else "Ubicación aproximada: $it" },
+            title = if (update) strings.locationUpdate else message.customMessage ?: strings.defaultAlert(sender),
+            body = strings.locationUpdatedBody.takeIf { update },
+            locationLabel = message.mapsUrl?.let { if (update) strings.location(it) else strings.approximateLocation(it) },
             mapsUrl = message.mapsUrl,
-            age = message.ageMillis?.let(::formatSosAge),
-            accuracy = message.accuracyMeters?.let { "Precisión: ${it.roundToLong()} m" },
-            speed = message.speedKmh?.let { "Velocidad: ${formatOneDecimal(it)} km/h" },
+            age = message.ageMillis?.let { strings.locationAge(formatSosAge(it, strings)) },
+            accuracy = message.accuracyMeters?.let { strings.locationAccuracy(strings.distanceMeters(it.roundToLong().toString())) },
+            speed = message.speedKmh?.let { strings.locationSpeed(strings.speedKmh(formatOneDecimal(it))) },
             isUpdate = update,
             isUnavailable = !message.hasLocation,
         )
     }
-    return resolveLegacyChatSosPresentation(raw)
+    return resolveLegacyChatSosPresentation(raw, strings)
 }
 
-private fun resolveLegacyChatSosPresentation(raw: String): ChatSosPresentation? {
+private fun resolveLegacyChatSosPresentation(raw: String, strings: ChatSosStrings): ChatSosPresentation? {
     val lines = raw.lines().map(String::trim).filter(String::isNotBlank)
     val normalized = raw.lowercase()
     val isSos = normalized.contains("sos real") ||
@@ -57,23 +126,23 @@ private fun resolveLegacyChatSosPresentation(raw: String): ChatSosPresentation? 
     return ChatSosPresentation(
         title = metadata.firstOrNull() ?: "SOS",
         body = metadata.drop(1).joinToString("\n").takeIf(String::isNotBlank),
-        locationLabel = mapsUrl?.let { "Ubicación: $it" },
+        locationLabel = mapsUrl?.let(strings.location),
         mapsUrl = mapsUrl,
-        age = lines.extractSosValue("location age", "antigüedad", "antiguedad", "âge", "age de la position"),
-        accuracy = lines.extractSosValue("accuracy", "precisión", "precision"),
-        speed = lines.extractSosValue("speed", "velocidad", "vitesse"),
+        age = lines.extractSosValue("location age", "antigüedad", "antiguedad", "âge", "age de la position")?.let(strings.locationAge),
+        accuracy = lines.extractSosValue("accuracy", "precisión", "precision")?.let(strings.locationAccuracy),
+        speed = lines.extractSosValue("speed", "velocidad", "vitesse")?.let(strings.locationSpeed),
         isUpdate = update,
         isUnavailable = mapsUrl == null,
     )
 }
 
-private fun formatSosAge(milliseconds: Long): String {
+private fun formatSosAge(milliseconds: Long, strings: ChatSosStrings): String {
     val minutes = milliseconds.coerceAtLeast(0L) / 60_000L
     return when {
-        minutes < 1L -> "Antigüedad: menos de un minuto"
-        minutes < 60L -> "Antigüedad: $minutes min"
-        minutes < 1_440L -> "Antigüedad: ${minutes / 60L} h"
-        else -> "Antigüedad: ${minutes / 1_440L} d"
+        minutes < 1L -> strings.ageLessThanMinute
+        minutes < 60L -> "$minutes min"
+        minutes < 1_440L -> "${minutes / 60L} h"
+        else -> "${minutes / 1_440L} d"
     }
 }
 
@@ -84,6 +153,9 @@ private fun formatOneDecimal(value: Double): String {
 
 private fun List<String>.extractSosValue(vararg labels: String): String? =
     firstOrNull { line -> line.startsWithAnySosLabel(*labels) }
+        ?.substringAfter(':', missingDelimiterValue = "")
+        ?.trim()
+        ?.takeIf(String::isNotBlank)
 
 private fun String.startsWithAnySosLabel(vararg labels: String): Boolean {
     val normalized = trim().lowercase()

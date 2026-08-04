@@ -22,18 +22,46 @@ class ChatSosPresentationTest {
             speedKmh = 4.25,
         )
 
-        val presentation = assertNotNull(resolveChatSosPresentation(raw))
+        val presentation = assertNotNull(resolveChatSosPresentation(raw, chatSosStringsForLanguage("es")))
 
         assertTrue(presentation.isUpdate)
         assertFalse(presentation.isUnavailable)
         assertEquals("https://maps.google.com/?q=40.4168,-3.7038", presentation.mapsUrl)
-        assertEquals("Antigüedad: 2 min", presentation.age)
-        assertEquals("Precisión: 8 m", presentation.accuracy)
+        assertEquals("Antiguedad de ubicacion: 2 min", presentation.age)
+        assertEquals("Precision: 8 m", presentation.accuracy)
         assertEquals("Velocidad: 4.3 km/h", presentation.speed)
     }
 
     @Test
     fun ordinaryMessageIsNotMisclassifiedAsSos() {
-        assertNull(resolveChatSosPresentation("Nos vemos en el barrio esta tarde"))
+        assertNull(resolveChatSosPresentation("Nos vemos en el barrio esta tarde", chatSosStringsForLanguage("es")))
+    }
+
+    @Test
+    fun shortcodeUsesTheExactAndroidCatalogForEverySupportedLanguage() {
+        val raw = buildSosShortcode(
+            kind = SosShortcodeKind.LocationUpdate,
+            senderName = "Lucía",
+            latitude = 40.4168,
+            longitude = -3.7038,
+            ageMillis = 30_000,
+            accuracyMeters = 8.4,
+            speedKmh = 4.25,
+        )
+
+        val spanish = assertNotNull(resolveChatSosPresentation(raw, chatSosStringsForLanguage("es-ES")))
+        assertEquals("Actualizacion de ubicacion SOS", spanish.title)
+        assertEquals("Se ha obtenido una ubicacion mas precisa.", spanish.body)
+        assertEquals("Antiguedad de ubicacion: menos de 1 minuto", spanish.age)
+
+        val english = assertNotNull(resolveChatSosPresentation(raw, chatSosStringsForLanguage("en")))
+        assertEquals("SOS location update", english.title)
+        assertEquals("Location age: less than 1 minute", english.age)
+        assertEquals("Accuracy: 8 m", english.accuracy)
+
+        val french = assertNotNull(resolveChatSosPresentation(raw, chatSosStringsForLanguage("fr-FR")))
+        assertEquals("Mise a jour de position SOS", french.title)
+        assertEquals("Age de la position : moins d'1 minute", french.age)
+        assertEquals("Vitesse : 4.3 km/h", french.speed)
     }
 }
