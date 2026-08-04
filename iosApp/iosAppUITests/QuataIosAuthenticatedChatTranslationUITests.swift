@@ -48,7 +48,7 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
         XCTAssertTrue(instruction.waitForExistence(timeout: 10), "The shared translator overlay must be visible.")
         attachScreenshot(app, name: "chat-translation-overlay")
 
-        let overlayMessage = app.staticTexts["Mbolo"].firstMatch
+        let overlayMessage = app.buttons["Mbolo"].firstMatch
         XCTAssertTrue(overlayMessage.isHittable, "The registered message surface must be actionable.")
         overlayMessage.tap()
 
