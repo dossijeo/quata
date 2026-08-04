@@ -261,7 +261,7 @@ private fun ChatCommonConversationHost(
             },
             conversationAvatar = { conversation ->
                 conversation?.let {
-                    val title = it.title.ifBlank { "Conversación" }
+                    val title = it.title.ifBlank { chromeStrings.untitledConversation }
                     ConversationAvatarContent(
                         presentation = resolveConversationAvatarPresentation(
                             conversation = it,
