@@ -1,9 +1,7 @@
 package com.quata.web
 
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class BrowserFeedAvatarContentTest {
@@ -25,22 +23,5 @@ class BrowserFeedAvatarContentTest {
         route.close()
 
         assertTrue(route.profileId == null)
-    }
-
-    @Test
-    fun opening_a_conversation_consumes_the_profile_before_navigation() {
-        val route = WebFeedMemberProfileRoute()
-        route.open("profile-1")
-        var observedProfileId: String? = "not-called"
-        var observedConversationId: String? = null
-
-        route.openConversation("conversation-1") { conversationId ->
-            observedProfileId = route.profileId
-            observedConversationId = conversationId
-        }
-
-        assertNull(observedProfileId)
-        assertEquals("conversation-1", observedConversationId)
-        assertNull(route.profileId)
     }
 }

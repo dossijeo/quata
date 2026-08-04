@@ -634,10 +634,8 @@ private fun QuataWebApp(
                                 strings = webNeighborhoodsStrings,
                                 slots = webNeighborhoodsSlots,
                                 onOpenConversation = { conversationId ->
-                                    feedMemberProfileRoute.openConversation(
-                                        conversationId = conversationId,
-                                        navigate = navigation::navigateConversation,
-                                    )
+                                    feedMemberProfileRoute.close()
+                                    navigation.navigateConversation(conversationId)
                                 },
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
@@ -673,10 +671,8 @@ private fun QuataWebApp(
                                 strings = webNeighborhoodsStrings,
                                 slots = webNeighborhoodsSlots,
                                 onOpenConversation = { conversationId ->
-                                    feedMemberProfileRoute.openConversation(
-                                        conversationId = conversationId,
-                                        navigate = navigation::navigateConversation,
-                                    )
+                                    feedMemberProfileRoute.close()
+                                    navigation.navigateConversation(conversationId)
                                 },
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,
@@ -712,10 +708,8 @@ private fun QuataWebApp(
                                 strings = webNeighborhoodsStrings,
                                 slots = webNeighborhoodsSlots,
                                 onOpenConversation = { conversationId ->
-                                    feedMemberProfileRoute.openConversation(
-                                        conversationId = conversationId,
-                                        navigate = navigation::navigateConversation,
-                                    )
+                                    feedMemberProfileRoute.close()
+                                    navigation.navigateConversation(conversationId)
                                 },
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserRoute = feedMemberProfileRoute::open,

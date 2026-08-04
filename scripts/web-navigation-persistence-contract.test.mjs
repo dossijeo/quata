@@ -6,13 +6,6 @@ const main = await readFile(
   new URL("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt", import.meta.url),
   "utf8",
 );
-const memberProfileRoute = await readFile(
-  new URL(
-    "../web/src/wasmJsMain/kotlin/com/quata/web/WebFeedMemberProfileRoute.kt",
-    import.meta.url,
-  ),
-  "utf8",
-);
 
 test("Web navigation persistence follows the current Compose navigation state", () => {
   assert.match(
@@ -23,15 +16,11 @@ test("Web navigation persistence follows the current Compose navigation state", 
 
 test("global profile Chat actions consume the overlay route before navigation", () => {
   const wiredTransitions = main.match(
-    /onOpenConversation = \{ conversationId ->\s*feedMemberProfileRoute\.openConversation\(\s*conversationId = conversationId,\s*navigate = navigation::navigateConversation,\s*\)\s*\}/g,
+    /onOpenConversation = \{ conversationId ->\s*feedMemberProfileRoute\.close\(\)\s*navigation\.navigateConversation\(conversationId\)\s*\}/g,
   );
   assert.equal(
     wiredTransitions?.length,
     3,
     "Feed, Official and Chat profile overlays must share the consuming transition",
-  );
-  assert.match(
-    memberProfileRoute,
-    /fun openConversation\([\s\S]*?\) \{\s*close\(\)\s*navigate\(conversationId\)\s*\}/,
   );
 });
