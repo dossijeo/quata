@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.conversations
 
 import com.quata.core.model.Conversation
+import com.quata.core.model.Message
 import com.quata.core.model.User
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -47,6 +48,45 @@ class ConversationAvatarPresentationTest {
         assertEquals("Grupo", result.name)
         assertEquals("https://cdn/conversation.jpg", result.avatarUrl)
         assertNull(result.profileId)
+        assertFalse(result.isLoading)
+    }
+
+    @Test fun messageAvatarUsesResolvedSenderImageAndProfile() {
+        val message = Message(
+            id = "message",
+            conversationId = "conversation",
+            senderId = other.id,
+            senderName = "Stale name",
+            text = "Mbolo",
+            sentAt = "2026-08-04T08:03:00Z",
+        )
+
+        val result = resolveMessageAvatarPresentation(message, other, openingProfileUserId = other.id)
+
+        assertEquals(ConversationAvatarKind.Private, result.kind)
+        assertEquals(other.displayName, result.name)
+        assertEquals(other.avatarUrl, result.avatarUrl)
+        assertEquals(other.id, result.profileId)
+        assertEquals(other.id, result.stableId)
+        assertTrue(result.isLoading)
+    }
+
+    @Test fun messageAvatarFallsBackToMessageIdentityWithoutSenderRecord() {
+        val message = Message(
+            id = "message",
+            conversationId = "conversation",
+            senderId = "missing",
+            senderName = "Invitado",
+            text = "Hola",
+            sentAt = "2026-08-04T08:03:00Z",
+        )
+
+        val result = resolveMessageAvatarPresentation(message, sender = null, openingProfileUserId = null)
+
+        assertEquals("Invitado", result.name)
+        assertEquals("missing", result.stableId)
+        assertEquals("missing", result.profileId)
+        assertNull(result.avatarUrl)
         assertFalse(result.isLoading)
     }
 

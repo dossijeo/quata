@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
+import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 
@@ -53,6 +54,21 @@ fun resolveConversationAvatarPresentation(
         isLoading = privateUser?.id?.let { it == openingProfileUserId } == true,
     )
 }
+
+/** Android-equivalent sender identity for avatars rendered beside group-chat messages. */
+fun resolveMessageAvatarPresentation(
+    message: Message,
+    sender: User?,
+    openingProfileUserId: String?,
+): ConversationAvatarPresentation = ConversationAvatarPresentation(
+    kind = ConversationAvatarKind.Private,
+    name = sender?.displayName ?: message.senderName,
+    stableId = sender?.id ?: message.senderId,
+    avatarUrl = sender?.avatarUrl,
+    profileId = sender?.id ?: message.senderId,
+    isMuted = false,
+    isLoading = openingProfileUserId == message.senderId,
+)
 
 @Composable
 fun ConversationAvatarContent(

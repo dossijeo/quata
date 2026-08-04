@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
@@ -64,6 +66,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationsListConten
 import com.quata.feature.chat.presentation.conversations.ConversationsUiEvent
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.resolveConversationAvatarPresentation
+import com.quata.feature.chat.presentation.conversations.resolveMessageAvatarPresentation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
@@ -184,6 +187,7 @@ private fun ChatCommonConversationHost(
     modifier: Modifier,
 ) {
     val scope = rememberCoroutineScope()
+    val template = quataTheme()
     var attachmentPickerError by remember { mutableStateOf<String?>(null) }
     val audioLifecycle = remember(audioPlayer) { ChatAudioPlaybackLifecycleOwner(audioPlayer) }
     var activeAudioReference by remember { mutableStateOf<String?>(null) }
@@ -298,10 +302,16 @@ private fun ChatCommonConversationHost(
                     isLoading = openingProfileUserId == message.senderId,
                     modifier = Modifier.size(38.dp),
                 ) {
-                    QuataAvatarFallback(
-                        name = message.senderName,
-                        stableId = message.senderId,
-                        modifier = Modifier.size(34.dp).clickable(
+                    remoteConversationAvatar(
+                        resolveMessageAvatarPresentation(
+                            message = message,
+                            sender = usersById[message.senderId],
+                            openingProfileUserId = openingProfileUserId,
+                        ),
+                        Modifier
+                            .size(34.dp)
+                            .border(1.dp, template.colors.divider, CircleShape)
+                            .clickable(
                             enabled = openingProfileUserId != message.senderId,
                         ) { onOpenUserProfile(message.senderId) },
                     )
