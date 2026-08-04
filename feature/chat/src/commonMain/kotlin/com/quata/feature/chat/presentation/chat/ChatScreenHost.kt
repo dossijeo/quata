@@ -166,6 +166,7 @@ fun ChatScreenHost(
                 showSenderAvatar = { message -> !message.isMine },
                 avatar = slots.messageAvatar,
                 onOpenLink = slots.onOpenLink,
+                messageTimestamp = slots.messageTimestamp,
                 onMessageClick = { message ->
                     if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
                         slots.onOpenMessageConversation(message.conversationId, message.id)

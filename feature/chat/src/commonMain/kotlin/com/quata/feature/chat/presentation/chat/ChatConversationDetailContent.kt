@@ -47,6 +47,7 @@ fun ChatConversationDetailContent(
     avatar: @Composable (Message) -> Unit,
     onOpenLink: (String) -> Unit,
     onMessageClick: (Message) -> Unit,
+    messageTimestamp: (Message) -> String = { it.sentAt },
     translatableTextModifier: (Message, Modifier) -> Modifier = { _, value -> value },
     composer: @Composable (Modifier) -> Unit,
     attachment: (@Composable (Message, Modifier) -> Unit)? = null,
@@ -117,6 +118,7 @@ fun ChatConversationDetailContent(
                     avatar = { avatar(message) },
                     onOpenLink = onOpenLink,
                     onClick = { onMessageClick(message) },
+                    timestamp = messageTimestamp(message),
                     translatableTextModifier = translatableTextModifier,
                     attachment = attachment?.let { slot -> { bubbleModifier -> slot(message, bubbleModifier) } },
                     deliveryIndicator = deliveryIndicator?.let { slot -> { slot(message) } },
@@ -142,6 +144,7 @@ private fun ChatConversationMessageContent(
     avatar: @Composable () -> Unit,
     onOpenLink: (String) -> Unit,
     onClick: () -> Unit,
+    timestamp: String,
     translatableTextModifier: (Message, Modifier) -> Modifier,
     attachment: (@Composable (Modifier) -> Unit)?,
     deliveryIndicator: (@Composable () -> Unit)?,
@@ -150,7 +153,7 @@ private fun ChatConversationMessageContent(
     actions: (@Composable (Modifier) -> Unit)?,
 ) {
     val template = quataTheme()
-    val textColor = template.colors.textPrimary
+    val textColor = if (message.isMine) template.colors.accentContent else template.colors.textPrimary
     ChatMessageBubbleLayoutContent(
         isMine = message.isMine,
         isSelected = isSelected,
@@ -162,7 +165,7 @@ private fun ChatConversationMessageContent(
             header = {
                 ChatMessageHeaderContent(
                     senderName = message.senderName,
-                    timestamp = message.sentAt,
+                    timestamp = timestamp,
                     isMine = message.isMine,
                     isEdited = message.isEdited,
                     isFavorite = message.isFavorite,
