@@ -330,7 +330,7 @@ private fun TranslatorModeHeader(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TranslatorSparkle()
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     strings.activeTitle,
@@ -343,17 +343,17 @@ private fun TranslatorModeHeader(
                 Spacer(Modifier.height(3.dp))
                 Text(strings.instruction, color = Color.White, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(4.dp))
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
                     .clickable(role = Role.Button, onClick = onDismiss)
                     .semantics { contentDescription = strings.exit }
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 2.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    modifier = Modifier.size(26.dp).border(2.dp, Color.White, CircleShape),
+                    modifier = Modifier.size(22.dp).border(2.dp, Color.White, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text("X", color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp)
@@ -369,15 +369,15 @@ private fun TranslatorModeHeader(
 private fun TranslatorSparkle() {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row {
-            SparkleDot(8)
+            SparkleDot(6)
             Spacer(Modifier.width(3.dp))
-            SparkleDot(15)
+            SparkleDot(12)
         }
         Spacer(Modifier.height(2.dp))
         Row {
-            SparkleDot(16)
+            SparkleDot(13)
             Spacer(Modifier.width(4.dp))
-            SparkleDot(9)
+            SparkleDot(7)
         }
     }
 }

@@ -49,7 +49,19 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Modo traductor activo"].waitForExistence(timeout: 5))
         attachScreenshot(app, name: "chat-translation-overlay")
 
-        let overlayMessage = app.buttons["Mbolo"].firstMatch
+        let overlayCandidates = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS %@", "Mbolo"),
+        )
+        XCTAssertGreaterThanOrEqual(overlayCandidates.count, 2)
+        var overlayMessage = overlayCandidates.element(boundBy: 0)
+        if overlayCandidates.count > 1 {
+            for index in 1..<overlayCandidates.count {
+                let candidate = overlayCandidates.element(boundBy: index)
+                if candidate.frame.minY > overlayMessage.frame.minY {
+                    overlayMessage = candidate
+                }
+            }
+        }
         XCTAssertTrue(overlayMessage.isHittable, "The registered message surface must be actionable.")
         overlayMessage.tap()
 
