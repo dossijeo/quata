@@ -95,12 +95,8 @@ fun ChatBrowserHostContent(
     if (conversationId == null) {
         conversationList(modifier)
     } else {
-        ChatBrowserConversationDetail(
+        ChatCommonConversationHost(
             repository = repository,
-            audioPlayer = audioPlayer,
-            audioRecorder = audioRecorder,
-            audioRecordingReferences = audioRecordingReferences,
-            filePicker = filePicker,
             conversationId = conversationId,
             navigationMessage = navigationMessage,
             onBackToList = onBackToList,
@@ -108,13 +104,115 @@ fun ChatBrowserHostContent(
             onOpenUserProfile = onOpenUserProfile,
             openingProfileUserId = openingProfileUserId,
             focusedMessageId = focusedMessageId,
-            audioRecordingConfiguration = audioRecordingConfiguration,
-            messageInputOverride = messageInputOverride,
-            sendButtonOverride = sendButtonOverride,
             text = text,
             modifier = modifier,
         )
     }
+}
+
+/**
+ * CommonMain consumer of [ChatScreenHost] used by Wasm and iOS. Media/system adapters remain
+ * intentionally outside this first read-root unit; composer/action parity is tracked by unit 2.
+ */
+@Composable
+private fun ChatCommonConversationHost(
+    repository: ChatRepository,
+    conversationId: String,
+    navigationMessage: String,
+    onBackToList: () -> Unit,
+    onOpenAttachment: (PlatformFile) -> Unit,
+    onOpenUserProfile: (String) -> Unit,
+    openingProfileUserId: String?,
+    focusedMessageId: String?,
+    text: (ChatText) -> String,
+    modifier: Modifier,
+) {
+    val viewModel = remember(repository, conversationId) {
+        ChatViewModel(conversationId = conversationId, repository = repository, text = text)
+    }
+    val state by viewModel.uiState.collectAsState()
+    DisposableEffect(viewModel) {
+        repository.setActiveConversation(conversationId)
+        onDispose {
+            repository.setActiveConversation(null)
+            viewModel.close()
+        }
+    }
+    ChatScreenHost(
+        repository = repository,
+        conversationId = conversationId,
+        text = text,
+        focusedMessageId = focusedMessageId,
+        modifier = modifier,
+        model = viewModel,
+        slots = ChatScreenHostSlots(
+            strings = ChatScreenHostStrings("ConversaciÃ³n", "Reintentar mensajes"),
+            messageStrings = ChatConversationDetailStrings("Editado", "Mensaje eliminado", "Reenviado"),
+            compactHeader = false,
+            navigationAction = {
+                Button(onClick = onBackToList, modifier = Modifier.semantics { testTag = "chat.back" }) {
+                    Text("Volver a conversaciones")
+                }
+            },
+            conversationAvatar = { _ -> },
+            trailingActions = {},
+            messageAvatar = { message ->
+                QuataAvatarLoadingHaloContent(
+                    isLoading = openingProfileUserId == message.senderId,
+                    modifier = Modifier.size(38.dp),
+                ) {
+                    QuataAvatarFallback(
+                        name = message.senderName,
+                        stableId = message.senderId,
+                        modifier = Modifier.size(34.dp).clickable(
+                            enabled = openingProfileUserId != message.senderId,
+                        ) { onOpenUserProfile(message.senderId) },
+                    )
+                }
+            },
+            onOpenLink = { url -> onOpenAttachment(PlatformFile(reference = url)) },
+            onBack = onBackToList,
+            onFocusedMessageHandled = {},
+            subtitle = { _, typing -> if (typing.isNotEmpty()) "Escribiendoâ€¦" else navigationMessage },
+            composer = { composerModifier ->
+                Surface(composerModifier) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = state.messageText,
+                            onValueChange = { viewModel.onEvent(ChatUiEvent.MessageChanged(it)) },
+                            label = { Text("Mensaje") },
+                            modifier = Modifier.fillMaxWidth().semantics { testTag = "chat.message" },
+                        )
+                        Button(
+                            onClick = { viewModel.onEvent(ChatUiEvent.Send) },
+                            enabled = state.messageText.isNotBlank(),
+                            modifier = Modifier.semantics { testTag = "chat.send" },
+                        ) { Text("Enviar") }
+                    }
+                }
+            },
+            attachment = { message, attachmentModifier ->
+                message.attachmentUri?.takeIf { it.isNotBlank() }?.let { reference ->
+                    Button(
+                        onClick = {
+                            onOpenAttachment(PlatformFile(reference, message.attachmentName, message.attachmentMimeType))
+                        },
+                        modifier = attachmentModifier,
+                    ) { Text(message.attachmentName ?: "Abrir adjunto") }
+                }
+            },
+            messageActions = { message, actionsModifier ->
+                if (message.id == state.selectedMessageId && !message.isLocalEcho) {
+                    Button(onClick = { viewModel.onEvent(ChatUiEvent.StartReply) }, modifier = actionsModifier) {
+                        Text("Responder")
+                    }
+                }
+            },
+            typingIndicator = { typing ->
+                if (typing.isEmpty()) null else { { Text("Escribiendoâ€¦", Modifier.padding(14.dp)) } }
+            },
+        ),
+    )
 }
 
 @Composable

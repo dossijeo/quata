@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
@@ -47,6 +49,11 @@ fun ChatConversationDetailContent(
     favoriteMarker: (@Composable (Message) -> Unit)? = null,
     messageActions: (@Composable (Message, Modifier) -> Unit)? = null,
     typingIndicator: (@Composable () -> Unit)? = null,
+    /** Shown inside the history viewport while the first backend snapshot is pending. */
+    initialContent: (@Composable () -> Unit)? = null,
+    /** Real repository pagination; the root never manufactures history locally. */
+    onLoadOlderMessages: () -> Boolean = { false },
+    isLoadingOlderMessages: Boolean = false,
     /** A host-provided message target. It is ignored safely until it is present in [messages]. */
     focusedMessageId: String? = null,
     onFocusedMessageHandled: () -> Unit = {},
@@ -62,6 +69,12 @@ fun ChatConversationDetailContent(
             onFocusedMessageHandled()
         }
     }
+    LaunchedEffect(listState, isLoadingOlderMessages) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .collect { firstVisible ->
+                if (firstVisible <= 2 && !isLoadingOlderMessages) onLoadOlderMessages()
+            }
+    }
     Column(modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
@@ -69,6 +82,14 @@ fun ChatConversationDetailContent(
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            if (initialContent != null) {
+                item(key = "chat-initial-loading") { initialContent() }
+            }
+            if (isLoadingOlderMessages) {
+                item(key = "chat-history-loading") {
+                    ChatMessageSkeletonContent(isMine = false, pulseDelayMillis = 80)
+                }
+            }
             items(messages, key = Message::id) { message ->
                 ChatConversationMessageContent(
                     message = message,
