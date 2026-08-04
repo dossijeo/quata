@@ -86,6 +86,9 @@ fun WebChatHost(
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
         onOpenUserProfile = onOpenUserProfile,
         openingProfileUserId = openingProfileUserId,
+        remoteConversationAvatar = { presentation, avatarModifier ->
+            WebConversationAvatar(presentation, avatarModifier)
+        },
         text = chatText,
         conversationList = { listModifier ->
             ConversationsScreenHost(

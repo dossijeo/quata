@@ -94,6 +94,14 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
         onOpenAttachment = dependencies.onOpenAttachment,
                 onOpenUserProfile = dependencies.onOpenAvatar,
                 openingProfileUserId = openingProfileUserId,
+                remoteConversationAvatar = { presentation, avatarModifier ->
+                    IosRemoteAvatar(
+                        name = presentation.name,
+                        stableId = presentation.stableId,
+                        avatarUrl = presentation.avatarUrl,
+                        modifier = avatarModifier,
+                    )
+                },
                 text = chatText,
                 conversationList = { listModifier ->
                     ConversationsScreenHost(

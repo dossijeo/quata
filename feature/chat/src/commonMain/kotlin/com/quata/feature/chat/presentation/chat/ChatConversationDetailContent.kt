@@ -14,12 +14,16 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Message
+import kotlinx.coroutines.delay
 
 /** Localized labels owned by the host while the conversation structure stays portable. */
 data class ChatConversationDetailStrings(
@@ -60,19 +64,31 @@ fun ChatConversationDetailContent(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
+    var initialPositionReady by remember { mutableStateOf(false) }
+    var highlightedMessageId by remember { mutableStateOf<String?>(null) }
     val focusedIndex = remember(focusedMessageId, messages) {
         focusedMessageId?.let { target -> messages.indexOfFirst { it.id == target }.takeIf { it >= 0 } }
     }
     LaunchedEffect(focusedIndex) {
         focusedIndex?.let { index ->
             listState.scrollToItem(index)
+            highlightedMessageId = messages[index].id
+            delay(720L)
+            highlightedMessageId = null
             onFocusedMessageHandled()
         }
     }
-    LaunchedEffect(listState, isLoadingOlderMessages) {
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .collect { firstVisible ->
-                if (firstVisible <= 2 && !isLoadingOlderMessages) onLoadOlderMessages()
+    LaunchedEffect(messages, focusedMessageId, initialPositionReady) {
+        if (!initialPositionReady && focusedMessageId == null && messages.isNotEmpty()) {
+            listState.scrollToItem(messages.lastIndex)
+            initialPositionReady = true
+        }
+    }
+    LaunchedEffect(listState, isLoadingOlderMessages, initialPositionReady, focusedMessageId) {
+        if (!initialPositionReady || focusedMessageId != null) return@LaunchedEffect
+        snapshotFlow { listState.isScrollInProgress to listState.firstVisibleItemIndex }
+            .collect { (isScrolling, firstVisible) ->
+                if (isScrolling && firstVisible <= 2 && !isLoadingOlderMessages) onLoadOlderMessages()
             }
     }
     Column(modifier.fillMaxSize()) {
@@ -90,10 +106,10 @@ fun ChatConversationDetailContent(
                     ChatMessageSkeletonContent(isMine = false, pulseDelayMillis = 80)
                 }
             }
-            items(messages, key = Message::id) { message ->
+            items(messages, key = Message::composeKey) { message ->
                 ChatConversationMessageContent(
                     message = message,
-                    isSelected = message.id == selectedMessageId,
+                    isSelected = message.id == selectedMessageId || message.id == highlightedMessageId,
                     strings = strings,
                     showSenderAvatar = showSenderAvatar(message),
                     avatar = { avatar(message) },

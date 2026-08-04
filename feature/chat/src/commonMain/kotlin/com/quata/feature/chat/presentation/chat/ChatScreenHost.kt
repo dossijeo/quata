@@ -75,9 +75,6 @@ fun ChatScreenHost(
     }
     val focusedMessage = (deepLinkRequest as? ChatMessageDeepLinkRequest.Focused)
         ?.let { focused -> state.messages.firstOrNull { it.id == focused.messageId } }
-    LaunchedEffect(focusedMessage?.id) {
-        focusedMessage?.let { model.onEvent(ChatUiEvent.MessageSelected(it.id)) }
-    }
 
     LaunchedEffect(state.shouldCloseConversation) {
         if (state.shouldCloseConversation) slots.onBack()
@@ -138,10 +135,7 @@ fun ChatScreenHost(
                 onLoadOlderMessages = model::loadOlderMessages,
                 isLoadingOlderMessages = state.isLoadingOlderMessages,
                 focusedMessageId = focusedMessage?.id,
-                onFocusedMessageHandled = {
-                    deepLinkRequest = ChatMessageDeepLinkRequest.NoTarget
-                    slots.onFocusedMessageHandled()
-                },
+                onFocusedMessageHandled = { deepLinkRequest = ChatMessageDeepLinkRequest.NoTarget },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -164,7 +158,6 @@ data class ChatScreenHostSlots(
     val messageAvatar: @Composable (Message) -> Unit,
     val onOpenLink: (String) -> Unit,
     val onBack: () -> Unit,
-    val onFocusedMessageHandled: () -> Unit,
     val subtitle: (Conversation?, Set<String>) -> String?,
     val composer: @Composable (Modifier) -> Unit,
     val attachment: (@Composable (Message, Modifier) -> Unit)? = null,

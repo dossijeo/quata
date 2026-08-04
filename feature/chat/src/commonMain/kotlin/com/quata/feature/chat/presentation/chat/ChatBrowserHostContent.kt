@@ -45,9 +45,12 @@ import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.conversations.ConversationListRow
+import com.quata.feature.chat.presentation.conversations.ConversationAvatarContent
+import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.ConversationsListContent
 import com.quata.feature.chat.presentation.conversations.ConversationsUiEvent
 import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
+import com.quata.feature.chat.presentation.conversations.resolveConversationAvatarPresentation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
@@ -83,6 +86,7 @@ fun ChatBrowserHostContent(
     onOpenAttachment: (PlatformFile) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     openingProfileUserId: String? = null,
+    remoteConversationAvatar: @Composable (ConversationAvatarPresentation, Modifier) -> Unit,
     conversationList: @Composable (Modifier) -> Unit,
     text: (ChatText) -> String,
     focusedMessageId: String? = null,
@@ -103,6 +107,7 @@ fun ChatBrowserHostContent(
             onOpenAttachment = onOpenAttachment,
             onOpenUserProfile = onOpenUserProfile,
             openingProfileUserId = openingProfileUserId,
+            remoteConversationAvatar = remoteConversationAvatar,
             focusedMessageId = focusedMessageId,
             text = text,
             modifier = modifier,
@@ -123,6 +128,7 @@ private fun ChatCommonConversationHost(
     onOpenAttachment: (PlatformFile) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     openingProfileUserId: String?,
+    remoteConversationAvatar: @Composable (ConversationAvatarPresentation, Modifier) -> Unit,
     focusedMessageId: String?,
     text: (ChatText) -> String,
     modifier: Modifier,
@@ -131,9 +137,15 @@ private fun ChatCommonConversationHost(
         ChatViewModel(conversationId = conversationId, repository = repository, text = text)
     }
     val state by viewModel.uiState.collectAsState()
+    val usersById = remember(state.participantCandidates, state.currentUser) {
+        (state.participantCandidates + listOfNotNull(state.currentUser)).associateBy { it.id }
+    }
     DisposableEffect(viewModel) {
         repository.setActiveConversation(conversationId)
+        viewModel.setConversationVisible(true)
         onDispose {
+            viewModel.setConversationVisible(false)
+            viewModel.cleanupEmptyConversationIfNeeded()
             repository.setActiveConversation(null)
             viewModel.close()
         }
@@ -146,7 +158,7 @@ private fun ChatCommonConversationHost(
         modifier = modifier,
         model = viewModel,
         slots = ChatScreenHostSlots(
-            strings = ChatScreenHostStrings("ConversaciÃ³n", "Reintentar mensajes"),
+            strings = ChatScreenHostStrings("Conversación", "Reintentar mensajes"),
             messageStrings = ChatConversationDetailStrings("Editado", "Mensaje eliminado", "Reenviado"),
             compactHeader = false,
             navigationAction = {
@@ -154,7 +166,22 @@ private fun ChatCommonConversationHost(
                     Text("Volver a conversaciones")
                 }
             },
-            conversationAvatar = { _ -> },
+            conversationAvatar = { conversation ->
+                conversation?.let {
+                    val title = it.title.ifBlank { "Conversación" }
+                    ConversationAvatarContent(
+                        presentation = resolveConversationAvatarPresentation(
+                            conversation = it,
+                            currentUser = state.currentUser,
+                            usersById = usersById,
+                            displayTitle = title,
+                            openingProfileUserId = openingProfileUserId,
+                        ),
+                        onOpenUserProfile = onOpenUserProfile,
+                        remoteAvatar = remoteConversationAvatar,
+                    )
+                }
+            },
             trailingActions = {},
             messageAvatar = { message ->
                 QuataAvatarLoadingHaloContent(
@@ -172,8 +199,7 @@ private fun ChatCommonConversationHost(
             },
             onOpenLink = { url -> onOpenAttachment(PlatformFile(reference = url)) },
             onBack = onBackToList,
-            onFocusedMessageHandled = {},
-            subtitle = { _, typing -> if (typing.isNotEmpty()) "Escribiendoâ€¦" else navigationMessage },
+            subtitle = { _, typing -> if (typing.isNotEmpty()) "Escribiendo…" else navigationMessage },
             composer = { composerModifier ->
                 Surface(composerModifier) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -209,7 +235,7 @@ private fun ChatCommonConversationHost(
                 }
             },
             typingIndicator = { typing ->
-                if (typing.isEmpty()) null else { { Text("Escribiendoâ€¦", Modifier.padding(14.dp)) } }
+                if (typing.isEmpty()) null else { { Text("Escribiendo…", Modifier.padding(14.dp)) } }
             },
         ),
     )
