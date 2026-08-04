@@ -39,7 +39,7 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
         attachScreenshot(app, name: "chat-translation-before")
 
         let translator = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label == %@", "Traductor Fang"))
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "Traductor Fang"))
             .firstMatch
         XCTAssertTrue(translator.waitForExistence(timeout: 10), "Chat must expose its shared translator trigger.")
         translator.tap()
