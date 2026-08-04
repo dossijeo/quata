@@ -1,5 +1,6 @@
 package com.quata.feature.official.presentation
 
+import com.quata.core.ui.components.IosMemberProfileOpeningState
 import com.quata.feature.official.data.IosOfficialRuntimeConfiguration
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostType
@@ -19,6 +20,7 @@ class IosOfficialPublicFactoryTest {
                 supabasePublishableKey = "public-client-key",
             ),
             officialPostId = "official-public-7",
+            profileOpeningState = IosMemberProfileOpeningState(),
         )
 
         assertEquals("official-public-7", dependencies.officialPostId)
