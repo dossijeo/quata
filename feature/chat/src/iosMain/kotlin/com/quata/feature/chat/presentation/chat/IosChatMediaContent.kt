@@ -110,7 +110,6 @@ private fun IosChatMediaViewer(
     }
 }
 
-@Composable
 private data class IosChatMediaDownloadState(
     val file: PlatformFile? = null,
     val isLoading: Boolean = true,
