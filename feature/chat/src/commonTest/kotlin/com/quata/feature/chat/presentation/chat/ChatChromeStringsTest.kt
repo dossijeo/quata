@@ -9,6 +9,7 @@ class ChatChromeStringsTest {
         val strings = chatChromeStringsForLanguage("es-ES")
 
         assertEquals("Silenciar conversación", strings.muteConversation)
+        assertEquals("Mensajes favoritos", strings.favoriteMessages)
         assertEquals("Añadir nuevos participantes", strings.addParticipants)
         assertEquals("Abandonar conversación", strings.leaveConversation)
         assertEquals("Borrar conversación", strings.deleteConversation)

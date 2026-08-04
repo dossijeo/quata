@@ -10,6 +10,7 @@ package com.quata.feature.chat.presentation.chat
  */
 data class ChatChromeStrings(
     val untitledConversation: String,
+    val favoriteMessages: String,
     val retryMessages: String,
     val back: String,
     val edited: String,
@@ -79,6 +80,7 @@ fun chatChromeStringsForLanguage(languageTag: String?): ChatChromeStrings =
     when (languageTag?.substringBefore('-')?.substringBefore('_')?.lowercase()) {
         "es" -> ChatChromeStrings(
             untitledConversation = "Chats",
+            favoriteMessages = "Mensajes favoritos",
             retryMessages = "Reintentar mensajes",
             back = "Volver",
             edited = "Editado",
@@ -145,6 +147,7 @@ fun chatChromeStringsForLanguage(languageTag: String?): ChatChromeStrings =
         )
         "fr" -> ChatChromeStrings(
             untitledConversation = "Chats",
+            favoriteMessages = "Messages favoris",
             retryMessages = "Réessayer les messages",
             back = "Retour",
             edited = "Modifié",
@@ -211,6 +214,7 @@ fun chatChromeStringsForLanguage(languageTag: String?): ChatChromeStrings =
         )
         else -> ChatChromeStrings(
             untitledConversation = "Chats",
+            favoriteMessages = "Favorite messages",
             retryMessages = "Retry messages",
             back = "Back",
             edited = "Edited",

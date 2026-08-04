@@ -89,7 +89,7 @@ fun ChatScreenHost(
         Column(Modifier.fillMaxSize()) {
             val selectedMessage = state.messages.firstOrNull { it.id == state.selectedMessageId }
             if (isFavoritesConversation) {
-                FavoriteMessagesHeaderContent("Mensajes favoritos", "Volver", slots.onBack)
+                FavoriteMessagesHeaderContent(slots.chromeStrings.favoriteMessages, slots.chromeStrings.back, slots.onBack)
             } else if (selectedMessage != null) {
                 ChatSelectedMessageActionsContent(
                     message = selectedMessage,
@@ -148,7 +148,7 @@ fun ChatScreenHost(
             if (state.messageLoadFailure != null || focusedLoadFailure != null) {
                 ChatReadFailureContent(
                     message = focusedLoadFailure?.error ?: state.messageLoadFailure ?: text(ChatText.LoadMessages),
-                    retryLabel = slots.strings.retryMessages,
+                    retryLabel = slots.chromeStrings.retryMessages,
                     onRetry = {
                         if (focusedLoadFailure != null) {
                             historyPageRequested = false
@@ -228,14 +228,8 @@ fun ChatScreenHost(
     }
 }
 
-data class ChatScreenHostStrings(
-    val untitledConversation: String,
-    val retryMessages: String,
-)
-
 /** Platform boundaries for `ChatScreenHost`; none of these are product-owned parallel UIs. */
 data class ChatScreenHostSlots(
-    val strings: ChatScreenHostStrings,
     val chromeStrings: ChatChromeStrings,
     val messageStrings: ChatConversationDetailStrings,
     val translatorStrings: ChatTranslatorStrings,

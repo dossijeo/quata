@@ -239,7 +239,6 @@ private fun ChatCommonConversationHost(
         modifier = modifier,
         model = viewModel,
         slots = ChatScreenHostSlots(
-            strings = ChatScreenHostStrings(chromeStrings.untitledConversation, chromeStrings.retryMessages),
             chromeStrings = chromeStrings,
             messageStrings = ChatConversationDetailStrings(chromeStrings.edited, chromeStrings.deletedMessage, chromeStrings.forwarded),
             translatorStrings = translatorStrings,
