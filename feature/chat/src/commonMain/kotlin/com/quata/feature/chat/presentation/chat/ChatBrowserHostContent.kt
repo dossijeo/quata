@@ -112,6 +112,8 @@ fun ChatProductHostContent(
     compactHeader: Boolean = false,
     trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     onOpenTranslator: (() -> Unit)? = null,
+    messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
+    sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
 ) {
     if (conversationId == null) {
         conversationList(modifier)
@@ -148,6 +150,8 @@ fun ChatProductHostContent(
             compactHeader = compactHeader,
             trailingActions = trailingActions,
             onOpenTranslator = onOpenTranslator,
+            messageInputOverride = messageInputOverride,
+            sendButtonOverride = sendButtonOverride,
         )
     }
 }
@@ -189,6 +193,8 @@ private fun ChatCommonConversationHost(
     compactHeader: Boolean,
     trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
     onOpenTranslator: (() -> Unit)?,
+    messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)?,
+    sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
 ) {
     val scope = rememberCoroutineScope()
     val template = quataTheme()
@@ -494,6 +500,8 @@ private fun ChatCommonConversationHost(
                     },
                     attachmentError = attachmentPickerError,
                     modifier = composerModifier,
+                    messageInputOverride = messageInputOverride,
+                    sendButtonOverride = sendButtonOverride,
                 )
             },
             attachment = { message, isSelected, attachmentModifier ->

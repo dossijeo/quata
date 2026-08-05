@@ -152,6 +152,8 @@ fun ChatComposerContent(
     onCancelRecording: (() -> Unit)? = null,
     attachmentError: String? = null,
     modifier: Modifier = Modifier,
+    messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
+    sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
 ) {
     var emojiVisible by remember { mutableStateOf(false) }
     var attachmentsVisible by remember { mutableStateOf(false) }
@@ -238,18 +240,36 @@ fun ChatComposerContent(
             else -> null
         }
         ChatComposerInputRowContent(
-            textInput = { inputModifier -> OutlinedTextField(
-                value = fieldValue,
-                onValueChange = {
-                    fieldValue = it
-                    onEvent(ChatUiEvent.MessageChanged(it.text))
-                },
-                placeholder = { Text(strings.message) }, modifier = inputModifier,
-                leadingIcon = { CompactIconButton(onClick = { emojiVisible = !emojiVisible; attachmentsVisible = false }) { CompactIcon(Icons.Filled.InsertEmoticon, strings.emoji) } },
-                trailingIcon = { CompactIconButton(onClick = { attachmentsVisible = !attachmentsVisible; emojiVisible = false }) { CompactIcon(Icons.Filled.AttachFile, strings.attach) } },
-            ) },
+            textInput = { inputModifier ->
+                messageInputOverride?.invoke(
+                    fieldValue.text,
+                    { value ->
+                        fieldValue = TextFieldValue(value, TextRange(value.length))
+                        onEvent(ChatUiEvent.MessageChanged(value))
+                    },
+                    inputModifier,
+                ) ?: OutlinedTextField(
+                    value = fieldValue,
+                    onValueChange = {
+                        fieldValue = it
+                        onEvent(ChatUiEvent.MessageChanged(it.text))
+                    },
+                    placeholder = { Text(strings.message) },
+                    modifier = inputModifier,
+                    leadingIcon = { CompactIconButton(onClick = { emojiVisible = !emojiVisible; attachmentsVisible = false }) { CompactIcon(Icons.Filled.InsertEmoticon, strings.emoji) } },
+                    trailingIcon = { CompactIconButton(onClick = { attachmentsVisible = !attachmentsVisible; emojiVisible = false }) { CompactIcon(Icons.Filled.AttachFile, strings.attach) } },
+                )
+            },
             cameraAction = cameraAction,
-            primaryAction = primaryAction,
+            primaryAction = sendButtonOverride?.let { sendButton ->
+                {
+                    sendButton(
+                        state.messageText.isNotBlank() || state.attachmentUri != null,
+                        { onEvent(ChatUiEvent.Send) },
+                        Modifier,
+                    )
+                }
+            } ?: primaryAction,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
         )
     }
