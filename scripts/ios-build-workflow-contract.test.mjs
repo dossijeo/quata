@@ -213,6 +213,16 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
     /run_watchdog 420 build\/reports\/ios\/xcodebuild-feed-playback-tests\.log xcodebuild[\s\S]*?-only-testing:QuataIosUITests\/QuataIosFeedPlaybackUITests[\s\S]*?-parallel-testing-enabled NO[\s\S]*?test/,
     'the Feed playback UI test must run alone against the valid public runtime fixture',
   );
+  assert.match(
+    feedPlaybackBlock,
+    /grep -F "QuataIosFeedPlaybackUITests testFeedMuteIconTogglesTheSharedAudioState" build\/reports\/ios\/xcodebuild-feed-playback-tests\.log[\s\S]*?grep -F "passed"[\s\S]*?Feed playback focal XCTest did not report a passed semantic execution/,
+    'the Feed playback focal step must fail closed unless the expected XCTest reports a passed execution',
+  );
+  assert.match(
+    feedPlaybackBlock,
+    /grep -Ei "skipped\|disabled"[\s\S]*?Feed playback focal XCTest was skipped or disabled/,
+    'the Feed playback focal step must reject skipped or disabled executions',
+  );
   assert.doesNotMatch(feedPlaybackBlock, /QUATA_SUPABASE_URL=|QUATA_SUPABASE_PUBLISHABLE_KEY=/,
     'the Feed playback UI test must not blank the public runtime fixture');
 

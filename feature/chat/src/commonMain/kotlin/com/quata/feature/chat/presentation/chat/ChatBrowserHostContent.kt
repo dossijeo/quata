@@ -112,7 +112,13 @@ fun ChatProductHostContent(
     compactHeader: Boolean = false,
     trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     onOpenTranslator: (() -> Unit)? = null,
-    messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)? = null,
+    messageInputOverride: (@Composable (
+        String,
+        (String) -> Unit,
+        Modifier,
+        @Composable () -> Unit,
+        @Composable () -> Unit,
+    ) -> Unit)? = null,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)? = null,
 ) {
     if (conversationId == null) {
@@ -193,7 +199,13 @@ private fun ChatCommonConversationHost(
     compactHeader: Boolean,
     trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
     onOpenTranslator: (() -> Unit)?,
-    messageInputOverride: (@Composable (String, (String) -> Unit, Modifier) -> Unit)?,
+    messageInputOverride: (@Composable (
+        String,
+        (String) -> Unit,
+        Modifier,
+        @Composable () -> Unit,
+        @Composable () -> Unit,
+    ) -> Unit)?,
     sendButtonOverride: (@Composable (Boolean, () -> Unit, Modifier) -> Unit)?,
 ) {
     val scope = rememberCoroutineScope()

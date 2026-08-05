@@ -70,6 +70,7 @@ class BrowserFeedMediaUrlTest {
         assertEquals(0, contract.decoderZIndex)
         assertTrue(contract.composeCanvasZIndex > contract.decoderZIndex)
         assertTrue(contract.decoderBackgroundIsTransparent)
+        assertTrue(contract.decoderRemainsAttachedWhileHidden)
         assertTrue(contract.restoresHostStylesOnDetach)
     }
 }

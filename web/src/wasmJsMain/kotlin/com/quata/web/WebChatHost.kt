@@ -170,8 +170,20 @@ fun WebChatHost(
                 modifier = listModifier,
             )
         },
-        messageInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, "Mensaje", modifier.height(62.dp), inputType = "text") },
-        sendButtonOverride = { enabled, onClick, modifier -> WebNativeButton("Enviar", enabled, onClick, modifier.width(56.dp).height(48.dp)) },
+        messageInputOverride = { value, onChange, modifier, leadingIcon, trailingIcon ->
+            WebNativeInput(
+                value = value,
+                onValueChange = onChange,
+                name = "Mensaje",
+                modifier = modifier.height(62.dp),
+                inputType = "text",
+                leadingIcon = leadingIcon,
+                trailingIcon = trailingIcon,
+            )
+        },
+        sendButtonOverride = { enabled, onClick, modifier ->
+            WebNativeButton("Enviar", enabled, onClick, modifier.width(56.dp).height(48.dp))
+        },
         modifier = modifier,
     )
 }

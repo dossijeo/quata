@@ -184,6 +184,8 @@ test('Feed media contract keeps the common contrast gate and requires the browse
   assert.match(webFeedMedia, /controls = false/);
   assert.match(webFeedMedia, /attachBrowserFeedVideoUnderlay\(video\)/);
   assert.match(webFeedMedia, /parent\.insertBefore\(video, canvas\)/);
+  assert.match(webFeedMedia, /video = element\?\.takeIf \{ underlayAttached \}/);
+  assert.match(webFeedMedia, /isVisible = isCurrent && playbackError == null && hasStartedPlayback/);
   assert.match(webFeedMedia, /BlendMode\.Clear/);
   assert.match(webFeedMedia, /modifier = Modifier\.fillMaxSize\(\)/);
   assert.doesNotMatch(webFeedMedia, /FeedMediaUnavailablePlaceholderContent\(/);

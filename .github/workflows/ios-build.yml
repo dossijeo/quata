@@ -501,6 +501,16 @@ jobs:
             -parallel-testing-enabled NO \
             -maximum-parallel-testing-workers 1 \
             test
+          if ! grep -F "QuataIosFeedPlaybackUITests testFeedMuteIconTogglesTheSharedAudioState" build/reports/ios/xcodebuild-feed-playback-tests.log \
+            | grep -F "passed" >/dev/null; then
+            echo "::error::Feed playback focal XCTest did not report a passed semantic execution"
+            exit 1
+          fi
+          if grep -F "QuataIosFeedPlaybackUITests testFeedMuteIconTogglesTheSharedAudioState" build/reports/ios/xcodebuild-feed-playback-tests.log \
+            | grep -Ei "skipped|disabled" >/dev/null; then
+            echo "::error::Feed playback focal XCTest was skipped or disabled"
+            exit 1
+          fi
 
       - name: Test Swift/Kotlin iOS host boundary
         # Twenty minutes for xcodebuild plus the watchdog's SIGTERM/SIGKILL grace.

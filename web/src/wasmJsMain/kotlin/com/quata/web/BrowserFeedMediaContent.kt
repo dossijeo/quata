@@ -250,8 +250,8 @@ private fun BrowserFeedVideoContent(
         ),
         media = {
             BrowserFeedVideoUnderlayHole(
-                video = element?.takeIf { underlayAttached && playbackError == null && hasStartedPlayback },
-                isCurrent = isCurrent && playbackError == null && hasStartedPlayback,
+                video = element?.takeIf { underlayAttached },
+                isVisible = isCurrent && playbackError == null && hasStartedPlayback,
                 isLandscape = isLandscape,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -289,12 +289,12 @@ internal fun currentBrowserTimeMillis(): Long = currentBrowserTimeMillisAsDouble
 @Composable
 private fun BrowserFeedVideoUnderlayHole(
     video: HTMLVideoElement?,
-    isCurrent: Boolean,
+    isVisible: Boolean,
     isLandscape: Boolean,
     modifier: Modifier = Modifier,
 ) {
     var bounds by remember(video) { mutableStateOf<BrowserFeedVideoUnderlayBounds?>(null) }
-    LaunchedEffect(video, bounds, isCurrent, isLandscape) {
+    LaunchedEffect(video, bounds, isVisible, isLandscape) {
         val element = video ?: return@LaunchedEffect
         val frame = bounds ?: return@LaunchedEffect
         updateBrowserFeedVideoUnderlayBounds(
@@ -304,7 +304,7 @@ private fun BrowserFeedVideoUnderlayHole(
             width = frame.width,
             height = frame.height,
             objectFit = browserFeedVideoUnderlayObjectFit(isLandscape),
-            visible = isCurrent,
+            visible = isVisible,
         )
     }
     androidx.compose.foundation.Canvas(
@@ -321,7 +321,7 @@ private fun BrowserFeedVideoUnderlayHole(
             // This command is emitted after the feed background but before the shared Compose
             // gesture layer, timeline, rail and author. It exposes only this media rectangle.
             .drawWithContent {
-                if (video != null && isCurrent) {
+                if (video != null && isVisible) {
                     drawRect(Color.Transparent, blendMode = BlendMode.Clear)
                 }
             },
@@ -348,6 +348,7 @@ internal data class BrowserFeedVideoUnderlayDomContract(
     val composeCanvasZIndex: Int,
     val decoderZIndex: Int,
     val decoderBackgroundIsTransparent: Boolean,
+    val decoderRemainsAttachedWhileHidden: Boolean,
     val restoresHostStylesOnDetach: Boolean,
 )
 
@@ -359,6 +360,7 @@ internal fun browserFeedVideoUnderlayDomContract() = BrowserFeedVideoUnderlayDom
     composeCanvasZIndex = 1,
     decoderZIndex = 0,
     decoderBackgroundIsTransparent = true,
+    decoderRemainsAttachedWhileHidden = true,
     restoresHostStylesOnDetach = true,
 )
 
