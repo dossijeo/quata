@@ -25,6 +25,7 @@ const resources = [
   'drawable/quata_community_emoji_atlas_food_drink.png',
   'drawable/quata_community_emoji_atlas_objects_symbols.png',
   'drawable/quata_community_emoji_atlas_flags.png',
+  'drawable/quata_translator_frosted_texture.jpg',
 ];
 const drawableResources = resources.filter((resource) => resource.startsWith('drawable/'));
 
@@ -79,7 +80,7 @@ test('QuataIos synchronizes the exact common Compose resource set before signing
     assert.match(project, new RegExp(`${canonicalDestination}/${resource}`.replaceAll('/', '\\/')));
     await stat(resolve(root, 'designsystem', 'src', 'commonMain', 'composeResources', resource));
   }
-  assert.equal((project.match(/quata_(?:feed_emoji|community_emoji_atlas)_.*\.png/g) ?? []).length, drawableResources.length);
+  assert.equal((project.match(/quata_(?:(?:feed_emoji|community_emoji_atlas)_.*\.png|translator_frosted_texture\.jpg)/g) ?? []).length, drawableResources.length);
   assert.match(unsignedLane, /sync-ios-compose-resources\.sh --verify "\$app"/);
   assert.match(signedLane, /sync-ios-compose-resources\.sh --verify "\$app"/);
   assert.ok(
@@ -89,7 +90,7 @@ test('QuataIos synchronizes the exact common Compose resource set before signing
   );
 });
 
-test('synchronizer produces and verifies exactly the fourteen expected app-bundle resources', async (t) => {
+test('synchronizer produces and verifies exactly the fifteen expected app-bundle resources', async (t) => {
   const temporaryParent = resolve(root, 'build');
   await mkdir(temporaryParent, { recursive: true });
   const temporaryRoot = await mkdtemp(resolve(temporaryParent, 'ios-compose-resources-contract-'));
