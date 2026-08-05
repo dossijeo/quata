@@ -2,7 +2,6 @@ package com.quata.feature.chat.presentation.chat
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +11,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataResolvedTheme
@@ -69,6 +70,7 @@ fun AndroidChatProductScreen(
     val scope = rememberCoroutineScope()
     val languageTag = QuataLanguageManager.currentLanguage.tag
     val template = quataTheme()
+    val attachmentFallbackName = stringResource(R.string.common_file)
     val translationGateway = remember(context) {
         FangChatTranslationGateway(QuataCachedTranslator.get(context))
     }
@@ -86,7 +88,7 @@ fun AndroidChatProductScreen(
         onBackToList = onBack,
         onOpenAttachment = { file ->
             context.openAttachmentWithDocumentReaderOrChooser(
-                attachment = file.toAttachmentPreview(context.getString(R.string.common_file)),
+                attachment = file.toAttachmentPreview(attachmentFallbackName),
                 isDarkMode = template.resolvedTheme != QuataResolvedTheme.Light,
             )
         },
@@ -104,10 +106,10 @@ fun AndroidChatProductScreen(
         },
         mediaSlots = ChatMediaPlatformSlots(
             preview = { file, _, mediaModifier ->
-                AttachmentThumbnail(file.toAttachmentPreview(context.getString(R.string.common_file)), mediaModifier)
+                AttachmentThumbnail(file.toAttachmentPreview(attachmentFallbackName), mediaModifier)
             },
             viewer = { file, _, mediaModifier ->
-                AttachmentFullscreenMediaContent(file.toAttachmentPreview(context.getString(R.string.common_file)), mediaModifier)
+                AttachmentFullscreenMediaContent(file.toAttachmentPreview(attachmentFallbackName), mediaModifier)
             },
         ),
         translationGateway = translationGateway,
@@ -136,7 +138,7 @@ private fun PlatformFile.toAttachmentPreview(fallbackName: String): AttachmentPr
 )
 
 private fun Context.openSafeChatExternalLink(value: String) {
-    val uri = runCatching { Uri.parse(value) }.getOrNull() ?: return
+    val uri = runCatching { value.toUri() }.getOrNull() ?: return
     if (uri.scheme?.lowercase() !in setOf("http", "https")) return
     runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
 }
