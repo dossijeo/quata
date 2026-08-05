@@ -8,9 +8,12 @@ import androidx.compose.ui.layout.ContentScale
 
 class BrowserFeedMediaUrlTest {
     @Test
-    fun acceptsSignedCdnMediaWithoutAnExtension() {
-        assertTrue(isBrowserFeedMediaUrl("https://cdn.quata.example/object?token=signed"))
-        assertTrue(isBrowserFeedMediaUrl("HTTP://cdn.quata.example/media/opaque-id"))
+    fun acceptsOnlyConfiguredPublicStorageOrLocalBlobMedia() {
+        assertTrue(isBrowserFeedMediaUrl("https://yrrlankpwmhluexshxnw.supabase.co/storage/v1/object/public/community-media/opaque-id"))
+        assertTrue(isBrowserFeedMediaUrl("blob:http://127.0.0.1:4174/local-media"))
+        assertFalse(isBrowserFeedMediaUrl("https://cdn.quata.example/object?token=signed"))
+        assertFalse(isBrowserFeedMediaUrl("HTTP://cdn.quata.example/media/opaque-id"))
+        assertFalse(isBrowserFeedMediaUrl("https://yrrlankpwmhluexshxnw.supabase.co/storage/v1/object/public/community-media/opaque-id?token=signed"))
     }
 
     @Test

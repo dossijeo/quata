@@ -42,7 +42,7 @@ for (const name of ['apikey', 'authorization', 'proxy-authorization', 'cookie', 
 }
 assert.equal(publicMedia({ method: 'HEAD' }).reason, 'supabase_method_forbidden');
 assert.equal(publicMedia({ method: 'POST' }).reason, 'supabase_method_forbidden');
-assert.equal(publicMedia({ resourceType: 'fetch' }).reason, 'supabase_storage_resource_type_forbidden');
+assert.equal(publicMedia({ resourceType: 'fetch' }).allowed, true, 'Compose/Wasm may load an exact accredited public media object through fetch/blob');
 assert.equal(publicMedia({ resourceType: 'font' }).reason, 'supabase_storage_resource_type_forbidden');
 assert.equal(publicMedia({ url: `${base}/storage/v1/object/public/community-media/%2e%2e%2fpost-7.png` }).reason, 'supabase_credentials_forbidden');
 assert.equal(inspectBackendRequest({
@@ -51,7 +51,7 @@ assert.equal(inspectBackendRequest({
 }, base).reason, 'redirect_cross_origin');
 
 const payloadUrls = publicMediaUrlsFromPayload(JSON.stringify([
-  { id: 'post_7', image_url: image, video_url: video },
+  { id: 'post_7', image_url: image, video_url: video, media_url: image, avatar_url: image },
   { id: 'private', image_url: `${base}/storage/v1/object/private/community-media/nope.png` },
   { id: 'signed', video_url: `${base}/storage/v1/object/public/community-media/nope.mp4?token=secret` },
   { id: 'foreign', image_url: 'https://evil.example/pixel.png' },
@@ -122,6 +122,18 @@ const goodResponse = {
   payload: JSON.stringify([{ id: 'post_7', image_url: image }]),
 };
 assert.deepEqual(accreditPublicMediaUrlsFromResponse(goodResponse, base), [image], 'only a proved direct JSON response accredits exact payload media');
+assert.deepEqual(accreditPublicMediaUrlsFromResponse({
+  ...goodResponse,
+  url: `${base}/rest/v1/official_posts?select=id,media_url`,
+  requestUrl: `${base}/rest/v1/official_posts?select=id,media_url`,
+  payload: JSON.stringify([{ id: 'official_7', media_url: image }]),
+}, base), [image], 'public official media is accredited only from the admitted official_posts response');
+assert.deepEqual(accreditPublicMediaUrlsFromResponse({
+  ...goodResponse,
+  url: `${base}/rest/v1/community_profiles?select=id,avatar_url`,
+  requestUrl: `${base}/rest/v1/community_profiles?select=id,avatar_url`,
+  payload: JSON.stringify([{ id: 'profile_7', avatar_url: image }]),
+}, base), [image], 'public profile avatars are accredited only from the admitted community_profiles response');
 for (const mutation of [
   { requestAllowed: false },
   { url: 'https://evil.example/rest/v1/community_posts', requestUrl: 'https://evil.example/rest/v1/community_posts' },

@@ -1705,6 +1705,13 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 mediaViewerFactory: IosChatNativeMediaFactory.shared,
                 conversationId: conversationId,
                 focusedMessageId: messageId,
+                onFocusedMessageHandled: { [weak self] in
+                    if let conversationId {
+                        self?.showChat(conversationId: conversationId, messageId: nil)
+                    } else {
+                        self?.openChatList()
+                    }
+                },
                 languageTag: Locale.preferredLanguages.first ?? Locale.current.identifier,
                 onOpenConversation: { [weak self] conversationId in
                     self?.showChat(conversationId: conversationId, messageId: nil)

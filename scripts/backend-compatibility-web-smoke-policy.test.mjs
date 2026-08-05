@@ -64,8 +64,8 @@ test("Storage 404, invalid content type and a mismatched response fail closed", 
 test("only same-origin public Storage image/video requests may be response-fetched", () => {
   assert.equal(isPublicStorageMediaRequest({ url: image, resourceType: "image" }, base), true);
   assert.equal(isPublicStorageMediaRequest({ url: video, resourceType: "media" }, base), true);
+  assert.equal(isPublicStorageMediaRequest({ url: image, resourceType: "fetch" }, base), true);
   for (const request of [
-    { url: image, resourceType: "fetch" },
     { url: `${base}/storage/v1/object/private/community-media/post-7.png`, resourceType: "image" },
     { url: "https://evil.example/storage/v1/object/public/community-media/post-7.png", resourceType: "image" },
     { url: `${base}/rest/v1/community_posts`, resourceType: "image" },
@@ -92,6 +92,21 @@ test("media-before-response waits only for the same navigation epoch", async () 
   assert.deepEqual([...await waitForMediaAccreditation(communities, 1)], []);
   assert.equal(feed.accreditedMediaUrls.has(image), true);
   assert.equal(communities.accreditedMediaUrls.has(image), false, "feed accreditation cannot leak into the next navigation");
+});
+
+test("one navigation can receive successive media accreditation responses", async () => {
+  const official = createMediaNavigationEpoch("official");
+  openMediaAccreditationGate(official);
+  settleMediaAccreditation(official, [image]);
+  assert.equal(official.accreditedMediaUrls.has(image), true);
+
+  openMediaAccreditationGate(official);
+  const waiting = waitForMediaAccreditation(official, 100);
+  settleMediaAccreditation(official, [video]);
+  assert.deepEqual([...await waiting].sort(), [image, video].sort());
+
+  const nextOfficial = createMediaNavigationEpoch("official");
+  assert.equal(await waitForMediaAccreditation(nextOfficial, 1), null, "successive accreditation remains scoped to its epoch");
 });
 
 test("unsettled, invalid or missing REST accreditation fails closed", async () => {
@@ -139,16 +154,28 @@ test("public Storage media is accredited only for its exact feed/detail route", 
     resourceType: "image", requestAllowed: true, route: "feed", accreditedMediaUrls: feedOnly,
   });
   assert.equal(accepted.accepted, true, "the same feed route keeps its own accreditation");
-  for (const route of ["official", "communities", "post/", "feed/extra", "<unknown>"]) {
+  for (const route of ["communities", "post/", "feed/extra", "<unknown>"]) {
     assert.equal(inspectAccreditedPublicMediaResponse({
       url: image, requestUrl: image, method: "GET", status: 200, contentType: "image/png",
       resourceType: "image", requestAllowed: true, route, accreditedMediaUrls: feedOnly,
     }).reason, "route_not_media_accreditable", `cross-route or unknown route fails closed: ${route}`);
   }
   assert.equal(inspectAccreditedPublicMediaResponse({
+    url: image, requestUrl: image, method: "GET", status: 200, contentType: "image/png",
+    resourceType: "image", requestAllowed: true, route: "official", accreditedMediaUrls: feedOnly,
+  }).accepted, true, "the Official route keeps its own public-media accreditation");
+  assert.equal(inspectAccreditedPublicMediaResponse({
     url: image, requestUrl: image, method: "GET", status: 404, contentType: "text/html",
     resourceType: "fetch", requestAllowed: true, route: "official", accreditedMediaUrls: feedOnly,
-  }).reason, "route_not_media_accreditable", "the route is rejected before status or media-type evaluation");
+  }).reason, "status_not_2xx", "official media stays accredited but still requires a 2xx upstream response");
+  assert.equal(inspectAccreditedPublicMediaResponse({
+    url: image, requestUrl: image, method: "GET", status: 200, contentType: "image/png",
+    resourceType: "fetch", requestAllowed: true, route: "feed", accreditedMediaUrls: feedOnly,
+  }).accepted, true, "a Compose fetch/blob image load keeps exact route accreditation");
+  assert.equal(inspectAccreditedPublicMediaResponse({
+    url: image, requestUrl: image, method: "GET", status: 200, contentType: "application/json",
+    resourceType: "fetch", requestAllowed: true, route: "feed", accreditedMediaUrls: feedOnly,
+  }).reason, "content_type_not_public_media", "fetch remains bounded to upstream media bytes");
   assert.equal(inspectAccreditedPublicMediaResponse({
     url: image, requestUrl: image, method: "GET", status: 200, contentType: "image/png",
     resourceType: "image", requestAllowed: true, route: "post/post-7", accreditedMediaUrls: postOnly,
@@ -163,5 +190,5 @@ test("public Storage media is accredited only for its exact feed/detail route", 
   }).reason, "url_not_accredited", "another valid post route cannot reuse detail accreditation");
   assert.equal(isMediaAccreditationRoute("feed"), true);
   assert.equal(isMediaAccreditationRoute("post/post-7"), true);
-  assert.equal(isMediaAccreditationRoute("official"), false);
+  assert.equal(isMediaAccreditationRoute("official"), true);
 });

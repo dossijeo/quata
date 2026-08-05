@@ -75,7 +75,9 @@ class ChatViewModel(
         observeMessages()
         scope.launch {
             repository.observeParticipantCandidates()
-                .catch { emit(emptyList()) }
+                .catch {
+                    _uiState.value = _uiState.value.copy(error = text(ChatText.LoadCandidates))
+                }
                 .collect { candidates ->
                     _uiState.value = _uiState.value.copy(participantCandidates = candidates)
                 }

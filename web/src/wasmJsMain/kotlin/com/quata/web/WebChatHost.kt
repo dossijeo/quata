@@ -56,6 +56,7 @@ fun WebChatHost(
     documentOpener: DocumentOpenService,
     conversationId: String?,
     focusedMessageId: String? = null,
+    onFocusedMessageHandled: () -> Unit = {},
     navigationMessage: String,
     onOpenConversation: (String) -> Unit,
     onOpenMessageConversation: (String, String) -> Unit,
@@ -104,6 +105,7 @@ fun WebChatHost(
         },
         conversationId = conversationId,
         focusedMessageId = focusedMessageId,
+        onFocusedMessageHandled = onFocusedMessageHandled,
         navigationMessage = navigationMessage,
         onOpenConversation = onOpenConversation,
         onOpenMessageConversation = onOpenMessageConversation,
@@ -214,14 +216,8 @@ private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenS
         DocumentPreviewKind.Pdf,
         DocumentPreviewKind.RichText,
         DocumentPreviewKind.Office -> documentOpener.open(this)
-        else -> reference.safeWebAttachmentUrl()?.let(::openWebExternalLink)
+        else -> reference.safeBrowserChatMediaUrl()?.let(::openWebExternalLink)
     }
 }
 
 private fun openWebExternalLink(url: String): Unit = js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
-
-private fun String.safeWebAttachmentUrl(): String? = takeIf {
-    startsWith("https://", ignoreCase = true) ||
-        startsWith("http://", ignoreCase = true) ||
-        startsWith("blob:", ignoreCase = true)
-}

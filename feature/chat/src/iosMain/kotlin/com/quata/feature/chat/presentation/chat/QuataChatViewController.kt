@@ -49,6 +49,8 @@ class IosChatHostDependencies(
     val conversationId: String? = null,
     /** Optional deep-link target; common UI resolves it only against messages already present. */
     val focusedMessageId: String? = null,
+    /** Platform router callback that clears the one-shot deep-link target after common UI consumes it. */
+    val onFocusedMessageHandled: () -> Unit,
     val languageTag: String,
     val navigationMessage: String = "Quata para iOS",
     /** AVFoundation records AAC in an MP4 container; Web stays on the common WebM default. */
@@ -101,6 +103,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 capturePhoto = { dependencies.cameraCapture.capturePhoto() },
                 conversationId = dependencies.conversationId,
                 focusedMessageId = dependencies.focusedMessageId,
+                onFocusedMessageHandled = dependencies.onFocusedMessageHandled,
                 navigationMessage = dependencies.navigationMessage,
                 onOpenConversation = dependencies.onOpenConversation,
                 onOpenMessageConversation = dependencies.onOpenMessageConversation,

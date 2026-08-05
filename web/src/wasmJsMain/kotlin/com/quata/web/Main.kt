@@ -658,6 +658,9 @@ private fun QuataWebApp(
                                 documentOpener = platformServices.documentOpener,
                                 conversationId = navigation.chatConversationId,
                                 focusedMessageId = navigation.chatMessageId,
+                                onFocusedMessageHandled = {
+                                    navigation.chatConversationId?.let { navigation.navigateConversation(it) }
+                                },
                                 navigationMessage = navigation.message,
                                 onOpenConversation = navigation::navigateConversation,
                                 onOpenMessageConversation = { conversationId, messageId ->

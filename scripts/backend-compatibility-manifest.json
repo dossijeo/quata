@@ -67,6 +67,7 @@
     "chat_message_states",
     "chat_messages",
     "chat_participants",
+    "chat_profile_blocks",
     "chat_threads",
     "community_comments",
     "community_emergency_contacts",

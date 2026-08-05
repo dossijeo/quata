@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import com.quata.core.config.QuataPublicBackendConfig
 import com.quata.core.model.Post
 import com.quata.core.ui.textCanvasBrush
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
@@ -470,7 +471,25 @@ private fun clearBrowserFeedVideoListeners(video: HTMLVideoElement): Unit = js(
 )
 
 internal fun isBrowserFeedMediaUrl(url: String): Boolean =
-    url.startsWith("https://", ignoreCase = true) || url.startsWith("http://", ignoreCase = true)
+    url.startsWith("blob:", ignoreCase = true) || isConfiguredSupabasePublicFeedMediaUrl(
+        url = url,
+        supabaseUrl = QuataPublicBackendConfig.SUPABASE_URL,
+    )
+
+private fun isConfiguredSupabasePublicFeedMediaUrl(url: String, supabaseUrl: String): Boolean = js(
+    """(() => {
+    try {
+      const candidate = new URL(url);
+      const base = new URL(supabaseUrl);
+      return candidate.origin === base.origin &&
+        /^\/storage\/v1\/object\/public\/[^/?#]+\/[^?#]+$/i.test(candidate.pathname) &&
+        !candidate.search &&
+        !candidate.hash;
+    } catch (_) {
+      return false;
+    }
+    })()""",
+)
 
 internal fun isBrowserAutoplayPolicyRejection(rejection: String): Boolean =
     rejection.contains("NotAllowedError", ignoreCase = true) ||

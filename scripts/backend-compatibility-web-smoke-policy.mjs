@@ -22,7 +22,7 @@ export function isPublicStorageMediaRequest({ url, resourceType }, supabaseBaseU
   const request = safeUrl(url);
   const base = safeUrl(supabaseBaseUrl);
   return request != null && base != null && request.origin === base.origin &&
-    /^(?:image|media)$/.test(String(resourceType ?? "").toLowerCase()) &&
+    /^(?:fetch|image|media)$/.test(String(resourceType ?? "").toLowerCase()) &&
     /^\/storage\/v1\/object\/public\/[^/?#]+\/[^?#]+$/i.test(request.pathname);
 }
 
@@ -66,12 +66,13 @@ export function inspectAccreditedPublicMediaResponse({
   if (!Number.isInteger(status) || status < 200 || status >= 300) return denied(base, "status_not_2xx");
   if (type === "image" && !/^image\//i.test(String(contentType ?? ""))) return denied(base, "content_type_not_image");
   if (type === "media" && !/^video\//i.test(String(contentType ?? ""))) return denied(base, "content_type_not_video");
-  if (type !== "image" && type !== "media") return denied(base, "resource_type_not_media");
+  if (type === "fetch" && !/^(?:image|video)\//i.test(String(contentType ?? ""))) return denied(base, "content_type_not_public_media");
+  if (type !== "fetch" && type !== "image" && type !== "media") return denied(base, "resource_type_not_media");
   return { ...base, accepted: true };
 }
 
 export function isMediaAccreditationRoute(route) {
-  return route === "feed" || /^post\/[A-Za-z0-9_-]{1,128}$/.test(String(route ?? ""));
+  return route === "feed" || route === "official" || /^post\/[A-Za-z0-9_-]{1,128}$/.test(String(route ?? ""));
 }
 
 export function createMediaNavigationEpoch(route) {
@@ -80,7 +81,7 @@ export function createMediaNavigationEpoch(route) {
 
 export function openMediaAccreditationGate(epoch) {
   if (!epoch) return null;
-  if (epoch?.gate) return epoch.gate;
+  if (epoch?.gate && !epoch.gate.settled) return epoch.gate;
   let resolve;
   const gate = { settled: false, promise: new Promise((done) => { resolve = done; }), resolve };
   epoch.gate = gate;
@@ -89,8 +90,8 @@ export function openMediaAccreditationGate(epoch) {
 
 export function settleMediaAccreditation(epoch, urls) {
   const gate = epoch?.gate;
+  for (const url of urls) epoch?.accreditedMediaUrls?.add(url);
   if (!gate || gate.settled) return;
-  for (const url of urls) epoch.accreditedMediaUrls.add(url);
   gate.settled = true;
   gate.resolve(epoch.accreditedMediaUrls);
 }

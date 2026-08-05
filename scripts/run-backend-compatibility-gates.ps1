@@ -56,7 +56,12 @@ try {
         if (-not $WebDistribution) { throw "WebDistribution is required unless SkipWeb is set." }
         $webRunner = Join-Path $temporaryRoot "backend-compatibility-web-smoke.mjs"
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot "backend-compatibility-web-smoke.mjs") -Destination $webRunner
-        foreach ($helper in @("backend-compatibility-request-policy.mjs", "backend-compatibility-feed-detail.mjs")) {
+        foreach ($helper in @(
+            "backend-compatibility-request-policy.mjs",
+            "backend-compatibility-feed-detail.mjs",
+            "backend-compatibility-web-smoke-policy.mjs",
+            "backend-compatibility-web-smoke-report.mjs"
+        )) {
             $source = Join-Path $PSScriptRoot $helper
             if (-not (Test-Path -LiteralPath $source)) { throw "Required Web smoke helper is missing: $helper" }
             Copy-Item -LiteralPath $source -Destination (Join-Path $temporaryRoot $helper)
