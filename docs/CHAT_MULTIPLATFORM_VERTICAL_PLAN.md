@@ -91,8 +91,10 @@ durante esta migración: se documenta y se mantiene compatibilidad con Android y
   terminal para no dejar un spinner infinito; el fallback y retry son Compose comunes y el
   adaptador conserva sólo descarga/decoder. Falta acreditar el retry con un fallo controlado real.
 
-## Resultado local de la unidad 1 (pendiente de preflight integrado)
+## Resultado local consolidado (SHA `26d385bd`, todavía sin PR)
 
-- `ChatScreenHost` pasa a ser la raíz de lectura consumida por Wasm e iOS mediante `ChatBrowserHostContent`: fondo procedural, cabecera, historial paginado, skeleton, typing, selección y foco usan `ChatViewModel`/`ChatRepository` reales en `commonMain`.
-- Android conserva `ChatScreen` completo: montar todavía la raíz de lectura allí recortaría composer, acciones de selección, confirmaciones y adaptadores de medios. El reemplazo Android queda ligado a las unidades 2--4 y este commit no declara equivalencia.
-- Siguen pendientes `CHAT-COMPOSER`, `CHAT-MESSAGE-ACTIONS`, `CHAT-FAVORITES`, `CHAT-NOTIFICATIONS`, `CHAT-ATTACHMENTS`, `CHAT-AUDIO`, `CHAT-FORWARD`, `CHAT-GROUP`, `CHAT-LOCATION-SOS`, `CHAT-TRANSLATION`, `OVR-MEDIA`, `FLOW-DOCUMENT-VIEWER`, `FLOW-TRANSLATOR`, `FLOW-EMOJI` y la evidencia funcional/visual de esta unidad.
+- Android, Wasm e iOS consumen ya `ChatProductHostContent`/`ChatScreenHost` para la ruta de producto. Android inyecta únicamente adaptadores de avatar, picker/cámara, audio, media/documentos, clipboard, navegación y su `ChatAndroidViewModel` lifecycle-safe; el antiguo `ChatScreen` dejó de ser la ruta activa.
+- El renderer alternativo antiguo de lista/detalle se eliminó. La raíz común incluye cabecera normal y seleccionada, historial/foco, favoritos, composer, reply/edit, reenvío, adjuntos, audio, acciones y gestión de grupo, conectados al `ChatViewModel` y `ChatRepository` comunes.
+- La regresión Android de `CHAT-TRANSLATION`/`FLOW-TRANSLATOR` quedó corregida: el botón común hereda el registro global de textos y activa el overlay de shell Android con captura `PixelCopy`. La evidencia `evidence/chat/26d385bd-android-global-fang` acredita ventana completa, coincidencia captura/hitboxes y traducción real de la burbuja pulsada.
+- Preflight incremental del SHA: Android `compileDebugKotlin`, 21 tests focales y `assembleDebug`; Wasm 62/62 browser tests; iOS Intel x86_64 host y `build-for-testing` firmado, todos PASS.
+- `SCR-CHAT` permanece **COMÚN con límites**: faltan preflight exhaustivo, evidencia visual Android↔Wasm↔iOS con la misma conversación, mutaciones reversibles y retorno para cada subflujo, retry real de `OVR-MEDIA`, reproducción consecutiva de `CHAT-AUDIO`, comportamiento fino de autoscroll/IME, y evidencia de `OVR-PUBLIC-PROFILE`, `FLOW-DOCUMENT-VIEWER`, `FLOW-EMOJI` y `FLOW-SHELL-NAV` desde Chat.
