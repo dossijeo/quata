@@ -20,8 +20,10 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.unit.dp
 import com.quata.core.config.QuataPublicBackendConfig
 import com.quata.core.model.Post
+import com.quata.core.ui.DEFAULT_TEXT_CANVAS_PATTERN_ID
 import com.quata.core.ui.textCanvasBrush
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.feed.presentation.FeedReelVideoPlaybackHostContent
@@ -50,20 +52,24 @@ fun BrowserFeedMediaContent(
     onPositionChanged: (Long) -> Unit,
     onMuteChange: (Boolean) -> Unit,
 ) {
-    // URLs can be signed CDN paths without an extension; the model itself identifies media type.
-    val videoUrl = post.videoUrl?.takeIf(::isBrowserFeedMediaUrl)
+    // Video may come from the public site CDN while images stay limited to the configured storage surface.
+    val videoUrl = post.videoUrl?.trim()?.takeIf(::isBrowserFeedVideoUrl)
     val imageUrl = post.imageUrl?.takeIf(::isBrowserFeedMediaUrl)
     val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
     when {
-        videoUrl != null -> BrowserFeedVideoContent(
-            videoUrl = videoUrl,
-            isCurrent = isCurrent,
-            isMuted = isMuted,
-            isLandscape = isLandscape,
-            initialPositionMs = initialPositionMs,
-            onPositionChanged = onPositionChanged,
-            onMuteChange = onMuteChange,
-        )
+        videoUrl != null -> ReelMediaSurfaceContent(
+            background = textCanvasBrush(seedText = null, patternId = DEFAULT_TEXT_CANVAS_PATTERN_ID),
+        ) {
+            BrowserFeedVideoContent(
+                videoUrl = videoUrl,
+                isCurrent = isCurrent,
+                isMuted = isMuted,
+                isLandscape = isLandscape,
+                initialPositionMs = initialPositionMs,
+                onPositionChanged = onPositionChanged,
+                onMuteChange = onMuteChange,
+            )
+        }
         imageUrl != null -> ReelMediaSurfaceContent(background = textCanvasBrush(imageUrl)) {
             BrowserCanvasImage(
                 url = imageUrl,
@@ -102,6 +108,7 @@ private fun BrowserFeedVideoContent(
     var feedbackTick by remember(videoUrl) { mutableLongStateOf(0L) }
     var appliedInitialPosition by remember(videoUrl) { mutableStateOf(false) }
     var underlayAttached by remember(videoUrl) { mutableStateOf(false) }
+    val decoderAllowed = remember(videoUrl) { isBrowserFeedVideoDecoderAllowed(videoUrl) }
 
     fun persistPosition(milliseconds: Long) {
         positionMs = milliseconds.coerceAtLeast(0L)
@@ -154,60 +161,62 @@ private fun BrowserFeedVideoContent(
         }
     }
 
-    DisposableEffect(videoUrl) {
-        val video = (document.createElement("video") as HTMLVideoElement).apply {
-            // This is a native video underlay, inserted before the Compose canvas. It contains no
-            // controls and never receives pointer events; Compose owns all product UI above it.
-            controls = false
-            preload = "metadata"
-            loop = true
-            muted = isMuted
-            setAttribute("playsinline", "")
-            released.value = false
-            installBrowserFeedVideoListeners(
-                video = this,
-                isReleased = { released.value },
-                onMetadata = { duration ->
-                    durationMs = (duration * 1_000.0).toLong().coerceAtLeast(0L)
-                    if (!appliedInitialPosition && initialPositionMs > 0L) {
-                        currentTime = initialPositionMs / 1_000.0
-                        persistPosition(initialPositionMs)
-                    }
-                    appliedInitialPosition = true
-                },
-                onProgress = { position, duration ->
-                    durationMs = (duration * 1_000.0).toLong().coerceAtLeast(0L)
-                    persistPosition((position * 1_000.0).toLong())
-                    if (position > 0.0) hasStartedPlayback = true
-                },
-                onPlay = {
-                    hasStartedPlayback = true
-                    isPlaying = true
-                    isBuffering = false
-                    playbackError = null
-                },
-                onPause = { isPlaying = false },
-                onWaiting = { if (latestIsCurrent.value) isBuffering = true },
-                onCanPlay = { isBuffering = false },
-                onEnded = { isEnded = true; isPlaying = false },
-                onError = {
-                    isPlaying = false
-                    isBuffering = false
-                    playbackError = "feed_video_playback_failed"
-                },
-            )
-            src = videoUrl
-        }
-        underlayAttached = attachBrowserFeedVideoUnderlay(video)
-        element = video
-        onDispose {
-            released.value = true
-            persistPosition((video.currentTime * 1_000.0).toLong())
-            video.pause()
-            clearBrowserFeedVideoListeners(video)
-            detachBrowserFeedVideoUnderlay(video)
-            underlayAttached = false
-            if (element === video) element = null
+    if (decoderAllowed) {
+        DisposableEffect(videoUrl) {
+            val video = (document.createElement("video") as HTMLVideoElement).apply {
+                // This is a native video underlay, inserted before the Compose canvas. It contains no
+                // controls and never receives pointer events; Compose owns all product UI above it.
+                controls = false
+                preload = "metadata"
+                loop = true
+                muted = isMuted
+                setAttribute("playsinline", "")
+                released.value = false
+                installBrowserFeedVideoListeners(
+                    video = this,
+                    isReleased = { released.value },
+                    onMetadata = { duration ->
+                        durationMs = (duration * 1_000.0).toLong().coerceAtLeast(0L)
+                        if (!appliedInitialPosition && initialPositionMs > 0L) {
+                            currentTime = initialPositionMs / 1_000.0
+                            persistPosition(initialPositionMs)
+                        }
+                        appliedInitialPosition = true
+                    },
+                    onProgress = { position, duration ->
+                        durationMs = (duration * 1_000.0).toLong().coerceAtLeast(0L)
+                        persistPosition((position * 1_000.0).toLong())
+                        if (position > 0.0) hasStartedPlayback = true
+                    },
+                    onPlay = {
+                        hasStartedPlayback = true
+                        isPlaying = true
+                        isBuffering = false
+                        playbackError = null
+                    },
+                    onPause = { isPlaying = false },
+                    onWaiting = { if (latestIsCurrent.value) isBuffering = true },
+                    onCanPlay = { isBuffering = false },
+                    onEnded = { isEnded = true; isPlaying = false },
+                    onError = {
+                        isPlaying = false
+                        isBuffering = false
+                        playbackError = "feed_video_playback_failed"
+                    },
+                )
+                src = videoUrl
+            }
+            underlayAttached = attachBrowserFeedVideoUnderlay(video)
+            element = video
+            onDispose {
+                released.value = true
+                persistPosition((video.currentTime * 1_000.0).toLong())
+                video.pause()
+                clearBrowserFeedVideoListeners(video)
+                detachBrowserFeedVideoUnderlay(video)
+                underlayAttached = false
+                if (element === video) element = null
+            }
         }
     }
 
@@ -218,7 +227,7 @@ private fun BrowserFeedVideoContent(
             positionMs = positionMs,
             durationMs = durationMs,
             isMuted = isMuted,
-            showMuteButton = !isLandscape,
+            showMuteButton = true,
             hasStartedPlayback = hasStartedPlayback,
             isEnded = isEnded,
             error = playbackError,
@@ -232,8 +241,8 @@ private fun BrowserFeedVideoContent(
         ),
         media = {
             BrowserFeedVideoUnderlayHole(
-                video = element?.takeIf { underlayAttached },
-                isCurrent = isCurrent,
+                video = element?.takeIf { underlayAttached && playbackError == null && hasStartedPlayback },
+                isCurrent = isCurrent && playbackError == null && hasStartedPlayback,
                 isLandscape = isLandscape,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -258,6 +267,7 @@ private fun BrowserFeedVideoContent(
         },
         onToggleMute = { onMuteChange(toggledFeedMutedState(isMuted)) },
         modifier = Modifier.fillMaxSize(),
+        controlsBottomPadding = if (isLandscape) 34.dp else 104.dp,
     )
 }
 
@@ -302,9 +312,7 @@ private fun BrowserFeedVideoUnderlayHole(
             // This command is emitted after the feed background but before the shared Compose
             // gesture layer, timeline, rail and author. It exposes only this media rectangle.
             .drawWithContent {
-                if (video == null || !isCurrent) {
-                    drawRect(Color.Black)
-                } else {
+                if (video != null && isCurrent) {
                     drawRect(Color.Transparent, blendMode = BlendMode.Clear)
                 }
             },
@@ -330,6 +338,7 @@ internal data class BrowserFeedVideoUnderlayDomContract(
     val isolatesCanvasParent: Boolean,
     val composeCanvasZIndex: Int,
     val decoderZIndex: Int,
+    val decoderBackgroundIsTransparent: Boolean,
     val restoresHostStylesOnDetach: Boolean,
 )
 
@@ -340,6 +349,7 @@ internal fun browserFeedVideoUnderlayDomContract() = BrowserFeedVideoUnderlayDom
     isolatesCanvasParent = true,
     composeCanvasZIndex = 1,
     decoderZIndex = 0,
+    decoderBackgroundIsTransparent = true,
     restoresHostStylesOnDetach = true,
 )
 
@@ -354,7 +364,7 @@ private fun attachBrowserFeedVideoUnderlay(video: HTMLVideoElement): Boolean = j
     video.style.position = 'fixed';
     video.style.pointerEvents = 'none';
     video.style.visibility = 'hidden';
-    video.style.background = 'black';
+    video.style.background = 'transparent';
     video.style.zIndex = '0';
     const stackingKey = '__quataFeedVideoUnderlayStacking';
     const stacking = parent[stackingKey] || {
@@ -476,6 +486,9 @@ internal fun isBrowserFeedMediaUrl(url: String): Boolean =
         supabaseUrl = QuataPublicBackendConfig.SUPABASE_URL,
     )
 
+internal fun isBrowserFeedVideoUrl(url: String): Boolean =
+    url.startsWith("blob:", ignoreCase = true) || isSafeBrowserFeedHttpsVideoUrl(url)
+
 private fun isConfiguredSupabasePublicFeedMediaUrl(url: String, supabaseUrl: String): Boolean = js(
     """(() => {
     try {
@@ -485,6 +498,31 @@ private fun isConfiguredSupabasePublicFeedMediaUrl(url: String, supabaseUrl: Str
         /^\/storage\/v1\/object\/public\/[^/?#]+\/[^?#]+$/i.test(candidate.pathname) &&
         !candidate.search &&
         !candidate.hash;
+    } catch (_) {
+      return false;
+    }
+    })()""",
+)
+
+private fun isSafeBrowserFeedHttpsVideoUrl(url: String): Boolean = js(
+    """(() => {
+    try {
+      const candidate = new URL(url);
+      return candidate.protocol === 'https:' &&
+        !candidate.search &&
+        !candidate.hash &&
+        /\.(mp4|m4v|mov|webm)$/i.test(candidate.pathname);
+    } catch (_) {
+      return false;
+    }
+    })()""",
+)
+
+private fun isBrowserFeedVideoDecoderAllowed(url: String): Boolean = js(
+    """(() => {
+    try {
+      if (!globalThis.crossOriginIsolated) return true;
+      return new URL(url, globalThis.location.href).origin === globalThis.location.origin;
     } catch (_) {
       return false;
     }

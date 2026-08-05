@@ -491,7 +491,7 @@ private fun ReelVideo(
             positionMs = positionMs,
             durationMs = durationMs,
             isMuted = isMuted,
-            showMuteButton = !isLandscapeLayout,
+            showMuteButton = true,
             hasStartedPlayback = hasStartedPlayback,
             isEnded = player.playbackState == Player.STATE_ENDED,
             error = hasPlaybackError.takeIf { it }?.let { "feed_video_playback_failed" },

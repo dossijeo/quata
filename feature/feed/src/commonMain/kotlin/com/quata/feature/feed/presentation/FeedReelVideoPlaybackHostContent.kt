@@ -1,6 +1,7 @@
 package com.quata.feature.feed.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -26,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.quata.core.ui.components.CompactIcon
@@ -78,6 +81,7 @@ fun FeedReelVideoPlaybackHostContent(
     onError: () -> Unit,
     onToggleMute: () -> Unit,
     modifier: Modifier = Modifier,
+    controlsBottomPadding: Dp = 10.dp,
 ) {
     fun toggle(showFeedback: Boolean) = when {
         state.error != null -> onError()
@@ -110,17 +114,19 @@ fun FeedReelVideoPlaybackHostContent(
         Row(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 12.dp, end = 96.dp, bottom = 8.dp)
+                .padding(start = 10.dp, end = 82.dp, bottom = controlsBottomPadding)
                 .fillMaxWidth()
-                .background(Color.Black.copy(alpha = 0.42f), RoundedCornerShape(18.dp))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .background(Color.Black.copy(alpha = 0.68f), RoundedCornerShape(18.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             CompactIconButton(onClick = { toggle(showFeedback = false) }) {
                 CompactIcon(
                     imageVector = feedPlaybackPlayPauseIcon(state.isPlaying),
                     contentDescription = if (state.isPlaying) strings.pause else strings.play,
+                    modifier = Modifier.size(30.dp),
                     tint = Color.White,
                 )
             }
@@ -140,12 +146,14 @@ fun FeedReelVideoPlaybackHostContent(
                 fontSize = 12.sp,
                 maxLines = 1,
                 softWrap = false,
+                modifier = Modifier.widthIn(min = 74.dp),
             )
             if (state.showMuteButton) {
                 CompactIconButton(onClick = onToggleMute) {
                     CompactIcon(
                         imageVector = feedPlaybackVolumeIcon(state.isMuted),
                         contentDescription = if (state.isMuted) strings.unmute else strings.mute,
+                        modifier = Modifier.size(30.dp),
                         tint = Color.White,
                     )
                 }

@@ -23,6 +23,15 @@ class BrowserFeedMediaUrlTest {
     }
 
     @Test
+    fun acceptsHttpsVideoFilesWithoutQueryOrHashForNativePlayback() {
+        assertTrue(isBrowserFeedVideoUrl("https://egquata.com/wp-content/uploads/2026/08/sample.mp4"))
+        assertTrue(isBrowserFeedVideoUrl("blob:http://127.0.0.1:4174/local-video"))
+        assertFalse(isBrowserFeedVideoUrl("http://egquata.com/wp-content/uploads/2026/08/sample.mp4"))
+        assertFalse(isBrowserFeedVideoUrl("https://egquata.com/wp-content/uploads/2026/08/sample.mp4?token=signed"))
+        assertFalse(isBrowserFeedVideoUrl("https://egquata.com/wp-content/uploads/2026/08/sample.jpg"))
+    }
+
+    @Test
     fun autoplayPolicyErrorsAreNotReportedAsTransportFailures() {
         assertTrue(isBrowserAutoplayPolicyRejection("NotAllowedError: play() failed"))
         assertTrue(isBrowserAutoplayPolicyRejection("autoplay is not permitted"))
@@ -58,6 +67,7 @@ class BrowserFeedMediaUrlTest {
         assertEquals(1, contract.composeCanvasZIndex)
         assertEquals(0, contract.decoderZIndex)
         assertTrue(contract.composeCanvasZIndex > contract.decoderZIndex)
+        assertTrue(contract.decoderBackgroundIsTransparent)
         assertTrue(contract.restoresHostStylesOnDetach)
     }
 }

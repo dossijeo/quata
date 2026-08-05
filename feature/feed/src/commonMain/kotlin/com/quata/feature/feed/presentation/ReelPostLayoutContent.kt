@@ -7,8 +7,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
+import com.quata.core.ui.DEFAULT_TEXT_CANVAS_PATTERN_ID
+import com.quata.core.ui.textCanvasBrush
 
 /**
  * Shared reel/card composition. Platform hosts provide media, navigation and system-backed
@@ -29,7 +30,7 @@ fun ReelPostLayoutContent(
         modifier = modifier
             .fillMaxSize()
             .clipToBounds()
-            .background(Color.Black)
+            .background(textCanvasBrush(seedText = null, patternId = DEFAULT_TEXT_CANVAS_PATTERN_ID))
     ) {
         media()
         topOverlay()
