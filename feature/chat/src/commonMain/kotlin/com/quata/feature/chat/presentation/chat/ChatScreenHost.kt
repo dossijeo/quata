@@ -44,13 +44,16 @@ fun ChatScreenHost(
     text: (ChatText) -> String,
     slots: ChatScreenHostSlots,
     focusedMessageId: String? = null,
+    onFocusedMessageHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
     model: ChatViewModel = remember(repository, conversationId) {
         ChatViewModel(conversationId = conversationId, repository = repository, text = text)
     },
 ) {
     val state by model.uiState.collectAsState()
-    val translatorRegistry = remember(conversationId) { QuataTranslatableTextRegistry() }
+    val inheritedTranslatorRegistry = LocalQuataTranslatableTextRegistry.current
+    val translatorRegistry = inheritedTranslatorRegistry
+        ?: remember(conversationId) { QuataTranslatableTextRegistry() }
     var translatorActive by remember(conversationId) { mutableStateOf(false) }
     var deepLinkRequest by remember(conversationId, focusedMessageId) {
         mutableStateOf(chatMessageDeepLinkRequest(focusedMessageId))
@@ -109,7 +112,9 @@ fun ChatScreenHost(
                         slots.trailingActions.invoke(this@trailing)
                         FangTranslatorTriggerContent(
                             contentDescription = slots.translatorStrings.contentDescription,
-                            onClick = { translatorActive = true },
+                            onClick = {
+                                slots.onOpenTranslator?.invoke() ?: run { translatorActive = true }
+                            },
                             enabled = state.messages.any { !it.isDeleted && it.text.isNotBlank() },
                         )
                     }, onOpenProfile = slots.onOpenUserProfile,
@@ -204,7 +209,10 @@ fun ChatScreenHost(
                 onLoadOlderMessages = model::loadOlderMessages,
                 isLoadingOlderMessages = state.isLoadingOlderMessages,
                 focusedMessageId = focusedMessage?.id,
-                onFocusedMessageHandled = { deepLinkRequest = ChatMessageDeepLinkRequest.NoTarget },
+                onFocusedMessageHandled = {
+                    deepLinkRequest = ChatMessageDeepLinkRequest.NoTarget
+                    onFocusedMessageHandled()
+                },
                 modifier = Modifier.weight(1f),
             )
             }
@@ -243,6 +251,8 @@ data class ChatScreenHostSlots(
     val conversationAvatar: @Composable (Conversation?) -> Unit,
     val memberAvatar: @Composable (ChatMemberPresentation) -> Unit,
     val trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
+    /** Platform shell hook for a full-window translator overlay; portable hosts use the common fallback. */
+    val onOpenTranslator: (() -> Unit)? = null,
     val messageAvatar: @Composable (Message) -> Unit,
     val onOpenLink: (String) -> Unit,
     val onCopyMessage: (String) -> Unit,

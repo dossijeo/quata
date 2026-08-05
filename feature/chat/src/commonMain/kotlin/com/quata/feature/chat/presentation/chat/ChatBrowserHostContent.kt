@@ -104,10 +104,14 @@ fun ChatProductHostContent(
     conversationList: @Composable (Modifier) -> Unit,
     text: (ChatText) -> String,
     focusedMessageId: String? = null,
+    onFocusedMessageHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
     audioRecordingConfiguration: ChatAudioRecordingConfiguration = ChatAudioRecordingConfiguration(),
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
     conversationModel: ChatViewModel? = null,
+    compactHeader: Boolean = false,
+    trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+    onOpenTranslator: (() -> Unit)? = null,
 ) {
     if (conversationId == null) {
         conversationList(modifier)
@@ -137,9 +141,13 @@ fun ChatProductHostContent(
             translationDirection = translationDirection,
             languageTag = languageTag,
             focusedMessageId = focusedMessageId,
+            onFocusedMessageHandled = onFocusedMessageHandled,
             text = text,
             modifier = modifier,
             conversationModel = conversationModel,
+            compactHeader = compactHeader,
+            trailingActions = trailingActions,
+            onOpenTranslator = onOpenTranslator,
         )
     }
 }
@@ -174,9 +182,13 @@ private fun ChatCommonConversationHost(
     translationDirection: ChatTranslationDirection,
     languageTag: String?,
     focusedMessageId: String?,
+    onFocusedMessageHandled: () -> Unit,
     text: (ChatText) -> String,
     modifier: Modifier,
     conversationModel: ChatViewModel?,
+    compactHeader: Boolean,
+    trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
+    onOpenTranslator: (() -> Unit)?,
 ) {
     val scope = rememberCoroutineScope()
     val template = quataTheme()
@@ -242,6 +254,7 @@ private fun ChatCommonConversationHost(
         conversationId = conversationId,
         text = text,
         focusedMessageId = focusedMessageId,
+        onFocusedMessageHandled = onFocusedMessageHandled,
         modifier = modifier,
         model = viewModel,
         slots = ChatScreenHostSlots(
@@ -251,7 +264,7 @@ private fun ChatCommonConversationHost(
             translationGateway = translationGateway,
             translationDirection = translationDirection,
             messageTimestamp = { message -> chatMessageTimestampLabel(message, languageTag) },
-            compactHeader = false,
+            compactHeader = compactHeader,
             navigationAction = {
                 CompactIconButton(onClick = onBackToList, modifier = Modifier.semantics { testTag = "chat.back" }) {
                     CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, chromeStrings.back)
@@ -294,7 +307,8 @@ private fun ChatCommonConversationHost(
                     )
                 }
             },
-            trailingActions = {},
+            trailingActions = trailingActions,
+            onOpenTranslator = onOpenTranslator,
             messageAvatar = { message ->
                 QuataAvatarLoadingHaloContent(
                     isLoading = openingProfileUserId == message.senderId,
