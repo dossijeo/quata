@@ -99,3 +99,18 @@ test('iOS CI installs a hermetic .invalid public fixture and validates it before
   assert.match(readiness, /service_role/);
   assert.match(readiness, /"jwt"/);
 });
+
+test('iOS Feed playback UI test clears startup What\'s New before asserting controls', async () => {
+  const testSource = await source('iosApp/iosAppUITests/QuataIosFeedPlaybackUITests.swift');
+  const launchIndex = testSource.indexOf('app.launch()');
+  const dismissIndex = testSource.indexOf('dismissStartupWhatsNewIfPresent(app)');
+  const muteIndex = testSource.indexOf('"Silenciar"');
+
+  assert.ok(launchIndex >= 0, 'the Feed playback UI test must launch the iOS app');
+  assert.ok(dismissIndex > launchIndex && dismissIndex < muteIndex,
+    'the Feed playback UI test must clear startup What\'s New before looking for Feed controls');
+  assert.match(testSource, /matching\(identifier: "quata-ios-whats-new-host"\)/);
+  assert.match(testSource, /matching\(identifier: "dismiss_whats_new"\)/);
+  assert.match(testSource, /matching\(identifier: "next_whats_new"\)/);
+  assert.match(testSource, /feed-mute-control-missing/);
+});
