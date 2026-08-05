@@ -25,9 +25,11 @@ class BrowserFeedMediaUrlTest {
     @Test
     fun acceptsHttpsVideoFilesWithoutQueryOrHashForNativePlayback() {
         assertTrue(isBrowserFeedVideoUrl("https://egquata.com/wp-content/uploads/2026/08/sample.mp4"))
+        assertTrue(isBrowserFeedVideoUrl("https://yrrlankpwmhluexshxnw.supabase.co/storage/v1/object/public/community-media/opaque-id"))
         assertTrue(isBrowserFeedVideoUrl("blob:http://127.0.0.1:4174/local-video"))
         assertFalse(isBrowserFeedVideoUrl("http://egquata.com/wp-content/uploads/2026/08/sample.mp4"))
         assertFalse(isBrowserFeedVideoUrl("https://egquata.com/wp-content/uploads/2026/08/sample.mp4?token=signed"))
+        assertFalse(isBrowserFeedVideoUrl("https://yrrlankpwmhluexshxnw.supabase.co/storage/v1/object/public/community-media/opaque-id?token=signed"))
         assertFalse(isBrowserFeedVideoUrl("https://egquata.com/wp-content/uploads/2026/08/sample.jpg"))
     }
 

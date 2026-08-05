@@ -121,9 +121,18 @@ private fun BrowserFeedVideoContent(
     }
 
     fun play(showFeedback: Boolean) {
-        val video = element ?: return
         playbackError = null
         isEnded = false
+        val video = element
+        if (video == null) {
+            if (!decoderAllowed) {
+                hasStartedPlayback = true
+                isPlaying = true
+                isBuffering = false
+                if (showFeedback) showFeedback(VideoPlaybackFeedback.Play)
+            }
+            return
+        }
         video.muted = isMuted
         requestBrowserVideoPlay(video, isReleased = { released.value }) { rejection ->
             if (released.value) return@requestBrowserVideoPlay
@@ -487,7 +496,12 @@ internal fun isBrowserFeedMediaUrl(url: String): Boolean =
     )
 
 internal fun isBrowserFeedVideoUrl(url: String): Boolean =
-    url.startsWith("blob:", ignoreCase = true) || isSafeBrowserFeedHttpsVideoUrl(url)
+    url.startsWith("blob:", ignoreCase = true) ||
+        isConfiguredSupabasePublicFeedMediaUrl(
+            url = url,
+            supabaseUrl = QuataPublicBackendConfig.SUPABASE_URL,
+        ) ||
+        isSafeBrowserFeedHttpsVideoUrl(url)
 
 private fun isConfiguredSupabasePublicFeedMediaUrl(url: String, supabaseUrl: String): Boolean = js(
     """(() => {
