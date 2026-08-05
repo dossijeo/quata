@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -67,8 +68,11 @@ fun ChatConversationDetailContent(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
+    val isUserDragging by listState.interactionSource.collectIsDraggedAsState()
     var initialPositionReady by remember { mutableStateOf(false) }
     var highlightedMessageId by remember { mutableStateOf<String?>(null) }
+    var userHasDetachedFromBottom by remember { mutableStateOf(false) }
+    var previousMessageLayout by remember { mutableStateOf(emptyList<ChatMessageLayoutKey>()) }
     val focusedIndex = remember(focusedMessageId, messages) {
         focusedMessageId?.let { target -> messages.indexOfFirst { it.id == target }.takeIf { it >= 0 } }
     }
@@ -81,10 +85,39 @@ fun ChatConversationDetailContent(
             onFocusedMessageHandled()
         }
     }
-    LaunchedEffect(messages, focusedMessageId, initialPositionReady) {
-        if (!initialPositionReady && focusedMessageId == null && messages.isNotEmpty()) {
-            listState.scrollToItem(messages.lastIndex)
+    val currentMessageLayout = remember(messages) { messages.map(Message::chatLayoutKey) }
+    LaunchedEffect(currentMessageLayout, focusedMessageId) {
+        if (currentMessageLayout.isEmpty()) {
+            previousMessageLayout = emptyList()
+            return@LaunchedEffect
+        }
+        val shouldFollowUpdate = shouldFollowChatLayoutUpdate(
+            previous = previousMessageLayout,
+            current = currentMessageLayout,
+            userHasDetachedFromBottom = userHasDetachedFromBottom,
+        )
+        if (shouldFollowUpdate && focusedMessageId == null) {
+            userHasDetachedFromBottom = false
+            listState.scrollToItem(currentMessageLayout.lastIndex, scrollOffset = Int.MAX_VALUE)
+        }
+        previousMessageLayout = currentMessageLayout
+        if (focusedMessageId == null) {
             initialPositionReady = true
+        }
+    }
+    LaunchedEffect(listState, isUserDragging) {
+        if (isUserDragging) {
+            snapshotFlow { !listState.canScrollForward }
+                .collect { isAtBottom -> userHasDetachedFromBottom = !isAtBottom }
+        } else if (!listState.canScrollForward) {
+            userHasDetachedFromBottom = false
+        }
+    }
+    LaunchedEffect(typingIndicator != null, messages.size, isLoadingOlderMessages) {
+        if (typingIndicator != null && !userHasDetachedFromBottom) {
+            delay(80L)
+            val typingItemIndex = messages.size + if (isLoadingOlderMessages) 1 else 0
+            listState.animateScrollToItem(typingItemIndex)
         }
     }
     LaunchedEffect(listState, isLoadingOlderMessages, initialPositionReady, focusedMessageId) {

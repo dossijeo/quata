@@ -195,6 +195,7 @@ private fun ChatCommonConversationHost(
     var attachmentPickerError by remember { mutableStateOf<String?>(null) }
     val audioLifecycle = remember(audioPlayer) { ChatAudioPlaybackLifecycleOwner(audioPlayer) }
     var activeAudioReference by remember { mutableStateOf<String?>(null) }
+    var activeAudioMessageKey by remember { mutableStateOf<String?>(null) }
     var audioPlayback by remember { mutableStateOf(AudioPlaybackState()) }
     var audioFailed by remember { mutableStateOf(false) }
     var isRecordingAudio by remember { mutableStateOf(false) }
@@ -234,7 +235,36 @@ private fun ChatCommonConversationHost(
         if (activeAudioReference == null || !audioPlayback.isPlaying) return@LaunchedEffect
         while (audioPlayback.isPlaying) {
             delay(250L)
-            audioPlayback = audioPlayer.state()
+            val previousPlayback = audioPlayback
+            val currentPlayback = audioPlayer.state()
+            audioPlayback = currentPlayback
+            if (didAudioPlaybackFinish(previousPlayback, currentPlayback)) {
+                val next = activeAudioMessageKey?.let { key -> nextConsecutiveAudioMessage(state.messages, key) }
+                val nextReference = next?.attachmentUri
+                if (next != null && !nextReference.isNullOrBlank()) {
+                    val nextFile = PlatformFile(nextReference, next.attachmentName, next.attachmentMimeType)
+                    val result = when (val loaded = audioPlayer.load(nextFile)) {
+                        is PlatformResult.Success -> audioPlayer.play()
+                        is PlatformResult.Failure -> loaded
+                        PlatformResult.Cancelled -> PlatformResult.Cancelled
+                        PlatformResult.Unsupported -> PlatformResult.Unsupported
+                    }
+                    when (result) {
+                        is PlatformResult.Success -> {
+                            activeAudioReference = nextReference
+                            activeAudioMessageKey = next.composeKey()
+                            audioPlayback = result.value
+                            audioFailed = false
+                        }
+                        is PlatformResult.Failure,
+                        PlatformResult.Cancelled,
+                        PlatformResult.Unsupported -> audioFailed = true
+                    }
+                } else {
+                    activeAudioReference = null
+                    activeAudioMessageKey = null
+                }
+            }
         }
     }
     DisposableEffect(viewModel, audioRecorder, audioPlayer) {
@@ -477,6 +507,7 @@ private fun ChatCommonConversationHost(
                     failed = audioFailed,
                     onPlaybackChanged = { reference, updatedPlayback, failed ->
                         activeAudioReference = reference
+                        activeAudioMessageKey = message.composeKey()
                         audioPlayback = updatedPlayback
                         audioFailed = failed
                     },
