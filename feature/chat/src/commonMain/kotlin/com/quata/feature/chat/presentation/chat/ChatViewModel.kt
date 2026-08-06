@@ -766,30 +766,36 @@ class ChatViewModel(
         }
     }
 
-    private fun toggleFavoriteSelected() = scope.launch {
-        val message = selectedMessage()?.takeIf { !it.isLocalEcho } ?: return@launch
-        repository.toggleFavoriteMessage(message.id)
-            .onSuccess { _uiState.value = _uiState.value.copy(selectedMessageId = null) }
-            .onFailure { _uiState.value = _uiState.value.copy(error = text(ChatText.UpdateFavorite)) }
+    private fun toggleFavoriteSelected() {
+        val message = selectedMessage()?.takeIf { !it.isLocalEcho } ?: return
+        scope.launch {
+            repository.toggleFavoriteMessage(message.id)
+                .onSuccess { _uiState.value = _uiState.value.copy(selectedMessageId = null) }
+                .onFailure { _uiState.value = _uiState.value.copy(error = text(ChatText.UpdateFavorite)) }
+        }
     }
 
-    private fun deleteSelectedMessage() = scope.launch {
-        val message = selectedMessage()?.takeIf { it.isMine && !it.isLocalEcho } ?: return@launch
-        repository.deleteMessage(message.id)
-            .onSuccess { _uiState.value = _uiState.value.copy(selectedMessageId = null) }
-            .onFailure { _uiState.value = _uiState.value.copy(error = text(ChatText.DeleteMessage)) }
+    private fun deleteSelectedMessage() {
+        val message = selectedMessage()?.takeIf { it.isMine && !it.isLocalEcho } ?: return
+        scope.launch {
+            repository.deleteMessage(message.id)
+                .onSuccess { _uiState.value = _uiState.value.copy(selectedMessageId = null) }
+                .onFailure { _uiState.value = _uiState.value.copy(error = text(ChatText.DeleteMessage)) }
+        }
     }
 
-    private fun reportSelectedMessage() = scope.launch {
-        val message = selectedMessage()?.takeIf { !it.isMine && !it.isLocalEcho } ?: return@launch
-        repository.reportMessage(message.id)
-            .onSuccess {
-                _uiState.value = _uiState.value.copy(
-                    selectedMessageId = null,
-                    notice = text(ChatText.ReportSent)
-                )
-            }
-            .onFailure { _uiState.value = _uiState.value.copy(error = text(ChatText.ReportMessage)) }
+    private fun reportSelectedMessage() {
+        val message = selectedMessage()?.takeIf { !it.isMine && !it.isLocalEcho } ?: return
+        scope.launch {
+            repository.reportMessage(message.id)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        selectedMessageId = null,
+                        notice = text(ChatText.ReportSent)
+                    )
+                }
+                .onFailure { _uiState.value = _uiState.value.copy(error = text(ChatText.ReportMessage)) }
+        }
     }
 
     private fun toggleForwardProfile(profileId: String) {
@@ -799,49 +805,51 @@ class ChatViewModel(
         )
     }
 
-    private fun sendForward() = scope.launch {
-        val message = selectedMessage()?.takeIf { !it.isLocalEcho } ?: return@launch
+    private fun sendForward() {
+        val message = selectedMessage()?.takeIf { !it.isLocalEcho } ?: return
         val selectedProfileIds = _uiState.value.selectedForwardProfileIds
-        if (selectedProfileIds.isEmpty()) return@launch
+        if (selectedProfileIds.isEmpty()) return
         _uiState.value = _uiState.value.copy(
             isConversationActionInProgress = true,
             isForwardDialogOpen = false,
             selectedForwardProfileIds = emptyList()
         )
-        runCatching {
-            selectedProfileIds.map { profileId ->
-                repository.openPrivateConversation(profileId).getOrThrow()
-            }
-                .filterNot { it == conversationId }
-                .distinct()
-        }.fold(
-            onSuccess = { conversationIds ->
-                if (conversationIds.isEmpty()) {
-                    _uiState.value = _uiState.value.copy(
-                        isConversationActionInProgress = false,
-                        selectedMessageId = null
-                    )
-                    return@launch
+        scope.launch {
+            runCatching {
+                selectedProfileIds.map { profileId ->
+                    repository.openPrivateConversation(profileId).getOrThrow()
                 }
-                repository.forwardMessage(message, conversationIds).onSuccess {
-                    _uiState.value = _uiState.value.copy(
-                        selectedMessageId = null,
-                        isConversationActionInProgress = false
-                    )
-                }.onFailure { error ->
+                    .filterNot { it == conversationId }
+                    .distinct()
+            }.fold(
+                onSuccess = { conversationIds ->
+                    if (conversationIds.isEmpty()) {
+                        _uiState.value = _uiState.value.copy(
+                            isConversationActionInProgress = false,
+                            selectedMessageId = null
+                        )
+                        return@launch
+                    }
+                    repository.forwardMessage(message, conversationIds).onSuccess {
+                        _uiState.value = _uiState.value.copy(
+                            selectedMessageId = null,
+                            isConversationActionInProgress = false
+                        )
+                    }.onFailure { error ->
+                        _uiState.value = _uiState.value.copy(
+                            isConversationActionInProgress = false,
+                            error = text(ChatText.Forward)
+                        )
+                    }
+                },
+                onFailure = { error ->
                     _uiState.value = _uiState.value.copy(
                         isConversationActionInProgress = false,
                         error = text(ChatText.Forward)
                     )
                 }
-            },
-            onFailure = { error ->
-                _uiState.value = _uiState.value.copy(
-                    isConversationActionInProgress = false,
-                    error = text(ChatText.Forward)
-                )
-            }
-        )
+            )
+        }
     }
 
     companion object {
