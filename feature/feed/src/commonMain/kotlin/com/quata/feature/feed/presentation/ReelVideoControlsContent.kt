@@ -16,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.core.ui.components.CompactIcon
@@ -72,7 +74,12 @@ fun ReelVideoControlsContent(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        CompactIconButton(onClick = onPlayPause, modifier = Modifier.size(38.dp)) {
+        CompactIconButton(
+            onClick = onPlayPause,
+            modifier = Modifier
+                .size(38.dp)
+                .semantics { contentDescription = if (state.isPlaying) strings.pause else strings.play },
+        ) {
             if (state.isBuffering) {
                 CircularProgressIndicator(
                     color = Color.White,
@@ -82,7 +89,7 @@ fun ReelVideoControlsContent(
             } else {
                 CompactIcon(
                     imageVector = playPauseIcon,
-                    contentDescription = if (state.isPlaying) strings.pause else strings.play,
+                    contentDescription = null,
                     tint = Color.White,
                 )
             }
@@ -95,10 +102,15 @@ fun ReelVideoControlsContent(
             modifier = Modifier.width(82.dp),
         )
         if (state.showMuteButton) {
-            CompactIconButton(onClick = onToggleMute, modifier = Modifier.size(38.dp)) {
+            CompactIconButton(
+                onClick = onToggleMute,
+                modifier = Modifier
+                    .size(38.dp)
+                    .semantics { contentDescription = if (state.isMuted) strings.unmute else strings.mute },
+            ) {
                 CompactIcon(
                     imageVector = muteIcon,
-                    contentDescription = if (state.isMuted) strings.unmute else strings.mute,
+                    contentDescription = null,
                     tint = Color.White,
                 )
             }

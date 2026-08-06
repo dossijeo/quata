@@ -60,6 +60,21 @@ class BrowserFeedMediaUrlTest {
     }
 
     @Test
+    fun videoUrlSeedsTheFallbackGradientEvenWhenTheDecoderHasNoFrames() {
+        assertEquals(
+            "https://egquata.com/wp-content/uploads/2026/08/feed-playback-fixture.mp4",
+            browserFeedMediaBackgroundSeed(
+                videoUrl = "https://egquata.com/wp-content/uploads/2026/08/feed-playback-fixture.mp4",
+                imageUrl = "https://cdn.example.test/poster.jpg",
+            ),
+        )
+        assertEquals(
+            "https://cdn.example.test/poster.jpg",
+            browserFeedMediaBackgroundSeed(videoUrl = " ", imageUrl = "https://cdn.example.test/poster.jpg"),
+        )
+    }
+
+    @Test
     fun portraitVideoControlsStayPinnedToTheSharedBottomChrome() {
         assertEquals(10.dp, browserFeedVideoControlsBottomPadding(isLandscape = false))
         assertEquals(34.dp, browserFeedVideoControlsBottomPadding(isLandscape = true))
@@ -78,7 +93,14 @@ class BrowserFeedMediaUrlTest {
         assertTrue(contract.composeCanvasZIndex > contract.decoderZIndex)
         assertTrue(contract.decoderBackgroundIsTransparent)
         assertTrue(contract.revealsDecodedFramesOnly)
+        assertTrue(contract.usesExplicitCssVisibility)
         assertTrue(contract.decoderRemainsAttachedWhileHidden)
         assertTrue(contract.restoresHostStylesOnDetach)
+    }
+
+    @Test
+    fun nativeUnderlayUsesExplicitCssVisibilitySoUnavailableFramesRevealTheGradient() {
+        assertEquals("hidden", browserFeedVideoUnderlayVisibility(isVisible = false))
+        assertEquals("visible", browserFeedVideoUnderlayVisibility(isVisible = true))
     }
 }

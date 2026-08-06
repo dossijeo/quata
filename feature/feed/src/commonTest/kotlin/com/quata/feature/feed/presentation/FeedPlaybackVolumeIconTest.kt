@@ -5,8 +5,10 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class FeedPlaybackVolumeIconTest {
     @Test
@@ -21,5 +23,13 @@ class FeedPlaybackVolumeIconTest {
         assertEquals(Icons.Filled.Pause, feedPlaybackPlayPauseIcon(isPlaying = true))
         assertEquals(true, toggledFeedMutedState(isMuted = false))
         assertEquals(false, toggledFeedMutedState(isMuted = true))
+    }
+
+    @Test
+    fun sharedPlaybackChromeKeepsVisibleBottomControlsOverTransparentMedia() {
+        assertEquals(52.dp, FeedReelPlaybackControlsHeight)
+        assertTrue(FeedReelPlaybackControlsScrimAlpha >= 0.85f)
+        assertTrue(FeedReelPlaybackControlsBorderAlpha >= 0.30f)
+        assertTrue(FeedReelPlaybackIconScrimAlpha >= 0.24f)
     }
 }
