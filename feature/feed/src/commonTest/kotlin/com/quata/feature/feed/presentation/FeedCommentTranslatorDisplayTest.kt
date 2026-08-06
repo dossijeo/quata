@@ -45,7 +45,7 @@ class FeedCommentTranslatorDisplayTest {
 
     @Test
     fun defaultPlatformSlotKeepsTheTranslatorTriggerVisibleAfterClick() = runComposeUiTest {
-        val slots = FeedScreenPlatformSlots(media = { _, _, _, _ -> })
+        val slots = FeedScreenPlatformSlots(media = { _, _, _, _, _, _ -> })
         setContent {
             QuataTheme {
                 slots.commentsTranslatorTrigger("Traductor Fang", Modifier)

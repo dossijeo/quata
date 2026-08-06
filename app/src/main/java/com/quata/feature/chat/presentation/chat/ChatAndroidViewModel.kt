@@ -14,26 +14,26 @@ class ChatAndroidViewModel(
     repository: ChatRepository,
     context: Context
 ) : ViewModel() {
-    private val delegate = ChatViewModel(
+    internal val commonModel = ChatViewModel(
         conversationId = conversationId,
         repository = repository,
         isFavoritesConversation = conversationId == AppDestinations.FavoriteMessagesConversationId,
-        text = context.applicationContext::chatText
+        text = context.applicationContext::androidChatText
     )
 
-    val uiState: StateFlow<ChatUiState> = delegate.uiState
-    fun onEvent(event: ChatUiEvent) = delegate.onEvent(event)
-    fun setConversationVisible(visible: Boolean) = delegate.setConversationVisible(visible)
-    fun cleanupEmptyConversationIfNeeded() = delegate.cleanupEmptyConversationIfNeeded()
-    fun loadOlderMessages() = delegate.loadOlderMessages()
-    fun retryPendingMessage(clientMessageId: String) = delegate.retryPendingMessage(clientMessageId)
-    fun addConversationCandidateParticipant(profileId: String) = delegate.addConversationCandidateParticipant(profileId)
-    fun onParticipantCandidateQueryChanged(query: String) = delegate.onParticipantCandidateQueryChanged(query)
-    fun loadMoreParticipantCandidates() = delegate.loadMoreParticipantCandidates()
-    fun onForwardCandidateQueryChanged(query: String) = delegate.onForwardCandidateQueryChanged(query)
-    fun loadMoreForwardConversationCandidates() = delegate.loadMoreForwardConversationCandidates()
+    val uiState: StateFlow<ChatUiState> = commonModel.uiState
+    fun onEvent(event: ChatUiEvent) = commonModel.onEvent(event)
+    fun setConversationVisible(visible: Boolean) = commonModel.setConversationVisible(visible)
+    fun cleanupEmptyConversationIfNeeded() = commonModel.cleanupEmptyConversationIfNeeded()
+    fun loadOlderMessages() = commonModel.loadOlderMessages()
+    fun retryPendingMessage(clientMessageId: String) = commonModel.retryPendingMessage(clientMessageId)
+    fun addConversationCandidateParticipant(profileId: String) = commonModel.addConversationCandidateParticipant(profileId)
+    fun onParticipantCandidateQueryChanged(query: String) = commonModel.onParticipantCandidateQueryChanged(query)
+    fun loadMoreParticipantCandidates() = commonModel.loadMoreParticipantCandidates()
+    fun onForwardCandidateQueryChanged(query: String) = commonModel.onForwardCandidateQueryChanged(query)
+    fun loadMoreForwardConversationCandidates() = commonModel.loadMoreForwardConversationCandidates()
 
-    override fun onCleared() = delegate.close()
+    override fun onCleared() = commonModel.close()
 
     companion object {
         fun factory(conversationId: String, repository: ChatRepository, context: Context): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
@@ -44,7 +44,7 @@ class ChatAndroidViewModel(
     }
 }
 
-private fun Context.chatText(value: ChatText): String = getString(
+internal fun Context.androidChatText(value: ChatText): String = getString(
     when (value) {
         ChatText.LoadConversations -> R.string.chat_error_load_conversations
         ChatText.LoadMessages -> R.string.chat_error_load_messages

@@ -89,9 +89,44 @@ test('iOS CI installs a hermetic .invalid public fixture and validates it before
   assert.match(workflow, /- name: Verify Xcode resolves public runtime fixture[\s\S]*?-showBuildSettings[\s\S]*?QUATA_SUPABASE_URL = https:\/\/ios-ci\\\.invalid/);
   assert.ok(workflow.indexOf('xcodegen generate') < workflow.indexOf('Verify Xcode resolves public runtime fixture'));
   assert.ok(workflow.indexOf('Verify Xcode resolves public runtime fixture') < workflow.indexOf('Build Swift iOS host'));
+  assert.match(workflow, /Run iOS Feed playback public-runtime UI test[\s\S]*?-only-testing:QuataIosUITests\/QuataIosFeedPlaybackUITests/);
+  assert.ok(workflow.indexOf('Build Swift iOS host') < workflow.indexOf('Run iOS Feed playback public-runtime UI test'));
+  assert.ok(workflow.indexOf('Run iOS Feed playback public-runtime UI test') < workflow.indexOf('Test Swift/Kotlin iOS host boundary'));
+  assert.match(workflow, /Test Swift\/Kotlin iOS host boundary[\s\S]*?-skip-testing:QuataIosUITests\/QuataIosFeedPlaybackUITests[\s\S]*?QUATA_SUPABASE_URL=/);
   assert.match(readiness, /public runtime fixture\/local override must exist before building/);
   assert.match(readiness, /\^\\s\*QUATA_SUPABASE_URL\\s\*=\\s\*https:\/\//,
     'the readiness guard must also reject an indented literal https:// assignment');
   assert.match(readiness, /service_role/);
   assert.match(readiness, /"jwt"/);
+});
+
+test('iOS Feed playback UI test mounts the deterministic shared Feed fixture before asserting controls', async () => {
+  const testSource = await source('iosApp/iosAppUITests/QuataIosFeedPlaybackUITests.swift');
+  const launchIndex = testSource.indexOf('app.launch()');
+  const fixtureIndex = testSource.indexOf('"-quata-ui-test-fixture", "feed-playback"');
+  const muteIndex = testSource.indexOf('"Silenciar"');
+  const appSource = await source('iosApp/iosApp/QuataIosApp.swift');
+
+  assert.ok(launchIndex >= 0, 'the Feed playback UI test must launch the iOS app');
+  assert.ok(fixtureIndex >= 0 && fixtureIndex < launchIndex,
+    'the Feed playback UI test must request the deterministic shared Feed playback fixture before launch');
+  assert.ok(launchIndex < muteIndex, 'the Feed playback UI test must launch before looking for Feed controls');
+  assert.match(appSource, /case "feed-playback":\s*return IosFeedPlaybackFixtureHostKt\.QuataIosFeedPlaybackFixtureViewController/);
+  assert.match(testSource, /feed-mute-control-missing/);
+});
+
+test('iOS Feed playback fixture uses the shared Compose Feed host without remote reads', async () => {
+  const [fixture, workflow] = await Promise.all([
+    source('feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/IosFeedPlaybackFixtureHost.kt'),
+    source('.github/workflows/ios-build.yml'),
+  ]);
+
+  assert.match(fixture, /QuataIosFeedPlaybackFixtureViewController\(mediaFactory: IosFeedMediaFactory\): UIViewController/);
+  assert.match(fixture, /QuataFeedViewController\(/);
+  assert.match(fixture, /IosFeedHostDependencies\(/);
+  assert.match(fixture, /mediaFactory = IosFeedPlaybackFixtureMediaFactory/);
+  assert.match(fixture, /private class IosFeedPlaybackFixtureMediaSurface : IosFeedMediaSurface/);
+  assert.match(fixture, /videoUrl = "https:\/\/egquata\.com\/wp-content\/uploads\/2026\/08\/feed-playback-fixture\.mp4"/);
+  assert.doesNotMatch(fixture, /RemoteFeedReadRepository|IosFeedReadTransport|IosFeedRuntimeConfiguration/);
+  assert.match(workflow, /playback must not depend on remote Feed rows in this lane/);
 });

@@ -91,21 +91,10 @@ try {
 
   const message = page.locator('input[aria-label="Mensaje"]');
   const send = page.locator('button[aria-label="Enviar"]');
-  await Promise.all([message.waitFor(), send.waitFor()]);
+  await message.waitFor();
   await assertUniqueNativeAx(page, { role: "textbox", name: "Mensaje", selector: 'input[aria-label="Mensaje"]' });
-  await assertUniqueNativeAx(page, { role: "button", name: "Enviar", selector: 'button[aria-label="Enviar"]' });
-  if (await send.isEnabled()) throw new Error("native_chat_send_initial_state_changed");
-  const disabledState = await send.evaluate(button => {
-    button.focus();
-    return {
-      disabled: button.disabled,
-      ariaDisabled: button.getAttribute("aria-disabled"),
-      focused: button.getRootNode().activeElement === button,
-    };
-  });
-  if (!disabledState.disabled || disabledState.ariaDisabled !== "true" || disabledState.focused) {
-    throw new Error(`native_chat_send_disabled_a11y_or_focus_invalid:${JSON.stringify(disabledState)}`);
-  }
+  if (await send.count() !== 0) throw new Error("native_chat_send_initial_state_changed");
+  await message.focus();
   await page.keyboard.press("Enter");
   await page.waitForTimeout(100);
   if ((await page.evaluate(() => globalThis.__quataChatE2eProduct?.sends ?? 0)) !== 0) {
@@ -113,6 +102,8 @@ try {
   }
   const chatMarker = "mensaje AX local";
   await message.fill(chatMarker);
+  await send.waitFor();
+  await assertUniqueNativeAx(page, { role: "button", name: "Enviar", selector: 'button[aria-label="Enviar"]' });
   await waitFor(async () => await send.isEnabled(), "native_chat_send_enabled_state_missing");
   await send.focus();
   await assertUniqueNativeAx(page, {
@@ -132,7 +123,7 @@ try {
     throw new Error("native_chat_send_callback_not_exactly_once");
   }
   if (unexpectedNetwork.length !== 0) throw new Error("unexpected_external_network");
-  report.steps.push("native_chat_disabled_a11y_no_focus_no_callback_and_enabled_keyboard_callback_once");
+  report.steps.push("native_chat_empty_uses_common_primary_action_and_enabled_native_send_keyboard_callback_once");
   report.status = "passed";
 } catch (error) {
   report.error = safeError(error);
@@ -416,7 +407,6 @@ function safeError(error) {
     "native_chat_send_initial_state_changed",
     "native_chat_send_enabled_state_missing",
     "native_chat_send_callback_not_exactly_once",
-    "native_chat_send_disabled_a11y_or_focus_invalid",
     "native_chat_send_disabled_callback_fired",
     "native_auth_login_submit_disabled",
     "native_auth_login_focus_missing",

@@ -184,8 +184,15 @@ test('Feed media contract keeps the common contrast gate and requires the browse
   assert.match(webFeedMedia, /controls = false/);
   assert.match(webFeedMedia, /attachBrowserFeedVideoUnderlay\(video\)/);
   assert.match(webFeedMedia, /parent\.insertBefore\(video, canvas\)/);
+  assert.match(webFeedMedia, /video = element\?\.takeIf \{ underlayAttached \}/);
+  assert.match(webFeedMedia, /var hasRenderableFrame by remember\(videoUrl\) \{ mutableStateOf\(false\) \}/);
+  assert.match(webFeedMedia, /isVisible = isCurrent && playbackError == null && hasRenderableFrame/);
+  assert.match(webFeedMedia, /video\.style\.background = 'transparent'/);
+  assert.match(webFeedMedia, /revealsDecodedFramesOnly = true/);
   assert.match(webFeedMedia, /BlendMode\.Clear/);
   assert.match(webFeedMedia, /modifier = Modifier\.fillMaxSize\(\)/);
+  assert.match(webFeedMedia, /controlsBottomPadding = browserFeedVideoControlsBottomPadding\(isLandscape\)/);
+  assert.match(webFeedMedia, /if \(isLandscape\) 34\.dp else 10\.dp/);
   assert.doesNotMatch(webFeedMedia, /FeedMediaUnavailablePlaceholderContent\(/);
   assert.doesNotMatch(webCanvasImage, /CircularProgressIndicator|No se pudo cargar la imagen/);
   assert.match(webCanvasImage, /browserCanvasImageIsCacheable\(state\)/);

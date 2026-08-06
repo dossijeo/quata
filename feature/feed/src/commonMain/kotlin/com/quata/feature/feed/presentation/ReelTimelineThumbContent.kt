@@ -36,13 +36,13 @@ fun ReelTimelineThumbContent(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(8.dp)
-                .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                .height(10.dp)
+                .background(Color.White.copy(alpha = 0.24f), RoundedCornerShape(10.dp))
         )
         Box(
             modifier = Modifier
-                .size(10.dp)
-                .offset(x = (maxWidth - 10.dp) * progress.coerceIn(0f, 1f))
+                .size(12.dp)
+                .offset(x = (maxWidth - 12.dp) * progress.coerceIn(0f, 1f))
                 .background(QuataOrange, CircleShape)
         )
     }

@@ -162,7 +162,7 @@ import com.quata.feature.auth.presentation.login.LoginScreen
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordScreen
 import com.quata.feature.auth.presentation.register.RegisterScreen
 import com.quata.feature.chat.domain.SosRateLimitException
-import com.quata.feature.chat.presentation.chat.ChatScreen
+import com.quata.feature.chat.presentation.chat.AndroidChatProductScreen
 import com.quata.feature.chat.presentation.conversations.ConversationsScreen
 import com.quata.feature.feed.presentation.FeedScreen
 import com.quata.feature.externalshare.ExternalSharePayload
@@ -862,13 +862,15 @@ fun AppNavGraph(
                             navigateToFeed()
                         }
                     } else {
-                        ChatScreen(
+                        AndroidChatProductScreen(
                             padding = padding,
                             conversationId = conversationId,
                             repository = container.chatRepository,
                             clipboardService = container.clipboardService,
                             filePickerService = container.filePickerService,
+                            cameraCaptureService = container.cameraCaptureService,
                             audioRecorderService = container.audioRecorderService,
+                            audioPlayerService = container.audioPlayerService,
                             openingProfileUserId = globalProfileState.openingProfileUserId,
                             onOpenUserProfile = { userId ->
                                 globalProfileViewModel.openUserProfile(userId)

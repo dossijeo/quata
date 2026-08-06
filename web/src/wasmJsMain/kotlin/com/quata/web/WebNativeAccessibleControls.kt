@@ -3,9 +3,17 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeightIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.WebElementView
 import kotlinx.browser.document
 import org.w3c.dom.HTMLButtonElement
@@ -13,16 +21,48 @@ import org.w3c.dom.HTMLInputElement
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun WebNativeInput(value: String, onValueChange: (String) -> Unit, name: String, modifier: Modifier, inputType: String = "tel") {
-    WebElementView(
-        factory = { (document.createElement("input") as HTMLInputElement).apply {
-            type = inputType; setAttribute("aria-label", name)
-            style.width = "100%"; style.height = "100%"; style.boxSizing = "border-box"
-        } },
-        update = { input -> if (input.value != value) input.value = value; input.oninput = { onValueChange(input.value) } },
-        onRelease = { input -> input.oninput = null },
-        modifier = modifier.fillMaxWidth(),
-    )
+fun WebNativeInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    name: String,
+    modifier: Modifier,
+    inputType: String = "tel",
+    leadingIcon: (@Composable () -> Unit)? = null,
+    trailingIcon: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .requiredHeightIn(min = 62.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        leadingIcon?.let {
+            Box(Modifier.width(48.dp), contentAlignment = Alignment.Center) { it() }
+        }
+        WebElementView(
+            factory = {
+                (document.createElement("input") as HTMLInputElement).apply {
+                    type = inputType
+                    setAttribute("aria-label", name)
+                    style.width = "100%"
+                    style.height = "100%"
+                    style.boxSizing = "border-box"
+                }
+            },
+            update = { input ->
+                if (input.value != value) input.value = value
+                input.oninput = { onValueChange(input.value) }
+            },
+            onRelease = { input -> input.oninput = null },
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .padding(vertical = 3.dp),
+        )
+        trailingIcon?.let {
+            Box(Modifier.width(48.dp), contentAlignment = Alignment.Center) { it() }
+        }
+    }
 }
 
 @OptIn(ExperimentalComposeUiApi::class)

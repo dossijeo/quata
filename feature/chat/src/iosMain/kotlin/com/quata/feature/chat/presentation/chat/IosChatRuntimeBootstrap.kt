@@ -6,8 +6,10 @@ import com.quata.core.session.IosSupabaseAuthSessionRefresher
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.data.IosChatAttachmentUploader
+import com.quata.feature.chat.data.IosChatAttachmentDownloader
 import com.quata.feature.chat.data.IosChatAuthenticatedUserProvider
 import com.quata.feature.chat.data.IosChatPostgrestTransport
 import com.quata.feature.chat.data.IosChatRuntimeConfiguration
@@ -40,6 +42,9 @@ class IosChatRuntimeBootstrap(
             realtimeGateway = IosChatRealtimeGateway(configuration, authSession),
         )
     }
+    private val attachmentDownloader: IosChatAttachmentDownloader by lazy {
+        IosChatAttachmentDownloader(configuration, authSession)
+    }
 
     /** One repository instance preserves the common polling/state flows across route transitions. */
     fun repository(): ChatRepository = chatRepository
@@ -55,12 +60,17 @@ class IosChatRuntimeBootstrap(
         audioPlayer: AudioPlayerService,
         audioRecorder: AudioRecorderService,
         filePicker: FilePickerService,
+        cameraCapture: CameraCaptureService,
+        mediaViewerFactory: IosChatMediaViewerFactory,
         conversationId: String?,
         focusedMessageId: String?,
+        onFocusedMessageHandled: () -> Unit,
         languageTag: String,
         onOpenConversation: (String) -> Unit,
+        onOpenMessageConversation: (String, String) -> Unit,
         onBackToList: () -> Unit,
         onOpenAttachment: (PlatformFile) -> Unit,
+        onOpenExternalLink: (String) -> Unit,
         onOpenAvatar: (String) -> Unit,
         profileOpeningState: IosMemberProfileOpeningState,
     ): IosChatHostDependencies = IosChatHostDependencies(
@@ -68,12 +78,18 @@ class IosChatRuntimeBootstrap(
         audioPlayer = audioPlayer,
         audioRecorder = audioRecorder,
         filePicker = filePicker,
+        cameraCapture = cameraCapture,
+        attachmentDownloader = attachmentDownloader,
+        mediaViewerFactory = mediaViewerFactory,
         conversationId = conversationId,
         focusedMessageId = focusedMessageId,
+        onFocusedMessageHandled = onFocusedMessageHandled,
         languageTag = languageTag,
         onOpenConversation = onOpenConversation,
+        onOpenMessageConversation = onOpenMessageConversation,
         onBackToList = onBackToList,
         onOpenAttachment = onOpenAttachment,
+        onOpenExternalLink = onOpenExternalLink,
         onOpenAvatar = onOpenAvatar,
         profileOpeningState = profileOpeningState,
     )

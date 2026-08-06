@@ -61,7 +61,7 @@ export function accreditPublicMediaUrlsFromResponse({
   if (responseUrl.origin !== base.origin || originalRequestUrl.origin !== base.origin) return [];
   if (responseUrl.href !== originalRequestUrl.href || hasUserInfo(responseUrl) ||
       hasUnsafeUrlEncoding(url, responseUrl)) return [];
-  if (String(method ?? '').toUpperCase() !== 'GET' || !isCommunityPostsEndpoint(responseUrl)) return [];
+  if (String(method ?? '').toUpperCase() !== 'GET' || !isMediaAccreditingEndpoint(responseUrl)) return [];
   if (!Number.isInteger(status) || status < 200 || status >= 300) return [];
   if (!isJsonContentType(contentType) || serviceWorker === true || redirectedFromUrl || redirectedToUrl) return [];
 
@@ -84,7 +84,7 @@ export function publicMediaUrlsFromPayload(text, supabaseBaseUrl) {
   const result = new Set();
   for (const row of rows) {
     if (!row || typeof row !== 'object' || Array.isArray(row)) continue;
-    for (const field of ['image_url', 'video_url']) {
+    for (const field of ['image_url', 'video_url', 'media_url', 'avatar_url']) {
       const value = row[field];
       const candidate = typeof value === 'string' ? safelyParseUrl(value) : null;
       if (!candidate || candidate.origin !== base.origin || hasUserInfo(candidate) ||
@@ -119,11 +119,15 @@ function isPublicStorageObject(url, rawUrl = url.href) {
   if (!/^\/storage\/v1\/object\/public\/[^/?#]+\/[^?#]+$/i.test(url.pathname)) return false;
   return !hasUnsafePath(rawPathFromUrl(rawUrl, url));
 }
-function isAllowedMediaType(value) { return ['image', 'media'].includes(String(value ?? '').toLowerCase()); }
+function isAllowedMediaType(value) { return ['fetch', 'image', 'media'].includes(String(value ?? '').toLowerCase()); }
 function hasExactAccreditedMediaUrl(url, accreditedMediaUrls) {
   return accreditedMediaUrls instanceof Set && accreditedMediaUrls.has(url.href);
 }
-function isCommunityPostsEndpoint(url) { return url.pathname === '/rest/v1/community_posts'; }
+function isMediaAccreditingEndpoint(url) {
+  return url.pathname === '/rest/v1/community_posts' ||
+    url.pathname === '/rest/v1/official_posts' ||
+    url.pathname === '/rest/v1/community_profiles';
+}
 function isJsonContentType(value) { return /^(?:application\/json|application\/[^;]+\+json)(?:\s*;|$)/i.test(String(value ?? '')); }
 
 function hasSensitiveQuery(url, rawUrl) {

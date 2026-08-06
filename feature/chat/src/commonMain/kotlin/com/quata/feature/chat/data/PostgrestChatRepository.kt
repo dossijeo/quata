@@ -74,6 +74,7 @@ private data class RetryableOutgoingMessage(
     val attachmentMimeType: String?,
     val replyToMessageId: Long?,
     val clientMessageId: String,
+    val registeredAttachmentIds: List<Long>,
 )
 
 /**
@@ -344,6 +345,7 @@ open class PostgrestChatRepository(
             attachmentMimeType = pending.attachmentMimeType,
             replyToMessageId = pending.replyToMessageId,
             clientMessageId = pending.clientMessageId,
+            registeredAttachmentIds = pending.registeredAttachmentIds,
         )
     }
 
@@ -381,17 +383,36 @@ open class PostgrestChatRepository(
         mergeConversations(mapped); mergeMessages(envelope.toChatRpcMessages(userId)); _syncStatus.value = ChatSyncStatus.Online
         mapped.firstOrNull()?.id ?: throw IllegalStateException("web_chat_thread_response_missing")
     }.onFailure { updateReadFailure() }
-    private suspend fun sendTextMessage(conversationId: String, text: String, attachmentUri: String?, attachmentName: String?, attachmentMimeType: String?, replyToMessageId: Long?, clientMessageId: String?): Result<Unit> = runCatching {
+    private suspend fun sendTextMessage(
+        conversationId: String,
+        text: String,
+        attachmentUri: String?,
+        attachmentName: String?,
+        attachmentMimeType: String?,
+        replyToMessageId: Long?,
+        clientMessageId: String?,
+        registeredAttachmentIds: List<Long> = emptyList(),
+    ): Result<Unit> {
+        var reusableAttachmentIds = registeredAttachmentIds
+        return runCatching {
         require(text.isNotBlank() || !attachmentUri.isNullOrBlank()) { "web_chat_message_empty" }
         val userId = currentUserId(); val threadId = conversationId.requirePostgrestThreadId(); _syncStatus.value = ChatSyncStatus.Refreshing
-        val fileIds = attachmentUri?.takeIf { it.isNotBlank() }?.let { reference -> listOf(uploadAndRegisterAttachment(userId, threadId, PlatformFile(reference, attachmentName, attachmentMimeType))) }.orEmpty()
+        val fileIds = if (reusableAttachmentIds.isNotEmpty()) {
+            reusableAttachmentIds
+        } else {
+            attachmentUri?.takeIf { it.isNotBlank() }?.let { reference ->
+                listOf(uploadAndRegisterAttachment(userId, threadId, PlatformFile(reference, attachmentName, attachmentMimeType)))
+                    .also { reusableAttachmentIds = it }
+            }.orEmpty()
+        }
         val envelope = rpc("quata_chat_send_message", sendMessageRequest(userId, threadId, text.trim(), fileIds, replyToMessageId, clientMessageId))
         mergeConversations(envelope.toChatRpcConversations(userId)); mergeMessages(envelope.toChatRpcMessages(userId)); clientMessageId?.let(retryableOutgoing::remove); _syncStatus.value = ChatSyncStatus.Online
     }.onFailure {
         clientMessageId?.takeIf(String::isNotBlank)?.let { id ->
-            retryableOutgoing[id] = RetryableOutgoingMessage(conversationId, text, attachmentUri, attachmentName, attachmentMimeType, replyToMessageId, id)
+            retryableOutgoing[id] = RetryableOutgoingMessage(conversationId, text, attachmentUri, attachmentName, attachmentMimeType, replyToMessageId, id, reusableAttachmentIds)
         }
         updateReadFailure()
+    }
     }
     private suspend fun threadMutation(
         functionName: String,

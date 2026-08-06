@@ -140,8 +140,6 @@ import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.designsystem.theme.QuataThemeTemplate
 import com.quata.core.designsystem.theme.quataTheme
-import com.quata.designsystem.chat.ProceduralChatBackgroundCanvas
-import com.quata.designsystem.chat.proceduralChatBackgroundSpec
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.MessageDeliveryState
@@ -491,38 +489,19 @@ fun ChatScreen(
     }
 
     QuataScreen(padding) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(template.colors.background)
-        ) {
-            backgroundImage?.let { image ->
+        ChatProductScaffold(
+            conversationName = backgroundSeed,
+            renderedBackground = backgroundImage?.let { image ->
+                @Composable {
                 Image(
                     bitmap = image,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(template.colors.scrim)
-                )
-            } ?: backgroundSeed?.let { seed ->
-                ProceduralChatBackgroundCanvas(
-                    spec = proceduralChatBackgroundSpec(
-                        conversationName = seed,
-                        templateId = "${template.id}-clouds-v3",
-                        paletteCount = template.colors.chatBackgroundPalettes.size
-                    ),
-                    palettes = template.colors.chatBackgroundPalettes
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(template.colors.scrim)
-                )
-            }
+                }
+            },
+        ) {
             if (attachmentMenuExpanded) {
                 Box(
                     modifier = Modifier

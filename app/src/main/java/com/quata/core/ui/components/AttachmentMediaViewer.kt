@@ -460,6 +460,19 @@ fun AttachmentViewerDialog(
     }
 }
 
+/** Android renderer injected into the shared fullscreen Chat overlay. */
+@Composable
+fun AttachmentFullscreenMediaContent(
+    attachment: AttachmentPreview,
+    modifier: Modifier = Modifier,
+) {
+    when {
+        attachment.isImage -> ZoomableImage(attachment, modifier)
+        attachment.isVideo -> FullscreenVideoPlayer(attachment.uri, modifier)
+        else -> AttachmentThumbnail(attachment, modifier)
+    }
+}
+
 fun Context.openAttachmentWithChooser(attachment: AttachmentPreview) {
     val uri = Uri.parse(attachment.uri)
     val intent = Intent(Intent.ACTION_VIEW).apply {

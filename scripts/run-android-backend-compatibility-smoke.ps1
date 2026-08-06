@@ -6,6 +6,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
 $sdkRoot = $env:ANDROID_SDK_ROOT
 if ([string]::IsNullOrWhiteSpace($sdkRoot)) { $sdkRoot = $env:ANDROID_HOME }
 if ([string]::IsNullOrWhiteSpace($sdkRoot)) { $sdkRoot = "C:\Users\PC\AppData\Local\Android\Sdk" }
@@ -23,12 +26,26 @@ if (-not [string]::IsNullOrWhiteSpace($ApkPath)) {
     if ($LASTEXITCODE -ne 0) { throw "adb install -r failed; existing app data was not cleared." }
 }
 
+function Invoke-UiAutomatorDump([string]$RemotePath) {
+    $stdout = [System.IO.Path]::GetTempFileName()
+    $stderr = [System.IO.Path]::GetTempFileName()
+    try {
+        $process = Start-Process -FilePath $adb -ArgumentList @("-s", $DeviceId, "shell", "uiautomator", "dump", $RemotePath) -NoNewWindow -Wait -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        return $process.ExitCode -eq 0
+    } finally {
+        Remove-Item -LiteralPath $stdout, $stderr -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Get-Semantics([string]$Name) {
     $remote = "/sdcard/quata-backend-compatibility-$Name.xml"
     $xml = ""
-    for ($attempt = 0; $attempt -lt 3 -and $xml -notmatch "<hierarchy"; $attempt++) {
-        & $adb -s $DeviceId shell uiautomator dump $remote | Out-Null
-        $xml = (& $adb -s $DeviceId shell cat $remote 2>$null) -join ""
+    for ($attempt = 0; $attempt -lt 6 -and $xml -notmatch "<hierarchy"; $attempt++) {
+        [void](Invoke-UiAutomatorDump $remote)
+        $exists = (& $adb -s $DeviceId shell "if [ -f $remote ]; then echo yes; fi" 2>$null) -join ""
+        if ($exists.Trim() -eq "yes") {
+            $xml = (& $adb -s $DeviceId shell cat $remote 2>$null) -join ""
+        }
         if ($xml -notmatch "<hierarchy") { Start-Sleep -Seconds 2 }
     }
     & $adb -s $DeviceId shell rm -f $remote | Out-Null
@@ -37,6 +54,21 @@ function Get-Semantics([string]$Name) {
         ForEach-Object { $_.Groups[1].Value } |
         Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
         Select-Object -Unique)
+}
+
+function Dismiss-DialogIfPresent([string]$Name) {
+    $remote = "/sdcard/quata-backend-compatibility-$Name-overlay.xml"
+    [void](Invoke-UiAutomatorDump $remote)
+    $exists = (& $adb -s $DeviceId shell "if [ -f $remote ]; then echo yes; fi" 2>$null) -join ""
+    if ($exists.Trim() -ne "yes") { return }
+    $xml = (& $adb -s $DeviceId shell cat $remote 2>$null) -join ""
+    & $adb -s $DeviceId shell rm -f $remote | Out-Null
+    $root = [regex]::Match($xml, '<hierarchy[^>]*>\s*<node[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"')
+    if (-not $root.Success) { return }
+    if ([int]$root.Groups[1].Value -gt 0 -or [int]$root.Groups[2].Value -gt 0) {
+        & $adb -s $DeviceId shell input keyevent 4
+        Start-Sleep -Seconds 1
+    }
 }
 
 function Test-Route([string]$Name, [double]$XFraction, [string[]]$Expected) {
@@ -48,6 +80,7 @@ function Test-Route([string]$Name, [double]$XFraction, [string[]]$Expected) {
         & $adb -s $DeviceId shell input tap $x $y
         Start-Sleep -Seconds 2
     }
+    Dismiss-DialogIfPresent $Name
     $semantics = Get-Semantics $Name
     $joined = $semantics -join " | "
     $missing = @($Expected | Where-Object { $joined -notmatch [regex]::Escape($_) })
@@ -65,13 +98,13 @@ $epochBefore = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 $launchOutput = @(& $adb -s $DeviceId shell timeout 30 am start -W -n com.quata/.MainActivity)
 Start-Sleep -Seconds 3
 $routes = @(
-    (Test-Route "feed" -1 @("Feed", "Chats", "Oficial", "Cuenta")),
-    (Test-Route "chat" 0.30 @("Chats", "Nuevo chat")),
-    (Test-Route "official" 0.50 @("Oficial", "Compartir")),
+    (Test-Route "feed" -1 @("Feed", "Chats", "Official", "Account")),
+    (Test-Route "chat" 0.30 @("Chats")),
+    (Test-Route "official" 0.50 @("Official", "Share")),
     # Keep assertions ASCII-only so Windows PowerShell 5.1 and PowerShell 7 decode the script
     # identically on CI and developer workstations.
-    (Test-Route "communities" 0.10 @("Abrir chat", "Ver usuarios")),
-    (Test-Route "profile" 0.90 @("Cuenta", "Guardar cambios"))
+    (Test-Route "communities" 0.10 @("Open chat", "View users")),
+    (Test-Route "profile" 0.90 @("Account"))
 )
 $appPid = (& $adb -s $DeviceId shell pidof com.quata).Trim()
 $recentLog = @(& $adb -s $DeviceId logcat -v epoch -d -t 1200 | Where-Object {

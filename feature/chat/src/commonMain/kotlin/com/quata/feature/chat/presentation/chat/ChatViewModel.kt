@@ -75,7 +75,9 @@ class ChatViewModel(
         observeMessages()
         scope.launch {
             repository.observeParticipantCandidates()
-                .catch { emit(emptyList()) }
+                .catch {
+                    _uiState.value = _uiState.value.copy(error = text(ChatText.LoadCandidates))
+                }
                 .collect { candidates ->
                     _uiState.value = _uiState.value.copy(participantCandidates = candidates)
                 }
@@ -151,6 +153,7 @@ class ChatViewModel(
             ChatUiEvent.DeleteSelectedMessage -> deleteSelectedMessage()
             ChatUiEvent.ReportSelectedMessage -> reportSelectedMessage()
             ChatUiEvent.ClearNotice -> _uiState.value = _uiState.value.copy(notice = null)
+            ChatUiEvent.ClearError -> _uiState.value = _uiState.value.copy(error = null)
             ChatUiEvent.OpenForwardDialog -> openForwardPicker()
             ChatUiEvent.CloseForwardDialog -> closeForwardPicker()
             ChatUiEvent.SendForward -> sendForward()

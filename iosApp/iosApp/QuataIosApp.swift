@@ -427,6 +427,10 @@ private final class IosAppCompositionRoot {
                 }
                 return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewController()
             }
+        case "feed-playback":
+            return IosFeedPlaybackFixtureHostKt.QuataIosFeedPlaybackFixtureViewController(
+                mediaFactory: IosFeedNativeMediaFactory.shared
+            )
         case "authenticated":
             // This deliberately runs the production Kotlin deep-link parser and the same
             // UIKit route adapter as the authenticated launcher. The destination controllers
@@ -1701,11 +1705,23 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 audioPlayer: chatAudioPlayer,
                 audioRecorder: services.audioRecorder,
                 filePicker: services.filePicker,
+                cameraCapture: services.cameraCapture,
+                mediaViewerFactory: IosChatNativeMediaFactory.shared,
                 conversationId: conversationId,
                 focusedMessageId: messageId,
+                onFocusedMessageHandled: { [weak self] in
+                    if let conversationId {
+                        self?.showChat(conversationId: conversationId, messageId: nil)
+                    } else {
+                        self?.openChatList()
+                    }
+                },
                 languageTag: Locale.preferredLanguages.first ?? Locale.current.identifier,
                 onOpenConversation: { [weak self] conversationId in
                     self?.showChat(conversationId: conversationId, messageId: nil)
+                },
+                onOpenMessageConversation: { [weak self] conversationId, messageId in
+                    self?.showChat(conversationId: conversationId, messageId: messageId)
                 },
                 onBackToList: { [weak self] in
                     self?.openChatList()
@@ -1722,6 +1738,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                             self?.presentRemoteAttachmentDownloadFailureNotice()
                         }
                     }
+                },
+                onOpenExternalLink: { value in
+                    guard let url = URL(string: value),
+                          ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { return }
+                    UIApplication.shared.open(url)
                 },
                 onOpenAvatar: { profileId in
                     DispatchQueue.main.async { onOpenProfile(profileId) }

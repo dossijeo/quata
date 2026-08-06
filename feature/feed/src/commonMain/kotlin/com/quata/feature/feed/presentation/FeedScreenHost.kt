@@ -125,7 +125,14 @@ fun formatFeedLocationLabel(location: String): String = "\uD83D\uDCCD $location"
 
 /** Platform-only rendering and service hooks. The Feed state machine stays in commonMain. */
 data class FeedScreenPlatformSlots(
-    val media: @Composable BoxScope.(Post, Boolean, Long, (Long) -> Unit) -> Unit,
+    val media: @Composable BoxScope.(
+        post: Post,
+        isCurrent: Boolean,
+        initialPositionMs: Long,
+        onPositionChanged: (Long) -> Unit,
+        isFeedMuted: Boolean,
+        onFeedMuteChange: (Boolean) -> Unit,
+    ) -> Unit,
     val avatar: @Composable (Post) -> Unit = {},
     val rankingAvatar: @Composable (QuataLiveRankingItem) -> Unit = {},
     /** Presence-aware avatar hooks; legacy hooks remain available to Android and old hosts. */
@@ -200,6 +207,9 @@ fun FeedScreenHost(
     var deletionPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingDeletedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var liveOpen by rememberSaveable { mutableStateOf(false) }
+    // Audio is a Feed-wide product preference. Platform decoders consume this state; they do not
+    // own one independent mute flag per renderer or per route host.
+    var isFeedMuted by rememberSaveable { mutableStateOf(false) }
     var handledFocus by rememberSaveable { mutableStateOf<String?>(null) }
     var retainedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var hasAppliedRetainedPost by remember { mutableStateOf(retainedPostId == null) }
@@ -297,8 +307,22 @@ fun FeedScreenHost(
                             hasVideo = post.videoUrl != null,
                             hasImage = post.imageUrl != null,
                             hasText = post.text.parsePostShortcodeContent().cleanText.isNotBlank(),
-                            video = { slots.media(this, post, isCurrent, post.videoUrl?.let { videoPositions[it] } ?: 0L) { position -> post.videoUrl?.let { videoPositions[it] = position } } },
-                            image = { slots.media(this, post, isCurrent, 0L) {} },
+                            video = {
+                                slots.media(
+                                    this,
+                                    post,
+                                    isCurrent,
+                                    post.videoUrl?.let { videoPositions[it] } ?: 0L,
+                                    { position -> post.videoUrl?.let { videoPositions[it] = position } },
+                                    isFeedMuted,
+                                    { isFeedMuted = it },
+                                )
+                            },
+                            image = {
+                                slots.media(this, post, isCurrent, 0L, {}, isFeedMuted) {
+                                    isFeedMuted = it
+                                }
+                            },
                             text = {
                                 val shortcode = post.text.parsePostShortcodeContent()
                                 val meta = post.text.extractPostMeta()

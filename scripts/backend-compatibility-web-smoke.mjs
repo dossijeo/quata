@@ -127,7 +127,7 @@ try {
         payload,
       }, baseUrl)
       : [];
-    if (epoch && epoch.route === requestRoute && match[1] === "community_posts" && responseRequest.method() === "GET") {
+    if (epoch && epoch.route === requestRoute && isMediaAccreditingRestTable(match[1]) && responseRequest.method() === "GET") {
       settleMediaAccreditation(epoch, accredited);
     }
   });
@@ -137,7 +137,7 @@ try {
     // only a fixed category.
     if (match) failedBackendRequests.push({ table: match[1], reason: "request_failed" });
     const epoch = requestMediaEpochs.get(request);
-    if (epoch && isCommunityPostsGetRequest(request) && epoch.gate) settleMediaAccreditation(epoch, []);
+    if (epoch && isMediaAccreditingRestRequest(request) && epoch.gate) settleMediaAccreditation(epoch, []);
     if (epoch && isPublicStorageMediaRequest({ url: request.url(), resourceType: request.resourceType() }, baseUrl) && !mediaOutcomeRecorded.has(request)) {
       // Browser failure strings can contain a path/query, so the report uses
       // a stable category only. This preserves failure evidence safely.
@@ -170,9 +170,9 @@ try {
       redirectedFromUrl: redirectedFrom?.url(),
       applicationOrigin: server.origin,
     }, baseUrl);
-    // The gate is created only after the exact community_posts GET itself has
+    // The gate is created only after the exact media-accrediting REST GET itself has
     // passed the ordinary request policy. It is not an origin or URL allowlist.
-    if (decision.allowed && requestEpoch && requestEpoch.route === recordRequest(request).route && isCommunityPostsGetRequest(request)) {
+    if (decision.allowed && requestEpoch && requestEpoch.route === recordRequest(request).route && isMediaAccreditingRestRequest(request)) {
       openMediaAccreditationGate(requestEpoch);
     }
     const publicStorageCandidate = isPublicStorageMediaRequest({ url: request.url(), resourceType: request.resourceType() }, baseUrl);
@@ -343,6 +343,23 @@ process.exitCode = report.status === "passed" ? 0 : 1;
 function isCommunityPostsGetRequest(request) {
   try {
     return request.method() === "GET" && new URL(request.url()).pathname === "/rest/v1/community_posts";
+  } catch {
+    return false;
+  }
+}
+
+function isMediaAccreditingRestTable(table) {
+  return table === "community_posts" || table === "official_posts" || table === "community_profiles";
+}
+
+function isMediaAccreditingRestRequest(request) {
+  try {
+    const path = new URL(request.url()).pathname;
+    return request.method() === "GET" && (
+      path === "/rest/v1/community_posts" ||
+      path === "/rest/v1/official_posts" ||
+      path === "/rest/v1/community_profiles"
+    );
   } catch {
     return false;
   }

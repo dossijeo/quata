@@ -11,11 +11,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.quata.core.platform.BrowserClipboardService
+import com.quata.core.language.BrowserTranslationHttpTransport
+import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.AudioRecordingReferenceReleaser
@@ -24,9 +27,16 @@ import com.quata.core.platform.DocumentPreviewKind
 import com.quata.core.platform.DocumentSupport
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.FilePickerRequest
+import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
 import com.quata.feature.chat.domain.ChatRepository
-import com.quata.feature.chat.presentation.chat.ChatBrowserHostContent
+import com.quata.feature.chat.presentation.chat.ChatProductHostContent
+import com.quata.feature.chat.presentation.chat.ChatMediaPlatformSlots
+import com.quata.feature.chat.presentation.chat.FangChatTranslationGateway
+import com.quata.feature.chat.presentation.chat.chatTranslationDirectionForLanguage
+import com.quata.feature.chat.presentation.chat.chatTranslatorStringsForLanguage
 import com.quata.feature.chat.presentation.chat.chatTextForLanguage
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
@@ -46,8 +56,11 @@ fun WebChatHost(
     filePicker: FilePickerService,
     documentOpener: DocumentOpenService,
     conversationId: String?,
+    focusedMessageId: String? = null,
+    onFocusedMessageHandled: () -> Unit = {},
     navigationMessage: String,
     onOpenConversation: (String) -> Unit,
+    onOpenMessageConversation: (String, String) -> Unit,
     onBackToList: () -> Unit,
     onOpenUserProfile: (String) -> Unit,
     openingProfileUserId: String? = null,
@@ -64,6 +77,9 @@ fun WebChatHost(
         ConversationsViewModel(repository = repository, text = chatText)
     }
     val clipboard = remember { BrowserClipboardService() }
+    val translationGateway = remember {
+        FangChatTranslationGateway(FangTranslationService(transport = BrowserTranslationHttpTransport()))
+    }
     DisposableEffect(conversationsModel) { onDispose(conversationsModel::close) }
     DisposableEffect(repository) {
         repository.setAppForeground(chatBrowserDocumentIsVisible())
@@ -73,19 +89,48 @@ fun WebChatHost(
             repository.setAppForeground(false)
         }
     }
-    ChatBrowserHostContent(
+    ChatProductHostContent(
         repository = repository,
         audioPlayer = audioPlayer,
         audioRecorder = resolvedAudioRecorder,
         audioRecordingReferences = resolvedRecordingReferences,
         filePicker = filePicker,
+        capturePhoto = {
+            when (val result = filePicker.pick(FilePickerRequest(source = FilePickerSource.Camera))) {
+                is PlatformResult.Success -> result.value.firstOrNull()?.let { PlatformResult.Success(it) }
+                    ?: PlatformResult.Failure("camera_capture_empty")
+                is PlatformResult.Failure -> result
+                PlatformResult.Cancelled -> PlatformResult.Cancelled
+                PlatformResult.Unsupported -> PlatformResult.Unsupported
+            }
+        },
         conversationId = conversationId,
+        focusedMessageId = focusedMessageId,
+        onFocusedMessageHandled = onFocusedMessageHandled,
         navigationMessage = navigationMessage,
         onOpenConversation = onOpenConversation,
+        onOpenMessageConversation = onOpenMessageConversation,
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
+        onOpenExternalLink = ::openWebExternalLink,
         onOpenUserProfile = onOpenUserProfile,
         openingProfileUserId = openingProfileUserId,
+        onCopyMessage = { value -> scope.launch { clipboard.writeText(value) } },
+        remoteConversationAvatar = { presentation, avatarModifier ->
+            WebConversationAvatar(presentation, avatarModifier)
+        },
+        mediaSlots = ChatMediaPlatformSlots(
+            preview = { file, kind, mediaModifier ->
+                BrowserChatMediaContent(file, kind, viewer = false, modifier = mediaModifier)
+            },
+            viewer = { file, kind, mediaModifier ->
+                BrowserChatMediaContent(file, kind, viewer = true, modifier = mediaModifier)
+            },
+        ),
+        translationGateway = translationGateway,
+        translatorStrings = chatTranslatorStringsForLanguage(languageTag),
+        translationDirection = chatTranslationDirectionForLanguage(languageTag),
+        languageTag = languageTag,
         text = chatText,
         conversationList = { listModifier ->
             ConversationsScreenHost(
@@ -125,8 +170,20 @@ fun WebChatHost(
                 modifier = listModifier,
             )
         },
-        messageInputOverride = { value, onChange, modifier -> WebNativeInput(value, onChange, "Mensaje", modifier.height(56.dp), inputType = "text") },
-        sendButtonOverride = { enabled, onClick, modifier -> WebNativeButton("Enviar", enabled, onClick, modifier.height(48.dp)) },
+        messageInputOverride = { value, onChange, modifier, leadingIcon, trailingIcon ->
+            WebNativeInput(
+                value = value,
+                onValueChange = onChange,
+                name = "Mensaje",
+                modifier = modifier.height(62.dp),
+                inputType = "text",
+                leadingIcon = leadingIcon,
+                trailingIcon = trailingIcon,
+            )
+        },
+        sendButtonOverride = { enabled, onClick, modifier ->
+            WebNativeButton("Enviar", enabled, onClick, modifier.width(56.dp).height(48.dp))
+        },
         modifier = modifier,
     )
 }
@@ -174,14 +231,8 @@ private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenS
         DocumentPreviewKind.Pdf,
         DocumentPreviewKind.RichText,
         DocumentPreviewKind.Office -> documentOpener.open(this)
-        else -> reference.safeWebAttachmentUrl()?.let(::openWebExternalLink)
+        else -> reference.safeBrowserChatMediaUrl()?.let(::openWebExternalLink)
     }
 }
 
 private fun openWebExternalLink(url: String): Unit = js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
-
-private fun String.safeWebAttachmentUrl(): String? = takeIf {
-    startsWith("https://", ignoreCase = true) ||
-        startsWith("http://", ignoreCase = true) ||
-        startsWith("blob:", ignoreCase = true)
-}

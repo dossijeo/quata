@@ -82,6 +82,10 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
         layer.videoGravity = .resizeAspectFill
         layer.isOpaque = false
         layer.backgroundColor = UIColor.clear.cgColor
+        // AVPlayerLayer can paint its own light placeholder before the first decoded frame.
+        // Keep it transparent until AVFoundation confirms there is real media to display so
+        // the URL-derived Compose/native gradient remains visible while loading or on failure.
+        layer.opacity = 0
         root.layer.addSublayer(layer)
         root.playerLayer = layer
         self.player = player
@@ -139,6 +143,7 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
                 hasStartedPlayback: false, isEnded: false, error: reportedError,
             )
         }
+        playerLayer?.opacity = playerLayer?.isReadyForDisplay == true ? 1 : 0
         let positionSeconds = CMTimeGetSeconds(player.currentTime())
         let position = positionSeconds.isFinite && positionSeconds > 0
             ? Int64(positionSeconds * 1_000)

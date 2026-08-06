@@ -16,7 +16,6 @@ import androidx.compose.ui.viewinterop.UIKitView
 import com.quata.core.model.Post
 import com.quata.core.ui.textCanvasBrush
 import com.quata.core.ui.textCanvasPattern
-import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import kotlinx.coroutines.delay
 import platform.UIKit.UIView
 
@@ -118,8 +117,6 @@ private fun IosFeedVideoPlayback(
     }
     var feedback by remember(surface) { mutableStateOf<VideoPlaybackFeedback?>(null) }
     var feedbackTick by remember(surface) { mutableStateOf(0L) }
-    val landscape = rememberQuataWindowLayoutInfo().isLandscape
-
     LaunchedEffect(surface, isCurrent, isMuted, initialPositionMs) {
         surface.configure(isCurrent, isMuted, initialPositionMs)
     }
@@ -145,7 +142,7 @@ private fun IosFeedVideoPlayback(
             positionMs = playback.positionMs,
             durationMs = playback.durationMs,
             isMuted = isMuted,
-            showMuteButton = !landscape,
+            showMuteButton = true,
             hasStartedPlayback = playback.hasStartedPlayback,
             isEnded = playback.isEnded,
             error = playback.error,
@@ -166,7 +163,7 @@ private fun IosFeedVideoPlayback(
         onSeek = surface::seekTo,
         onEnded = { surface.seekTo(0L); surface.play() },
         onError = surface::retry,
-        onToggleMute = { onMuteChange(!isMuted) },
+        onToggleMute = { onMuteChange(toggledFeedMutedState(isMuted)) },
         modifier = Modifier.fillMaxSize(),
     )
 }

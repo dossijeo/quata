@@ -203,7 +203,6 @@ fun FeedScreen(
 ) {
     val context = LocalContext.current
     val translatorModeController = LocalQuataTranslatorModeController.current
-    var muted by rememberSaveable { mutableStateOf(false) }
     val landscape = rememberQuataWindowLayoutInfo().isLandscape
     DisposableEffect(Unit) { onDispose { onLandscapeCommentsOverlayActiveChange(false) } }
     FeedScreenHost(
@@ -249,11 +248,11 @@ fun FeedScreen(
             locationLabel = { stringResource(R.string.feed_location_chip, it) },
         ),
         slots = FeedScreenPlatformSlots(
-            media = { post, isCurrent, positionMs, onPositionChanged ->
+            media = { post, isCurrent, positionMs, onPositionChanged, isFeedMuted, onFeedMuteChange ->
                 AndroidFeedMediaSlot(
-                    post = post, isActive = isCurrent && isAppForeground, isMuted = muted,
+                    post = post, isActive = isCurrent && isAppForeground, isMuted = isFeedMuted,
                     networkReconnectToken = networkReconnectToken, isNetworkAvailable = isNetworkAvailable,
-                    initialVideoPositionMs = positionMs, onVideoPositionChanged = onPositionChanged, onMuteChange = { muted = it },
+                    initialVideoPositionMs = positionMs, onVideoPositionChanged = onPositionChanged, onMuteChange = onFeedMuteChange,
                 )
             },
             avatar = { post ->
@@ -492,7 +491,7 @@ private fun ReelVideo(
             positionMs = positionMs,
             durationMs = durationMs,
             isMuted = isMuted,
-            showMuteButton = !isLandscapeLayout,
+            showMuteButton = true,
             hasStartedPlayback = hasStartedPlayback,
             isEnded = player.playbackState == Player.STATE_ENDED,
             error = hasPlaybackError.takeIf { it }?.let { "feed_video_playback_failed" },
@@ -568,7 +567,7 @@ private fun ReelVideo(
             retryCount = 0
             startPlayback()
         },
-        onToggleMute = { onMuteChange(!isMuted) },
+        onToggleMute = { onMuteChange(toggledFeedMutedState(isMuted)) },
     )
 }
 

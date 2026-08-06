@@ -9,20 +9,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
 
-fun Conversation.chatDisplayTitle(): String = when {
-    isEmergency -> "\uD83D\uDEA8 SOS"
-    !communityName.isNullOrBlank() -> communityName.orEmpty()
-    isGroup && participantNames.isNotEmpty() && title.isGeneratedChatTitle(id) -> participantNames.joinToString(", ")
-    title.isNotBlank() -> title
-    isGroup && participantNames.isNotEmpty() -> participantNames.joinToString(", ")
-    else -> ""
-}
-
-private fun String.isGeneratedChatTitle(conversationId: String): Boolean {
-    val numericId = conversationId.substringAfterLast(':', missingDelimiterValue = "")
-    return numericId.isNotBlank() && this == "Chat $numericId"
-}
-
 fun Conversation.relativeUpdatedAt(context: Context, nowMillis: Long = System.currentTimeMillis()): String {
     val timestamp = updatedAtMillis ?: parseUpdatedAtMillis(updatedAt, nowMillis) ?: return updatedAt
     return relativeTimeLabel(context, timestamp, nowMillis)

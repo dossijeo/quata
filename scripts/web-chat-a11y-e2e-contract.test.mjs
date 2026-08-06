@@ -31,12 +31,13 @@ test("WEB-CHAT-A11Y-E2E-001 drives the real Compose chat host through exact nati
   assert.match(runner, /button\[aria-label="Enviar"\]/);
   assert.match(runner, /assertUniqueNativeAx\(page, \{ role: "textbox", name: "Mensaje"/);
   assert.match(runner, /assertUniqueNativeAx\(page, \{ role: "button", name: "Enviar"/);
-  assert.match(runner, /ariaDisabled: button\.getAttribute\("aria-disabled"\)/);
-  assert.match(runner, /native_chat_send_disabled_a11y_or_focus_invalid/);
+  assert.match(runner, /if \(await send\.count\(\) !== 0\) throw new Error\("native_chat_send_initial_state_changed"\)/);
+  assert.match(runner, /await message\.fill\(chatMarker\)[\s\S]*?await send\.waitFor\(\)/);
   assert.match(runner, /native_chat_send_disabled_callback_fired/);
   assert.match(runner, /await send\.focus\(\)/);
   assert.match(runner, /page\.keyboard\.press\("Enter"\)/);
   assert.match(runner, /await page\.waitForFunction\(marker => \{/);
+  assert.match(runner, /native_chat_empty_uses_common_primary_action_and_enabled_native_send_keyboard_callback_once/);
   assert.match(runner, /value\?\.version === 1 && value\.sends === 1 && value\.text === marker/);
   assert.match(runner, /await page\.waitForTimeout\(250\)/);
   assert.match(runner, /chatFixture\?\.sends !== 1 \|\| chatFixture\.text !== chatMarker/);
@@ -80,6 +81,6 @@ test("WEB-CHAT-A11Y-E2E-001 fixture is localhost/query gated, has no network cod
   assert.doesNotMatch(fixture, /fetch\(|WebChatRepository|http:\/\//i);
   assert.doesNotMatch(fixture, /accessToken|refreshToken|password|credential/i);
   assert.match(host, /repository: ChatRepository/);
-  assert.match(host, /WebNativeInput\(value, onChange, "Mensaje"/);
-  assert.match(host, /WebNativeButton\("Enviar", enabled, onClick/);
+  assert.match(host, /WebNativeInput\([\s\S]*?value = value[\s\S]*?leadingIcon = leadingIcon[\s\S]*?trailingIcon = trailingIcon/);
+  assert.match(host, /sendButtonOverride = \{ enabled, onClick, modifier ->[\s\S]*?WebNativeButton\("Enviar", enabled, onClick/);
 });

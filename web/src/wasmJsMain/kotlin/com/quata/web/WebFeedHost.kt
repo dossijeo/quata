@@ -3,10 +3,6 @@ package com.quata.web
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
@@ -29,7 +25,6 @@ fun WebFeedHost(
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(sharedPostId) { setWebFeedDetailMarker(sharedPostId) }
-    var isFeedMuted by rememberSaveable { mutableStateOf(false) }
     val windowLayout = rememberQuataWindowLayoutInfo()
     FeedScreenHost(
         padding = PaddingValues(),
@@ -37,14 +32,14 @@ fun WebFeedHost(
         focusedPostId = sharedPostId,
         isLandscape = windowLayout.isLandscape,
         slots = FeedScreenPlatformSlots(
-            media = { post, isCurrent, initialPositionMs, onPositionChanged ->
+            media = { post, isCurrent, initialPositionMs, onPositionChanged, isFeedMuted, onFeedMuteChange ->
                 BrowserFeedMediaContent(
                     post = post,
                     isCurrent = isCurrent,
                     isMuted = isFeedMuted,
                     initialPositionMs = initialPositionMs,
                     onPositionChanged = onPositionChanged,
-                    onMuteChange = { isFeedMuted = it },
+                    onMuteChange = onFeedMuteChange,
                 )
             },
             avatar = { post -> BrowserFeedAuthorAvatar(post, onOpenUserProfile, isLoading = openingProfileUserId == post.author.id) },

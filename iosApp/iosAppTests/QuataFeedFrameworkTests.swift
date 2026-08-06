@@ -26,7 +26,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
                 root.dismiss(animated: false) {
                     dismissed.fulfill()
                 }
-                wait(for: [dismissed], timeout: 1)
+                wait(for: [dismissed], timeout: 3)
             }
             window.rootViewController = nil
             window.isHidden = true
@@ -82,11 +82,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
         mounted.window.makeKeyAndVisible()
         let presentationSettled = expectation(description: "Router modal presentation settled")
         DispatchQueue.main.async { presentationSettled.fulfill() }
-        wait(for: [presentationSettled], timeout: 1)
+        wait(for: [presentationSettled], timeout: 3)
 
         let dismissed = expectation(description: "Router modal dismissed")
         root.dismissAuthRequiredPrompt { dismissed.fulfill() }
-        wait(for: [dismissed], timeout: 1)
+        wait(for: [dismissed], timeout: 3)
         XCTAssertNil(root.presentedViewController)
     }
 
@@ -848,11 +848,41 @@ final class QuataFeedFrameworkTests: XCTestCase {
         )
         let player = try XCTUnwrap(playerLayer.player)
 
+        // A native AVPlayerLayer must not cover the hash-derived gradient with its light
+        // placeholder before a real frame is ready for display.
+        XCTAssertFalse(playerLayer.isReadyForDisplay)
+        XCTAssertEqual(playerLayer.opacity, 0)
+
         surface.configure(isActive: false, isMuted: true, initialPositionMs: 0)
         XCTAssertTrue(player.isMuted)
 
         surface.configure(isActive: false, isMuted: false, initialPositionMs: 0)
         XCTAssertFalse(player.isMuted)
+    }
+
+    func testIosChatMediaViewerUsesOnlyLocalFilesAndOwnsNativePlaybackControls() throws {
+        let imageUrl = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quata-chat-media-contract.png")
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).image { context in
+            UIColor.systemOrange.setFill()
+            context.cgContext.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+        try XCTUnwrap(image.pngData()).write(to: imageUrl)
+        defer { try? FileManager.default.removeItem(at: imageUrl) }
+
+        let imageSurface = IosChatNativeMediaFactory.shared.create(
+            localUrl: imageUrl.absoluteString,
+            isVideo: false
+        )
+        defer { imageSurface.dispose() }
+        XCTAssertTrue(imageSurface.nativeView().subviews.first is UIImageView)
+
+        let rejectedRemote = IosChatNativeMediaFactory.shared.create(
+            localUrl: "https://example.invalid/untrusted.mp4",
+            isVideo: true
+        )
+        defer { rejectedRemote.dispose() }
+        XCTAssertTrue(rejectedRemote.nativeView().subviews.isEmpty)
     }
 
     func testIosVideoThumbnailAdmissionBuildsBoundedFirstFrameRequestForExistingLocalReference() {

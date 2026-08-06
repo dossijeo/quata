@@ -1,16 +1,18 @@
 package com.quata.feature.feed.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -26,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.quata.core.ui.components.CompactIcon
@@ -78,6 +81,7 @@ fun FeedReelVideoPlaybackHostContent(
     onError: () -> Unit,
     onToggleMute: () -> Unit,
     modifier: Modifier = Modifier,
+    controlsBottomPadding: Dp = 10.dp,
 ) {
     fun toggle(showFeedback: Boolean) = when {
         state.error != null -> onError()
@@ -110,17 +114,23 @@ fun FeedReelVideoPlaybackHostContent(
         Row(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 12.dp, end = 96.dp, bottom = 8.dp)
+                .padding(start = 10.dp, end = 74.dp, bottom = controlsBottomPadding)
                 .fillMaxWidth()
-                .background(Color.Black.copy(alpha = 0.42f), RoundedCornerShape(18.dp))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .height(46.dp)
+                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(18.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(18.dp))
+                .padding(horizontal = 8.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            CompactIconButton(onClick = { toggle(showFeedback = false) }) {
+            CompactIconButton(
+                onClick = { toggle(showFeedback = false) },
+                modifier = Modifier.background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(18.dp)),
+            ) {
                 CompactIcon(
-                    imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    imageVector = feedPlaybackPlayPauseIcon(state.isPlaying),
                     contentDescription = if (state.isPlaying) strings.pause else strings.play,
+                    modifier = Modifier.size(30.dp),
                     tint = Color.White,
                 )
             }
@@ -138,16 +148,19 @@ fun FeedReelVideoPlaybackHostContent(
                 text = formatFeedReelPlaybackTime(state.positionMs, state.durationMs),
                 color = Color.White,
                 fontSize = 12.sp,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.widthIn(min = 74.dp),
             )
             if (state.showMuteButton) {
-                CompactIconButton(onClick = onToggleMute) {
+                CompactIconButton(
+                    onClick = onToggleMute,
+                    modifier = Modifier.background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(18.dp)),
+                ) {
                     CompactIcon(
-                        imageVector = if (state.isMuted) {
-                            Icons.AutoMirrored.Filled.VolumeOff
-                        } else {
-                            Icons.AutoMirrored.Filled.VolumeUp
-                        },
+                        imageVector = feedPlaybackVolumeIcon(state.isMuted),
                         contentDescription = if (state.isMuted) strings.unmute else strings.mute,
+                        modifier = Modifier.size(30.dp),
                         tint = Color.White,
                     )
                 }
@@ -155,6 +168,15 @@ fun FeedReelVideoPlaybackHostContent(
         }
     }
 }
+
+internal fun feedPlaybackVolumeIcon(isMuted: Boolean): ImageVector =
+    if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp
+
+internal fun feedPlaybackPlayPauseIcon(isPlaying: Boolean): ImageVector =
+    if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow
+
+/** Single product-level transition shared by every Feed renderer. */
+fun toggledFeedMutedState(isMuted: Boolean): Boolean = !isMuted
 
 /**
  * Keeps the Android reel-feedback silhouette while avoiding font-dependent control glyphs.

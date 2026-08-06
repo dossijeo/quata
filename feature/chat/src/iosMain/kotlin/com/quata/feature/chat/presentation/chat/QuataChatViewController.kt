@@ -6,14 +6,19 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.platform.IosClipboardService
+import com.quata.core.language.FangTranslationService
+import com.quata.core.language.IosTranslationHttpTransport
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.domain.ChatRepository
+import com.quata.feature.chat.data.IosChatAttachmentDownloader
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarKind
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.ConversationsScreenHost
@@ -24,6 +29,7 @@ import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.IosMemberProfileOpeningState
 import platform.UIKit.UIViewController
+import kotlinx.coroutines.launch
 
 /**
  * iOS composition input for the shared chat list, bubble stream and composer.
@@ -37,9 +43,14 @@ class IosChatHostDependencies(
     val audioPlayer: AudioPlayerService,
     val audioRecorder: AudioRecorderService,
     val filePicker: FilePickerService,
+    val cameraCapture: CameraCaptureService,
+    val attachmentDownloader: IosChatAttachmentDownloader,
+    val mediaViewerFactory: IosChatMediaViewerFactory,
     val conversationId: String? = null,
     /** Optional deep-link target; common UI resolves it only against messages already present. */
     val focusedMessageId: String? = null,
+    /** Platform router callback that clears the one-shot deep-link target after common UI consumes it. */
+    val onFocusedMessageHandled: () -> Unit,
     val languageTag: String,
     val navigationMessage: String = "Quata para iOS",
     /** AVFoundation records AAC in an MP4 container; Web stays on the common WebM default. */
@@ -47,15 +58,14 @@ class IosChatHostDependencies(
         mimeType = ChatAudioRecordingConfiguration.IOS_MIME_TYPE,
     ),
     val onOpenConversation: (String) -> Unit,
+    val onOpenMessageConversation: (String, String) -> Unit,
     val onBackToList: () -> Unit,
     /** Host slot for image/document/audio/map URIs selected from a shared bubble. */
     val onOpenAttachment: (PlatformFile) -> Unit,
     /** Host slot reserved for a platform avatar/profile destination. */
     val onOpenAvatar: (String) -> Unit = {},
-    /** Host slot for map/location attachment navigation. */
-    val onOpenMap: (String) -> Unit = {},
-    /** Host slot for translation UI owned by the launcher. */
-    val onTranslateMessage: (String) -> Unit = {},
+    /** Host slot for validated HTTP(S) links, including map/location destinations. */
+    val onOpenExternalLink: (String) -> Unit,
     val profileOpeningState: IosMemberProfileOpeningState,
 )
 
@@ -75,25 +85,51 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 )
             }
             val clipboard = remember { IosClipboardService() }
+            val translationGateway = remember {
+                FangChatTranslationGateway(FangTranslationService(transport = IosTranslationHttpTransport()))
+            }
+            val scope = rememberCoroutineScope()
             val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
             DisposableEffect(conversationsModel) { onDispose(conversationsModel::close) }
             DisposableEffect(dependencies.repository) {
                 dependencies.repository.setAppForeground(true)
                 onDispose { dependencies.repository.setAppForeground(false) }
             }
-            ChatBrowserHostContent(
+            ChatProductHostContent(
                 repository = dependencies.repository,
                 audioPlayer = dependencies.audioPlayer,
                 audioRecorder = dependencies.audioRecorder,
                 filePicker = dependencies.filePicker,
+                capturePhoto = { dependencies.cameraCapture.capturePhoto() },
                 conversationId = dependencies.conversationId,
                 focusedMessageId = dependencies.focusedMessageId,
+                onFocusedMessageHandled = dependencies.onFocusedMessageHandled,
                 navigationMessage = dependencies.navigationMessage,
                 onOpenConversation = dependencies.onOpenConversation,
+                onOpenMessageConversation = dependencies.onOpenMessageConversation,
                 onBackToList = dependencies.onBackToList,
-        onOpenAttachment = dependencies.onOpenAttachment,
+                onOpenAttachment = dependencies.onOpenAttachment,
+                onOpenExternalLink = dependencies.onOpenExternalLink,
                 onOpenUserProfile = dependencies.onOpenAvatar,
                 openingProfileUserId = openingProfileUserId,
+                onCopyMessage = { value -> scope.launch { clipboard.writeText(value) } },
+                remoteConversationAvatar = { presentation, avatarModifier ->
+                    IosRemoteAvatar(
+                        name = presentation.name,
+                        stableId = presentation.stableId,
+                        avatarUrl = presentation.avatarUrl,
+                        modifier = avatarModifier,
+                    )
+                },
+                mediaSlots = iosChatMediaPlatformSlots(
+                    downloader = dependencies.attachmentDownloader,
+                    viewerFactory = dependencies.mediaViewerFactory,
+                    retryLabel = chatChromeStringsForLanguage(languageTag).retry,
+                ),
+                translationGateway = translationGateway,
+                translatorStrings = chatTranslatorStringsForLanguage(languageTag),
+                translationDirection = chatTranslationDirectionForLanguage(languageTag),
+                languageTag = languageTag,
                 text = chatText,
                 conversationList = { listModifier ->
                     ConversationsScreenHost(

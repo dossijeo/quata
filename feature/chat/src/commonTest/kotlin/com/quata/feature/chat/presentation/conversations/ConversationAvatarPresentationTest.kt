@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.conversations
 
 import com.quata.core.model.Conversation
+import com.quata.core.model.Message
 import com.quata.core.model.User
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -50,6 +51,55 @@ class ConversationAvatarPresentationTest {
         assertFalse(result.isLoading)
     }
 
+    @Test fun messageAvatarUsesResolvedSenderImageAndProfile() {
+        val message = Message(
+            id = "message",
+            conversationId = "conversation",
+            senderId = other.id,
+            senderName = "Stale name",
+            text = "Mbolo",
+            sentAt = "2026-08-04T08:03:00Z",
+        )
+
+        val result = resolveMessageAvatarPresentation(message, other, openingProfileUserId = other.id)
+
+        assertEquals(ConversationAvatarKind.Private, result.kind)
+        assertEquals(other.displayName, result.name)
+        assertEquals(other.avatarUrl, result.avatarUrl)
+        assertEquals(other.id, result.profileId)
+        assertEquals(other.id, result.stableId)
+        assertTrue(result.isLoading)
+    }
+
+    @Test fun messageAvatarFallsBackToMessageIdentityWithoutSenderRecord() {
+        val message = Message(
+            id = "message",
+            conversationId = "conversation",
+            senderId = "missing",
+            senderName = "Invitado",
+            text = "Hola",
+            sentAt = "2026-08-04T08:03:00Z",
+        )
+
+        val result = resolveMessageAvatarPresentation(message, sender = null, openingProfileUserId = null)
+
+        assertEquals("Invitado", result.name)
+        assertEquals("missing", result.stableId)
+        assertEquals("missing", result.profileId)
+        assertNull(result.avatarUrl)
+        assertFalse(result.isLoading)
+    }
+
+    @Test fun senderAvatarGutterMatchesAndroidGroupRule() {
+        val incoming = message(isMine = false)
+        val mine = message(isMine = true)
+
+        assertTrue(shouldShowMessageSenderAvatar(conversation(isGroup = true), incoming))
+        assertFalse(shouldShowMessageSenderAvatar(conversation(isGroup = true), mine))
+        assertFalse(shouldShowMessageSenderAvatar(conversation(isGroup = false), incoming))
+        assertFalse(shouldShowMessageSenderAvatar(null, incoming))
+    }
+
     private fun resolve(value: Conversation, users: Map<String, User>, opening: String? = null) =
         resolveConversationAvatarPresentation(value, me, users, "Grupo", opening)
 
@@ -57,4 +107,14 @@ class ConversationAvatarPresentationTest {
         participantIds: List<String> = emptyList(), isGroup: Boolean = false, isEmergency: Boolean = false,
         avatarUrl: String? = null, isMuted: Boolean = false,
     ) = Conversation("conversation", "Grupo", avatarUrl, "", participantIds = participantIds, isGroup = isGroup, isEmergency = isEmergency, isMuted = isMuted)
+
+    private fun message(isMine: Boolean) = Message(
+        id = if (isMine) "mine" else "incoming",
+        conversationId = "conversation",
+        senderId = if (isMine) me.id else other.id,
+        senderName = if (isMine) me.displayName else other.displayName,
+        text = "Hola",
+        sentAt = "2026-08-04T08:03:00Z",
+        isMine = isMine,
+    )
 }

@@ -11,16 +11,24 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import com.quata.core.designsystem.theme.quataTheme
+import org.jetbrains.compose.resources.painterResource
+import quata.designsystem.generated.resources.Res
+import quata.designsystem.generated.resources.quata_translator_frosted_texture
 
-/** Shared backdrop renderer. Platforms may supply a local frosted texture or omit it. */
+/** Shared backdrop renderer. Platforms may supply a captured surface or the Android texture. */
 @Composable
 fun QuataTranslatorBackdrop(
     background: QuataTranslatorBackground?,
-    frostedTexture: Painter?,
+    frostedTexture: Painter? = null,
     modifier: Modifier = Modifier,
 ) {
     val template = quataTheme()
-    Box(modifier = modifier.background(template.colors.background)) {
+    val sharedFrostedTexture = frostedTexture ?: painterResource(Res.drawable.quata_translator_frosted_texture)
+    Box(
+        modifier = modifier.background(
+            if (background != null) template.colors.background else Color(0x6652504D),
+        ),
+    ) {
         background?.let {
             Image(
                 bitmap = it.image,
@@ -29,14 +37,12 @@ fun QuataTranslatorBackdrop(
                 contentScale = ContentScale.FillBounds,
             )
         }
-        frostedTexture?.let {
-            Image(
-                painter = it,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 0.70f },
-                contentScale = ContentScale.Crop,
-            )
-        }
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.16f)))
+        Image(
+            painter = sharedFrostedTexture,
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 0.70f },
+            contentScale = ContentScale.Crop,
+        )
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.18f)))
     }
 }

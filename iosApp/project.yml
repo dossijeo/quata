@@ -73,6 +73,7 @@ targets:
           - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_food_drink.png
           - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_objects_symbols.png
           - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_community_emoji_atlas_flags.png
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/quata.designsystem.generated.resources/drawable/quata_translator_frosted_texture.jpg
   QuataShareQueue:
     type: library.static
     platform: iOS

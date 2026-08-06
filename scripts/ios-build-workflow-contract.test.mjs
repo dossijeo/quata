@@ -162,8 +162,9 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
   const inboxFilesystemTest = yaml.indexOf('      - name: Run iOS external share inbox filesystem contract');
   const officialPublicReadTest = yaml.indexOf('      - name: Run iOS Official public read contract');
   const profileRuntimeTest = yaml.indexOf('      - name: Run iOS Profile runtime contract');
+  const feedPlaybackTest = yaml.indexOf('      - name: Run iOS Feed playback public-runtime UI test');
   const testStep = yaml.indexOf('      - name: Test Swift/Kotlin iOS host boundary');
-  assert.ok(fixtureProbe >= 0 && bootSimulator > fixtureProbe && inboxFilesystemTest > bootSimulator && officialPublicReadTest > inboxFilesystemTest && profileRuntimeTest > officialPublicReadTest && testStep > profileRuntimeTest,
+  assert.ok(fixtureProbe >= 0 && bootSimulator > fixtureProbe && inboxFilesystemTest > bootSimulator && officialPublicReadTest > inboxFilesystemTest && profileRuntimeTest > officialPublicReadTest && feedPlaybackTest > profileRuntimeTest && testStep > feedPlaybackTest,
     'the valid xcconfig fixture probe must remain before the isolated UI test');
 
   const fixtureBlock = yaml.slice(fixtureProbe, testStep);
@@ -196,7 +197,7 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
     'the Official test must reuse the explicitly booted simulator',
   );
 
-  const profileTestBlock = yaml.slice(profileRuntimeTest, testStep);
+  const profileTestBlock = yaml.slice(profileRuntimeTest, feedPlaybackTest);
   assert.match(
     profileTestBlock,
     /:feature:profile:iosSimulatorArm64Test/,
@@ -205,6 +206,25 @@ function assertIosRuntimeFixtureAndUiIsolation(yaml) {
   assert.match(profileTestBlock, /xcrun simctl bootstatus "\$simulator_udid" -b/);
   assert.doesNotMatch(profileTestBlock, /compileTestKotlin|continue-on-error|timeout-minutes/,
     'the focal Profile lane must execute without skipping or weakening the test gate');
+
+  const feedPlaybackBlock = yaml.slice(feedPlaybackTest, testStep);
+  assert.match(
+    feedPlaybackBlock,
+    /run_watchdog 420 build\/reports\/ios\/xcodebuild-feed-playback-tests\.log xcodebuild[\s\S]*?-only-testing:QuataIosUITests\/QuataIosFeedPlaybackUITests[\s\S]*?-parallel-testing-enabled NO[\s\S]*?test/,
+    'the Feed playback UI test must run alone against the valid public runtime fixture',
+  );
+  assert.match(
+    feedPlaybackBlock,
+    /grep -F "QuataIosFeedPlaybackUITests testFeedMuteIconTogglesTheSharedAudioState" build\/reports\/ios\/xcodebuild-feed-playback-tests\.log[\s\S]*?grep -F "passed"[\s\S]*?Feed playback focal XCTest did not report a passed semantic execution/,
+    'the Feed playback focal step must fail closed unless the expected XCTest reports a passed execution',
+  );
+  assert.match(
+    feedPlaybackBlock,
+    /grep -Ei "skipped\|disabled"[\s\S]*?Feed playback focal XCTest was skipped or disabled/,
+    'the Feed playback focal step must reject skipped or disabled executions',
+  );
+  assert.doesNotMatch(feedPlaybackBlock, /QUATA_SUPABASE_URL=|QUATA_SUPABASE_PUBLISHABLE_KEY=/,
+    'the Feed playback UI test must not blank the public runtime fixture');
 
   const uiTestBlock = yaml.slice(testStep, yaml.indexOf('      - name: Capture simulator diagnostics', testStep));
   const invocation = effectiveContinuedCommand(uiTestBlock, 'run_watchdog 1200');
@@ -446,8 +466,8 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     [
       'comment terminates the continued xcodebuild command',
       yaml.replace(
-        '            CODE_SIGNING_REQUIRED=NO \\\n            -test-timeouts-enabled YES',
-        '            CODE_SIGNING_REQUIRED=NO \\\n            # misplaced continuation comment\n            -test-timeouts-enabled YES',
+        '            -maximum-test-execution-time-allowance 180 \\\n            -skip-testing:QuataIosUITests/QuataIosFeedPlaybackUITests',
+        '            -maximum-test-execution-time-allowance 180 \\\n            # misplaced continuation comment\n            -skip-testing:QuataIosUITests/QuataIosFeedPlaybackUITests',
       ),
     ],
     [

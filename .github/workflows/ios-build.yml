@@ -456,6 +456,62 @@ jobs:
             --console=plain \
             2>&1 | tee build/reports/ios/profile-runtime-ios-test.log
 
+      - name: Run iOS Feed playback public-runtime UI test
+        # This UI test mounts the shared Feed playback chrome with a deterministic Kotlin fixture.
+        # The hermetic public runtime above is deliberately non-routable and is validated by the
+        # launcher contract; playback must not depend on remote Feed rows in this lane.
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          simulator_udid="${QUATA_IOS_SIMULATOR_UDID:?The runtime setup did not publish a simulator UUID}"
+          destination="platform=iOS Simulator,id=$simulator_udid"
+          run_watchdog() {
+            local timeout_seconds="$1"
+            local log_file="$2"
+            shift 2
+            local status
+            if python3 scripts/run-ios-command-watchdog.py \
+              --timeout-seconds "$timeout_seconds" \
+              --log "$log_file" \
+              -- "$@"; then
+              status=0
+            else
+              status=$?
+            fi
+            cat "$log_file"
+            return "$status"
+          }
+          run_watchdog 420 build/reports/ios/xcodebuild-feed-playback-tests.log xcodebuild \
+            -project iosApp/QuataIos.xcodeproj \
+            -scheme QuataIos \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "$destination" \
+            -derivedDataPath build/ios-derived-data \
+            -resultBundlePath build/reports/ios/QuataIos-feed-playback-tests.xcresult \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 90 \
+            -maximum-test-execution-time-allowance 180 \
+            -only-testing:QuataIosUITests/QuataIosFeedPlaybackUITests \
+            -parallel-testing-enabled NO \
+            -maximum-parallel-testing-workers 1 \
+            test
+          if ! grep -F "QuataIosFeedPlaybackUITests testFeedMuteIconTogglesTheSharedAudioState" build/reports/ios/xcodebuild-feed-playback-tests.log \
+            | grep -F "passed" >/dev/null; then
+            echo "::error::Feed playback focal XCTest did not report a passed semantic execution"
+            exit 1
+          fi
+          if grep -F "QuataIosFeedPlaybackUITests testFeedMuteIconTogglesTheSharedAudioState" build/reports/ios/xcodebuild-feed-playback-tests.log \
+            | grep -Ei "skipped|disabled" >/dev/null; then
+            echo "::error::Feed playback focal XCTest was skipped or disabled"
+            exit 1
+          fi
+
       - name: Test Swift/Kotlin iOS host boundary
         # Twenty minutes for xcodebuild plus the watchdog's SIGTERM/SIGKILL grace.
         timeout-minutes: 22
@@ -500,6 +556,7 @@ jobs:
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 90 \
             -maximum-test-execution-time-allowance 180 \
+            -skip-testing:QuataIosUITests/QuataIosFeedPlaybackUITests \
             QUATA_SUPABASE_URL= \
             QUATA_SUPABASE_PUBLISHABLE_KEY= \
             -parallel-testing-enabled NO \
