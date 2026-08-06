@@ -3,9 +3,35 @@ import XCTest
 final class QuataIosFeedPlaybackUITests: XCTestCase {
     func testFeedMuteIconTogglesTheSharedAudioState() {
         let app = XCUIApplication()
-        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launchArguments += [
+            "-AppleLanguages", "(es)",
+            "-AppleLocale", "es_ES",
+            "-quata-ui-test-fixture", "feed-playback",
+        ]
         app.launch()
-        dismissStartupWhatsNewIfPresent(app)
+
+        let playPause = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@ OR label == %@", "Reproducir", "Pausar"))
+            .firstMatch
+        guard playPause.waitForExistence(timeout: 20) else {
+            attachScreenshot(app, name: "feed-play-pause-control-missing")
+            XCTFail(app.debugDescription)
+            return
+        }
+        attachScreenshot(app, name: "feed-before-play-pause")
+        let initialPlayPauseLabel = playPause.label
+        playPause.tap()
+        let expectedPlayPauseLabel = initialPlayPauseLabel == "Reproducir" ? "Pausar" : "Reproducir"
+        let toggledPlayPause = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", expectedPlayPauseLabel))
+            .firstMatch
+        guard toggledPlayPause.waitForExistence(timeout: 5) else {
+            attachScreenshot(app, name: "feed-play-pause-toggle-missing")
+            XCTFail(app.debugDescription)
+            return
+        }
+        attachScreenshot(app, name: "feed-after-play-pause")
+        toggledPlayPause.tap()
 
         let mute = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label == %@", "Silenciar"))

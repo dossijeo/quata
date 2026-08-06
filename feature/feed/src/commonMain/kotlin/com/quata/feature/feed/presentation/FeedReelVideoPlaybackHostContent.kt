@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -114,15 +114,19 @@ fun FeedReelVideoPlaybackHostContent(
         Row(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 10.dp, end = 82.dp, bottom = controlsBottomPadding)
+                .padding(start = 10.dp, end = 74.dp, bottom = controlsBottomPadding)
                 .fillMaxWidth()
-                .background(Color.Black.copy(alpha = 0.68f), RoundedCornerShape(18.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                .height(46.dp)
+                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(18.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(18.dp))
+                .padding(horizontal = 8.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            CompactIconButton(onClick = { toggle(showFeedback = false) }) {
+            CompactIconButton(
+                onClick = { toggle(showFeedback = false) },
+                modifier = Modifier.background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(18.dp)),
+            ) {
                 CompactIcon(
                     imageVector = feedPlaybackPlayPauseIcon(state.isPlaying),
                     contentDescription = if (state.isPlaying) strings.pause else strings.play,
@@ -149,7 +153,10 @@ fun FeedReelVideoPlaybackHostContent(
                 modifier = Modifier.widthIn(min = 74.dp),
             )
             if (state.showMuteButton) {
-                CompactIconButton(onClick = onToggleMute) {
+                CompactIconButton(
+                    onClick = onToggleMute,
+                    modifier = Modifier.background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(18.dp)),
+                ) {
                     CompactIcon(
                         imageVector = feedPlaybackVolumeIcon(state.isMuted),
                         contentDescription = if (state.isMuted) strings.unmute else strings.mute,

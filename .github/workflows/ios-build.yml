@@ -457,9 +457,9 @@ jobs:
             2>&1 | tee build/reports/ios/profile-runtime-ios-test.log
 
       - name: Run iOS Feed playback public-runtime UI test
-        # This UI test needs the hermetic public runtime fixture installed above so the real
-        # Feed can mount and expose the shared playback controls. The following full host-boundary
-        # suite intentionally blanks the public configuration to test the fail-closed launcher.
+        # This UI test mounts the shared Feed playback chrome with a deterministic Kotlin fixture.
+        # The hermetic public runtime above is deliberately non-routable and is validated by the
+        # launcher contract; playback must not depend on remote Feed rows in this lane.
         timeout-minutes: 8
         shell: bash
         run: |

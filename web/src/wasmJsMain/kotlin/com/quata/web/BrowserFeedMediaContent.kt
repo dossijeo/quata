@@ -102,6 +102,7 @@ private fun BrowserFeedVideoContent(
     var hasStartedPlayback by remember(videoUrl) { mutableStateOf(initialPositionMs > 0L) }
     var isEnded by remember(videoUrl) { mutableStateOf(false) }
     var playbackError by remember(videoUrl) { mutableStateOf<String?>(null) }
+    var hasRenderableFrame by remember(videoUrl) { mutableStateOf(false) }
     var positionMs by remember(videoUrl) { mutableLongStateOf(initialPositionMs) }
     var durationMs by remember(videoUrl) { mutableLongStateOf(0L) }
     var feedback by remember(videoUrl) { mutableStateOf<VideoPlaybackFeedback?>(null) }
@@ -186,6 +187,7 @@ private fun BrowserFeedVideoContent(
                     isReleased = { released.value },
                     onMetadata = { duration ->
                         durationMs = (duration * 1_000.0).toLong().coerceAtLeast(0L)
+                        hasRenderableFrame = browserFeedVideoHasRenderableFrame(this)
                         if (!appliedInitialPosition && initialPositionMs > 0L) {
                             currentTime = initialPositionMs / 1_000.0
                             persistPosition(initialPositionMs)
@@ -194,6 +196,7 @@ private fun BrowserFeedVideoContent(
                     },
                     onProgress = { position, duration ->
                         durationMs = (duration * 1_000.0).toLong().coerceAtLeast(0L)
+                        hasRenderableFrame = browserFeedVideoHasRenderableFrame(this)
                         persistPosition((position * 1_000.0).toLong())
                         if (position > 0.0) hasStartedPlayback = true
                     },
@@ -205,11 +208,15 @@ private fun BrowserFeedVideoContent(
                     },
                     onPause = { isPlaying = false },
                     onWaiting = { if (latestIsCurrent.value) isBuffering = true },
-                    onCanPlay = { isBuffering = false },
+                    onFrameReady = {
+                        hasRenderableFrame = browserFeedVideoHasRenderableFrame(this)
+                        isBuffering = false
+                    },
                     onEnded = { isEnded = true; isPlaying = false },
                     onError = {
                         isPlaying = false
                         isBuffering = false
+                        hasRenderableFrame = false
                         playbackError = "feed_video_playback_failed"
                     },
                 )
@@ -251,7 +258,7 @@ private fun BrowserFeedVideoContent(
         media = {
             BrowserFeedVideoUnderlayHole(
                 video = element?.takeIf { underlayAttached },
-                isVisible = isCurrent && playbackError == null && hasStartedPlayback,
+                isVisible = isCurrent && playbackError == null && hasRenderableFrame,
                 isLandscape = isLandscape,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -276,7 +283,7 @@ private fun BrowserFeedVideoContent(
         },
         onToggleMute = { onMuteChange(toggledFeedMutedState(isMuted)) },
         modifier = Modifier.fillMaxSize(),
-        controlsBottomPadding = if (isLandscape) 34.dp else 104.dp,
+        controlsBottomPadding = browserFeedVideoControlsBottomPadding(isLandscape),
     )
 }
 
@@ -348,6 +355,7 @@ internal data class BrowserFeedVideoUnderlayDomContract(
     val composeCanvasZIndex: Int,
     val decoderZIndex: Int,
     val decoderBackgroundIsTransparent: Boolean,
+    val revealsDecodedFramesOnly: Boolean,
     val decoderRemainsAttachedWhileHidden: Boolean,
     val restoresHostStylesOnDetach: Boolean,
 )
@@ -360,6 +368,7 @@ internal fun browserFeedVideoUnderlayDomContract() = BrowserFeedVideoUnderlayDom
     composeCanvasZIndex = 1,
     decoderZIndex = 0,
     decoderBackgroundIsTransparent = true,
+    revealsDecodedFramesOnly = true,
     decoderRemainsAttachedWhileHidden = true,
     restoresHostStylesOnDetach = true,
 )
@@ -376,6 +385,7 @@ private fun attachBrowserFeedVideoUnderlay(video: HTMLVideoElement): Boolean = j
     video.style.pointerEvents = 'none';
     video.style.visibility = 'hidden';
     video.style.background = 'transparent';
+    video.style.backgroundColor = 'transparent';
     video.style.zIndex = '0';
     const stackingKey = '__quataFeedVideoUnderlayStacking';
     const stacking = parent[stackingKey] || {
@@ -413,6 +423,8 @@ private fun updateBrowserFeedVideoUnderlayBounds(
     video.style.width = Math.max(0, width) + 'px';
     video.style.height = Math.max(0, height) + 'px';
     video.style.objectFit = objectFit;
+    video.style.background = 'transparent';
+    video.style.backgroundColor = 'transparent';
     video.style.visibility = visible && width > 0 && height > 0 ? 'visible' : 'hidden';
     }""",
 )
@@ -462,17 +474,18 @@ private fun installBrowserFeedVideoListeners(
     onPlay: () -> Unit,
     onPause: () -> Unit,
     onWaiting: () -> Unit,
-    onCanPlay: () -> Unit,
+    onFrameReady: () -> Unit,
     onEnded: () -> Unit,
     onError: () -> Unit,
 ): Unit = js(
     """{
     video.onloadedmetadata = () => { if (!isReleased()) onMetadata(Number.isFinite(video.duration) ? video.duration : 0); };
+    video.onloadeddata = () => { if (!isReleased()) onFrameReady(); };
     video.ontimeupdate = () => { if (!isReleased()) onProgress(Number.isFinite(video.currentTime) ? video.currentTime : 0, Number.isFinite(video.duration) ? video.duration : 0); };
     video.onplay = () => { if (!isReleased()) onPlay(); };
     video.onpause = () => { if (!isReleased()) onPause(); };
     video.onwaiting = () => { if (!isReleased()) onWaiting(); };
-    video.oncanplay = () => { if (!isReleased()) onCanPlay(); };
+    video.oncanplay = () => { if (!isReleased()) onFrameReady(); };
     video.onended = () => { if (!isReleased()) onEnded(); };
     video.onerror = () => { if (!isReleased()) onError(); };
     }""",
@@ -481,6 +494,7 @@ private fun installBrowserFeedVideoListeners(
 private fun clearBrowserFeedVideoListeners(video: HTMLVideoElement): Unit = js(
     """{
     video.onloadedmetadata = null;
+    video.onloadeddata = null;
     video.ontimeupdate = null;
     video.onplay = null;
     video.onpause = null;
@@ -488,6 +502,16 @@ private fun clearBrowserFeedVideoListeners(video: HTMLVideoElement): Unit = js(
     video.oncanplay = null;
     video.onended = null;
     video.onerror = null;
+    }""",
+)
+
+private fun browserFeedVideoHasRenderableFrame(video: HTMLVideoElement): Boolean = js(
+    """{
+    return video.readyState >= 2 &&
+      Number.isFinite(video.videoWidth) &&
+      Number.isFinite(video.videoHeight) &&
+      video.videoWidth > 0 &&
+      video.videoHeight > 0;
     }""",
 )
 
@@ -552,3 +576,6 @@ internal fun isBrowserAutoplayPolicyRejection(rejection: String): Boolean =
 /** Reels crop in portrait and preserve the complete frame in landscape. */
 internal fun browserFeedImageContentScale(isLandscape: Boolean): ContentScale =
     if (isLandscape) ContentScale.Fit else ContentScale.Crop
+
+internal fun browserFeedVideoControlsBottomPadding(isLandscape: Boolean) =
+    if (isLandscape) 34.dp else 10.dp

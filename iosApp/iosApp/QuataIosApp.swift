@@ -427,6 +427,10 @@ private final class IosAppCompositionRoot {
                 }
                 return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewController()
             }
+        case "feed-playback":
+            return IosFeedPlaybackFixtureHostKt.QuataIosFeedPlaybackFixtureViewController(
+                mediaFactory: IosFeedNativeMediaFactory.shared
+            )
         case "authenticated":
             // This deliberately runs the production Kotlin deep-link parser and the same
             // UIKit route adapter as the authenticated launcher. The destination controllers

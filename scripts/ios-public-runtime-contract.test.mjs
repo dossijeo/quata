@@ -100,17 +100,33 @@ test('iOS CI installs a hermetic .invalid public fixture and validates it before
   assert.match(readiness, /"jwt"/);
 });
 
-test('iOS Feed playback UI test clears startup What\'s New before asserting controls', async () => {
+test('iOS Feed playback UI test mounts the deterministic shared Feed fixture before asserting controls', async () => {
   const testSource = await source('iosApp/iosAppUITests/QuataIosFeedPlaybackUITests.swift');
   const launchIndex = testSource.indexOf('app.launch()');
-  const dismissIndex = testSource.indexOf('dismissStartupWhatsNewIfPresent(app)');
+  const fixtureIndex = testSource.indexOf('"-quata-ui-test-fixture", "feed-playback"');
   const muteIndex = testSource.indexOf('"Silenciar"');
+  const appSource = await source('iosApp/iosApp/QuataIosApp.swift');
 
   assert.ok(launchIndex >= 0, 'the Feed playback UI test must launch the iOS app');
-  assert.ok(dismissIndex > launchIndex && dismissIndex < muteIndex,
-    'the Feed playback UI test must clear startup What\'s New before looking for Feed controls');
-  assert.match(testSource, /matching\(identifier: "quata-ios-whats-new-host"\)/);
-  assert.match(testSource, /matching\(identifier: "dismiss_whats_new"\)/);
-  assert.match(testSource, /matching\(identifier: "next_whats_new"\)/);
+  assert.ok(fixtureIndex >= 0 && fixtureIndex < launchIndex,
+    'the Feed playback UI test must request the deterministic shared Feed playback fixture before launch');
+  assert.ok(launchIndex < muteIndex, 'the Feed playback UI test must launch before looking for Feed controls');
+  assert.match(appSource, /case "feed-playback":\s*return IosFeedPlaybackFixtureHostKt\.QuataIosFeedPlaybackFixtureViewController/);
   assert.match(testSource, /feed-mute-control-missing/);
+});
+
+test('iOS Feed playback fixture uses the shared Compose Feed host without remote reads', async () => {
+  const [fixture, workflow] = await Promise.all([
+    source('feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/IosFeedPlaybackFixtureHost.kt'),
+    source('.github/workflows/ios-build.yml'),
+  ]);
+
+  assert.match(fixture, /QuataIosFeedPlaybackFixtureViewController\(mediaFactory: IosFeedMediaFactory\): UIViewController/);
+  assert.match(fixture, /QuataFeedViewController\(/);
+  assert.match(fixture, /IosFeedHostDependencies\(/);
+  assert.match(fixture, /mediaFactory = IosFeedPlaybackFixtureMediaFactory/);
+  assert.match(fixture, /private class IosFeedPlaybackFixtureMediaSurface : IosFeedMediaSurface/);
+  assert.match(fixture, /videoUrl = "https:\/\/egquata\.com\/wp-content\/uploads\/2026\/08\/feed-playback-fixture\.mp4"/);
+  assert.doesNotMatch(fixture, /RemoteFeedReadRepository|IosFeedReadTransport|IosFeedRuntimeConfiguration/);
+  assert.match(workflow, /playback must not depend on remote Feed rows in this lane/);
 });

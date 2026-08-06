@@ -5,6 +5,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
 
 class BrowserFeedMediaUrlTest {
     @Test
@@ -59,6 +60,12 @@ class BrowserFeedMediaUrlTest {
     }
 
     @Test
+    fun portraitVideoControlsStayPinnedToTheSharedBottomChrome() {
+        assertEquals(10.dp, browserFeedVideoControlsBottomPadding(isLandscape = false))
+        assertEquals(34.dp, browserFeedVideoControlsBottomPadding(isLandscape = true))
+    }
+
+    @Test
     fun nativeUnderlayContractKeepsComposeCanvasAboveDecoderAndNoHtmlUi() {
         val contract = browserFeedVideoUnderlayDomContract()
 
@@ -70,6 +77,7 @@ class BrowserFeedMediaUrlTest {
         assertEquals(0, contract.decoderZIndex)
         assertTrue(contract.composeCanvasZIndex > contract.decoderZIndex)
         assertTrue(contract.decoderBackgroundIsTransparent)
+        assertTrue(contract.revealsDecodedFramesOnly)
         assertTrue(contract.decoderRemainsAttachedWhileHidden)
         assertTrue(contract.restoresHostStylesOnDetach)
     }
