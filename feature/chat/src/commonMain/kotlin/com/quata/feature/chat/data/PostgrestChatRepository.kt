@@ -173,7 +173,7 @@ open class PostgrestChatRepository(
         val state = messagesState(conversationId)
         while (currentCoroutineContext().isActive) {
             awaitForeground()
-            if (conversationId == AppDestinations.FavoriteMessagesConversationId) refreshFavorites()
+            if (conversationId == AppDestinations.FavoriteMessagesConversationId) refreshFavorites().getOrThrow()
             else { awaitActiveConversation(conversationId); refreshThread(conversationId, ThreadPageSize) }
             emit(state.value)
             delay(pollIntervalMillis.coerceAtLeast(MinimumPollIntervalMillis))
