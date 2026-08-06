@@ -62,10 +62,12 @@ test("Android, Wasm and iOS product routes mount ChatProductHostContent", () => 
   assert.match(webHost, /fun WebChatHost\(/);
   assert.match(webHost, /ChatProductHostContent\(/);
   assert.match(webHost, /conversationList = \{ listModifier ->[\s\S]*?ConversationsScreenHost\(/);
+  assert.match(webHost, /onOpenFavorites = \{ onOpenConversation\(AppDestinations\.FavoriteMessagesConversationId\) \}/);
 
   assert.match(iosHost, /fun QuataChatViewController\(dependencies: IosChatHostDependencies\)/);
   assert.match(iosHost, /ChatProductHostContent\(/);
   assert.match(iosHost, /conversationList = \{ listModifier ->[\s\S]*?ConversationsScreenHost\(/);
+  assert.match(iosHost, /onOpenFavorites = \{ dependencies\.onOpenConversation\(AppDestinations\.FavoriteMessagesConversationId\) \}/);
 });
 
 test("platform product sources do not route through the legacy browser-style wrapper", async () => {
@@ -106,11 +108,15 @@ test("common chat root owns read states, retry, history paging and one-shot focu
 
 test("SCR-CHAT inventory reflects the real common-root state without declaring final GO", () => {
   const scrChat = inventory.split(/\r?\n/).find((line) => line.startsWith("| `SCR-CHAT` |"));
+  const chatFavorites = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-FAVORITES` |"));
   assert.ok(scrChat, "SCR-CHAT row must exist");
+  assert.ok(chatFavorites, "CHAT-FAVORITES row must exist");
   assert.match(scrChat, /\*\*COMÚN con límites\.\*\*/);
   assert.match(scrChat, /`ChatProductHostContent`\/`ChatScreenHost` se consume en Android, Wasm e iOS/);
   assert.doesNotMatch(scrChat, /FALLBACK|PARCIAL/);
   assert.match(scrChat, /no declarar GO/);
+  assert.match(chatFavorites, /FavoriteMessagesConversationId/);
+  assert.match(chatFavorites, /Android, Wasm e iOS/);
   assert.match(inventory, /\| `CHAT-MESSAGES` \|[\s\S]*?Raíz común conectada para lectura/);
   assert.match(inventory, /\| `CHAT-FOCUSED-MESSAGE` \|[\s\S]*?contrato común de foco/);
   assert.doesNotMatch(inventory, /Web\/iOS aún conservan `ChatBrowserHostContent`/);
