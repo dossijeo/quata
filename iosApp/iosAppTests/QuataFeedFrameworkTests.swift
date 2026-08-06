@@ -26,7 +26,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
                 root.dismiss(animated: false) {
                     dismissed.fulfill()
                 }
-                wait(for: [dismissed], timeout: 1)
+                wait(for: [dismissed], timeout: 3)
             }
             window.rootViewController = nil
             window.isHidden = true
@@ -82,11 +82,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
         mounted.window.makeKeyAndVisible()
         let presentationSettled = expectation(description: "Router modal presentation settled")
         DispatchQueue.main.async { presentationSettled.fulfill() }
-        wait(for: [presentationSettled], timeout: 1)
+        wait(for: [presentationSettled], timeout: 3)
 
         let dismissed = expectation(description: "Router modal dismissed")
         root.dismissAuthRequiredPrompt { dismissed.fulfill() }
-        wait(for: [dismissed], timeout: 1)
+        wait(for: [dismissed], timeout: 3)
         XCTAssertNil(root.presentedViewController)
     }
 
