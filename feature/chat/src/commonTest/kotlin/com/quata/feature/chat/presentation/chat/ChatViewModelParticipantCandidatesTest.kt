@@ -5,6 +5,7 @@ import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
+import com.quata.feature.chat.domain.ChatForwardResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
 import kotlin.test.Test
@@ -84,7 +85,8 @@ private class FailingParticipantCandidateRepository : ChatRepository {
     override suspend fun editMessage(messageId: String, text: String): Result<Unit> = Result.success(Unit)
     override suspend fun deleteMessage(messageId: String): Result<Unit> = Result.success(Unit)
     override suspend fun toggleFavoriteMessage(messageId: String): Result<Unit> = Result.success(Unit)
-    override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<Unit> = Result.success(Unit)
+    override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<ChatForwardResult> =
+        Result.success(ChatForwardResult(requestedCount = conversationIds.distinct().size, sentCount = conversationIds.distinct().size))
     override suspend fun flushPendingMessages(): Boolean = true
     override suspend fun retryPendingMessage(clientMessageId: String): Result<Unit> = Result.success(Unit)
 }

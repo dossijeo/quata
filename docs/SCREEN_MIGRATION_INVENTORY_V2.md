@@ -97,7 +97,7 @@ requieren una PR independiente, pero todas requieren estado y evidencia propios.
 | `CHAT-FOCUSED-MESSAGE` | Abrir Chat enfocando un mensaje desde notificación, favoritos, reenvío o deep link; paginar hasta encontrarlo, resaltarlo y consumir el foco una sola vez. | Existe contrato común de foco: espera snapshot autenticado, pagina historial, distingue mensaje ausente/error y consume el foco una sola vez. Falta evidencia visual/operativa sobre la misma conversación en las tres plataformas. |
 | `CHAT-ATTACHMENTS` | Picker, imágenes, vídeo, documentos, subida, descarga y visor. | Adaptadores de sistema permitidos; estado/chrome/errores deben ser comunes. |
 | `CHAT-AUDIO` | Grabación, permisos, envío y reproducción. | Adaptadores nativos; flujo de producto aún sin equivalencia acreditada. |
-| `CHAT-FORWARD` | Reenvío y selector de destinos. | Debe reutilizar selector/estado común, sin controles Web/Swift paralelos. |
+| `CHAT-FORWARD` | Reenvío y selector de destinos. | Selector común y estado compartido; #183 conserva selección/mensaje hasta éxito total, propaga `sent/errors` del RPC y trata parcial/fallo como error común reintentable. Falta evidencia visual/operativa Android, Wasm e iOS con backend real o fixture reversible autorizada. |
 | `CHAT-GROUP` | Miembros, altas/bajas, nombre, roles y acciones administrativas. | Inventariar permisos y mutaciones; falta GO. |
 | `CHAT-LOCATION-SOS` | Mapa, ubicación y mensajes SOS cuando corresponda. | Mapa es adaptador; modelo, navegación y estados deben ser comunes. |
 | `CHAT-TRANSLATION` | Traducción de mensajes/comentarios. | Depende de `FLOW-TRANSLATOR`; no aceptar callback vacío. |

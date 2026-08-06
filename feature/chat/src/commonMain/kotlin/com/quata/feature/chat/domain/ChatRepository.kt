@@ -26,6 +26,15 @@ data class ChatConversationCandidatePage(
     val actorNeighborhood: String
 )
 
+data class ChatForwardResult(
+    val requestedCount: Int,
+    val sentCount: Int,
+    val errorCount: Int = 0,
+) {
+    val isComplete: Boolean
+        get() = requestedCount > 0 && sentCount >= requestedCount && errorCount == 0
+}
+
 data class ChatInviteContact(
     val id: String,
     val displayName: String,
@@ -104,7 +113,7 @@ interface ChatRepository {
     suspend fun editMessage(messageId: String, text: String): Result<Unit>
     suspend fun deleteMessage(messageId: String): Result<Unit>
     suspend fun toggleFavoriteMessage(messageId: String): Result<Unit>
-    suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<Unit>
+    suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<ChatForwardResult>
     suspend fun flushPendingMessages(): Boolean
     suspend fun retryPendingMessage(clientMessageId: String): Result<Unit>
 }
