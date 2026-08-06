@@ -180,6 +180,8 @@ test('Feed media contract keeps the common contrast gate and requires the browse
   assert.match(feedContrastTest, /contrast >= 4\.5/);
   assert.match(webFeedMedia, /FeedReelVideoPlaybackHostContent\(/);
   assert.match(webFeedMedia, /ReelMediaSurfaceContent\(background = textCanvasBrush\(imageUrl\)\)/);
+  assert.match(webFeedMedia, /ReelMediaSurfaceContent\(\s*background = textCanvasBrush\(browserFeedMediaBackgroundSeed\(videoUrl = videoUrl, imageUrl = imageUrl\)\)/);
+  assert.match(webFeedMedia, /fun browserFeedMediaBackgroundSeed\(videoUrl: String\?, imageUrl: String\?\): String\?/);
   assert.match(webFeedMedia, /HTMLVideoElement/);
   assert.match(webFeedMedia, /controls = false/);
   assert.match(webFeedMedia, /attachBrowserFeedVideoUnderlay\(video\)/);
@@ -189,6 +191,8 @@ test('Feed media contract keeps the common contrast gate and requires the browse
   assert.match(webFeedMedia, /isVisible = isCurrent && playbackError == null && hasRenderableFrame/);
   assert.match(webFeedMedia, /video\.style\.background = 'transparent'/);
   assert.match(webFeedMedia, /revealsDecodedFramesOnly = true/);
+  assert.match(webFeedMedia, /usesExplicitCssVisibility = true/);
+  assert.match(webFeedMedia, /video\.style\.visibility = width > 0 && height > 0 \? visibility : 'hidden'/);
   assert.match(webFeedMedia, /BlendMode\.Clear/);
   assert.match(webFeedMedia, /modifier = Modifier\.fillMaxSize\(\)/);
   assert.match(webFeedMedia, /controlsBottomPadding = browserFeedVideoControlsBottomPadding\(isLandscape\)/);

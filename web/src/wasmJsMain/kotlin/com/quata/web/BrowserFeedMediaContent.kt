@@ -58,7 +58,7 @@ fun BrowserFeedMediaContent(
     val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
     when {
         videoUrl != null -> ReelMediaSurfaceContent(
-            background = textCanvasBrush(seedText = null, patternId = DEFAULT_TEXT_CANVAS_PATTERN_ID),
+            background = textCanvasBrush(browserFeedMediaBackgroundSeed(videoUrl = videoUrl, imageUrl = imageUrl)),
         ) {
             BrowserFeedVideoContent(
                 videoUrl = videoUrl,
@@ -81,6 +81,12 @@ fun BrowserFeedMediaContent(
         else -> Unit
     }
 }
+
+/** Mirrors the iOS Feed media surface: video URLs seed the fallback gradient even without frames. */
+internal fun browserFeedMediaBackgroundSeed(videoUrl: String?, imageUrl: String?): String? =
+    videoUrl?.trim()?.takeIf { it.isNotEmpty() }
+        ?: imageUrl?.trim()?.takeIf { it.isNotEmpty() }
+        ?: DEFAULT_TEXT_CANVAS_PATTERN_ID
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -311,7 +317,7 @@ private fun BrowserFeedVideoUnderlayHole(
             width = frame.width,
             height = frame.height,
             objectFit = browserFeedVideoUnderlayObjectFit(isLandscape),
-            visible = isVisible,
+            visibility = browserFeedVideoUnderlayVisibility(isVisible),
         )
     }
     androidx.compose.foundation.Canvas(
@@ -356,6 +362,7 @@ internal data class BrowserFeedVideoUnderlayDomContract(
     val decoderZIndex: Int,
     val decoderBackgroundIsTransparent: Boolean,
     val revealsDecodedFramesOnly: Boolean,
+    val usesExplicitCssVisibility: Boolean,
     val decoderRemainsAttachedWhileHidden: Boolean,
     val restoresHostStylesOnDetach: Boolean,
 )
@@ -369,6 +376,7 @@ internal fun browserFeedVideoUnderlayDomContract() = BrowserFeedVideoUnderlayDom
     decoderZIndex = 0,
     decoderBackgroundIsTransparent = true,
     revealsDecodedFramesOnly = true,
+    usesExplicitCssVisibility = true,
     decoderRemainsAttachedWhileHidden = true,
     restoresHostStylesOnDetach = true,
 )
@@ -415,7 +423,7 @@ private fun updateBrowserFeedVideoUnderlayBounds(
     width: Float,
     height: Float,
     objectFit: String,
-    visible: Boolean,
+    visibility: String,
 ): Unit = js(
     """{
     video.style.left = left + 'px';
@@ -425,7 +433,7 @@ private fun updateBrowserFeedVideoUnderlayBounds(
     video.style.objectFit = objectFit;
     video.style.background = 'transparent';
     video.style.backgroundColor = 'transparent';
-    video.style.visibility = visible && width > 0 && height > 0 ? 'visible' : 'hidden';
+    video.style.visibility = width > 0 && height > 0 ? visibility : 'hidden';
     }""",
 )
 
@@ -452,6 +460,9 @@ private fun detachBrowserFeedVideoUnderlay(video: HTMLVideoElement): Unit = js(
 /** Shared portrait/landscape contract for the native underlay and the pre-existing image renderer. */
 internal fun browserFeedVideoUnderlayObjectFit(isLandscape: Boolean): String =
     if (isLandscape) "contain" else "cover"
+
+internal fun browserFeedVideoUnderlayVisibility(isVisible: Boolean): String =
+    if (isVisible) "visible" else "hidden"
 
 private fun requestBrowserVideoPlay(
     video: HTMLVideoElement,

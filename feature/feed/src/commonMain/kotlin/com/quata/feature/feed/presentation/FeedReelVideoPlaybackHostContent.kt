@@ -28,11 +28,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+
+internal val FeedReelPlaybackControlsHeight = 52.dp
+internal val FeedReelPlaybackControlsShape = RoundedCornerShape(18.dp)
+internal const val FeedReelPlaybackControlsScrimAlpha = 0.86f
+internal const val FeedReelPlaybackControlsBorderAlpha = 0.30f
+internal const val FeedReelPlaybackIconScrimAlpha = 0.24f
 
 /** Portable state published by a reel playback engine to the shared visual host. */
 data class VideoPlaybackState(
@@ -116,21 +124,23 @@ fun FeedReelVideoPlaybackHostContent(
                 .align(Alignment.BottomStart)
                 .padding(start = 10.dp, end = 74.dp, bottom = controlsBottomPadding)
                 .fillMaxWidth()
-                .height(46.dp)
-                .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(18.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(18.dp))
-                .padding(horizontal = 8.dp, vertical = 5.dp),
+                .height(FeedReelPlaybackControlsHeight)
+                .background(Color.Black.copy(alpha = FeedReelPlaybackControlsScrimAlpha), FeedReelPlaybackControlsShape)
+                .border(1.dp, Color.White.copy(alpha = FeedReelPlaybackControlsBorderAlpha), FeedReelPlaybackControlsShape)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             CompactIconButton(
                 onClick = { toggle(showFeedback = false) },
-                modifier = Modifier.background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(18.dp)),
+                modifier = Modifier
+                    .background(Color.White.copy(alpha = FeedReelPlaybackIconScrimAlpha), RoundedCornerShape(18.dp))
+                    .semantics { contentDescription = if (state.isPlaying) strings.pause else strings.play },
             ) {
                 CompactIcon(
                     imageVector = feedPlaybackPlayPauseIcon(state.isPlaying),
-                    contentDescription = if (state.isPlaying) strings.pause else strings.play,
-                    modifier = Modifier.size(30.dp),
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp),
                     tint = Color.White,
                 )
             }
@@ -155,12 +165,14 @@ fun FeedReelVideoPlaybackHostContent(
             if (state.showMuteButton) {
                 CompactIconButton(
                     onClick = onToggleMute,
-                    modifier = Modifier.background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(18.dp)),
+                    modifier = Modifier
+                        .background(Color.White.copy(alpha = FeedReelPlaybackIconScrimAlpha), RoundedCornerShape(18.dp))
+                        .semantics { contentDescription = if (state.isMuted) strings.unmute else strings.mute },
                 ) {
                     CompactIcon(
                         imageVector = feedPlaybackVolumeIcon(state.isMuted),
-                        contentDescription = if (state.isMuted) strings.unmute else strings.mute,
-                        modifier = Modifier.size(30.dp),
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp),
                         tint = Color.White,
                     )
                 }
