@@ -130,16 +130,10 @@ fun OfficialPostEditorScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var editorMode by rememberSaveable { mutableStateOf(OfficialEditorMode.Quick) }
-    var title by rememberSaveable { mutableStateOf("") }
-    var summary by rememberSaveable { mutableStateOf("") }
-    var contentHtml by rememberSaveable { mutableStateOf("") }
-    var readMoreOption by rememberSaveable { mutableStateOf(OfficialReadMoreOption.ReadMore) }
+    var draftState by rememberSaveable(stateSaver = OfficialEditorDraftStateSaver) {
+        mutableStateOf(OfficialEditorDraftState())
+    }
     var readMoreMenuOpen by rememberSaveable { mutableStateOf(false) }
-    var linkUrl by rememberSaveable { mutableStateOf("") }
-    var mediaUrl by rememberSaveable { mutableStateOf("") }
-    var mediaType by rememberSaveable { mutableStateOf<OfficialMediaType?>(null) }
-    var postType by rememberSaveable { mutableStateOf(OfficialPostType.Announcement) }
     var typeMenuOpen by rememberSaveable { mutableStateOf(false) }
     var isLongEditorOpen by rememberSaveable { mutableStateOf(false) }
     var longEditorHtml by rememberSaveable { mutableStateOf("") }
@@ -162,54 +156,17 @@ fun OfficialPostEditorScreen(
         isLongEditorOpen = false
     }
 
-    val contentPlain = contentHtml.stripHtmlForOfficialEditor()
-    val quickTextBlocks = remember(contentHtml) { contentHtml.extractOfficialEditorBlocks() }
-    val quickTitle = quickTextBlocks.firstOrNull().orEmpty()
-    val quickSummary = quickTextBlocks.drop(1).joinToString(" ").ellipsizeOfficialSummary(140)
-    val effectiveTitle = if (editorMode == OfficialEditorMode.Quick) quickTitle else title.trim()
-    val effectiveSummary = if (editorMode == OfficialEditorMode.Quick) quickSummary else summary.trim()
-    val effectiveReadMoreCode = if (editorMode == OfficialEditorMode.Quick) {
-        OfficialReadMoreOption.ReadMore.shortcode
-    } else {
-        readMoreOption.shortcode
-    }
-    val effectiveLinkUrl = if (editorMode == OfficialEditorMode.Quick) "" else linkUrl.trim()
-
-    fun canPublishPost(): Boolean =
-        if (editorMode == OfficialEditorMode.Quick) {
-            contentPlain.isNotBlank()
-        } else {
-            title.isNotBlank() && (
-                summary.isNotBlank() ||
-                    contentPlain.isNotBlank() ||
-                    (mediaType != null && mediaUrl.isNotBlank())
-                )
-        }
-
     fun buildDraft(language: OfficialPostLanguage = currentOfficialPostLanguage()): OfficialPostDraft =
-        OfficialPostDraft(
-            title = effectiveTitle.ifBlank { context.getString(R.string.official_post_default_title) },
-            summary = effectiveSummary,
-            contentHtml = contentHtml,
-            readMoreLabel = effectiveReadMoreCode,
+        draftState.buildDraft(
+            defaultTitle = context.getString(R.string.official_post_default_title),
             language = language,
-            type = postType,
-            mediaUrl = mediaUrl.takeIf { mediaType != null && it.isNotBlank() },
-            mediaType = mediaType?.takeIf { mediaUrl.isNotBlank() },
-            linkUrl = effectiveLinkUrl.takeIf { it.isNotBlank() },
-            isLive = false
         )
 
     fun requestPublication() {
         val draft = buildDraft()
         coroutineScope.launch {
             val sourceLanguage = detectOfficialPostLanguage(context, draft)
-            val missingLanguages = OfficialPostLanguage.entries.filterNot { it == sourceLanguage }
-            pendingTranslation = OfficialPendingTranslation(
-                draft = draft.copy(language = sourceLanguage),
-                sourceLanguage = sourceLanguage,
-                targetLanguages = missingLanguages
-            )
+            pendingTranslation = draft.pendingOfficialTranslations(sourceLanguage)
         }
     }
 
@@ -217,7 +174,7 @@ fun OfficialPostEditorScreen(
         OfficialLongContentEditor(
             html = longEditorHtml,
             title = stringResource(
-                if (editorMode == OfficialEditorMode.Quick) {
+                if (draftState.mode == OfficialEditorMode.Quick) {
                     R.string.official_form_body_quick
                 } else {
                     R.string.official_form_body
@@ -226,7 +183,7 @@ fun OfficialPostEditorScreen(
             onHtmlChange = { longEditorHtml = it },
             onBack = { isLongEditorOpen = false },
             onSave = {
-                contentHtml = longEditorHtml
+                draftState = draftState.copy(contentHtml = longEditorHtml)
                 isLongEditorOpen = false
             }
         )
@@ -239,22 +196,22 @@ fun OfficialPostEditorScreen(
                 modeSelector = {
                     OfficialEditorModeSelectorContent(
                         title = stringResource(
-                            if (editorMode == OfficialEditorMode.Quick) {
+                            if (draftState.mode == OfficialEditorMode.Quick) {
                                 R.string.official_form_mode_quick
                             } else {
                                 R.string.official_form_mode_advanced
                             }
                         ),
                         description = stringResource(
-                            if (editorMode == OfficialEditorMode.Quick) {
+                            if (draftState.mode == OfficialEditorMode.Quick) {
                                 R.string.official_form_mode_description_quick
                             } else {
                                 R.string.official_form_mode_description_advanced
                             }
                         ),
-                        isAdvanced = editorMode == OfficialEditorMode.Advanced,
+                        isAdvanced = draftState.mode == OfficialEditorMode.Advanced,
                         onAdvancedChange = { checked ->
-                            editorMode = if (checked) OfficialEditorMode.Advanced else OfficialEditorMode.Quick
+                            draftState = draftState.withMode(checked)
                         },
                     )
                 },
@@ -262,24 +219,26 @@ fun OfficialPostEditorScreen(
                         OfficialEditorCard {
                             OfficialEditorSectionTitle(stringResource(R.string.official_form_main_section))
                         OfficialEditorDropdownFieldContent(
-                            selectedLabel = postType.editorLabel(),
+                            selectedLabel = draftState.postType.editorLabel(),
                             options = OfficialPostType.entries.map { type ->
                                 OfficialEditorSelectionOption(type.name, type.editorLabel())
                             },
                             expanded = typeMenuOpen,
                             onExpandedChange = { typeMenuOpen = it },
                             onOptionSelected = { selectedId ->
-                                postType = OfficialPostType.entries.first { it.name == selectedId }
+                                draftState = draftState.copy(
+                                    postType = OfficialPostType.entries.first { it.name == selectedId },
+                                )
                             },
                         )
-                        if (editorMode == OfficialEditorMode.Advanced) {
+                        if (draftState.mode == OfficialEditorMode.Advanced) {
                             OfficialAdvancedTextFieldsContent(
-                                title = title,
-                                summary = summary,
+                                title = draftState.title,
+                                summary = draftState.summary,
                                 titleLabel = stringResource(R.string.official_form_title),
                                 summaryLabel = stringResource(R.string.official_form_summary),
-                                onTitleChange = { title = it },
-                                onSummaryChange = { summary = it },
+                                onTitleChange = { draftState = draftState.copy(title = it) },
+                                onSummaryChange = { draftState = draftState.copy(summary = it) },
                             )
                         }
                     }
@@ -308,20 +267,19 @@ fun OfficialPostEditorScreen(
                             }
                         },
                         preview = {
-                            val selectedMediaType = mediaType
-                            if (mediaUrl.isNotBlank() && selectedMediaType != null) {
+                            val selectedMediaType = draftState.mediaType
+                            if (draftState.mediaUrl.isNotBlank() && selectedMediaType != null) {
                                 OfficialEditorMediaPreview(
                                     mediaType = selectedMediaType,
-                                    mediaUrl = mediaUrl,
+                                    mediaUrl = draftState.mediaUrl,
                                     onEdit = {
                                         when (selectedMediaType) {
-                                            OfficialMediaType.Image -> imageEditorUri = Uri.parse(mediaUrl)
-                                            OfficialMediaType.Video -> videoEditorUri = Uri.parse(mediaUrl)
+                                            OfficialMediaType.Image -> imageEditorUri = Uri.parse(draftState.mediaUrl)
+                                            OfficialMediaType.Video -> videoEditorUri = Uri.parse(draftState.mediaUrl)
                                         }
                                     },
                                     onRemove = {
-                                        mediaType = null
-                                        mediaUrl = ""
+                                        draftState = draftState.withoutMedia()
                                     },
                                 )
                             }
@@ -331,23 +289,25 @@ fun OfficialPostEditorScreen(
                 bodySection = {
                     OfficialEditorBodySectionContent(
                         title = stringResource(
-                            if (editorMode == OfficialEditorMode.Quick) {
+                            if (draftState.mode == OfficialEditorMode.Quick) {
                                 R.string.official_form_body_quick
                             } else {
                                 R.string.official_form_read_more_section
                             }
                         ),
-                        readMoreControl = if (editorMode == OfficialEditorMode.Advanced) {
+                        readMoreControl = if (draftState.mode == OfficialEditorMode.Advanced) {
                             {
                                 OfficialEditorDropdownFieldContent(
-                                    selectedLabel = localizedOfficialReadMoreLabel(readMoreOption.shortcode),
+                                    selectedLabel = localizedOfficialReadMoreLabel(draftState.readMoreOption.shortcode),
                                     options = officialReadMoreUiOptions.map { option ->
                                         OfficialEditorSelectionOption(option.option.name, stringResource(option.labelRes))
                                     },
                                     expanded = readMoreMenuOpen,
                                     onExpandedChange = { readMoreMenuOpen = it },
                                     onOptionSelected = { selectedId ->
-                                        readMoreOption = OfficialReadMoreOption.entries.first { it.name == selectedId }
+                                        draftState = draftState.copy(
+                                            readMoreOption = OfficialReadMoreOption.entries.first { it.name == selectedId },
+                                        )
                                     },
                                 )
                             }
@@ -357,7 +317,7 @@ fun OfficialPostEditorScreen(
                         editorAction = {
                             OutlinedButton(
                                 onClick = {
-                                    longEditorHtml = contentHtml
+                                    longEditorHtml = draftState.contentHtml
                                     isLongEditorOpen = true
                                 },
                                 modifier = Modifier.fillMaxWidth()
@@ -366,7 +326,7 @@ fun OfficialPostEditorScreen(
                                 Spacer(Modifier.size(8.dp))
                                 Text(
                                     stringResource(
-                                        if (editorMode == OfficialEditorMode.Quick) {
+                                        if (draftState.mode == OfficialEditorMode.Quick) {
                                             R.string.official_form_edit_body_quick
                                         } else {
                                             R.string.official_form_edit_body
@@ -376,11 +336,11 @@ fun OfficialPostEditorScreen(
                                 )
                             }
                         },
-                        linkControl = if (editorMode == OfficialEditorMode.Advanced) {
+                        linkControl = if (draftState.mode == OfficialEditorMode.Advanced) {
                             {
                                 OfficialEditorLinkFieldContent(
-                                    value = linkUrl,
-                                    onValueChange = { linkUrl = it },
+                                    value = draftState.linkUrl,
+                                    onValueChange = { draftState = draftState.copy(linkUrl = it) },
                                     label = stringResource(R.string.official_form_link),
                                 )
                             }
@@ -393,14 +353,14 @@ fun OfficialPostEditorScreen(
                     OfficialEditorSectionTitle(stringResource(R.string.composer_preview))
                     OfficialPostPreview(
                         author = currentUser,
-                        title = effectiveTitle,
-                        summary = effectiveSummary,
-                        contentHtml = contentHtml,
-                        readMoreLabel = effectiveReadMoreCode,
-                        postType = postType,
-                        mediaUrl = mediaUrl,
-                        mediaType = mediaType,
-                        linkUrl = effectiveLinkUrl
+                        title = draftState.effectiveTitle,
+                        summary = draftState.effectiveSummary,
+                        contentHtml = draftState.contentHtml,
+                        readMoreLabel = draftState.effectiveReadMoreCode,
+                        postType = draftState.postType,
+                        mediaUrl = draftState.mediaUrl,
+                        mediaType = draftState.mediaType,
+                        linkUrl = draftState.effectiveLinkUrl
                     )
                 },
                 feedback = {
@@ -410,7 +370,7 @@ fun OfficialPostEditorScreen(
                 },
                 publishAction = {
                     OfficialPublishButton(
-                        enabled = canPublishPost(),
+                        enabled = draftState.canPublish(),
                         isPublishing = isPublishing,
                         modifier = Modifier.fillMaxWidth(),
                         onClick = { requestPublication() },
@@ -453,8 +413,7 @@ fun OfficialPostEditorScreen(
             imageUri = sourceUri,
             onDismiss = { imageEditorUri = null },
             onEdited = { editedUri ->
-                mediaType = OfficialMediaType.Image
-                mediaUrl = editedUri.toString()
+                draftState = draftState.withMedia(OfficialMediaType.Image, editedUri.toString())
                 imageEditorUri = null
             }
         )
@@ -465,25 +424,12 @@ fun OfficialPostEditorScreen(
             videoUri = sourceUri,
             onDismiss = { videoEditorUri = null },
             onExported = { editedUri ->
-                mediaType = OfficialMediaType.Video
-                mediaUrl = editedUri.toString()
+                draftState = draftState.withMedia(OfficialMediaType.Video, editedUri.toString())
                 videoEditorUri = null
             }
         )
     }
 }
-
-private enum class OfficialEditorMode {
-    Quick,
-    Advanced
-}
-
-private data class OfficialPendingTranslation(
-    val draft: OfficialPostDraft,
-    val sourceLanguage: OfficialPostLanguage,
-    val targetLanguages: List<OfficialPostLanguage>,
-    val isTranslating: Boolean = false
-)
 
 @Composable
 private fun OfficialTranslationPromptDialog(
