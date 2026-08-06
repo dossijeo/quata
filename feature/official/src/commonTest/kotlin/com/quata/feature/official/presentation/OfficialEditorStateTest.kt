@@ -85,4 +85,34 @@ class OfficialEditorStateTest {
         )
         assertFalse(pending.isTranslating)
     }
+
+    @Test
+    fun previewItemUsesSharedFallbacksAndMediaRules() {
+        val item = officialPostEditorPreviewItem(
+            state = OfficialPostEditorPreviewState(
+                author = null,
+                title = "",
+                summary = "",
+                contentHtml = "",
+                readMoreLabel = OfficialReadMoreOption.MoreInformation.shortcode,
+                postType = OfficialPostType.Event,
+                mediaUrl = "file:///tmp/event.jpg",
+                mediaType = OfficialMediaType.Image,
+                linkUrl = "https://quata.test/event",
+            ),
+            fallbackAuthorLabel = "Official",
+            defaultTitle = "Untitled",
+            summaryFallback = "Summary",
+            createdAt = "now",
+        )
+
+        assertEquals("official_preview", item.id)
+        assertEquals("Official", item.author.displayName)
+        assertEquals("Untitled", item.title)
+        assertEquals("Summary", item.summary)
+        assertEquals("<p>Summary</p>", item.contentHtml)
+        assertEquals(OfficialMediaType.Image, item.mediaType)
+        assertEquals("file:///tmp/event.jpg", item.mediaUrl)
+        assertEquals("https://quata.test/event", item.linkUrl)
+    }
 }

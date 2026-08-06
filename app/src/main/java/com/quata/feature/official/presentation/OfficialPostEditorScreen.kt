@@ -129,17 +129,14 @@ fun OfficialPostEditorScreen(
     onFullscreenEditorVisibilityChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    var draftState by rememberSaveable(stateSaver = OfficialEditorDraftStateSaver) {
-        mutableStateOf(OfficialEditorDraftState())
-    }
-    var readMoreMenuOpen by rememberSaveable { mutableStateOf(false) }
-    var typeMenuOpen by rememberSaveable { mutableStateOf(false) }
     var isLongEditorOpen by rememberSaveable { mutableStateOf(false) }
     var longEditorHtml by rememberSaveable { mutableStateOf("") }
+    var longEditorTitle by rememberSaveable { mutableStateOf("") }
     var imageEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var videoEditorUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var pendingTranslation by remember { mutableStateOf<OfficialPendingTranslation?>(null) }
+    var pendingBodySave by remember { mutableStateOf<((String) -> Unit)?>(null) }
+    var pendingImagePicked by remember { mutableStateOf<((OfficialEditorMedia) -> Unit)?>(null) }
+    var pendingVideoPicked by remember { mutableStateOf<((OfficialEditorMedia) -> Unit)?>(null) }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         imageEditorUri = uri
@@ -156,255 +153,152 @@ fun OfficialPostEditorScreen(
         isLongEditorOpen = false
     }
 
-    fun buildDraft(language: OfficialPostLanguage = currentOfficialPostLanguage()): OfficialPostDraft =
-        draftState.buildDraft(
-            defaultTitle = context.getString(R.string.official_post_default_title),
-            language = language,
-        )
-
-    fun requestPublication() {
-        val draft = buildDraft()
-        coroutineScope.launch {
-            val sourceLanguage = detectOfficialPostLanguage(context, draft)
-            pendingTranslation = draft.pendingOfficialTranslations(sourceLanguage)
-        }
-    }
-
     if (isLongEditorOpen) {
         OfficialLongContentEditor(
             html = longEditorHtml,
-            title = stringResource(
-                if (draftState.mode == OfficialEditorMode.Quick) {
-                    R.string.official_form_body_quick
-                } else {
-                    R.string.official_form_body
-                }
-            ),
+            title = longEditorTitle,
             onHtmlChange = { longEditorHtml = it },
             onBack = { isLongEditorOpen = false },
             onSave = {
-                draftState = draftState.copy(contentHtml = longEditorHtml)
+                pendingBodySave?.invoke(longEditorHtml)
+                pendingBodySave = null
                 isLongEditorOpen = false
             }
         )
     } else {
-        OfficialEditorScreenContent(
-            padding = padding,
-            title = stringResource(R.string.official_create),
-        ) {
-            OfficialEditorFormContent(
-                modeSelector = {
-                    OfficialEditorModeSelectorContent(
-                        title = stringResource(
-                            if (draftState.mode == OfficialEditorMode.Quick) {
-                                R.string.official_form_mode_quick
-                            } else {
-                                R.string.official_form_mode_advanced
-                            }
-                        ),
-                        description = stringResource(
-                            if (draftState.mode == OfficialEditorMode.Quick) {
-                                R.string.official_form_mode_description_quick
-                            } else {
-                                R.string.official_form_mode_description_advanced
-                            }
-                        ),
-                        isAdvanced = draftState.mode == OfficialEditorMode.Advanced,
-                        onAdvancedChange = { checked ->
-                            draftState = draftState.withMode(checked)
-                        },
-                    )
-                },
-                mainSection = {
-                        OfficialEditorCard {
-                            OfficialEditorSectionTitle(stringResource(R.string.official_form_main_section))
-                        OfficialEditorDropdownFieldContent(
-                            selectedLabel = draftState.postType.editorLabel(),
-                            options = OfficialPostType.entries.map { type ->
-                                OfficialEditorSelectionOption(type.name, type.editorLabel())
-                            },
-                            expanded = typeMenuOpen,
-                            onExpandedChange = { typeMenuOpen = it },
-                            onOptionSelected = { selectedId ->
-                                draftState = draftState.copy(
-                                    postType = OfficialPostType.entries.first { it.name == selectedId },
-                                )
-                            },
-                        )
-                        if (draftState.mode == OfficialEditorMode.Advanced) {
-                            OfficialAdvancedTextFieldsContent(
-                                title = draftState.title,
-                                summary = draftState.summary,
-                                titleLabel = stringResource(R.string.official_form_title),
-                                summaryLabel = stringResource(R.string.official_form_summary),
-                                onTitleChange = { draftState = draftState.copy(title = it) },
-                                onSummaryChange = { draftState = draftState.copy(summary = it) },
-                            )
-                        }
-                    }
-                },
-                mediaSection = {
-                    OfficialEditorMediaSectionContent(
-                        title = stringResource(R.string.official_form_media_section),
-                        imagePicker = { pickerModifier ->
-                            OutlinedButton(
-                                onClick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                                modifier = pickerModifier,
-                            ) {
-                                Icon(Icons.Filled.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.size(8.dp))
-                                Text(stringResource(R.string.composer_pick_image), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        },
-                        videoPicker = { pickerModifier ->
-                            OutlinedButton(
-                                onClick = { videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
-                                modifier = pickerModifier,
-                            ) {
-                                Icon(Icons.Filled.VideoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.size(8.dp))
-                                Text(stringResource(R.string.composer_pick_video), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        },
-                        preview = {
-                            val selectedMediaType = draftState.mediaType
-                            if (draftState.mediaUrl.isNotBlank() && selectedMediaType != null) {
-                                OfficialEditorMediaPreview(
-                                    mediaType = selectedMediaType,
-                                    mediaUrl = draftState.mediaUrl,
-                                    onEdit = {
-                                        when (selectedMediaType) {
-                                            OfficialMediaType.Image -> imageEditorUri = Uri.parse(draftState.mediaUrl)
-                                            OfficialMediaType.Video -> videoEditorUri = Uri.parse(draftState.mediaUrl)
-                                        }
-                                    },
-                                    onRemove = {
-                                        draftState = draftState.withoutMedia()
-                                    },
-                                )
-                            }
-                        },
-                    )
-                },
-                bodySection = {
-                    OfficialEditorBodySectionContent(
-                        title = stringResource(
-                            if (draftState.mode == OfficialEditorMode.Quick) {
-                                R.string.official_form_body_quick
-                            } else {
-                                R.string.official_form_read_more_section
-                            }
-                        ),
-                        readMoreControl = if (draftState.mode == OfficialEditorMode.Advanced) {
-                            {
-                                OfficialEditorDropdownFieldContent(
-                                    selectedLabel = localizedOfficialReadMoreLabel(draftState.readMoreOption.shortcode),
-                                    options = officialReadMoreUiOptions.map { option ->
-                                        OfficialEditorSelectionOption(option.option.name, stringResource(option.labelRes))
-                                    },
-                                    expanded = readMoreMenuOpen,
-                                    onExpandedChange = { readMoreMenuOpen = it },
-                                    onOptionSelected = { selectedId ->
-                                        draftState = draftState.copy(
-                                            readMoreOption = OfficialReadMoreOption.entries.first { it.name == selectedId },
-                                        )
-                                    },
-                                )
-                            }
-                        } else {
-                            null
-                        },
-                        editorAction = {
-                            OutlinedButton(
-                                onClick = {
-                                    longEditorHtml = draftState.contentHtml
-                                    isLongEditorOpen = true
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.size(8.dp))
-                                Text(
-                                    stringResource(
-                                        if (draftState.mode == OfficialEditorMode.Quick) {
-                                            R.string.official_form_edit_body_quick
-                                        } else {
-                                            R.string.official_form_edit_body
-                                        }
-                                    ),
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
-                        },
-                        linkControl = if (draftState.mode == OfficialEditorMode.Advanced) {
-                            {
-                                OfficialEditorLinkFieldContent(
-                                    value = draftState.linkUrl,
-                                    onValueChange = { draftState = draftState.copy(linkUrl = it) },
-                                    label = stringResource(R.string.official_form_link),
-                                )
-                            }
-                        } else {
-                            null
-                        }
-                    )
-                },
-                previewSection = {
-                    OfficialEditorSectionTitle(stringResource(R.string.composer_preview))
-                    OfficialPostPreview(
-                        author = currentUser,
-                        title = draftState.effectiveTitle,
-                        summary = draftState.effectiveSummary,
-                        contentHtml = draftState.contentHtml,
-                        readMoreLabel = draftState.effectiveReadMoreCode,
-                        postType = draftState.postType,
-                        mediaUrl = draftState.mediaUrl,
-                        mediaType = draftState.mediaType,
-                        linkUrl = draftState.effectiveLinkUrl
-                    )
-                },
-                feedback = {
-                    if (error != null) {
-                        Text(error, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                    }
-                },
-                publishAction = {
-                    OfficialPublishButton(
-                        enabled = draftState.canPublish(),
-                        isPublishing = isPublishing,
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { requestPublication() },
-                    )
-                },
-            )
+        val spanishName = stringResource(R.string.official_language_spanish)
+        val englishName = stringResource(R.string.official_language_english)
+        val frenchName = stringResource(R.string.official_language_french)
+        val translationTemplate = stringResource(R.string.official_translation_message, "\u0000", "\u0001")
+        fun languageName(language: OfficialPostLanguage): String = when (language) {
+            OfficialPostLanguage.Spanish -> spanishName
+            OfficialPostLanguage.English -> englishName
+            OfficialPostLanguage.French -> frenchName
         }
-    }
-
-    pendingTranslation?.let { pending ->
-        OfficialTranslationPromptDialog(
-            pending = pending,
-            onDismiss = {
-                if (!pending.isTranslating) {
-                    pendingTranslation = null
-                }
+        OfficialPostEditorRoot(
+            padding = padding,
+            currentUser = currentUser,
+            isPublishing = isPublishing,
+            error = error,
+            language = currentOfficialPostLanguage(),
+            canPublish = currentUser?.isOfficial == true,
+            onSubmit = onSubmit,
+            newTranslationGroupId = { UUID.randomUUID().toString() },
+            detectLanguage = { draft -> detectOfficialPostLanguage(context, draft) },
+            translator = OfficialPostEditorTranslator { draft, source, target, groupId ->
+                translateOfficialDraft(context, draft, source, target, groupId)
             },
-            onSkip = {
-                val groupId = UUID.randomUUID().toString()
-                onSubmit(listOf(pending.draft.copy(translationGroupId = groupId)))
-                pendingTranslation = null
-            },
-            onGenerate = {
-                pendingTranslation = pending.copy(isTranslating = true)
-                coroutineScope.launch {
-                    val translatedDrafts = runCatching {
-                        buildTranslatedOfficialDrafts(context, pending)
-                    }.getOrElse {
-                        listOf(pending.draft.copy(translationGroupId = UUID.randomUUID().toString()))
+            strings = OfficialPostEditorStrings(
+                title = stringResource(R.string.official_create),
+                quickModeTitle = stringResource(R.string.official_form_mode_quick),
+                quickModeDescription = stringResource(R.string.official_form_mode_description_quick),
+                advancedModeTitle = stringResource(R.string.official_form_mode_advanced),
+                advancedModeDescription = stringResource(R.string.official_form_mode_description_advanced),
+                mainSection = stringResource(R.string.official_form_main_section),
+                mediaSection = stringResource(R.string.official_form_media_section),
+                bodyQuick = stringResource(R.string.official_form_body_quick),
+                readMoreSection = stringResource(R.string.official_form_read_more_section),
+                editBodyQuick = stringResource(R.string.official_form_edit_body_quick),
+                editBodyAdvanced = stringResource(R.string.official_form_edit_body),
+                titleLabel = stringResource(R.string.official_form_title),
+                summaryLabel = stringResource(R.string.official_form_summary),
+                linkLabel = stringResource(R.string.official_form_link),
+                preview = stringResource(R.string.composer_preview),
+                publish = stringResource(R.string.official_publish),
+                publishing = stringResource(R.string.composer_publishing),
+                unavailable = stringResource(R.string.error_backend_generic),
+                validation = stringResource(R.string.error_backend_generic),
+                close = stringResource(R.string.common_close),
+                defaultTitle = stringResource(R.string.official_post_default_title),
+                translationTitle = stringResource(R.string.official_translation_title),
+                translationMessage = { source, targets ->
+                    translationTemplate
+                        .replace("\u0000", languageName(source))
+                        .replace("\u0001", targets.joinToString(", ") { languageName(it) })
+                },
+                translationProgress = stringResource(R.string.official_translation_progress),
+                translationConfirm = stringResource(R.string.official_translation_confirm),
+                translationSkip = stringResource(R.string.official_translation_skip),
+                translationFailed = stringResource(R.string.error_backend_generic),
+                typeLabel = { type -> context.getOfficialPostTypeLabel(type) },
+                readMoreLabel = { shortcode -> context.getOfficialReadMoreLabel(shortcode) },
+            ),
+            slots = OfficialPostEditorPlatformSlots(
+                bodyEditorAction = { html, title, onHtmlChange, editorModifier ->
+                    OutlinedButton(
+                        onClick = {
+                            longEditorHtml = html
+                            longEditorTitle = title
+                            pendingBodySave = onHtmlChange
+                            isLongEditorOpen = true
+                        },
+                        modifier = editorModifier,
+                    ) {
+                        Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(8.dp))
+                        Text(title, fontWeight = FontWeight.ExtraBold)
                     }
-                    onSubmit(translatedDrafts)
-                    pendingTranslation = null
-                }
-            }
+                },
+                imagePicker = { onPicked, pickerModifier ->
+                    OutlinedButton(
+                        onClick = {
+                            pendingImagePicked = onPicked
+                            imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                        modifier = pickerModifier,
+                    ) {
+                        Icon(Icons.Filled.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(8.dp))
+                        Text(stringResource(R.string.composer_pick_image), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
+                videoPicker = { onPicked, pickerModifier ->
+                    OutlinedButton(
+                        onClick = {
+                            pendingVideoPicked = onPicked
+                            videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                        },
+                        modifier = pickerModifier,
+                    ) {
+                        Icon(Icons.Filled.VideoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(8.dp))
+                        Text(stringResource(R.string.composer_pick_video), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
+                mediaPreview = { media, onPicked, onRemove, previewModifier ->
+                    OfficialEditorMediaPreview(
+                        mediaType = media.type,
+                        mediaUrl = media.url,
+                        onEdit = {
+                            when (media.type) {
+                                OfficialMediaType.Image -> {
+                                    pendingImagePicked = onPicked
+                                    imageEditorUri = Uri.parse(media.url)
+                                }
+                                OfficialMediaType.Video -> {
+                                    pendingVideoPicked = onPicked
+                                    videoEditorUri = Uri.parse(media.url)
+                                }
+                            }
+                        },
+                        onRemove = onRemove,
+                        modifier = previewModifier,
+                    )
+                },
+                preview = { preview, _ ->
+                    OfficialPostPreview(
+                        author = preview.author,
+                        title = preview.title,
+                        summary = preview.summary,
+                        contentHtml = preview.contentHtml,
+                        readMoreLabel = preview.readMoreLabel,
+                        postType = preview.postType,
+                        mediaUrl = preview.mediaUrl,
+                        mediaType = preview.mediaType,
+                        linkUrl = preview.linkUrl,
+                    )
+                },
+            ),
         )
     }
 
@@ -413,7 +307,8 @@ fun OfficialPostEditorScreen(
             imageUri = sourceUri,
             onDismiss = { imageEditorUri = null },
             onEdited = { editedUri ->
-                draftState = draftState.withMedia(OfficialMediaType.Image, editedUri.toString())
+                pendingImagePicked?.invoke(OfficialEditorMedia(editedUri.toString(), OfficialMediaType.Image))
+                pendingImagePicked = null
                 imageEditorUri = null
             }
         )
@@ -424,7 +319,8 @@ fun OfficialPostEditorScreen(
             videoUri = sourceUri,
             onDismiss = { videoEditorUri = null },
             onExported = { editedUri ->
-                draftState = draftState.withMedia(OfficialMediaType.Video, editedUri.toString())
+                pendingVideoPicked?.invoke(OfficialEditorMedia(editedUri.toString(), OfficialMediaType.Video))
+                pendingVideoPicked = null
                 videoEditorUri = null
             }
         )
@@ -508,11 +404,13 @@ private fun OfficialEditorMediaPreview(
     mediaType: OfficialMediaType,
     mediaUrl: String,
     onEdit: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     OfficialEditorMediaPreviewContent(
         removeLabel = stringResource(R.string.common_remove),
         onRemove = onRemove,
+        modifier = modifier,
         mediaContent = { mediaModifier ->
             Box(
                 modifier = mediaModifier
@@ -709,6 +607,22 @@ private fun OfficialPostType.editorLabel(): String = when (this) {
     OfficialPostType.News -> stringResource(R.string.official_type_news)
     OfficialPostType.Event -> stringResource(R.string.official_type_event)
     OfficialPostType.Urgent -> stringResource(R.string.official_type_urgent)
+}
+
+private fun android.content.Context.getOfficialPostTypeLabel(type: OfficialPostType): String = getString(
+    when (type) {
+        OfficialPostType.Announcement -> R.string.official_type_announcement
+        OfficialPostType.News -> R.string.official_type_news
+        OfficialPostType.Event -> R.string.official_type_event
+        OfficialPostType.Urgent -> R.string.official_type_urgent
+    },
+)
+
+private fun android.content.Context.getOfficialReadMoreLabel(storedValue: String): String {
+    val option = OfficialReadMoreOption.fromStored(storedValue) ?: OfficialReadMoreOption.ReadMore
+    val labelRes = officialReadMoreUiOptions.firstOrNull { it.option == option }?.labelRes
+        ?: R.string.official_read_more
+    return getString(labelRes)
 }
 
 @Composable

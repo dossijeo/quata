@@ -507,7 +507,6 @@
     <string name="official_form_mode_description_advanced">Controla t&#237;tulo, resumen, texto del enlace y URL informativa.</string>
     <string name="official_form_title">T&#237;tulo</string>
     <string name="official_form_summary">Resumen corto</string>
-    <string name="official_form_body">Descripci&#243;n larga</string>
     <string name="official_form_body_quick">Descripci&#243;n</string>
     <string name="official_form_edit_body">Editar descripci&#243;n larga</string>
     <string name="official_form_edit_body_quick">Editar descripci&#243;n</string>
