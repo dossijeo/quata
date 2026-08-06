@@ -807,48 +807,60 @@ class ChatViewModel(
 
     private fun sendForward() {
         val message = selectedMessage()?.takeIf { !it.isLocalEcho } ?: return
-        val selectedProfileIds = _uiState.value.selectedForwardProfileIds
+        val selectedProfileIds = _uiState.value.selectedForwardProfileIds.distinct()
         if (selectedProfileIds.isEmpty()) return
         _uiState.value = _uiState.value.copy(
             isConversationActionInProgress = true,
-            isForwardDialogOpen = false,
-            selectedForwardProfileIds = emptyList()
+            error = null
         )
         scope.launch {
-            runCatching {
-                selectedProfileIds.map { profileId ->
-                    repository.openPrivateConversation(profileId).getOrThrow()
-                }
-                    .filterNot { it == conversationId }
-                    .distinct()
-            }.fold(
-                onSuccess = { conversationIds ->
-                    if (conversationIds.isEmpty()) {
-                        _uiState.value = _uiState.value.copy(
-                            isConversationActionInProgress = false,
-                            selectedMessageId = null
-                        )
-                        return@launch
-                    }
-                    repository.forwardMessage(message, conversationIds).onSuccess {
-                        _uiState.value = _uiState.value.copy(
-                            selectedMessageId = null,
-                            isConversationActionInProgress = false
-                        )
-                    }.onFailure { error ->
-                        _uiState.value = _uiState.value.copy(
-                            isConversationActionInProgress = false,
-                            error = text(ChatText.Forward)
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _uiState.value = _uiState.value.copy(
+            val openedConversationIds = mutableListOf<String>()
+            var openFailureCount = 0
+            selectedProfileIds.forEach { profileId ->
+                repository.openPrivateConversation(profileId).fold(
+                    onSuccess = { openedConversationIds += it },
+                    onFailure = { openFailureCount += 1 },
+                )
+            }
+            val conversationIds = openedConversationIds
+                .filterNot { it == conversationId }
+                .distinct()
+            if (conversationIds.isEmpty()) {
+                _uiState.value = if (openFailureCount == 0) {
+                    _uiState.value.copy(
                         isConversationActionInProgress = false,
-                        error = text(ChatText.Forward)
+                        isForwardDialogOpen = false,
+                        selectedForwardProfileIds = emptyList(),
+                        selectedMessageId = null,
+                    )
+                } else {
+                    _uiState.value.copy(
+                        isConversationActionInProgress = false,
+                        error = text(ChatText.Forward),
                     )
                 }
-            )
+                return@launch
+            }
+            repository.forwardMessage(message, conversationIds).onSuccess { result ->
+                if (result.isComplete && openFailureCount == 0) {
+                    _uiState.value = _uiState.value.copy(
+                        selectedMessageId = null,
+                        isConversationActionInProgress = false,
+                        isForwardDialogOpen = false,
+                        selectedForwardProfileIds = emptyList(),
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isConversationActionInProgress = false,
+                        error = text(ChatText.Forward),
+                    )
+                }
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(
+                    isConversationActionInProgress = false,
+                    error = text(ChatText.Forward),
+                )
+            }
         }
     }
 

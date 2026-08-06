@@ -22,6 +22,7 @@ import com.quata.data.supabase.RealtimeStatus
 import com.quata.data.supabase.SupabaseRealtimeClient
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
+import com.quata.feature.chat.domain.ChatForwardResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
 import com.quata.feature.chat.domain.isExactPrivateConversation
@@ -969,22 +970,25 @@ class ChatRepositoryImpl(
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
-    override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<Unit> = runCatching {
+    override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<ChatForwardResult> = runCatching {
         if (AppConfig.USE_MOCK_BACKEND) {
             val user = MockData.currentUser
             MockData.forwardMessage(message, conversationIds, user.id, user.displayName)
             _conversations.value = MockData.conversations
             refreshMockMessageStates()
-            return@runCatching
+            val requestedCount = conversationIds.distinct().size
+            return@runCatching ChatForwardResult(requestedCount = requestedCount, sentCount = requestedCount)
         }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val targets = conversationIds.mapNotNull { it.supabaseThreadIdOrNull() }
-        if (targets.isEmpty()) return@runCatching
-        remote.forwardChatMessage(session.userId, message.id.toLongOrNull() ?: error("Mensaje no valido"), targets)
+        if (targets.isEmpty()) return@runCatching ChatForwardResult(requestedCount = 0, sentCount = 0)
+        val payload = remote.forwardChatMessage(session.userId, message.id.toLongOrNull() ?: error("Mensaje no valido"), targets)
+        val result = payload.toChatForwardResult(requestedCount = targets.distinct().size)
         scope.launch {
             refreshAll(session.userId, force = true)
             refreshLoadedThreads()
         }
+        result
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     private fun refreshMockMessageStates() {
@@ -1553,6 +1557,15 @@ class ChatRepositoryImpl(
 
     private fun JsonElement.stringOrNull(): String? =
         (this as? JsonPrimitive)?.contentOrNull
+
+    private fun JsonElement.toChatForwardResult(requestedCount: Int): ChatForwardResult {
+        val root = jsonObject
+        return ChatForwardResult(
+            requestedCount = requestedCount,
+            sentCount = root["sent"]?.jsonObject?.size ?: 0,
+            errorCount = root["errors"]?.jsonArray?.size ?: 0,
+        )
+    }
 
     private fun String.requireThreadId(): Long =
         supabaseThreadIdOrNull() ?: error("Conversacion no valida")

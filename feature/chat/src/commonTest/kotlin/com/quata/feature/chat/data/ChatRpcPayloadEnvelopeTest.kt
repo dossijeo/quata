@@ -50,4 +50,23 @@ class ChatRpcPayloadEnvelopeTest {
         assertEquals(emptyList(), envelope.messages)
         assertEquals(emptyList(), envelope.profiles)
     }
+
+    @Test
+    fun parsesForwardRpcSentAndErrorsInsteadOfTreatingThePayloadAsUnit() {
+        val result = parseChatForwardResult(
+            """
+            {
+              "result": true,
+              "sent": {"42": 1001, "43": 1002},
+              "errors": ["not participant in thread 44"]
+            }
+            """.trimIndent(),
+            requestedCount = 3,
+        )
+
+        assertEquals(3, result.requestedCount)
+        assertEquals(2, result.sentCount)
+        assertEquals(1, result.errorCount)
+        assertEquals(false, result.isComplete)
+    }
 }

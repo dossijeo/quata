@@ -7,6 +7,7 @@ import com.quata.core.navigation.AppDestinations
 import com.quata.core.platform.PlatformFile
 import com.quata.feature.chat.domain.ChatConversationCandidate
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
+import com.quata.feature.chat.domain.ChatForwardResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
 import kotlinx.coroutines.currentCoroutineContext
@@ -324,11 +325,14 @@ open class PostgrestChatRepository(
         rpc("quata_chat_set_favorite", buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_message_id", numericMessageId); put("p_favorite", !message.isFavorite) }.toString())
         refreshThread(message.conversationId, ThreadPageSize).getOrThrow(); _syncStatus.value = ChatSyncStatus.Online
     }.onFailure { updateReadFailure() }
-    override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<Unit> = runCatching {
+    override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<ChatForwardResult> = runCatching {
         val userId = currentUserId(); val numericMessageId = message.id.toLongOrNull() ?: throw IllegalArgumentException("chat_message_id_invalid")
         val threadIds = conversationIds.map(String::requirePostgrestThreadId).distinct()
-        if (threadIds.isNotEmpty()) rpc("quata_chat_forward_message", buildJsonObject { put("p_actor_profile_id", userId); put("p_message_id", numericMessageId); put("p_thread_ids", JsonArray(threadIds.map(::JsonPrimitive))) }.toString())
+        if (threadIds.isEmpty()) return@runCatching ChatForwardResult(requestedCount = 0, sentCount = 0)
+        val payload = transport.post("quata_chat_forward_message", buildJsonObject { put("p_actor_profile_id", userId); put("p_message_id", numericMessageId); put("p_thread_ids", JsonArray(threadIds.map(::JsonPrimitive))) }.toString()).successOrThrow()
+        val result = parseChatForwardResult(payload, requestedCount = threadIds.size)
         refreshInbox().getOrThrow(); _syncStatus.value = ChatSyncStatus.Online
+        result
     }.onFailure { updateReadFailure() }
     override suspend fun flushPendingMessages(): Boolean {
         if (!networkAvailable) return false
@@ -507,6 +511,12 @@ internal fun shouldCleanupEmptyPrivateConversation(conversation: Conversation?, 
 private fun ChatPostgrestResponse.successOrThrow(): String = when (this) {
     is ChatPostgrestResponse.Success -> body
     is ChatPostgrestResponse.Failure -> throw cause
+}
+internal fun parseChatForwardResult(payload: String, requestedCount: Int): ChatForwardResult {
+    val root = Json.parseToJsonElement(payload).jsonObject
+    val sentCount = root["sent"]?.jsonObject?.size ?: 0
+    val errorCount = root["errors"]?.jsonArray?.size ?: 0
+    return ChatForwardResult(requestedCount = requestedCount, sentCount = sentCount, errorCount = errorCount)
 }
 private fun String.requirePostgrestThreadId(): Long = removePrefix("sb:").toLongOrNull()?.takeIf { startsWith("sb:") && it > 0L } ?: throw IllegalArgumentException("web_chat_invalid_conversation_id")
 private fun String.threadIdForRefresh(): Long = removePrefix("sb:").toLongOrNull()

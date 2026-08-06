@@ -5,6 +5,7 @@ import com.quata.core.model.Conversation
 import com.quata.core.model.Message
 import com.quata.core.model.User
 import com.quata.feature.chat.domain.ChatConversationCandidatePage
+import com.quata.feature.chat.domain.ChatForwardResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.domain.ChatSyncStatus
 import kotlin.test.Test
@@ -220,6 +221,65 @@ class ChatViewModelComposerActionsTest {
 
         model.close()
     }
+
+    @Test
+    fun forwardMessageKeepsSelectionStableUntilEveryDestinationSucceeds() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val own = ownMessage(id = "123")
+        val repository = RecordingChatRepository(messages = listOf(own)).apply {
+            openPrivateConversationResults["profile-a"] = Result.success("conversation-2")
+            openPrivateConversationResults["profile-b"] = Result.success("conversation-3")
+        }
+        val model = chatViewModel(repository, dispatcher)
+
+        testScheduler.advanceUntilIdle()
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.OpenForwardDialog)
+        model.onEvent(ChatUiEvent.ForwardProfileToggled("profile-a"))
+        model.onEvent(ChatUiEvent.ForwardProfileToggled("profile-b"))
+        model.onEvent(ChatUiEvent.SendForward)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("profile-a", "profile-b"), repository.openPrivateConversationCalls)
+        assertEquals(ForwardMessageCall(own.id, listOf("conversation-2", "conversation-3")), repository.forwardMessageCalls.single())
+        assertFalse(model.uiState.value.isForwardDialogOpen)
+        assertTrue(model.uiState.value.selectedForwardProfileIds.isEmpty())
+        assertNull(model.uiState.value.selectedMessageId)
+
+        model.close()
+    }
+
+    @Test
+    fun forwardMessagePartialFailureKeepsPickerOpenAndDoesNotDropRetryContext() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val own = ownMessage(id = "456")
+        val repository = RecordingChatRepository(messages = listOf(own)).apply {
+            openPrivateConversationResults["profile-a"] = Result.success("conversation-2")
+            openPrivateConversationResults["profile-b"] = Result.failure(IllegalStateException("open failed"))
+            forwardMessageResult = Result.success(ChatForwardResult(requestedCount = 1, sentCount = 1, errorCount = 1))
+        }
+        val model = chatViewModel(repository, dispatcher)
+
+        testScheduler.advanceUntilIdle()
+
+        model.onEvent(ChatUiEvent.MessageSelected(own.id))
+        model.onEvent(ChatUiEvent.OpenForwardDialog)
+        model.onEvent(ChatUiEvent.ForwardProfileToggled("profile-a"))
+        model.onEvent(ChatUiEvent.ForwardProfileToggled("profile-b"))
+        model.onEvent(ChatUiEvent.SendForward)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("profile-a", "profile-b"), repository.openPrivateConversationCalls)
+        assertEquals(ForwardMessageCall(own.id, listOf("conversation-2")), repository.forwardMessageCalls.single())
+        assertTrue(model.uiState.value.isForwardDialogOpen)
+        assertEquals(listOf("profile-a", "profile-b"), model.uiState.value.selectedForwardProfileIds)
+        assertEquals(own.id, model.uiState.value.selectedMessageId)
+        assertEquals("forward", model.uiState.value.error)
+        assertFalse(model.uiState.value.isConversationActionInProgress)
+
+        model.close()
+    }
 }
 
 private fun chatViewModel(
@@ -283,6 +343,7 @@ private data class SendReplyCall(
 )
 
 private data class EditMessageCall(val messageId: String, val text: String)
+private data class ForwardMessageCall(val messageId: String, val conversationIds: List<String>)
 
 private class RecordingChatRepository(messages: List<Message>) : ChatRepository {
     override val activeConversationId = MutableStateFlow<String?>(null)
@@ -313,6 +374,8 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     val deleteMessageCalls = mutableListOf<String>()
     val reportMessageCalls = mutableListOf<String>()
     val toggleFavoriteMessageCalls = mutableListOf<String>()
+    val openPrivateConversationCalls = mutableListOf<String>()
+    val forwardMessageCalls = mutableListOf<ForwardMessageCall>()
 
     var sendMessageResult: Result<Unit> = Result.success(Unit)
     var sendReplyResult: Result<Unit> = Result.success(Unit)
@@ -320,6 +383,8 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     var deleteMessageResult: Result<Unit> = Result.success(Unit)
     var reportMessageResult: Result<Unit> = Result.success(Unit)
     var toggleFavoriteMessageResult: Result<Unit> = Result.success(Unit)
+    var forwardMessageResult: Result<ChatForwardResult>? = null
+    val openPrivateConversationResults = mutableMapOf<String, Result<String>>()
 
     override fun setDeviceNetworkAvailable(isAvailable: Boolean) = Unit
     override fun currentUser(): User = User("me", "me@example.invalid", "Me")
@@ -343,7 +408,11 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
     override suspend fun searchConversationCandidates(query: String, limit: Int, offset: Int): Result<ChatConversationCandidatePage> =
         Result.failure(UnsupportedOperationException("unused"))
     override suspend fun matchRegisteredContactPhones(phoneCandidates: Collection<String>): Result<Set<String>> = Result.success(emptySet())
-    override suspend fun openPrivateConversation(peerProfileId: String): Result<String> = Result.failure(UnsupportedOperationException("unused"))
+    override suspend fun openPrivateConversation(peerProfileId: String): Result<String> {
+        openPrivateConversationCalls += peerProfileId
+        return openPrivateConversationResults[peerProfileId]
+            ?: Result.failure(UnsupportedOperationException("unused"))
+    }
     override suspend fun sendMessage(
         conversationId: String,
         text: String,
@@ -413,7 +482,11 @@ private class RecordingChatRepository(messages: List<Message>) : ChatRepository 
         toggleFavoriteMessageCalls += messageId
         return toggleFavoriteMessageResult
     }
-    override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<Unit> = Result.success(Unit)
+    override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<ChatForwardResult> {
+        forwardMessageCalls += ForwardMessageCall(message.id, conversationIds)
+        return forwardMessageResult
+            ?: Result.success(ChatForwardResult(requestedCount = conversationIds.distinct().size, sentCount = conversationIds.distinct().size))
+    }
     override suspend fun flushPendingMessages(): Boolean = true
     override suspend fun retryPendingMessage(clientMessageId: String): Result<Unit> = Result.success(Unit)
 }
