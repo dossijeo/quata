@@ -1,10 +1,13 @@
 package com.quata.feature.chat.data
 
+import com.quata.core.navigation.AppDestinations
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class PostgrestChatRepositoryTest {
@@ -79,5 +82,29 @@ class PostgrestChatRepositoryTest {
         assertEquals(1, calls.count { it.first == "quata_chat_register_attachment" })
         assertEquals(2, calls.count { it.first == "quata_chat_send_message" })
         assertTrue(calls.filter { it.first == "quata_chat_send_message" }.all { it.second.contains("\"p_file_ids\":[123]") })
+    }
+
+    @Test
+    fun favoriteMessageLoadFailureIsNotEmittedAsAnEmptySnapshot() = runTest {
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    return when (functionName) {
+                        "quata_chat_get_favorites" -> ChatPostgrestResponse.Failure(IllegalStateException("favorites_load_failed"))
+                        else -> ChatPostgrestResponse.Success("{}")
+                    }
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ ->
+                error("attachment uploader should not be used")
+            },
+        )
+
+        assertFailsWith<IllegalStateException> {
+            repository.observeMessages(AppDestinations.FavoriteMessagesConversationId).first()
+        }.also { error ->
+            assertEquals("favorites_load_failed", error.message)
+        }
     }
 }
