@@ -31,6 +31,7 @@ import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.navigation.AppDestinations
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatProductHostContent
 import com.quata.feature.chat.presentation.chat.ChatMediaPlatformSlots
@@ -139,6 +140,7 @@ fun WebChatHost(
                 clipboardService = clipboard,
                 strings = conversationsHostStringsForLanguage(languageTag),
                 onOpenConversation = onOpenConversation,
+                onOpenFavorites = { onOpenConversation(AppDestinations.FavoriteMessagesConversationId) },
                 onOpenUserProfile = onOpenUserProfile,
                 openingProfileUserId = openingProfileUserId,
                 remoteConversationAvatar = { presentation, avatarModifier ->

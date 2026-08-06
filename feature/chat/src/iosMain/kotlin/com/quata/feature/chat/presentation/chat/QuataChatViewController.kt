@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.navigation.AppDestinations
 import com.quata.core.platform.IosClipboardService
 import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosTranslationHttpTransport
@@ -138,6 +139,7 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                         clipboardService = clipboard,
                         strings = conversationsHostStringsForLanguage(languageTag),
                         onOpenConversation = dependencies.onOpenConversation,
+                        onOpenFavorites = { dependencies.onOpenConversation(AppDestinations.FavoriteMessagesConversationId) },
                         onOpenUserProfile = dependencies.onOpenAvatar,
                         openingProfileUserId = openingProfileUserId,
                         remoteConversationAvatar = { presentation, avatarModifier ->
