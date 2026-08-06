@@ -49,7 +49,7 @@ archivos con nombres parecidos: Android, Wasm e iOS deben consumir la misma raí
 | `SCR-COMMUNITIES` | `NeighborhoodsScreen` | Directorio, búsqueda, comunidades, miembros, secciones, navegación y estados vacío/error. | **COMÚN con límites.** #175 integra `NeighborhoodsScreenHost` como raíz consumida por Android, Wasm e iOS, con repositorios reales y gate de sesión para acciones privadas. | Quedan `FLOW-COMMUNITY-CHAT`, back de sistema Android en la subruta de miembros y recorridos funcionales/visuales de error y retorno. |
 | `OVR-PUBLIC-PROFILE` | `CommunityProfileScreen` | **Panel global**, no subpantalla exclusiva de Comunidades. Se abre desde Feed, Oficial, Comunidades, Conversaciones y Chat. Incluye cabecera, seguidores/seguidos, publicaciones/galería, comentarios, seguir, conversación privada, roles, administración, reporte, bloqueo y adjuntos. | **COMÚN con límites.** #175 integra `CommunityProfileScreenHost` en Android, Wasm e iOS y conecta las entradas globales; no cierra por ello las mutaciones ni todos los recorridos `PROF-*`. | Mantener pendientes los límites enumerados en `PROF-ENTRY`, `PROF-HEADER`, `PROF-FOLLOW`, `PROF-FOLLOW-LISTS`, `PROF-CONTENT`, `PROF-PRIVATE-CHAT`, `PROF-ROLES` y `PROF-SAFETY`. |
 | `SCR-CONVERSATIONS` | `ConversationsScreen` | Inbox, búsqueda, favoritos, candidato de nueva conversación, invitaciones, avatares y entrada a Chat/perfil. | **COMÚN con límites.** #173 integró `ConversationsScreenHost` y transporte realtime por plataforma. | Postflight de los subflujos `CONV-*`; no confundir la lista visible con el flujo completo. |
-| `SCR-CHAT` | `ChatScreen` | Conversación privada/grupal, mensajes, realtime, adjuntos, audio, reenvío, perfiles, traducción, mapa/SOS y administración. | **FALLBACK/PARCIAL.** #173 mejora transporte e integración, pero Web/iOS aún conservan `ChatBrowserHostContent`; no equivale a la pantalla Android completa. | Migrar la composición Android a una raíz común y cerrar `CHAT-*` individualmente. |
+| `SCR-CHAT` | `ChatScreen` | Conversación privada/grupal, mensajes, realtime, adjuntos, audio, reenvío, perfiles, traducción, mapa/SOS y administración. | **COMÚN con límites.** `ChatProductHostContent`/`ChatScreenHost` se consume en Android, Wasm e iOS; la ruta Android activa es `AndroidChatProductScreen` y Web/iOS ya no montan el fallback browser-style como producto. | Cerrar `CHAT-*` individualmente con evidencia real; no declarar GO hasta completar composer, acciones, adjuntos/audio, grupo, perfiles, traducción, mapa/SOS y retorno. |
 | `SCR-NOTIFICATIONS` | `NotificationsScreen` | Lista, badge, apertura de destino, marcado/estado, vacío/error, perfil y retorno. | **COMÚN con límites.** #172 integró `NotificationsHostContent` en las tres plataformas. | Postflight funcional/visual del SHA integrado y destinos reales; ya no debe figurar “#157 no integrada”. |
 | `SCR-ACCOUNT` | `ProfileScreen` | Cuenta propia, datos, avatar, preferencias vinculadas, seguridad, ciclo de cuenta y acceso a SOS. | **COMÚN con límites.** #156 integró `ProfileScreenHost`. No equivale al perfil público `OVR-PUBLIC-PROFILE`. | Cerrar `ACCOUNT-*`, avatar Web real y navegación/retorno. |
 | `SCR-SOS` | subflujo SOS de `ProfileScreen` | Configuración, contactos, alta/baja, estado, permisos, errores y persistencia real. | **COMÚN con límites.** La raíz está integrada, pero sólo se acreditó acceso parcial y 1/5 contactos; no las mutaciones. | E2E reversible con los cinco contactos/estados y limpieza posterior. |
@@ -89,12 +89,12 @@ requieren una PR independiente, pero todas requieren estado y evidencia propios.
 
 | ID | Capacidad | Estado actual / pendiente |
 |---|---|---|
-| `CHAT-MESSAGES` | Historial, paginación, envío, edición/borrado si aplica, errores y realtime. | Transporte común/parcial; composición Web/iOS todavía fallback. |
-| `CHAT-COMPOSER` | Compositor de texto, estado de escritura, respuesta, edición, cancelación de modo, emoji y envío con adjunto. | Android conserva banners y modos propios dentro de `ChatScreen`; extraer estado y composición comunes sin perder `FLOW-EMOJI`. |
-| `CHAT-MESSAGE-ACTIONS` | Selección y acciones copiar, responder, reenviar, editar, reportar, favorito y borrar, con confirmaciones y permisos. | Android monta el modo en la cabecera; Web/iOS fallback no acredita equivalencia ni confirmaciones. `CHAT-FORWARD` y `CHAT-FAVORITES` conservan además estado propio. |
+| `CHAT-MESSAGES` | Historial, paginación, envío, edición/borrado si aplica, errores y realtime. | Raíz común conectada para lectura, carga inicial, error/retry, paginación y realtime en Android, Wasm e iOS. Envío, edición/borrado y mutaciones siguen pendientes de evidencia reversible por subflujo. |
+| `CHAT-COMPOSER` | Compositor de texto, estado de escritura, respuesta, edición, cancelación de modo, emoji y envío con adjunto. | Composer común conectado a `ChatViewModel`; falta evidencia operativa de escritura, reply/edit, emoji, envío y errores con servicios reales por plataforma. |
+| `CHAT-MESSAGE-ACTIONS` | Selección y acciones copiar, responder, reenviar, editar, reportar, favorito y borrar, con confirmaciones y permisos. | Barra y confirmaciones comunes conectadas; falta acreditar permisos, mutaciones reversibles, errores y retorno visual en Android, Wasm e iOS. `CHAT-FORWARD` y `CHAT-FAVORITES` conservan estado propio. |
 | `CHAT-FAVORITES` | Ruta/lista de mensajes favoritos, apertura del mensaje/conversación origen y alta/baja de favorito. | Android usa la conversación especial `FavoriteMessagesConversationId`; inventariar carga, vacío/error, retorno y foco exacto. |
 | `CHAT-NOTIFICATIONS` | Silenciar/reactivar notificaciones de una conversación y reflejar el estado en cabecera/lista. | Mutación y persistencia reales pendientes de equivalencia Web/iOS y evidencia de retorno. |
-| `CHAT-FOCUSED-MESSAGE` | Abrir Chat enfocando un mensaje desde notificación, favoritos, reenvío o deep link; paginar hasta encontrarlo, resaltarlo y consumir el foco una sola vez. | Android mantiene `focusedMessageId` y posicionamiento propio; Web/iOS deben acreditar el mismo contrato, incluido mensaje ausente/error. |
+| `CHAT-FOCUSED-MESSAGE` | Abrir Chat enfocando un mensaje desde notificación, favoritos, reenvío o deep link; paginar hasta encontrarlo, resaltarlo y consumir el foco una sola vez. | Existe contrato común de foco: espera snapshot autenticado, pagina historial, distingue mensaje ausente/error y consume el foco una sola vez. Falta evidencia visual/operativa sobre la misma conversación en las tres plataformas. |
 | `CHAT-ATTACHMENTS` | Picker, imágenes, vídeo, documentos, subida, descarga y visor. | Adaptadores de sistema permitidos; estado/chrome/errores deben ser comunes. |
 | `CHAT-AUDIO` | Grabación, permisos, envío y reproducción. | Adaptadores nativos; flujo de producto aún sin equivalencia acreditada. |
 | `CHAT-FORWARD` | Reenvío y selector de destinos. | Debe reutilizar selector/estado común, sin controles Web/Swift paralelos. |
@@ -160,7 +160,7 @@ requieren una PR independiente, pero todas requieren estado y evidencia propios.
 - `OVR-PUBLIC-PROFILE` es global. `SCR-COMMUNITIES` no puede declararlo cerrado únicamente porque
   el avatar del directorio sea accionable.
 - `SCR-CONVERSATIONS` depende de `OVR-PUBLIC-PROFILE` para avatares y de `SCR-CHAT` para completar
-  navegación. Puede quedar común con límites mientras Chat siga fallback, pero no GO global.
+  navegación. Puede quedar común con límites mientras Chat conserve subflujos pendientes, pero no GO global.
 - `SCR-CHAT`, `SCR-FEED`, `SCR-OFFICIAL`, `OVR-POST-DETAIL` y `OVR-COMMENTS` dependen de
   `FLOW-TRANSLATOR`, `OVR-MEDIA` y `FLOW-EMOJI` según las capacidades visibles en Android.
 - `SCR-CREATE-POST` no obtiene GO hasta cerrar los `POST-*` aplicables, aunque `CreatePostRoot`
@@ -170,7 +170,7 @@ requieren una PR independiente, pero todas requieren estado y evidencia propios.
 
 ## F. Cola consolidada desde esta base
 
-1. Migrar `SCR-CHAT` desde el fallback browser-style a la composición común y cerrar `CHAT-*`.
+1. Cerrar los límites de `SCR-CHAT` ya montado en raíz común: `CHAT-*`, evidencia visual/operativa y mutaciones reversibles.
 2. Reconstruir `SCR-OFFICIAL-EDITOR` desde `main`; no invertir jornadas en reconciliar una candidata
    histórica si su diff es más costoso que reextraer la vertical.
 3. Cerrar los límites post-#175 de `SCR-COMMUNITIES`, `OVR-PUBLIC-PROFILE`, `PROF-*`,

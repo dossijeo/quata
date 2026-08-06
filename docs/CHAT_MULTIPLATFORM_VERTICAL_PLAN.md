@@ -1,9 +1,10 @@
 # Plan de vertical común — Chat
 
-Base de preparación: `main` `97b325afab3cf35739d795d3a1457e5ee1c2376c` (documentación posterior a #175 integrada).
+Base de preparación histórica: `main` `97b325afab3cf35739d795d3a1457e5ee1c2376c` (documentación posterior a #175 integrada).
+Base re-medida para el corte `SCR-CHAT` actual: `origin/main` `acea3baab6cb8ec7aef414127059bdd220496e87` (después de #177).
 
-Estado de producto de partida: `SCR-CHAT` permanece **FALLBACK/PARCIAL**. Android monta la
-composición completa `ChatScreen`; Wasm e iOS montan `ChatBrowserHostContent`, una composición
+Estado histórico de producto de partida: `SCR-CHAT` permanecía **FALLBACK/PARCIAL**. Android montaba la
+composición completa `ChatScreen`; Wasm e iOS montaban `ChatBrowserHostContent`, una composición
 alternativa simplificada. Esta vertical no se declara terminada por compilar o sustituir el nombre
 del host: cada `CHAT-*` conserva estado y evidencia propios.
 
@@ -23,7 +24,7 @@ del host: cada `CHAT-*` conserva estado y evidencia propios.
 
 ## Contraste personal de las composiciones actuales
 
-### Android de referencia
+### Android de referencia histórica
 
 La raíz Android no es sólo una lista y un campo de texto. Conserva, en una única composición:
 
@@ -40,7 +41,7 @@ La raíz Android no es sólo una lista y un campo de texto. Conserva, en una ún
   y reproducción consecutiva;
 - confirmaciones, estados de progreso/error y retorno del grafo real.
 
-### Fallback Wasm/iOS actual
+### Fallback Wasm/iOS histórico
 
 `ChatBrowserHostContent` contiene una pantalla alternativa: cabecera con botones de texto, burbujas
 reducidas, sólo acción de responder y composer vertical. Web sustituye incluso input y envío por
