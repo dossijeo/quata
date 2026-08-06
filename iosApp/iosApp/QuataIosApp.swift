@@ -558,6 +558,7 @@ private final class IosAppCompositionRoot {
         installNotificationsIfAvailable()
         installAuthenticatedProfileSosIfAvailable()
         installCommunitiesIfAvailable()
+        installAuthenticatedOfficialEditorIfAvailable()
         installAuthenticatedComposerIfAvailable()
         presentPendingExternalShareIfAvailable()
         return true
@@ -661,6 +662,27 @@ private final class IosAppCompositionRoot {
                     onCreateOfficialPost: onCreateOfficialPost,
                     canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
                     profileOpeningState: self.memberProfileOpeningState,
+                ),
+            )
+        }
+    }
+
+    private func installAuthenticatedOfficialEditorIfAvailable() {
+        guard let runtimeBootstrap, let configuration = runtimeConfiguration else { return }
+        let services = platformServices.services
+        authenticatedHost.installOfficialEditorFactory { [weak self] in
+            QuataOfficialViewControllerKt.QuataOfficialEditorViewController(
+                dependencies: QuataOfficialViewControllerKt.iosAuthenticatedOfficialEditorDependencies(
+                    configuration: IosOfficialRuntimeConfiguration(
+                        supabaseUrl: configuration.supabaseUrl,
+                        supabasePublishableKey: configuration.supabasePublishableKey
+                    ),
+                    authSession: runtimeBootstrap.authSessionForInteractiveLogin(),
+                    filePicker: services.filePicker,
+                    videoThumbnails: services.videoThumbnails,
+                    currentUserId: nil,
+                    preferredLanguageTag: Locale.preferredLanguages.first,
+                    onClose: { [weak self] in self?.authenticatedHost.showOfficial(postId: nil) },
                 ),
             )
         }

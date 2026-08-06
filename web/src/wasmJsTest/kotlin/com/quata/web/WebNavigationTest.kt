@@ -15,6 +15,7 @@ class WebNavigationTest {
         assertRoute("notifications", "notifications".toWebNavigationState())
         assertRoute("profile", "profile".toWebNavigationState())
         assertRoute("composer", "composer".toWebNavigationState())
+        assertRoute("official-editor", "official-editor".toWebNavigationState())
         assertRoute("communities", "communities".toWebNavigationState())
         assertRoute("official", "official".toWebNavigationState())
         assertRoute("chat", "chat".toWebNavigationState())
@@ -30,6 +31,7 @@ class WebNavigationTest {
         assertEquals("conversations", webFragmentToCanonicalPrimaryRoute("chat/thread-1"))
         assertEquals("feed", webFragmentToCanonicalPrimaryRoute(""))
         assertEquals("composer", webFragmentToCanonicalPrimaryRoute("composer"))
+        assertEquals("official", webFragmentToCanonicalPrimaryRoute("official-editor"))
     }
 
     @Test
@@ -96,6 +98,8 @@ class WebNavigationTest {
         check(!"chat".toWebNavigationState().isPublicRoute)
         check("chat".toWebNavigationState().requiresAuthentication)
         check("profile".toWebNavigationState().requiresAuthentication)
+        check("official-editor".toWebNavigationState().requiresAuthentication)
+        check(!"official-editor".toWebNavigationState().isPublicRoute)
         check(!"auth".toWebNavigationState().requiresAuthentication)
     }
 
