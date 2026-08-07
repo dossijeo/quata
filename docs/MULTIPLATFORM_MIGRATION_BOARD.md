@@ -135,7 +135,7 @@ no una nueva evidencia de producto.
 
 ## Próxima cola
 
-1. Cerrar la candidata activa #187 sin bloquear trabajo independiente y promocionar `codex/official-editor-rebuild-v2` para `SCR-OFFICIAL-EDITOR`: Web/iOS ya montan `OfficialPostEditorRoot` y publican mediante planes comunes con evidencia REST reversible; quedan Swift host/iOS firmado y evidencia visual integrada Android-Wasm-iOS.
+1. Cerrar la candidata activa #187 sin bloquear trabajo independiente y promocionar `codex/official-editor-rebuild-v2` para `SCR-OFFICIAL-EDITOR`: Web/iOS ya montan `OfficialPostEditorRoot`, publican mediante planes comunes, suben adjuntos con los transportes reales y tienen evidencia REST reversible; queda evidencia visual integrada Android-Wasm-iOS y mantener traduccion automatica Web/iOS como limite documentado.
 2. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y duración/seek iOS de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
 3. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
 4. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.

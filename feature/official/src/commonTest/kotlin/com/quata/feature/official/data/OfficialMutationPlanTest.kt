@@ -95,7 +95,9 @@ class OfficialMutationPlanTest {
         assertEquals("eq.g", officialSoftDeletePlan("p", "g", "now").filter["translation_group_id"])
         assertEquals("eq.p", officialSoftDeletePlan("p", null, "now").filter["id"])
     }
-    @Test fun payloadEscapesQuotesAndBackslashes() { assertEquals("\"a\\\"b\\\\c\"", officialJson("a\"b\\c")) }
+    @Test fun payloadEscapesQuotesBackslashesAndControlCharacters() {
+        assertEquals("\"a\\\"b\\\\c\\n\\r\\t\\u0001 ñ\"", officialJson("a\"b\\c\n\r\t\u0001 ñ"))
+    }
     @Test fun replyCommentPlanPreservesTheRemoteReplyEnvelope() {
         val comment = PostComment(
             id = "local",

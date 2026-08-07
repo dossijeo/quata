@@ -34,6 +34,8 @@ import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialRepository
+import com.quata.feature.postcomposer.data.IosPostComposerRuntimeConfiguration
+import com.quata.feature.postcomposer.data.IosPostComposerTransport
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.platform.IosShareService
 import com.quata.core.platform.ShareService
@@ -231,6 +233,13 @@ fun iosAuthenticatedOfficialEditorDependencies(
         configuration = configuration,
         authSession = authSession,
         preferredLanguageTag = preferredLanguageTag,
+        mediaTransport = IosPostComposerTransport(
+            configuration = IosPostComposerRuntimeConfiguration(
+                supabaseUrl = configuration.supabaseUrl,
+                supabasePublishableKey = configuration.supabasePublishableKey,
+            ),
+            authSession = authSession,
+        ),
     ),
     filePicker = filePicker,
     videoThumbnails = videoThumbnails,

@@ -53,7 +53,27 @@ fun officialCommentPlan(postId: String, profileId: String, body: String) = Offic
 fun officialCommentPlan(postId: String, profileId: String, comment: PostComment) =
     officialCommentPlan(postId, profileId, comment.toRemoteCommentBody())
 fun officialSoftDeletePlan(postId: String, groupId: String?, timestamp: String) = OfficialMutationPlan("PATCH", "official_posts", if (groupId.isNullOrBlank()) mapOf("id" to "eq.$postId") else mapOf("translation_group_id" to "eq.$groupId"), "{\"deleted_at\":${officialJson(timestamp)}}")
-internal fun officialJson(value: String): String = buildString { append('"'); value.forEach { append(if (it == '"' || it == '\\') "\\$it" else it) }; append('"') }
+internal fun officialJson(value: String): String = buildString {
+    append('"')
+    value.forEach { char ->
+        when (char) {
+            '"' -> append("\\\"")
+            '\\' -> append("\\\\")
+            '\b' -> append("\\b")
+            '\u000C' -> append("\\f")
+            '\n' -> append("\\n")
+            '\r' -> append("\\r")
+            '\t' -> append("\\t")
+            else -> if (char < ' ') {
+                append("\\u")
+                append(char.code.toString(16).padStart(4, '0'))
+            } else {
+                append(char)
+            }
+        }
+    }
+    append('"')
+}
 fun officialCommentReportPayload(actorId: String, commentId: String): String =
     "{\"p_actor_profile_id\":${officialJson(actorId)},\"p_target_type\":\"official_comment\",\"p_target_id\":${officialJson(commentId)},\"p_reason\":\"other\"}"
 

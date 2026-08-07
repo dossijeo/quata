@@ -7,6 +7,9 @@ import com.quata.core.data.toFoundationData
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
+import com.quata.feature.postcomposer.data.ActorBoundComposerTransport
+import com.quata.feature.postcomposer.data.ComposerPreparedMedia
+import com.quata.feature.postcomposer.data.ComposerUploadedMedia
 import com.quata.feature.official.data.selectOfficialTranslations
 import com.quata.feature.official.data.officialTranslationReadPlan
 import com.quata.feature.official.data.officialLikeLookupPlan
@@ -86,6 +89,7 @@ class IosOfficialReadRepository(
     private val configuration: IosOfficialRuntimeConfiguration,
     private val authSession: IosRenewableAuthSession? = null,
     private val preferredLanguageTag: String? = null,
+    private val mediaTransport: ActorBoundComposerTransport? = null,
 ) : OfficialRepository {
     override fun observeOfficialFeed(): Flow<Result<List<OfficialPostItem>>> = flow {
         // This transport has no verified Realtime contract. Emit a network snapshot and let the
@@ -126,21 +130,42 @@ class IosOfficialReadRepository(
         check(currentUser?.isOfficial == true) { "ios_official_create_forbidden" }
         val groupId = drafts.firstNotNullOfOrNull { it.translationGroupId?.takeIf(String::isNotBlank) }
             ?: NSUUID.UUID().UUIDString
+        var preparedMedia: ComposerPreparedMedia? = null
+        var uploadedMedia: ComposerUploadedMedia? = null
+        val publishDrafts = try {
+            val media = prepareAndUploadOfficialMedia(userId, drafts.firstOrNull { !it.mediaUrl.isNullOrBlank() }) {
+                preparedMedia = it
+            }.also { uploadedMedia = it }
+            val mediaUrl = media?.publicUrl
+            if (mediaUrl == null) drafts else drafts.map { draft ->
+                if (draft.mediaUrl.isNullOrBlank()) draft else draft.copy(mediaUrl = mediaUrl)
+            }
+        } catch (failure: Throwable) {
+            preparedMedia?.let { mediaTransport?.releasePreparedMedia(it) }
+            throw failure
+        }
         val plans = officialPostCreatePlans(
             profileId = userId,
-            drafts = drafts,
+            drafts = publishDrafts,
             translationGroupId = groupId.requireOfficialPostgrestIdentifier(),
             defaultTitle = DefaultTitle,
             publishedAt = currentOfficialTimestamp(),
         )
         if (plans.isEmpty()) return@runCatching null
-        val createdIds = plans.mapNotNull { plan ->
-            val result = authenticatedRequest(plan.table, plan.method, plan.filter, plan.body)
-            val root = NSJSONSerialization.JSONObjectWithData(result, options = 0u, error = null) as? List<*>
-                ?: error("ios_official_response_not_array")
-            (root.firstOrNull() as? Map<*, *>)?.requiredOfficialString("id")
+        try {
+            val createdIds = plans.mapNotNull { plan ->
+                val result = authenticatedRequest(plan.table, plan.method, plan.filter, plan.body)
+                val root = NSJSONSerialization.JSONObjectWithData(result, options = 0u, error = null) as? List<*>
+                    ?: error("ios_official_response_not_array")
+                (root.firstOrNull() as? Map<*, *>)?.requiredOfficialString("id")
+            }
+            createdIds.firstOrNull()?.let { getOfficialPost(it).getOrThrow() }
+        } catch (failure: Throwable) {
+            uploadedMedia?.let { mediaTransport?.rollbackUploadedMedia(it)?.exceptionOrNull()?.let(failure::addSuppressed) }
+            throw failure
+        } finally {
+            preparedMedia?.let { mediaTransport?.releasePreparedMedia(it) }
         }
-        createdIds.firstOrNull()?.let { getOfficialPost(it).getOrThrow() }
     }
 
     override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
@@ -319,6 +344,25 @@ class IosOfficialReadRepository(
             ?: throw UnsupportedOperationException("ios_official_mutation_not_implemented")
         return sessionProvider.currentSession()?.userId
             ?.takeIf(String::isNotBlank) ?: error("ios_official_session_missing")
+    }
+
+    private suspend fun prepareAndUploadOfficialMedia(
+        profileId: String,
+        draft: OfficialPostDraft?,
+        onPrepared: (ComposerPreparedMedia) -> Unit,
+    ): ComposerUploadedMedia? {
+        val raw = draft?.mediaUrl?.trim()?.takeIf(String::isNotBlank) ?: return null
+        if (raw.startsWith("http://", ignoreCase = true) || raw.startsWith("https://", ignoreCase = true)) return null
+        val transport = mediaTransport ?: error("ios_official_media_upload_missing")
+        val mediaType = draft.mediaType ?: return null
+        val prepared = when (mediaType) {
+            com.quata.feature.official.domain.OfficialMediaType.Image -> transport.prepareImage(raw).getOrThrow()
+            com.quata.feature.official.domain.OfficialMediaType.Video -> transport.prepareVideo(raw).getOrThrow()
+        }.also(onPrepared)
+        return when (mediaType) {
+            com.quata.feature.official.domain.OfficialMediaType.Image -> transport.uploadImage(profileId, prepared).getOrThrow()
+            com.quata.feature.official.domain.OfficialMediaType.Video -> transport.uploadVideo(profileId, prepared).getOrThrow()
+        }
     }
 
     private companion object {
