@@ -163,7 +163,20 @@ class ChatViewModelComposerActionsTest {
 
         model.onEvent(ChatUiEvent.MessageSelected(deleted.id))
         model.onEvent(ChatUiEvent.StartEdit)
+        model.onEvent(ChatUiEvent.StartReply)
+        model.onEvent(ChatUiEvent.ToggleFavoriteSelected)
+        model.onEvent(ChatUiEvent.DeleteSelectedMessage)
+        model.onEvent(ChatUiEvent.ReportSelectedMessage)
+        model.onEvent(ChatUiEvent.OpenForwardDialog)
+        testScheduler.advanceUntilIdle()
+
         assertNull(model.uiState.value.editingMessage)
+        assertNull(model.uiState.value.replyToMessage)
+        assertFalse(model.uiState.value.isForwardDialogOpen)
+        assertTrue(repository.toggleFavoriteMessageCalls.isEmpty())
+        assertTrue(repository.deleteMessageCalls.isEmpty())
+        assertTrue(repository.reportMessageCalls.isEmpty())
+        assertTrue(repository.forwardMessageCalls.isEmpty())
 
         model.onEvent(ChatUiEvent.MessageSelected(local.id))
         model.onEvent(ChatUiEvent.StartReply)
