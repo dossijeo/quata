@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Message
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 
 /** Localized labels owned by the host while the conversation structure stays portable. */
 data class ChatConversationDetailStrings(
@@ -81,11 +82,15 @@ fun ChatConversationDetailContent(
     }
     LaunchedEffect(focusedIndex) {
         focusedIndex?.let { index ->
+            val focusedMessage = messages.getOrNull(index) ?: return@let
+            highlightedMessageId = focusedMessage.id
             listState.scrollToItem(index)
-            highlightedMessageId = messages[index].id
+            snapshotFlow {
+                listState.layoutInfo.visibleItemsInfo.any { item -> item.key == focusedMessage.composeKey() }
+            }.first { it }
             delay(3_200L)
-            highlightedMessageId = null
             onFocusedMessageHandled()
+            highlightedMessageId = null
         }
     }
     val currentMessageLayout = remember(messages) { messages.map(Message::chatLayoutKey) }
@@ -146,7 +151,10 @@ fun ChatConversationDetailContent(
                 }
             }
             items(messages, key = Message::composeKey) { message ->
-                val isMessageSelected = message.id == selectedMessageId || message.id == highlightedMessageId
+                val isMessageSelected =
+                    message.id == selectedMessageId ||
+                        message.id == highlightedMessageId ||
+                        message.id == focusedMessageId
                 ChatConversationMessageContent(
                     message = message,
                     isSelected = isMessageSelected,

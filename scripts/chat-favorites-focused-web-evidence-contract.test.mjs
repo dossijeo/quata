@@ -77,6 +77,8 @@ test("runner uses the common favorite conversation route and focused deep link",
 });
 
 test("shared message semantics expose a selected identifier for focused-message gates", () => {
+  assert.match(chatDetailContent, /visibleItemsInfo\.any \{ item -> item\.key == focusedMessage\.composeKey\(\) \}/);
+  assert.match(chatDetailContent, /message\.id == focusedMessageId/);
   assert.match(chatDetailContent, /testTag = if \(isSelected\) "chat\.message\.\$\{message\.id\}\.selected" else "chat\.message\.\$\{message\.id\}"/);
   assert.match(chatDetailContent, /stateDescription = if \(isSelected\) "selected" else "not selected"/);
 });
