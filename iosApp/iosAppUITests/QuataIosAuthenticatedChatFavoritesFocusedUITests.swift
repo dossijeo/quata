@@ -29,6 +29,8 @@ final class QuataIosAuthenticatedChatFavoritesFocusedUITests: XCTestCase {
         openDeepLink("quata://egquata.com/#chat-__favorite_messages__", in: app)
         let favoriteHost = chatHost(in: app, context: "favorite messages")
         XCTAssertTrue(messageText(markerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        assertAuthenticatedChrome(in: app, context: "favorite messages")
+        assertPrimaryNavigationHidden(in: app, context: "favorite messages")
         attachScreenshot(app, name: "ios-favorites-list")
 
         let favoriteMessage = actionableMessage(markerProbe, in: app)
@@ -36,11 +38,15 @@ final class QuataIosAuthenticatedChatFavoritesFocusedUITests: XCTestCase {
         favoriteMessage.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(favoriteHost.waitForExistence(timeout: 10), "Opening a favorite must keep the Chat host mounted.")
         XCTAssertTrue(messageText(markerProbe, in: app).waitForExistence(timeout: 20), app.debugDescription)
+        assertAuthenticatedChrome(in: app, context: "favorite source")
+        assertPrimaryNavigationHidden(in: app, context: "favorite source")
         attachScreenshot(app, name: "ios-favorites-open-source")
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(messageId))", in: app)
         _ = chatHost(in: app, context: "focused message")
         XCTAssertTrue(messageText(markerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        assertAuthenticatedChrome(in: app, context: "focused message")
+        assertPrimaryNavigationHidden(in: app, context: "focused message")
 
         let focusedIdentifier = app.descendants(matching: .any)
             .matching(identifier: "chat.message.\(messageId).selected")
@@ -50,6 +56,18 @@ final class QuataIosAuthenticatedChatFavoritesFocusedUITests: XCTestCase {
             "The shared message bubble semantics must expose the focused message id as selected.",
         )
         attachScreenshot(app, name: "ios-focused-message")
+
+        app.terminate()
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(messageId))", in: app)
+        _ = chatHost(in: app, context: "focused message cold start")
+        XCTAssertTrue(messageText(markerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        XCTAssertTrue(
+            focusedIdentifier.waitForExistence(timeout: 10),
+            "Cold-start URL handling must retain the focused message selected semantics.",
+        )
+        assertAuthenticatedChrome(in: app, context: "focused message cold start")
+        assertPrimaryNavigationHidden(in: app, context: "focused message cold start")
+        attachScreenshot(app, name: "ios-focused-message-cold-start")
     }
 
     private func chatHost(in app: XCUIApplication, context: String) -> XCUIElement {
@@ -70,6 +88,23 @@ final class QuataIosAuthenticatedChatFavoritesFocusedUITests: XCTestCase {
         app.buttons
             .matching(NSPredicate(format: "label CONTAINS %@", markerProbe))
             .firstMatch
+    }
+
+    private func assertAuthenticatedChrome(in app: XCUIApplication, context: String) {
+        let topChrome = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-top-chrome")
+            .firstMatch
+        XCTAssertTrue(topChrome.exists, "Authenticated top chrome must remain mounted for \(context).")
+
+        let sos = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "SOS")).firstMatch
+        XCTAssertTrue(sos.exists, "SOS action must remain visible in the top chrome for \(context).")
+    }
+
+    private func assertPrimaryNavigationHidden(in app: XCUIApplication, context: String) {
+        let primaryNavigation = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-authenticated-primary-navigation")
+            .firstMatch
+        XCTAssertFalse(primaryNavigation.exists, "Chat must hide the app primary navigation for \(context).")
     }
 
     private func openDeepLink(_ value: String, in app: XCUIApplication) {

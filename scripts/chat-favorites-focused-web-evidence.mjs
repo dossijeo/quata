@@ -516,6 +516,7 @@ function safeFailure(error) {
     "public_auth_request_failed", "invalid_auth_response", "chat_rpc_failed", "chat_contract_invalid",
     "chat_backend_poll_timeout", "distribution_missing", "runtime_configuration_injection_failed",
     "static_server_start_failed", "favorite_message_not_visible", "favorite_message_open_failed",
+    "favorite_opened_source_message_not_visible",
     "focused_message_not_visible", "browser_runtime_fault", "cleanup_residue_detected",
     "missing_hard_cleanup_authorization", "missing_adjacent_profile_credentials_source",
     "invalid_adjacent_profile_phone", "missing_adjacent_recipient_profile",
@@ -631,6 +632,9 @@ try {
     `chat/sb:${state.thread}`,
     { timeout: 45_000 },
   );
+  await favoritesPage.page.getByText(markerProbe, { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
+    throw new Error("favorite_opened_source_message_not_visible");
+  });
   report.evidence.openedSourceScreenshot = await attachScreenshot(favoritesPage.page, options.evidenceDir, "web-favorites-open-source");
   report.steps.push("favorite_click_opened_source_conversation");
 
