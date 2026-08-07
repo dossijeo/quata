@@ -181,7 +181,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt",
-              "sha256": "a53a15dae2a5b6d09ed259548e4e3a55aebb730b858e6883540b07bfec308f35",
+              "sha256": "e2ec18736e56a14d076b5981cd3c441a4eabf196c8e0b7a6b4e0d0fec6ffa146",
               "role": "implementation"
             }
           ]
@@ -191,12 +191,12 @@
           "evidence": [
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt",
-              "sha256": "ced80a6845e1caeeecdfbc1a03f65c82520951f76f6470f4ceaf4773b6ab5099",
+              "sha256": "54d957b4e675034f0e12da3cf98ddaa4469e33a9128da43e8481c9318bf2fd3a",
               "role": "composition"
             },
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt",
-              "sha256": "65e969a2dccd96baf6a4e3756ec2ed1595eaa32a372e2b871519105776549eaf",
+              "sha256": "c8afdb5d6943d4147147cb44df8a086087da36340e560754c0d4265e0859cdba",
               "role": "implementation"
             }
           ]
@@ -242,7 +242,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt",
-              "sha256": "a53a15dae2a5b6d09ed259548e4e3a55aebb730b858e6883540b07bfec308f35",
+              "sha256": "e2ec18736e56a14d076b5981cd3c441a4eabf196c8e0b7a6b4e0d0fec6ffa146",
               "role": "implementation"
             }
           ]
@@ -252,12 +252,12 @@
           "evidence": [
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt",
-              "sha256": "ced80a6845e1caeeecdfbc1a03f65c82520951f76f6470f4ceaf4773b6ab5099",
+              "sha256": "54d957b4e675034f0e12da3cf98ddaa4469e33a9128da43e8481c9318bf2fd3a",
               "role": "composition"
             },
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt",
-              "sha256": "65e969a2dccd96baf6a4e3756ec2ed1595eaa32a372e2b871519105776549eaf",
+              "sha256": "c8afdb5d6943d4147147cb44df8a086087da36340e560754c0d4265e0859cdba",
               "role": "implementation"
             }
           ]
@@ -292,7 +292,7 @@
           ]
         },
         "web": {
-          "state": "blocked",
+          "state": "implemented",
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/Main.kt",
@@ -301,23 +301,23 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt",
-              "sha256": "a53a15dae2a5b6d09ed259548e4e3a55aebb730b858e6883540b07bfec308f35",
-              "role": "explicit-block"
+              "sha256": "e2ec18736e56a14d076b5981cd3c441a4eabf196c8e0b7a6b4e0d0fec6ffa146",
+              "role": "implementation"
             }
           ]
         },
         "ios": {
-          "state": "blocked",
+          "state": "implemented",
           "evidence": [
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt",
-              "sha256": "ced80a6845e1caeeecdfbc1a03f65c82520951f76f6470f4ceaf4773b6ab5099",
+              "sha256": "54d957b4e675034f0e12da3cf98ddaa4469e33a9128da43e8481c9318bf2fd3a",
               "role": "composition"
             },
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt",
-              "sha256": "65e969a2dccd96baf6a4e3756ec2ed1595eaa32a372e2b871519105776549eaf",
-              "role": "explicit-block"
+              "sha256": "c8afdb5d6943d4147147cb44df8a086087da36340e560754c0d4265e0859cdba",
+              "role": "implementation"
             }
           ]
         }

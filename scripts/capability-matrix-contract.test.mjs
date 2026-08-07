@@ -14,7 +14,7 @@ test('CAPABILITY-DRIFT-001 emits the mandatory operation-complete Web/iOS/Androi
   assert.deepEqual(emitted.find(({ id }) => id === 'feed.mutate').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'official.read').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'official.interact').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
-  assert.deepEqual(emitted.find(({ id }) => id === 'official.publish').platforms, { android: 'implemented', web: 'blocked', ios: 'blocked' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'official.publish').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.community-chat.open').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.private-chat.open').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.read').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });

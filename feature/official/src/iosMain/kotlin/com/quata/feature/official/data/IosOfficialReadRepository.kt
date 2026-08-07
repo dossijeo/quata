@@ -14,6 +14,7 @@ import com.quata.feature.official.data.officialLikeInsertPlan
 import com.quata.feature.official.data.officialLikeDeletePlan
 import com.quata.feature.official.data.officialCommentPlan
 import com.quata.feature.official.data.officialSoftDeletePlan
+import com.quata.feature.official.data.officialPostCreatePlans
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
@@ -35,6 +36,7 @@ import platform.Foundation.NSLocale
 import platform.Foundation.setValue
 import platform.Foundation.setHTTPBody
 import platform.Foundation.setHTTPMethod
+import platform.Foundation.NSUUID
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -76,8 +78,8 @@ enum class IosOfficialReadFailureKind {
  * must neither prevent an anonymous visitor from reading Official nor become a bearer header on
  * that visitor's requests.  An optional session is used exclusively by [refreshCurrentUser] to
  * enrich the local UI identity when an authenticated host explicitly chooses to provide one.
- * That authenticated host may delete, like, comment and report through reviewed RLS paths;
- * createPost/createPosts remain explicit unsupported operations until publishing is shipped.
+ * That authenticated host may publish, delete, like, comment and report through reviewed RLS paths
+ * and shared PostgREST mutation plans.
  */
 @OptIn(ExperimentalForeignApi::class)
 class IosOfficialReadRepository(
@@ -116,9 +118,30 @@ class IosOfficialReadRepository(
         loadProfiles(listOf(userId)).firstOrNull()?.toOfficialDomainUser()
     }
 
-    override suspend fun createPost(draft: OfficialPostDraft): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun createPost(draft: OfficialPostDraft): Result<OfficialPostItem?> = createPosts(listOf(draft))
 
-    override suspend fun createPosts(drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> = unsupportedMutation()
+    override suspend fun createPosts(drafts: List<OfficialPostDraft>): Result<OfficialPostItem?> = runCatching {
+        val userId = authenticatedUserId().requireOfficialPostgrestIdentifier()
+        val currentUser = refreshCurrentUser().getOrThrow()
+        check(currentUser?.isOfficial == true) { "ios_official_create_forbidden" }
+        val groupId = drafts.firstNotNullOfOrNull { it.translationGroupId?.takeIf(String::isNotBlank) }
+            ?: NSUUID.UUID().UUIDString
+        val plans = officialPostCreatePlans(
+            profileId = userId,
+            drafts = drafts,
+            translationGroupId = groupId.requireOfficialPostgrestIdentifier(),
+            defaultTitle = DefaultTitle,
+            publishedAt = currentOfficialTimestamp(),
+        )
+        if (plans.isEmpty()) return@runCatching null
+        val createdIds = plans.mapNotNull { plan ->
+            val result = authenticatedRequest(plan.table, plan.method, plan.filter, plan.body)
+            val root = NSJSONSerialization.JSONObjectWithData(result, options = 0u, error = null) as? List<*>
+                ?: error("ios_official_response_not_array")
+            (root.firstOrNull() as? Map<*, *>)?.requiredOfficialString("id")
+        }
+        createdIds.firstOrNull()?.let { getOfficialPost(it).getOrThrow() }
+    }
 
     override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
         val userId = authenticatedUserId()
@@ -297,9 +320,6 @@ class IosOfficialReadRepository(
         return sessionProvider.currentSession()?.userId
             ?.takeIf(String::isNotBlank) ?: error("ios_official_session_missing")
     }
-
-    private fun <T> unsupportedMutation(): Result<T> =
-        Result.failure(UnsupportedOperationException("ios_official_mutation_not_implemented"))
 
     private companion object {
         const val FeedPageSize = 50

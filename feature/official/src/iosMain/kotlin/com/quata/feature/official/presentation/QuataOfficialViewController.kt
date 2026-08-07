@@ -110,7 +110,7 @@ fun createIosOfficialHostDependencies(
  *
  * The repository has no interactive-session parameter on this route. Its read transport can
  * therefore neither wait for Keychain restoration nor attach a bearer credential; authenticated
- * interactions fail closed and publishing remains unsupported.
+ * interactions, including publishing, fail closed until the authenticated host injects a session.
  */
 fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
     configuration: IosOfficialRuntimeConfiguration,
