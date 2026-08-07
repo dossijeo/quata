@@ -3,12 +3,14 @@ package com.quata.feature.chat.presentation.chat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -21,10 +23,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Message
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+
+private const val FocusedMessageHighlightMillis = 8_000L
 
 /** Localized labels owned by the host while the conversation structure stays portable. */
 data class ChatConversationDetailStrings(
@@ -78,11 +86,15 @@ fun ChatConversationDetailContent(
     }
     LaunchedEffect(focusedIndex) {
         focusedIndex?.let { index ->
+            val focusedMessage = messages.getOrNull(index) ?: return@let
+            highlightedMessageId = focusedMessage.id
             listState.scrollToItem(index)
-            highlightedMessageId = messages[index].id
-            delay(720L)
-            highlightedMessageId = null
+            snapshotFlow {
+                listState.layoutInfo.visibleItemsInfo.any { item -> item.key == focusedMessage.composeKey() }
+            }.first { it }
+            delay(FocusedMessageHighlightMillis)
             onFocusedMessageHandled()
+            highlightedMessageId = null
         }
     }
     val currentMessageLayout = remember(messages) { messages.map(Message::chatLayoutKey) }
@@ -143,7 +155,10 @@ fun ChatConversationDetailContent(
                 }
             }
             items(messages, key = Message::composeKey) { message ->
-                val isMessageSelected = message.id == selectedMessageId || message.id == highlightedMessageId
+                val isMessageSelected =
+                    message.id == selectedMessageId ||
+                        message.id == highlightedMessageId ||
+                        message.id == focusedMessageId
                 ChatConversationMessageContent(
                     message = message,
                     isSelected = isMessageSelected,
@@ -190,12 +205,16 @@ private fun ChatConversationMessageContent(
 ) {
     val template = quataTheme()
     val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
+    val bubbleSemantics = Modifier.semantics {
+        testTag = if (isSelected) "chat.message.${message.id}.selected" else "chat.message.${message.id}"
+        stateDescription = if (isSelected) "selected" else "not selected"
+    }
     ChatMessageBubbleLayoutContent(
         isMine = message.isMine,
         isSelected = isSelected,
         showSenderAvatar = showSenderAvatar,
         avatar = avatar,
-        bubbleModifier = translatableTextModifier(message, Modifier.clickable(onClick = onClick)),
+        bubbleModifier = translatableTextModifier(message, bubbleSemantics.clickable(onClick = onClick)),
     ) {
         ChatMessageBubbleContent(
             header = {
@@ -241,6 +260,16 @@ private fun ChatConversationMessageContent(
                 }
             },
         )
+        if (isSelected) {
+            Box(
+                Modifier
+                    .size(1.dp)
+                    .semantics {
+                        testTag = "chat.message.${message.id}.selected"
+                        stateDescription = "selected"
+                    },
+            )
+        }
         actions?.invoke(Modifier.fillMaxWidth().padding(top = 6.dp))
     }
 }
