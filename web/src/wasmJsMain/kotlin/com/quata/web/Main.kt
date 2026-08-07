@@ -150,6 +150,7 @@ private fun QuataWebApp(
         WebOfficialRepository(
             client = WebPostgrestClient(runtimeConfiguration, authRepository),
             authRepository = authRepository,
+            mediaTransport = WebPostComposerTransport(runtimeConfiguration, authRepository),
         )
     }
     val chatRepository = remember(runtimeConfiguration, authRepository) {

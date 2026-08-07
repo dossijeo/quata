@@ -71,7 +71,7 @@ class IosOfficialPublicReadPolicyTest {
             repository.deletePost("post-1"),
             repository.toggleLike("post-1"),
             repository.addComment("post-1", comment),
-        ).forEach(::assertUnsupportedMutation)
+        ).forEach(::assertSessionRequiredMutation)
     }
 
     @Test
@@ -84,10 +84,8 @@ class IosOfficialPublicReadPolicyTest {
         }
     }
 
-    private fun assertUnsupportedMutation(result: Result<*>) {
+    private fun assertSessionRequiredMutation(result: Result<*>) {
         assertTrue(result.isFailure)
-        val error = result.exceptionOrNull()
-        assertTrue(error is UnsupportedOperationException)
-        assertEquals("ios_official_mutation_not_implemented", error?.message)
+        assertEquals("ios_official_session_missing", result.exceptionOrNull()?.message)
     }
 }

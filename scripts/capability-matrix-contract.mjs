@@ -27,7 +27,7 @@ const catalog = {
   'feed.mutate': ['mutation', ['toggleLike', 'reportPost', 'addComment', 'deletePost'], ['implemented', 'implemented', 'implemented']],
   'official.read': ['flow', ['observeOfficialFeed', 'getOfficialFeed', 'refreshOfficialFeed', 'loadOlderOfficialFeedPage', 'getOfficialPost', 'refreshCurrentUser'], ['implemented', 'implemented', 'implemented']],
   'official.interact': ['mutation', ['deletePost', 'toggleLike', 'addComment', 'reportComment'], ['implemented', 'implemented', 'implemented']],
-  'official.publish': ['mutation', ['createPost', 'createPosts'], ['implemented', 'blocked', 'blocked']],
+  'official.publish': ['mutation', ['createPost', 'createPosts'], ['implemented', 'implemented', 'implemented']],
   'communities.read': ['flow', ['observeCommunities', 'isCurrentUserAdmin', 'getCachedUserProfile', 'cacheUserProfile', 'observeUserProfile', 'getUserProfile'], ['implemented', 'implemented', 'implemented']],
   'communities.mutate': ['mutation', ['toggleFollowUser', 'toggleProfilePostLike', 'addProfileComment', 'reportPost', 'reportProfile', 'setProfileBlocked', 'setUserRoles'], ['implemented', 'implemented', 'implemented']],
   'communities.community-chat.open': ['mutation', ['openNeighborhoodChat'], ['implemented', 'implemented', 'implemented']],

@@ -95,7 +95,12 @@ android {
     lint {
         baseline = file("lint-baseline.xml")
         warningsAsErrors = true
-        disable += "AndroidGradlePluginVersion"
+        disable += setOf(
+            "AndroidGradlePluginVersion",
+            // The latest-version catalogue changes independently from this repository and
+            // invalidates the ratcheted baseline without a source change.
+            "GradleDependency",
+        )
     }
 
     signingConfigs {
