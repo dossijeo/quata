@@ -21,6 +21,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Message
@@ -190,12 +193,16 @@ private fun ChatConversationMessageContent(
 ) {
     val template = quataTheme()
     val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
+    val bubbleSemantics = Modifier.semantics {
+        testTag = "chat.message.${message.id}"
+        stateDescription = if (isSelected) "selected" else "not selected"
+    }
     ChatMessageBubbleLayoutContent(
         isMine = message.isMine,
         isSelected = isSelected,
         showSenderAvatar = showSenderAvatar,
         avatar = avatar,
-        bubbleModifier = translatableTextModifier(message, Modifier.clickable(onClick = onClick)),
+        bubbleModifier = translatableTextModifier(message, bubbleSemantics.clickable(onClick = onClick)),
     ) {
         ChatMessageBubbleContent(
             header = {
