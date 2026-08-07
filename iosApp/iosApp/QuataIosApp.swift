@@ -167,7 +167,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
                 messageId: target.messageId,
             )
         }
-        compositionRoot.start()
+        let launchUrl = launchOptions?[.url] as? URL
+        compositionRoot.start(launchUrl: launchUrl)
         return true
     }
 
@@ -243,6 +244,7 @@ private final class IosAppCompositionRoot {
             languageTag: IosWhatsNewLocale.sanitizedPreferredLanguageTag(),
         )
     private let deepLinkDispatcher = IosDeepLinkDispatcher()
+    private var pendingStartupDeepLinkUrl: URL?
     private lazy var runtimeConfiguration: IosFeedRuntimeConfiguration? =
         IosPublicRuntimeConfiguration.feedConfiguration()
     private lazy var runtimeBootstrap: IosFeedRuntimeBootstrap? = {
@@ -344,13 +346,16 @@ private final class IosAppCompositionRoot {
     }()
     private var externalShareForegroundObserver: NSObjectProtocol?
 
-    func start() {
+    func start(launchUrl: URL? = nil) {
         let window = UIWindow(frame: UIScreen.main.bounds)
         if let fixtureRootViewController = uiTestFixtureRootViewControllerIfRequested() {
             window.rootViewController = fixtureRootViewController
             window.makeKeyAndVisible()
             self.window = window
             return
+        }
+        if let launchUrl, IosDeepLinkUrlContract.acceptsApplicationOpenUrl(launchUrl) {
+            pendingStartupDeepLinkUrl = launchUrl
         }
         window.rootViewController = authenticatedHost
         appearancePreferences.applyTheme(to: window)
@@ -389,6 +394,9 @@ private final class IosAppCompositionRoot {
             install: installAuthenticationIfConfigured,
         )
         validateRestoredFeedSessionAsynchronously()
+        if runtimeBootstrap == nil {
+            drainPendingStartupDeepLinkIfNeeded()
+        }
     }
 
     func handleDeepLink(_ url: URL) -> Bool {
@@ -570,11 +578,20 @@ private final class IosAppCompositionRoot {
         guard let runtimeBootstrap else { return }
         runtimeBootstrap.validateRestoredSession { [weak self] validated in
             DispatchQueue.main.async {
-                guard let self, validated.boolValue else { return }
-                self.hasValidatedAuthenticatedSession = true
-                _ = self.installRestoredFeedSessionIfAvailable()
+                guard let self else { return }
+                if validated.boolValue {
+                    self.hasValidatedAuthenticatedSession = true
+                    _ = self.installRestoredFeedSessionIfAvailable()
+                }
+                self.drainPendingStartupDeepLinkIfNeeded()
             }
         }
+    }
+
+    private func drainPendingStartupDeepLinkIfNeeded() {
+        guard let url = pendingStartupDeepLinkUrl else { return }
+        pendingStartupDeepLinkUrl = nil
+        _ = handleDeepLink(url)
     }
 
     private func presentPendingExternalShareIfAvailable() {
