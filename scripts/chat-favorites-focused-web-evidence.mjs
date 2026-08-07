@@ -14,6 +14,7 @@ const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
 const defaultDbTlsCaFile = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const hardCleanupAuthorizationEnvironment = "QUATA_CHAT_FAVORITES_FOCUSED_HARD_CLEANUP_AUTHORIZATION";
 const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_FAVORITES_FOCUSED_HARD_CLEANUP";
+const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_FAVORITES_FOCUSED_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const evidenceUserEnvironment = [
   {
     label: "A",
@@ -95,6 +96,36 @@ function usersFromEnvironment() {
     throw new Error("chat_evidence_users_must_differ");
   }
   return users;
+}
+
+async function authorizedUsers() {
+  if (!useAdjacentAuthorizedProfile) return usersFromEnvironment();
+  const host = process.env.QUATA_CHAT_EVIDENCE_SSH_HOST?.trim();
+  const file = process.env.QUATA_CHAT_EVIDENCE_SSH_CREDENTIALS_FILE?.trim();
+  if (!host || !file) throw new Error("missing_adjacent_profile_credentials_source");
+  const credentials = JSON.parse(await runSilent("ssh", [host, `cat ${file}`]));
+  const primaryPhone = splitPhone(credentials.phone);
+  return [{
+    label: "A",
+    countryCode: primaryPhone.countryCode,
+    phone: primaryPhone.localPhone,
+    password: credentials.password,
+    adjacentPhoneKeys: adjacentRecipientPhones(primaryPhone),
+  }];
+}
+
+function splitPhone(phone) {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  if (!digits.startsWith("240") || digits.length <= 3) throw new Error("invalid_adjacent_profile_phone");
+  return { countryCode: "240", localPhone: digits.slice(3), phoneKey: digits };
+}
+
+function adjacentRecipientPhones(primaryPhone) {
+  return [1, -1].map((delta) => {
+    const value = Number(primaryPhone.localPhone) + delta;
+    const localPhone = String(value).padStart(primaryPhone.localPhone.length, "0");
+    return `${primaryPhone.countryCode}${localPhone}`;
+  });
 }
 
 function isPublicKey(value) {
@@ -346,7 +377,7 @@ async function logicalCleanup(config, state) {
     if (await threadContainsMarker(config, state.a, state.thread, state.marker)) throw new Error("cleanup_residue_detected:message_a");
     actions.push("cleanup_verified_message_absent_for_a");
   }
-  if (state.thread && state.marker && state.b) {
+  if (state.thread && state.marker && state.b?.accessToken) {
     if (await threadContainsMarker(config, state.b, state.thread, state.marker)) throw new Error("cleanup_residue_detected:message_b");
     actions.push("cleanup_verified_message_absent_for_b");
   }
@@ -354,7 +385,7 @@ async function logicalCleanup(config, state) {
     await rpc(config, state.a, "quata_chat_delete_thread", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread });
     actions.push("thread_removed_from_a_inbox");
   }
-  if (state.thread && state.b) {
+  if (state.thread && state.b?.accessToken) {
     await rpc(config, state.b, "quata_chat_delete_thread", { p_actor_profile_id: state.b.profileId, p_thread_id: state.thread });
     actions.push("thread_removed_from_b_inbox");
   }
@@ -367,7 +398,7 @@ async function logicalCleanup(config, state) {
     if (await inboxContainsThread(config, state.a, state.thread)) throw new Error("cleanup_residue_detected:thread_a");
     actions.push("cleanup_verified_thread_absent_for_a");
   }
-  if (state.thread && state.b) {
+  if (state.thread && state.b?.accessToken) {
     if (await inboxContainsThread(config, state.b, state.thread)) throw new Error("cleanup_residue_detected:thread_b");
     actions.push("cleanup_verified_thread_absent_for_b");
   }
@@ -429,6 +460,50 @@ async function hardDeleteTemporaryThread(thread, uniqueKey) {
   }
 }
 
+async function withDatabase(callback) {
+  const dbUrlPath = process.env.SUPABASE_DB_URL_FILE?.trim() || defaultDbUrlFile;
+  const tlsCaPath = process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || defaultDbTlsCaFile;
+  const [connectionString, ca] = await Promise.all([
+    readFile(dbUrlPath, "utf8"),
+    readFile(tlsCaPath, "utf8"),
+  ]);
+  const parsedConnection = new URL(connectionString.trim());
+  parsedConnection.searchParams.delete("sslmode");
+  const { Client } = await import("pg");
+  const client = new Client({
+    connectionString: parsedConnection.toString(),
+    ssl: { ca, rejectUnauthorized: true, servername: parsedConnection.hostname },
+  });
+  await client.connect();
+  try {
+    return await callback(client);
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+async function resolveAdjacentRecipientProfile(phoneKeys) {
+  return await withDatabase(async (client) => {
+    const result = await client.query(
+      "select profile_id from public.quata_profile_phone_directory where phone_key = any($1::text[]) order by profile_id limit 1",
+      [phoneKeys],
+    );
+    const profileId = result.rows[0]?.profile_id;
+    if (!uuid.test(profileId ?? "")) throw new Error("missing_adjacent_recipient_profile");
+    return profileId;
+  });
+}
+
+async function verifyRecipientParticipant(thread, recipientProfileId) {
+  await withDatabase(async (client) => {
+    const result = await client.query(
+      "select 1 from public.chat_participants where thread_id = $1 and profile_id = $2 limit 1",
+      [thread, recipientProfileId],
+    );
+    if (result.rowCount !== 1) throw new Error("chat_contract_invalid:recipient_participant_missing");
+  });
+}
+
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -442,7 +517,8 @@ function safeFailure(error) {
     "chat_backend_poll_timeout", "distribution_missing", "runtime_configuration_injection_failed",
     "static_server_start_failed", "favorite_message_not_visible", "favorite_message_open_failed",
     "focused_message_not_visible", "browser_runtime_fault", "cleanup_residue_detected",
-    "missing_hard_cleanup_authorization",
+    "missing_hard_cleanup_authorization", "missing_adjacent_profile_credentials_source",
+    "invalid_adjacent_profile_phone", "missing_adjacent_recipient_profile",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_favorites_focused_failure";
 }
 
@@ -464,11 +540,19 @@ try {
   config = await publicBackendConfig();
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) throw new Error("invalid_public_supabase_url");
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
-  const users = usersFromEnvironment();
+  const users = await authorizedUsers();
 
   state.a = await login(config, users[0]);
-  state.b = await login(config, users[1]);
-  report.steps.push("two_authorized_profiles_logged_in");
+  if (useAdjacentAuthorizedProfile) {
+    state.b = {
+      label: "B",
+      profileId: await resolveAdjacentRecipientProfile(users[0].adjacentPhoneKeys),
+    };
+    report.steps.push("authorized_profile_logged_in_and_recipient_resolved");
+  } else {
+    state.b = await login(config, users[1]);
+    report.steps.push("two_authorized_profiles_logged_in");
+  }
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-fav-focus-${runId}`;
   state.thread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
@@ -494,8 +578,13 @@ try {
     p_client_message_id: `chat-fav-focus-${randomUUID()}`,
   });
   state.message = messageId(sent);
-  await pollMessage(config, state.b, state.thread, (message) => Number(message?.id) === state.message && message?.body === marker);
-  report.steps.push("unique_message_visible_to_peer");
+  if (state.b.accessToken) {
+    await pollMessage(config, state.b, state.thread, (message) => Number(message?.id) === state.message && message?.body === marker);
+    report.steps.push("unique_message_visible_to_peer");
+  } else {
+    await verifyRecipientParticipant(state.thread, state.b.profileId);
+    report.steps.push("adjacent_recipient_participant_verified");
+  }
 
   await rpc(config, state.a, "quata_chat_set_favorite", {
     p_actor_profile_id: state.a.profileId,

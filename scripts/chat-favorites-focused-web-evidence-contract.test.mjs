@@ -117,6 +117,20 @@ test("runner records the exact git candidate identity in the evidence report", (
   assert.match(androidRunner, /git: await gitMetadata\(\)/);
 });
 
+test("runner supports authorized adjacent-profile evidence without exposing credentials in commands", () => {
+  assert.match(runner, /QUATA_CHAT_FAVORITES_FOCUSED_USE_ADJACENT_AUTHORIZED_PROFILE/);
+  assert.match(runner, /QUATA_CHAT_EVIDENCE_SSH_HOST/);
+  assert.match(runner, /QUATA_CHAT_EVIDENCE_SSH_CREDENTIALS_FILE/);
+  assert.match(runner, /runSilent\("ssh", \[host, `cat \$\{file\}`\]\)/);
+  assert.match(runner, /resolveAdjacentRecipientProfile/);
+  assert.match(runner, /where phone_key = any\(\$1::text\[\]\)/);
+  assert.match(runner, /verifyRecipientParticipant/);
+  assert.match(runner, /where thread_id = \$1 and profile_id = \$2/);
+  assert.match(runner, /adjacent_recipient_participant_verified/);
+  assert.match(runner, /state\.b\?\.accessToken/);
+  assert.match(runner, /hardDeleteTemporaryThread/);
+});
+
 test("runner redacts sensitive runtime state from report", () => {
   assert.match(runner, /markerSha256: sha256\(marker\)/);
   assert.match(runner, /uniqueKeySha256: sha256\(uniqueKey\)/);
