@@ -500,6 +500,26 @@ final class QuataFeedFrameworkTests: XCTestCase {
         })
     }
 
+    func testInstallingAuthenticatedFeedDismissesPendingAuthRequiredPrompt() {
+        let mounted = mountRouter()
+        let router = mounted.router
+        let publicFeed = UIViewController()
+        let authenticatedFeed = UIViewController()
+        router.installPublicFeed { _ in publicFeed }
+        router.installAuthRequiredPromptFactory { UIViewController() }
+        let promptPresented = expectation(description: "Auth prompt presentation completed")
+        router.onNextAuthPromptPresentedForTesting { promptPresented.fulfill() }
+
+        router.showChat(conversationId: "sb:249", messageId: "1836")
+        XCTAssertEqual(router.presentedViewController?.view.accessibilityIdentifier, "quata-ios-auth-required-dialog")
+        wait(for: [promptPresented], timeout: 2)
+
+        router.installFeedFactory { _ in authenticatedFeed }
+
+        waitUntil { router.presentedViewController == nil }
+        XCTAssertTrue(authenticatedRouteController(in: router) === authenticatedFeed)
+    }
+
     func testAuthRequiredPromptCreateAccountOpensRegistrationFullScreenOutsideShell() {
         let mounted = mountRouter()
         let router = mounted.router

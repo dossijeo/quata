@@ -1425,6 +1425,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         feedFactory = factory
         hasAuthenticatedSession = true
         hasPublicFeed = false
+        if authRequiredPromptVisible {
+            dismissAuthRequiredPrompt()
+        }
         installSharedShellIfNeeded()
         routeMenuButton.isHidden = false
         let hadPendingRoute = pendingRoute != nil
