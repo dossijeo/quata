@@ -17,6 +17,10 @@ const [androidRunner, androidTest, appBuild] = await Promise.all([
   source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatFavoritesFocusedDeepLinkInstrumentedTest.kt"),
   source("app/build.gradle.kts"),
 ]);
+const [iosRunner, iosTest] = await Promise.all([
+  source("scripts/run-ios-chat-favorites-focused-ui-test.sh"),
+  source("iosApp/iosAppUITests/QuataIosAuthenticatedChatFavoritesFocusedUITests.swift"),
+]);
 
 test("CHAT-FAVORITES-FOCUSED-WEB-001 is included in fast and Wave2 contracts", () => {
   const scripts = JSON.parse(packageJson).scripts;
@@ -37,6 +41,10 @@ test("runner never hardcodes authorized test credentials", () => {
   assert.doesNotMatch(androidRunner, /21085800/);
   assert.doesNotMatch(androidTest, /68024260[78]/);
   assert.doesNotMatch(androidTest, /21085800/);
+  assert.doesNotMatch(iosRunner, /68024260[78]/);
+  assert.doesNotMatch(iosRunner, /21085800/);
+  assert.doesNotMatch(iosTest, /68024260[78]/);
+  assert.doesNotMatch(iosTest, /21085800/);
   assert.match(runner, /QUATA_CHAT_EVIDENCE_A_COUNTRY_CODE/);
   assert.match(runner, /QUATA_CHAT_EVIDENCE_A_PHONE/);
   assert.match(runner, /QUATA_CHAT_EVIDENCE_A_PASSWORD/);
@@ -142,4 +150,23 @@ test("Android evidence runner uses real deep links, temp credentials and reversi
   assert.match(androidRunner, /MANAGER_APPROVED_QADATA_CHAT_FAVORITES_FOCUSED_HARD_CLEANUP/);
   assert.match(androidRunner, /delete from public\.chat_threads where id = \$1 and unique_key = \$2 returning id/);
   assert.match(androidRunner, /cleanup_verified_physical_residue_absent/);
+});
+
+test("iOS evidence runner uses real custom-scheme deep links and the shared seeded-session lane", () => {
+  assert.match(iosTest, /QUATA_IOS_CHAT_FAVORITES_FOCUSED_UI_E2E/);
+  assert.match(iosTest, /quata:\/\/egquata\.com\/#chat-__favorite_messages__/);
+  assert.match(iosTest, /encodedFragment\(conversationId\)/);
+  assert.match(iosTest, /encodedQuery\(messageId\)/);
+  assert.match(iosTest, /matching\(identifier: "chat\.message\./);
+  assert.match(iosTest, /ios-favorites-list/);
+  assert.match(iosTest, /ios-favorites-open-source/);
+  assert.match(iosTest, /ios-focused-message/);
+
+  assert.match(iosRunner, /QUATA_IOS_AUTH_E2E_FILE/);
+  assert.match(iosRunner, /QuataIosAuthenticatedSessionSeederTests\/testSeedAuthenticatedSessionForVisualGates/);
+  assert.match(iosRunner, /QuataIosAuthenticatedChatFavoritesFocusedUITests\/testFavoriteRouteOpensSourceAndFocusedDeepLinkHighlightsMessage/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_E2E_CONVERSATION_ID/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_E2E_MESSAGE_ID/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_E2E_MARKER_PROBE/);
+  assert.match(iosRunner, /CHAT_FAVORITES_FOCUSED_IOS_UI_GATE_PASSED/);
 });
