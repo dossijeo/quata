@@ -303,13 +303,21 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
         strings = strings,
         slots = OfficialPostEditorPlatformSlots(
             bodyEditorAction = { html, title, onHtmlChange, modifier ->
-                OutlinedTextField(
-                    value = html,
-                    onValueChange = onHtmlChange,
-                    label = { Text(title) },
-                    minLines = 5,
-                    modifier = modifier,
-                )
+                var editing by remember { mutableStateOf(false) }
+                if (editing) {
+                    OutlinedTextField(
+                        value = html,
+                        onValueChange = onHtmlChange,
+                        label = { Text(title) },
+                        minLines = 5,
+                        modifier = modifier,
+                    )
+                } else {
+                    OutlinedButton(onClick = { editing = true }, modifier = modifier) {
+                        Icon(Icons.Filled.Edit, contentDescription = null)
+                        Text(title)
+                    }
+                }
             },
             imagePicker = { onPicked, modifier ->
                 OutlinedButton(onClick = { selectMedia(OfficialMediaType.Image, onPicked) }, modifier = modifier) {
@@ -320,7 +328,7 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
             videoPicker = { onPicked, modifier ->
                 OutlinedButton(onClick = { selectMedia(OfficialMediaType.Video, onPicked) }, modifier = modifier) {
                     Icon(Icons.Filled.VideoLibrary, contentDescription = null)
-                    Text("Elegir video")
+                    Text("Elegir vídeo")
                 }
             },
             mediaPreview = { media, _, onRemove, modifier ->
