@@ -578,11 +578,9 @@ private final class IosAppCompositionRoot {
         guard let runtimeBootstrap else { return }
         runtimeBootstrap.validateRestoredSession { [weak self] validated in
             DispatchQueue.main.async {
-                guard let self else { return }
-                if validated.boolValue {
-                    self.hasValidatedAuthenticatedSession = true
-                    _ = self.installRestoredFeedSessionIfAvailable()
-                }
+                guard let self, validated.boolValue else { return }
+                self.hasValidatedAuthenticatedSession = true
+                _ = self.installRestoredFeedSessionIfAvailable()
                 self.drainPendingStartupDeepLinkIfNeeded()
             }
         }
