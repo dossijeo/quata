@@ -24,7 +24,9 @@ kotlin {
             implementation(kotlin("test"))
         }
         androidMain.dependencies { }
-        iosMain.dependencies { }
+        iosMain.dependencies {
+            implementation(project(":feature:postcomposer"))
+        }
         wasmJsMain.dependencies { }
     }
 }

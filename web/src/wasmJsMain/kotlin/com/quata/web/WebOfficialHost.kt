@@ -43,6 +43,7 @@ import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.official.presentation.OfficialFeedScreenHost
 import com.quata.feature.official.presentation.OfficialFeedScreenPlatformSlots
+import com.quata.feature.official.presentation.OfficialAuthorHeaderContent
 import com.quata.feature.official.presentation.OfficialEditorMedia
 import com.quata.feature.official.presentation.OfficialEditorMediaPreviewContent
 import com.quata.feature.official.presentation.OfficialEditorPostPreviewContent
@@ -202,7 +203,7 @@ private fun webOfficialEditorPlatformSlots(platformServices: WebPlatformServices
         ) {
             Icon(Icons.Filled.VideoLibrary, contentDescription = null)
             Spacer(Modifier.size(8.dp))
-            Text("Elegir video", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("Elegir vídeo", maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     },
     mediaPreview = { media, _, onRemove, previewModifier ->
@@ -266,7 +267,20 @@ private fun WebOfficialEditorPreview(state: OfficialPostEditorPreviewState, modi
         readMoreLabel = strings.webEditorReadMoreLabel(state.readMoreLabel),
         closeLabel = strings.close,
         author = { authorModifier ->
-            BrowserFeedAuthorAvatar(post.asFeedPost(), {}, isLoading = false, modifier = authorModifier)
+            OfficialAuthorHeaderContent(
+                displayName = post.author.displayName,
+                neighborhood = post.author.neighborhood,
+                fallbackNeighborhood = strings.officialAccountFallback,
+                avatar = {
+                    BrowserFeedAuthorAvatar(
+                        post.asFeedPost(),
+                        {},
+                        isLoading = false,
+                        modifier = Modifier.size(58.dp),
+                    )
+                },
+                modifier = authorModifier,
+            )
         },
         media = if (post.mediaUrl.isNullOrBlank()) null else {
             { mediaModifier -> BrowserOfficialEditorMedia(OfficialEditorMedia(post.mediaUrl.orEmpty(), post.mediaType ?: OfficialMediaType.Image), mediaModifier) }

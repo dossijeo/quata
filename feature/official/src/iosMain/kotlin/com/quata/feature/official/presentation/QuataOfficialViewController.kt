@@ -34,6 +34,8 @@ import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostDraft
 import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialRepository
+import com.quata.feature.postcomposer.data.IosPostComposerRuntimeConfiguration
+import com.quata.feature.postcomposer.data.IosPostComposerTransport
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.platform.IosShareService
 import com.quata.core.platform.ShareService
@@ -110,7 +112,7 @@ fun createIosOfficialHostDependencies(
  *
  * The repository has no interactive-session parameter on this route. Its read transport can
  * therefore neither wait for Keychain restoration nor attach a bearer credential; authenticated
- * interactions fail closed and publishing remains unsupported.
+ * interactions, including publishing, fail closed until the authenticated host injects a session.
  */
 fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
     configuration: IosOfficialRuntimeConfiguration,
@@ -231,6 +233,13 @@ fun iosAuthenticatedOfficialEditorDependencies(
         configuration = configuration,
         authSession = authSession,
         preferredLanguageTag = preferredLanguageTag,
+        mediaTransport = IosPostComposerTransport(
+            configuration = IosPostComposerRuntimeConfiguration(
+                supabaseUrl = configuration.supabaseUrl,
+                supabasePublishableKey = configuration.supabasePublishableKey,
+            ),
+            authSession = authSession,
+        ),
     ),
     filePicker = filePicker,
     videoThumbnails = videoThumbnails,
@@ -294,13 +303,21 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
         strings = strings,
         slots = OfficialPostEditorPlatformSlots(
             bodyEditorAction = { html, title, onHtmlChange, modifier ->
-                OutlinedTextField(
-                    value = html,
-                    onValueChange = onHtmlChange,
-                    label = { Text(title) },
-                    minLines = 5,
-                    modifier = modifier,
-                )
+                var editing by remember { mutableStateOf(false) }
+                if (editing) {
+                    OutlinedTextField(
+                        value = html,
+                        onValueChange = onHtmlChange,
+                        label = { Text(title) },
+                        minLines = 5,
+                        modifier = modifier,
+                    )
+                } else {
+                    OutlinedButton(onClick = { editing = true }, modifier = modifier) {
+                        Icon(Icons.Filled.Edit, contentDescription = null)
+                        Text(title)
+                    }
+                }
             },
             imagePicker = { onPicked, modifier ->
                 OutlinedButton(onClick = { selectMedia(OfficialMediaType.Image, onPicked) }, modifier = modifier) {
@@ -311,7 +328,7 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
             videoPicker = { onPicked, modifier ->
                 OutlinedButton(onClick = { selectMedia(OfficialMediaType.Video, onPicked) }, modifier = modifier) {
                     Icon(Icons.Filled.VideoLibrary, contentDescription = null)
-                    Text("Elegir video")
+                    Text("Elegir vídeo")
                 }
             },
             mediaPreview = { media, _, onRemove, modifier ->
