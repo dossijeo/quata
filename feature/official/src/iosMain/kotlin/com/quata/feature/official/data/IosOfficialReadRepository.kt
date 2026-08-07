@@ -164,8 +164,10 @@ class IosOfficialReadRepository(
             }
         } catch (failure: Throwable) {
             withContext(NonCancellable) {
-                rollbackCreatedOfficialPosts(createdIds, groupId, failure)
-                uploadedMedia?.let { mediaTransport?.rollbackUploadedMedia(it)?.exceptionOrNull()?.let(failure::addSuppressed) }
+                val rowsRolledBack = rollbackCreatedOfficialPosts(createdIds, groupId, failure)
+                if (rowsRolledBack) {
+                    uploadedMedia?.let { mediaTransport?.rollbackUploadedMedia(it)?.exceptionOrNull()?.let(failure::addSuppressed) }
+                }
             }
             throw failure
         } finally {
@@ -375,16 +377,16 @@ class IosOfficialReadRepository(
         createdIds: List<String>,
         groupId: String,
         failure: Throwable,
-    ) {
-        if (createdIds.isEmpty()) return
+    ): Boolean {
+        if (createdIds.isEmpty()) return true
         val plan = officialSoftDeletePlan(
             postId = createdIds.first().requireOfficialPostgrestIdentifier(),
             groupId = groupId.requireOfficialPostgrestIdentifier(),
             timestamp = currentOfficialTimestamp(),
         )
-        runCatching { mutate(plan.table, plan.method, plan.filter, plan.body) }
-            .exceptionOrNull()
-            ?.let(failure::addSuppressed)
+        val rollbackFailure = runCatching { mutate(plan.table, plan.method, plan.filter, plan.body) }.exceptionOrNull()
+        rollbackFailure?.let(failure::addSuppressed)
+        return rollbackFailure == null
     }
 
     private companion object {

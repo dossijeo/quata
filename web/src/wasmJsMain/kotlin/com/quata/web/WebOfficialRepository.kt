@@ -132,8 +132,10 @@ class WebOfficialRepository(
             }
         } catch (failure: Throwable) {
             withContext(NonCancellable) {
-                rollbackCreatedOfficialPosts(createdIds, groupId, failure)
-                uploadedMedia?.let { mediaTransport?.rollbackUploadedMedia(it)?.exceptionOrNull()?.let(failure::addSuppressed) }
+                val rowsRolledBack = rollbackCreatedOfficialPosts(createdIds, groupId, failure)
+                if (rowsRolledBack) {
+                    uploadedMedia?.let { mediaTransport?.rollbackUploadedMedia(it)?.exceptionOrNull()?.let(failure::addSuppressed) }
+                }
             }
             throw failure
         } finally {
@@ -290,18 +292,18 @@ class WebOfficialRepository(
         createdIds: List<String>,
         groupId: String,
         failure: Throwable,
-    ) {
-        if (createdIds.isEmpty()) return
+    ): Boolean {
+        if (createdIds.isEmpty()) return true
         val plan = officialSoftDeletePlan(
             postId = createdIds.first().requireOfficialPostgrestIdentifier(),
             groupId = groupId.requireOfficialPostgrestIdentifier(),
             timestamp = currentOfficialTimestamp(),
         )
-        when (val result = client.patch(plan.table, plan.filter, requireNotNull(plan.body))) {
-            is WebPostgrestResult.Success -> Unit
+        return when (val result = client.patch(plan.table, plan.filter, requireNotNull(plan.body))) {
+            is WebPostgrestResult.Success -> true
             is WebPostgrestResult.Failure -> failure.addSuppressed(
                 IllegalStateException("web_official_rollback_failed:${result.reason}")
-            )
+            ).let { false }
         }
     }
 
