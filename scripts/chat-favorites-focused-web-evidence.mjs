@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -46,6 +47,27 @@ function parseArgs(argv) {
     if (key === "--evidence-dir") result.evidenceDir = resolve(value);
   }
   return result;
+}
+
+async function runSilent(command, args, options = {}) {
+  return await new Promise((resolve, reject) => {
+    let output = "";
+    let stderr = "";
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], shell: false, ...options });
+    child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+    child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.on("error", reject);
+    child.on("exit", (code) => code === 0 ? resolve(output) : reject(new Error(`command_failed:${command}:${code}:${stderr.trim()}`)));
+  });
+}
+
+async function gitMetadata() {
+  const head = (await runSilent("git", ["rev-parse", "HEAD"])).trim();
+  const status = await runSilent("git", ["status", "--porcelain"]);
+  return {
+    head,
+    workingTreeDirty: status.trim().length > 0,
+  };
 }
 
 async function publicBackendConfig() {
@@ -429,6 +451,7 @@ const report = {
   check: "CHAT-FAVORITES-FOCUSED-WEB-001",
   status: "failed",
   startedAt: new Date().toISOString(),
+  git: await gitMetadata(),
   steps: [],
   cleanup: { state: "not_started" },
   evidence: {},

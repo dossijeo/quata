@@ -108,6 +108,15 @@ test("runner validates backend mutation, navigation evidence and reversible clea
   assert.match(runner, /state\.hardCleanup = await hardDeleteTemporaryThread\(state\.thread, state\.uniqueKey\)/);
 });
 
+test("runner records the exact git candidate identity in the evidence report", () => {
+  assert.match(runner, /import \{ spawn \} from "node:child_process"/);
+  assert.match(runner, /async function gitMetadata\(\)/);
+  assert.match(runner, /"rev-parse", "HEAD"/);
+  assert.match(runner, /"status", "--porcelain"/);
+  assert.match(runner, /git: await gitMetadata\(\)/);
+  assert.match(androidRunner, /git: await gitMetadata\(\)/);
+});
+
 test("runner redacts sensitive runtime state from report", () => {
   assert.match(runner, /markerSha256: sha256\(marker\)/);
   assert.match(runner, /uniqueKeySha256: sha256\(uniqueKey\)/);
