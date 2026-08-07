@@ -3,24 +3,64 @@
 package com.quata.web
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.WebElementView
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import com.quata.core.model.User
 import com.quata.core.model.Post
+import com.quata.core.platform.FilePickerRequest
+import com.quata.core.platform.FilePickerSource
+import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.richtext.QuataRichTextRenderer
+import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostItem
+import com.quata.feature.official.domain.OfficialPostDraft
+import com.quata.feature.official.domain.OfficialPostLanguage
+import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.official.presentation.OfficialFeedScreenHost
 import com.quata.feature.official.presentation.OfficialFeedScreenPlatformSlots
+import com.quata.feature.official.presentation.OfficialEditorMedia
+import com.quata.feature.official.presentation.OfficialEditorMediaPreviewContent
+import com.quata.feature.official.presentation.OfficialEditorPostPreviewContent
+import com.quata.feature.official.presentation.OfficialPostActionRailContent
+import com.quata.feature.official.presentation.OfficialPostActionRailStrings
+import com.quata.feature.official.presentation.OfficialPostEditorPlatformSlots
+import com.quata.feature.official.presentation.OfficialPostEditorRoot
+import com.quata.feature.official.presentation.OfficialPostEditorPreviewState
+import com.quata.feature.official.presentation.defaultOfficialPostEditorStrings
 import com.quata.feature.official.presentation.defaultOfficialFeedScreenStrings
+import com.quata.feature.official.presentation.officialPostEditorPreviewItem
 import com.quata.feature.official.presentation.OfficialPostMediaFrameContent
+import kotlinx.browser.document
+import kotlinx.coroutines.launch
 import kotlin.js.JsString
 import kotlin.js.toJsString
+import org.w3c.dom.HTMLImageElement
+import org.w3c.dom.HTMLVideoElement
 
 /** Browser adapter: navigation and browser services only; the Official screen itself is common. */
 @Composable
@@ -73,6 +113,197 @@ fun WebOfficialHost(
     ),
 )
 
+/** Browser editor adapter: acquisition/rendering are native seams; form and preview are common. */
+@Composable
+fun WebOfficialEditorHost(
+    repository: OfficialRepository,
+    platformServices: WebPlatformServices,
+    currentUserId: String?,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var currentUser by remember(repository, currentUserId) { mutableStateOf<User?>(null) }
+    var isPublishing by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(repository, currentUserId) {
+        currentUser = repository.refreshCurrentUser().getOrNull()
+    }
+    OfficialPostEditorRoot(
+        padding = PaddingValues(),
+        currentUser = currentUser,
+        isPublishing = isPublishing,
+        error = error,
+        strings = defaultOfficialPostEditorStrings(webOfficialLanguageTag()),
+        slots = webOfficialEditorPlatformSlots(platformServices),
+        language = webOfficialPostLanguage(),
+        canPublish = currentUser?.isOfficial == true,
+        onSubmit = { drafts: List<OfficialPostDraft> ->
+            scope.launch {
+                isPublishing = true
+                error = null
+                repository.createPosts(drafts)
+                    .onSuccess { onBack() }
+                    .onFailure { failure -> error = failure.message ?: "web_official_publish_failed" }
+                isPublishing = false
+            }
+        },
+        detectLanguage = { webOfficialPostLanguage() },
+        translator = null,
+        newTranslationGroupId = { webRandomUuid() },
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun webOfficialEditorPlatformSlots(platformServices: WebPlatformServices) = OfficialPostEditorPlatformSlots(
+    bodyEditorAction = { html, title, onHtmlChange, buttonModifier ->
+        OutlinedButton(
+            onClick = { webPromptForOfficialHtml(title, html)?.let(onHtmlChange) },
+            modifier = buttonModifier,
+        ) {
+            Icon(Icons.Filled.Edit, contentDescription = null)
+            Spacer(Modifier.size(8.dp))
+            Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    },
+    imagePicker = { onPicked, buttonModifier ->
+        val scope = rememberCoroutineScope()
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    platformServices.filePicker.pick(
+                        FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery),
+                    ).firstOfficialReferenceOrNull()?.let {
+                        onPicked(OfficialEditorMedia(it, OfficialMediaType.Image))
+                    }
+                }
+            },
+            modifier = buttonModifier,
+        ) {
+            Icon(Icons.Filled.PhotoLibrary, contentDescription = null)
+            Spacer(Modifier.size(8.dp))
+            Text("Elegir foto", maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    },
+    videoPicker = { onPicked, buttonModifier ->
+        val scope = rememberCoroutineScope()
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    platformServices.filePicker.pick(
+                        FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery),
+                    ).firstOfficialReferenceOrNull()?.let {
+                        onPicked(OfficialEditorMedia(it, OfficialMediaType.Video))
+                    }
+                }
+            },
+            modifier = buttonModifier,
+        ) {
+            Icon(Icons.Filled.VideoLibrary, contentDescription = null)
+            Spacer(Modifier.size(8.dp))
+            Text("Elegir video", maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    },
+    mediaPreview = { media, _, onRemove, previewModifier ->
+        OfficialEditorMediaPreviewContent(
+            removeLabel = "Quitar",
+            onRemove = onRemove,
+            modifier = previewModifier,
+            mediaContent = { mediaModifier -> BrowserOfficialEditorMedia(media, mediaModifier) },
+            editAction = {},
+        )
+    },
+    preview = { state, previewModifier -> WebOfficialEditorPreview(state, previewModifier) },
+)
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun BrowserOfficialEditorMedia(media: OfficialEditorMedia, modifier: Modifier) {
+    if (media.type == OfficialMediaType.Video) {
+        WebElementView(
+            factory = {
+                (document.createElement("video") as HTMLVideoElement).apply {
+                    controls = true
+                    preload = "metadata"
+                    style.width = "100%"
+                    style.height = "100%"
+                    style.backgroundColor = "transparent"
+                }
+            },
+            update = { it.src = media.url },
+            modifier = modifier,
+        )
+    } else {
+        WebElementView(
+            factory = {
+                (document.createElement("img") as HTMLImageElement).apply {
+                    alt = "Vista previa"
+                    style.width = "100%"
+                    style.height = "100%"
+                    style.objectFit = "cover"
+                }
+            },
+            update = { it.src = media.url },
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
+private fun WebOfficialEditorPreview(state: OfficialPostEditorPreviewState, modifier: Modifier) {
+    val strings = defaultOfficialFeedScreenStrings(webOfficialLanguageTag())
+    val post = officialPostEditorPreviewItem(
+        state = state,
+        fallbackAuthorLabel = strings.officialAccountFallback,
+        defaultTitle = strings.officialAccountFallback,
+        summaryFallback = "Vista previa",
+        createdAt = "Ahora",
+    )
+    OfficialEditorPostPreviewContent(
+        post = post,
+        typeLabel = state.postType.remoteValue.uppercase(),
+        readMoreLabel = strings.webEditorReadMoreLabel(state.readMoreLabel),
+        closeLabel = strings.close,
+        author = { authorModifier ->
+            BrowserFeedAuthorAvatar(post.asFeedPost(), {}, isLoading = false, modifier = authorModifier)
+        },
+        media = if (post.mediaUrl.isNullOrBlank()) null else {
+            { mediaModifier -> BrowserOfficialEditorMedia(OfficialEditorMedia(post.mediaUrl.orEmpty(), post.mediaType ?: OfficialMediaType.Image), mediaModifier) }
+        },
+        actionRail = { isLandscape, railModifier ->
+            OfficialPostActionRailContent(
+                post = post,
+                rank = 1,
+                isLandscape = isLandscape,
+                canPublish = false,
+                canModerate = false,
+                strings = OfficialPostActionRailStrings(
+                    like = strings.like,
+                    comments = strings.comments,
+                    share = strings.share,
+                    rank = strings.rank,
+                    live = strings.live,
+                    publish = strings.create,
+                    delete = strings.delete,
+                ),
+                onCreate = {},
+                onOpenLive = {},
+                onLike = {},
+                onComment = {},
+                onShare = {},
+                onDelete = {},
+                modifier = railModifier,
+            )
+        },
+        overflowAction = {},
+        articleContent = { selectedPost, articleModifier ->
+            QuataRichTextRenderer(selectedPost.contentHtml, articleModifier, selectedPost.contentPlain)
+        },
+        modifier = modifier,
+    )
+}
+
 @Composable
 private fun BrowserOfficialMediaThumbnail(post: OfficialPostItem, modifier: Modifier) {
     val url = post.mediaUrl?.takeIf(String::isNotBlank) ?: return
@@ -112,6 +343,29 @@ private fun OfficialPostItem.asFeedPost() = Post(
 
 private fun openBrowserUrl(url: String): Unit = js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
 private fun webOfficialLanguageTag(): String? = js("globalThis.navigator?.language || 'es'")
+private fun webRandomUuid(): String = js("globalThis.crypto?.randomUUID?.() || String(Date.now())")
+
+private fun webOfficialPostLanguage(): OfficialPostLanguage = when (webOfficialLanguageTag()?.substringBefore('-')?.lowercase()) {
+    "en" -> OfficialPostLanguage.English
+    "fr" -> OfficialPostLanguage.French
+    else -> OfficialPostLanguage.Spanish
+}
+
+private fun com.quata.feature.official.presentation.OfficialFeedScreenStrings.webEditorReadMoreLabel(storedValue: String): String =
+    when (storedValue.trim().lowercase()) {
+        "more_information" -> readMoreMoreInformation
+        "continue_reading" -> readMoreContinueReading
+        "details" -> readMoreDetails
+        else -> readMore
+    }
+
+private fun PlatformResult<List<com.quata.core.platform.PlatformFile>>.firstOfficialReferenceOrNull(): String? = when (this) {
+    is PlatformResult.Success -> value.firstOrNull()?.reference
+    is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> null
+}
+
+private fun webPromptForOfficialHtml(title: String, initialHtml: String): String? =
+    js("globalThis.prompt(title, initialHtml)")
 
 @JsFun(
     """(url, onSuccess, onFailure) => {

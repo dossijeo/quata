@@ -135,7 +135,7 @@ no una nueva evidencia de producto.
 
 ## Próxima cola
 
-1. Preparar desde `702fb717` la siguiente vertical de producto según el inventario: `SCR-CHAT` o `SCR-OFFICIAL-EDITOR`, con plantilla G completa antes de escribir código y sin reutilizar ciegamente ramas históricas.
+1. Cerrar la candidata activa #185 y, despues, promocionar la preparacion local `codex/official-editor-web-ios-v1` para `SCR-OFFICIAL-EDITOR`: Web/iOS ya deben montar `OfficialPostEditorRoot`; quedan Swift host final, publicacion reversible autorizada y evidencia visual integrada.
 2. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y duración/seek iOS de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
 3. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
 4. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.

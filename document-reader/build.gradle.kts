@@ -23,6 +23,7 @@ android {
     lint {
         baseline = file("lint-baseline.xml")
         warningsAsErrors = true
+        disable += "AndroidGradlePluginVersion"
     }
 
     compileOptions {

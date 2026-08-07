@@ -11,6 +11,22 @@ documento hasta que el responsable del producto lo modifique explícitamente.
 
 - Android publicado es la referencia funcional y visual.
 - Web e iOS deben montar literalmente las mismas raíces Compose de `commonMain` que Android.
+- El objetivo prioritario es que Android, iOS y Web sean, en la medida en que las capacidades de
+  cada plataforma lo permitan, funcionalmente equivalentes y visualmente coherentes, compartiendo
+  la máxima cantidad posible de código en `commonMain`.
+- En caso de conflicto entre mantener la paridad funcional y optimizar tamaño, tiempos de
+  compilación o métricas de rendimiento, prevalece la paridad funcional salvo que exista una
+  limitación técnica real de la plataforma.
+- No se eliminan, simplifican ni degradan funcionalidades para una plataforma sin aprobación
+  explícita. Si una restricción obliga a hacerlo, se documenta la causa y se proponen alternativas
+  antes de modificar el comportamiento.
+- `commonMain` es la implementación de referencia. Android, iOS y Web solo divergen cuando es
+  estrictamente necesario por APIs nativas.
+- Si una funcionalidad no puede implementarse igual, se crea una abstracción (`expect`/`actual`,
+  interfaces u otro contrato equivalente) antes que eliminarla.
+- Los presupuestos de tamaño, bundle, Wasm o CI son ajustables; no justifican por sí solos la
+  eliminación de funcionalidades.
+- La experiencia del usuario debe permanecer consistente entre plataformas.
 - No se aceptan pantallas HTML, hosts simplificados, «cutrescreens», maquetas ni implementaciones
   paralelas que imiten Android.
 - Un adaptador de plataforma solo puede contener capacidades realmente específicas del sistema:

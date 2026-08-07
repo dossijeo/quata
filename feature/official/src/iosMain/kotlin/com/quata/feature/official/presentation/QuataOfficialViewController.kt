@@ -1,21 +1,50 @@
 package com.quata.feature.official.presentation
 
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.platform.FilePickerRequest
+import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.FilePickerSource
+import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.VideoThumbnailService
 import com.quata.feature.official.data.IosOfficialReadRepository
 import com.quata.feature.official.data.IosOfficialRuntimeConfiguration
+import com.quata.feature.official.domain.OfficialMediaType
+import com.quata.feature.official.domain.OfficialPostDraft
+import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialRepository
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.platform.IosShareService
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.IosMemberProfileOpeningState
+import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
+import platform.Foundation.NSUUID
+import platform.Foundation.NSURL
+import platform.UIKit.UIImage
+import platform.UIKit.UIImageView
+import platform.UIKit.UIViewContentMode
 
 /** Narrow Swift-owned native viewer contract; it never owns pager or Official state. */
 interface IosOfficialMediaViewerFactory {
@@ -165,18 +194,265 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
  * a pretend iOS backend while allowing the shared editor hierarchy to be hosted now.
  */
 class IosOfficialEditorDependencies(
-    val title: String,
-    val content: @Composable ColumnScope.() -> Unit,
+    val repository: OfficialRepository,
+    val filePicker: FilePickerService,
+    val videoThumbnails: VideoThumbnailService,
+    val currentUserId: String? = null,
+    val preferredLanguageTag: String? = null,
+    val onClose: () -> Unit,
 )
 
-/** Swift-callable UIKit factory for a host-supplied Official editor built on common Compose UI. */
+fun createIosOfficialEditorDependencies(
+    repository: OfficialRepository,
+    filePicker: FilePickerService,
+    videoThumbnails: VideoThumbnailService,
+    currentUserId: String? = null,
+    preferredLanguageTag: String? = null,
+    onClose: () -> Unit,
+): IosOfficialEditorDependencies = IosOfficialEditorDependencies(
+    repository = repository,
+    filePicker = filePicker,
+    videoThumbnails = videoThumbnails,
+    currentUserId = currentUserId,
+    preferredLanguageTag = preferredLanguageTag,
+    onClose = onClose,
+)
+
+fun iosAuthenticatedOfficialEditorDependencies(
+    configuration: IosOfficialRuntimeConfiguration,
+    authSession: IosRenewableAuthSession,
+    filePicker: FilePickerService,
+    videoThumbnails: VideoThumbnailService,
+    currentUserId: String? = authSession.restoredSession()?.userId,
+    preferredLanguageTag: String? = null,
+    onClose: () -> Unit,
+): IosOfficialEditorDependencies = createIosOfficialEditorDependencies(
+    repository = IosOfficialReadRepository(
+        configuration = configuration,
+        authSession = authSession,
+        preferredLanguageTag = preferredLanguageTag,
+    ),
+    filePicker = filePicker,
+    videoThumbnails = videoThumbnails,
+    currentUserId = currentUserId,
+    preferredLanguageTag = preferredLanguageTag,
+    onClose = onClose,
+)
+
+/** Swift-callable UIKit factory for the shared Official editor root. */
 fun QuataOfficialEditorViewController(dependencies: IosOfficialEditorDependencies): UIViewController =
     ComposeUIViewController {
         QuataTheme {
-            OfficialEditorScreenContent(
-                padding = PaddingValues(),
-                title = dependencies.title,
-                content = dependencies.content,
-            )
+            IosOfficialEditorHost(dependencies)
         }
     }
+
+private fun PlatformResult<List<PlatformFile>>.officialSelectedFileOrNull(): PlatformFile? =
+    (this as? PlatformResult.Success)?.value?.firstOrNull()
+
+@Composable
+private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
+    var currentUser by remember(dependencies.repository, dependencies.currentUserId) { mutableStateOf<com.quata.core.model.User?>(null) }
+    var isPublishing by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var imageFile by remember { mutableStateOf<PlatformFile?>(null) }
+    var videoThumbnail by remember { mutableStateOf<PlatformFile?>(null) }
+    val scope = rememberCoroutineScope()
+    val strings = defaultOfficialPostEditorStrings(dependencies.preferredLanguageTag)
+
+    fun releaseVideoThumbnail() { videoThumbnail = null }
+    fun selectMedia(type: OfficialMediaType, onPicked: (OfficialEditorMedia) -> Unit) {
+        scope.launch {
+            dependencies.filePicker.pick(
+                FilePickerRequest(
+                    acceptedMimeTypes = listOf(if (type == OfficialMediaType.Image) "image/*" else "video/*"),
+                    source = FilePickerSource.Gallery,
+                ),
+            ).officialSelectedFileOrNull()?.let { file ->
+                if (type == OfficialMediaType.Image) {
+                    imageFile = file
+                    onPicked(OfficialEditorMedia(file.reference, OfficialMediaType.Image))
+                } else {
+                    releaseVideoThumbnail()
+                    videoThumbnail = (dependencies.videoThumbnails.createThumbnail(file) as? PlatformResult.Success)?.value
+                    onPicked(OfficialEditorMedia(file.reference, OfficialMediaType.Video))
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(dependencies.repository, dependencies.currentUserId) {
+        currentUser = dependencies.repository.refreshCurrentUser().getOrNull()
+    }
+    DisposableEffect(Unit) { onDispose(::releaseVideoThumbnail) }
+
+    OfficialPostEditorRoot(
+        padding = PaddingValues(),
+        currentUser = currentUser,
+        isPublishing = isPublishing,
+        error = error,
+        strings = strings,
+        slots = OfficialPostEditorPlatformSlots(
+            bodyEditorAction = { html, title, onHtmlChange, modifier ->
+                OutlinedTextField(
+                    value = html,
+                    onValueChange = onHtmlChange,
+                    label = { Text(title) },
+                    minLines = 5,
+                    modifier = modifier,
+                )
+            },
+            imagePicker = { onPicked, modifier ->
+                OutlinedButton(onClick = { selectMedia(OfficialMediaType.Image, onPicked) }, modifier = modifier) {
+                    Icon(Icons.Filled.PhotoLibrary, contentDescription = null)
+                    Text("Elegir foto")
+                }
+            },
+            videoPicker = { onPicked, modifier ->
+                OutlinedButton(onClick = { selectMedia(OfficialMediaType.Video, onPicked) }, modifier = modifier) {
+                    Icon(Icons.Filled.VideoLibrary, contentDescription = null)
+                    Text("Elegir video")
+                }
+            },
+            mediaPreview = { media, _, onRemove, modifier ->
+                OfficialEditorMediaPreviewContent(
+                    removeLabel = strings.close,
+                    onRemove = {
+                        if (media.type == OfficialMediaType.Video) releaseVideoThumbnail()
+                        onRemove()
+                    },
+                    modifier = modifier,
+                    mediaContent = { mediaModifier ->
+                        when (media.type) {
+                            OfficialMediaType.Image -> imageFile?.let { IosOfficialLocalImagePreview(it, mediaModifier) }
+                            OfficialMediaType.Video -> videoThumbnail?.let { IosOfficialLocalImagePreview(it, mediaModifier) }
+                        }
+                    },
+                    editAction = {},
+                )
+            },
+            preview = { state, modifier ->
+                IosOfficialEditorPreview(
+                    state = state,
+                    strings = strings,
+                    languageTag = dependencies.preferredLanguageTag,
+                    previewFile = when (state.mediaType) {
+                        OfficialMediaType.Image -> imageFile
+                        OfficialMediaType.Video -> videoThumbnail
+                        null -> null
+                    },
+                    modifier = modifier,
+                )
+            },
+        ),
+        language = iosOfficialPostLanguage(dependencies.preferredLanguageTag),
+        canPublish = currentUser?.isOfficial == true,
+        onSubmit = { drafts: List<OfficialPostDraft> ->
+            scope.launch {
+                isPublishing = true
+                error = null
+                dependencies.repository.createPosts(drafts)
+                    .onSuccess { dependencies.onClose() }
+                    .onFailure { failure -> error = failure.message ?: "ios_official_publish_failed" }
+                isPublishing = false
+            }
+        },
+        detectLanguage = { iosOfficialPostLanguage(dependencies.preferredLanguageTag) },
+        translator = null,
+        newTranslationGroupId = { NSUUID.UUID().UUIDString },
+    )
+}
+
+@Composable
+private fun IosOfficialLocalImagePreview(file: PlatformFile, modifier: Modifier) {
+    val image = remember(file.reference) { file.toIosOfficialImageOrNull() }
+    if (image != null) {
+        UIKitView(
+            factory = {
+                UIImageView().apply {
+                    contentMode = UIViewContentMode.UIViewContentModeScaleAspectFill
+                    clipsToBounds = true
+                    this.image = image
+                }
+            },
+            update = { it.image = image },
+            modifier = modifier,
+        )
+    }
+}
+
+private fun PlatformFile.toIosOfficialImageOrNull(): UIImage? {
+    val path = NSURL(string = reference)?.path ?: reference.takeIf { it.startsWith("/") } ?: return null
+    return UIImage(contentsOfFile = path)
+}
+
+@Composable
+private fun IosOfficialEditorPreview(
+    state: OfficialPostEditorPreviewState,
+    strings: OfficialPostEditorStrings,
+    languageTag: String?,
+    previewFile: PlatformFile?,
+    modifier: Modifier,
+) {
+    val feedStrings = defaultOfficialFeedScreenStrings(languageTag)
+    val post = officialPostEditorPreviewItem(
+        state = state,
+        fallbackAuthorLabel = feedStrings.officialAccountFallback,
+        defaultTitle = strings.defaultTitle,
+        summaryFallback = strings.summaryLabel,
+        createdAt = "Ahora",
+    )
+    OfficialEditorPostPreviewContent(
+        post = post,
+        typeLabel = feedStrings.typeLabel(state.postType),
+        readMoreLabel = feedStrings.readMoreLabel(state.readMoreLabel),
+        closeLabel = strings.close,
+        author = { authorModifier ->
+            OfficialAuthorHeaderContent(
+                displayName = post.author.displayName,
+                neighborhood = post.author.neighborhood,
+                fallbackNeighborhood = feedStrings.officialAccountFallback,
+                avatar = {},
+                modifier = authorModifier,
+            )
+        },
+        media = if (state.mediaUrl.isBlank() || state.mediaType == null || previewFile == null) null else {
+            { mediaModifier -> IosOfficialLocalImagePreview(previewFile, mediaModifier) }
+        },
+        actionRail = { isLandscape, railModifier ->
+            OfficialPostActionRailContent(
+                post = post,
+                rank = 1,
+                isLandscape = isLandscape,
+                canPublish = false,
+                canModerate = false,
+                strings = OfficialPostActionRailStrings(
+                    like = feedStrings.like,
+                    comments = feedStrings.comments,
+                    share = feedStrings.share,
+                    rank = feedStrings.rank,
+                    live = feedStrings.live,
+                    publish = feedStrings.create,
+                    delete = feedStrings.delete,
+                ),
+                onCreate = {},
+                onOpenLive = {},
+                onLike = {},
+                onComment = {},
+                onShare = {},
+                onDelete = {},
+                modifier = railModifier,
+            )
+        },
+        articleContent = { selectedPost, articleModifier ->
+            com.quata.core.ui.richtext.QuataRichTextRenderer(selectedPost.contentHtml, articleModifier, selectedPost.contentPlain)
+        },
+        modifier = modifier,
+    )
+}
+
+private fun iosOfficialPostLanguage(languageTag: String?): OfficialPostLanguage = when (languageTag?.substringBefore('-')?.lowercase()) {
+    "en" -> OfficialPostLanguage.English
+    "fr" -> OfficialPostLanguage.French
+    else -> OfficialPostLanguage.Spanish
+}

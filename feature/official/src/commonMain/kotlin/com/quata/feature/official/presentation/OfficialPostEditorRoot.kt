@@ -71,6 +71,129 @@ class OfficialPostEditorStrings(
     val readMoreLabel: (String) -> String,
 )
 
+fun defaultOfficialPostEditorStrings(languageTag: String?): OfficialPostEditorStrings {
+    val feedStrings = defaultOfficialFeedScreenStrings(languageTag)
+    return when (languageTag?.substringBefore('-')?.lowercase()) {
+        "en" -> OfficialPostEditorStrings(
+            title = "Create official post",
+            quickModeTitle = "Quick mode",
+            quickModeDescription = "Write the full text; Quata will extract the title and summary.",
+            advancedModeTitle = "Advanced mode",
+            advancedModeDescription = "Control title, summary, link text and information URL.",
+            mainSection = "Publication details",
+            mediaSection = "Photo or video",
+            bodyQuick = "Description",
+            readMoreSection = "Read more",
+            editBodyQuick = "Edit description",
+            editBodyAdvanced = "Edit long description",
+            titleLabel = "Title",
+            summaryLabel = "Short summary",
+            linkLabel = "Information link",
+            preview = "Preview",
+            publish = "Publish",
+            publishing = "Publishing...",
+            unavailable = "Official publishing is not available on this platform yet.",
+            validation = "Add text or media before publishing.",
+            close = feedStrings.close,
+            defaultTitle = "Official account",
+            translationTitle = "Generate translations?",
+            translationMessage = { source, targets ->
+                "Detected ${source.editorLanguageName("en")}. Generate ${targets.joinToString(", ") { it.editorLanguageName("en") }} too?"
+            },
+            translationProgress = "Generating translations...",
+            translationConfirm = "Generate",
+            translationSkip = "Publish only this language",
+            translationFailed = "Could not generate translations",
+            typeLabel = feedStrings::typeLabel,
+            readMoreLabel = feedStrings::readMoreLabel,
+        )
+        "fr" -> OfficialPostEditorStrings(
+            title = "Creer une publication officielle",
+            quickModeTitle = "Mode rapide",
+            quickModeDescription = "Ecris le texte complet ; Quata extrait le titre et le resume.",
+            advancedModeTitle = "Mode avance",
+            advancedModeDescription = "Controle le titre, le resume, le texte du lien et l URL d'information.",
+            mainSection = "Details de la publication",
+            mediaSection = "Photo ou video",
+            bodyQuick = "Description",
+            readMoreSection = "Lire plus",
+            editBodyQuick = "Modifier la description",
+            editBodyAdvanced = "Modifier la description longue",
+            titleLabel = "Titre",
+            summaryLabel = "Resume court",
+            linkLabel = "Lien d'information",
+            preview = "Apercu",
+            publish = "Publier",
+            publishing = "Publication...",
+            unavailable = "La publication officielle n'est pas encore disponible sur cette plateforme.",
+            validation = "Ajoute du texte ou un media avant de publier.",
+            close = feedStrings.close,
+            defaultTitle = "Compte officiel",
+            translationTitle = "Generer des traductions ?",
+            translationMessage = { source, targets ->
+                "${source.editorLanguageName("fr").replaceFirstChar { it.uppercase() }} detecte. Generer aussi ${targets.joinToString(", ") { it.editorLanguageName("fr") }} ?"
+            },
+            translationProgress = "Generation des traductions...",
+            translationConfirm = "Generer",
+            translationSkip = "Publier seulement cette langue",
+            translationFailed = "Impossible de generer les traductions",
+            typeLabel = feedStrings::typeLabel,
+            readMoreLabel = feedStrings::readMoreLabel,
+        )
+        else -> OfficialPostEditorStrings(
+            title = "Crear publicacion oficial",
+            quickModeTitle = "Modo rapido",
+            quickModeDescription = "Escribe el texto completo; Quata extraera el titulo y el resumen.",
+            advancedModeTitle = "Modo avanzado",
+            advancedModeDescription = "Controla titulo, resumen, texto del enlace y URL informativa.",
+            mainSection = "Datos de la publicacion",
+            mediaSection = "Foto o video",
+            bodyQuick = "Descripcion",
+            readMoreSection = "Leer mas",
+            editBodyQuick = "Editar descripcion",
+            editBodyAdvanced = "Editar descripcion larga",
+            titleLabel = "Titulo",
+            summaryLabel = "Resumen corto",
+            linkLabel = "Enlace informativo",
+            preview = "Vista previa",
+            publish = "Publicar",
+            publishing = "Publicando...",
+            unavailable = "La publicacion oficial aun no esta disponible en esta plataforma.",
+            validation = "Anade texto o contenido multimedia antes de publicar.",
+            close = feedStrings.close,
+            defaultTitle = "Cuenta oficial",
+            translationTitle = "Generar traducciones?",
+            translationMessage = { source, targets ->
+                "Se ha detectado ${source.editorLanguageName("es")}. Generar tambien ${targets.joinToString(", ") { it.editorLanguageName("es") }}?"
+            },
+            translationProgress = "Generando traducciones...",
+            translationConfirm = "Generar",
+            translationSkip = "Publicar solo este idioma",
+            translationFailed = "No se pudieron generar las traducciones",
+            typeLabel = feedStrings::typeLabel,
+            readMoreLabel = feedStrings::readMoreLabel,
+        )
+    }
+}
+
+private fun OfficialPostLanguage.editorLanguageName(language: String): String = when (language) {
+    "en" -> when (this) {
+        OfficialPostLanguage.Spanish -> "Spanish"
+        OfficialPostLanguage.English -> "English"
+        OfficialPostLanguage.French -> "French"
+    }
+    "fr" -> when (this) {
+        OfficialPostLanguage.Spanish -> "espagnol"
+        OfficialPostLanguage.English -> "anglais"
+        OfficialPostLanguage.French -> "francais"
+    }
+    else -> when (this) {
+        OfficialPostLanguage.Spanish -> "espanol"
+        OfficialPostLanguage.English -> "ingles"
+        OfficialPostLanguage.French -> "frances"
+    }
+}
+
 class OfficialPostEditorPlatformSlots(
     val bodyEditorAction: @Composable (
         html: String,

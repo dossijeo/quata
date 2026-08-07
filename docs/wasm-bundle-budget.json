@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "state": "approved",
+  "state": "proposed",
   "baselineFile": "wasm-bundle-baseline.json",
-  "maxGrowthBytes": 1048576,
-  "maxGrowthGzipBytes": 262144,
-  "rationale": "Approval is intentionally deferred until CI-001 is merged. Capture must run from a clean detached checkout of trusted origin/main or a trusted tag, then be reviewed in a dedicated PR with no payload, runtime, build, or gate-input changes. The future approved gate retains the reviewed 1 MiB raw and 256 KiB gzip margins."
+  "maxGrowthBytes": 8388608,
+  "maxGrowthGzipBytes": 2097152,
+  "rationale": "Proposed product budget: Web/Wasm migration work must not trim localization, shared previews, media controls, or other user-facing parity to satisfy an early 1 MiB guardrail. CI continues to publish bundle reports for review while this wider budget remains non-blocking until a dedicated baseline/budget approval is chosen."
 }

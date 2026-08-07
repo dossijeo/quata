@@ -602,6 +602,15 @@ private fun QuataWebApp(
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
                         )
                     }
+                } else if (navigation.route == "official-editor") {
+                    WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Official) {
+                        WebOfficialEditorHost(
+                            repository = officialRepository,
+                            platformServices = platformServices,
+                            currentUserId = currentUserId,
+                            onBack = { navigation.navigate("official") },
+                        )
+                    }
                 } else if (navigation.route == "communities") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Communities) {
                         WebNeighborhoodsHost(
@@ -627,7 +636,7 @@ private fun QuataWebApp(
                                 openingProfileUserId = memberProfileId,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserProfile = feedMemberProfileRoute::open,
-                                onCreateOfficialPost = { navigation.navigate("composer") },
+                                onCreateOfficialPost = { navigation.navigate("official-editor") },
                             )
                             if (memberProfileId != null) {
                             WebNeighborhoodsHost(
@@ -782,6 +791,7 @@ internal fun webFragmentToCanonicalPrimaryRoute(route: String): String? = when (
     "communities" -> "neighborhoods"
     "chat" -> "conversations"
     "official" -> "official"
+    "official-editor" -> "official"
     "feed", "", "post" -> "feed"
     "profile" -> "profile"
     "composer" -> "composer"
@@ -922,6 +932,9 @@ internal fun String.toWebNavigationState(): WebNavigationState {
     }
     if (trim('/').equals("composer", ignoreCase = true)) {
         return WebNavigationState(route = "composer", message = "Crear una publicaci\u00f3n en Quata Web.")
+    }
+    if (trim('/').equals("official-editor", ignoreCase = true)) {
+        return WebNavigationState(route = "official-editor", message = "Crear una publicaci\u00f3n oficial en Quata Web.")
     }
     if (trim('/').equals("communities", ignoreCase = true)) {
         return WebNavigationState(route = "communities", message = "Comunidades y barrios de Quata Web.")

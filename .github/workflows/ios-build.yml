@@ -667,9 +667,6 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Check out final gate helper
-        uses: actions/checkout@v6
-
       - name: Fail closed unless this exact run is final-certified
         shell: bash
         env:
@@ -677,4 +674,21 @@ jobs:
           FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
           IOS_AFFECTED: ${{ needs.classify-impact.outputs.ios }}
           IOS_FINAL_RESULT: ${{ needs.compile-ios.result }}
-        run: bash scripts/check-final-certification.sh "ios:$IOS_AFFECTED:$IOS_FINAL_RESULT"
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" && "$FINAL_CANDIDATE" != "true" ]]; then
+            echo "A pull request must carry candidate-final before final certification can pass." >&2
+            exit 1
+          fi
+          affected="$IOS_AFFECTED"
+          result="$IOS_FINAL_RESULT"
+          if [[ "$affected" != "true" && "$affected" != "false" ]]; then
+            echo "Final certification is invalid: 'ios' has affected='$affected'." >&2
+            exit 1
+          fi
+          expected_result="skipped"
+          [[ "$affected" == "true" ]] && expected_result="success"
+          if [[ "$result" != "$expected_result" ]]; then
+            echo "Final certification is incomplete: 'ios' expected '$expected_result' but was '$result'." >&2
+            exit 1
+          fi
