@@ -30,11 +30,13 @@ import com.quata.feature.official.domain.OfficialRepository
 import com.quata.feature.postcomposer.data.ActorBoundComposerTransport
 import com.quata.feature.postcomposer.data.ComposerPreparedMedia
 import com.quata.feature.postcomposer.data.ComposerUploadedMedia
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -108,10 +110,10 @@ class WebOfficialRepository(
             }.also { uploadedMedia = it }
             val mediaUrl = media?.publicUrl
             if (mediaUrl == null) drafts else drafts.map { draft ->
-                if (draft.mediaUrl.isNullOrBlank()) draft else draft.copy(mediaUrl = mediaUrl)
+                draft.copy(mediaUrl = mediaUrl)
             }
         } catch (failure: Throwable) {
-            preparedMedia?.let { mediaTransport?.releasePreparedMedia(it) }
+            preparedMedia?.let { withContext(NonCancellable) { mediaTransport?.releasePreparedMedia(it) } }
             throw failure
         }
         val plans = officialPostCreatePlans(
@@ -122,18 +124,22 @@ class WebOfficialRepository(
             publishedAt = currentOfficialTimestamp(),
         )
         if (plans.isEmpty()) return@runCatching null
+        val createdIds = mutableListOf<String>()
         try {
-            val createdIds = plans.mapNotNull { plan ->
+            plans.mapNotNullTo(createdIds) { plan ->
                 val body = client.post(plan.table, requireNotNull(plan.body)).requireWebOfficialBody()
                 Json.parseToJsonElement(body).jsonArray.firstOrNull()?.jsonObject?.requiredOfficialString("id")
             }
-            createdIds.firstOrNull()?.let { getOfficialPost(it).getOrThrow() }
         } catch (failure: Throwable) {
-            uploadedMedia?.let { mediaTransport?.rollbackUploadedMedia(it)?.exceptionOrNull()?.let(failure::addSuppressed) }
+            withContext(NonCancellable) {
+                rollbackCreatedOfficialPosts(createdIds, groupId, failure)
+                uploadedMedia?.let { mediaTransport?.rollbackUploadedMedia(it)?.exceptionOrNull()?.let(failure::addSuppressed) }
+            }
             throw failure
         } finally {
-            preparedMedia?.let { mediaTransport?.releasePreparedMedia(it) }
+            preparedMedia?.let { withContext(NonCancellable) { mediaTransport?.releasePreparedMedia(it) } }
         }
+        createdIds.firstOrNull()?.let { getOfficialPost(it).getOrThrow() }
     }
 
     override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
@@ -277,6 +283,25 @@ class WebOfficialRepository(
         return when (mediaType) {
             com.quata.feature.official.domain.OfficialMediaType.Image -> transport.uploadImage(profileId, prepared).getOrThrow()
             com.quata.feature.official.domain.OfficialMediaType.Video -> transport.uploadVideo(profileId, prepared).getOrThrow()
+        }
+    }
+
+    private suspend fun rollbackCreatedOfficialPosts(
+        createdIds: List<String>,
+        groupId: String,
+        failure: Throwable,
+    ) {
+        if (createdIds.isEmpty()) return
+        val plan = officialSoftDeletePlan(
+            postId = createdIds.first().requireOfficialPostgrestIdentifier(),
+            groupId = groupId.requireOfficialPostgrestIdentifier(),
+            timestamp = currentOfficialTimestamp(),
+        )
+        when (val result = client.patch(plan.table, plan.filter, requireNotNull(plan.body))) {
+            is WebPostgrestResult.Success -> Unit
+            is WebPostgrestResult.Failure -> failure.addSuppressed(
+                IllegalStateException("web_official_rollback_failed:${result.reason}")
+            )
         }
     }
 

@@ -48,7 +48,7 @@ test('CAPABILITY-DRIFT-001 fails closed for catalogue, state, schema and source 
 
 test('decisive source changes cannot land without a reviewed matrix hash update', async () => {
   const original = await matrix();
-  for (const decisiveSource of ['FeedRemoteDataSource.kt', 'PostgrestChatRepository.kt', 'PostComposerRepositoryImpl.kt', 'OfficialMutationPlan.kt']) {
+  for (const decisiveSource of ['FeedRemoteDataSource.kt', 'PostgrestChatRepository.kt', 'PostComposerRepositoryImpl.kt', 'OfficialMutationPlan.kt', 'WebPostComposerRepository.kt', 'IosPostComposerTransport.kt']) {
     let changed = false;
     await assert.rejects(() => validateCapabilityMatrix(original, {
       readFile: async (path) => {

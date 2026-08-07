@@ -82,6 +82,41 @@ class OfficialMutationPlanTest {
             )
         }
     }
+    @Test fun officialPostCreatePlansPreserveResolvedMediaForEveryTranslation() {
+        val plans = officialPostCreatePlans(
+            profileId = "profile",
+            drafts = listOf(
+                OfficialPostDraft(
+                    title = "EN",
+                    summary = "",
+                    contentHtml = "<p>One</p>",
+                    type = OfficialPostType.News,
+                    language = OfficialPostLanguage.English,
+                    mediaUrl = "https://cdn.example/shared.jpg",
+                    mediaType = OfficialMediaType.Image,
+                ),
+                OfficialPostDraft(
+                    title = "ES",
+                    summary = "",
+                    contentHtml = "<p>Uno</p>",
+                    type = OfficialPostType.News,
+                    language = OfficialPostLanguage.Spanish,
+                    mediaUrl = "https://cdn.example/shared.jpg",
+                    mediaType = OfficialMediaType.Image,
+                ),
+            ),
+            translationGroupId = "group",
+            defaultTitle = "Cuenta oficial",
+            publishedAt = "2026-08-07T12:34:56Z",
+        )
+
+        assertEquals(2, plans.size)
+        plans.forEach { plan ->
+            val body = requireNotNull(plan.body)
+            assertTrue("\"media_url\":\"https://cdn.example/shared.jpg\"" in body)
+            assertTrue("\"media_type\":\"image\"" in body)
+        }
+    }
     @Test fun commentReportUsesExactUgcContract() {
         val payload = officialCommentReportPayload("actor", "comment")
         assertEquals("{\"p_actor_profile_id\":\"actor\",\"p_target_type\":\"official_comment\",\"p_target_id\":\"comment\",\"p_reason\":\"other\"}", payload)

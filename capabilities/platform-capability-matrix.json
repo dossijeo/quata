@@ -168,11 +168,6 @@
               "path": "app/src/main/java/com/quata/data/supabase/SupabaseCommunityApi.kt",
               "sha256": "cff639970f2a7b7430fc8c145b4506084e2abecb513fbb9ab144f995e03b9de4",
               "role": "implementation"
-            },
-            {
-              "path": "feature/official/src/commonMain/kotlin/com/quata/feature/official/data/OfficialMutationPlan.kt",
-              "sha256": "510f5461a95054a409f45065144c083138b533902e778d65f5b2fba7c7d1fc9c",
-              "role": "adapter"
             }
           ]
         },
@@ -186,13 +181,8 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt",
-              "sha256": "9f8b636a59fa8dacce128569d9954e04eee309d1386475829676d4a13ae48d0d",
+              "sha256": "98fff5ca8af1c9d6aa10e5fa2ce31fdc56ba7ec2872f42a775c9c30d46a1e749",
               "role": "implementation"
-            },
-            {
-              "path": "feature/official/src/commonMain/kotlin/com/quata/feature/official/data/OfficialMutationPlan.kt",
-              "sha256": "510f5461a95054a409f45065144c083138b533902e778d65f5b2fba7c7d1fc9c",
-              "role": "adapter"
             }
           ]
         },
@@ -206,13 +196,8 @@
             },
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt",
-              "sha256": "9d103d7c5d07e63620ff4a75fb3b3bdb76f1f893c1cdfb34d751030e14be73de",
+              "sha256": "2a29766caceb40cf9b1bc5bcbd9104d0af987e0a3772649bc3502812fac329fd",
               "role": "implementation"
-            },
-            {
-              "path": "feature/official/src/commonMain/kotlin/com/quata/feature/official/data/OfficialMutationPlan.kt",
-              "sha256": "510f5461a95054a409f45065144c083138b533902e778d65f5b2fba7c7d1fc9c",
-              "role": "adapter"
             }
           ]
         }
@@ -257,7 +242,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt",
-              "sha256": "9f8b636a59fa8dacce128569d9954e04eee309d1386475829676d4a13ae48d0d",
+              "sha256": "98fff5ca8af1c9d6aa10e5fa2ce31fdc56ba7ec2872f42a775c9c30d46a1e749",
               "role": "implementation"
             }
           ]
@@ -272,7 +257,7 @@
             },
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt",
-              "sha256": "9d103d7c5d07e63620ff4a75fb3b3bdb76f1f893c1cdfb34d751030e14be73de",
+              "sha256": "2a29766caceb40cf9b1bc5bcbd9104d0af987e0a3772649bc3502812fac329fd",
               "role": "implementation"
             }
           ]
@@ -316,8 +301,18 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt",
-              "sha256": "9f8b636a59fa8dacce128569d9954e04eee309d1386475829676d4a13ae48d0d",
+              "sha256": "98fff5ca8af1c9d6aa10e5fa2ce31fdc56ba7ec2872f42a775c9c30d46a1e749",
               "role": "implementation"
+            },
+            {
+              "path": "feature/official/src/commonMain/kotlin/com/quata/feature/official/data/OfficialMutationPlan.kt",
+              "sha256": "510f5461a95054a409f45065144c083138b533902e778d65f5b2fba7c7d1fc9c",
+              "role": "adapter"
+            },
+            {
+              "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRepository.kt",
+              "sha256": "8a5e06411ff84662368cf0723fe4d76914395bcde2f0b0746eee5642da9f29a2",
+              "role": "runtime-bootstrap"
             }
           ]
         },
@@ -331,8 +326,18 @@
             },
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt",
-              "sha256": "9d103d7c5d07e63620ff4a75fb3b3bdb76f1f893c1cdfb34d751030e14be73de",
+              "sha256": "2a29766caceb40cf9b1bc5bcbd9104d0af987e0a3772649bc3502812fac329fd",
               "role": "implementation"
+            },
+            {
+              "path": "feature/official/src/commonMain/kotlin/com/quata/feature/official/data/OfficialMutationPlan.kt",
+              "sha256": "510f5461a95054a409f45065144c083138b533902e778d65f5b2fba7c7d1fc9c",
+              "role": "adapter"
+            },
+            {
+              "path": "feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/data/IosPostComposerTransport.kt",
+              "sha256": "ae305def4ffa516be5d138c1608a13ce28de0cf7b9bf3bc4f438e24e4b3d5cb7",
+              "role": "runtime-bootstrap"
             }
           ]
         }

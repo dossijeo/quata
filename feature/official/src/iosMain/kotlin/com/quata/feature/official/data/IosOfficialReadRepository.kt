@@ -21,9 +21,11 @@ import com.quata.feature.official.data.officialPostCreatePlans
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
@@ -138,10 +140,10 @@ class IosOfficialReadRepository(
             }.also { uploadedMedia = it }
             val mediaUrl = media?.publicUrl
             if (mediaUrl == null) drafts else drafts.map { draft ->
-                if (draft.mediaUrl.isNullOrBlank()) draft else draft.copy(mediaUrl = mediaUrl)
+                draft.copy(mediaUrl = mediaUrl)
             }
         } catch (failure: Throwable) {
-            preparedMedia?.let { mediaTransport?.releasePreparedMedia(it) }
+            preparedMedia?.let { withContext(NonCancellable) { mediaTransport?.releasePreparedMedia(it) } }
             throw failure
         }
         val plans = officialPostCreatePlans(
@@ -152,20 +154,24 @@ class IosOfficialReadRepository(
             publishedAt = currentOfficialTimestamp(),
         )
         if (plans.isEmpty()) return@runCatching null
+        val createdIds = mutableListOf<String>()
         try {
-            val createdIds = plans.mapNotNull { plan ->
+            plans.mapNotNullTo(createdIds) { plan ->
                 val result = authenticatedRequest(plan.table, plan.method, plan.filter, plan.body)
                 val root = NSJSONSerialization.JSONObjectWithData(result, options = 0u, error = null) as? List<*>
                     ?: error("ios_official_response_not_array")
                 (root.firstOrNull() as? Map<*, *>)?.requiredOfficialString("id")
             }
-            createdIds.firstOrNull()?.let { getOfficialPost(it).getOrThrow() }
         } catch (failure: Throwable) {
-            uploadedMedia?.let { mediaTransport?.rollbackUploadedMedia(it)?.exceptionOrNull()?.let(failure::addSuppressed) }
+            withContext(NonCancellable) {
+                rollbackCreatedOfficialPosts(createdIds, groupId, failure)
+                uploadedMedia?.let { mediaTransport?.rollbackUploadedMedia(it)?.exceptionOrNull()?.let(failure::addSuppressed) }
+            }
             throw failure
         } finally {
-            preparedMedia?.let { mediaTransport?.releasePreparedMedia(it) }
+            preparedMedia?.let { withContext(NonCancellable) { mediaTransport?.releasePreparedMedia(it) } }
         }
+        createdIds.firstOrNull()?.let { getOfficialPost(it).getOrThrow() }
     }
 
     override suspend fun deletePost(postId: String): Result<Unit> = runCatching {
@@ -341,7 +347,7 @@ class IosOfficialReadRepository(
 
     private suspend fun authenticatedUserId(): String {
         val sessionProvider = authSession
-            ?: throw UnsupportedOperationException("ios_official_mutation_not_implemented")
+            ?: error("ios_official_session_missing")
         return sessionProvider.currentSession()?.userId
             ?.takeIf(String::isNotBlank) ?: error("ios_official_session_missing")
     }
@@ -363,6 +369,22 @@ class IosOfficialReadRepository(
             com.quata.feature.official.domain.OfficialMediaType.Image -> transport.uploadImage(profileId, prepared).getOrThrow()
             com.quata.feature.official.domain.OfficialMediaType.Video -> transport.uploadVideo(profileId, prepared).getOrThrow()
         }
+    }
+
+    private suspend fun rollbackCreatedOfficialPosts(
+        createdIds: List<String>,
+        groupId: String,
+        failure: Throwable,
+    ) {
+        if (createdIds.isEmpty()) return
+        val plan = officialSoftDeletePlan(
+            postId = createdIds.first().requireOfficialPostgrestIdentifier(),
+            groupId = groupId.requireOfficialPostgrestIdentifier(),
+            timestamp = currentOfficialTimestamp(),
+        )
+        runCatching { mutate(plan.table, plan.method, plan.filter, plan.body) }
+            .exceptionOrNull()
+            ?.let(failure::addSuppressed)
     }
 
     private companion object {
