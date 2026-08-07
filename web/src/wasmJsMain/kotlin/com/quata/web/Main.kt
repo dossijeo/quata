@@ -468,6 +468,7 @@ private fun QuataWebApp(
                     selectedPrimaryRoute = if (navigationState.route == "composer") "composer" else webFragmentToCanonicalPrimaryRoute(navigationState.route),
                 )
             }
+            val isChatRoute = navigation.route == "chat" || navigation.chatConversationId != null
             QuataAuthenticatedShellChrome(
                 notificationCount = notificationCount,
                 isNotificationBouncing = false,
@@ -485,17 +486,21 @@ private fun QuataWebApp(
                     if (isSessionReady) navigation.navigate("profile") else requestAuthenticationFor("profile")
                 },
                 isSosSending = false,
-                bottomNavigation = {
-                    QuataPrimaryBottomNavigation(
-                        labels = webPrimaryNavigationLabels,
-                        selectedRoute = if (navigation.route == "composer") "composer" else webFragmentToCanonicalPrimaryRoute(navigation.route),
-                        onRouteSelected = ::selectPrimaryRoute,
-                        mode = if (navigation.route == "composer") {
-                            QuataPrimaryNavigationMode.Composer(route = "composer", label = "Publicar")
-                        } else {
-                            QuataPrimaryNavigationMode.Default
-                        },
-                    )
+                bottomNavigation = if (isChatRoute) {
+                    {}
+                } else {
+                    {
+                        QuataPrimaryBottomNavigation(
+                            labels = webPrimaryNavigationLabels,
+                            selectedRoute = if (navigation.route == "composer") "composer" else webFragmentToCanonicalPrimaryRoute(navigation.route),
+                            onRouteSelected = ::selectPrimaryRoute,
+                            mode = if (navigation.route == "composer") {
+                                QuataPrimaryNavigationMode.Composer(route = "composer", label = "Publicar")
+                            } else {
+                                QuataPrimaryNavigationMode.Default
+                            },
+                        )
+                    }
                 },
             ) { chromePadding ->
                 Box(Modifier.fillMaxSize().padding(chromePadding)) {

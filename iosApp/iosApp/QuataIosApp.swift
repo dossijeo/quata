@@ -1389,10 +1389,18 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             displayedController?.view.frame = view.bounds
             return
         }
-        let layout = IosAuthenticatedShellLayout.frames(bounds: view.bounds, safeAreaInsets: view.safeAreaInsets)
+        let hidesPrimaryNavigation = shouldHidePrimaryNavigationForVisibleRoute()
+        let layout = IosAuthenticatedShellLayout.frames(
+            bounds: view.bounds,
+            safeAreaInsets: view.safeAreaInsets,
+            includesBottomNavigation: !hidesPrimaryNavigation
+        )
         displayedController?.view.frame = layout.content
         authenticatedTopChromeController.view.frame = layout.topChrome
-        primaryNavigationController.view.frame = layout.bottomNavigation
+        primaryNavigationController.view.isHidden = hidesPrimaryNavigation
+        if !hidesPrimaryNavigation {
+            primaryNavigationController.view.frame = layout.bottomNavigation
+        }
     }
 
     func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
@@ -2159,7 +2167,20 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             presentation = ("quata-ios-release-history-host", "Quata iOS Release History")
         }
         routeMenuButton.isHidden = !routeUsesSecondaryMenu(route)
+        primaryNavigationController.view.isHidden = shouldHidePrimaryNavigation(for: route)
         show(controller, accessibilityIdentifier: presentation.identifier, accessibilityLabel: presentation.label)
+    }
+
+    private func shouldHidePrimaryNavigationForVisibleRoute() -> Bool {
+        guard let visibleRoute else { return false }
+        return shouldHidePrimaryNavigation(for: visibleRoute)
+    }
+
+    private func shouldHidePrimaryNavigation(for route: PendingRoute) -> Bool {
+        if case .chat = route {
+            return true
+        }
+        return false
     }
 
     /// The five primary routes are already represented by the common bottom navigation. UIKit's
@@ -2211,7 +2232,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // seen or tapped after the first route transition.
         view.bringSubviewToFront(routeMenuButton)
         if isAuthenticatedTopChromeInstalled { view.bringSubviewToFront(authenticatedTopChromeController.view) }
-        if isSharedShellInstalled { view.bringSubviewToFront(primaryNavigationController.view) }
+        if isSharedShellInstalled && !primaryNavigationController.view.isHidden { view.bringSubviewToFront(primaryNavigationController.view) }
         controller.didMove(toParent: self)
         platformServices.attachPresenter(controller: controller)
 
@@ -2255,9 +2276,13 @@ struct IosAuthenticatedShellLayout {
     let content: CGRect
     let bottomNavigation: CGRect
 
-    static func frames(bounds: CGRect, safeAreaInsets: UIEdgeInsets) -> IosAuthenticatedShellLayout {
+    static func frames(
+        bounds: CGRect,
+        safeAreaInsets: UIEdgeInsets,
+        includesBottomNavigation: Bool = true
+    ) -> IosAuthenticatedShellLayout {
         let topHeight = safeAreaInsets.top + 68
-        let bottomHeight = 92 + safeAreaInsets.bottom
+        let bottomHeight = includesBottomNavigation ? 92 + safeAreaInsets.bottom : safeAreaInsets.bottom
         let contentHeight = max(0, bounds.height - topHeight - bottomHeight)
         let contentWidth = max(0, bounds.width - safeAreaInsets.left - safeAreaInsets.right)
         let content = CGRect(
