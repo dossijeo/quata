@@ -79,7 +79,10 @@ test("runner uses the common favorite conversation route and focused deep link",
 test("shared message semantics expose a selected identifier for focused-message gates", () => {
   assert.match(chatDetailContent, /visibleItemsInfo\.any \{ item -> item\.key == focusedMessage\.composeKey\(\) \}/);
   assert.match(chatDetailContent, /message\.id == focusedMessageId/);
+  assert.match(chatDetailContent, /private const val FocusedMessageHighlightMillis = 8_000L/);
+  assert.match(chatDetailContent, /delay\(FocusedMessageHighlightMillis\)/);
   assert.match(chatDetailContent, /testTag = if \(isSelected\) "chat\.message\.\$\{message\.id\}\.selected" else "chat\.message\.\$\{message\.id\}"/);
+  assert.match(chatDetailContent, /if \(isSelected\) \{[\s\S]*?Box\([\s\S]*?testTag = "chat\.message\.\$\{message\.id\}\.selected"/);
   assert.match(chatDetailContent, /stateDescription = if \(isSelected\) "selected" else "not selected"/);
 });
 

@@ -3,12 +3,14 @@ package com.quata.feature.chat.presentation.chat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -29,6 +31,8 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Message
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+
+private const val FocusedMessageHighlightMillis = 8_000L
 
 /** Localized labels owned by the host while the conversation structure stays portable. */
 data class ChatConversationDetailStrings(
@@ -88,7 +92,7 @@ fun ChatConversationDetailContent(
             snapshotFlow {
                 listState.layoutInfo.visibleItemsInfo.any { item -> item.key == focusedMessage.composeKey() }
             }.first { it }
-            delay(3_200L)
+            delay(FocusedMessageHighlightMillis)
             onFocusedMessageHandled()
             highlightedMessageId = null
         }
@@ -256,6 +260,16 @@ private fun ChatConversationMessageContent(
                 }
             },
         )
+        if (isSelected) {
+            Box(
+                Modifier
+                    .size(1.dp)
+                    .semantics {
+                        testTag = "chat.message.${message.id}.selected"
+                        stateDescription = "selected"
+                    },
+            )
+        }
         actions?.invoke(Modifier.fillMaxWidth().padding(top = 6.dp))
     }
 }

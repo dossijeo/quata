@@ -99,9 +99,11 @@ test("common chat root owns read states, retry, history paging and one-shot focu
   assert.match(conversationDetail, /item\(key = "chat-history-loading"\)/);
   assert.match(conversationDetail, /listState\.scrollToItem\(index\)/);
   assert.match(conversationDetail, /visibleItemsInfo\.any \{ item -> item\.key == focusedMessage\.composeKey\(\) \}/);
-  assert.match(conversationDetail, /delay\(3_200L\)[\s\S]*?onFocusedMessageHandled\(\)/);
+  assert.match(conversationDetail, /private const val FocusedMessageHighlightMillis = 8_000L/);
+  assert.match(conversationDetail, /delay\(FocusedMessageHighlightMillis\)[\s\S]*?onFocusedMessageHandled\(\)/);
   assert.match(conversationDetail, /firstVisible <= 2 && !isLoadingOlderMessages\)[\s\S]*?onLoadOlderMessages\(\)/);
   assert.match(conversationDetail, /testTag = if \(isSelected\) "chat\.message\.\$\{message\.id\}\.selected" else "chat\.message\.\$\{message\.id\}"/);
+  assert.match(conversationDetail, /if \(isSelected\) \{[\s\S]*?Box\([\s\S]*?testTag = "chat\.message\.\$\{message\.id\}\.selected"/);
   assert.match(conversationDetail, /stateDescription = if \(isSelected\) "selected" else "not selected"/);
 
   assert.match(deepLinkFocus, /hasMoreHistory -> ChatMessageDeepLinkRequest\.LoadingOlder/);
