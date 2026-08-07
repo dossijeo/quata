@@ -107,4 +107,63 @@ class PostgrestChatRepositoryTest {
             assertEquals("favorites_load_failed", error.message)
         }
     }
+
+    @Test
+    fun toggleFavoriteRefreshesTheSharedFavoriteConversationImmediately() = runTest {
+        val calls = mutableListOf<String>()
+        var favoriteEnabled = false
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    calls += functionName
+                    return when (functionName) {
+                        "quata_chat_get_thread" -> ChatPostgrestResponse.Success(chatPayload(favoriteEnabled))
+                        "quata_chat_set_favorite" -> {
+                            favoriteEnabled = body.contains("\"p_favorite\":true")
+                            ChatPostgrestResponse.Success("{}")
+                        }
+                        "quata_chat_get_favorites" -> {
+                            val body = if (favoriteEnabled) chatPayload(favorited = true) else """{"messages":[]}"""
+                            ChatPostgrestResponse.Success(body)
+                        }
+                        else -> ChatPostgrestResponse.Success("{}")
+                    }
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = ChatAttachmentUploader { _, _ ->
+                error("attachment uploader should not be used")
+            },
+            pollIntervalMillis = 5_000L,
+        )
+
+        repository.setActiveConversation("sb:77")
+        assertEquals(false, repository.observeMessages("sb:77").first().single().isFavorite)
+
+        assertTrue(repository.toggleFavoriteMessage("123").isSuccess)
+
+        assertEquals(
+            listOf(
+                "quata_chat_get_thread",
+                "quata_chat_set_favorite",
+                "quata_chat_get_thread",
+                "quata_chat_get_favorites",
+            ),
+            calls,
+        )
+        assertEquals("123", repository.observeMessages(AppDestinations.FavoriteMessagesConversationId).first().single().id)
+    }
+
+    private fun chatPayload(favorited: Boolean): String = """
+        {"messages":[{
+          "id":123,
+          "thread_id":77,
+          "sender_profile_id":"profile-1",
+          "body":"favorite me",
+          "created_at":"2026-08-07T09:00:00Z",
+          "created_at_millis":1000,
+          "favorited":$favorited,
+          "sender":{"id":"profile-1","display_name":"Gabrielo"}
+        }]}
+    """.trimIndent()
 }

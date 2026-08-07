@@ -14,6 +14,9 @@ documento hasta que el responsable del producto lo modifique explícitamente.
 - El objetivo prioritario es que Android, iOS y Web sean, en la medida en que las capacidades de
   cada plataforma lo permitan, funcionalmente equivalentes y visualmente coherentes, compartiendo
   la máxima cantidad posible de código en `commonMain`.
+- Este objetivo también actúa como criterio de revisión retroactiva de lo ya migrado: cualquier
+  pantalla o flujo en estado `COMÚN CON LÍMITES`, `PARCIAL` o `AUSENTE` debe evaluarse contra esta
+  premisa antes de considerarse cerrado.
 - En caso de conflicto entre mantener la paridad funcional y optimizar tamaño, tiempos de
   compilación o métricas de rendimiento, prevalece la paridad funcional salvo que exista una
   limitación técnica real de la plataforma.

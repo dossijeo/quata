@@ -323,7 +323,9 @@ open class PostgrestChatRepository(
         val message = allMessages().firstOrNull { it.id == messageId } ?: throw IllegalArgumentException("chat_message_not_loaded")
         val userId = currentUserId(); val threadId = message.conversationId.requirePostgrestThreadId(); val numericMessageId = message.id.toLongOrNull() ?: throw IllegalArgumentException("chat_message_id_invalid")
         rpc("quata_chat_set_favorite", buildJsonObject { put("p_actor_profile_id", userId); put("p_thread_id", threadId); put("p_message_id", numericMessageId); put("p_favorite", !message.isFavorite) }.toString())
-        refreshThread(message.conversationId, ThreadPageSize).getOrThrow(); _syncStatus.value = ChatSyncStatus.Online
+        refreshThread(message.conversationId, ThreadPageSize).getOrThrow()
+        refreshFavorites().getOrThrow()
+        _syncStatus.value = ChatSyncStatus.Online
     }.onFailure { updateReadFailure() }
     override suspend fun forwardMessage(message: Message, conversationIds: List<String>): Result<ChatForwardResult> = runCatching {
         val userId = currentUserId(); val numericMessageId = message.id.toLongOrNull() ?: throw IllegalArgumentException("chat_message_id_invalid")
