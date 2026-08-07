@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -42,11 +44,12 @@ class ChatFavoritesFocusedDeepLinkInstrumentedTest {
         val favoritesUrl = optionalArgument("quataChatEvidenceFavoritesUrl")
         val focusedUrl = optionalArgument("quataChatEvidenceFocusedUrl")
         val markerProbe = optionalArgument("quataChatEvidenceMarkerProbe")
+        val messageId = optionalArgument("quataChatEvidenceMessageId")
         val credentials = credentialsFile?.let(::credentialsFromFile)
         assumeTrue(
             "CHAT-FAVORITES-FOCUSED Android evidence is opt-in.",
             (credentials != null || listOf(countryCode, phone, password).all { !it.isNullOrBlank() }) &&
-                listOf(favoritesUrl, focusedUrl, markerProbe).all { !it.isNullOrBlank() },
+                listOf(favoritesUrl, focusedUrl, markerProbe, messageId).all { !it.isNullOrBlank() },
         )
         val safeCountryCode = credentials?.countryCode ?: countryCode.orEmpty()
         val safePhone = credentials?.phone ?: phone.orEmpty()
@@ -54,6 +57,7 @@ class ChatFavoritesFocusedDeepLinkInstrumentedTest {
         val safeFavoritesUrl = favoritesUrl.orEmpty()
         val safeFocusedUrl = focusedUrl.orEmpty()
         val safeMarkerProbe = markerProbe.orEmpty()
+        val safeMessageId = messageId.orEmpty()
 
         suppressStartupPrompts()
         grantOptionalNotificationPermission()
@@ -74,6 +78,7 @@ class ChatFavoritesFocusedDeepLinkInstrumentedTest {
 
         ActivityScenario.launch<MainActivity>(chatIntent(safeFocusedUrl)).use {
             waitForMarker(safeMarkerProbe, "focused deep link")
+            waitForSelectedMessage(safeMarkerProbe, safeMessageId)
             saveScreenshot("android-focused-message")
         }
 
@@ -88,10 +93,41 @@ class ChatFavoritesFocusedDeepLinkInstrumentedTest {
     private fun chatIntent(url: String): Intent =
         Intent(Intent.ACTION_VIEW, Uri.parse(url), targetContext, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            .putExtra("com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", true)
 
     private fun waitForMarker(markerProbe: String, context: String) {
         val visible = device.wait(Until.hasObject(By.textContains(markerProbe)), 45_000)
         assertTrue("The marker must be visible in $context.", visible)
+    }
+
+    private fun waitForSelectedMessage(markerProbe: String, messageId: String) {
+        val deadline = SystemClock.uptimeMillis() + 45_000
+        while (SystemClock.uptimeMillis() < deadline) {
+            val root = instrumentation.uiAutomation.rootInActiveWindow
+            if (root != null && hasSelectedMessageNode(root, markerProbe)) return
+            SystemClock.sleep(500)
+        }
+        error("focused_message_selected_semantics_missing:$messageId")
+    }
+
+    private fun hasSelectedMessageNode(node: AccessibilityNodeInfo, markerProbe: String): Boolean {
+        val selected = node.stateDescription?.toString() == "selected"
+        if (selected && subtreeContainsText(node, markerProbe)) return true
+        for (index in 0 until node.childCount) {
+            val child = node.getChild(index) ?: continue
+            if (hasSelectedMessageNode(child, markerProbe)) return true
+        }
+        return false
+    }
+
+    private fun subtreeContainsText(node: AccessibilityNodeInfo, markerProbe: String): Boolean {
+        if (node.text?.contains(markerProbe, ignoreCase = false) == true) return true
+        if (node.contentDescription?.contains(markerProbe, ignoreCase = false) == true) return true
+        for (index in 0 until node.childCount) {
+            val child = node.getChild(index) ?: continue
+            if (subtreeContainsText(child, markerProbe)) return true
+        }
+        return false
     }
 
     private fun saveScreenshot(name: String) {

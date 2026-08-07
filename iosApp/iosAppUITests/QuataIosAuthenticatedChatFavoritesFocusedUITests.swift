@@ -43,11 +43,11 @@ final class QuataIosAuthenticatedChatFavoritesFocusedUITests: XCTestCase {
         XCTAssertTrue(messageText(markerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
 
         let focusedIdentifier = app.descendants(matching: .any)
-            .matching(identifier: "chat.message.\(messageId)")
+            .matching(identifier: "chat.message.\(messageId).selected")
             .firstMatch
         XCTAssertTrue(
             focusedIdentifier.waitForExistence(timeout: 10),
-            "The shared message bubble semantics must expose the focused message id.",
+            "The shared message bubble semantics must expose the focused message id as selected.",
         )
         attachScreenshot(app, name: "ios-focused-message")
     }

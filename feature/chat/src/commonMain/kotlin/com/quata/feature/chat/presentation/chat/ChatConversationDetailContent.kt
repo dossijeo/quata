@@ -83,7 +83,7 @@ fun ChatConversationDetailContent(
         focusedIndex?.let { index ->
             listState.scrollToItem(index)
             highlightedMessageId = messages[index].id
-            delay(720L)
+            delay(3_200L)
             highlightedMessageId = null
             onFocusedMessageHandled()
         }
@@ -194,7 +194,7 @@ private fun ChatConversationMessageContent(
     val template = quataTheme()
     val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
     val bubbleSemantics = Modifier.semantics {
-        testTag = "chat.message.${message.id}"
+        testTag = if (isSelected) "chat.message.${message.id}.selected" else "chat.message.${message.id}"
         stateDescription = if (isSelected) "selected" else "not selected"
     }
     ChatMessageBubbleLayoutContent(

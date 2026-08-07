@@ -17,10 +17,12 @@ const [androidRunner, androidTest, appBuild] = await Promise.all([
   source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatFavoritesFocusedDeepLinkInstrumentedTest.kt"),
   source("app/build.gradle.kts"),
 ]);
+const mainActivity = await source("app/src/main/java/com/quata/MainActivity.kt");
 const [iosRunner, iosTest] = await Promise.all([
   source("scripts/run-ios-chat-favorites-focused-ui-test.sh"),
   source("iosApp/iosAppUITests/QuataIosAuthenticatedChatFavoritesFocusedUITests.swift"),
 ]);
+const chatDetailContent = await source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConversationDetailContent.kt");
 
 test("CHAT-FAVORITES-FOCUSED-WEB-001 is included in fast and Wave2 contracts", () => {
   const scripts = JSON.parse(packageJson).scripts;
@@ -72,6 +74,11 @@ test("runner uses the common favorite conversation route and focused deep link",
   assert.match(runner, /chatFragment\(`sb:\$\{state\.thread\}`, String\(state\.message\)\)/);
   assert.match(runner, /data-quata-shell-route/);
   assert.match(runner, /focusedPage = await openAuthenticatedChatPage\([\s\S]*?faults,\s*0,\s*\)/);
+});
+
+test("shared message semantics expose a selected identifier for focused-message gates", () => {
+  assert.match(chatDetailContent, /testTag = if \(isSelected\) "chat\.message\.\$\{message\.id\}\.selected" else "chat\.message\.\$\{message\.id\}"/);
+  assert.match(chatDetailContent, /stateDescription = if \(isSelected\) "selected" else "not selected"/);
 });
 
 test("runner validates backend mutation, navigation evidence and reversible cleanup", () => {
@@ -143,13 +150,21 @@ test("runner redacts sensitive runtime state from report", () => {
 
 test("Android evidence runner uses real deep links, temp credentials and reversible cleanup", () => {
   assert.match(appBuild, /androidTestImplementation\("androidx\.test\.uiautomator:uiautomator:2\.3\.0"\)/);
+  assert.match(mainActivity, /BuildConfig\.DEBUG[\s\S]*?EXTRA_SKIP_SPLASH_FOR_EVIDENCE/);
+  assert.match(mainActivity, /!launchedFromShare && !skipSplashForEvidence/);
   assert.match(androidTest, /ChatFavoritesFocusedDeepLinkInstrumentedTest/);
   assert.match(androidTest, /quataChatEvidenceCredentialsFile/);
   assert.match(androidTest, /targetContext\.filesDir/);
   assert.match(androidTest, /app-internal:/);
   assert.match(androidTest, /ActivityScenario\.launch<MainActivity>\(chatIntent\(safeFavoritesUrl\)\)/);
   assert.match(androidTest, /ActivityScenario\.launch<MainActivity>\(chatIntent\(safeFocusedUrl\)\)/);
+  assert.match(androidTest, /SKIP_SPLASH_FOR_EVIDENCE/);
   assert.match(androidTest, /device\.findObject\(By\.textContains\(safeMarkerProbe\)\)\?\.click\(\)/);
+  assert.match(androidTest, /quataChatEvidenceMessageId/);
+  assert.match(androidTest, /rootInActiveWindow/);
+  assert.match(androidTest, /node\.stateDescription\?\.toString\(\) == "selected"/);
+  assert.match(androidTest, /subtreeContainsText\(node, markerProbe\)/);
+  assert.match(androidTest, /focused_message_selected_semantics_missing/);
   assert.match(androidTest, /android-focused-message/);
   assert.match(androidRunner, /qadata-chat-fav-focus-android-/);
   assert.match(androidRunner, /quata_chat_start_thread/);
@@ -170,6 +185,14 @@ test("Android evidence runner uses real deep links, temp credentials and reversi
   assert.match(androidRunner, /android_instrumentation_not_ok/);
   assert.match(androidRunner, /android_instrumentation_semantic_failure/);
   assert.match(androidRunner, /quataChatEvidenceCredentialsFile/);
+  assert.match(androidRunner, /quataChatEvidenceMessageId/);
+  assert.match(androidRunner, /QUATA_CHAT_FAVORITES_FOCUSED_USE_ADJACENT_AUTHORIZED_PROFILE/);
+  assert.match(androidRunner, /QUATA_CHAT_EVIDENCE_SSH_HOST/);
+  assert.match(androidRunner, /QUATA_CHAT_EVIDENCE_SSH_CREDENTIALS_FILE/);
+  assert.match(androidRunner, /resolveAdjacentRecipientProfile/);
+  assert.match(androidRunner, /where phone_key = any\(\$1::text\[\]\)/);
+  assert.match(androidRunner, /verifyRecipientParticipant/);
+  assert.match(androidRunner, /adjacent_recipient_participant_verified/);
   assert.match(androidRunner, /MANAGER_APPROVED_QADATA_CHAT_FAVORITES_FOCUSED_HARD_CLEANUP/);
   assert.match(androidRunner, /delete from public\.chat_threads where id = \$1 and unique_key = \$2 returning id/);
   assert.match(androidRunner, /cleanup_verified_physical_residue_absent/);
@@ -180,7 +203,7 @@ test("iOS evidence runner uses real custom-scheme deep links and the shared seed
   assert.match(iosTest, /quata:\/\/egquata\.com\/#chat-__favorite_messages__/);
   assert.match(iosTest, /encodedFragment\(conversationId\)/);
   assert.match(iosTest, /encodedQuery\(messageId\)/);
-  assert.match(iosTest, /matching\(identifier: "chat\.message\./);
+  assert.match(iosTest, /matching\(identifier: "chat\.message\.\\\(messageId\)\.selected"\)/);
   assert.match(iosTest, /ios-favorites-list/);
   assert.match(iosTest, /ios-favorites-open-source/);
   assert.match(iosTest, /ios-focused-message/);

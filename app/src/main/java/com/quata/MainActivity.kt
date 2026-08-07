@@ -89,6 +89,8 @@ class MainActivity : ComponentActivity() {
             }
             ShareTargetAvailability.setEnabled(this, appContainer.sessionManager.currentSession() != null)
             val launchedFromShare = intent?.action in SHARE_ACTIONS
+            val skipSplashForEvidence = BuildConfig.DEBUG &&
+                intent?.getBooleanExtra(EXTRA_SKIP_SPLASH_FOR_EVIDENCE, false) == true
             handleIncomingIntent(intent)
             AndroidStartupDiagnostics.mark("mainActivity.hostsAttached")
 
@@ -96,7 +98,7 @@ class MainActivity : ComponentActivity() {
                 val themeMode by appContainer.themePreferences.observeThemeMode()
                     .collectAsState(initial = appContainer.themePreferences.themeMode())
                 QuataTheme(mode = themeMode) {
-                    var showSplash by rememberSaveable { mutableStateOf(!launchedFromShare) }
+                    var showSplash by rememberSaveable { mutableStateOf(!launchedFromShare && !skipSplashForEvidence) }
                     Box(Modifier.fillMaxSize()) {
                         AppNavGraph(
                             container = appContainer,
@@ -206,6 +208,7 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         val SHARE_ACTIONS = setOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)
+        const val EXTRA_SKIP_SPLASH_FOR_EVIDENCE = "com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE"
     }
 
 }
