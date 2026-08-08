@@ -13,6 +13,8 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /action:\s*"web_login"/);
   assert.match(runner, /quata_web_access_token/);
   assert.match(runner, /quata_web_session_token/);
+  assert.match(runner, /official-create-action/);
+  assert.match(runner, /page\.mouse\.click\(createBox\.x \+ createBox\.width \/ 2/);
   assert.match(runner, /official_editor_invalid_draft_mutated/);
   assert.match(runner, /--media/);
   assert.match(runner, /real_\$\{options\.media\}_picker_selects_media_and_common_preview_renders/);
@@ -24,6 +26,7 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /async function createMp4Fixture[\s\S]*?copyFile[\s\S]*?quata-demo-video\.mp4[\s\S]*?return path;/);
   assert.doesNotMatch(runner.match(/async function createMp4Fixture[\s\S]*?return path;\n}/)?.[0] ?? "", /Buffer\.from|base64/i);
   assert.match(runner, /readCreatedRows/);
+  assert.match(runner, /getByText\(new RegExp\(escapeRegExp\(marker\)\)\)\.first\(\)\.waitFor/);
   assert.match(runner, /media_url/);
   assert.match(runner, /storagePathsFromMediaUrls/);
   assert.match(runner, /wordpressVideoUrlsFromMediaUrls/);
@@ -40,6 +43,12 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /sanitizeMediaResponse/);
   assert.match(runner, /scrollIntoViewIfNeeded/);
   assert.match(runner, /locator\.click\(\{ force: true/);
+  assert.match(runner, /official-editor-body-action/);
+  assert.match(runner, /official-editor-preview/);
+  assert.match(runner, /getByRole\("textbox"\)/);
+  assert.match(runner, /waitFor\(\{ state: "attached"/);
+  assert.match(runner, /keyboard\.insertText/);
+  assert.doesNotMatch(runner, /globalThis\.prompt|window\.prompt|page\.once\("dialog"|dialog\.accept/);
   assert.match(runner, /isIgnorablePublishedVideoCorsFault/);
   assert.match(runner, /egquata\\\.com\\\/wp-content\\\/uploads/);
   assert.match(runner, /ignoredRuntimeFaults/);

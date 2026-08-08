@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { createServer } from "node:http";
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -108,14 +107,14 @@ try {
   report.steps.push("empty_publish_shows_shared_validation_feedback_without_mutation");
   report.evidence.validation = await screenshot(page, options.evidenceDir, "web-official-editor-validation-feedback");
 
-  const bodyAction = page.getByRole("button", {
-    name: /Editar descripci(?:ó|Ã³)n|Edit description|Modifier la description/i,
-  }).first();
-  await bodyAction.waitFor({ timeout: 15_000 });
-  page.once("dialog", async (dialog) => {
-    await dialog.accept(`<p>Official editor reversible evidence ${randomUUID()}</p>`);
-  });
   await clickSemanticElement(page, "official-editor-body-action");
+  const bodyField = page.getByRole("textbox").first();
+  await bodyField.waitFor({ state: "attached", timeout: 15_000 });
+  await bodyField.click({ force: true });
+  await page.keyboard.insertText("Official editor reversible evidence");
+  await page.locator("#official-editor-preview")
+    .getByText(/Official editor reversible evidence/i)
+    .waitFor({ state: "attached", timeout: 15_000 });
   await clickSemanticElement(page, "official-editor-publish");
   await waitForRequest("official_posts", report.requests, 45_000, (entry) => entry.method === "POST" && entry.authenticated);
   if (!report.requests.some((entry) => entry.table === "official_posts" && entry.method === "POST" && entry.authenticated)) {

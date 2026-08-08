@@ -7,7 +7,6 @@ import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.Modifier
@@ -40,6 +39,7 @@ import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.platform.IosShareService
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.components.IosMemberProfileOpeningState
+import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
 import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 import platform.Foundation.NSUUID
@@ -303,21 +303,12 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
         strings = strings,
         slots = OfficialPostEditorPlatformSlots(
             bodyEditorAction = { html, title, onHtmlChange, modifier ->
-                var editing by remember { mutableStateOf(false) }
-                if (editing) {
-                    OutlinedTextField(
-                        value = html,
-                        onValueChange = onHtmlChange,
-                        label = { Text(title) },
-                        minLines = 5,
-                        modifier = modifier,
-                    )
-                } else {
-                    OutlinedButton(onClick = { editing = true }, modifier = modifier) {
-                        Icon(Icons.Filled.Edit, contentDescription = null)
-                        Text(title)
-                    }
-                }
+                QuataPortableRichTextEditorBox(
+                    initialHtml = html,
+                    placeholder = title,
+                    onHtmlChange = onHtmlChange,
+                    modifier = modifier,
+                )
             },
             imagePicker = { onPicked, modifier ->
                 OutlinedButton(onClick = { selectMedia(OfficialMediaType.Image, onPicked) }, modifier = modifier) {
