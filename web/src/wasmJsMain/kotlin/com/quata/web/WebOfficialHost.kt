@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -108,7 +107,7 @@ fun WebOfficialHost(
         share = { payload -> shareService.share(payload) },
         message = {},
         showComposeMessage = true,
-        canCreateOfficialPost = false,
+        canCreateOfficialPost = true,
         openUrl = { url -> openBrowserUrl(url) },
         rankingAvatar = { item -> BrowserFeedRankingAvatar(item) },
     ),
@@ -127,7 +126,7 @@ fun WebOfficialEditorHost(
     var isPublishing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(repository, currentUserId) {
+    androidx.compose.runtime.LaunchedEffect(repository, currentUserId) {
         currentUser = repository.refreshCurrentUser().getOrNull()
     }
     OfficialPostEditorRoot(
