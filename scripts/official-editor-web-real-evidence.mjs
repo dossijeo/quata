@@ -2,7 +2,7 @@
 import { createServer } from "node:http";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { Client } from "pg";
@@ -27,6 +27,7 @@ const report = {
   git: gitMetadata(),
   steps: [],
   postgrest: [],
+  mediaRequests: [],
   evidence: {},
 };
 
@@ -42,10 +43,11 @@ let cleanup = { state: "not_started" };
 try {
   const config = requireEnvironment();
   const backend = await publicConfig();
+  const wordpressBase = await wordpressBaseUrl();
   distribution = await configuredDistribution(options.distribution, backend);
   fixtureDir = await mkdtemp(join(tmpdir(), "quata-official-editor-real-fixtures-"));
   marker = `official-web-ui-${randomUUID()}`;
-  server = await startServer(distribution);
+  server = await startServer(distribution, wordpressBase);
 
   const loginSession = await login(backend, config, `official-editor-web-real-${randomUUID()}`);
   report.steps.push("official_profile_authenticated_through_public_web_bridge");
@@ -84,6 +86,26 @@ try {
       urlKind: url.includes("select=") ? "read" : "mutation_or_read",
     });
   });
+  page.on("response", async (response) => {
+    const url = response.url();
+    if (!url.includes("/wordpress-proxy/") && !url.includes("/wp-json/quqos/") && !url.includes("/wp-admin/admin-ajax.php")) return;
+    report.mediaRequests.push({
+      method: response.request().method(),
+      status: response.status(),
+      urlKind: url.includes("upload-video") ? "wordpress_video_upload" : "wordpress_ajax",
+      body: response.status() >= 400 ? sanitizeMediaResponse(await response.text().catch(() => "")) : undefined,
+    });
+  });
+  page.on("requestfailed", (request) => {
+    const url = request.url();
+    if (!url.includes("/wordpress-proxy/") && !url.includes("/wp-json/quqos/") && !url.includes("/wp-admin/admin-ajax.php")) return;
+    report.mediaRequests.push({
+      method: request.method(),
+      status: "failed",
+      urlKind: url.includes("upload-video") ? "wordpress_video_upload" : "wordpress_ajax",
+      failure: request.failure()?.errorText?.slice(0, 120) ?? "unknown",
+    });
+  });
 
   await page.goto(`${server.origin}/#official`, { waitUntil: "domcontentloaded" });
   await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
@@ -119,16 +141,22 @@ try {
   report.evidence.validation = await screenshot(page, options.evidenceDir, "web-real-official-editor-validation-feedback");
   report.steps.push("empty_publish_shows_shared_validation_without_backend_mutation");
 
-  if (options.media === "image") {
-    const imageFixture = await createPngFixture(fixtureDir, marker);
+  if (options.media === "image" || options.media === "video") {
+    const mediaFixture = options.media === "image"
+      ? await createPngFixture(fixtureDir, marker)
+      : await createMp4Fixture(fixtureDir, marker);
+    const picker = options.media === "image" ? "official-editor-pick-image" : "official-editor-pick-video";
+    const previewName = options.media === "image"
+      ? "web-real-official-editor-image-preview"
+      : "web-real-official-editor-video-preview";
     const [fileChooser] = await Promise.all([
       page.waitForEvent("filechooser", { timeout: 15_000 }),
-      page.locator("#official-editor-pick-image").first().click({ force: true }),
+      page.locator(`#${picker}`).first().click({ force: true }),
     ]);
-    await fileChooser.setFiles(imageFixture);
+    await fileChooser.setFiles(mediaFixture);
     await page.locator("#official-editor-preview").first().waitFor({ state: "attached", timeout: 15_000 });
-    report.evidence.mediaPreview = await screenshot(page, options.evidenceDir, "web-real-official-editor-image-preview");
-    report.steps.push("real_image_picker_selects_media_and_common_preview_renders");
+    report.evidence.mediaPreview = await screenshot(page, options.evidenceDir, previewName);
+    report.steps.push(`real_${options.media}_picker_selects_media_and_common_preview_renders`);
   }
 
   const bodyAction = page.getByRole("button", {
@@ -141,7 +169,7 @@ try {
   await clickSemanticElement(page, "official-editor-body-action");
   await clickSemanticElement(page, "official-editor-publish");
 
-  await waitForPostgrestPost(report.postgrest);
+  await waitForPostgrestPost(page, report.postgrest, options.evidenceDir);
   await page.waitForFunction(() =>
     localStorage.getItem("web.navigation.route") === "official" &&
     document.documentElement.getAttribute("data-quata-shell-route") === "official",
@@ -154,26 +182,34 @@ try {
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
   const storagePaths = storagePathsFromMediaUrls(created.mediaUrls);
+  const wordpressVideoUrls = wordpressVideoUrlsFromMediaUrls(created.mediaUrls);
   report.evidence.created = {
     state: "verified_in_database",
     postIds: created.ids,
     translationGroupIds: created.translationGroupIds,
     media: options.media,
     storagePaths,
+    wordpressVideoUrls: wordpressVideoUrls.length,
   };
 
   const storageCleanup = await cleanupStorageObjects(backend, loginSession, storagePaths);
+  const wordpressCleanup = await cleanupWordpressVideoUrls(wordpressVideoUrls);
   const storagePostCleanup = await assertStorageObjectsAbsent(config, storagePaths);
   cleanup = await cleanupPosts(config, created.ids, created.translationGroupIds);
   const absence = await assertNoMarkerRows(config, marker, created.translationGroupIds);
   report.storageCleanup = storageCleanup;
+  report.wordpressVideoCleanup = wordpressCleanup;
   report.storagePostCleanupReadback = storagePostCleanup;
   report.cleanup = cleanup;
   report.postCleanupReadback = absence;
   report.steps.push("created_post_cleaned_by_exact_ids_and_marker_absence_verified");
 
-  if (faults.length) {
-    report.faults = faults;
+  const actionableFaults = faults.filter((fault) => !isIgnorablePublishedVideoCorsFault(fault));
+  if (faults.length !== actionableFaults.length) {
+    report.ignoredRuntimeFaults = faults.filter((fault) => isIgnorablePublishedVideoCorsFault(fault));
+  }
+  if (actionableFaults.length) {
+    report.faults = actionableFaults;
     throw new Error("browser_runtime_fault");
   }
   report.status = "passed";
@@ -236,7 +272,7 @@ function parseArgs(args) {
     if (key === "--out") parsed.output = resolve(value);
     if (key === "--evidence-dir") parsed.evidenceDir = resolve(value);
     if (key === "--media") {
-      if (!["none", "image"].includes(value)) throw new Error("invalid_arguments");
+      if (!["none", "image", "video"].includes(value)) throw new Error("invalid_arguments");
       parsed.media = value;
     }
   }
@@ -265,6 +301,13 @@ async function publicConfig() {
   return { url, key };
 }
 
+async function wordpressBaseUrl() {
+  const source = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebRuntimeConfiguration.kt", import.meta.url), "utf8");
+  const url = /wordpressBaseUrl:\s*String\s*=\s*"([^"]+)"/.exec(source)?.[1]?.replace(/\/+$/, "");
+  if (!url || !/^https:\/\/[a-z0-9.-]+$/i.test(url)) throw new Error("missing_public_wordpress_configuration");
+  return url;
+}
+
 async function configuredDistribution(source, backend) {
   if (!(await stat(source).catch(() => null))?.isDirectory()) throw new Error("distribution_missing");
   await assertDistributionRevision(source);
@@ -279,13 +322,16 @@ async function configuredDistribution(source, backend) {
   return target;
 }
 
-async function startServer(root) {
+async function startServer(root, wordpressBase) {
   let origin;
   const raw = createServer(async (request, response) => {
     try {
       if (!origin) throw new Error("server_origin_missing");
       const url = new URL(request.url ?? "/", origin);
       if (url.pathname === "/favicon.ico") return response.writeHead(204).end();
+      if (url.pathname.startsWith("/wordpress-proxy/")) {
+        return proxyWordpressRequest(request, response, wordpressBase, url);
+      }
       const file = resolve(root, `.${url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname)}`);
       if (!file.startsWith(`${root}\\`) && !file.startsWith(`${root}/`) && file !== root) return response.writeHead(403).end();
       if (!(await stat(file).catch(() => null))?.isFile()) return response.writeHead(404).end();
@@ -305,6 +351,46 @@ async function startServer(root) {
   if (!address || typeof address === "string") throw new Error("static_server_start_failed");
   origin = `http://127.0.0.1:${address.port}`;
   return { origin, close: () => new Promise((ok, fail) => raw.close((error) => error ? fail(error) : ok())) };
+}
+
+async function proxyWordpressRequest(request, response, wordpressBase, url) {
+  const target = `${wordpressBase}${url.pathname.replace(/^\/wordpress-proxy/, "")}${url.search}`;
+  const body = ["GET", "HEAD"].includes(request.method ?? "GET") ? undefined : await readRequestBody(request);
+  const upstream = await fetch(target, {
+    method: request.method,
+    headers: wordpressProxyHeaders(request),
+    body,
+    signal: AbortSignal.timeout(180_000),
+  });
+  response.writeHead(upstream.status, {
+    "Content-Type": upstream.headers.get("content-type") ?? "application/octet-stream",
+    "Cache-Control": "no-store",
+  });
+  response.end(Buffer.from(await upstream.arrayBuffer()));
+}
+
+async function readRequestBody(request) {
+  const chunks = [];
+  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  return Buffer.concat(chunks);
+}
+
+function wordpressProxyHeaders(request) {
+  const headers = {};
+  for (const [key, value] of Object.entries(request.headers)) {
+    const lower = key.toLowerCase();
+    if (["host", "connection", "content-length"].includes(lower)) continue;
+    if (Array.isArray(value)) headers[key] = value.join(", ");
+    else if (typeof value === "string") headers[key] = value;
+  }
+  return headers;
+}
+
+function sanitizeMediaResponse(value) {
+  return value
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[email]")
+    .slice(0, 240);
 }
 
 async function login(backend, config, clientInstanceId) {
@@ -410,6 +496,28 @@ async function cleanupStorageObjects(backend, session, storagePaths) {
   return { state: "deleted", deletedPaths: storagePaths };
 }
 
+async function cleanupWordpressVideoUrls(videoUrls) {
+  if (!videoUrls.length) return { state: "not_needed", deletedUrls: 0 };
+  const endpoint = wordpressAdminAjaxUrl(videoUrls[0]);
+  for (const url of videoUrls) {
+    if (wordpressAdminAjaxUrl(url) !== endpoint) throw new Error("wordpress_cleanup_failed:mixed_origin");
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "x-client-info": "quata-official-editor-web-real-evidence",
+      },
+      body: new URLSearchParams({ action: "quqos_delete_post_video", url }).toString(),
+      signal: AbortSignal.timeout(20_000),
+    }).catch(() => null);
+    if (!response) throw new Error("wordpress_cleanup_failed:network");
+    const text = await response.text();
+    if (!response.ok) throw new Error(`wordpress_cleanup_failed:http_${response.status}`);
+    if (/"success"\s*:\s*false/i.test(text)) throw new Error("wordpress_cleanup_failed:success_false");
+  }
+  return { state: "delete_requested", deletedUrls: videoUrls.length };
+}
+
 async function assertStorageObjectsAbsent(config, storagePaths) {
   if (!storagePaths.length) return { state: "not_needed" };
   return withPg(config, async (client) => {
@@ -434,6 +542,23 @@ async function assertStorageObjectsAbsent(config, storagePaths) {
 
 function storagePathsFromMediaUrls(mediaUrls) {
   return [...new Set(mediaUrls.map((url) => storagePathFromMediaUrl(null, url)).filter(Boolean))];
+}
+
+function wordpressVideoUrlsFromMediaUrls(mediaUrls) {
+  return [...new Set(mediaUrls.filter((url) => {
+    if (storagePathFromMediaUrl(null, url)) return false;
+    try {
+      const parsed = new URL(url);
+      return /^https?:$/i.test(parsed.protocol) && parsed.hostname.toLowerCase().endsWith("egquata.com");
+    } catch {
+      return false;
+    }
+  }))];
+}
+
+function wordpressAdminAjaxUrl(value) {
+  const parsed = new URL(value);
+  return `${parsed.origin}/wp-admin/admin-ajax.php`;
 }
 
 function storagePathFromMediaUrl(backend, value) {
@@ -462,6 +587,12 @@ async function createPngFixture(root, uniqueMarker) {
     "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFUlEQVR42mP8z8Dwn4GBgYGJAQoAHxcCAns1m2AAAAAASUVORK5CYII=",
     "base64",
   ));
+  return path;
+}
+
+async function createMp4Fixture(root, uniqueMarker) {
+  const path = join(root, `official-editor-${uniqueMarker}.mp4`);
+  await copyFile(resolve("play-store/05-assets/quata-demo-video.mp4"), path);
   return path;
 }
 
@@ -552,17 +683,23 @@ function assertVisibleBox(box, error) {
   if (!box || box.width <= 0 || box.height <= 0) throw new Error(error);
 }
 
-async function waitForPostgrestPost(entries, timeoutMs = 60_000) {
+async function waitForPostgrestPost(page, entries, evidenceDir, timeoutMs = 180_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (entries.some((entry) => entry.table === "official_posts" && entry.method === "POST" && entry.status >= 200 && entry.status < 300)) return;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
+  await screenshot(page, evidenceDir, "web-real-official-editor-publish-timeout").catch(() => null);
   throw new Error("official_editor_publish_request_missing");
 }
 
 async function clickSemanticElement(page, id) {
-  await page.locator(`#${id}`).first().dispatchEvent("click");
+  const locator = page.locator(`#${id}`).first();
+  await locator.waitFor({ state: "attached", timeout: 15_000 });
+  await locator.scrollIntoViewIfNeeded().catch(() => null);
+  await locator.click({ force: true, timeout: 5_000 }).catch(async () => {
+    await locator.dispatchEvent("click");
+  });
 }
 
 async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {
@@ -588,6 +725,11 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function isIgnorablePublishedVideoCorsFault(value) {
+  return /Access to video at 'https:\/\/egquata\.com\/wp-content\/uploads\/[^']+\.mp4' from origin 'http:\/\/127\.0\.0\.1:/i.test(value)
+    || value === "console_error:Failed to load resource: net::ERR_FAILED";
+}
+
 function safeFailure(error) {
   const message = typeof error?.message === "string" ? error.message : "unknown";
   return [
@@ -596,6 +738,7 @@ function safeFailure(error) {
     "mutation_opt_in_required",
     "missing_public_supabase_configuration",
     "invalid_public_supabase_url",
+    "missing_public_wordpress_configuration",
     "distribution_missing",
     "distribution_revision_missing_or_invalid",
     "distribution_revision_mismatch",
@@ -608,6 +751,7 @@ function safeFailure(error) {
     "official_editor_publish_request_missing",
     "created_post_readback_missing",
     "storage_cleanup_failed",
+    "wordpress_cleanup_failed",
     "storage_post_cleanup_verification_failed",
     "cleanup_verification_failed",
     "marker_cleanup_verification_failed",

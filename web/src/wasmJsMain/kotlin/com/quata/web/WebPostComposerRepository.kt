@@ -103,7 +103,11 @@ class WebPostComposerTransport(
 }
 
 private fun WebPostgrestResult.webComposerBody(): String = when (this) { is WebPostgrestResult.Success -> body; is WebPostgrestResult.Failure -> error(reason) }
-private fun webPrepared(reference: String, fallbackMime: String, fallbackName: String) = ComposerPreparedMedia(reference, reference.substringAfterLast('/').substringBefore('?').takeIf(String::isNotBlank) ?: fallbackName, mediaMime(reference).takeIf(String::isNotBlank) ?: fallbackMime)
+internal fun webPrepared(reference: String, fallbackMime: String, fallbackName: String): ComposerPreparedMedia {
+    val rawName = reference.substringAfterLast('/').substringBefore('?').trim()
+    val name = rawName.takeIf { "." in it } ?: fallbackName
+    return ComposerPreparedMedia(reference, name, mediaMime(name).takeIf(String::isNotBlank) ?: fallbackMime)
+}
 private fun mediaMime(reference: String?): String = when (reference?.substringBefore('?')?.substringAfterLast('.')?.lowercase()) { "png" -> "image/png"; "webp" -> "image/webp"; "gif" -> "image/gif"; "mov" -> "video/quicktime"; "mp4" -> "video/mp4"; else -> "" }
 internal const val WEB_COMPOSER_WALL_STATS_TABLE = "community_walls_stats"
 internal const val WEB_COMPOSER_POSTS_TABLE = "community_posts"
@@ -153,4 +157,4 @@ private suspend fun webComposerRequest(kind: String, url: String, fields: Map<St
     val encoded = buildJsonObject { fields.forEach { (key, value) -> put(key, value) } }.toString()
     webComposerFetch(kind, url, encoded, reference, name, mime, { c.resume(it) }, { c.resumeWith(Result.failure(IllegalStateException(it))) })
 }
-private fun webComposerFetch(kind: String, url: String, fields: String, reference: String?, name: String?, mime: String?, ok: (String) -> Unit, fail: (String) -> Unit): Unit = js("""(() => { const f=JSON.parse(fields); const source=reference ? fetch(reference).then(r=>{if(!r.ok)throw Error('composer_media_source_'+r.status);return r.blob()}) : Promise.resolve(null); source.then(blob=>{let o={method:'POST',headers:{Accept:'application/json'}}; if(kind==='form'){o.body=new URLSearchParams(f);o.headers['X-Requested-With']='XMLHttpRequest'} else if(kind==='video'){let d=new FormData();d.append('video',blob,name||'video.mp4');o.body=d} else if(kind==='storage-delete'){o.method='DELETE';o.headers=f} else {o.headers=f;o.body=blob} return fetch(url,o)}).then(async r=>{let t=await r.text();if(!r.ok)throw Error('composer_http_'+r.status+':'+t);ok(t)}).catch(e=>fail(e?.message||'composer_request_failed')) })()""")
+private fun webComposerFetch(kind: String, url: String, fields: String, reference: String?, name: String?, mime: String?, ok: (String) -> Unit, fail: (String) -> Unit): Unit = js("""(() => { const f=JSON.parse(fields); const source=reference ? fetch(reference).then(r=>{if(!r.ok)throw Error('composer_media_source_'+r.status);return r.blob()}) : Promise.resolve(null); source.then(blob=>{let o={method:'POST',headers:{Accept:'application/json'}}; if(kind==='form'){o.body=new URLSearchParams(f);o.headers['X-Requested-With']='XMLHttpRequest'} else if(kind==='video'){let d=new FormData();let typed=blob&&mime?new Blob([blob],{type:mime}):blob;d.append('video',typed,name||'video.mp4');o.body=d} else if(kind==='storage-delete'){o.method='DELETE';o.headers=f} else {o.headers=f;o.body=blob} return fetch(url,o)}).then(async r=>{let t=await r.text();if(!r.ok)throw Error('composer_http_'+r.status+':'+t);ok(t)}).catch(e=>fail(e?.message||'composer_request_failed')) })()""")

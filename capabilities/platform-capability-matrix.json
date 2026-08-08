@@ -311,7 +311,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRepository.kt",
-              "sha256": "8a5e06411ff84662368cf0723fe4d76914395bcde2f0b0746eee5642da9f29a2",
+              "sha256": "01223a1b57c7d2462beb02fc187e3586799f0835b17ea16c579cbdf21c03aa92",
               "role": "runtime-bootstrap"
             }
           ]
@@ -652,7 +652,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRepository.kt",
-              "sha256": "8a5e06411ff84662368cf0723fe4d76914395bcde2f0b0746eee5642da9f29a2",
+              "sha256": "01223a1b57c7d2462beb02fc187e3586799f0835b17ea16c579cbdf21c03aa92",
               "role": "contract-boundary"
             }
           ]

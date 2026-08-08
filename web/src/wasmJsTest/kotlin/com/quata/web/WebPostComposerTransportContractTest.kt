@@ -101,6 +101,15 @@ class WebPostComposerTransportContractTest {
         )
     }
 
+    @Test
+    fun blobPickerReferencesKeepUploadSafeFallbackNamesAndMimeTypes() {
+        assertEquals("video.mp4", webPrepared("blob:http://127.0.0.1:9000/abc-123", "video/mp4", "video.mp4").name)
+        assertEquals("video/mp4", webPrepared("blob:http://127.0.0.1:9000/abc-123", "video/mp4", "video.mp4").mimeType)
+        assertEquals("imagen.jpg", webPrepared("blob:http://127.0.0.1:9000/def-456", "image/jpeg", "imagen.jpg").name)
+        assertEquals("clip.mov", webPrepared("https://example.invalid/uploads/clip.mov", "video/mp4", "video.mp4").name)
+        assertEquals("video/quicktime", webPrepared("https://example.invalid/uploads/clip.mov", "video/mp4", "video.mp4").mimeType)
+    }
+
     private class MemoryPreferences(initial: Map<String, String>) : PreferenceStore {
         private val values = initial.toMutableMap()
         override suspend fun getString(key: String): String? = values[key]
