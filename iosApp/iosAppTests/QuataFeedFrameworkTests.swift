@@ -880,6 +880,28 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertFalse(player.isMuted)
     }
 
+    func testIosFeedNativeVideoSurfacePublishesDurationAndSeekPosition() throws {
+        let localFixture = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quata-feed-duration-seek-\(UUID().uuidString).mp4")
+        try writeFeedPlaybackFixtureVideo(to: localFixture)
+        defer { try? FileManager.default.removeItem(at: localFixture) }
+
+        let surface = IosFeedNativeMediaFactory.shared.createVideo(url: localFixture.absoluteString)
+        defer { surface.dispose() }
+        surface.configure(isActive: false, isMuted: true, initialPositionMs: 0)
+
+        let loaded = waitForIosFeedMediaSnapshot(surface: surface) { snapshot in
+            snapshot.durationMs >= 1_900
+        }
+        XCTAssertGreaterThanOrEqual(try XCTUnwrap(loaded).durationMs, 1_900)
+
+        surface.seekTo(positionMs: 1_200)
+        let seeked = waitForIosFeedMediaSnapshot(surface: surface) { snapshot in
+            snapshot.positionMs >= 900 && snapshot.positionMs <= snapshot.durationMs
+        }
+        XCTAssertGreaterThanOrEqual(try XCTUnwrap(seeked).positionMs, 900)
+    }
+
     func testIosChatMediaViewerUsesOnlyLocalFilesAndOwnsNativePlaybackControls() throws {
         let imageUrl = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("quata-chat-media-contract.png")
@@ -1892,6 +1914,102 @@ private func waitUntil(
         RunLoop.main.run(until: Date().addingTimeInterval(0.01))
     }
     XCTAssertTrue(condition(), "Timed out waiting for the UIKit modal transition")
+}
+
+private func waitForIosFeedMediaSnapshot(
+    surface: any IosFeedMediaSurface,
+    timeout: TimeInterval = 5,
+    condition: (IosFeedMediaSnapshot) -> Bool,
+) -> IosFeedMediaSnapshot? {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+        let snapshot = surface.snapshot()
+        if condition(snapshot) {
+            return snapshot
+        }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+    }
+    return nil
+}
+
+private func writeFeedPlaybackFixtureVideo(to outputURL: URL) throws {
+    try? FileManager.default.removeItem(at: outputURL)
+    let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+    let input = AVAssetWriterInput(
+        mediaType: .video,
+        outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: 64,
+            AVVideoHeightKey: 64,
+        ],
+    )
+    input.expectsMediaDataInRealTime = false
+    let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+        assetWriterInput: input,
+        sourcePixelBufferAttributes: [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
+            kCVPixelBufferWidthKey as String: 64,
+            kCVPixelBufferHeightKey as String: 64,
+        ],
+    )
+    XCTAssertTrue(writer.canAdd(input))
+    writer.add(input)
+    XCTAssertTrue(writer.startWriting())
+    writer.startSession(atSourceTime: .zero)
+
+    let finished = XCTestExpectation(description: "fixture video written")
+    let queue = DispatchQueue(label: "quata.feed.duration-seek.fixture")
+    var frame = 0
+    let framesPerSecond: Int32 = 30
+    let totalFrames = 60
+    input.requestMediaDataWhenReady(on: queue) {
+        while input.isReadyForMoreMediaData && frame < totalFrames {
+            guard let buffer = makeFeedPlaybackPixelBuffer(frame: frame) else {
+                input.markAsFinished()
+                writer.cancelWriting()
+                finished.fulfill()
+                return
+            }
+            let time = CMTime(value: CMTimeValue(frame), timescale: framesPerSecond)
+            if !adaptor.append(buffer, withPresentationTime: time) {
+                input.markAsFinished()
+                writer.cancelWriting()
+                finished.fulfill()
+                return
+            }
+            frame += 1
+        }
+        if frame >= totalFrames {
+            input.markAsFinished()
+            writer.finishWriting {
+                finished.fulfill()
+            }
+        }
+    }
+    XCTWaiter().wait(for: [finished], timeout: 5)
+    if writer.status != .completed {
+        throw writer.error ?? NSError(domain: "QuataFeedFrameworkTests", code: 1)
+    }
+}
+
+private func makeFeedPlaybackPixelBuffer(frame: Int) -> CVPixelBuffer? {
+    var pixelBuffer: CVPixelBuffer?
+    let status = CVPixelBufferCreate(
+        kCFAllocatorDefault,
+        64,
+        64,
+        kCVPixelFormatType_32ARGB,
+        nil,
+        &pixelBuffer,
+    )
+    guard status == kCVReturnSuccess, let pixelBuffer else { return nil }
+    CVPixelBufferLockBaseAddress(pixelBuffer, [])
+    if let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) {
+        let byteCount = CVPixelBufferGetBytesPerRow(pixelBuffer) * CVPixelBufferGetHeight(pixelBuffer)
+        memset(baseAddress, frame.isMultiple(of: 2) ? 0x12 : 0x24, byteCount)
+    }
+    CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+    return pixelBuffer
 }
 
 private final class CapturingWhatsNewRouteHost: NSObject, IosWhatsNewRouteHost {
