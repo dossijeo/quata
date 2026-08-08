@@ -40,7 +40,18 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             app.descendants(matching: .any).matching(identifier: "quata-ios-authenticated-primary-navigation").firstMatch.exists,
             "The shared primary navigation must remain visible on the Official editor.",
         )
-        XCTAssertTrue(app.buttons["Editar descripción"].waitForExistence(timeout: 10), "iOS must expose the compact shared body editor action.")
+        let bodyAction = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-body-action")
+            .firstMatch
+        XCTAssertTrue(bodyAction.waitForExistence(timeout: 10), "iOS must expose the shared Official editor body slot.")
+        let richTextField = app.descendants(matching: .any)
+            .matching(identifier: "quata-portable-rich-text-field")
+            .firstMatch
+        XCTAssertTrue(richTextField.waitForExistence(timeout: 10), "iOS must mount the common portable rich-text field.")
+        let preview = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-preview")
+            .firstMatch
+        XCTAssertTrue(preview.waitForExistence(timeout: 10), "iOS must expose the shared Official editor preview node.")
         XCTAssertTrue(app.staticTexts["Vista previa"].waitForExistence(timeout: 10), "The initial editor viewport must expose the shared preview heading.")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-host")
     }
