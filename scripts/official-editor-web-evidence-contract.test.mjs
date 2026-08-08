@@ -25,8 +25,13 @@ test("Official editor Web evidence keeps the permission fixture hermetic and mut
   assert.match(runner, /getByRole\("textbox"\)/);
   assert.match(runner, /keyboard\.insertText/);
   assert.doesNotMatch(runner, /globalThis\.prompt|window\.prompt|page\.once\("dialog"|dialog\.accept/);
+  assert.match(runner, /valid_publish_opens_shared_translation_prompt/);
+  assert.match(runner, /web-official-editor-translation-prompt/);
+  assert.match(runner, /Publicar solo este idioma\|Publish only this language/);
   assert.match(runner, /valid_publish_attempt_uses_shared_postgrest_plan_and_fails_closed/);
   assert.match(runner, /fixture_publish_forbidden/);
+  assert.match(runner, /statusCode === 403/);
+  assert.match(runner, /official_editor_publish_fixture_not_denied/);
   assert.match(runner, /fixture_mutation_forbidden/);
   assert.doesNotMatch(runner, /SUPABASE_DB_URL|SERVICE_ROLE|21085800|\+240|68024260/);
 });
