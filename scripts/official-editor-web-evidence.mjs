@@ -62,7 +62,12 @@ try {
   const page = await context.newPage();
   const faults = [];
   page.on("pageerror", () => faults.push("pageerror"));
-  page.on("console", (entry) => { if (entry.type() === "error") faults.push("console_error"); });
+  page.on("console", (entry) => {
+    if (entry.type() !== "error") return;
+    const text = entry.text();
+    if (/403|postgrest_http_403|fixture_publish_forbidden/i.test(text)) return;
+    faults.push(`console_error:${text.slice(0, 120)}`);
+  });
   await page.goto(`${server.origin}/#official`, { waitUntil: "domcontentloaded" });
   await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
   await page.waitForFunction(() =>
@@ -93,7 +98,41 @@ try {
     .waitFor({ timeout: 45_000 });
   report.evidence.editor = await screenshot(page, options.evidenceDir, "web-official-editor-opened");
 
-  if (faults.length) throw new Error("browser_runtime_fault");
+  const publishButton = page.locator("#official-editor-publish").first();
+  await publishButton.waitFor({ state: "attached", timeout: 45_000 });
+  await clickSemanticElement(page, "official-editor-publish");
+  await expectSemanticText(page, "official-editor-feedback", /A(?:ñ|Ã±)ade texto|Add text|Ajoute/i);
+  if (report.requests.some((entry) => entry.table === "official_posts" && entry.method === "POST")) {
+    throw new Error("official_editor_invalid_draft_mutated");
+  }
+  report.steps.push("empty_publish_shows_shared_validation_feedback_without_mutation");
+  report.evidence.validation = await screenshot(page, options.evidenceDir, "web-official-editor-validation-feedback");
+
+  const bodyAction = page.getByRole("button", {
+    name: /Editar descripci(?:ó|Ã³)n|Edit description|Modifier la description/i,
+  }).first();
+  await bodyAction.waitFor({ timeout: 15_000 });
+  page.once("dialog", async (dialog) => {
+    await dialog.accept(`<p>Official editor reversible evidence ${randomUUID()}</p>`);
+  });
+  await clickSemanticElement(page, "official-editor-body-action");
+  await clickSemanticElement(page, "official-editor-publish");
+  await waitForRequest("official_posts", report.requests, 45_000, (entry) => entry.method === "POST" && entry.authenticated);
+  if (!report.requests.some((entry) => entry.table === "official_posts" && entry.method === "POST" && entry.authenticated)) {
+    throw new Error("official_editor_publish_request_missing");
+  }
+  await expectSemanticText(
+    page,
+    "official-editor-feedback",
+    /fixture_publish_forbidden|web_official_publish_failed|web_official_postgrest|postgrest_http_403/i,
+  );
+  report.steps.push("valid_publish_attempt_uses_shared_postgrest_plan_and_fails_closed");
+  report.evidence.publishFailure = await screenshot(page, options.evidenceDir, "web-official-editor-publish-fails-closed");
+
+  if (faults.length) {
+    report.faults = faults;
+    throw new Error("browser_runtime_fault");
+  }
   if (!report.requests.some((entry) => entry.table === "community_profiles" && entry.authenticated)) {
     throw new Error("official_profile_permission_read_missing");
   }
@@ -201,10 +240,15 @@ function handleRest(url, request, response, requests) {
     if (!authenticated) return json(response, 401, { error: "fixture_auth_required" });
     return json(response, 200, []);
   }
-  if (request.method !== "GET") return json(response, 405, { error: "fixture_mutation_forbidden" });
   if (table === "official_posts" || table === "official_post_comments" || table === "official_post_likes") {
-    return json(response, 200, []);
+    if (request.method === "GET") return json(response, 200, []);
+    if (table === "official_posts" && request.method === "POST") {
+      if (!authenticated) return json(response, 401, { error: "fixture_auth_required" });
+      return json(response, 403, { error: "fixture_publish_forbidden" });
+    }
+    return json(response, 405, { error: "fixture_mutation_forbidden" });
   }
+  if (request.method !== "GET") return json(response, 405, { error: "fixture_mutation_forbidden" });
   if (table === "community_profiles") {
     if (!authenticated) return json(response, 401, { error: "fixture_auth_required" });
     if (url.searchParams.get("id") !== `in.(${PROFILE_ID})`) {
@@ -268,13 +312,29 @@ function contentType(path) {
   ]).get(extname(path).toLowerCase()) ?? "application/octet-stream";
 }
 
-async function waitForRequest(table, requests, timeoutMs = 45_000) {
+async function waitForRequest(table, requests, timeoutMs = 45_000, predicate = () => true) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (requests.some((entry) => entry.table === table)) return;
+    if (requests.some((entry) => entry.table === table && predicate(entry))) return;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error(`request_not_observed:${table}`);
+}
+
+async function clickSemanticElement(page, id) {
+  await page.locator(`#${id}`).first().dispatchEvent("click");
+}
+
+async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {
+  const locator = page.locator(`#${id}`).first();
+  await locator.waitFor({ state: "attached", timeout: timeoutMs });
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const text = await locator.textContent().catch(() => "");
+    if (pattern.test(text ?? "")) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`semantic_text_missing:${id}`);
 }
 
 async function screenshot(page, evidenceDir, name) {

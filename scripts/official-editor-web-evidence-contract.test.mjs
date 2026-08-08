@@ -17,6 +17,10 @@ test("Official editor Web evidence keeps the permission fixture hermetic and mut
   assert.match(runner, /url\.searchParams\.get\("id"\) !== `in\.\(\$\{PROFILE_ID\}\)`/);
   assert.match(runner, /request\.headers\.authorization === `Bearer \$\{ACCESS_TOKEN\}`/);
   assert.match(runner, /is_official: "true"/);
+  assert.match(runner, /empty_publish_shows_shared_validation_feedback_without_mutation/);
+  assert.match(runner, /official_editor_invalid_draft_mutated/);
+  assert.match(runner, /valid_publish_attempt_uses_shared_postgrest_plan_and_fails_closed/);
+  assert.match(runner, /fixture_publish_forbidden/);
   assert.match(runner, /fixture_mutation_forbidden/);
   assert.doesNotMatch(runner, /SUPABASE_DB_URL|SERVICE_ROLE|21085800|\+240|68024260/);
 });
