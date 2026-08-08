@@ -42,6 +42,14 @@ test("Web Official editor route and CTA use the restored session official role",
   assert.match(webMain, /canCreateOfficialPost = currentUserIsOfficial/);
 });
 
+test("Web Official editor enables the shared Fang translator instead of publishing a single-language fallback", () => {
+  assert.match(webOfficialHost, /import com\.quata\.core\.language\.BrowserTranslationHttpTransport/);
+  assert.match(webOfficialHost, /import com\.quata\.core\.language\.FangTranslationService/);
+  assert.match(webOfficialHost, /OfficialPostEditorFangTranslator\(FangTranslationService\(transport = BrowserTranslationHttpTransport\(\)\)\)/);
+  assert.match(webOfficialHost, /translator = translator/);
+  assert.doesNotMatch(webOfficialHost, /translator = null/);
+});
+
 test("Web local sessions persist the official role for restore and refresh", () => {
   assert.match(webAuthRepository, /val isOfficial: Boolean = false/);
   assert.match(webAuthRepository, /const val IsOfficial = "quata_web_is_official"/);
