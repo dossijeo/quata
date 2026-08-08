@@ -207,3 +207,4 @@ informe de evidencia:
 No se promociona una candidata si existe un callback de producto vacío, un control visible sin
 función, una ruta alternativa simplificada, datos de ejemplo usados como producto o un ID dependiente
 que la PR pretende declarar cerrado sin haberlo validado.
+<!-- Actualizacion operativa 2026-08-08: base medida main b7b76b5e456a27d92b5f6eb5b9a806edc5c5c317, posterior a #194/#195. SCR-OFFICIAL-EDITOR conserva estado PARCIAL/COMUN con limites: RLS real corregido y postflight OFFICIAL-EDITOR-REAL-BACKEND-001 verde. El candidato OFFICIAL-EDITOR-WEB-REAL-UI-001 anade runner Web real opt-in para sesion oficial, validacion vacia sin POST, publicacion real, lectura visible y limpieza exacta; no eleva a GO hasta cerrar adjuntos, permisos UI, errores y comparativa Android-Wasm-iOS. -->
