@@ -59,17 +59,19 @@ function assertFastAndFinalLaneContract(yaml) {
   assert.doesNotMatch(gateBlock, /uses: actions\/checkout@v6/,
     'the final gate must not depend on action downloads after all evidence jobs have completed');
   assert.match(gateBlock, /FINAL_CANDIDATE: \$\{\{ contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/);
+  assert.match(gateBlock, /DOCS_ONLY: \$\{\{ needs\.classify-impact\.outputs\.docs_only \}\}/);
   for (const result of ['WEB_FINAL_RESULT', 'WEB_UNIT_RESULT', 'ANDROID_UNIT_RESULT', 'ANDROID_FINAL_RESULT']) {
     assert.match(gateBlock, new RegExp(`${result}: \\$\\{\\{ needs\\.`));
   }
   assert.match(gateBlock, /set -euo pipefail/);
+  assert.match(gateBlock, /\[\[ "\$EVENT_NAME" == "pull_request" && "\$DOCS_ONLY" == "true" \]\]/);
   assert.match(gateBlock, /A pull request must carry candidate-final before final certification can pass\./);
   assert.match(gateBlock, /verify_lane "web-wasm" "\$WEB_AFFECTED" "\$WEB_FINAL_RESULT"[\s\S]*?verify_lane "web-unit" "\$WEB_AFFECTED" "\$WEB_UNIT_RESULT"[\s\S]*?verify_lane "android-unit" "\$ANDROID_AFFECTED" "\$ANDROID_UNIT_RESULT"[\s\S]*?verify_lane "android-debug" "\$ANDROID_AFFECTED" "\$ANDROID_FINAL_RESULT"/);
 }
 
-function executeFinalGate(script, { event, candidateFinal, results }) {
+function executeFinalGate(script, { event, candidateFinal, docsOnly = false, results }) {
   const quote = value => `'${String(value).replaceAll("'", "'\\\\''")}'`;
-  const harness = `set -euo pipefail\nEVENT_NAME=${quote(event)}\nFINAL_CANDIDATE=${quote(candidateFinal)}\nset -- ${results.map(quote).join(' ')}`;
+  const harness = `set -euo pipefail\nEVENT_NAME=${quote(event)}\nFINAL_CANDIDATE=${quote(candidateFinal)}\nDOCS_ONLY=${quote(docsOnly)}\nset -- ${results.map(quote).join(' ')}`;
   const command = script.replace('set -euo pipefail', harness);
   assert.notEqual(command, script, 'the final-gate shell must retain its strict-mode anchor for executable testing');
   const bash = process.platform === 'win32' ? 'C:\\Program Files\\Git\\bin\\bash.exe' : 'bash';
@@ -176,6 +178,7 @@ test('Web/Android final gate executes the shared fail-closed shell for every eve
   const script = await readFile(finalGateScript, 'utf8');
   for (const [name, input, expected] of [
     ['unlabelled PR skips all final jobs', { event: 'pull_request', candidateFinal: false, results: ['web:false:skipped', 'android:false:skipped'] }, false],
+    ['docs-only PR skips all final jobs', { event: 'pull_request', candidateFinal: false, docsOnly: true, results: ['web:false:skipped', 'android:false:skipped'] }, true],
     ['affected Web lane is cancelled', { event: 'pull_request', candidateFinal: true, results: ['web:true:cancelled', 'android:false:skipped'] }, false],
     ['unaffected Android lane unexpectedly runs', { event: 'pull_request', candidateFinal: true, results: ['web:true:success', 'android:false:success'] }, false],
     ['Web-only final jobs pass while Android skips', { event: 'pull_request', candidateFinal: true, results: ['web:true:success', 'android:false:skipped'] }, true],
@@ -206,6 +209,7 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['final gate external checkout added', yaml.replace('      - name: Fail closed unless this exact run is final-certified', '      - name: Check out final gate helper\n        uses: actions/checkout@v6\n\n      - name: Fail closed unless this exact run is final-certified')],
     ['final gate shell bypassed', yaml.replace('verify_lane "web-wasm" "$WEB_AFFECTED" "$WEB_FINAL_RESULT"', 'echo bypass')],
     ['candidate-final binding replaced', yaml.replace("FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}", 'FINAL_CANDIDATE: true')],
+    ['docs-only binding replaced', yaml.replace('DOCS_ONLY: ${{ needs.classify-impact.outputs.docs_only }}', 'DOCS_ONLY: true')],
     ['Web result binding replaced', yaml.replace('WEB_FINAL_RESULT: ${{ needs.web-wasm.result }}', 'WEB_FINAL_RESULT: success')],
     ['Web unit result binding replaced', yaml.replace('WEB_UNIT_RESULT: ${{ needs.web-unit-tests.result }}', 'WEB_UNIT_RESULT: success')],
     ['Android result binding replaced', yaml.replace('ANDROID_FINAL_RESULT: ${{ needs.android-debug.result }}', 'ANDROID_FINAL_RESULT: success')],

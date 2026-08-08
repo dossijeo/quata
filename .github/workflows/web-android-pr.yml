@@ -626,6 +626,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}
+          DOCS_ONLY: ${{ needs.classify-impact.outputs.docs_only }}
           WEB_AFFECTED: ${{ needs.classify-impact.outputs.web }}
           ANDROID_AFFECTED: ${{ needs.classify-impact.outputs.android }}
           WEB_FINAL_RESULT: ${{ needs.web-wasm.result }}
@@ -634,6 +635,9 @@ jobs:
           ANDROID_FINAL_RESULT: ${{ needs.android-debug.result }}
         run: |
           set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" && "$DOCS_ONLY" == "true" ]]; then
+            exit 0
+          fi
           if [[ "$EVENT_NAME" == "pull_request" && "$FINAL_CANDIDATE" != "true" ]]; then
             echo "A pull request must carry candidate-final before final certification can pass." >&2
             exit 1

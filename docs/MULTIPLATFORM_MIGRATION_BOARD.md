@@ -6,9 +6,10 @@
 
 ## Foto de control — 2026-08-04
 
-**HEAD integrado:** `main` `99ae1ef42b6baa2c06157e20327dd2e2aa8910fd` (PR #190), posterior a #154,
-#156, #159, #168, #169, #170, #172, #173, #174 y #175. El proyecto sigue incompleto: #190 integra
-la accion Web real del editor oficial, pero conserva limites de publicacion/validacion/adjuntos/error
+**HEAD integrado:** `main` `ae6af4552599f7f489e8b8891058475da2eae036` (PR #192), posterior a #154,
+#156, #159, #168, #169, #170, #172, #173, #174, #175, #190 y #191. El proyecto sigue incompleto:
+#192 integra semantica comun observable del editor oficial y evidencia Web hermetica de validacion/fallo,
+pero conserva limites de publicacion real, adjuntos, permisos, lectura backend, limpieza y comparativa
 Android-Wasm-iOS segun `SCREEN_MIGRATION_INVENTORY_V2.md`.
 
 | Área | Estado | Qué acredita | Límite vigente |
@@ -48,6 +49,7 @@ Android-Wasm-iOS segun `SCREEN_MIGRATION_INVENTORY_V2.md`.
 | [#173](https://github.com/dossijeo/quata/pull/173) | `855f167f` | `ConversationsScreenHost` y transporte realtime común; Chat Web/iOS sigue siendo fallback browser-style. |
 | [#175](https://github.com/dossijeo/quata/pull/175) | `702fb717` | Comunidades y perfil público global pasan a raíces comunes con límites; Feed iOS integra gradiente de medios y controles globales. Candidato exacto final: base `855f167f`, head `aee41fa7`, merge sintético `5fd040ae`; gates protegidos verdes. |
 | [#190](https://github.com/dossijeo/quata/pull/190) | `99ae1ef4` | Official editor Web expone la accion real desde Feed/Oficial mediante elegibilidad comun y evidencia hermetica con identidad de PR; no declara GO global de `SCR-OFFICIAL-EDITOR` hasta cerrar publicacion/validacion/adjuntos/error Android-Wasm-iOS con datos reversibles y comparativa visual. |
+| [#192](https://github.com/dossijeo/quata/pull/192) | `ae6af455` | Official editor incorpora anclas `testTag` comunes en `commonMain`, validacion/fail-closed observable y evidencia Web hermetica de borrador invalido + publicacion denegada sin mutar Supabase real. Ajusta el job rapido Web/Android para instalar SDK 36.1 antes de imports KMP limpios. No declara GO global hasta cerrar publicacion real, adjuntos, permisos, lectura backend, limpieza y comparativa Android-Wasm-iOS. |
 
 ## Registro de candidato #156 y mejora de preflight
 
@@ -136,7 +138,7 @@ no una nueva evidencia de producto.
 
 ## Próxima cola
 
-1. Cerrar `SCR-OFFICIAL-EDITOR` sobre `main` posterior a #190: añadir semantica comun estable para evidencia, recorrer publicacion/validacion/adjuntos/error en Android-Wasm-iOS con Gabrielo/Gabrielu o datos temporales reversibles, capturar comparativa visual y mantener traduccion automatica Web/iOS como limite documentado hasta que exista abstraccion comun real.
+1. Cerrar `SCR-OFFICIAL-EDITOR` sobre `main` posterior a #192: usar la semantica comun estable ya integrada para recorrer publicacion real, validacion, adjuntos, permisos y error en Android-Wasm-iOS con Gabrielo/Gabrielu o datos temporales reversibles, verificar lectura backend y limpieza, capturar comparativa visual y mantener traduccion automatica Web/iOS como limite documentado hasta que exista abstraccion comun real.
 2. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y duración/seek iOS de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
 3. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
 4. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
