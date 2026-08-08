@@ -22,6 +22,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.unit.dp
 import com.quata.core.platform.ShareService
+import com.quata.core.language.FangTranslationService
+import com.quata.core.language.IosFastTextLanguageIdentifier
+import com.quata.core.language.IosTranslationHttpTransport
 import com.quata.core.ui.components.QuataAvatarFrameContent
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.core.ui.components.QuataLiveRankingItem
@@ -29,6 +32,9 @@ import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.core.data.toFoundationData
+import com.quata.designsystem.translation.FangTextTranslatorGateway
+import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
+import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
@@ -60,6 +66,7 @@ internal fun iosOfficialPlatformSlots(
     canCreateOfficialPost: Boolean,
     closeLabel: String,
     openingProfileUserId: String?,
+    preferredLanguageTag: String?,
 ) = OfficialFeedScreenPlatformSlots(
     avatar = { post, modifier ->
         QuataAvatarLoadingHaloContent(
@@ -78,6 +85,12 @@ internal fun iosOfficialPlatformSlots(
     showComposeMessage = true,
     rankingAvatar = { item -> IosOfficialRankingAvatar(item) },
     canCreateOfficialPost = canCreateOfficialPost,
+    commentsTranslationGateway = FangTextTranslatorGateway(
+        identifier = IosFastTextLanguageIdentifier,
+        translator = FangTranslationService(transport = IosTranslationHttpTransport()),
+        preferredLanguage = quataTranslatorPreferredLanguage(preferredLanguageTag),
+    ),
+    commentsTranslatorStrings = quataTranslatorStringsForLanguage(preferredLanguageTag),
 )
 
 @Composable

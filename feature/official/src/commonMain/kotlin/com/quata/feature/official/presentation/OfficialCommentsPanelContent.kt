@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.InsertEmoticon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +52,11 @@ import com.quata.core.ui.components.insertAtSelection
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
 import com.quata.core.ui.components.trackCommunityEmojiTriggerBounds
+import com.quata.designsystem.translation.LocalQuataTranslatableTextRegistry
+import com.quata.designsystem.translation.QuataTranslatableTextRegistry
+import com.quata.designsystem.translation.QuataTranslatorGateway
+import com.quata.designsystem.translation.QuataTranslatorOverlayContent
+import com.quata.designsystem.translation.QuataTranslatorStrings
 import com.quata.designsystem.translation.quataTranslatableText
 import com.quata.feature.official.domain.OfficialPostItem
 import kotlinx.coroutines.delay
@@ -71,7 +78,9 @@ fun OfficialCommentsPanelContent(
     onAddComment: (PostComment) -> Unit,
     onReportComment: (PostComment) -> Unit,
     onDismiss: () -> Unit,
-    translatorTrigger: @Composable (String, Modifier) -> Unit,
+    translatorTrigger: @Composable (String, Modifier, () -> Unit, Boolean) -> Unit,
+    translatorGateway: QuataTranslatorGateway?,
+    translatorStrings: QuataTranslatorStrings,
 ) {
     var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
     var replyTo by remember(post.id) { mutableStateOf<PostComment?>(null) }
@@ -82,6 +91,10 @@ fun OfficialCommentsPanelContent(
     val emojiGridMaxHeight = if (WindowInsets.ime.getBottom(LocalDensity.current) > 0) 168.dp else 220.dp
     var shouldScrollToCommentsEnd by remember(post.id) { mutableStateOf(true) }
     val commentsListState = rememberLazyListState()
+    val inheritedTranslatorRegistry = LocalQuataTranslatableTextRegistry.current
+    val translatorRegistry = inheritedTranslatorRegistry ?: remember(post.id) { QuataTranslatableTextRegistry() }
+    var translatorActive by rememberSaveable(post.id) { mutableStateOf(false) }
+    val translatorEnabled = translatorGateway != null && translatorRegistry.visibleBoxes.isNotEmpty()
 
     fun setEmojiPickerVisible(visible: Boolean) {
         isEmojiPickerVisible = visible
@@ -89,6 +102,9 @@ fun OfficialCommentsPanelContent(
             keyboardController?.hide()
             focusManager.clearFocus(force = true)
         }
+    }
+    fun openTranslator() {
+        if (translatorEnabled) translatorActive = true
     }
 
     LaunchedEffect(post.id, post.comments.size, shouldScrollToCommentsEnd) {
@@ -156,6 +172,7 @@ fun OfficialCommentsPanelContent(
         )
     }
 
+    CompositionLocalProvider(LocalQuataTranslatableTextRegistry provides translatorRegistry) {
     QuataStandardFloatingPanelContent(onDismiss = onDismiss) { panelModifier, landscape ->
         if (!landscape) {
             QuataCommentsPanelPortraitContent(
@@ -163,7 +180,7 @@ fun OfficialCommentsPanelContent(
                     QuataCommentsPanelHeaderContent(
                         strings.title,
                         post.comments.size,
-                        { modifier -> translatorTrigger(strings.translatorContentDescription, modifier) },
+                        { modifier -> translatorTrigger(strings.translatorContentDescription, modifier, ::openTranslator, translatorEnabled) },
                     )
                 },
                 comments = { modifier ->
@@ -199,7 +216,7 @@ fun OfficialCommentsPanelContent(
                     QuataCommentsPanelHeaderContent(
                         strings.title,
                         post.comments.size,
-                        { actionModifier -> translatorTrigger(strings.translatorContentDescription, actionModifier) },
+                        { actionModifier -> translatorTrigger(strings.translatorContentDescription, actionModifier, ::openTranslator, translatorEnabled) },
                         modifier,
                     )
                 },
@@ -238,6 +255,18 @@ fun OfficialCommentsPanelContent(
                 modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
             )
         }
+    }
+    translatorGateway?.let { gateway ->
+        if (translatorActive) {
+            QuataTranslatorOverlayContent(
+                registry = translatorRegistry,
+                gateway = gateway,
+                strings = translatorStrings,
+                onDismiss = { translatorActive = false },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
     }
 }
 

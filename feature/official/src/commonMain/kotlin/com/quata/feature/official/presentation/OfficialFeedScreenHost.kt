@@ -40,6 +40,9 @@ import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.designsystem.translation.FangTranslatorTriggerContent
+import com.quata.designsystem.translation.QuataTranslatorGateway
+import com.quata.designsystem.translation.QuataTranslatorStrings
+import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialPostType
@@ -141,9 +144,11 @@ class OfficialFeedScreenPlatformSlots(
     val showComposeMessage: Boolean,
     val canCreateOfficialPost: Boolean,
     val rankingAvatar: @Composable (QuataLiveRankingItem) -> Unit,
-    val commentsTranslatorTrigger: @Composable (String, Modifier) -> Unit = { contentDescription, modifier ->
-        FangTranslatorTriggerContent(contentDescription = contentDescription, onClick = {}, modifier = modifier)
+    val commentsTranslatorTrigger: @Composable (String, Modifier, () -> Unit, Boolean) -> Unit = { contentDescription, modifier, onClick, enabled ->
+        FangTranslatorTriggerContent(contentDescription = contentDescription, onClick = onClick, enabled = enabled, modifier = modifier)
     },
+    val commentsTranslationGateway: QuataTranslatorGateway? = null,
+    val commentsTranslatorStrings: QuataTranslatorStrings = quataTranslatorStringsForLanguage(null),
 )
 
 /**
@@ -325,7 +330,9 @@ fun OfficialFeedScreenHost(
             onReportComment = report,
             onDismiss = dismiss,
             translatorTrigger = slots.commentsTranslatorTrigger,
-        )
+                translatorGateway = slots.commentsTranslationGateway,
+                translatorStrings = slots.commentsTranslatorStrings,
+            )
     }
     state.posts.firstOrNull { it.id == deletePost }?.let { post -> OfficialDeleteConfirmationDialogContent(strings.deleteTitle, strings.deleteMessage, strings.confirm, strings.cancel, { deletePost = null }, { viewModel.onEvent(OfficialFeedUiEvent.DeletePost(post.id)); deletePost = null }) }
     if (liveOpen) QuataStandardFloatingPanelContent(onDismiss = { liveOpen = false }) { panelModifier, panelLandscape ->

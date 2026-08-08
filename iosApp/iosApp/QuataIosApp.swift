@@ -522,6 +522,7 @@ private final class IosAppCompositionRoot {
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onCreatePost: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     profileOpeningState: self.memberProfileOpeningState,
+                    preferredLanguageTag: Locale.preferredLanguages.first,
                 ),
             )
         }
@@ -559,6 +560,7 @@ private final class IosAppCompositionRoot {
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onCreatePost: { [weak self] in self?.authenticatedHost.showComposer() },
                     profileOpeningState: self.memberProfileOpeningState,
+                    preferredLanguageTag: Locale.preferredLanguages.first,
                 ),
             )
         }

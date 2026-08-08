@@ -12,6 +12,8 @@ targets:
     deploymentTarget: "16.0"
     sources:
       - path: iosApp
+      - path: ../app/src/main/assets/lang_id_fasttext.bin
+        buildPhase: resources
     configFiles:
       Debug: Configuration/QuataPublicRuntime.debug.xcconfig
       SimulatorSigned: Configuration/QuataPublicRuntime.debug.xcconfig
