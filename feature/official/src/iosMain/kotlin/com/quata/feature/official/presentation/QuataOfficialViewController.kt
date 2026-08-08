@@ -21,6 +21,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.language.FangTranslationService
+import com.quata.core.language.IosTranslationHttpTransport
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
@@ -268,6 +270,9 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
     var videoThumbnail by remember { mutableStateOf<PlatformFile?>(null) }
     val scope = rememberCoroutineScope()
     val strings = defaultOfficialPostEditorStrings(dependencies.preferredLanguageTag)
+    val translator = remember {
+        OfficialPostEditorFangTranslator(FangTranslationService(transport = IosTranslationHttpTransport()))
+    }
 
     fun releaseVideoThumbnail() { videoThumbnail = null }
     fun selectMedia(type: OfficialMediaType, onPicked: (OfficialEditorMedia) -> Unit) {
@@ -371,7 +376,7 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
             }
         },
         detectLanguage = { iosOfficialPostLanguage(dependencies.preferredLanguageTag) },
-        translator = null,
+        translator = translator,
         newTranslationGroupId = { NSUUID.UUID().UUIDString },
     )
 }

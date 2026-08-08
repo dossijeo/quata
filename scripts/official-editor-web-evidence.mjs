@@ -117,17 +117,23 @@ try {
     .getByText(/Official editor reversible evidence/i)
     .waitFor({ state: "attached", timeout: 15_000 });
   await clickSemanticElement(page, "official-editor-publish");
+  await page.getByText(/Generar traducciones|Generate translations|Générer des traductions|GÃ©nÃ©rer des traductions/i)
+    .waitFor({ timeout: 15_000 });
+  report.steps.push("valid_publish_opens_shared_translation_prompt");
+  report.evidence.translationPrompt = await screenshot(page, options.evidenceDir, "web-official-editor-translation-prompt");
+  await page.getByRole("button", {
+    name: /Publicar solo este idioma|Publish only this language|Publier seulement cette langue/i,
+  }).click({ force: true });
   await waitForRequest("official_posts", report.requests, 45_000, (entry) => entry.method === "POST" && entry.authenticated);
   if (!report.requests.some((entry) => entry.table === "official_posts" && entry.method === "POST" && entry.authenticated)) {
     throw new Error("official_editor_publish_request_missing");
   }
-  await expectSemanticText(
-    page,
-    "official-editor-feedback",
-    /fixture_publish_forbidden|web_official_publish_failed|web_official_postgrest|postgrest_http_403/i,
-  );
-  report.steps.push("valid_publish_attempt_uses_shared_postgrest_plan_and_fails_closed");
+  if (!report.requests.some((entry) => entry.table === "official_posts" && entry.method === "POST" && entry.authenticated && entry.statusCode === 403)) {
+    throw new Error("official_editor_publish_fixture_not_denied");
+  }
+  await page.mouse.wheel(0, 1400);
   report.evidence.publishFailure = await screenshot(page, options.evidenceDir, "web-official-editor-publish-fails-closed");
+  report.steps.push("valid_publish_attempt_uses_shared_postgrest_plan_and_fails_closed");
 
   if (faults.length) {
     report.faults = faults;
@@ -235,26 +241,27 @@ function handleRest(url, request, response, requests) {
   const table = url.pathname.replace("/rest/v1/", "");
   const authenticated = request.headers.authorization === `Bearer ${ACCESS_TOKEN}`;
   const query = Object.fromEntries(url.searchParams.entries());
-  requests.push({ table, method: request.method, authenticated, query });
+  const observed = { table, method: request.method, authenticated, query };
+  requests.push(observed);
   if (request.method === "POST" && table === "rpc/quata_chat_get_inbox") {
-    if (!authenticated) return json(response, 401, { error: "fixture_auth_required" });
-    return json(response, 200, []);
+    if (!authenticated) return observedJson(response, observed, 401, { error: "fixture_auth_required" });
+    return observedJson(response, observed, 200, []);
   }
   if (table === "official_posts" || table === "official_post_comments" || table === "official_post_likes") {
-    if (request.method === "GET") return json(response, 200, []);
+    if (request.method === "GET") return observedJson(response, observed, 200, []);
     if (table === "official_posts" && request.method === "POST") {
-      if (!authenticated) return json(response, 401, { error: "fixture_auth_required" });
-      return json(response, 403, { error: "fixture_publish_forbidden" });
+      if (!authenticated) return observedJson(response, observed, 401, { error: "fixture_auth_required" });
+      return observedJson(response, observed, 403, { error: "fixture_publish_forbidden" });
     }
-    return json(response, 405, { error: "fixture_mutation_forbidden" });
+    return observedJson(response, observed, 405, { error: "fixture_mutation_forbidden" });
   }
-  if (request.method !== "GET") return json(response, 405, { error: "fixture_mutation_forbidden" });
+  if (request.method !== "GET") return observedJson(response, observed, 405, { error: "fixture_mutation_forbidden" });
   if (table === "community_profiles") {
-    if (!authenticated) return json(response, 401, { error: "fixture_auth_required" });
+    if (!authenticated) return observedJson(response, observed, 401, { error: "fixture_auth_required" });
     if (url.searchParams.get("id") !== `in.(${PROFILE_ID})`) {
-      return json(response, 400, { error: "fixture_profile_filter_required" });
+      return observedJson(response, observed, 400, { error: "fixture_profile_filter_required" });
     }
-    return json(response, 200, [{
+    return observedJson(response, observed, 200, [{
       id: PROFILE_ID,
       display_name: "Cuenta oficial fixture",
       barrio: "Bovano",
@@ -266,7 +273,7 @@ function handleRest(url, request, response, requests) {
       is_official: "true",
     }]);
   }
-  return json(response, 404, { error: "fixture_table_missing" });
+  return observedJson(response, observed, 404, { error: "fixture_table_missing" });
 }
 
 function gitMetadata() {
@@ -301,6 +308,11 @@ async function assertDistributionRevision(source) {
 function json(response, status, value) {
   response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
   response.end(JSON.stringify(value));
+}
+
+function observedJson(response, observed, status, value) {
+  observed.statusCode = status;
+  return json(response, status, value);
 }
 
 function contentType(path) {
@@ -353,6 +365,7 @@ function safeFailure(error) {
     "pr_identity_missing_number", "pr_identity_missing_base", "pr_identity_missing_head",
     "pr_identity_missing_merge", "pr_identity_checkout_not_merge", "pr_identity_head_matches_base",
     "official_create_cta_not_visible", "browser_runtime_fault",
-    "official_profile_permission_read_missing", "request_not_observed",
+    "official_profile_permission_read_missing", "official_editor_publish_fixture_not_denied",
+    "request_not_observed",
   ].find((prefix) => message.startsWith(prefix)) ?? "official_editor_web_evidence_failure";
 }
