@@ -277,6 +277,25 @@ jobs:
             --out build/reports/web-ci/chat-a11y-browser-e2e.json \
             2>&1 | tee build/reports/web-ci/chat-a11y-browser-e2e.log
 
+      - name: Capture Official editor Web evidence
+        timeout-minutes: 5
+        shell: bash
+        env:
+          QUATA_CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_MERGE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            npm run evidence:web-official-editor -- --require-pr-identity \
+              2>&1 | tee build/reports/web-ci/official-editor-evidence.log
+          else
+            npm run evidence:web-official-editor \
+              2>&1 | tee build/reports/web-ci/official-editor-evidence.log
+          fi
+
       - name: Collect five cold Chrome measurements and advisory baseline proposal
         timeout-minutes: 24
         shell: bash
@@ -298,6 +317,8 @@ jobs:
           path: |
             build/reports/web-ci/
             build/reports/wasm-bundle/
+            build-reports/web/official-editor-evidence.json
+            build-reports/web/official-editor-evidence/
             build/reports/web-browser-smoke-metrics.json
             build/reports/web-performance-repeatability.json
             build/reports/web-performance-repeatability/

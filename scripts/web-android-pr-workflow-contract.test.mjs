@@ -103,6 +103,21 @@ function assertBrowserTestCoverage(yaml) {
   }
 }
 
+function assertOfficialEditorEvidenceCoverage(yaml) {
+  const evidenceStep = yaml.indexOf('      - name: Capture Official editor Web evidence');
+  const repeatabilityStep = yaml.indexOf('      - name: Collect five cold Chrome measurements and advisory baseline proposal');
+  assert.ok(evidenceStep >= 0 && repeatabilityStep > evidenceStep, 'the Web/Wasm final lane must capture Official editor evidence before repeatability');
+  const block = yaml.slice(evidenceStep, repeatabilityStep);
+  assert.match(block, /timeout-minutes: 5/);
+  assert.match(block, /GITHUB_PR_NUMBER: \$\{\{ github\.event\.pull_request\.number \}\}/);
+  assert.match(block, /GITHUB_BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/);
+  assert.match(block, /GITHUB_HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
+  assert.match(block, /GITHUB_MERGE_SHA: \$\{\{ github\.sha \}\}/);
+  assert.match(block, /npm run evidence:web-official-editor -- --require-pr-identity/);
+  assert.match(yaml, /build-reports\/web\/official-editor-evidence\.json/);
+  assert.match(yaml, /build-reports\/web\/official-editor-evidence\//);
+}
+
 function assertWorkflowContract(yaml) {
   assert.match(yaml, /^on:\n  workflow_dispatch:\n  pull_request:/m);
   assert.match(yaml, /^permissions:\n  contents: read$/m);
@@ -114,6 +129,7 @@ function assertWorkflowContract(yaml) {
   assertJetBrainsDaemonBootstrap(yaml, 5);
   assertWebWasmTimeoutBudget(yaml);
   assertBrowserTestCoverage(yaml);
+  assertOfficialEditorEvidenceCoverage(yaml);
   assertFastAndFinalLaneContract(yaml);
   assert.match(
     yaml,
@@ -208,6 +224,8 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['core browser JUnit artifact removed', yaml.replace('            core/build/test-results/**/*.xml\n', '')],
     ['postcomposer browser HTML report removed', yaml.replace('            feature/postcomposer/build/reports/tests/\n', '')],
     ['direct capability command removed', yaml.replace('          node --test scripts/capability-matrix-contract.test.mjs\n', '')],
+    ['Official editor evidence step removed', yaml.replace(/      - name: Capture Official editor Web evidence[\s\S]*?(?=\n      - name: Collect five cold Chrome measurements and advisory baseline proposal)/, '')],
+    ['Official editor PR identity removed', yaml.replace(' -- --require-pr-identity', '')],
     ['Android capability evidence trigger removed', yaml.replace('      - "app/**"\n', '')],
     ['package capability trigger removed', yaml.replace('      - "package.json"\n', '')],
     ...[
