@@ -1,9 +1,5 @@
 package com.quata.core.language
 
-import android.content.Context
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.nio.charset.StandardCharsets
 import kotlin.math.exp
 
 class FastTextLanguageDetector private constructor(
@@ -82,7 +78,7 @@ class FastTextLanguageDetector private constructor(
 
     private fun computeSubwords(token: String, features: MutableList<Int>) {
         if (args.maxn <= 0 || args.bucket <= 0) return
-        val bytes = "<$token>".toByteArray(StandardCharsets.UTF_8)
+        val bytes = "<$token>".encodeToByteArray()
         for (start in bytes.indices) {
             if (bytes[start].isUtf8ContinuationByte()) continue
             var end = start
@@ -126,31 +122,9 @@ class FastTextLanguageDetector private constructor(
     companion object {
         const val ModelAssetName = "lang_id_fasttext.bin"
 
-        fun loadFromAssets(context: Context): FastTextLanguageDetector =
-            context.assets.open(ModelAssetName).use { input ->
-                fromByteArray(input.readBytes())
-            }
-
         fun fromByteArray(bytes: ByteArray): FastTextLanguageDetector =
             FastTextModelReader(bytes).read(::FastTextLanguageDetector)
     }
-}
-
-object QuataLanguageIdentifier {
-    @Volatile
-    private var detector: FastTextLanguageDetector? = null
-
-    suspend fun detector(context: Context): FastTextLanguageDetector =
-        detector ?: withContext(Dispatchers.IO) {
-            detector ?: FastTextLanguageDetector.loadFromAssets(context.applicationContext)
-                .also { detector = it }
-        }
-
-    suspend fun detect(context: Context, text: String): QuataLanguageDetection =
-        detector(context).detect(text)
-
-    suspend fun detectCode(context: Context, text: String): String =
-        detector(context).detectCode(text)
 }
 
 private class FastTextModelReader(private val bytes: ByteArray) {
@@ -452,7 +426,7 @@ private class LittleEndianReader(private val bytes: ByteArray) {
         while (bytes[offset].toInt() != 0) {
             offset++
         }
-        val value = String(bytes, start, offset - start, StandardCharsets.UTF_8)
+        val value = bytes.decodeToString(start, offset)
         offset++
         return value
     }
@@ -462,7 +436,7 @@ private class LittleEndianReader(private val bytes: ByteArray) {
 }
 
 private fun fastTextHash(text: String): Long {
-    val bytes = text.toByteArray(StandardCharsets.UTF_8)
+    val bytes = text.encodeToByteArray()
     return fastTextHash(bytes, 0, bytes.size)
 }
 

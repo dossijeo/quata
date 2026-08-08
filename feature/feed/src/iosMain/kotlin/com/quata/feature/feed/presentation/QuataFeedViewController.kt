@@ -11,6 +11,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.quata.core.platform.ShareService
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.language.FangTranslationService
+import com.quata.core.language.IosFastTextLanguageIdentifier
+import com.quata.core.language.IosTranslationHttpTransport
+import com.quata.designsystem.translation.FangTextTranslatorGateway
+import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
+import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.feed.domain.FeedReadRepository
 import com.quata.feature.feed.domain.FeedRepository
 import com.quata.feature.feed.domain.ReadOnlyFeedRepository
@@ -40,6 +46,7 @@ class IosFeedHostDependencies(
     val onAuthRequired: () -> Unit = {},
     val onCreatePost: () -> Unit = {},
     val profileOpeningState: IosMemberProfileOpeningState,
+    val preferredLanguageTag: String? = null,
 )
 
 /**
@@ -55,6 +62,7 @@ fun iosReadOnlyFeedHostDependencies(
     onAuthRequired: () -> Unit = {},
     onCreatePost: () -> Unit = {},
     profileOpeningState: IosMemberProfileOpeningState,
+    preferredLanguageTag: String? = null,
 ): IosFeedHostDependencies = IosFeedHostDependencies(
     repository = ReadOnlyFeedRepository(readRepository),
     mediaFactory = mediaFactory,
@@ -64,6 +72,7 @@ fun iosReadOnlyFeedHostDependencies(
     onAuthRequired = onAuthRequired,
     onCreatePost = onCreatePost,
     profileOpeningState = profileOpeningState,
+    preferredLanguageTag = preferredLanguageTag,
 )
 
 /**
@@ -80,6 +89,7 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     onAuthRequired: () -> Unit = {},
     onCreatePost: () -> Unit = {},
     profileOpeningState: IosMemberProfileOpeningState,
+    preferredLanguageTag: String? = null,
 ): IosFeedHostDependencies = iosReadOnlyFeedHostDependencies(
     readRepository = RemoteFeedReadRepository(IosFeedReadTransport(configuration)),
     mediaFactory = mediaFactory,
@@ -89,6 +99,7 @@ fun iosPublicPostgrestReadOnlyFeedHostDependencies(
     onAuthRequired = onAuthRequired,
     onCreatePost = onCreatePost,
     profileOpeningState = profileOpeningState,
+    preferredLanguageTag = preferredLanguageTag,
 )
 
 /** Authenticated launch path: it shares the Keychain session owner and enables reviewed writes. */
@@ -102,6 +113,7 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
     onAuthRequired: () -> Unit = {},
     onCreatePost: () -> Unit = {},
     profileOpeningState: IosMemberProfileOpeningState,
+    preferredLanguageTag: String? = null,
 ): IosFeedHostDependencies {
     val transport = IosFeedReadTransport(configuration, authSession)
     val read = RemoteFeedReadRepository(transport)
@@ -115,6 +127,7 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
         onAuthRequired = onAuthRequired,
         onCreatePost = onCreatePost,
         profileOpeningState = profileOpeningState,
+        preferredLanguageTag = preferredLanguageTag,
     )
 }
 
@@ -126,6 +139,13 @@ fun iosAuthenticatedPostgrestFeedHostDependencies(
 fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewController = ComposeUIViewController {
     QuataTheme {
         val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
+        val commentsTranslationGateway = remember {
+            FangTextTranslatorGateway(
+                identifier = IosFastTextLanguageIdentifier,
+                translator = FangTranslationService(transport = IosTranslationHttpTransport()),
+                preferredLanguage = quataTranslatorPreferredLanguage(dependencies.preferredLanguageTag),
+            )
+        }
         FeedScreenHost(
             padding = PaddingValues(),
             repository = dependencies.repository,
@@ -162,6 +182,8 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
                 rankingAvatarWithPresence = { item, isOnline -> IosFeedRankingAvatar(item, isOnline) },
                 share = dependencies.shareService::share,
                 showComposeMessage = true,
+                commentsTranslationGateway = commentsTranslationGateway,
+                commentsTranslatorStrings = quataTranslatorStringsForLanguage(dependencies.preferredLanguageTag),
             ),
             onOpenUserProfile = dependencies.onOpenUserProfile,
             onAuthRequired = dependencies.onAuthRequired,

@@ -266,7 +266,7 @@ fun FeedScreen(
             },
             share = shareService::share,
             message = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
-            commentsTranslatorTrigger = { _, modifier ->
+            commentsTranslatorTrigger = { _, modifier, _, _ ->
                 FangTranslatorIconButton(
                     onClick = { view ->
                         translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)

@@ -184,6 +184,7 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
                     dependencies.canCreateOfficialPost,
                     strings.close,
                     openingProfileUserId,
+                    dependencies.preferredLanguageTag,
                 ),
                 onFocusedPostHandled = {},
                 modifier = Modifier,

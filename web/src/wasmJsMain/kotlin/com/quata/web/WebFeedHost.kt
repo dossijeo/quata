@@ -3,9 +3,15 @@ package com.quata.web
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import com.quata.core.language.BrowserTranslationHttpTransport
+import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
+import com.quata.designsystem.translation.FangTextTranslatorGateway
+import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
+import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.feed.presentation.FeedScreenHost
 import com.quata.feature.feed.presentation.FeedScreenPlatformSlots
 import com.quata.feature.feed.presentation.FeedUserPresence
@@ -26,6 +32,14 @@ fun WebFeedHost(
 ) {
     LaunchedEffect(sharedPostId) { setWebFeedDetailMarker(sharedPostId) }
     val windowLayout = rememberQuataWindowLayoutInfo()
+    val languageTag = browserCapabilityLanguageTag()
+    val commentsTranslationGateway = remember {
+        FangTextTranslatorGateway(
+            identifier = BrowserFastTextLanguageIdentifier,
+            translator = FangTranslationService(transport = BrowserTranslationHttpTransport()),
+            preferredLanguage = quataTranslatorPreferredLanguage(languageTag),
+        )
+    }
     FeedScreenHost(
         padding = PaddingValues(),
         repository = repository,
@@ -48,6 +62,8 @@ fun WebFeedHost(
             rankingAvatarWithPresence = { item, isOnline -> BrowserFeedRankingAvatar(item, isOnline) },
             share = shareService::share,
             showComposeMessage = true,
+            commentsTranslationGateway = commentsTranslationGateway,
+            commentsTranslatorStrings = quataTranslatorStringsForLanguage(languageTag),
         ),
         presence = presence,
         currentUserId = currentUserId,

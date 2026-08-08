@@ -1,15 +1,16 @@
 package com.quata.core.language
 
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FastTextLanguageDetectorInstrumentedTest {
     @Test
-    fun detectsBundledFastTextLanguages() {
+    fun detectsBundledFastTextLanguages() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val detector = FastTextLanguageDetector.loadFromAssets(context)
+        val detector = QuataLanguageIdentifier.detector(context)
 
         assertLanguage(detector, "hola como estas amigo", "es")
         assertLanguage(detector, "bonjour je suis tres content", "fr")

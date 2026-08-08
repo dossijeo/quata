@@ -43,6 +43,7 @@ class IosFeedRuntimeBootstrap(
         onAuthRequired: () -> Unit = {},
         onCreatePost: () -> Unit = {},
         profileOpeningState: IosMemberProfileOpeningState,
+        preferredLanguageTag: String? = null,
     ): IosFeedHostDependencies = iosPublicPostgrestReadOnlyFeedHostDependencies(
             configuration = configuration,
             mediaFactory = mediaFactory,
@@ -52,6 +53,7 @@ class IosFeedRuntimeBootstrap(
             onAuthRequired = onAuthRequired,
             onCreatePost = onCreatePost,
             profileOpeningState = profileOpeningState,
+            preferredLanguageTag = preferredLanguageTag,
         )
 
     fun authenticatedDependencies(
@@ -62,9 +64,10 @@ class IosFeedRuntimeBootstrap(
         onAuthRequired: () -> Unit = {},
         onCreatePost: () -> Unit = {},
         profileOpeningState: IosMemberProfileOpeningState,
+        preferredLanguageTag: String? = null,
     ): IosFeedHostDependencies = iosAuthenticatedPostgrestFeedHostDependencies(
         configuration, authSession, mediaFactory, shareService, initialPostId, onOpenUserProfile,
-        onAuthRequired, onCreatePost, profileOpeningState,
+        onAuthRequired, onCreatePost, profileOpeningState, preferredLanguageTag,
     )
 
     /** Returns whether a Keychain record exists; do not use this to mount authenticated UI. */

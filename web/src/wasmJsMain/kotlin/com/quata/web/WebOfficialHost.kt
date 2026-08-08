@@ -38,6 +38,9 @@ import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.ShareService
 import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
 import com.quata.core.ui.richtext.QuataRichTextRenderer
+import com.quata.designsystem.translation.FangTextTranslatorGateway
+import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
+import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialPostDraft
@@ -79,18 +82,27 @@ fun WebOfficialHost(
     onOpenUserProfile: (String) -> Unit,
     onCreateOfficialPost: () -> Unit,
     modifier: Modifier = Modifier,
-) = OfficialFeedScreenHost(
-    padding = PaddingValues(),
-    repository = repository,
-    currentUserId = currentUserId,
-    focusedPostId = officialPostId,
-    onAuthRequired = onAuthRequired,
-    onOpenUserProfile = onOpenUserProfile,
-    onCreateOfficialPost = onCreateOfficialPost,
-    onFocusedPostHandled = {},
-    strings = defaultOfficialFeedScreenStrings(webOfficialLanguageTag()),
-    modifier = modifier,
-    slots = OfficialFeedScreenPlatformSlots(
+) {
+    val languageTag = webOfficialLanguageTag()
+    val commentsTranslationGateway = remember {
+        FangTextTranslatorGateway(
+            identifier = BrowserFastTextLanguageIdentifier,
+            translator = FangTranslationService(transport = BrowserTranslationHttpTransport()),
+            preferredLanguage = quataTranslatorPreferredLanguage(languageTag),
+        )
+    }
+    OfficialFeedScreenHost(
+        padding = PaddingValues(),
+        repository = repository,
+        currentUserId = currentUserId,
+        focusedPostId = officialPostId,
+        onAuthRequired = onAuthRequired,
+        onOpenUserProfile = onOpenUserProfile,
+        onCreateOfficialPost = onCreateOfficialPost,
+        onFocusedPostHandled = {},
+        strings = defaultOfficialFeedScreenStrings(languageTag),
+        modifier = modifier,
+        slots = OfficialFeedScreenPlatformSlots(
         avatar = { post, avatarModifier ->
             BrowserFeedAuthorAvatar(
                 post.asFeedPost(),
@@ -115,8 +127,11 @@ fun WebOfficialHost(
         canCreateOfficialPost = canCreateOfficialPost,
         openUrl = { url -> openBrowserUrl(url) },
         rankingAvatar = { item -> BrowserFeedRankingAvatar(item) },
-    ),
-)
+        commentsTranslationGateway = commentsTranslationGateway,
+        commentsTranslatorStrings = quataTranslatorStringsForLanguage(languageTag),
+        ),
+    )
+}
 
 /** Browser editor adapter: acquisition/rendering are native seams; form and preview are common. */
 @Composable

@@ -48,7 +48,7 @@ class FeedCommentTranslatorDisplayTest {
         val slots = FeedScreenPlatformSlots(media = { _, _, _, _, _, _ -> })
         setContent {
             QuataTheme {
-                slots.commentsTranslatorTrigger("Traductor Fang", Modifier)
+                slots.commentsTranslatorTrigger("Traductor Fang", Modifier, {}, true)
             }
         }
         onNodeWithContentDescription("Traductor Fang")

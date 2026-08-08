@@ -127,7 +127,7 @@ fun OfficialFeedScreen(
             rankingAvatar = { item ->
                 AvatarImage(item.avatarName, item.avatarUrl, true, item.profileId, Modifier.size(44.dp))
             },
-            commentsTranslatorTrigger = { _, triggerModifier ->
+            commentsTranslatorTrigger = { _, triggerModifier, _, _ ->
                 FangTranslatorIconButton(
                     onClick = { view ->
                         translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
