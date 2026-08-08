@@ -49,6 +49,7 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
     private var active = false
     private var started = false
     private var reportedError: String?
+    private var cachedDurationMs: Int64 = 0
 
     init(imageURL: URL?) {
         super.init()
@@ -168,16 +169,19 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
     private func feedDurationMs(for item: AVPlayerItem?) -> Int64 {
         guard let item else { return 0 }
         if let duration = milliseconds(from: item.duration), duration > 0 {
-            return duration
+            cachedDurationMs = max(cachedDurationMs, duration)
+            return cachedDurationMs
         }
-        if let duration = milliseconds(from: item.asset.duration), duration > 0 {
-            return duration
-        }
-        return item.seekableTimeRanges
+        let zeroBasedSeekableDuration = item.seekableTimeRanges
             .map(\.timeRangeValue)
-            .map { range in CMTimeAdd(range.start, range.duration) }
-            .compactMap { milliseconds(from: $0) }
+            .filter { range in
+                let startSeconds = CMTimeGetSeconds(range.start)
+                return startSeconds.isFinite && abs(startSeconds) < 0.05
+            }
+            .compactMap { milliseconds(from: $0.duration) }
             .max() ?? 0
+        cachedDurationMs = max(cachedDurationMs, zeroBasedSeekableDuration)
+        return cachedDurationMs
     }
 
     private func milliseconds(from time: CMTime) -> Int64? {
