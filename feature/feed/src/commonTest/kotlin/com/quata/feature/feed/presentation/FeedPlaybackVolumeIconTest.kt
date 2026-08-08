@@ -27,9 +27,11 @@ class FeedPlaybackVolumeIconTest {
 
     @Test
     fun sharedPlaybackChromeKeepsVisibleBottomControlsOverTransparentMedia() {
-        assertEquals(52.dp, FeedReelPlaybackControlsHeight)
-        assertTrue(FeedReelPlaybackControlsScrimAlpha >= 0.85f)
-        assertTrue(FeedReelPlaybackControlsBorderAlpha >= 0.30f)
-        assertTrue(FeedReelPlaybackIconScrimAlpha >= 0.24f)
+        assertEquals(56.dp, FeedReelPlaybackControlsHeight)
+        assertEquals(10.dp, FeedReelPlaybackControlsHorizontalPadding)
+        assertEquals(64.dp, FeedReelPlaybackControlsActionRailReserve)
+        assertTrue(FeedReelPlaybackControlsScrimAlpha >= 0.90f)
+        assertTrue(FeedReelPlaybackControlsBorderAlpha >= 0.40f)
+        assertTrue(FeedReelPlaybackIconScrimAlpha >= 0.40f)
     }
 }

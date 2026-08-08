@@ -574,6 +574,7 @@ class ChatViewModel(
     }
 
     private fun openForwardPicker() {
+        selectedMessage()?.takeIf { !it.isLocalEcho && !it.isDeleted } ?: return
         _uiState.value = _uiState.value.copy(
             isForwardDialogOpen = true,
             selectedForwardProfileIds = emptyList(),
@@ -751,7 +752,7 @@ class ChatViewModel(
     private fun selectedMessage() = _uiState.value.messages.firstOrNull { it.id == _uiState.value.selectedMessageId }
 
     private fun startReply() {
-        selectedMessage()?.takeIf { !it.isLocalEcho }?.let { message ->
+        selectedMessage()?.takeIf { !it.isLocalEcho && !it.isDeleted }?.let { message ->
             _uiState.value = _uiState.value.copy(replyToMessage = message, selectedMessageId = null)
         }
     }
@@ -767,7 +768,7 @@ class ChatViewModel(
     }
 
     private fun toggleFavoriteSelected() {
-        val message = selectedMessage()?.takeIf { !it.isLocalEcho } ?: return
+        val message = selectedMessage()?.takeIf { !it.isLocalEcho && !it.isDeleted } ?: return
         scope.launch {
             repository.toggleFavoriteMessage(message.id)
                 .onSuccess { _uiState.value = _uiState.value.copy(selectedMessageId = null) }
@@ -776,7 +777,7 @@ class ChatViewModel(
     }
 
     private fun deleteSelectedMessage() {
-        val message = selectedMessage()?.takeIf { it.isMine && !it.isLocalEcho } ?: return
+        val message = selectedMessage()?.takeIf { it.isMine && !it.isDeleted && !it.isLocalEcho } ?: return
         scope.launch {
             repository.deleteMessage(message.id)
                 .onSuccess { _uiState.value = _uiState.value.copy(selectedMessageId = null) }
@@ -785,7 +786,7 @@ class ChatViewModel(
     }
 
     private fun reportSelectedMessage() {
-        val message = selectedMessage()?.takeIf { !it.isMine && !it.isLocalEcho } ?: return
+        val message = selectedMessage()?.takeIf { !it.isMine && !it.isDeleted && !it.isLocalEcho } ?: return
         scope.launch {
             repository.reportMessage(message.id)
                 .onSuccess {
@@ -806,7 +807,7 @@ class ChatViewModel(
     }
 
     private fun sendForward() {
-        val message = selectedMessage()?.takeIf { !it.isLocalEcho } ?: return
+        val message = selectedMessage()?.takeIf { !it.isLocalEcho && !it.isDeleted } ?: return
         val selectedProfileIds = _uiState.value.selectedForwardProfileIds.distinct()
         if (selectedProfileIds.isEmpty()) return
         _uiState.value = _uiState.value.copy(

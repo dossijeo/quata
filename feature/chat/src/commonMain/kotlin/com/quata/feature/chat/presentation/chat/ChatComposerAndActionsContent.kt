@@ -31,6 +31,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -57,13 +59,36 @@ fun ChatSelectedMessageActionsContent(
         compact = compact,
         navigationAction = { CompactIconButton(onClick = { onEvent(ChatUiEvent.MessageSelected(null)) }) { CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.closeSelection) } },
         actions = {
-            CompactIconButton(onClick = { onCopy(message.text); onEvent(ChatUiEvent.MessageSelected(null)) }) { CompactIcon(Icons.Filled.ContentCopy, strings.copyMessage) }
-            CompactIconButton(onClick = { onEvent(ChatUiEvent.StartReply) }) { CompactIcon(Icons.AutoMirrored.Filled.Reply, strings.replyMessage) }
-            CompactIconButton(onClick = { onEvent(ChatUiEvent.OpenForwardDialog) }) { CompactIcon(Icons.AutoMirrored.Filled.Forward, strings.forwardMessage) }
-            if (message.isMine && !message.isDeleted) CompactIconButton(onClick = { onEvent(ChatUiEvent.StartEdit) }) { CompactIcon(Icons.Filled.Edit, strings.editMessage) }
-            if (!message.isMine && !message.isDeleted) CompactIconButton(onClick = { confirmation = ChatConfirmation.Report }) { CompactIcon(Icons.Filled.Flag, strings.reportMessage) }
-            CompactIconButton(onClick = { onEvent(ChatUiEvent.ToggleFavoriteSelected) }) { CompactIcon(if (message.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder, strings.favoriteMessage) }
-            if (message.isMine && !message.isDeleted) CompactIconButton(onClick = { confirmation = ChatConfirmation.Delete }) { CompactIcon(Icons.Filled.Delete, strings.deleteMessage) }
+            if (!message.isDeleted) {
+                CompactIconButton(
+                    onClick = { onCopy(message.text); onEvent(ChatUiEvent.MessageSelected(null)) },
+                    modifier = Modifier.semantics { testTag = "chat.action.copy" },
+                ) { CompactIcon(Icons.Filled.ContentCopy, strings.copyMessage) }
+                CompactIconButton(
+                    onClick = { onEvent(ChatUiEvent.StartReply) },
+                    modifier = Modifier.semantics { testTag = "chat.action.reply" },
+                ) { CompactIcon(Icons.AutoMirrored.Filled.Reply, strings.replyMessage) }
+                CompactIconButton(
+                    onClick = { onEvent(ChatUiEvent.OpenForwardDialog) },
+                    modifier = Modifier.semantics { testTag = "chat.action.forward" },
+                ) { CompactIcon(Icons.AutoMirrored.Filled.Forward, strings.forwardMessage) }
+            }
+            if (message.isMine && !message.isDeleted) CompactIconButton(
+                onClick = { onEvent(ChatUiEvent.StartEdit) },
+                modifier = Modifier.semantics { testTag = "chat.action.edit" },
+            ) { CompactIcon(Icons.Filled.Edit, strings.editMessage) }
+            if (!message.isMine && !message.isDeleted) CompactIconButton(
+                onClick = { confirmation = ChatConfirmation.Report },
+                modifier = Modifier.semantics { testTag = "chat.action.report" },
+            ) { CompactIcon(Icons.Filled.Flag, strings.reportMessage) }
+            if (!message.isDeleted) CompactIconButton(
+                onClick = { onEvent(ChatUiEvent.ToggleFavoriteSelected) },
+                modifier = Modifier.semantics { testTag = "chat.action.favorite" },
+            ) { CompactIcon(if (message.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder, strings.favoriteMessage) }
+            if (message.isMine && !message.isDeleted) CompactIconButton(
+                onClick = { confirmation = ChatConfirmation.Delete },
+                modifier = Modifier.semantics { testTag = "chat.action.delete" },
+            ) { CompactIcon(Icons.Filled.Delete, strings.deleteMessage) }
         },
         modifier = modifier,
     )

@@ -31,6 +31,9 @@ const [
   chatScreenHost,
   conversationDetail,
   deepLinkFocus,
+  selectedActions,
+  groupManagement,
+  viewModel,
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
@@ -42,6 +45,9 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatScreenHost.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConversationDetailContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatMessageDeepLinkFocus.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatComposerAndActionsContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatGroupManagementContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt"),
 ]);
 
 test("CHAT-COMMON-ROOT-001 is part of mandatory fast and Wave2 contracts", () => {
@@ -109,6 +115,22 @@ test("common chat root owns read states, retry, history paging and one-shot focu
   assert.match(deepLinkFocus, /hasMoreHistory -> ChatMessageDeepLinkRequest\.LoadingOlder/);
   assert.match(deepLinkFocus, /else -> ChatMessageDeepLinkRequest\.Unavailable/);
   assert.match(deepLinkFocus, /retryChatMessageDeepLinkRequest/);
+});
+
+test("common chat action chrome owns mute and tombstone action guards", () => {
+  assert.match(groupManagement, /testTag = "chat\.menu\.options"/);
+  assert.match(groupManagement, /ChatUiEvent\.ConversationMutedChanged\(conversation\?\.isMuted != true\)/);
+  assert.match(groupManagement, /conversation\?\.isMuted == true\) strings\.reactivateNotifications else strings\.muteConversation/);
+
+  for (const tag of ["copy", "reply", "forward", "edit", "report", "favorite", "delete"]) {
+    assert.match(selectedActions, new RegExp(`testTag = "chat\\.action\\.${tag}"`));
+  }
+  assert.match(selectedActions, /if \(!message\.isDeleted\) \{[\s\S]*?chat\.action\.copy[\s\S]*?chat\.action\.reply[\s\S]*?chat\.action\.forward/);
+  assert.match(selectedActions, /if \(!message\.isDeleted\) CompactIconButton\([\s\S]*?testTag = "chat\.action\.favorite"/);
+
+  assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ !it\.isLocalEcho && !it\.isDeleted \}/);
+  assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ it\.isMine && !it\.isDeleted && !it\.isLocalEcho \}/);
+  assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ !it\.isMine && !it\.isDeleted && !it\.isLocalEcho \}/);
 });
 
 test("SCR-CHAT inventory reflects the real common-root state without declaring final GO", () => {
