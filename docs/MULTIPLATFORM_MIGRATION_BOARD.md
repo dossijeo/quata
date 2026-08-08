@@ -6,10 +6,10 @@
 
 ## Foto de control — 2026-08-04
 
-**HEAD integrado:** `main` `702fb7174a758778e4f5d8f2ded0b6853378208f` (PR #175), posterior a #154,
-#156, #159, #168, #169, #170, #172, #173 y #174. El proyecto sigue incompleto: #175 integra las
-raíces comunes de Comunidades y perfil público global, pero conserva límites `PROF-*`,
-`FLOW-COMMUNITY-CHAT` y overlays dependientes según `SCREEN_MIGRATION_INVENTORY_V2.md`.
+**HEAD integrado:** `main` `99ae1ef42b6baa2c06157e20327dd2e2aa8910fd` (PR #190), posterior a #154,
+#156, #159, #168, #169, #170, #172, #173, #174 y #175. El proyecto sigue incompleto: #190 integra
+la accion Web real del editor oficial, pero conserva limites de publicacion/validacion/adjuntos/error
+Android-Wasm-iOS segun `SCREEN_MIGRATION_INVENTORY_V2.md`.
 
 | Área | Estado | Qué acredita | Límite vigente |
 | --- | --- | --- | --- |
@@ -47,6 +47,7 @@ raíces comunes de Comunidades y perfil público global, pero conserva límites 
 | [#174](https://github.com/dossijeo/quata/pull/174) | `ff088b55` | Baseline Wasm actualizado sobre las integraciones anteriores. |
 | [#173](https://github.com/dossijeo/quata/pull/173) | `855f167f` | `ConversationsScreenHost` y transporte realtime común; Chat Web/iOS sigue siendo fallback browser-style. |
 | [#175](https://github.com/dossijeo/quata/pull/175) | `702fb717` | Comunidades y perfil público global pasan a raíces comunes con límites; Feed iOS integra gradiente de medios y controles globales. Candidato exacto final: base `855f167f`, head `aee41fa7`, merge sintético `5fd040ae`; gates protegidos verdes. |
+| [#190](https://github.com/dossijeo/quata/pull/190) | `99ae1ef4` | Official editor Web expone la accion real desde Feed/Oficial mediante elegibilidad comun y evidencia hermetica con identidad de PR; no declara GO global de `SCR-OFFICIAL-EDITOR` hasta cerrar publicacion/validacion/adjuntos/error Android-Wasm-iOS con datos reversibles y comparativa visual. |
 
 ## Registro de candidato #156 y mejora de preflight
 
@@ -135,7 +136,7 @@ no una nueva evidencia de producto.
 
 ## Próxima cola
 
-1. Cerrar la candidata activa #187 sin bloquear trabajo independiente y promocionar `codex/official-editor-rebuild-v2` para `SCR-OFFICIAL-EDITOR`: Web/iOS ya montan `OfficialPostEditorRoot`, publican mediante planes comunes, suben adjuntos con los transportes reales y tienen evidencia REST reversible; queda evidencia visual integrada Android-Wasm-iOS y mantener traduccion automatica Web/iOS como limite documentado.
+1. Cerrar `SCR-OFFICIAL-EDITOR` sobre `main` posterior a #190: añadir semantica comun estable para evidencia, recorrer publicacion/validacion/adjuntos/error en Android-Wasm-iOS con Gabrielo/Gabrielu o datos temporales reversibles, capturar comparativa visual y mantener traduccion automatica Web/iOS como limite documentado hasta que exista abstraccion comun real.
 2. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y duración/seek iOS de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
 3. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
 4. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
