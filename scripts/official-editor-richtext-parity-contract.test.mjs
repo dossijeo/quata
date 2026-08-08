@@ -11,6 +11,10 @@ const ios = await readFile(
   new URL("../feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt", import.meta.url),
   "utf8",
 );
+const commonTranslator = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostEditorFangTranslator.kt", import.meta.url),
+  "utf8",
+);
 const iosUiTest = await readFile(
   new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedOfficialEditorUITests.swift", import.meta.url),
   "utf8",
@@ -45,7 +49,19 @@ test("Official editor no longer accepts browser prompt or plain iOS text field a
 });
 
 test("Official editor rich text parity contract stays hermetic", () => {
-  for (const source of [portable, web, ios, iosUiTest]) {
+  for (const source of [portable, web, ios, iosUiTest, commonTranslator]) {
     assert.doesNotMatch(source, /SUPABASE_DB_URL|SERVICE_ROLE|21085800|\+240|68024260/);
   }
+});
+
+test("Official editor translation is shared for Web and iOS", () => {
+  assert.match(commonTranslator, /class OfficialPostEditorFangTranslator\(/);
+  assert.match(commonTranslator, /: OfficialPostEditorTranslator/);
+  assert.match(commonTranslator, /private val translator: TextTranslator/);
+  assert.match(commonTranslator, /officialHtmlBlockRegex\.findAll\(html\)/);
+  assert.match(web, /OfficialPostEditorFangTranslator\(FangTranslationService\(transport = BrowserTranslationHttpTransport\(\)\)\)/);
+  assert.match(ios, /OfficialPostEditorFangTranslator\(FangTranslationService\(transport = IosTranslationHttpTransport\(\)\)\)/);
+  assert.match(web, /translator = translator/);
+  assert.match(ios, /translator = translator/);
+  assert.doesNotMatch(ios, /translator = null/);
 });

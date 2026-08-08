@@ -30,6 +30,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import com.quata.core.model.User
 import com.quata.core.model.Post
+import com.quata.core.language.BrowserTranslationHttpTransport
+import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
@@ -49,6 +51,7 @@ import com.quata.feature.official.presentation.OfficialEditorMediaPreviewContent
 import com.quata.feature.official.presentation.OfficialEditorPostPreviewContent
 import com.quata.feature.official.presentation.OfficialPostActionRailContent
 import com.quata.feature.official.presentation.OfficialPostActionRailStrings
+import com.quata.feature.official.presentation.OfficialPostEditorFangTranslator
 import com.quata.feature.official.presentation.OfficialPostEditorPlatformSlots
 import com.quata.feature.official.presentation.OfficialPostEditorRoot
 import com.quata.feature.official.presentation.OfficialPostEditorPreviewState
@@ -128,6 +131,9 @@ fun WebOfficialEditorHost(
     var isPublishing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val translator = remember {
+        OfficialPostEditorFangTranslator(FangTranslationService(transport = BrowserTranslationHttpTransport()))
+    }
     androidx.compose.runtime.LaunchedEffect(repository, currentUserId) {
         currentUser = repository.refreshCurrentUser().getOrNull()
     }
@@ -151,7 +157,7 @@ fun WebOfficialEditorHost(
             }
         },
         detectLanguage = { webOfficialPostLanguage() },
-        translator = null,
+        translator = translator,
         newTranslationGroupId = { webRandomUuid() },
         modifier = modifier,
     )
