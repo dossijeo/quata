@@ -34,6 +34,7 @@ import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.ShareService
+import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostItem
@@ -158,14 +159,12 @@ fun WebOfficialEditorHost(
 @Composable
 private fun webOfficialEditorPlatformSlots(platformServices: WebPlatformServices) = OfficialPostEditorPlatformSlots(
     bodyEditorAction = { html, title, onHtmlChange, buttonModifier ->
-        OutlinedButton(
-            onClick = { webPromptForOfficialHtml(title, html)?.let(onHtmlChange) },
+        QuataPortableRichTextEditorBox(
+            initialHtml = html,
+            placeholder = title,
+            onHtmlChange = onHtmlChange,
             modifier = buttonModifier,
-        ) {
-            Icon(Icons.Filled.Edit, contentDescription = null)
-            Spacer(Modifier.size(8.dp))
-            Text(title, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
+        )
     },
     imagePicker = { onPicked, buttonModifier ->
         val scope = rememberCoroutineScope()
@@ -397,9 +396,6 @@ private fun PlatformResult<List<com.quata.core.platform.PlatformFile>>.firstOffi
     is PlatformResult.Success -> value.firstOrNull()?.reference
     is PlatformResult.Failure, PlatformResult.Cancelled, PlatformResult.Unsupported -> null
 }
-
-private fun webPromptForOfficialHtml(title: String, initialHtml: String): String? =
-    js("globalThis.prompt(title, initialHtml)")
 
 @JsFun(
     """(url, onSuccess, onFailure) => {

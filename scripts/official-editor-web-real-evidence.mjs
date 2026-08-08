@@ -116,13 +116,14 @@ try {
   );
   report.steps.push("official_route_mounted_with_restored_real_session");
 
-  const createButton = page.getByLabel(/Crear comunicado|Create notice|Cr(?:Ã©|é)er un communiqu(?:Ã©|é)/i).first();
+  const createButton = page.locator("#official-create-action").first();
   await createButton.waitFor({ timeout: 45_000 });
-  assertVisibleBox(await createButton.boundingBox(), "official_create_cta_not_visible");
+  const createBox = await createButton.boundingBox();
+  assertVisibleBox(createBox, "official_create_cta_not_visible");
   report.evidence.official = await screenshot(page, options.evidenceDir, "web-real-official-create-cta-visible");
   report.steps.push("shared_create_cta_visible_for_real_official_profile");
 
-  await createButton.click({ force: true });
+  await page.mouse.click(createBox.x + createBox.width / 2, createBox.y + createBox.height / 2);
   await page.waitForFunction(() =>
     localStorage.getItem("web.navigation.route") === "official-editor" &&
     document.documentElement.getAttribute("data-quata-shell-route") === "official-editor",
@@ -159,14 +160,14 @@ try {
     report.steps.push(`real_${options.media}_picker_selects_media_and_common_preview_renders`);
   }
 
-  const bodyAction = page.getByRole("button", {
-    name: /Editar descripci(?:Ã³|ó)n|Edit description|Modifier la description/i,
-  }).first();
-  await bodyAction.waitFor({ timeout: 15_000 });
-  page.once("dialog", async (dialog) => {
-    await dialog.accept(`<p>QUATA Web UI evidence ${marker}</p><p>Publicacion reversible creada desde Wasm.</p>`);
-  });
   await clickSemanticElement(page, "official-editor-body-action");
+  const bodyField = page.getByRole("textbox").first();
+  await bodyField.waitFor({ state: "attached", timeout: 15_000 });
+  await bodyField.click({ force: true });
+  await page.keyboard.insertText(`QUATA Web UI evidence ${marker}\nPublicacion reversible creada desde Wasm.`);
+  await page.locator("#official-editor-preview")
+    .getByText(new RegExp(escapeRegExp(marker)))
+    .waitFor({ state: "attached", timeout: 15_000 });
   await clickSemanticElement(page, "official-editor-publish");
 
   await waitForPostgrestPost(page, report.postgrest, options.evidenceDir);
@@ -175,7 +176,7 @@ try {
     document.documentElement.getAttribute("data-quata-shell-route") === "official",
     { timeout: 60_000 },
   );
-  await page.getByText(new RegExp(escapeRegExp(marker))).waitFor({ timeout: 60_000 });
+  await page.getByText(new RegExp(escapeRegExp(marker))).first().waitFor({ timeout: 60_000 });
   report.evidence.published = await screenshot(page, options.evidenceDir, "web-real-official-post-visible-after-publish");
   report.steps.push("real_publish_returns_to_official_feed_and_renders_marker");
 

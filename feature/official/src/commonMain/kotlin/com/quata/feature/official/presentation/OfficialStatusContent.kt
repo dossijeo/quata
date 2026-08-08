@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataOrange
@@ -32,6 +33,8 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.CompactIcon
 
 data class OfficialStatusStrings(val empty: String, val create: String)
+
+const val OfficialCreateActionTestTag = "official-create-action"
 
 @Composable
 fun OfficialLoadingContent(canPublish: Boolean, strings: OfficialStatusStrings, onCreate: () -> Unit, modifier: Modifier = Modifier) {
@@ -56,7 +59,7 @@ fun OfficialEmptyContent(canPublish: Boolean, strings: OfficialStatusStrings, on
 
 @Composable
 private fun OfficialCreateAction(label: String, onClick: () -> Unit, modifier: Modifier) {
-    Surface(color = QuataOrange, contentColor = Color.White, shape = CircleShape, shadowElevation = 6.dp, border = BorderStroke(2.dp, Color.White.copy(alpha = .88f)), modifier = modifier.size(48.dp).clickable(onClick = onClick)) {
+    Surface(color = QuataOrange, contentColor = Color.White, shape = CircleShape, shadowElevation = 6.dp, border = BorderStroke(2.dp, Color.White.copy(alpha = .88f)), modifier = modifier.size(48.dp).testTag(OfficialCreateActionTestTag).clickable(onClick = onClick)) {
         Box(contentAlignment = Alignment.Center) { CompactIcon(Icons.Filled.Add, label, modifier = Modifier.size(24.dp)) }
     }
 }

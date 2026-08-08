@@ -19,6 +19,11 @@ test("Official editor Web evidence keeps the permission fixture hermetic and mut
   assert.match(runner, /is_official: "true"/);
   assert.match(runner, /empty_publish_shows_shared_validation_feedback_without_mutation/);
   assert.match(runner, /official_editor_invalid_draft_mutated/);
+  assert.match(runner, /official-editor-body-action/);
+  assert.match(runner, /official-editor-preview/);
+  assert.match(runner, /getByRole\("textbox"\)/);
+  assert.match(runner, /keyboard\.insertText/);
+  assert.doesNotMatch(runner, /globalThis\.prompt|window\.prompt|page\.once\("dialog"|dialog\.accept/);
   assert.match(runner, /valid_publish_attempt_uses_shared_postgrest_plan_and_fails_closed/);
   assert.match(runner, /fixture_publish_forbidden/);
   assert.match(runner, /fixture_mutation_forbidden/);

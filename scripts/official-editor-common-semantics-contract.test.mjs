@@ -6,6 +6,10 @@ const root = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostEditorRoot.kt", import.meta.url),
   "utf8",
 );
+const status = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialStatusContent.kt", import.meta.url),
+  "utf8",
+);
 
 const requiredTags = [
   "official-editor-common-root",
@@ -28,11 +32,16 @@ test("Official editor exposes stable commonMain semantics for platform evidence"
   }
   assert.match(root, /modifier = modifier\.testTag\(OfficialEditorRootTestTag\)/);
   assert.match(root, /OfficialEditorPublishTestTag/);
+  assert.match(status, /OfficialCreateActionTestTag/);
+  assert.match(status, /"official-create-action"/);
+  assert.match(status, /testTag\(OfficialCreateActionTestTag\)/);
   assert.match(root, /fun requestPublication\(\)[\s\S]*?if \(!canPublish\)[\s\S]*?if \(!draftState\.canPublish\(\)\)/);
   assert.match(root, /OfficialPublishButtonContent\([\s\S]*?enabled = true/);
   assert.doesNotMatch(root, /fun canSubmitDraft\(/);
 });
 
 test("Official editor semantics contract stays hermetic", () => {
-  assert.doesNotMatch(root, /SUPABASE_DB_URL|SERVICE_ROLE|21085800|\+240|68024260/);
+  for (const source of [root, status]) {
+    assert.doesNotMatch(source, /SUPABASE_DB_URL|SERVICE_ROLE|21085800|\+240|68024260/);
+  }
 });
