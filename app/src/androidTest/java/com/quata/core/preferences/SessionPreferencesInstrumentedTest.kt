@@ -42,6 +42,7 @@ class SessionPreferencesInstrumentedTest {
             .putString(KEY_EMAIL, session.email).putString(KEY_DISPLAY_NAME, session.displayName)
             .putString(KEY_AUTH_USER_ID, session.authUserId).putString(KEY_ACCESS_TOKEN, session.accessToken)
             .putString(KEY_REFRESH_TOKEN, session.refreshToken).putLong(KEY_EXPIRES_AT, session.expiresAt ?: 0L)
+            .putBoolean(KEY_IS_OFFICIAL, session.isOfficial)
             .commit()
         assertEquals(session, preferences.getSession())
         assertEncrypted(KEY_TOKEN, session.token)
@@ -59,12 +60,23 @@ class SessionPreferencesInstrumentedTest {
         assertFalse(stored.contains(plaintext))
     }
 
-    private fun testSession() = AuthSession("wordpress-token", "profile-123", "user@example.com", "Quata User", "auth-456", "access-token", "refresh-token", 1_900_000_000L)
+    private fun testSession() = AuthSession(
+        token = "wordpress-token",
+        userId = "profile-123",
+        email = "user@example.com",
+        displayName = "Quata User",
+        authUserId = "auth-456",
+        accessToken = "access-token",
+        refreshToken = "refresh-token",
+        expiresAt = 1_900_000_000L,
+        isOfficial = true,
+    )
 
     private companion object {
         const val TEST_PREFERENCES_NAME = "quata_session_instrumented_test"
         const val TEST_KEY_ALIAS = "quata_session_instrumented_test_key"
         const val KEY_TOKEN = "token"; const val KEY_USER_ID = "user_id"; const val KEY_REFRESH_TOKEN = "refresh_token"
         const val KEY_EMAIL = "email"; const val KEY_DISPLAY_NAME = "display_name"; const val KEY_AUTH_USER_ID = "auth_user_id"; const val KEY_ACCESS_TOKEN = "access_token"; const val KEY_EXPIRES_AT = "expires_at"
+        const val KEY_IS_OFFICIAL = "is_official"
     }
 }

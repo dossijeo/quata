@@ -359,6 +359,7 @@ private fun String.toIosAuthSession(): AuthSession {
         expiresAt = expiresAt,
         email = user?.iosString("email") ?: "${profile.iosString("country_code").orEmpty().filter(Char::isDigit)}${profile.iosString("phone_local").orEmpty().filter(Char::isDigit)}@phone.quata.app",
         displayName = profile.iosString("display_name") ?: profile.iosString("phone_local") ?: "Usuario",
+        isOfficial = profile["is_official"]?.jsonPrimitive?.booleanOrNull == true,
     )
 }
 

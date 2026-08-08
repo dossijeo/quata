@@ -640,7 +640,7 @@ private final class IosAppCompositionRoot {
             // The common Official surface exposes creation only once iOS has a real editor
             // route. This callback also fails closed after logout removes that factory.
             let onCreateOfficialPost = { [weak self] in
-                guard let self, self.authenticatedHost.hasOfficialEditorFactory else { return }
+                guard let self, self.authenticatedHost.canOpenOfficialEditor else { return }
                 self.authenticatedHost.showOfficialEditor()
             }
             if let runtimeBootstrap = self.runtimeBootstrap, let configuration = self.runtimeConfiguration, self.hasValidatedAuthenticatedSession {
@@ -658,7 +658,7 @@ private final class IosAppCompositionRoot {
                         onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                         onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                         onCreateOfficialPost: onCreateOfficialPost,
-                        canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
+                        canCreateOfficialPost: self.authenticatedHost.canOpenOfficialEditor,
                         preferredLanguageTag: Locale.preferredLanguages.first,
                         profileOpeningState: self.memberProfileOpeningState,
                     )
@@ -675,7 +675,7 @@ private final class IosAppCompositionRoot {
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                     onCreateOfficialPost: onCreateOfficialPost,
-                    canCreateOfficialPost: self.authenticatedHost.hasOfficialEditorFactory,
+                    canCreateOfficialPost: self.authenticatedHost.canOpenOfficialEditor,
                     profileOpeningState: self.memberProfileOpeningState,
                 ),
             )
@@ -685,7 +685,8 @@ private final class IosAppCompositionRoot {
     private func installAuthenticatedOfficialEditorIfAvailable() {
         guard let runtimeBootstrap, let configuration = runtimeConfiguration else { return }
         let services = platformServices.services
-        authenticatedHost.installOfficialEditorFactory { [weak self] in
+        let canCreateOfficialPost = runtimeBootstrap.authSessionForInteractiveLogin().restoredSession()?.isOfficial == true
+        authenticatedHost.installOfficialEditorFactory(isOfficialEligible: canCreateOfficialPost) { [weak self] in
             QuataOfficialViewControllerKt.QuataOfficialEditorViewController(
                 dependencies: QuataOfficialViewControllerKt.iosAuthenticatedOfficialEditorDependencies(
                     configuration: IosOfficialRuntimeConfiguration(
@@ -1282,6 +1283,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     // Installed only once iOS supplies the complete product editor dependencies. There is no
     // Composer or empty-controller fallback for Official publication.
     private var officialEditorFactory: (() -> UIViewController)?
+    private var isOfficialEditorEligible = false
     private var notificationsFactory: (() -> UIViewController)?
     private var profileSosFactory: (() -> UIViewController)?
     private var communitiesFactory: (() -> UIViewController)?
@@ -1849,13 +1851,18 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
 
     /// Registers the real common Official editor host only after its dependencies exist.
-    func installOfficialEditorFactory(_ factory: @escaping () -> UIViewController) {
+    func installOfficialEditorFactory(isOfficialEligible: Bool = true, _ factory: @escaping () -> UIViewController) {
         officialEditorFactory = factory
+        isOfficialEditorEligible = isOfficialEligible
         renderPendingRouteIfPossible()
     }
 
     var hasOfficialEditorFactory: Bool {
         officialEditorFactory != nil
+    }
+
+    var canOpenOfficialEditor: Bool {
+        officialEditorFactory != nil && isOfficialEditorEligible
     }
 
     func installNotificationsFactory(_ factory: @escaping () -> UIViewController) {
@@ -1975,7 +1982,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if composerFactory != nil {
             sheet.addAction(UIAlertAction(title: "Crear publicación", style: .default) { [weak self] _ in self?.showComposer() })
         }
-        if officialEditorFactory != nil {
+        if canOpenOfficialEditor {
             sheet.addAction(UIAlertAction(title: "Crear comunicado", style: .default) { [weak self] _ in self?.showOfficialEditor() })
         }
         if settingsFactory != nil {
@@ -2046,6 +2053,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         chatFactory = nil
         officialFactory = nil
         officialEditorFactory = nil
+        isOfficialEditorEligible = false
         notificationsFactory = nil
         profileSosFactory = nil
         communitiesFactory = nil
@@ -2116,7 +2124,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case let .official(postId):
             return officialFactory?(postId)
         case .officialEditor:
-            return officialEditorFactory?()
+            return canOpenOfficialEditor ? officialEditorFactory?() : nil
         case .notifications:
             return notificationsFactory?()
         case .profileSos:

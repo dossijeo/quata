@@ -5,6 +5,7 @@ import com.quata.core.model.currentEpochSeconds
 import com.quata.feature.auth.domain.LoginRepository
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -61,6 +62,7 @@ private fun String.toAuthSession(): AuthSession {
         displayName = profile.stringOrNull("display_name")
             ?: profile.stringOrNull("phone_local")
             ?: "Usuario",
+        isOfficial = profile.booleanOrNull("is_official"),
     )
 }
 
@@ -72,3 +74,6 @@ private fun JsonObject.requiredString(name: String): String =
 
 private fun JsonObject.stringOrNull(name: String): String? =
     this[name]?.jsonPrimitive?.contentOrNull
+
+private fun JsonObject.booleanOrNull(name: String): Boolean =
+    this[name]?.jsonPrimitive?.booleanOrNull == true

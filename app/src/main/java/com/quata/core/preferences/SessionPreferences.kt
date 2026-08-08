@@ -35,6 +35,7 @@ class SessionPreferences private constructor(
             session.accessToken?.let { putString(KEY_ACCESS_TOKEN, cipher.encrypt(it)) } ?: remove(KEY_ACCESS_TOKEN)
             session.refreshToken?.let { putString(KEY_REFRESH_TOKEN, cipher.encrypt(it)) } ?: remove(KEY_REFRESH_TOKEN)
             putLong(KEY_EXPIRES_AT, session.expiresAt ?: 0L)
+            putBoolean(KEY_IS_OFFICIAL, session.isOfficial)
             apply()
         }
     }
@@ -56,7 +57,8 @@ class SessionPreferences private constructor(
                 authUserId = prefs.getString(KEY_AUTH_USER_ID, null)?.let(::decryptOrLegacy),
                 accessToken = prefs.getString(KEY_ACCESS_TOKEN, null)?.let(::decryptOrLegacy),
                 refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null)?.let(::decryptOrLegacy),
-                expiresAt = prefs.getLong(KEY_EXPIRES_AT, 0L).takeIf { it > 0L }
+                expiresAt = prefs.getLong(KEY_EXPIRES_AT, 0L).takeIf { it > 0L },
+                isOfficial = prefs.getBoolean(KEY_IS_OFFICIAL, false),
             )
             if (rawValues.any { !cipher.isEncrypted(it) }) saveSession(session)
             session
@@ -86,5 +88,6 @@ class SessionPreferences private constructor(
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_EXPIRES_AT = "expires_at"
+        private const val KEY_IS_OFFICIAL = "is_official"
     }
 }

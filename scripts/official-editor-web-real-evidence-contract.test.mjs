@@ -29,6 +29,10 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /wordpressVideoUrlsFromMediaUrls/);
   assert.match(runner, /cleanupStorageObjects/);
   assert.match(runner, /cleanupWordpressVideoUrls/);
+  assert.match(runner, /assertWordpressVideoUrlsAbsent/);
+  assert.match(runner, /wordpressPostCleanupReadback/);
+  assert.match(runner, /wordpress_post_cleanup_verification_failed/);
+  assert.match(runner, /\[404,\s*410\]\.includes\(response\.status\)/);
   assert.match(runner, /quqos_delete_post_video/);
   assert.match(runner, /wordpressBaseUrl/);
   assert.match(runner, /wordpress-proxy/);

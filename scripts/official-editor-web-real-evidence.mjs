@@ -195,11 +195,13 @@ try {
   const storageCleanup = await cleanupStorageObjects(backend, loginSession, storagePaths);
   const wordpressCleanup = await cleanupWordpressVideoUrls(wordpressVideoUrls);
   const storagePostCleanup = await assertStorageObjectsAbsent(config, storagePaths);
+  const wordpressPostCleanup = await assertWordpressVideoUrlsAbsent(wordpressVideoUrls);
   cleanup = await cleanupPosts(config, created.ids, created.translationGroupIds);
   const absence = await assertNoMarkerRows(config, marker, created.translationGroupIds);
   report.storageCleanup = storageCleanup;
   report.wordpressVideoCleanup = wordpressCleanup;
   report.storagePostCleanupReadback = storagePostCleanup;
+  report.wordpressPostCleanupReadback = wordpressPostCleanup;
   report.cleanup = cleanup;
   report.postCleanupReadback = absence;
   report.steps.push("created_post_cleaned_by_exact_ids_and_marker_absence_verified");
@@ -518,6 +520,30 @@ async function cleanupWordpressVideoUrls(videoUrls) {
   return { state: "delete_requested", deletedUrls: videoUrls.length };
 }
 
+async function assertWordpressVideoUrlsAbsent(videoUrls) {
+  if (!videoUrls.length) return { state: "not_needed" };
+  const checked = [];
+  for (const url of videoUrls) {
+    const probe = new URL(url);
+    probe.searchParams.set("quata_cleanup_probe", randomUUID());
+    const response = await fetch(probe, {
+      method: "GET",
+      headers: {
+        range: "bytes=0-0",
+        "cache-control": "no-store",
+        "x-client-info": "quata-official-editor-web-real-evidence",
+      },
+      signal: AbortSignal.timeout(20_000),
+    }).catch(() => null);
+    if (!response) throw new Error("wordpress_post_cleanup_verification_failed:network");
+    checked.push({ urlKind: wordpressVideoUrlKind(url), status: response.status });
+    if (![404, 410].includes(response.status)) {
+      throw new Error(`wordpress_post_cleanup_verification_failed:http_${response.status}`);
+    }
+  }
+  return { state: "verified_absent", checked };
+}
+
 async function assertStorageObjectsAbsent(config, storagePaths) {
   if (!storagePaths.length) return { state: "not_needed" };
   return withPg(config, async (client) => {
@@ -559,6 +585,11 @@ function wordpressVideoUrlsFromMediaUrls(mediaUrls) {
 function wordpressAdminAjaxUrl(value) {
   const parsed = new URL(value);
   return `${parsed.origin}/wp-admin/admin-ajax.php`;
+}
+
+function wordpressVideoUrlKind(value) {
+  const parsed = new URL(value);
+  return `${parsed.hostname}/wp-content/uploads/${parsed.pathname.split("/").pop()}`;
 }
 
 function storagePathFromMediaUrl(backend, value) {

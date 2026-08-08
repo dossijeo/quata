@@ -224,11 +224,12 @@ private fun AuthSession.toKeychainPayload(): String = listOf(
     accessToken.toOptionalHexUtf8(),
     refreshToken.toOptionalHexUtf8(),
     expiresAt?.toString() ?: IosKeychainNull,
+    isOfficial.toString(),
 ).joinToString(separator = "\n")
 
 private fun String.toAuthSessionOrNull(): AuthSession? = runCatching {
     val fields = split('\n')
-    require(fields.size == IosKeychainPayloadFieldCount && fields.first() == IosKeychainPayloadVersion)
+    require(fields.size in IosKeychainPayloadLegacyFieldCount..IosKeychainPayloadFieldCount && fields.first() == IosKeychainPayloadVersion)
     AuthSession(
         token = fields[1].fromHexUtf8(),
         userId = fields[2].fromHexUtf8(),
@@ -238,6 +239,7 @@ private fun String.toAuthSessionOrNull(): AuthSession? = runCatching {
         accessToken = fields[6].fromOptionalHexUtf8(),
         refreshToken = fields[7].fromOptionalHexUtf8(),
         expiresAt = fields[8].takeUnless { it == IosKeychainNull }?.toLong(),
+        isOfficial = fields.getOrNull(9)?.toBooleanStrictOrNull() == true,
     )
 }.getOrNull()
 
@@ -257,7 +259,8 @@ private fun String.fromHexUtf8(): String {
 private fun String.fromOptionalHexUtf8(): String? = takeUnless { it == IosKeychainNull }?.fromHexUtf8()
 
 private const val IosKeychainPayloadVersion = "quata-auth-session-v1"
-private const val IosKeychainPayloadFieldCount = 9
+private const val IosKeychainPayloadLegacyFieldCount = 9
+private const val IosKeychainPayloadFieldCount = 10
 private const val IosKeychainNull = "~"
 private const val IosKeychainPayloadMissing = -1_001
 private const val IosKeychainPayloadInvalid = -1_002

@@ -8,7 +8,8 @@ data class AuthSession(
     val authUserId: String? = null,
     val accessToken: String? = null,
     val refreshToken: String? = null,
-    val expiresAt: Long? = null
+    val expiresAt: Long? = null,
+    val isOfficial: Boolean = false,
 ) {
     val bearerToken: String
         get() = accessToken?.takeIf { it.isNotBlank() } ?: token
