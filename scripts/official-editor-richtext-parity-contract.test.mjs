@@ -11,6 +11,10 @@ const ios = await readFile(
   new URL("../feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt", import.meta.url),
   "utf8",
 );
+const iosUiTest = await readFile(
+  new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedOfficialEditorUITests.swift", import.meta.url),
+  "utf8",
+);
 
 test("Official editor Web and iOS use the common portable rich text editor", () => {
   assert.match(portable, /fun QuataPortableRichTextEditorBox\(/);
@@ -27,6 +31,9 @@ test("Official editor Web and iOS use the common portable rich text editor", () 
 
   assert.match(web, /QuataPortableRichTextEditorBox\(/);
   assert.match(ios, /QuataPortableRichTextEditorBox\(/);
+  assert.match(iosUiTest, /official-editor-body-action/);
+  assert.match(iosUiTest, /quata-portable-rich-text-field/);
+  assert.match(iosUiTest, /official-editor-preview/);
 });
 
 test("Official editor no longer accepts browser prompt or plain iOS text field as product rich text editor", () => {
@@ -34,10 +41,11 @@ test("Official editor no longer accepts browser prompt or plain iOS text field a
   const bodyEditor = ios.slice(ios.indexOf("bodyEditorAction ="), ios.indexOf("imagePicker ="));
   assert.doesNotMatch(bodyEditor, /OutlinedTextField/);
   assert.doesNotMatch(bodyEditor, /var editing by remember/);
+  assert.doesNotMatch(iosUiTest, /app\.buttons\["Editar descripci[oó]n"\]|compact shared body editor action/);
 });
 
 test("Official editor rich text parity contract stays hermetic", () => {
-  for (const source of [portable, web, ios]) {
+  for (const source of [portable, web, ios, iosUiTest]) {
     assert.doesNotMatch(source, /SUPABASE_DB_URL|SERVICE_ROLE|21085800|\+240|68024260/);
   }
 });
