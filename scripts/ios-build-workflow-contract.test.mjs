@@ -69,16 +69,18 @@ function assertIosFastFinalLaneContract(yaml) {
   assert.doesNotMatch(gateBlock, /uses: actions\/checkout@v6/,
     'the final gate must not depend on action downloads after all evidence jobs have completed');
   assert.match(gateBlock, /FINAL_CANDIDATE: \$\{\{ contains\(github\.event\.pull_request\.labels\.\*\.name, 'candidate-final'\) \}\}/);
+  assert.match(gateBlock, /DOCS_ONLY: \$\{\{ needs\.classify-impact\.outputs\.docs_only \}\}/);
   assert.match(gateBlock, /IOS_FINAL_RESULT: \$\{\{ needs\.compile-ios\.result \}\}/);
   assert.match(gateBlock, /set -euo pipefail/);
+  assert.match(gateBlock, /\[\[ "\$EVENT_NAME" == "pull_request" && "\$DOCS_ONLY" == "true" \]\]/);
   assert.match(gateBlock, /A pull request must carry candidate-final before final certification can pass\./);
   assert.match(gateBlock, /if \[\[ "\$result" != "\$expected_result" \]\]; then/);
   assert.match(gateBlock, /Final certification is incomplete: 'ios' expected '\$expected_result' but was '\$result'\./);
 }
 
-function executeFinalGate(script, { event, candidateFinal, results }) {
+function executeFinalGate(script, { event, candidateFinal, docsOnly = false, results }) {
   const quote = value => `'${String(value).replaceAll("'", "'\\\\''")}'`;
-  const harness = `set -euo pipefail\nEVENT_NAME=${quote(event)}\nFINAL_CANDIDATE=${quote(candidateFinal)}\nset -- ${results.map(quote).join(' ')}`;
+  const harness = `set -euo pipefail\nEVENT_NAME=${quote(event)}\nFINAL_CANDIDATE=${quote(candidateFinal)}\nDOCS_ONLY=${quote(docsOnly)}\nset -- ${results.map(quote).join(' ')}`;
   const command = script.replace('set -euo pipefail', harness);
   assert.notEqual(command, script, 'the final-gate shell must retain its strict-mode anchor for executable testing');
   const bash = process.platform === 'win32' ? 'C:\\Program Files\\Git\\bin\\bash.exe' : 'bash';
@@ -335,6 +337,7 @@ test('iOS final gate executes the shared fail-closed shell for every event/resul
   const script = await readFile(finalGateScript, 'utf8');
   for (const [name, input, expected] of [
     ['unlabelled PR with skipped final job', { event: 'pull_request', candidateFinal: false, results: ['ios:false:skipped'] }, false],
+    ['docs-only PR with skipped final job', { event: 'pull_request', candidateFinal: false, docsOnly: true, results: ['ios:false:skipped'] }, true],
     ['labelled affected PR with skipped final job', { event: 'pull_request', candidateFinal: true, results: ['ios:true:skipped'] }, false],
     ['labelled affected PR with cancelled final job', { event: 'pull_request', candidateFinal: true, results: ['ios:true:cancelled'] }, false],
     ['unaffected iOS lane unexpectedly runs', { event: 'pull_request', candidateFinal: true, results: ['ios:false:success'] }, false],
@@ -383,6 +386,7 @@ test('iOS workflow self-coverage fails closed when a trigger or command is remov
     ['final gate helper bypassed', yaml.replace('if [[ "$result" != "$expected_result" ]]; then', 'if false; then')],
     ['final result binding replaced', yaml.replace('IOS_FINAL_RESULT: ${{ needs.compile-ios.result }}', 'IOS_FINAL_RESULT: success')],
     ['candidate binding replaced', yaml.replace("FINAL_CANDIDATE: ${{ contains(github.event.pull_request.labels.*.name, 'candidate-final') }}", 'FINAL_CANDIDATE: true')],
+    ['docs-only binding replaced', yaml.replace('DOCS_ONLY: ${{ needs.classify-impact.outputs.docs_only }}', 'DOCS_ONLY: true')],
     ['concurrency group weakened', yaml.replace("format('pr-{0}', github.event.pull_request.number)", 'github.ref')],
     ['concurrency cancellation weakened', yaml.replace("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", 'cancel-in-progress: true')],
     [

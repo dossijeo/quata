@@ -3,6 +3,11 @@ set -euo pipefail
 
 : "${EVENT_NAME:?EVENT_NAME is required}"
 : "${FINAL_CANDIDATE:?FINAL_CANDIDATE is required}"
+: "${DOCS_ONLY:=false}"
+
+if [[ "$EVENT_NAME" == "pull_request" && "$DOCS_ONLY" == "true" ]]; then
+  exit 0
+fi
 
 if [[ "$EVENT_NAME" == "pull_request" && "$FINAL_CANDIDATE" != "true" ]]; then
   echo "A pull request must carry candidate-final before final certification can pass." >&2
