@@ -31,6 +31,7 @@ const report = {
 };
 
 let distribution;
+let fixtureDir;
 let server;
 let browser;
 let context;
@@ -42,6 +43,7 @@ try {
   const config = requireEnvironment();
   const backend = await publicConfig();
   distribution = await configuredDistribution(options.distribution, backend);
+  fixtureDir = await mkdtemp(join(tmpdir(), "quata-official-editor-real-fixtures-"));
   marker = `official-web-ui-${randomUUID()}`;
   server = await startServer(distribution);
 
@@ -117,6 +119,18 @@ try {
   report.evidence.validation = await screenshot(page, options.evidenceDir, "web-real-official-editor-validation-feedback");
   report.steps.push("empty_publish_shows_shared_validation_without_backend_mutation");
 
+  if (options.media === "image") {
+    const imageFixture = await createPngFixture(fixtureDir, marker);
+    const [fileChooser] = await Promise.all([
+      page.waitForEvent("filechooser", { timeout: 15_000 }),
+      page.locator("#official-editor-pick-image").first().click({ force: true }),
+    ]);
+    await fileChooser.setFiles(imageFixture);
+    await page.locator("#official-editor-preview").first().waitFor({ state: "attached", timeout: 15_000 });
+    report.evidence.mediaPreview = await screenshot(page, options.evidenceDir, "web-real-official-editor-image-preview");
+    report.steps.push("real_image_picker_selects_media_and_common_preview_renders");
+  }
+
   const bodyAction = page.getByRole("button", {
     name: /Editar descripci(?:Ã³|ó)n|Edit description|Modifier la description/i,
   }).first();
@@ -139,14 +153,21 @@ try {
 
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
+  const storagePaths = storagePathsFromMediaUrls(created.mediaUrls);
   report.evidence.created = {
     state: "verified_in_database",
     postIds: created.ids,
     translationGroupIds: created.translationGroupIds,
+    media: options.media,
+    storagePaths,
   };
 
+  const storageCleanup = await cleanupStorageObjects(backend, loginSession, storagePaths);
+  const storagePostCleanup = await assertStorageObjectsAbsent(config, storagePaths);
   cleanup = await cleanupPosts(config, created.ids, created.translationGroupIds);
   const absence = await assertNoMarkerRows(config, marker, created.translationGroupIds);
+  report.storageCleanup = storageCleanup;
+  report.storagePostCleanupReadback = storagePostCleanup;
   report.cleanup = cleanup;
   report.postCleanupReadback = absence;
   report.steps.push("created_post_cleaned_by_exact_ids_and_marker_absence_verified");
@@ -180,6 +201,7 @@ try {
   await browser?.close().catch(() => {});
   await server?.close().catch(() => {});
   await rm(distribution, { recursive: true, force: true }).catch(() => {});
+  await rm(fixtureDir, { recursive: true, force: true }).catch(() => {});
   report.finishedAt = new Date().toISOString();
   if (marker) report.marker = marker;
   await mkdir(dirname(options.output), { recursive: true });
@@ -200,11 +222,12 @@ function parseArgs(args) {
     chrome: process.env.QUATA_CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe",
     output: resolve("build-reports/web/official-editor-real-evidence.json"),
     evidenceDir: resolve("build-reports/web/official-editor-real-evidence"),
+    media: "none",
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
-    if (!["--dist", "--chrome", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
+    if (!["--dist", "--chrome", "--out", "--evidence-dir", "--media"].includes(key) || !value || value.startsWith("--")) {
       throw new Error("invalid_arguments");
     }
     index += 1;
@@ -212,6 +235,10 @@ function parseArgs(args) {
     if (key === "--chrome") parsed.chrome = resolve(value);
     if (key === "--out") parsed.output = resolve(value);
     if (key === "--evidence-dir") parsed.evidenceDir = resolve(value);
+    if (key === "--media") {
+      if (!["none", "image"].includes(value)) throw new Error("invalid_arguments");
+      parsed.media = value;
+    }
   }
   return parsed;
 }
@@ -346,7 +373,7 @@ async function readCreatedRows(config, uniqueMarker) {
     await client.query("begin read only");
     try {
       const { rows } = await client.query({
-        text: `select id, translation_group_id
+        text: `select id, translation_group_id, media_url
                from public.official_posts
                where title like $1 or content_html like $1
                order by created_at desc`,
@@ -356,12 +383,86 @@ async function readCreatedRows(config, uniqueMarker) {
       return {
         ids: rows.map((row) => row.id).filter(Boolean),
         translationGroupIds: [...new Set(rows.map((row) => row.translation_group_id).filter(Boolean))],
+        mediaUrls: [...new Set(rows.map((row) => row.media_url).filter(Boolean))],
       };
     } catch (error) {
       await client.query("rollback").catch(() => {});
       throw error;
     }
   });
+}
+
+async function cleanupStorageObjects(backend, session, storagePaths) {
+  if (!storagePaths.length) return { state: "not_needed", deletedPaths: [] };
+  const response = await fetch(`${backend.url}/storage/v1/object/community-posts`, {
+    method: "DELETE",
+    headers: {
+      apikey: backend.key,
+      authorization: `Bearer ${session.accessToken}`,
+      "content-type": "application/json",
+      "x-client-info": "quata-official-editor-web-real-evidence",
+    },
+    body: JSON.stringify({ prefixes: storagePaths }),
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => null);
+  if (!response) throw new Error("storage_cleanup_failed:network");
+  if (!response.ok) throw new Error(`storage_cleanup_failed:http_${response.status}`);
+  return { state: "deleted", deletedPaths: storagePaths };
+}
+
+async function assertStorageObjectsAbsent(config, storagePaths) {
+  if (!storagePaths.length) return { state: "not_needed" };
+  return withPg(config, async (client) => {
+    await client.query("begin read only");
+    try {
+      const { rows } = await client.query({
+        text: `select count(*)::int as count
+               from storage.objects
+               where bucket_id = 'community-posts'
+                 and name = any($1::text[])`,
+        values: [storagePaths],
+      });
+      await client.query("rollback");
+      if (rows[0]?.count !== 0) throw new Error("storage_post_cleanup_verification_failed:object_metadata_remains");
+      return { state: "verified_absent", checkedPaths: storagePaths };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+function storagePathsFromMediaUrls(mediaUrls) {
+  return [...new Set(mediaUrls.map((url) => storagePathFromMediaUrl(null, url)).filter(Boolean))];
+}
+
+function storagePathFromMediaUrl(backend, value) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return null;
+  }
+  if (backend && parsed.origin !== new URL(backend.url).origin) return null;
+  const markerPath = "/storage/v1/object/public/community-posts/";
+  const index = parsed.pathname.indexOf(markerPath);
+  if (index < 0 || parsed.search || parsed.hash) return null;
+  return parsed.pathname
+    .slice(index + markerPath.length)
+    .split("/")
+    .map((part) => decodeURIComponent(part))
+    .join("/")
+    .trim()
+    || null;
+}
+
+async function createPngFixture(root, uniqueMarker) {
+  const path = join(root, `official-editor-${uniqueMarker}.png`);
+  await writeFile(path, Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFUlEQVR42mP8z8Dwn4GBgYGJAQoAHxcCAns1m2AAAAAASUVORK5CYII=",
+    "base64",
+  ));
+  return path;
 }
 
 async function cleanupPosts(config, ids, groupIds) {
@@ -506,6 +607,8 @@ function safeFailure(error) {
     "official_editor_invalid_draft_mutated",
     "official_editor_publish_request_missing",
     "created_post_readback_missing",
+    "storage_cleanup_failed",
+    "storage_post_cleanup_verification_failed",
     "cleanup_verification_failed",
     "marker_cleanup_verification_failed",
     "browser_runtime_fault",

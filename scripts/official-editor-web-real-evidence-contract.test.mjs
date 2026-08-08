@@ -14,7 +14,16 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /quata_web_access_token/);
   assert.match(runner, /quata_web_session_token/);
   assert.match(runner, /official_editor_invalid_draft_mutated/);
+  assert.match(runner, /--media/);
+  assert.match(runner, /real_image_picker_selects_media_and_common_preview_renders/);
   assert.match(runner, /readCreatedRows/);
+  assert.match(runner, /media_url/);
+  assert.match(runner, /storagePathsFromMediaUrls/);
+  assert.match(runner, /cleanupStorageObjects/);
+  assert.match(runner, /storage\/v1\/object\/community-posts/);
+  assert.match(runner, /assertStorageObjectsAbsent/);
+  assert.match(runner, /from storage\.objects/);
+  assert.match(runner, /name = any\(\$1::text\[\]\)/);
   assert.match(runner, /delete from public\.official_posts/);
   assert.match(runner, /values:\s*\[ids, groupIds\]/);
   assert.match(runner, /assertNoMarkerRows/);
@@ -24,6 +33,7 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
 
 test("Official editor Web real evidence is callable but kept out of automatic fast CI mutation gates", () => {
   assert.match(packageJson.scripts["evidence:web-official-editor-real"], /scripts\/official-editor-web-real-evidence\.mjs/);
+  assert.match(packageJson.scripts["evidence:web-official-editor-real-media"], /--media image/);
   assert.match(packageJson.scripts["test:ci-fast-contracts"], /scripts\/official-editor-web-real-evidence-contract\.test\.mjs/);
   assert.match(packageJson.scripts["test:web-wave2-contracts"], /scripts\/official-editor-web-real-evidence-contract\.test\.mjs/);
   assert.doesNotMatch(packageJson.scripts["test:ci-fast-contracts"], /official-editor-web-real-evidence\.mjs --/);
