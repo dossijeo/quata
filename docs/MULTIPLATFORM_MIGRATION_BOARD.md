@@ -6,11 +6,15 @@
 
 ## Foto de control — 2026-08-04
 
-**HEAD integrado:** `main` `ae6af4552599f7f489e8b8891058475da2eae036` (PR #192), posterior a #154,
-#156, #159, #168, #169, #170, #172, #173, #174, #175, #190 y #191. El proyecto sigue incompleto:
-#192 integra semantica comun observable del editor oficial y evidencia Web hermetica de validacion/fallo,
-pero conserva limites de publicacion real, adjuntos, permisos, lectura backend, limpieza y comparativa
-Android-Wasm-iOS segun `SCREEN_MIGRATION_INVENTORY_V2.md`.
+**HEAD integrado:** `main` `59fc98f0980845c5ead581ccd0e12ec2fbc54f1c` (PR #193), posterior a #154,
+#156, #159, #168, #169, #170, #172, #173, #174, #175, #190, #191 y #192. El proyecto sigue incompleto:
+#192 integra semantica comun observable del editor oficial y evidencia Web hermetica de validacion/fallo.
+#193 actualiza el estado documental y permite gates finales en PRs docs-only. La evidencia reversible local
+del editor oficial sobre `59fc98f0` encontro que `official_posts` acepta una publicacion PostgREST de una
+cuenta no oficial; el runner hizo hard delete exacto y verifico `remainingRows = 0`. No hay GO de
+`SCR-OFFICIAL-EDITOR` hasta desplegar y certificar la migracion RLS candidata
+`20260808_0001_official_posts_actor_guard.sql`, reejecutar publicacion real, adjuntos, permisos, lectura
+backend, limpieza y comparativa Android-Wasm-iOS.
 
 | Área | Estado | Qué acredita | Límite vigente |
 | --- | --- | --- | --- |
@@ -24,7 +28,7 @@ Android-Wasm-iOS segun `SCREEN_MIGRATION_INVENTORY_V2.md`.
 | Comunidades/perfil público (#175) | COMÚN con límites | `NeighborhoodsScreenHost` y `CommunityProfileScreenHost` integrados en Android, Wasm e iOS; repositorios reales, entradas globales y gate de sesión conectados. | P2 vigentes: mutaciones `PROF-*`, entradas visuales desde Oficial/Conversaciones/Chat, listas anidadas, contenido/overlays, Chat↔Perfil, back Android de miembros y estados de error/retorno. |
 | Feed iOS medios (#175) | COMÚN con límites | Gradiente URL/hash detrás de vídeo, superficies UIKit/AVPlayer transparentes, controles Compose play/pause y mute global conectado a `AVPlayer`; evidencia exacta del merge `5fd040ae`. | Duración/seek iOS de `OVR-MEDIA` continúa pendiente; no atribuye GO a los demás overlays de Feed. |
 | Pipeline CI (#169) | Integrado, fail-closed | Preflight rápido local exacto, gates finales requeridos y concurrencia por PR sin cancelar evidencia de `main`/manual. | Aún no acredita producto; certifica candidatos ya validados localmente. |
-| RLS/DB | Sin cambios | Esta ola no cambió RLS, DDL, funciones, grants ni datos de Supabase. | Hallazgos existentes siguen abiertos; no se endurecen políticas mientras convivan clientes publicados. |
+| RLS/DB | Bloqueo de GO en Official | Evidencia reversible local detecto que `official_posts` permite crear con cuenta no oficial en remoto; la fila temporal se elimino y la ausencia quedo comprobada. Existe migracion candidata local para cerrar el bypass con RLS explicita y trigger `SECURITY INVOKER`. | No se ejecuto DDL remoto. Falta validar la migracion en PostgreSQL aislado con Docker activo, desplegarla solo con autorizacion de release y reejecutar el runner real hasta que la cuenta no oficial reciba `42501` y la oficial publique/limpie correctamente. |
 
 ## Integraciones recientes
 
@@ -50,6 +54,7 @@ Android-Wasm-iOS segun `SCREEN_MIGRATION_INVENTORY_V2.md`.
 | [#175](https://github.com/dossijeo/quata/pull/175) | `702fb717` | Comunidades y perfil público global pasan a raíces comunes con límites; Feed iOS integra gradiente de medios y controles globales. Candidato exacto final: base `855f167f`, head `aee41fa7`, merge sintético `5fd040ae`; gates protegidos verdes. |
 | [#190](https://github.com/dossijeo/quata/pull/190) | `99ae1ef4` | Official editor Web expone la accion real desde Feed/Oficial mediante elegibilidad comun y evidencia hermetica con identidad de PR; no declara GO global de `SCR-OFFICIAL-EDITOR` hasta cerrar publicacion/validacion/adjuntos/error Android-Wasm-iOS con datos reversibles y comparativa visual. |
 | [#192](https://github.com/dossijeo/quata/pull/192) | `ae6af455` | Official editor incorpora anclas `testTag` comunes en `commonMain`, validacion/fail-closed observable y evidencia Web hermetica de borrador invalido + publicacion denegada sin mutar Supabase real. Ajusta el job rapido Web/Android para instalar SDK 36.1 antes de imports KMP limpios. No declara GO global hasta cerrar publicacion real, adjuntos, permisos, lectura backend, limpieza y comparativa Android-Wasm-iOS. |
+| [#193](https://github.com/dossijeo/quata/pull/193) | `59fc98f0` | Actualiza el board/inventario tras #192 y permite que los gates finales acepten PRs docs-only sin exigir `candidate-final`. No cambia producto ni RLS. |
 
 ## Registro de candidato #156 y mejora de preflight
 
@@ -138,12 +143,13 @@ no una nueva evidencia de producto.
 
 ## Próxima cola
 
-1. Cerrar `SCR-OFFICIAL-EDITOR` sobre `main` posterior a #192: usar la semantica comun estable ya integrada para recorrer publicacion real, validacion, adjuntos, permisos y error en Android-Wasm-iOS con Gabrielo/Gabrielu o datos temporales reversibles, verificar lectura backend y limpieza, capturar comparativa visual y mantener traduccion automatica Web/iOS como limite documentado hasta que exista abstraccion comun real.
-2. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y duración/seek iOS de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
-3. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
-4. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
-5. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado.
-6. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas en este backlog.
+1. Cerrar el bloqueo RLS de `SCR-OFFICIAL-EDITOR` sobre `main` posterior a #193: validar en PostgreSQL aislado la migracion `20260808_0001_official_posts_actor_guard.sql`, desplegarla solo dentro de un release autorizado, y reejecutar `OFFICIAL-EDITOR-REAL-BACKEND-001` hasta que la cuenta no oficial quede denegada y la oficial publique/lea/limpie sin residuos.
+2. Cerrar `SCR-OFFICIAL-EDITOR` con la semantica comun estable ya integrada: recorrer publicacion real, validacion, adjuntos, permisos y error en Android-Wasm-iOS con Gabrielo/Gabrielu o datos temporales reversibles, verificar lectura backend y limpieza, capturar comparativa visual y mantener traduccion automatica Web/iOS como limite documentado hasta que exista abstraccion comun real.
+3. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y duración/seek iOS de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
+4. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
+5. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
+6. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado.
+7. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas fuera de release autorizado.
 
 ## Decisiones vigentes
 
