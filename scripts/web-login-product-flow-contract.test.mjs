@@ -15,7 +15,7 @@ test("production Web mounts the common Auth product root without browser visual 
 });
 
 test("successful Web login activates the existing shell/router and preserves its session contracts", () => {
-  assert.match(main, /fun completeLogin\(\)[\s\S]*?isSessionReady = true[\s\S]*?currentUserId = authRepository\.activeProfileSessionOrNull\(\)\?\.userId[\s\S]*?navigation\.navigate\(pendingAuthenticationFragment \?: ""\)/);
+  assert.match(main, /fun completeLogin\(\)[\s\S]*?isSessionReady = true[\s\S]*?val session = authRepository\.activeProfileSessionOrNull\(\)[\s\S]*?currentUserId = session\?\.userId[\s\S]*?currentUserIsOfficial = session\?\.isOfficial == true[\s\S]*?navigation\.navigate\(pendingAuthenticationFragment \?: ""\)/);
   assert.match(main, /WebLoginHost\([\s\S]*?repository = authRepository,[\s\S]*?preferences = platformServices\.preferences,[\s\S]*?onLoginSuccess = ::completeLogin/);
   assert.match(main, /QuataAuthenticatedShellChrome\(/);
   assert.match(main, /return WebNavigationState\(route = "feed"/);

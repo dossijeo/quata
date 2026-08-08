@@ -218,6 +218,7 @@ private fun QuataWebApp(
     }
     val incomingShareStore = remember { WebIncomingShareStore() }
     var currentUserId by remember { mutableStateOf<String?>(null) }
+    var currentUserIsOfficial by remember { mutableStateOf(false) }
     // Do not treat the first composition as anonymous: persisted Web credentials are restored
     // asynchronously, and private deep links must retain their hash while that resolves.
     var isSessionResolved by remember { mutableStateOf(false) }
@@ -249,7 +250,9 @@ private fun QuataWebApp(
     }
     fun completeLogin() {
         isSessionReady = true
-        currentUserId = authRepository.activeProfileSessionOrNull()?.userId
+        val session = authRepository.activeProfileSessionOrNull()
+        currentUserId = session?.userId
+        currentUserIsOfficial = session?.isOfficial == true
         navigation.navigate(pendingAuthenticationFragment ?: "")
         pendingAuthenticationFragment = null
     }
@@ -260,6 +263,7 @@ private fun QuataWebApp(
             platformServices.preferences.remove(WebSessionReadyKey)
             platformServices.preferences.putString("web.auth.logout_status", result.diagnosticValue())
             currentUserId = null
+            currentUserIsOfficial = false
             isSessionReady = false
             navigation.navigate("")
             isLoggingOut = false
@@ -288,6 +292,7 @@ private fun QuataWebApp(
                     } else {
                         isSessionReady = true
                         currentUserId = restored.userId
+                        currentUserIsOfficial = restored.isOfficial
                         resolve("restored")
                     }
                 }
@@ -328,7 +333,9 @@ private fun QuataWebApp(
     }
     LaunchedEffect(platformServices.preferences) {
         isSessionReady = platformServices.preferences.getString(WebSessionReadyKey) == "true"
-        currentUserId = authRepository.sessionForAuthenticatedRequest()?.userId
+        val restoredSession = authRepository.sessionForAuthenticatedRequest()
+        currentUserId = restoredSession?.userId
+        currentUserIsOfficial = restoredSession?.isOfficial == true
         themeMode = QuataThemeMode.fromStorageValue(platformServices.preferences.getString(WebThemeModeKey))
         touchFlowEnabled = platformServices.preferences.getString(WebTouchFlowEnabledKey) != "false"
         webPushOptedIn = WebPushConsent.isEnabled(platformServices.preferences)
@@ -610,12 +617,18 @@ private fun QuataWebApp(
                     }
                 } else if (navigation.route == "official-editor") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Official) {
-                        WebOfficialEditorHost(
-                            repository = officialRepository,
-                            platformServices = platformServices,
-                            currentUserId = currentUserId,
-                            onBack = { navigation.navigate("official") },
-                        )
+                        if (currentUserIsOfficial) {
+                            WebOfficialEditorHost(
+                                repository = officialRepository,
+                                platformServices = platformServices,
+                                currentUserId = currentUserId,
+                                onBack = { navigation.navigate("official") },
+                            )
+                        } else {
+                            LaunchedEffect(navigation.route, currentUserIsOfficial) {
+                                navigation.navigate("official")
+                            }
+                        }
                     }
                 } else if (navigation.route == "communities") {
                     WebFeatureCapabilityRoute(capabilityRegistry, QuataFeature.Communities) {
@@ -639,6 +652,7 @@ private fun QuataWebApp(
                                 shareService = platformServices.share,
                                 officialPostId = navigation.officialPostId,
                                 currentUserId = currentUserId,
+                                canCreateOfficialPost = currentUserIsOfficial,
                                 openingProfileUserId = memberProfileId,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserProfile = feedMemberProfileRoute::open,

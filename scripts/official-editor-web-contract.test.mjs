@@ -6,12 +6,21 @@ const webOfficialHost = await readFile(
   new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialHost.kt", import.meta.url),
   "utf8",
 );
+const webMain = await readFile(
+  new URL("../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt", import.meta.url),
+  "utf8",
+);
+const webAuthRepository = await readFile(
+  new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebAuthRepository.kt", import.meta.url),
+  "utf8",
+);
 
 test("Web Official surface exposes the shared editor action for official users", () => {
   assert.match(webOfficialHost, /fun WebOfficialHost\(/);
   assert.match(webOfficialHost, /onCreateOfficialPost: \(\) -> Unit/);
-  assert.match(webOfficialHost, /canCreateOfficialPost = true/);
-  assert.doesNotMatch(webOfficialHost, /canCreateOfficialPost = false/);
+  assert.match(webOfficialHost, /canCreateOfficialPost: Boolean/);
+  assert.match(webOfficialHost, /canCreateOfficialPost = canCreateOfficialPost/);
+  assert.doesNotMatch(webOfficialHost, /canCreateOfficialPost = true/);
 });
 
 test("Official publish eligibility remains owned by commonMain state", async () => {
@@ -21,4 +30,22 @@ test("Official publish eligibility remains owned by commonMain state", async () 
   );
   assert.match(commonHost, /val canPublish = state\.currentUser\?\.isOfficial == true && slots\.canCreateOfficialPost/);
   assert.doesNotMatch(webOfficialHost, /rememberWebOfficialCreatePermission/);
+});
+
+test("Web Official editor route and CTA use the restored session official role", () => {
+  assert.match(webMain, /var currentUserIsOfficial by remember \{ mutableStateOf\(false\) \}/);
+  assert.match(webMain, /currentUserIsOfficial = session\?\.isOfficial == true/);
+  assert.match(webMain, /currentUserIsOfficial = restored\.isOfficial/);
+  assert.match(webMain, /currentUserIsOfficial = restoredSession\?\.isOfficial == true/);
+  assert.match(webMain, /if \(currentUserIsOfficial\) \{[\s\S]*?WebOfficialEditorHost\(/);
+  assert.match(webMain, /LaunchedEffect\(navigation\.route, currentUserIsOfficial\)[\s\S]*?navigation\.navigate\("official"\)/);
+  assert.match(webMain, /canCreateOfficialPost = currentUserIsOfficial/);
+});
+
+test("Web local sessions persist the official role for restore and refresh", () => {
+  assert.match(webAuthRepository, /val isOfficial: Boolean = false/);
+  assert.match(webAuthRepository, /const val IsOfficial = "quata_web_is_official"/);
+  assert.match(webAuthRepository, /preferences\.putString\(WebAuthStorage\.IsOfficial, isOfficial\.toString\(\)\)/);
+  assert.match(webAuthRepository, /preferences\.getString\(WebAuthStorage\.IsOfficial\)\.toBoolean\(\)/);
+  assert.match(webAuthRepository, /isOfficial = session\.isOfficial/);
 });

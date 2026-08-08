@@ -49,6 +49,7 @@ try {
     localStorage.setItem("quata_web_session_token", webSessionToken);
     localStorage.setItem("quata_web_user_id", profileId);
     localStorage.setItem("quata_web_expires_at", String(Math.floor(Date.now() / 1000) + 3600));
+    localStorage.setItem("quata_web_is_official", "true");
     localStorage.setItem("web.auth.session_ready", "true");
     localStorage.setItem("quata_web_client_instance_id", `official-editor-web-${crypto.randomUUID()}`);
   }, {

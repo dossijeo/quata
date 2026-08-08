@@ -230,8 +230,9 @@ class WebAuthRepository(
         val userId = preferences.getString(WebAuthStorage.UserId)?.takeIf(String::isNotBlank)
         val expiresAt = preferences.getString(WebAuthStorage.ExpiresAt)?.toLongOrNull()
         val displayName = preferences.getString(WebAuthStorage.DisplayName)?.trim()?.takeIf(String::isNotBlank)
+        val isOfficial = preferences.getString(WebAuthStorage.IsOfficial).toBoolean()
         return if (accessToken != null && refreshToken != null && webSessionToken != null && userId != null && expiresAt != null) {
-            WebLocalSession(accessToken, refreshToken, webSessionToken, userId, expiresAt, displayName)
+            WebLocalSession(accessToken, refreshToken, webSessionToken, userId, expiresAt, displayName, isOfficial)
         } else {
             null
         }
@@ -262,6 +263,7 @@ class WebAuthRepository(
             userId = session.userId,
             expiresAt = session.expiresAt ?: currentEpochSeconds(),
             displayName = displayName,
+            isOfficial = session.isOfficial,
         )
         return session
     }
@@ -302,6 +304,8 @@ data class WebLocalSession(
     val expiresAt: Long,
     /** Optional so sessions persisted before this field was introduced remain restorable. */
     val displayName: String? = null,
+    /** Optional-persisted role flag; old sessions restore as non-official until next login. */
+    val isOfficial: Boolean = false,
 )
 
 internal object WebAuthStorage {
@@ -311,9 +315,10 @@ internal object WebAuthStorage {
     const val UserId = "quata_web_user_id"
     const val ExpiresAt = "quata_web_expires_at"
     const val DisplayName = "quata_web_display_name"
+    const val IsOfficial = "quata_web_is_official"
 
     suspend fun clear(preferences: PreferenceStore) {
-        for (key in listOf(AccessToken, RefreshToken, WebSessionToken, UserId, ExpiresAt, DisplayName, WebSessionReadyKey)) {
+        for (key in listOf(AccessToken, RefreshToken, WebSessionToken, UserId, ExpiresAt, DisplayName, IsOfficial, WebSessionReadyKey)) {
             preferences.remove(key)
         }
     }
@@ -326,6 +331,7 @@ private suspend fun AuthSession.persist(preferences: PreferenceStore, webSession
     preferences.putString(WebAuthStorage.UserId, userId)
     if (displayName != null) preferences.putString(WebAuthStorage.DisplayName, displayName)
     else preferences.remove(WebAuthStorage.DisplayName)
+    preferences.putString(WebAuthStorage.IsOfficial, isOfficial.toString())
     expiresAt?.let { preferences.putString(WebAuthStorage.ExpiresAt, it.toString()) }
 }
 
@@ -337,6 +343,7 @@ private suspend fun WebLocalSession.persist(preferences: PreferenceStore) {
     preferences.putString(WebAuthStorage.ExpiresAt, expiresAt.toString())
     if (displayName != null) preferences.putString(WebAuthStorage.DisplayName, displayName)
     else preferences.remove(WebAuthStorage.DisplayName)
+    preferences.putString(WebAuthStorage.IsOfficial, isOfficial.toString())
 }
 
 private fun WebLocalSession.requiresRefresh(): Boolean =
