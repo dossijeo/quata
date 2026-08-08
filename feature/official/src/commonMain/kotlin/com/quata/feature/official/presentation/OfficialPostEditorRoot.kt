@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import com.quata.core.model.User
 import com.quata.feature.official.domain.OfficialMediaType
@@ -21,6 +22,18 @@ import com.quata.feature.official.domain.OfficialPostLanguage
 import com.quata.feature.official.domain.OfficialPostType
 import com.quata.feature.official.domain.OfficialReadMoreOption
 import kotlinx.coroutines.launch
+
+const val OfficialEditorRootTestTag = "official-editor-common-root"
+const val OfficialEditorModeSelectorTestTag = "official-editor-mode-selector"
+const val OfficialEditorMainSectionTestTag = "official-editor-main-section"
+const val OfficialEditorMediaSectionTestTag = "official-editor-media-section"
+const val OfficialEditorImagePickerTestTag = "official-editor-pick-image"
+const val OfficialEditorVideoPickerTestTag = "official-editor-pick-video"
+const val OfficialEditorBodySectionTestTag = "official-editor-body-section"
+const val OfficialEditorBodyActionTestTag = "official-editor-body-action"
+const val OfficialEditorPreviewTestTag = "official-editor-preview"
+const val OfficialEditorFeedbackTestTag = "official-editor-feedback"
+const val OfficialEditorPublishTestTag = "official-editor-publish"
 
 data class OfficialEditorMedia(
     val url: String,
@@ -247,8 +260,6 @@ fun OfficialPostEditorRoot(
     var localFeedback by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    fun canSubmitDraft(): Boolean = canPublish && draftState.canPublish()
-
     fun requestPublication() {
         if (!canPublish) {
             localFeedback = strings.unavailable
@@ -272,7 +283,7 @@ fun OfficialPostEditorRoot(
     OfficialEditorScreenContent(
         padding = padding,
         title = strings.title,
-        modifier = modifier,
+        modifier = modifier.testTag(OfficialEditorRootTestTag),
     ) {
         OfficialEditorFormContent(
             modeSelector = {
@@ -289,10 +300,11 @@ fun OfficialPostEditorRoot(
                     },
                     isAdvanced = draftState.mode == OfficialEditorMode.Advanced,
                     onAdvancedChange = { draftState = draftState.withMode(it) },
+                    modifier = Modifier.testTag(OfficialEditorModeSelectorTestTag),
                 )
             },
             mainSection = {
-                OfficialEditorSectionCardContent {
+                OfficialEditorSectionCardContent(modifier = Modifier.testTag(OfficialEditorMainSectionTestTag)) {
                     OfficialEditorSectionTitleContent(strings.mainSection)
                     OfficialEditorDropdownFieldContent(
                         selectedLabel = strings.typeLabel(draftState.postType),
@@ -325,15 +337,16 @@ fun OfficialPostEditorRoot(
                     imagePicker = { pickerModifier ->
                         slots.imagePicker(
                             { media -> draftState = draftState.withMedia(media.type, media.url) },
-                            pickerModifier,
+                            pickerModifier.testTag(OfficialEditorImagePickerTestTag),
                         )
                     },
                     videoPicker = { pickerModifier ->
                         slots.videoPicker(
                             { media -> draftState = draftState.withMedia(media.type, media.url) },
-                            pickerModifier,
+                            pickerModifier.testTag(OfficialEditorVideoPickerTestTag),
                         )
                     },
+                    modifier = Modifier.testTag(OfficialEditorMediaSectionTestTag),
                     preview = {
                         val selectedMediaType = draftState.mediaType
                         if (draftState.mediaUrl.isNotBlank() && selectedMediaType != null) {
@@ -382,7 +395,7 @@ fun OfficialPostEditorRoot(
                                 strings.editBodyAdvanced
                             },
                             { draftState = draftState.copy(contentHtml = it) },
-                            Modifier.fillMaxWidth(),
+                            Modifier.fillMaxWidth().testTag(OfficialEditorBodyActionTestTag),
                         )
                     },
                     linkControl = if (draftState.mode == OfficialEditorMode.Advanced) {
@@ -396,6 +409,7 @@ fun OfficialPostEditorRoot(
                     } else {
                         null
                     },
+                    modifier = Modifier.testTag(OfficialEditorBodySectionTestTag),
                 )
             },
             previewSection = {
@@ -412,23 +426,27 @@ fun OfficialPostEditorRoot(
                         mediaType = draftState.mediaType,
                         linkUrl = draftState.effectiveLinkUrl,
                     ),
-                    Modifier.fillMaxWidth(),
+                    Modifier.fillMaxWidth().testTag(OfficialEditorPreviewTestTag),
                 )
             },
             feedback = {
                 val message = error ?: localFeedback ?: if (!canPublish) strings.unavailable else null
                 if (message != null) {
-                    Text(message, fontWeight = FontWeight.Bold)
+                    Text(
+                        message,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.testTag(OfficialEditorFeedbackTestTag),
+                    )
                 }
             },
             publishAction = {
                 OfficialPublishButtonContent(
-                    enabled = canSubmitDraft(),
+                    enabled = true,
                     isPublishing = isPublishing,
                     publishLabel = strings.publish,
                     publishingLabel = strings.publishing,
                     onClick = { requestPublication() },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag(OfficialEditorPublishTestTag),
                 )
             },
         )
