@@ -331,7 +331,7 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
                     Text("Elegir vídeo")
                 }
             },
-            mediaPreview = { media, _, onRemove, modifier ->
+            mediaPreview = { media, onPicked, onRemove, modifier ->
                 OfficialEditorMediaPreviewContent(
                     removeLabel = strings.close,
                     onRemove = {
@@ -345,7 +345,12 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
                             OfficialMediaType.Video -> videoThumbnail?.let { IosOfficialLocalImagePreview(it, mediaModifier) }
                         }
                     },
-                    editAction = {},
+                    editAction = { editModifier ->
+                        OutlinedButton(onClick = { selectMedia(media.type, onPicked) }, modifier = editModifier) {
+                            Icon(Icons.Filled.Edit, contentDescription = null)
+                            Text("Cambiar")
+                        }
+                    },
                 )
             },
             preview = { state, modifier ->

@@ -205,13 +205,34 @@ private fun webOfficialEditorPlatformSlots(platformServices: WebPlatformServices
             Text("Elegir vídeo", maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     },
-    mediaPreview = { media, _, onRemove, previewModifier ->
+    mediaPreview = { media, onPicked, onRemove, previewModifier ->
+        val scope = rememberCoroutineScope()
         OfficialEditorMediaPreviewContent(
             removeLabel = "Quitar",
             onRemove = onRemove,
             modifier = previewModifier,
             mediaContent = { mediaModifier -> BrowserOfficialEditorMedia(media, mediaModifier) },
-            editAction = {},
+            editAction = { editModifier ->
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            platformServices.filePicker.pick(
+                                FilePickerRequest(
+                                    listOf(if (media.type == OfficialMediaType.Image) "image/*" else "video/*"),
+                                    source = FilePickerSource.Gallery,
+                                ),
+                            ).firstOfficialReferenceOrNull()?.let {
+                                onPicked(OfficialEditorMedia(it, media.type))
+                            }
+                        }
+                    },
+                    modifier = editModifier,
+                ) {
+                    Icon(Icons.Filled.Edit, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text("Cambiar", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            },
         )
     },
     preview = { state, previewModifier -> WebOfficialEditorPreview(state, previewModifier) },

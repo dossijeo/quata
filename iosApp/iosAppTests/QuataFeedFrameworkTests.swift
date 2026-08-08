@@ -1389,7 +1389,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         [
             "onCreateOfficialPost: onCreateOfficialPost",
-            "hasOfficialEditorFactory",
+            "canOpenOfficialEditor",
             "showOfficialEditor()",
         ].forEach { expectedCallSite in
             XCTAssertTrue(source.contains(expectedCallSite), "Missing Official editor call site: \(expectedCallSite)")
@@ -1649,6 +1649,24 @@ final class QuataFeedFrameworkTests: XCTestCase {
             XCTAssertFalse(titles.contains($0), "Primary route must not remain in the UIKit secondary actions menu: \($0)")
         }
         XCTAssertEqual(titles.count, 5)
+    }
+
+    func testAuthenticatedRouteMenuHidesOfficialEditorWhenSessionIsNotOfficial() {
+        let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
+        router.loadViewIfNeeded()
+        let feed = UIViewController()
+        let editor = UIViewController()
+        router.installFeedFactory { _ in feed }
+        router.installOfficialEditorFactory(isOfficialEligible: false) { editor }
+
+        let menu = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        router.populateAuthenticatedRouteMenu(menu)
+        router.showOfficialEditor()
+
+        XCTAssertFalse(menu.actions.contains { $0.title == "Crear comunicado" })
+        XCTAssertFalse(router.canOpenOfficialEditor)
+        XCTAssertTrue(authenticatedRouteController(in: router) === feed)
+        XCTAssertFalse(authenticatedRouteController(in: router) === editor)
     }
 
     func testLogoutActionUsesOneSharedCompletionAndReturnsToPublicFeed() {

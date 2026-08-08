@@ -381,6 +381,7 @@ private fun String.toWebAuthSession(): AuthSession {
         displayName = profile.stringOrNull("display_name")
             ?: profile.stringOrNull("phone_local")
             ?: "Usuario",
+        isOfficial = profile.booleanOrNull("is_official"),
     )
 }
 
@@ -411,6 +412,8 @@ private fun JsonObject.requiredString(name: String): String =
     stringOrNull(name) ?: throw IllegalStateException("web_auth_response_missing_$name")
 
 private fun JsonObject.stringOrNull(name: String): String? = this[name]?.jsonPrimitive?.contentOrNull
+
+private fun JsonObject.booleanOrNull(name: String): Boolean = this[name]?.jsonPrimitive?.booleanOrNull == true
 
 private fun countryCodeDigits(value: String?): String = value.orEmpty().filter(Char::isDigit)
 
