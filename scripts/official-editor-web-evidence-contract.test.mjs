@@ -13,6 +13,7 @@ test("Official editor Web evidence keeps the permission fixture hermetic and mut
   assert.match(runner, /assertPullRequestIdentity/);
   assert.match(runner, /pr_identity_checkout_not_merge/);
   assert.match(runner, /quata_web_access_token/);
+  assert.match(runner, /localStorage\.setItem\("quata_web_is_official", "true"\)/);
   assert.match(runner, /community_profiles/);
   assert.match(runner, /url\.searchParams\.get\("id"\) !== `in\.\(\$\{PROFILE_ID\}\)`/);
   assert.match(runner, /request\.headers\.authorization === `Bearer \$\{ACCESS_TOKEN\}`/);
