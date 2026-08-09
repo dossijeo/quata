@@ -49,7 +49,7 @@ try {
     localCredentials,
     `${JSON.stringify({
       country_code: config.countryCode,
-      phone: config.officialPhone,
+      phone: e164Phone(config.countryCode, config.officialPhone),
       password: config.password,
     })}\n`,
     { mode: 0o600 },
@@ -194,6 +194,15 @@ function requireEnvironment() {
     dbUrlFile: process.env.SUPABASE_DB_URL_FILE?.trim() || DEFAULT_DB_URL_FILE,
     dbTlsCaFile: process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || DEFAULT_DB_TLS_CA_FILE,
   };
+}
+
+function e164Phone(countryCode, phone) {
+  const country = String(countryCode ?? "").replace(/\D/g, "");
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  if (!country || !digits) throw new Error("ios_e164_credentials_required");
+  const local = digits.startsWith(country) ? digits.slice(country.length) : digits;
+  if (!local) throw new Error("ios_e164_local_phone_required");
+  return `+${country}${local}`;
 }
 
 async function gitMetadata() {

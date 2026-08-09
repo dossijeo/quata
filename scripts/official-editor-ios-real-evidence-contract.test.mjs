@@ -16,6 +16,8 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /QUATA_IOS_OFFICIAL_EDITOR_MARKER/);
   assert.match(runner, /bash scripts\/run-ios-authenticated-official-editor-ui-test\.sh/);
   assert.match(runner, /const remoteHead = \(await runSshScript/);
+  assert.match(runner, /phone: e164Phone\(config\.countryCode, config\.officialPhone\)/);
+  assert.match(runner, /function e164Phone\(countryCode, phone\)/);
   assert.match(runner, /begin read only/);
   assert.match(runner, /where title like \$1 or content_html like \$1/);
   assert.match(runner, /resolvedIds/);
