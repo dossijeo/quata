@@ -48,6 +48,8 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /quata-portable-rich-text-field/);
   assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
   assert.match(uiTest, /official-editor-mode-switch/);
+  assert.match(uiTest, /app\.swipeDown\(\)/);
+  assert.match(uiTest, /modeSwitch\.isHittable/);
   assert.match(uiTest, /official-editor-advanced-title/);
   assert.match(uiTest, /official-editor-advanced-summary/);
   assert.match(uiTest, /app\.keyboards\.count > 0/);

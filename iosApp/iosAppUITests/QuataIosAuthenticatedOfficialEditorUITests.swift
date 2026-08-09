@@ -132,6 +132,14 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .matching(identifier: "official-editor-mode-switch")
             .firstMatch
         XCTAssertTrue(modeSwitch.waitForExistence(timeout: 10), "The common Official editor mode switch must exist.")
+        for _ in 0..<8 {
+            if modeSwitch.isHittable {
+                break
+            }
+            app.swipeDown()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        XCTAssertTrue(modeSwitch.isHittable, "The common Official editor mode switch must be reachable.")
         if modeSwitch.value as? String != "1" {
             modeSwitch.tap()
         }
