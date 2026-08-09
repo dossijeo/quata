@@ -117,6 +117,8 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /mediaType == "image" \|\| mediaType == "video"/);
   assert.match(uiTest, /app\.launchEnvironment\[key\] = value/);
   assert.match(uiTest, /app\.keyboards\.count > 0/);
+  assert.match(uiTest, /focused\.typeText\("\\n"\)/);
+  assert.match(uiTest, /dismissKeyboardIfPresent\(in: app\)/);
   assert.match(uiTest, /attempt < 5/);
   assert.match(uiTest, /app\.swipeDown\(\)/);
   assert.match(uiTest, /app\.swipeUp\(\)/);
@@ -126,6 +128,7 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(uiTest, /official-editor-publish/);
   assert.match(uiTest, /waitForPublishedPost\(in: app, marker: marker\)/);
+  assert.match(uiTest, /official\.exists && !editor\.exists && publishedPost\.exists/);
   assert.match(uiTest, /String\(marker\.suffix\(8\)\)/);
   assert.match(uiTest, /authenticated-official-editor-real-publish-missing/);
   assert.match(uiTest, /Publicar solo este idioma/);

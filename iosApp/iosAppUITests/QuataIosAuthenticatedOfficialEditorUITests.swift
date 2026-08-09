@@ -200,14 +200,39 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         guard app.keyboards.count > 0 else {
             return
         }
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-        if app.keyboards.count > 0 {
+        let returnLabels = ["return", "Return", "Intro", "Retorno", "Done", "Hecho"]
+        for label in returnLabels {
+            let key = app.keyboards.buttons[label].firstMatch
+            if key.exists {
+                key.tap()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+                if app.keyboards.count == 0 {
+                    return
+                }
+            }
+        }
+        let focused = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
+            .firstMatch
+        if focused.exists {
+            focused.typeText("\n")
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            if app.keyboards.count == 0 {
+                return
+            }
+        }
+        for _ in 0..<4 {
+            app.swipeDown()
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            if app.keyboards.count == 0 {
+                return
+            }
         }
     }
 
     private func tapPublish(in app: XCUIApplication) {
+        dismissKeyboardIfPresent(in: app)
         let publish = app.descendants(matching: .any)
             .matching(identifier: "official-editor-publish")
             .firstMatch
@@ -335,7 +360,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .firstMatch
         let deadline = Date().addingTimeInterval(90)
         while Date() < deadline {
-            if publishedPost.exists {
+            if official.exists && !editor.exists && publishedPost.exists {
                 return
             }
             if !official.exists && editor.exists == false {
