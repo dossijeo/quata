@@ -149,7 +149,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         let field = app.descendants(matching: .any)
             .matching(identifier: identifier)
             .firstMatch
-        for _ in 0..<10 {
+        for attempt in 0..<12 {
             if field.waitForExistence(timeout: 1), field.isHittable {
                 field.tap()
                 if app.keyboards.count > 0 {
@@ -157,7 +157,11 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
                     return
                 }
             }
-            app.swipeUp()
+            if attempt < 5 {
+                app.swipeDown()
+            } else {
+                app.swipeUp()
+            }
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
         XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
