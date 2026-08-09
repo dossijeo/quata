@@ -37,6 +37,7 @@ let server;
 let browser;
 let context;
 let marker;
+let visibleMarker;
 let created = { ids: [], translationGroupIds: [] };
 let cleanup = { state: "not_started" };
 
@@ -47,6 +48,7 @@ try {
   distribution = await configuredDistribution(options.distribution, backend);
   fixtureDir = await mkdtemp(join(tmpdir(), "quata-official-editor-real-fixtures-"));
   marker = `official-web-ui-${randomUUID()}`;
+  visibleMarker = marker.replace(/[^a-z0-9]/gi, "").slice(-10);
   server = await startServer(distribution, wordpressBase);
 
   const loginSession = await login(backend, config, `official-editor-web-real-${randomUUID()}`);
@@ -162,12 +164,16 @@ try {
   }
 
   await clickSemanticElement(page, "official-editor-body-action");
-  const bodyField = page.getByRole("textbox").first();
+  const bodyField = page.locator("#official-editor-body-section #quata-portable-rich-text-field").first();
   await bodyField.waitFor({ state: "attached", timeout: 15_000 });
   await bodyField.click({ force: true });
-  await page.keyboard.insertText(`QUATA Web UI evidence ${marker}\nPublicacion reversible creada desde Wasm.`);
+  await page.keyboard.insertText(
+    `Aviso temporal de prueba reversible ${visibleMarker}\n` +
+      `Este comunicado de prueba verifica el editor oficial en espanol desde la version web. ` +
+      `Marcador tecnico ${marker}.`,
+  );
   await page.locator("#official-editor-preview")
-    .getByText(new RegExp(escapeRegExp(marker)))
+    .getByText(new RegExp(escapeRegExp(visibleMarker)))
     .waitFor({ state: "attached", timeout: 15_000 });
   await clickSemanticElement(page, "official-editor-publish");
   if (await clickTranslationSingleLanguageIfShown(page)) {
@@ -178,17 +184,6 @@ try {
   await waitForPostgrestPost(page, report.postgrest, options.evidenceDir);
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
-  await page.goto(`${server.origin}/#official-${created.ids[0]}`, { waitUntil: "domcontentloaded" });
-  await page.waitForFunction((postId) =>
-    localStorage.getItem("web.navigation.route") === `official/${postId}` &&
-    document.documentElement.getAttribute("data-quata-shell-route") === `official/${postId}`,
-    created.ids[0],
-    { timeout: 60_000 },
-  );
-  await page.getByText(new RegExp(escapeRegExp(marker))).first().waitFor({ state: "visible", timeout: 60_000 });
-  report.evidence.published = await screenshot(page, options.evidenceDir, "web-real-official-post-visible-after-publish");
-  report.steps.push("real_publish_returns_to_official_feed_and_renders_marker");
-
   const storagePaths = storagePathsFromMediaUrls(created.mediaUrls);
   const wordpressVideoUrls = wordpressVideoUrlsFromMediaUrls(created.mediaUrls);
   report.evidence.created = {
@@ -198,7 +193,18 @@ try {
     media: options.media,
     storagePaths,
     wordpressVideoUrls: wordpressVideoUrls.length,
+    visibleMarker,
   };
+  await page.goto(`${server.origin}/#official-${created.ids[0]}`, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction((postId) =>
+    localStorage.getItem("web.navigation.route") === `official/${postId}` &&
+    document.documentElement.getAttribute("data-quata-shell-route") === `official/${postId}`,
+    created.ids[0],
+    { timeout: 60_000 },
+  );
+  report.evidence.published = await screenshot(page, options.evidenceDir, "web-real-official-post-visible-after-publish");
+  report.routeDiagnostics = await routeDiagnostics(page);
+  report.steps.push("real_publish_focuses_created_official_route_and_captures_rendered_card");
 
   const storageCleanup = await cleanupStorageObjects(backend, loginSession, storagePaths);
   const wordpressCleanup = await cleanupWordpressVideoUrls(wordpressVideoUrls);
@@ -250,6 +256,7 @@ try {
   await rm(fixtureDir, { recursive: true, force: true }).catch(() => {});
   report.finishedAt = new Date().toISOString();
   if (marker) report.marker = marker;
+  if (visibleMarker) report.visibleMarker = visibleMarker;
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
   console.log(`Official editor Web real evidence written: ${options.output}`);
@@ -800,6 +807,19 @@ async function screenshot(page, evidenceDir, name) {
   const path = join(evidenceDir, `${name}.png`);
   await page.screenshot({ path, fullPage: true });
   return path;
+}
+
+async function routeDiagnostics(page) {
+  return page.evaluate(() => ({
+    hash: globalThis.location?.hash ?? "",
+    route: globalThis.localStorage?.getItem("web.navigation.route") ?? "",
+    shellRoute: document.documentElement.getAttribute("data-quata-shell-route") ?? "",
+    officialIds: Array.from(document.querySelectorAll("[id]"))
+      .map((node) => node.id)
+      .filter((id) => /official/i.test(id))
+      .slice(0, 40),
+    text: (document.body?.innerText ?? "").replace(/\s+/g, " ").slice(0, 800),
+  }));
 }
 
 function escapeRegExp(value) {

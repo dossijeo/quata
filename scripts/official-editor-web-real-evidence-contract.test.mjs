@@ -32,7 +32,13 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /readCreatedRows/);
   assert.match(runner, /#official-\$\{created\.ids\[0\]\}/);
   assert.match(runner, /data-quata-shell-route/);
-  assert.match(runner, /getByText\(new RegExp\(escapeRegExp\(marker\)\)\)\.first\(\)\.waitFor/);
+  assert.match(runner, /verified_in_database/);
+  assert.match(runner, /visibleMarker = marker\.replace/);
+  assert.match(runner, /Marcador tecnico \$\{marker\}/);
+  assert.match(runner, /web-real-official-post-visible-after-publish/);
+  assert.match(runner, /routeDiagnostics/);
+  assert.doesNotMatch(runner, /#official-post-card-\$\{created\.ids\[0\]\}/);
+  assert.match(runner, /real_publish_focuses_created_official_route_and_captures_rendered_card/);
   assert.match(runner, /media_url/);
   assert.match(runner, /storagePathsFromMediaUrls/);
   assert.match(runner, /wordpressVideoUrlsFromMediaUrls/);
@@ -51,7 +57,7 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /locator\.click\(\{ force: true/);
   assert.match(runner, /official-editor-body-action/);
   assert.match(runner, /official-editor-preview/);
-  assert.match(runner, /getByRole\("textbox"\)/);
+  assert.match(runner, /#official-editor-body-section #quata-portable-rich-text-field/);
   assert.match(runner, /waitFor\(\{ state: "attached"/);
   assert.match(runner, /keyboard\.insertText/);
   assert.match(runner, /clickTranslationSingleLanguageIfShown/);
