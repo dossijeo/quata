@@ -60,6 +60,16 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
 
     private func openOfficialEditor() -> XCUIApplication {
         let app = XCUIApplication()
+        let environment = ProcessInfo.processInfo.environment
+        for key in [
+            "QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN",
+            "QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE",
+            "QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH",
+        ] {
+            if let value = environment[key] {
+                app.launchEnvironment[key] = value
+            }
+        }
         app.launch()
 
         let feed = app.descendants(matching: .any)

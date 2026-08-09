@@ -67,6 +67,7 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /official-editor-pick-image/);
   assert.match(uiTest, /official-editor-media-preview/);
   assert.match(uiTest, /authenticated-official-editor-real-image-preview/);
+  assert.match(uiTest, /app\.launchEnvironment\[key\] = value/);
   assert.match(uiTest, /app\.keyboards\.count > 0/);
   assert.match(uiTest, /attempt < 5/);
   assert.match(uiTest, /app\.swipeDown\(\)/);
