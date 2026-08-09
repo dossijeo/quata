@@ -200,7 +200,8 @@ fun AppNavGraph(
     incomingLink: Uri? = null,
     onIncomingLinkHandled: () -> Unit = {},
     incomingShare: ExternalSharePayload? = null,
-    onIncomingShareHandled: () -> Unit = {}
+    onIncomingShareHandled: () -> Unit = {},
+    startDestinationOverride: String? = null,
 ) {
     val navController = rememberNavController()
     val currentBackStackEntry = navController.currentBackStackEntryAsState().value
@@ -220,7 +221,7 @@ fun AppNavGraph(
     val touchFlowEnabled by remember(currentUserId, container.touchFlowPreferences) {
         container.touchFlowPreferences.observeEnabled(currentUserId)
     }.collectAsState(initial = container.touchFlowPreferences.isEnabled(currentUserId))
-    val startDestination = AppDestinations.Feed.route
+    val startDestination = startDestinationOverride ?: AppDestinations.Feed.route
     val template = quataTheme()
     var isVideoEditorOpen by rememberSaveable { mutableStateOf(false) }
     var isCreatePostUploadInProgress by rememberSaveable { mutableStateOf(false) }

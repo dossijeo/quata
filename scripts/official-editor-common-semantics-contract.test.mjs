@@ -14,6 +14,10 @@ const androidEditor = await readFile(
   new URL("../app/src/main/java/com/quata/feature/official/presentation/OfficialPostEditorScreen.kt", import.meta.url),
   "utf8",
 );
+const longEditor = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialLongTextEditorContent.kt", import.meta.url),
+  "utf8",
+);
 
 const requiredTags = [
   "official-editor-common-root",
@@ -46,6 +50,10 @@ test("Official editor exposes stable commonMain semantics for platform evidence"
   assert.match(androidEditor, /validation = stringResource\(R\.string\.official_form_validation\)/);
   assert.doesNotMatch(androidEditor, /unavailable = stringResource\(R\.string\.error_backend_generic\)/);
   assert.doesNotMatch(androidEditor, /validation = stringResource\(R\.string\.error_backend_generic\)/);
+  assert.match(longEditor, /OfficialLongTextEditorBodyTestTag = "official-editor-long-body"/);
+  assert.match(longEditor, /OfficialLongTextEditorSaveTestTag = "official-editor-long-save"/);
+  assert.match(longEditor, /testTag\(OfficialLongTextEditorBodyTestTag\)/);
+  assert.match(longEditor, /testTag\(OfficialLongTextEditorSaveTestTag\)/);
 });
 
 test("Official editor semantics contract stays hermetic", () => {

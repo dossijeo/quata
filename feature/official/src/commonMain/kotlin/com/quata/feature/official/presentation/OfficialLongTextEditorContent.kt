@@ -8,10 +8,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.QuataEditorScaffold
 import com.quata.core.ui.components.QuataEditorToolButton
+
+const val OfficialLongTextEditorBodyTestTag = "official-editor-long-body"
+const val OfficialLongTextEditorSaveTestTag = "official-editor-long-save"
 
 /** Shared full-screen shell for the long-form Official text editor. */
 @Composable
@@ -32,7 +36,13 @@ fun OfficialLongTextEditorContent(
         onBack = onBack,
         backContentDescription = backContentDescription,
         actions = {
-            QuataEditorToolButton(label = saveLabel, enabled = true, onClick = onSave, icon = saveIcon)
+            QuataEditorToolButton(
+                label = saveLabel,
+                enabled = true,
+                onClick = onSave,
+                modifier = Modifier.testTag(OfficialLongTextEditorSaveTestTag),
+                icon = saveIcon,
+            )
         },
         modifier = modifier,
     ) {
@@ -45,6 +55,7 @@ fun OfficialLongTextEditorContent(
                 Modifier
                     .fillMaxSize()
                     .fillMaxWidth()
+                    .testTag(OfficialLongTextEditorBodyTestTag)
                     .border(1.dp, template.colors.divider, RoundedCornerShape(8.dp))
                     .padding(top = 6.dp, bottom = 2.dp),
             )

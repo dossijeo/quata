@@ -152,19 +152,7 @@ fun OfficialPostEditorScreen(
         isLongEditorOpen = false
     }
 
-    if (isLongEditorOpen) {
-        OfficialLongContentEditor(
-            html = longEditorHtml,
-            title = longEditorTitle,
-            onHtmlChange = { longEditorHtml = it },
-            onBack = { isLongEditorOpen = false },
-            onSave = {
-                pendingBodySave?.invoke(longEditorHtml)
-                pendingBodySave = null
-                isLongEditorOpen = false
-            }
-        )
-    } else {
+    Box(Modifier.fillMaxSize()) {
         val spanishName = stringResource(R.string.official_language_spanish)
         val englishName = stringResource(R.string.official_language_english)
         val frenchName = stringResource(R.string.official_language_french)
@@ -305,6 +293,20 @@ fun OfficialPostEditorScreen(
                 },
             ),
         )
+
+        if (isLongEditorOpen) {
+            OfficialLongContentEditor(
+                html = longEditorHtml,
+                title = longEditorTitle,
+                onHtmlChange = { longEditorHtml = it },
+                onBack = { isLongEditorOpen = false },
+                onSave = {
+                    pendingBodySave?.invoke(longEditorHtml)
+                    pendingBodySave = null
+                    isLongEditorOpen = false
+                },
+            )
+        }
     }
 
     imageEditorUri?.let { sourceUri ->

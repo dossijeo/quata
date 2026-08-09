@@ -383,7 +383,8 @@ data class SupabaseAuthBridgeProfile(
     val phone_local: String? = null,
     val country_code: String? = null,
     val avatar_url: String? = null,
-    val neighborhood: String? = null
+    val neighborhood: String? = null,
+    val is_official: Boolean? = null
 )
 
 @Serializable

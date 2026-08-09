@@ -32,6 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -48,6 +50,7 @@ import com.quata.core.auth.MainActivityTurnstileHost
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.device.QuataProximityState
 import com.quata.core.localization.QuataLanguageManager
+import com.quata.core.navigation.AppDestinations
 import com.quata.core.navigation.AppNavGraph
 import com.quata.core.ui.components.QuataSplashScreen
 import com.quata.core.ui.components.QuataSettingsPromptDialogContent
@@ -91,6 +94,12 @@ class MainActivity : ComponentActivity() {
             val launchedFromShare = intent?.action in SHARE_ACTIONS
             val skipSplashForEvidence = BuildConfig.DEBUG &&
                 intent?.getBooleanExtra(EXTRA_SKIP_SPLASH_FOR_EVIDENCE, false) == true
+            val startDestinationForEvidence = if (BuildConfig.DEBUG) {
+                intent?.getStringExtra(EXTRA_START_DESTINATION_FOR_EVIDENCE)
+                    ?.takeIf { it in EvidenceStartDestinations }
+            } else {
+                null
+            }
             handleIncomingIntent(intent)
             AndroidStartupDiagnostics.mark("mainActivity.hostsAttached")
 
@@ -99,14 +108,15 @@ class MainActivity : ComponentActivity() {
                     .collectAsState(initial = appContainer.themePreferences.themeMode())
                 QuataTheme(mode = themeMode) {
                     var showSplash by rememberSaveable { mutableStateOf(!launchedFromShare && !skipSplashForEvidence) }
-                    Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
                         AppNavGraph(
                             container = appContainer,
                             themeMode = themeMode,
                             incomingLink = incomingLink.value,
                             onIncomingLinkHandled = { incomingLink.value = null },
                             incomingShare = incomingShare.value,
-                            onIncomingShareHandled = ::clearIncomingShare
+                            onIncomingShareHandled = ::clearIncomingShare,
+                            startDestinationOverride = startDestinationForEvidence,
                         )
                         AnimatedVisibility(
                             visible = showSplash,
@@ -208,7 +218,9 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         val SHARE_ACTIONS = setOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)
+        val EvidenceStartDestinations = setOf(AppDestinations.OfficialPostEditor.route)
         const val EXTRA_SKIP_SPLASH_FOR_EVIDENCE = "com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE"
+        const val EXTRA_START_DESTINATION_FOR_EVIDENCE = "com.quata.extra.START_DESTINATION_FOR_EVIDENCE"
     }
 
 }

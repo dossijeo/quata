@@ -85,6 +85,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Rect
@@ -135,6 +136,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 
 private val DRAG_AUTO_SCROLL_HOT_ZONE = 80.dp
+const val QuataRichTextFieldTestTag = "quata-rich-text-field"
 private const val DRAG_AUTO_SCROLL_FRAME_MS = 16L
 private const val DRAG_AUTO_SCROLL_SPEED_VIEWPORTS_PER_SECOND = 1.5f
 private const val DRAG_PREVIEW_ALPHA = 0.72f
@@ -1542,6 +1544,7 @@ private fun QuataRichTextBlockField(
             keyboardOptions = keyboardOptions,
             modifier = Modifier
                 .weight(1f)
+                .testTag(QuataRichTextFieldTestTag)
                 .focusRequester(focusRequester)
                 .onKeyEvent { keyEvent -> onPreviewKeyEvent(keyEvent) },
             decorationBox = { innerTextField ->
