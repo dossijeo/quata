@@ -10,10 +10,14 @@ internal fun installWebAuthE2eBridge(
     login: (String, String, String, (String) -> Unit, (String) -> Unit) -> Unit,
     restore: ((String) -> Unit, (String) -> Unit) -> Unit,
     logout: ((String) -> Unit, (String) -> Unit) -> Unit,
-): () -> Unit = installAuthBridgeWhenAllowed(login, restore, logout)
+    openRecovery: () -> Unit,
+    openLogin: () -> Unit,
+    recoveryQuestion: (String, String, (String) -> Unit, (String) -> Unit) -> Unit,
+    resetPassword: (String, String, String, String, (String) -> Unit, (String) -> Unit) -> Unit,
+): () -> Unit = installAuthBridgeWhenAllowed(login, restore, logout, openRecovery, openLogin, recoveryQuestion, resetPassword)
 
 @JsFun(
-    """(login, restore, logout) => {
+    """(login, restore, logout, openRecovery, openLogin, recoveryQuestion, resetPassword) => {
       const location = globalThis.location;
       const localHost = location?.hostname === '127.0.0.1' || location?.hostname === 'localhost';
       const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1';
@@ -25,6 +29,12 @@ internal fun installWebAuthE2eBridge(
           promise((resolve, reject) => login(countryCode, phone, password, resolve, reject)),
         restore: () => promise((resolve, reject) => restore(resolve, reject)),
         logout: () => promise((resolve, reject) => logout(resolve, reject)),
+        openRecovery: () => openRecovery(),
+        openLogin: () => openLogin(),
+        recoveryQuestion: (countryCode, phone) =>
+          promise((resolve, reject) => recoveryQuestion(countryCode, phone, resolve, reject)),
+        resetPassword: (countryCode, phone, secretAnswer, newPassword) =>
+          promise((resolve, reject) => resetPassword(countryCode, phone, secretAnswer, newPassword, resolve, reject)),
       });
       globalThis.__quataAuthE2eProduct = bridge;
       return () => {
@@ -36,6 +46,10 @@ private external fun installAuthBridgeWhenAllowed(
     login: (String, String, String, (String) -> Unit, (String) -> Unit) -> Unit,
     restore: ((String) -> Unit, (String) -> Unit) -> Unit,
     logout: ((String) -> Unit, (String) -> Unit) -> Unit,
+    openRecovery: () -> Unit,
+    openLogin: () -> Unit,
+    recoveryQuestion: (String, String, (String) -> Unit, (String) -> Unit) -> Unit,
+    resetPassword: (String, String, String, String, (String) -> Unit, (String) -> Unit) -> Unit,
 ): () -> Unit
 
 /**
