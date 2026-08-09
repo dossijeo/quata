@@ -50,6 +50,12 @@ test("Web Official editor enables the shared Fang translator instead of publishi
   assert.doesNotMatch(webOfficialHost, /translator = null/);
 });
 
+test("Web Official editor detects the source language with the shared FastText model", () => {
+  assert.match(webOfficialHost, /detectOfficialPostLanguage\(/);
+  assert.match(webOfficialHost, /identifier = BrowserFastTextLanguageIdentifier/);
+  assert.doesNotMatch(webOfficialHost, /detectLanguage = \{\s*webOfficialPostLanguage\(\)\s*\}/);
+});
+
 test("Web local sessions persist the official role for restore and refresh", () => {
   assert.match(webAuthRepository, /val isOfficial: Boolean = false/);
   assert.match(webAuthRepository, /const val IsOfficial = "quata_web_is_official"/);

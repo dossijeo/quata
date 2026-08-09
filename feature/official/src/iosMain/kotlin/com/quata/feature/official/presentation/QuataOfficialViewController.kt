@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.language.FangTranslationService
+import com.quata.core.language.IosFastTextLanguageIdentifier
 import com.quata.core.language.IosTranslationHttpTransport
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
@@ -376,7 +377,13 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
                 isPublishing = false
             }
         },
-        detectLanguage = { iosOfficialPostLanguage(dependencies.preferredLanguageTag) },
+        detectLanguage = { draft ->
+            detectOfficialPostLanguage(
+                identifier = IosFastTextLanguageIdentifier,
+                draft = draft,
+                fallback = iosOfficialPostLanguage(dependencies.preferredLanguageTag),
+            )
+        },
         translator = translator,
         newTranslationGroupId = { NSUUID.UUID().UUIDString },
     )
@@ -437,31 +444,6 @@ private fun IosOfficialEditorPreview(
         },
         media = if (state.mediaUrl.isBlank() || state.mediaType == null || previewFile == null) null else {
             { mediaModifier -> IosOfficialLocalImagePreview(previewFile, mediaModifier) }
-        },
-        actionRail = { isLandscape, railModifier ->
-            OfficialPostActionRailContent(
-                post = post,
-                rank = 1,
-                isLandscape = isLandscape,
-                canPublish = false,
-                canModerate = false,
-                strings = OfficialPostActionRailStrings(
-                    like = feedStrings.like,
-                    comments = feedStrings.comments,
-                    share = feedStrings.share,
-                    rank = feedStrings.rank,
-                    live = feedStrings.live,
-                    publish = feedStrings.create,
-                    delete = feedStrings.delete,
-                ),
-                onCreate = {},
-                onOpenLive = {},
-                onLike = {},
-                onComment = {},
-                onShare = {},
-                onDelete = {},
-                modifier = railModifier,
-            )
         },
         articleContent = { selectedPost, articleModifier ->
             com.quata.core.ui.richtext.QuataRichTextRenderer(selectedPost.contentHtml, articleModifier, selectedPost.contentPlain)

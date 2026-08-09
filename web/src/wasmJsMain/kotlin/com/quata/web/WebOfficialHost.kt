@@ -52,14 +52,13 @@ import com.quata.feature.official.presentation.OfficialAuthorHeaderContent
 import com.quata.feature.official.presentation.OfficialEditorMedia
 import com.quata.feature.official.presentation.OfficialEditorMediaPreviewContent
 import com.quata.feature.official.presentation.OfficialEditorPostPreviewContent
-import com.quata.feature.official.presentation.OfficialPostActionRailContent
-import com.quata.feature.official.presentation.OfficialPostActionRailStrings
 import com.quata.feature.official.presentation.OfficialPostEditorFangTranslator
 import com.quata.feature.official.presentation.OfficialPostEditorPlatformSlots
 import com.quata.feature.official.presentation.OfficialPostEditorRoot
 import com.quata.feature.official.presentation.OfficialPostEditorPreviewState
 import com.quata.feature.official.presentation.defaultOfficialPostEditorStrings
 import com.quata.feature.official.presentation.defaultOfficialFeedScreenStrings
+import com.quata.feature.official.presentation.detectOfficialPostLanguage
 import com.quata.feature.official.presentation.officialPostEditorPreviewItem
 import com.quata.feature.official.presentation.OfficialPostMediaFrameContent
 import kotlinx.browser.document
@@ -171,7 +170,13 @@ fun WebOfficialEditorHost(
                 isPublishing = false
             }
         },
-        detectLanguage = { webOfficialPostLanguage() },
+        detectLanguage = { draft ->
+            detectOfficialPostLanguage(
+                identifier = BrowserFastTextLanguageIdentifier,
+                draft = draft,
+                fallback = webOfficialPostLanguage(),
+            )
+        },
         translator = translator,
         newTranslationGroupId = { webRandomUuid() },
         modifier = modifier,
@@ -326,32 +331,6 @@ private fun WebOfficialEditorPreview(state: OfficialPostEditorPreviewState, modi
         media = if (post.mediaUrl.isNullOrBlank()) null else {
             { mediaModifier -> BrowserOfficialEditorMedia(OfficialEditorMedia(post.mediaUrl.orEmpty(), post.mediaType ?: OfficialMediaType.Image), mediaModifier) }
         },
-        actionRail = { isLandscape, railModifier ->
-            OfficialPostActionRailContent(
-                post = post,
-                rank = 1,
-                isLandscape = isLandscape,
-                canPublish = false,
-                canModerate = false,
-                strings = OfficialPostActionRailStrings(
-                    like = strings.like,
-                    comments = strings.comments,
-                    share = strings.share,
-                    rank = strings.rank,
-                    live = strings.live,
-                    publish = strings.create,
-                    delete = strings.delete,
-                ),
-                onCreate = {},
-                onOpenLive = {},
-                onLike = {},
-                onComment = {},
-                onShare = {},
-                onDelete = {},
-                modifier = railModifier,
-            )
-        },
-        overflowAction = {},
         articleContent = { selectedPost, articleModifier ->
             QuataRichTextRenderer(selectedPost.contentHtml, articleModifier, selectedPost.contentPlain)
         },
