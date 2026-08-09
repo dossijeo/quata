@@ -23,6 +23,7 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /function e164Phone\(countryCode, phone\)/);
   assert.match(runner, /begin read only/);
   assert.match(runner, /select id, translation_group_id, media_url/);
+  assert.match(runner, /created_media_readback_missing/);
   assert.match(runner, /where title like \$1 or content_html like \$1/);
   assert.match(runner, /cleanupStorageObjects/);
   assert.match(runner, /assertStorageObjectsAbsent/);
@@ -63,7 +64,9 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /modeSwitch\.isHittable/);
   assert.match(uiTest, /official-editor-advanced-title/);
   assert.match(uiTest, /official-editor-advanced-summary/);
-  assert.match(uiTest, /selectMediaIfRequested\(in: app\)/);
+  assert.match(uiTest, /try selectMediaIfRequested\(in: app\)/);
+  assert.match(uiTest, /OfficialEditorMediaEvidenceError/);
+  assert.match(uiTest, /case previewMissing/);
   assert.match(uiTest, /official-editor-pick-image/);
   assert.match(uiTest, /official-editor-media-preview/);
   assert.match(uiTest, /authenticated-official-editor-real-image-preview/);

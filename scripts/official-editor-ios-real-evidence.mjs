@@ -118,6 +118,7 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
   const storagePaths = storagePathsFromMediaUrls(created.mediaUrls ?? []);
+  if (options.media !== "none" && !storagePaths.length) throw new Error("created_media_readback_missing");
   report.evidence.created = {
     state: "verified_in_database",
     postIds: created.ids,
