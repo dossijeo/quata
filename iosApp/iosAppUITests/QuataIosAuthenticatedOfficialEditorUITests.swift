@@ -191,6 +191,9 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         let modeSwitch = app.descendants(matching: .any)
             .matching(identifier: "official-editor-mode-switch")
             .firstMatch
+        let advancedTitle = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-advanced-title")
+            .firstMatch
         XCTAssertTrue(modeSwitch.waitForExistence(timeout: 10), "The common Official editor mode switch must exist.")
         for _ in 0..<8 {
             if modeSwitch.isHittable {
@@ -200,9 +203,17 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
         XCTAssertTrue(modeSwitch.isHittable, "The common Official editor mode switch must be reachable.")
-        if modeSwitch.value as? String != "1" {
+        for _ in 0..<3 {
+            if advancedTitle.waitForExistence(timeout: 1) {
+                return
+            }
             modeSwitch.tap()
+            if advancedTitle.waitForExistence(timeout: 3) {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
+        XCTAssertTrue(advancedTitle.exists, "The common Official editor advanced fields must appear after enabling advanced mode.")
     }
 
     private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {
