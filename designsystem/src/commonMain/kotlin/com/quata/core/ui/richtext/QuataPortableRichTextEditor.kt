@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -246,12 +247,13 @@ private fun QuataPortableRichTextBlockField(
             visualTransformation = visualTransformation,
             modifier = Modifier
                 .weight(1f)
+                .heightIn(min = 44.dp)
                 .testTag(QuataPortableRichTextFieldTestTag)
                 .focusRequester(focusRequester)
                 .onFocusChanged { if (it.isFocused) onSelected() }
                 .padding(start = if (block.type == RichTextBlockType.Paragraph) 0.dp else 4.dp),
             decorationBox = { inner ->
-                Box(modifier = Modifier.fillMaxWidth()) {
+                Box(modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)) {
                     if (block.text.text.isEmpty()) {
                         Text(
                             text = placeholder,

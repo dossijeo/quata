@@ -47,6 +47,7 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /official-editor-feedback/);
   assert.match(uiTest, /quata-portable-rich-text-field/);
   assert.match(uiTest, /focusRichTextField\(bodyField, in: app\)/);
+  assert.match(uiTest, /app\.keyboards\.count > 0/);
   assert.match(uiTest, /bodyField\.typeText\(bodyText\)/);
   assert.match(uiTest, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(uiTest, /official-editor-publish/);

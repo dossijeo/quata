@@ -147,6 +147,14 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
                 .withOffset(CGVector(dx: x, dy: y))
                 .tap()
         }
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline {
+            if app.keyboards.count > 0 {
+                return
+            }
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
     }
 
