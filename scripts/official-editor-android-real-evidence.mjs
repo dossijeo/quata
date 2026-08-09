@@ -48,6 +48,12 @@ const report = {
   evidence: {},
 };
 
+class EvidenceComplete extends Error {
+  constructor() {
+    super("evidence_complete");
+  }
+}
+
 const adb = resolveAdbCommand();
 let marker = `official-editor-android-${randomUUID()}`;
 let created = { ids: [], groupIds: [] };
@@ -498,10 +504,4 @@ function redactedTail(value) {
     if (secret) output = output.replaceAll(secret, "[redacted]");
   }
   return output.slice(-4000);
-}
-
-class EvidenceComplete extends Error {
-  constructor() {
-    super("evidence_complete");
-  }
 }
