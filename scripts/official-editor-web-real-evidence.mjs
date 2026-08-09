@@ -235,9 +235,10 @@ try {
     created.ids[0],
     { timeout: 60_000 },
   );
-  report.evidence.published = await screenshot(page, options.evidenceDir, "web-real-official-post-visible-after-publish");
+  await waitForCreatedOfficialPostRender(page, created.ids[0], visibleMarker, options.evidenceDir);
   report.routeDiagnostics = await routeDiagnostics(page);
-  report.steps.push("real_publish_focuses_created_official_route_and_captures_rendered_card");
+  report.evidence.published = await screenshot(page, options.evidenceDir, "web-real-official-post-visible-after-publish");
+  report.steps.push("real_publish_focuses_created_official_route_and_captures_exact_created_card");
 
   const storageCleanup = await cleanupStorageObjects(backend, loginSession, storagePaths);
   const wordpressCleanup = await cleanupWordpressVideoUrls(wordpressVideoUrls);
@@ -911,6 +912,21 @@ async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error(`semantic_text_missing:${id}`);
+}
+
+async function waitForCreatedOfficialPostRender(page, postId, visibleMarker, evidenceDir, timeoutMs = 60_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const diagnostics = await routeDiagnostics(page);
+    const hasRoute = diagnostics.route === `official/${postId}` && diagnostics.shellRoute === `official/${postId}`;
+    const hasPostId = diagnostics.officialIds.includes(`official-post-card-${postId}`)
+      || diagnostics.text.includes(postId);
+    const hasMarker = diagnostics.text.includes(visibleMarker);
+    if (hasRoute && hasPostId && hasMarker) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  await screenshot(page, evidenceDir, "web-real-official-created-post-render-timeout").catch(() => null);
+  throw new Error("created_official_post_render_missing");
 }
 
 async function expectLocatorAbsent(locator, timeoutMs, errorCode) {

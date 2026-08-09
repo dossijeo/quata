@@ -171,8 +171,8 @@ requieren una PR independiente, pero todas requieren estado y evidencia propios.
 ## F. Cola consolidada desde esta base
 
 1. Cerrar los límites de `SCR-CHAT` ya montado en raíz común: `CHAT-*`, evidencia visual/operativa y mutaciones reversibles.
-2. Cerrar la evidencia real de `SCR-OFFICIAL-EDITOR` desde `main` posterior a #194 usando las anclas comunes:
-   error, lectura backend, limpieza y comparativa Android-Wasm-iOS.
+2. Integrar el cierre local de `SCR-OFFICIAL-EDITOR` tras repetir la evidencia final del candidato congelado:
+   postflight RLS, captura Web del post exacto creado, limpieza y comparativa Android-Wasm-iOS sin falsos positivos.
 3. Mantener `OFFICIAL-EDITOR-REAL-BACKEND-001` como postflight obligatorio del editor: debe seguir pasando
    tras cualquier cambio y el rollout debe recordar que `20260808_0001_official_posts_actor_guard.sql`
    se aplico manualmente sin sincronizar historial de migraciones.
