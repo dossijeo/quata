@@ -64,8 +64,9 @@ let permissionProfileRollback;
 try {
   const config = requireEnvironment();
   runtimeConfig = config;
+  const backend = await publicConfig();
   if (options.expectIneligible) {
-    permissionProfileRollback = await prepareNonOfficialProfile(config);
+    permissionProfileRollback = await prepareNonOfficialProfile(backend, config);
     report.evidence.permissionProfile = {
       state: "forced_non_official_for_evidence",
       profileId: permissionProfileRollback.profileId,
@@ -275,6 +276,15 @@ async function pgConnectionConfig(config) {
   return { connectionString: url.toString(), ssl: { ca, rejectUnauthorized: true, servername: url.hostname } };
 }
 
+async function publicConfig() {
+  const source = await readFile(new URL("../core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt", import.meta.url), "utf8");
+  const url = /SUPABASE_URL\s*=\s*"([^"]+)"/.exec(source)?.[1]?.replace(/\/+$/, "");
+  const key = /SUPABASE_PUBLISHABLE_KEY\s*=\s*"([^"]+)"/.exec(source)?.[1];
+  if (!url || !key) throw new Error("missing_public_supabase_configuration");
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)) throw new Error("invalid_public_supabase_url");
+  return { url, key };
+}
+
 async function withPg(config, action) {
   const client = new pg.Client(await pgConnectionConfig(config));
   await client.connect();
@@ -285,18 +295,18 @@ async function withPg(config, action) {
   }
 }
 
-async function prepareNonOfficialProfile(config) {
+async function prepareNonOfficialProfile(backend, config) {
+  const session = await login(backend, {
+    ...config,
+    officialPhone: config.nonOfficialPhone,
+  }, `official-editor-android-permission-${randomUUID()}`);
+  if (!session.userId) throw new Error("permission_profile_id_missing");
   return withPg(config, async (client) => {
     await client.query("begin");
     try {
       const profile = await client.query({
-        text: `select cp.id, cp.is_official
-               from public.community_profiles cp
-               join auth.users au on au.id = cp.id
-               where au.phone = $1
-               limit 1
-               for update of cp`,
-        values: [`+${config.countryCode}${config.nonOfficialPhone}`],
+        text: "select id, is_official from public.community_profiles where id = $1::uuid for update",
+        values: [session.userId],
       });
       if (profile.rowCount !== 1) throw new Error("permission_profile_missing");
       const profileId = profile.rows[0].id;
@@ -312,6 +322,38 @@ async function prepareNonOfficialProfile(config) {
       throw error;
     }
   });
+}
+
+async function login(backend, config, clientInstanceId) {
+  const response = await postJson(`${backend.url}/functions/v1/quata-auth-bridge`, {
+    apikey: backend.key,
+    "content-type": "application/json",
+    "x-client-info": "quata-official-editor-android-real-evidence",
+  }, {
+    action: "web_login",
+    country_code: config.countryCode,
+    phone_local: config.officialPhone,
+    password: config.password,
+    client_instance_id: clientInstanceId,
+  });
+  const root = response.payload;
+  const profile = root?.profile;
+  if (typeof profile?.id !== "string") throw new Error("invalid_auth_response");
+  return { userId: profile.id };
+}
+
+async function postJson(url, headers, body) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => null);
+  if (!response) throw new Error("public_request_failed:network");
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : null;
+  if (!response.ok) throw new Error(`public_request_failed:http_${response.status}`);
+  return { status: response.status, payload };
 }
 
 async function restoreProfileOfficialRole(config, rollback) {
@@ -492,6 +534,11 @@ function safeFailure(error) {
     "marker_cleanup_verification_failed",
     "command_failed",
     "adb_exec_out_failed",
+    "missing_public_supabase_configuration",
+    "invalid_public_supabase_url",
+    "public_request_failed",
+    "invalid_auth_response",
+    "permission_profile_id_missing",
     "permission_profile_missing",
     "permission_profile_restore_failed",
     "permission_profile_restore_verification_failed",
