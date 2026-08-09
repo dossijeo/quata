@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import com.quata.core.language.QuataDetectedLanguage
@@ -302,6 +303,7 @@ fun OfficialPostEditorRoot(
     var pendingTranslation by remember { mutableStateOf<OfficialPendingTranslation?>(null) }
     var localFeedback by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
 
     fun requestPublication() {
         if (!canPublish) {
@@ -312,6 +314,7 @@ fun OfficialPostEditorRoot(
             localFeedback = strings.validation
             return
         }
+        localFeedback = null
         val draft = draftState.buildDraft(defaultTitle = strings.defaultTitle, language = language)
         scope.launch {
             val detection = runCatching { detectLanguage(draft) }
@@ -490,7 +493,10 @@ fun OfficialPostEditorRoot(
                     isPublishing = isPublishing,
                     publishLabel = strings.publish,
                     publishingLabel = strings.publishing,
-                    onClick = { requestPublication() },
+                    onClick = {
+                        focusManager.clearFocus(force = true)
+                        requestPublication()
+                    },
                     modifier = Modifier.fillMaxWidth().testTag(OfficialEditorPublishTestTag),
                 )
             },

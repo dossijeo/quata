@@ -23,6 +23,10 @@ const commonRoot = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostEditorRoot.kt", import.meta.url),
   "utf8",
 );
+const commonScreen = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialEditorScreenContent.kt", import.meta.url),
+  "utf8",
+);
 const translationPrompt = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialTranslationPromptContent.kt", import.meta.url),
   "utf8",
@@ -63,6 +67,14 @@ test("Official editor translation prompt exposes common evidence anchors", () =>
   assert.match(translationPrompt, /OfficialEditorTranslationSkipTestTag = "official-editor-translation-skip"/);
   assert.match(translationPrompt, /Modifier\.testTag\(OfficialEditorTranslationSkipTestTag\)/);
   assert.match(iosUiTest, /official-editor-translation-skip/);
+});
+
+test("Official editor publish remains usable while the software keyboard is open", () => {
+  assert.match(commonScreen, /import androidx\.compose\.foundation\.layout\.imePadding/);
+  assert.match(commonScreen, /\.fillMaxSize\(\)[\s\S]*\.imePadding\(\)[\s\S]*\.verticalScroll/);
+  assert.match(commonRoot, /LocalFocusManager\.current/);
+  assert.match(commonRoot, /localFeedback = null[\s\S]*val draft = draftState\.buildDraft/);
+  assert.match(commonRoot, /onClick = \{[\s\S]*focusManager\.clearFocus\(force = true\)[\s\S]*requestPublication\(\)[\s\S]*\}/);
 });
 
 test("Official editor no longer accepts browser prompt or plain iOS text field as product rich text editor", () => {
