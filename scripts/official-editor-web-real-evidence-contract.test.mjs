@@ -13,6 +13,8 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /action:\s*"web_login"/);
   assert.match(runner, /quata_web_access_token/);
   assert.match(runner, /quata_web_session_token/);
+  assert.match(runner, /quata_web_is_official/);
+  assert.match(runner, /isOfficial:\s*profile\.is_official === true/);
   assert.match(runner, /official-create-action/);
   assert.match(runner, /page\.mouse\.click\(createBox\.x \+ createBox\.width \/ 2/);
   assert.match(runner, /official_editor_invalid_draft_mutated/);

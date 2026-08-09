@@ -65,6 +65,7 @@ try {
     localStorage.setItem("quata_web_user_id", session.userId);
     localStorage.setItem("quata_web_expires_at", String(session.expiresAt));
     if (session.displayName) localStorage.setItem("quata_web_display_name", session.displayName);
+    localStorage.setItem("quata_web_is_official", String(session.isOfficial === true));
     localStorage.setItem("web.auth.session_ready", "true");
     localStorage.setItem("quata_web_client_instance_id", session.clientInstanceId);
   }, loginSession);
@@ -421,6 +422,7 @@ async function login(backend, config, clientInstanceId) {
     userId: profile.id,
     expiresAt: Number(session.expires_at ?? Math.floor(Date.now() / 1000) + Number(session.expires_in ?? 3600)),
     displayName: typeof profile.display_name === "string" ? profile.display_name : null,
+    isOfficial: profile.is_official === true,
     clientInstanceId,
   };
 }
