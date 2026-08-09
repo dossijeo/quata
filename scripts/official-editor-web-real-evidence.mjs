@@ -31,6 +31,12 @@ const report = {
   evidence: {},
 };
 
+class EvidenceComplete extends Error {
+  constructor() {
+    super("evidence_complete");
+  }
+}
+
 let distribution;
 let fixtureDir;
 let server;
@@ -903,10 +909,4 @@ function safeFailure(error) {
     "marker_cleanup_verification_failed",
     "browser_runtime_fault",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_official_editor_web_real_evidence_failure";
-}
-
-class EvidenceComplete extends Error {
-  constructor() {
-    super("evidence_complete");
-  }
 }

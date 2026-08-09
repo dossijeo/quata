@@ -31,6 +31,12 @@ const report = {
   evidence: {},
 };
 
+class EvidenceComplete extends Error {
+  constructor() {
+    super("evidence_complete");
+  }
+}
+
 let marker = `official-ios-ui-${randomUUID()}`;
 let created = { ids: [], translationGroupIds: [] };
 let cleanup = { state: "not_started" };
@@ -682,10 +688,4 @@ function safeFailure(error) {
 
 function redactedTail(text) {
   return safeFailure(String(text).split(/\r?\n/).slice(-40).join("\n"));
-}
-
-class EvidenceComplete extends Error {
-  constructor() {
-    super("evidence_complete");
-  }
 }
