@@ -66,6 +66,10 @@ test("auth-launch UI contract proves two cold launches with real Compose readine
   assert.match(uiTests, /testNormalLaunchExposesTheUnconfiguredComposeMigrationSemantics/);
   assert.match(uiTests, /matching\(identifier: "auth\.submit"\)/);
   assert.match(uiTests, /composeSubmit\.waitForExistence\(timeout: 10\)/);
+  assert.match(uiTests, /testAuthLaunchFixtureCanColdStartSharedRecoverySurface/);
+  assert.match(uiTests, /authDestination: "recovery"/);
+  assert.match(uiTests, /"auth\.recovery\.root"/);
+  assert.match(uiTests, /"auth\.recovery\.submit"/);
   assert.doesNotMatch(
     uiTests,
     /(?:quata-ios-auth-launch-ready|containmentMarker)[\s\S]{0,160}waitForExistence/,

@@ -53,6 +53,36 @@ final class QuataIosHostUITests: XCTestCase {
         }
     }
 
+    func testAuthLaunchFixtureCanColdStartSharedRecoverySurface() {
+        let app = fixtureApp("auth-launch", authDestination: "recovery")
+        app.launch()
+
+        let host = QuataIosHostUITestSupport.fixtureRoot(
+            in: app,
+            identifier: "quata-ios-auth-launch-host",
+        )
+        XCTAssertEqual(host.label, "Quata iOS Auth launch fixture")
+
+        for identifier in [
+            "auth.recovery.root",
+            "auth.recovery.phone",
+            "auth.recovery.question",
+            "auth.recovery.secret-answer",
+            "auth.recovery.new-password",
+            "auth.recovery.submit",
+            "auth.recovery.back",
+        ] {
+            XCTAssertTrue(
+                app.descendants(matching: .any)
+                    .matching(identifier: identifier)
+                    .firstMatch
+                    .waitForExistence(timeout: 10),
+                "The shared recovery semantic \(identifier) must be available in the iOS fixture.",
+            )
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-launch-recovery")
+    }
+
     func testMalformedAuthLaunchFixtureArgumentsFailClosedWithoutCompose() {
         let scenarios: [[String]] = [
             ["-quata-ui-test-fixture"],
@@ -229,11 +259,13 @@ final class QuataIosHostUITests: XCTestCase {
         _ fixture: String,
         deepLink: String? = nil,
         inAppRoute: String? = nil,
+        authDestination: String? = nil,
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-quata-ui-test-fixture", fixture]
         if let deepLink { app.launchArguments += ["-quata-ui-test-deep-link", deepLink] }
         if let inAppRoute { app.launchArguments += ["-quata-ui-test-in-app-route", inAppRoute] }
+        if let authDestination { app.launchArguments += ["-quata-auth-destination", authDestination] }
         return app
     }
 
