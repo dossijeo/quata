@@ -176,17 +176,19 @@ try {
   }
 
   await waitForPostgrestPost(page, report.postgrest, options.evidenceDir);
-  await page.waitForFunction(() =>
-    localStorage.getItem("web.navigation.route") === "official" &&
-    document.documentElement.getAttribute("data-quata-shell-route") === "official",
+  created = await readCreatedRows(config, marker);
+  if (created.ids.length < 1) throw new Error("created_post_readback_missing");
+  await page.goto(`${server.origin}/#official-${created.ids[0]}`, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction((postId) =>
+    localStorage.getItem("web.navigation.route") === `official/${postId}` &&
+    document.documentElement.getAttribute("data-quata-shell-route") === `official/${postId}`,
+    created.ids[0],
     { timeout: 60_000 },
   );
-  await page.getByText(new RegExp(escapeRegExp(marker))).first().waitFor({ timeout: 60_000 });
+  await page.getByText(new RegExp(escapeRegExp(marker))).first().waitFor({ state: "visible", timeout: 60_000 });
   report.evidence.published = await screenshot(page, options.evidenceDir, "web-real-official-post-visible-after-publish");
   report.steps.push("real_publish_returns_to_official_feed_and_renders_marker");
 
-  created = await readCreatedRows(config, marker);
-  if (created.ids.length < 1) throw new Error("created_post_readback_missing");
   const storagePaths = storagePathsFromMediaUrls(created.mediaUrls);
   const wordpressVideoUrls = wordpressVideoUrlsFromMediaUrls(created.mediaUrls);
   report.evidence.created = {

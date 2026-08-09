@@ -30,6 +30,8 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /async function createMp4Fixture[\s\S]*?copyFile[\s\S]*?quata-demo-video\.mp4[\s\S]*?return path;/);
   assert.doesNotMatch(runner.match(/async function createMp4Fixture[\s\S]*?return path;\n}/)?.[0] ?? "", /Buffer\.from|base64/i);
   assert.match(runner, /readCreatedRows/);
+  assert.match(runner, /#official-\$\{created\.ids\[0\]\}/);
+  assert.match(runner, /data-quata-shell-route/);
   assert.match(runner, /getByText\(new RegExp\(escapeRegExp\(marker\)\)\)\.first\(\)\.waitFor/);
   assert.match(runner, /media_url/);
   assert.match(runner, /storagePathsFromMediaUrls/);
