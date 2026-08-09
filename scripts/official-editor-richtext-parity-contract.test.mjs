@@ -34,6 +34,10 @@ test("Official editor Web and iOS use the common portable rich text editor", () 
   assert.match(portable, /quata-portable-rich-text-field/);
   assert.match(portable, /QuataRichTextEditorState\(initialHtml\)/);
   assert.match(portable, /state\.updateBlockText\(block\.id, value\)/);
+  assert.match(portable, /FocusRequester\(\)/);
+  assert.match(portable, /\.focusRequester\(focusRequester\)/);
+  assert.match(portable, /LocalSoftwareKeyboardController\.current/);
+  assert.match(portable, /keyboardController\?\.show\(\)/);
   assert.match(portable, /state(?:::|\.)toggleBold/);
   assert.match(portable, /state(?:::|\.)toggleItalic/);
   assert.match(portable, /state(?:::|\.)toggleUnderline/);
