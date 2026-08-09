@@ -23,6 +23,10 @@ const commonRoot = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostEditorRoot.kt", import.meta.url),
   "utf8",
 );
+const translationPrompt = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialTranslationPromptContent.kt", import.meta.url),
+  "utf8",
+);
 const iosUiTest = await readFile(
   new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedOfficialEditorUITests.swift", import.meta.url),
   "utf8",
@@ -51,6 +55,14 @@ test("Official editor Web and iOS use the common portable rich text editor", () 
   assert.match(iosUiTest, /quata-portable-rich-text-field/);
   assert.match(iosUiTest, /official-editor-preview/);
   assert.match(iosUiTest, /Vista previa/);
+});
+
+test("Official editor translation prompt exposes common evidence anchors", () => {
+  assert.match(translationPrompt, /OfficialEditorTranslationPromptTestTag = "official-editor-translation-prompt"/);
+  assert.match(translationPrompt, /OfficialEditorTranslationConfirmTestTag = "official-editor-translation-confirm"/);
+  assert.match(translationPrompt, /OfficialEditorTranslationSkipTestTag = "official-editor-translation-skip"/);
+  assert.match(translationPrompt, /Modifier\.testTag\(OfficialEditorTranslationSkipTestTag\)/);
+  assert.match(iosUiTest, /official-editor-translation-skip/);
 });
 
 test("Official editor no longer accepts browser prompt or plain iOS text field as product rich text editor", () => {

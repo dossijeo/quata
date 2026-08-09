@@ -165,6 +165,13 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func tapTranslationSkipIfShown(in app: XCUIApplication) {
+        let skipByTag = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-translation-skip")
+            .firstMatch
+        if skipByTag.waitForExistence(timeout: 12) {
+            skipByTag.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            return
+        }
         let skipPredicates = [
             "Publicar solo este idioma",
             "Publicar así",

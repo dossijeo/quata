@@ -9,8 +9,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+
+const val OfficialEditorTranslationPromptTestTag = "official-editor-translation-prompt"
+const val OfficialEditorTranslationConfirmTestTag = "official-editor-translation-confirm"
+const val OfficialEditorTranslationSkipTestTag = "official-editor-translation-skip"
 
 /** Shared translation confirmation/progress dialog. The loader is injected by the host. */
 @Composable
@@ -28,6 +33,7 @@ fun OfficialTranslationPromptContent(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.testTag(OfficialEditorTranslationPromptTestTag),
         title = { Text(title, fontWeight = FontWeight.Black) },
         text = {
             if (isTranslating) {
@@ -44,12 +50,20 @@ fun OfficialTranslationPromptContent(
             }
         },
         confirmButton = {
-            TextButton(enabled = !isTranslating, onClick = onGenerate) {
+            TextButton(
+                enabled = !isTranslating,
+                onClick = onGenerate,
+                modifier = Modifier.testTag(OfficialEditorTranslationConfirmTestTag),
+            ) {
                 Text(confirmLabel, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(enabled = !isTranslating, onClick = onSkip) {
+            TextButton(
+                enabled = !isTranslating,
+                onClick = onSkip,
+                modifier = Modifier.testTag(OfficialEditorTranslationSkipTestTag),
+            ) {
                 Text(skipLabel)
             }
         },
