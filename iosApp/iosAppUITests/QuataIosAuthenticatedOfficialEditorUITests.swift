@@ -47,9 +47,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         typeText(titleText, into: "official-editor-advanced-title", in: app)
         typeText(summaryText, into: "official-editor-advanced-summary", in: app)
         try selectMediaIfRequested(in: app)
-        if app.keyboards.count > 0 {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
-        }
+        dismissKeyboardIfPresent(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-filled")
 
         tapPublish(in: app)
@@ -126,16 +124,22 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         guard ProcessInfo.processInfo.environment["QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE"] == "image" else {
             return
         }
-        if app.keyboards.count > 0 {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
-        }
+        dismissKeyboardIfPresent(in: app)
         let picker = app.descendants(matching: .any)
             .matching(identifier: "official-editor-pick-image")
             .firstMatch
+        let mediaPreview = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-media-preview")
+            .firstMatch
+        var tappedPicker = false
         for attempt in 0..<10 {
             if picker.waitForExistence(timeout: 1), picker.isHittable {
-                picker.tap()
-                break
+                picker.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                tappedPicker = true
+                if mediaPreview.waitForExistence(timeout: 4) {
+                    QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-image-preview")
+                    return
+                }
             }
             if attempt < 5 {
                 app.swipeDown()
@@ -144,13 +148,24 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
-        let mediaPreview = app.descendants(matching: .any)
-            .matching(identifier: "official-editor-media-preview")
-            .firstMatch
+        guard tappedPicker else {
+            throw OfficialEditorMediaEvidenceError.pickerNotTapped
+        }
         guard mediaPreview.waitForExistence(timeout: 10) else {
             throw OfficialEditorMediaEvidenceError.previewMissing
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-image-preview")
+    }
+
+    private func dismissKeyboardIfPresent(in app: XCUIApplication) {
+        guard app.keyboards.count > 0 else {
+            return
+        }
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        if app.keyboards.count > 0 {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
+        }
     }
 
     private func tapPublish(in app: XCUIApplication) {
@@ -287,5 +302,6 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
 }
 
 private enum OfficialEditorMediaEvidenceError: Error {
+    case pickerNotTapped
     case previewMissing
 }
