@@ -46,6 +46,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         switchToAdvancedMode(in: app)
         typeText(titleText, into: "official-editor-advanced-title", in: app)
         typeText(summaryText, into: "official-editor-advanced-summary", in: app)
+        selectMediaIfRequested(in: app)
         if app.keyboards.count > 0 {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
         }
@@ -109,6 +110,35 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             preview.waitForExistence(timeout: 5) || previewHeading.waitForExistence(timeout: 10),
             "The initial editor viewport must expose the shared preview region.",
         )
+    }
+
+    private func selectMediaIfRequested(in app: XCUIApplication) {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE"] == "image" else {
+            return
+        }
+        if app.keyboards.count > 0 {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        }
+        let picker = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-pick-image")
+            .firstMatch
+        for attempt in 0..<10 {
+            if picker.waitForExistence(timeout: 1), picker.isHittable {
+                picker.tap()
+                break
+            }
+            if attempt < 5 {
+                app.swipeDown()
+            } else {
+                app.swipeUp()
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        let mediaPreview = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-media-preview")
+            .firstMatch
+        XCTAssertTrue(mediaPreview.waitForExistence(timeout: 10), "The common Official editor media preview must render after selecting an iOS image fixture.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-image-preview")
     }
 
     private func tapPublish(in app: XCUIApplication) {

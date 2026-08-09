@@ -34,6 +34,7 @@ const val OfficialEditorImagePickerTestTag = "official-editor-pick-image"
 const val OfficialEditorVideoPickerTestTag = "official-editor-pick-video"
 const val OfficialEditorBodySectionTestTag = "official-editor-body-section"
 const val OfficialEditorBodyActionTestTag = "official-editor-body-action"
+const val OfficialEditorMediaPreviewTestTag = "official-editor-media-preview"
 const val OfficialEditorPreviewTestTag = "official-editor-preview"
 const val OfficialEditorFeedbackTestTag = "official-editor-feedback"
 const val OfficialEditorPublishTestTag = "official-editor-publish"
@@ -402,7 +403,7 @@ fun OfficialPostEditorRoot(
                                 OfficialEditorMedia(draftState.mediaUrl, selectedMediaType),
                                 { media -> draftState = draftState.withMedia(media.type, media.url) },
                                 { draftState = draftState.withoutMedia() },
-                                Modifier.fillMaxWidth(),
+                                Modifier.fillMaxWidth().testTag(OfficialEditorMediaPreviewTestTag),
                             )
                         }
                     },

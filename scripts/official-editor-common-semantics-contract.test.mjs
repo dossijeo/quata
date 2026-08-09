@@ -28,6 +28,7 @@ const requiredTags = [
   "official-editor-pick-video",
   "official-editor-body-section",
   "official-editor-body-action",
+  "official-editor-media-preview",
   "official-editor-preview",
   "official-editor-feedback",
   "official-editor-publish",

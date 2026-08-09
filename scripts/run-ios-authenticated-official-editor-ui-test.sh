@@ -81,6 +81,13 @@ def patch_target(target, hint=''):
         if marker and opt_in:
             env['QUATA_IOS_OFFICIAL_EDITOR_MARKER'] = marker
             env['QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN'] = opt_in
+        media_opt_in = os.environ.get('QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN', '').strip()
+        media_type = os.environ.get('QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE', '').strip()
+        media_path = os.environ.get('QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH', '').strip()
+        if media_opt_in and media_type and media_path:
+            env['QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN'] = media_opt_in
+            env['QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE'] = media_type
+            env['QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH'] = media_path
         matched.add('ui')
 for configuration in data.get('TestConfigurations', []):
     for target in configuration.get('TestTargets', []):

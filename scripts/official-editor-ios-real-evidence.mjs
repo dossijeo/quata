@@ -9,6 +9,7 @@ import pg from "pg";
 
 const CHECK = "OFFICIAL-EDITOR-IOS-REAL-UI-001";
 const OPT_IN = "I_ACCEPT_REVERSIBLE_OFFICIAL_POST_MUTATION";
+const MEDIA_FIXTURE_OPT_IN = "I_ACCEPT_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE";
 const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url.txt";
 const DEFAULT_DB_TLS_CA_FILE = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const REQUIRED_ENV = [
@@ -35,9 +36,12 @@ let created = { ids: [], translationGroupIds: [] };
 let cleanup = { state: "not_started" };
 let localCredentials;
 let remoteCredentials;
+let localMediaFixture;
+let remoteMediaFixture;
 
 try {
   const config = requireEnvironment();
+  const backend = await publicConfig();
   await mkdir(dirname(options.output), { recursive: true });
   await mkdir(options.evidenceDir, { recursive: true });
 
@@ -61,6 +65,20 @@ try {
   ])).trim();
   await run("scp", [localCredentials, `${options.host}:${remoteCredentials}`]);
   report.steps.push("ios_real_credentials_copied_to_mac_tempfile_without_logging_contents");
+
+  if (options.media === "image") {
+    localMediaFixture = join(
+      await mkdtemp(join(tmpdir(), "quata-ios-official-editor-media-")),
+      `${marker}.png`,
+    );
+    await writeFile(localMediaFixture, pngFixtureBuffer());
+    remoteMediaFixture = (await runCapture("ssh", [
+      options.host,
+      `mktemp /tmp/quata-ios-official-editor-media.XXXXXX.png`,
+    ])).trim();
+    await run("scp", [localMediaFixture, `${options.host}:${remoteMediaFixture}`]);
+    report.steps.push("ios_image_fixture_copied_to_mac_tempfile_without_sensitive_contents");
+  }
 
   const localHead = report.git.head;
   const remoteHead = (await runSshScript(options.host, `
@@ -90,17 +108,28 @@ export QUATA_IOS_SIMULATOR_UDID=${shellQuote(config.simulatorUdid)}
 export QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR=${shellQuote(options.remoteLogDir)}
 export QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN=${shellQuote(OPT_IN)}
 export QUATA_IOS_OFFICIAL_EDITOR_MARKER=${shellQuote(marker)}
+${remoteMediaFixture ? `export QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN=${shellQuote(MEDIA_FIXTURE_OPT_IN)}
+export QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE=${shellQuote(options.media)}
+export QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH=${shellQuote(remoteMediaFixture)}` : ""}
 bash scripts/run-ios-authenticated-official-editor-ui-test.sh
 `);
   report.steps.push("ios_xctest_real_official_editor_publish_executed");
 
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
+  const storagePaths = storagePathsFromMediaUrls(created.mediaUrls ?? []);
   report.evidence.created = {
     state: "verified_in_database",
     postIds: created.ids,
     translationGroupIds: created.translationGroupIds,
+    media: options.media,
+    storagePaths,
   };
+  const loginSession = storagePaths.length ? await login(backend, config, `official-editor-ios-real-${randomUUID()}`) : null;
+  report.evidence.storageCleanup = loginSession
+    ? await cleanupStorageObjects(backend, loginSession, storagePaths)
+    : { state: "not_needed", deletedPaths: [] };
+  report.evidence.storagePostCleanup = await assertStorageObjectsAbsent(config, storagePaths);
   cleanup = await cleanupPosts(config, created.ids, created.translationGroupIds, marker);
   report.cleanup = cleanup;
   report.postCleanupReadback = await assertNoMarkerRows(config, marker, created.translationGroupIds);
@@ -116,7 +145,14 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
   if (marker && cleanup.state === "not_started") {
     try {
       const config = requireEnvironment();
+      const backend = await publicConfig();
       const found = created.ids.length ? created : await readCreatedRows(config, marker);
+      const storagePaths = storagePathsFromMediaUrls(found.mediaUrls ?? []);
+      if (storagePaths.length) {
+        const loginSession = await login(backend, config, `official-editor-ios-real-cleanup-${randomUUID()}`);
+        report.evidence.storageCleanup = await cleanupStorageObjects(backend, loginSession, storagePaths);
+        report.evidence.storagePostCleanup = await assertStorageObjectsAbsent(config, storagePaths);
+      }
       cleanup = await cleanupPosts(config, found.ids, found.translationGroupIds, marker);
       report.cleanup = cleanup;
       report.postCleanupReadback = await assertNoMarkerRows(config, marker, found.translationGroupIds);
@@ -133,8 +169,14 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
   if (remoteCredentials) {
     await run("ssh", [options.host, "rm", "-f", remoteCredentials]).catch(() => {});
   }
+  if (remoteMediaFixture) {
+    await run("ssh", [options.host, "rm", "-f", remoteMediaFixture]).catch(() => {});
+  }
   if (localCredentials) {
     await rm(dirname(localCredentials), { recursive: true, force: true }).catch(() => {});
+  }
+  if (localMediaFixture) {
+    await rm(dirname(localMediaFixture), { recursive: true, force: true }).catch(() => {});
   }
   report.finishedAt = new Date().toISOString();
   report.marker = marker;
@@ -160,6 +202,7 @@ function parseArgs(args) {
     output: "build-reports/ios/official-editor-real-evidence.json",
     evidenceDir: "build-reports/ios/official-editor-real-evidence",
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
+    media: process.env.QUATA_IOS_OFFICIAL_EDITOR_MEDIA?.trim() || "none",
   };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -175,8 +218,10 @@ function parseArgs(args) {
     else if (arg === "--out") values.output = next();
     else if (arg === "--evidence-dir") values.evidenceDir = next();
     else if (arg === "--build-first") values.buildFirst = true;
+    else if (arg === "--media") values.media = next();
     else throw new Error(`unknown_argument:${arg}`);
   }
+  if (!["none", "image"].includes(values.media)) throw new Error(`unsupported_media:${values.media}`);
   values.output = resolve(values.output);
   values.evidenceDir = resolve(values.evidenceDir);
   return values;
@@ -219,6 +264,50 @@ async function pgConnectionConfig(config) {
   return { connectionString: url.toString(), ssl: { ca, rejectUnauthorized: true, servername: url.hostname } };
 }
 
+async function publicConfig() {
+  const source = await readFile(new URL("../core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt", import.meta.url), "utf8");
+  const url = /SUPABASE_URL\s*=\s*"([^"]+)"/.exec(source)?.[1]?.replace(/\/+$/, "");
+  const key = /SUPABASE_PUBLISHABLE_KEY\s*=\s*"([^"]+)"/.exec(source)?.[1];
+  if (!url || !key) throw new Error("missing_public_supabase_configuration");
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)) throw new Error("invalid_public_supabase_url");
+  return { url, key };
+}
+
+async function postJson(url, headers, body) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const text = await response.text();
+  let json = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`invalid_json_response:${response.status}`);
+  }
+  if (!response.ok) throw new Error(`http_${response.status}:${safeFailure(JSON.stringify(json))}`);
+  return json;
+}
+
+async function login(backend, config, clientInstanceId) {
+  const response = await postJson(`${backend.url}/functions/v1/quata-auth-bridge`, {
+    apikey: backend.key,
+    "content-type": "application/json",
+    "x-client-info": "quata-official-editor-ios-real-evidence",
+  }, {
+    action: "web_login",
+    country_code: config.countryCode,
+    phone_local: config.officialPhone,
+    password: config.password,
+    client_instance_id: clientInstanceId,
+  });
+  const session = response.payload?.session;
+  if (typeof session?.access_token !== "string") throw new Error("invalid_auth_response");
+  return { accessToken: session.access_token };
+}
+
 async function withPg(config, action) {
   const client = new pg.Client(await pgConnectionConfig(config));
   await client.connect();
@@ -234,7 +323,7 @@ async function readCreatedRows(config, uniqueMarker) {
     await client.query("begin read only");
     try {
       const { rows } = await client.query({
-        text: `select id, translation_group_id
+        text: `select id, translation_group_id, media_url
                from public.official_posts
                where title like $1 or content_html like $1`,
         values: [`%${uniqueMarker}%`],
@@ -243,12 +332,83 @@ async function readCreatedRows(config, uniqueMarker) {
       return {
         ids: rows.map((row) => row.id).filter(Boolean),
         translationGroupIds: [...new Set(rows.map((row) => row.translation_group_id).filter(Boolean))],
+        mediaUrls: [...new Set(rows.map((row) => row.media_url).filter(Boolean))],
       };
     } catch (error) {
       await client.query("rollback").catch(() => {});
       throw error;
     }
   });
+}
+
+async function cleanupStorageObjects(backend, session, storagePaths) {
+  if (!storagePaths.length) return { state: "not_needed", deletedPaths: [] };
+  const response = await fetch(`${backend.url}/storage/v1/object/community-posts`, {
+    method: "DELETE",
+    headers: {
+      apikey: backend.key,
+      authorization: `Bearer ${session.accessToken}`,
+      "content-type": "application/json",
+      "x-client-info": "quata-official-editor-ios-real-evidence",
+    },
+    body: JSON.stringify({ prefixes: storagePaths }),
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => null);
+  if (!response) throw new Error("storage_cleanup_failed:network");
+  if (!response.ok) throw new Error(`storage_cleanup_failed:http_${response.status}`);
+  return { state: "deleted", deletedPaths: storagePaths };
+}
+
+async function assertStorageObjectsAbsent(config, storagePaths) {
+  if (!storagePaths.length) return { state: "not_needed" };
+  return withPg(config, async (client) => {
+    await client.query("begin read only");
+    try {
+      const { rows } = await client.query({
+        text: `select count(*)::int as count
+               from storage.objects
+               where bucket_id = 'community-posts'
+                 and name = any($1::text[])`,
+        values: [storagePaths],
+      });
+      await client.query("rollback");
+      if (rows[0]?.count !== 0) throw new Error("storage_post_cleanup_verification_failed:object_metadata_remains");
+      return { state: "verified_absent", checkedPaths: storagePaths };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+function storagePathsFromMediaUrls(mediaUrls) {
+  return [...new Set(mediaUrls.map(storagePathFromMediaUrl).filter(Boolean))];
+}
+
+function storagePathFromMediaUrl(value) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return null;
+  }
+  const markerPath = "/storage/v1/object/public/community-posts/";
+  const index = parsed.pathname.indexOf(markerPath);
+  if (index < 0 || parsed.search || parsed.hash) return null;
+  return parsed.pathname
+    .slice(index + markerPath.length)
+    .split("/")
+    .map((part) => decodeURIComponent(part))
+    .join("/")
+    .trim()
+    || null;
+}
+
+function pngFixtureBuffer() {
+  return Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFUlEQVR42mP8z8Dwn4GBgYGJAQoAHxcCAns1m2AAAAAASUVORK5CYII=",
+    "base64",
+  );
 }
 
 async function cleanupPosts(config, ids, groupIds, uniqueMarker) {

@@ -10,6 +10,9 @@ const packageJson = JSON.parse(await readFile(new URL("../package.json", import.
 test("iOS Official editor real evidence is explicit opt-in, marker-based and cleans exact backend rows", () => {
   assert.match(runner, /OFFICIAL-EDITOR-IOS-REAL-UI-001/);
   assert.match(runner, /I_ACCEPT_REVERSIBLE_OFFICIAL_POST_MUTATION/);
+  assert.match(runner, /I_ACCEPT_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE/);
+  assert.match(runner, /--media/);
+  assert.match(runner, /unsupported_media/);
   assert.match(runner, /QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN/);
   assert.match(runner, /QUATA_IOS_SIMULATOR_UDID/);
   assert.match(runner, /official-ios-ui-\$\{randomUUID\(\)\}/);
@@ -19,7 +22,12 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /phone: e164Phone\(config\.countryCode, config\.officialPhone\)/);
   assert.match(runner, /function e164Phone\(countryCode, phone\)/);
   assert.match(runner, /begin read only/);
+  assert.match(runner, /select id, translation_group_id, media_url/);
   assert.match(runner, /where title like \$1 or content_html like \$1/);
+  assert.match(runner, /cleanupStorageObjects/);
+  assert.match(runner, /assertStorageObjectsAbsent/);
+  assert.match(runner, /storage\.objects/);
+  assert.match(runner, /community-posts/);
   assert.match(runner, /resolvedIds/);
   assert.match(runner, /delete from public\.official_post_likes/);
   assert.match(runner, /delete from public\.official_post_comments/);
@@ -36,6 +44,9 @@ test("iOS shell runner patches a temporary xctestrun and requires the real publi
   assert.match(shellRunner, /cp "\$xctestrun" "\$patched_xctestrun"/);
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_MARKER'\] = marker/);
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN'\] = opt_in/);
+  assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN/);
+  assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE/);
+  assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH/);
   assert.match(shellRunner, /testAuthenticatedSessionPublishesRealOfficialPost/);
   assert.match(shellRunner, /check-ios-xctest-executed\.py/);
 });
@@ -52,6 +63,10 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /modeSwitch\.isHittable/);
   assert.match(uiTest, /official-editor-advanced-title/);
   assert.match(uiTest, /official-editor-advanced-summary/);
+  assert.match(uiTest, /selectMediaIfRequested\(in: app\)/);
+  assert.match(uiTest, /official-editor-pick-image/);
+  assert.match(uiTest, /official-editor-media-preview/);
+  assert.match(uiTest, /authenticated-official-editor-real-image-preview/);
   assert.match(uiTest, /app\.keyboards\.count > 0/);
   assert.match(uiTest, /attempt < 5/);
   assert.match(uiTest, /app\.swipeDown\(\)/);

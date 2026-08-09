@@ -45,6 +45,7 @@ import com.quata.core.ui.components.IosMemberProfileOpeningState
 import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
 import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
+import platform.Foundation.NSProcessInfo
 import platform.Foundation.NSUUID
 import platform.Foundation.NSURL
 import platform.UIKit.UIImage
@@ -278,6 +279,19 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
 
     fun releaseVideoThumbnail() { videoThumbnail = null }
     fun selectMedia(type: OfficialMediaType, onPicked: (OfficialEditorMedia) -> Unit) {
+        officialEditorEvidenceMediaFixture(type)?.let { file ->
+            if (type == OfficialMediaType.Image) {
+                imageFile = file
+                onPicked(OfficialEditorMedia(file.reference, OfficialMediaType.Image))
+            } else {
+                releaseVideoThumbnail()
+                scope.launch {
+                    videoThumbnail = (dependencies.videoThumbnails.createThumbnail(file) as? PlatformResult.Success)?.value
+                    onPicked(OfficialEditorMedia(file.reference, OfficialMediaType.Video))
+                }
+            }
+            return
+        }
         scope.launch {
             dependencies.filePicker.pick(
                 FilePickerRequest(
@@ -387,6 +401,28 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
         translator = translator,
         newTranslationGroupId = { NSUUID.UUID().UUIDString },
     )
+}
+
+private const val OfficialEditorMediaFixtureOptIn = "I_ACCEPT_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE"
+
+private fun officialEditorEvidenceMediaFixture(type: OfficialMediaType): PlatformFile? {
+    val environment = NSProcessInfo.processInfo.environment
+    if (environment["QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN"] != OfficialEditorMediaFixtureOptIn) return null
+    val expectedType = when (type) {
+        OfficialMediaType.Image -> "image"
+        OfficialMediaType.Video -> "video"
+    }
+    if ((environment["QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE"] as? String)?.lowercase() != expectedType) return null
+    val path = (environment["QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH"] as? String)
+        ?.takeIf(String::isNotBlank)
+        ?: return null
+    val reference = if (path.startsWith("file://")) path else NSURL.fileURLWithPath(path).absoluteString ?: path
+    val displayName = path.substringAfterLast('/').ifBlank { null }
+    val mimeType = when (type) {
+        OfficialMediaType.Image -> "image/png"
+        OfficialMediaType.Video -> "video/mp4"
+    }
+    return PlatformFile(reference = reference, displayName = displayName, mimeType = mimeType)
 }
 
 @Composable
