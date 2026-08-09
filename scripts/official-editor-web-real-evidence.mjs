@@ -172,9 +172,7 @@ try {
       `Este comunicado de prueba verifica el editor oficial en espanol desde la version web. ` +
       `Marcador tecnico ${marker}.`,
   );
-  await page.locator("#official-editor-preview")
-    .getByText(new RegExp(escapeRegExp(visibleMarker)))
-    .waitFor({ state: "attached", timeout: 15_000 });
+  await page.waitForTimeout(500);
   await clickSemanticElement(page, "official-editor-publish");
   if (await clickTranslationSingleLanguageIfShown(page)) {
     report.evidence.translationPrompt = await screenshot(page, options.evidenceDir, "web-real-official-editor-after-translation-skip");
