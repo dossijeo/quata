@@ -15,6 +15,8 @@ import androidx.compose.ui.test.click
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.model.AuthSession
 import com.quata.core.model.CountryPrefix
 import com.quata.feature.auth.domain.AuthRepository
@@ -46,13 +48,15 @@ class AuthRecoveryProductBridgeInstrumentedTest {
         val repository = FixtureAuthRepository()
 
         compose.setContent {
-            AuthProductHostContent(
-                repository = repository,
-                catalog = AuthCatalog.copy(AuthCatalogLocale.Spanish),
-                prefixes = listOf(CountryPrefix("240", "+240 - Guinea Ecuatorial")),
-                initialDestination = AuthProductDestination.Recovery,
-                onAuthenticated = {},
-            )
+            QuataTheme(mode = QuataThemeMode.Light) {
+                AuthProductHostContent(
+                    repository = repository,
+                    catalog = AuthCatalog.copy(AuthCatalogLocale.Spanish),
+                    prefixes = listOf(CountryPrefix("240", "+240 - Guinea Ecuatorial")),
+                    initialDestination = AuthProductDestination.Recovery,
+                    onAuthenticated = {},
+                )
+            }
         }
 
         for (tag in listOf(
