@@ -49,6 +49,7 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
     private var active = false
     private var started = false
     private var reportedError: String?
+    private var cachedDurationMs: Int64 = 0
 
     init(imageURL: URL?) {
         super.init()
@@ -128,7 +129,11 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
     }
 
     func seekTo(positionMs: Int64) {
-        player?.seek(to: CMTime(value: CMTimeValue(max(0, positionMs)), timescale: 1_000))
+        player?.seek(
+            to: CMTime(value: CMTimeValue(max(0, positionMs)), timescale: 1_000),
+            toleranceBefore: .zero,
+            toleranceAfter: .zero,
+        )
     }
 
     func retry() {
@@ -148,8 +153,7 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
         let position = positionSeconds.isFinite && positionSeconds > 0
             ? Int64(positionSeconds * 1_000)
             : 0
-        let durationSeconds = player.currentItem.map { CMTimeGetSeconds($0.duration) } ?? 0
-        let duration = durationSeconds.isFinite && durationSeconds > 0 ? Int64(durationSeconds * 1_000) : 0
+        let duration = feedDurationMs(for: player.currentItem)
         let buffering = active && player.timeControlStatus == .waitingToPlayAtSpecifiedRate
         return IosFeedMediaSnapshot(
             isPlaying: player.timeControlStatus == .playing,
@@ -160,6 +164,32 @@ private final class IosFeedNativeMediaSurface: NSObject, IosFeedMediaSurface {
             isEnded: false,
             error: reportedError,
         )
+    }
+
+    private func feedDurationMs(for item: AVPlayerItem?) -> Int64 {
+        guard let item else { return 0 }
+        if let duration = milliseconds(from: item.duration), duration > 0 {
+            cachedDurationMs = max(cachedDurationMs, duration)
+            return cachedDurationMs
+        }
+        let zeroBasedSeekableDuration = item.seekableTimeRanges
+            .map(\.timeRangeValue)
+            .filter { range in
+                let startSeconds = CMTimeGetSeconds(range.start)
+                return startSeconds.isFinite && abs(startSeconds) < 0.05
+            }
+            .compactMap { milliseconds(from: $0.duration) }
+            .max() ?? 0
+        cachedDurationMs = max(cachedDurationMs, zeroBasedSeekableDuration)
+        return cachedDurationMs
+    }
+
+    private func milliseconds(from time: CMTime) -> Int64? {
+        guard time.isValid, !time.isIndefinite, !time.isNegativeInfinity, !time.isPositiveInfinity else {
+            return nil
+        }
+        let seconds = CMTimeGetSeconds(time)
+        return seconds.isFinite && seconds > 0 ? Int64(seconds * 1_000) : nil
     }
 
     func dispose() {
