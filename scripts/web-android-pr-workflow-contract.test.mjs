@@ -36,6 +36,7 @@ function assertFastAndFinalLaneContract(yaml) {
   const fastBlock = yaml.slice(fastStart, webStart);
   assert.match(fastBlock, /name: PR fast contracts and focal imports/);
   assert.match(fastBlock, /git diff --check/);
+  assert.match(fastBlock, /node --test scripts\/whats-new-release-history-contract\.test\.mjs/);
   assert.match(fastBlock, /:core:compileKotlinWasmJs/);
   assert.match(fastBlock, /:feature:profile:compileKotlinWasmJs/);
   assert.doesNotMatch(fastBlock, /wasmJsBrowserDistribution|web-browser-smoke\.mjs|setup-chrome/,
@@ -141,7 +142,7 @@ function assertWorkflowContract(yaml) {
   const pushStart = yaml.indexOf('  push:');
   assert.doesNotMatch(yaml.slice(pullRequestStart, pushStart), /\bpaths:/,
     'all PR changes must reach the fast and aggregate gates');
-  assert.match(yaml, /- name: Run Web Wave 2 Node contracts[\s\S]*?node --test scripts\/capability-matrix-contract\.test\.mjs[\s\S]*?npm run test:web-wave2-contracts/, 'Web\/Android CI must invoke the capability contract directly');
+  assert.match(yaml, /- name: Run Web Wave 2 Node contracts[\s\S]*?node --test scripts\/capability-matrix-contract\.test\.mjs[\s\S]*?node --test scripts\/whats-new-release-history-contract\.test\.mjs[\s\S]*?npm run test:web-wave2-contracts/, 'Web\/Android CI must invoke focal contracts directly');
   for (const path of [
     'scripts/web-chat-exact-purge-gate.mjs',
     'scripts/web-chat-a11y-e2e-contract.test.mjs',
@@ -228,6 +229,7 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['core browser JUnit artifact removed', yaml.replace('            core/build/test-results/**/*.xml\n', '')],
     ['postcomposer browser HTML report removed', yaml.replace('            feature/postcomposer/build/reports/tests/\n', '')],
     ['direct capability command removed', yaml.replace('          node --test scripts/capability-matrix-contract.test.mjs\n', '')],
+    ['Release History direct contract removed', yaml.replaceAll('          node --test scripts/whats-new-release-history-contract.test.mjs\n', '')],
     ['Official editor evidence step removed', yaml.replace(/      - name: Capture Official editor Web evidence[\s\S]*?(?=\n      - name: Collect five cold Chrome measurements and advisory baseline proposal)/, '')],
     ['Official editor PR identity removed', yaml.replace(' -- --require-pr-identity', '')],
     ['Android capability evidence trigger removed', yaml.replace('      - "app/**"\n', '')],

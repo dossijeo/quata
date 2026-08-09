@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -36,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.feature.whatsnew.domain.PendingRelease
@@ -48,6 +51,13 @@ data class ReleaseHistoryStrings(
     val versionHeading: @Composable (String) -> String,
 )
 
+const val ReleaseHistoryRootTestTag = "release-history-common-root"
+const val ReleaseHistoryCloseTestTag = "release-history-close"
+const val ReleaseHistoryPreviousTestTag = "release-history-previous"
+const val ReleaseHistoryNextTestTag = "release-history-next"
+const val ReleaseHistoryPageTestTag = "release-history-page"
+const val ReleaseHistoryPageTestTagPrefix = "$ReleaseHistoryPageTestTag-"
+
 @Composable
 fun ReleaseHistoryContent(repository: WhatsNewRepository, languageTags: List<String>, strings: ReleaseHistoryStrings, onBack: () -> Unit, modifier: Modifier = Modifier) {
     var state by remember { mutableStateOf<ReleaseHistoryState>(ReleaseHistoryState.Loading) }
@@ -58,9 +68,16 @@ fun ReleaseHistoryContent(repository: WhatsNewRepository, languageTags: List<Str
             onFailure = { ReleaseHistoryState.Error },
         )
     }
-    Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
+    Surface(
+        modifier.fillMaxSize().testTag(ReleaseHistoryRootTestTag),
+        color = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+    ) {
         Box(Modifier.fillMaxSize()) {
-            IconButton(onClick = onBack, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) { Icon(Icons.Default.Close, strings.close) }
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).testTag(ReleaseHistoryCloseTestTag),
+            ) { Icon(Icons.Default.Close, strings.close) }
             when (val current = state) {
                 ReleaseHistoryState.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                 ReleaseHistoryState.Empty -> ReleaseHistoryMessage(strings.empty, Modifier.align(Alignment.Center))
@@ -76,16 +93,24 @@ fun ReleaseHistoryContent(repository: WhatsNewRepository, languageTags: List<Str
         Text(strings.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
         Text(strings.subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
         ReleaseHistoryIndicator(releases.size, current, Modifier.padding(top = 16.dp, bottom = 20.dp))
-        HorizontalPager(pagerState, Modifier.weight(1f)) { ReleaseHistoryPage(releases[it], strings, Modifier.fillMaxSize()) }
+        HorizontalPager(pagerState, Modifier.weight(1f)) { page -> ReleaseHistoryPage(releases[page], strings, page, Modifier.fillMaxSize()) }
         Row(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = { scope.launch { pagerState.animateScrollToPage(current - 1) } }, enabled = current > 0) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, Modifier.size(18.dp)); Text(strings.previous, Modifier.padding(start = 6.dp)) }
-            Button({ if (current == releases.lastIndex) onBack() else scope.launch { pagerState.animateScrollToPage(current + 1) } }, colors = ButtonDefaults.buttonColors(containerColor = HistoryOrange)) { Text(if (current == releases.lastIndex) strings.close else strings.next); if (current != releases.lastIndex) Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.padding(start = 6.dp).size(18.dp)) }
+            OutlinedButton(
+                onClick = { scope.launch { pagerState.animateScrollToPage(current - 1) } },
+                enabled = current > 0,
+                modifier = Modifier.testTag(ReleaseHistoryPreviousTestTag),
+            ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, Modifier.size(18.dp)); Text(strings.previous, Modifier.padding(start = 6.dp)) }
+            Button(
+                onClick = { if (current == releases.lastIndex) onBack() else scope.launch { pagerState.animateScrollToPage(current + 1) } },
+                colors = ButtonDefaults.buttonColors(containerColor = HistoryOrange),
+                modifier = Modifier.testTag(ReleaseHistoryNextTestTag),
+            ) { Text(if (current == releases.lastIndex) strings.close else strings.next); if (current != releases.lastIndex) Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.padding(start = 6.dp).size(18.dp)) }
         }
     }
 }
-@Composable private fun ReleaseHistoryPage(release: PendingRelease, strings: ReleaseHistoryStrings, modifier: Modifier) {
+@Composable private fun ReleaseHistoryPage(release: PendingRelease, strings: ReleaseHistoryStrings, page: Int, modifier: Modifier) {
     val version = release.versionName?.takeIf { it.isNotBlank() } ?: release.versionCode.toString()
-    Column(modifier.padding(horizontal = 4.dp)) { Text(strings.version(version), style = MaterialTheme.typography.labelLarge, color = HistoryOrange, fontWeight = FontWeight.Bold); Text(strings.versionHeading(version), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp)); Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .62f), shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) { Text(release.localizedNote, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(22.dp)) } }
+    Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 4.dp).testTag("$ReleaseHistoryPageTestTagPrefix$page")) { Text(strings.version(version), style = MaterialTheme.typography.labelLarge, color = HistoryOrange, fontWeight = FontWeight.Bold); Text(strings.versionHeading(version), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp)); Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .62f), shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) { Text(release.localizedNote, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(22.dp)) } }
 }
 @Composable private fun ReleaseHistoryIndicator(count: Int, selected: Int, modifier: Modifier) = Row(modifier, horizontalArrangement = Arrangement.spacedBy(7.dp)) { repeat(count.coerceAtMost(12)) { index -> Box(Modifier.size(if (index == selected) 22.dp else 8.dp, 8.dp).background(if (index == selected) HistoryOrange else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))) } }
 @Composable private fun ReleaseHistoryMessage(text: String, modifier: Modifier) { Text(text, style = MaterialTheme.typography.bodyLarge, modifier = modifier.padding(24.dp)) }
