@@ -75,16 +75,20 @@ enum class IosOfficialReadFailureKind {
     Response,
 }
 
+private enum class IosOfficialReadAuthMode {
+    Public,
+    SessionRequired,
+}
+
 /**
  * Public-read and authenticated-interaction PostgREST adapter for Official content.
  *
- * Public Official reads use only the Supabase
- * publishable key, just like the iOS Feed reader: a missing, expired or restored user session
- * must neither prevent an anonymous visitor from reading Official nor become a bearer header on
- * that visitor's requests.  An optional session is used exclusively by [refreshCurrentUser] to
- * enrich the local UI identity when an authenticated host explicitly chooses to provide one.
- * That authenticated host may publish, delete, like, comment and report through reviewed RLS paths
- * and shared PostgREST mutation plans.
+ * Public Official feed reads use only the Supabase publishable key, just like the iOS Feed
+ * reader: a missing, expired or restored user session must neither prevent an anonymous visitor
+ * from reading Official nor become a bearer header on that visitor's list requests. Exact post
+ * reads may reuse a restored session when one exists so deep links and just-created posts are not
+ * hidden by public language filters. That authenticated host may publish, delete, like, comment
+ * and report through reviewed RLS paths and shared PostgREST mutation plans.
  */
 @OptIn(ExperimentalForeignApi::class)
 class IosOfficialReadRepository(
@@ -113,12 +117,16 @@ class IosOfficialReadRepository(
 
     override suspend fun getOfficialPost(postId: String): Result<OfficialPostItem?> = runCatching {
         if (postId.isBlank()) return@runCatching null
-        loadFeed(limit = 1, postId = postId).getOrThrow().firstOrNull()
+        loadFeed(
+            limit = 1,
+            postId = postId,
+            authMode = exactPostReadAuthMode(),
+        ).getOrThrow().firstOrNull()
     }
 
     override suspend fun refreshCurrentUser(): Result<User?> = runCatching {
-        // Identity enrichment is intentionally the only Official operation allowed to consult a
-        // session.  Read requests remain strictly anonymous even after a login was restored.
+        // Identity enrichment is intentionally separate from public feed reads. Exact post reads
+        // may also consult a session, but list snapshots remain anonymous.
         val userId = authSession?.currentSession()?.userId?.trim()?.takeIf(String::isNotEmpty)
             ?: return@runCatching null
         loadProfiles(listOf(userId)).firstOrNull()?.toOfficialDomainUser()
@@ -219,9 +227,10 @@ class IosOfficialReadRepository(
         limit: Int,
         publishedBefore: String? = null,
         postId: String? = null,
+        authMode: IosOfficialReadAuthMode = IosOfficialReadAuthMode.Public,
     ): Result<List<OfficialPostItem>> = runCatching {
         val translation = officialTranslationReadPlan(preferredLanguageTag, limit, postId)
-        val posts = rows(
+        val posts = readRows(
             table = "official_posts",
             query = buildMap {
                 put("select", PostSelect)
@@ -233,6 +242,7 @@ class IosOfficialReadRepository(
                 postId?.let { put("id", "eq.${it.requireOfficialPostgrestIdentifier()}") }
             },
             limit = translation.fetchLimit,
+            authMode = authMode,
         ).map(Map<*, *>::toOfficialRemotePost).selectOfficialTranslations(preferredLanguageTag)
         if (posts.isEmpty()) return@runCatching emptyList()
 
@@ -253,7 +263,7 @@ class IosOfficialReadRepository(
                 "official_post_id" to postIds.toOfficialPostgrestInFilter(),
             ),
         ).map(Map<*, *>::toOfficialRemoteLike)
-        val profiles = loadProfiles(officialRemoteProfileIds(posts, comments, likes))
+        val profiles = loadProfiles(officialRemoteProfileIds(posts, comments, likes), authMode)
         buildOfficialDomainPosts(
             posts = posts,
             comments = comments,
@@ -267,15 +277,32 @@ class IosOfficialReadRepository(
         )
     }
 
-    private suspend fun loadProfiles(ids: Collection<String>): List<OfficialRemoteProfile> {
+    private suspend fun loadProfiles(
+        ids: Collection<String>,
+        authMode: IosOfficialReadAuthMode = IosOfficialReadAuthMode.Public,
+    ): List<OfficialRemoteProfile> {
         if (ids.isEmpty()) return emptyList()
-        return rows(
+        return readRows(
             table = "community_profiles",
             query = mapOf(
                 "select" to ProfileSelect,
                 "id" to ids.toOfficialPostgrestInFilter(),
             ),
+            authMode = authMode,
         ).map(Map<*, *>::toOfficialRemoteProfile)
+    }
+
+    private suspend fun readRows(
+        table: String,
+        query: Map<String, String>,
+        limit: Int? = null,
+        authMode: IosOfficialReadAuthMode = IosOfficialReadAuthMode.Public,
+    ): List<Map<*, *>> = when (authMode) {
+        IosOfficialReadAuthMode.Public -> rows(table, query, limit)
+        IosOfficialReadAuthMode.SessionRequired -> authenticatedRows(
+            table = table,
+            query = query + listOfNotNull(limit?.let { "limit" to it.toString() }),
+        )
     }
 
     private suspend fun rows(table: String, query: Map<String, String>, limit: Int? = null): List<Map<*, *>> {
@@ -353,6 +380,13 @@ class IosOfficialReadRepository(
         return sessionProvider.currentSession()?.userId
             ?.takeIf(String::isNotBlank) ?: error("ios_official_session_missing")
     }
+
+    private suspend fun exactPostReadAuthMode(): IosOfficialReadAuthMode =
+        if (authSession?.currentSession()?.bearerToken?.isNotBlank() == true) {
+            IosOfficialReadAuthMode.SessionRequired
+        } else {
+            IosOfficialReadAuthMode.Public
+        }
 
     private suspend fun prepareAndUploadOfficialMedia(
         profileId: String,

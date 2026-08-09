@@ -18,6 +18,10 @@ const webOfficialRepository = await readFile(
   new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt", import.meta.url),
   "utf8",
 );
+const iosOfficialRepository = await readFile(
+  new URL("../feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt", import.meta.url),
+  "utf8",
+);
 const webRealEvidence = await readFile(
   new URL("./official-editor-web-real-evidence.mjs", import.meta.url),
   "utf8",
@@ -88,6 +92,16 @@ test("Web exact Official post reads use the restored session before public fallb
   assert.match(webOfficialRepository, /override suspend fun getOfficialPost\(postId: String\)[\s\S]*authMode = exactPostReadAuthMode\(\)/);
   assert.match(webOfficialRepository, /private suspend fun exactPostReadAuthMode\(\): WebPostgrestAuthMode =[\s\S]*authRepository\.currentWebPushCredentials\(\) != null[\s\S]*WebPostgrestAuthMode\.SessionRequired[\s\S]*WebPostgrestAuthMode\.Public/);
   assert.match(webOfficialRepository, /override fun observeOfficialFeed\(\): Flow<Result<List<OfficialPostItem>>> = flow \{[\s\S]*emit\(loadFeed\(limit = FeedPageSize\)\)/);
+});
+
+test("iOS exact Official post reads mirror Web session-first behavior without authenticating public feed snapshots", () => {
+  assert.match(iosOfficialRepository, /private enum class IosOfficialReadAuthMode[\s\S]*Public[\s\S]*SessionRequired/);
+  assert.match(iosOfficialRepository, /override suspend fun getOfficialPost\(postId: String\)[\s\S]*authMode = exactPostReadAuthMode\(\)/);
+  assert.match(iosOfficialRepository, /private suspend fun exactPostReadAuthMode\(\): IosOfficialReadAuthMode =[\s\S]*authSession\?\.currentSession\(\)\?\.bearerToken\?\.isNotBlank\(\) == true[\s\S]*IosOfficialReadAuthMode\.SessionRequired[\s\S]*IosOfficialReadAuthMode\.Public/);
+  assert.match(iosOfficialRepository, /IosOfficialReadAuthMode\.SessionRequired -> authenticatedRows\(/);
+  assert.match(iosOfficialRepository, /override fun observeOfficialFeed\(\): Flow<Result<List<OfficialPostItem>>> = flow \{[\s\S]*emit\(loadFeed\(limit = FeedPageSize\)\)/);
+  assert.match(iosOfficialRepository, /override suspend fun getOfficialFeed\(\): Result<List<OfficialPostItem>> = loadFeed\(limit = FeedPageSize\)/);
+  assert.match(iosOfficialRepository, /Public Official feed reads use only the Supabase publishable key/);
 });
 
 test("Web Official editor media preview stays in Compose canvas under common dialogs", () => {
