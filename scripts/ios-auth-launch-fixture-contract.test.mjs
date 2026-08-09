@@ -24,6 +24,10 @@ const iosAuthHost = readFileSync(
   new URL("../feature/auth/src/iosMain/kotlin/com/quata/feature/auth/presentation/IosAuthHost.kt", import.meta.url),
   "utf8",
 );
+const realRecoveryRunner = readFileSync(
+  new URL("./run-ios-auth-recovery-real-ui-test.sh", import.meta.url),
+  "utf8",
+);
 
 test("auth-launch fixture stays isolated from runtime configuration, storage and transport", () => {
   for (const forbidden of [
@@ -139,4 +143,12 @@ test("real iOS recovery fixture is opt-in, uses the production repository and ke
   assert.match(uiTests, /openRecoveryFromLogin/);
   assert.match(uiTests, /temporaryPassword != restorePassword/);
   assert.doesNotMatch(uiTests, /service_role|SUPABASE_DB_URL|supabase db push|migration repair|deleteUser|admin\/users/);
+
+  assert.match(realRecoveryRunner, /QUATA_IOS_AUTH_RECOVERY_E2E_FILE/);
+  assert.match(realRecoveryRunner, /I_ACCEPT_IOS_PASSWORD_RESET_ROUNDTRIP/);
+  assert.match(realRecoveryRunner, /find "\$QUATA_IOS_DERIVED_DATA_PATH\/Build\/Products" -name '\*\.xctestrun'/);
+  assert.match(realRecoveryRunner, /QuataIosUITests\/QuataIosHostUITests\/testRealAuthRecoveryFixtureRoundTripsPasswordAndKeepsEvidence/);
+  assert.match(realRecoveryRunner, /check-ios-xctest-executed\.py/);
+  assert.match(realRecoveryRunner, /PASS_EXECUTED:%s/);
+  assert.doesNotMatch(realRecoveryRunner, /service_role|SUPABASE_DB_URL|supabase db push|migration repair|deleteUser|admin\/users/);
 });
