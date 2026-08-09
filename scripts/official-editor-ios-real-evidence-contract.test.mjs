@@ -17,6 +17,8 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /\["none", "image", "video"\]/);
   assert.match(runner, /QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN/);
   assert.match(runner, /QUATA_IOS_SIMULATOR_UDID/);
+  assert.match(runner, /QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR/);
+  assert.match(runner, /remoteResultBundleDir/);
   assert.match(runner, /official-ios-ui-\$\{randomUUID\(\)\}/);
   assert.match(runner, /QUATA_IOS_OFFICIAL_EDITOR_MARKER/);
   assert.match(runner, /bash scripts\/run-ios-authenticated-official-editor-ui-test\.sh/);
@@ -63,6 +65,8 @@ test("iOS shell runner patches a temporary xctestrun and requires the real publi
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH/);
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE'\] = expect_ineligible/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS:=300/);
+  assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR:=/);
+  assert.match(shellRunner, /-resultBundlePath "\$result_bundle"/);
   assert.match(shellRunner, /run_bounded "\$method" "\$QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS"/);
   assert.match(shellRunner, /testAuthenticatedSessionCannotOpenOfficialEditorWhenIneligible/);
   assert.match(shellRunner, /testAuthenticatedSessionPublishesRealOfficialPost/);

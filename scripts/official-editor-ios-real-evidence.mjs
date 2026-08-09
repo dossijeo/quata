@@ -128,6 +128,7 @@ export QUATA_IOS_AUTH_E2E_FILE=${shellQuote(remoteCredentials)}
 export QUATA_IOS_DERIVED_DATA_PATH=${shellQuote(options.derivedDataPath)}
 export QUATA_IOS_SIMULATOR_UDID=${shellQuote(config.simulatorUdid)}
 export QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR=${shellQuote(options.remoteLogDir)}
+export QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR=${shellQuote(options.remoteResultBundleDir)}
 ${options.expectIneligible ? "export QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE=1" : `export QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN=${shellQuote(OPT_IN)}
 export QUATA_IOS_OFFICIAL_EDITOR_MARKER=${shellQuote(marker)}`}
 ${remoteMediaFixture ? `export QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN=${shellQuote(MEDIA_FIXTURE_OPT_IN)}
@@ -283,6 +284,7 @@ function parseArgs(args) {
     project: process.env.QUATA_IOS_MAC_PROJECT?.trim() || "/Users/gabriel/Documents/Projects/quata",
     derivedDataPath: process.env.QUATA_IOS_DERIVED_DATA_PATH?.trim() || "build/ios-intel-simulator-signed-derived-data",
     remoteLogDir: process.env.QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR?.trim() || "build/reports/ios/authenticated-official-editor-real-ui",
+    remoteResultBundleDir: process.env.QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR?.trim() || "build/reports/ios/authenticated-official-editor-real-ui/xcresults",
     output: "build-reports/ios/official-editor-real-evidence.json",
     evidenceDir: "build-reports/ios/official-editor-real-evidence",
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
