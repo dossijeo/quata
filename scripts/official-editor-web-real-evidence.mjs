@@ -52,7 +52,9 @@ try {
   server = await startServer(distribution, wordpressBase);
 
   const loginSession = await login(backend, config, `official-editor-web-real-${randomUUID()}`);
-  report.steps.push("official_profile_authenticated_through_public_web_bridge");
+  report.steps.push(options.expectIneligible
+    ? "non_official_profile_authenticated_through_public_web_bridge"
+    : "official_profile_authenticated_through_public_web_bridge");
 
   browser = await chromium.launch({
     executablePath: options.chrome,
@@ -118,6 +120,23 @@ try {
     { timeout: 45_000 },
   );
   report.steps.push("official_route_mounted_with_restored_real_session");
+
+  if (options.expectIneligible) {
+    await expectLocatorAbsent(page.locator("#official-create-action").first(), 8_000, "official_create_cta_visible_for_non_official_profile");
+    report.evidence.permission = await screenshot(page, options.evidenceDir, "web-real-official-ineligible-no-create-cta");
+    await page.goto(`${server.origin}/#official-editor`, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() =>
+      localStorage.getItem("web.navigation.route") === "official" &&
+      document.documentElement.getAttribute("data-quata-shell-route") === "official",
+      { timeout: 45_000 },
+    );
+    await expectLocatorAbsent(page.locator("#official-editor-common-root").first(), 2_000, "official_editor_mounted_for_non_official_profile");
+    report.evidence.directRoute = await screenshot(page, options.evidenceDir, "web-real-official-ineligible-direct-route-blocked");
+    report.postCleanupReadback = await assertNoMarkerRows(config, marker, []);
+    report.steps.push("non_official_session_cannot_open_common_official_editor");
+    report.status = "passed";
+    throw new EvidenceComplete();
+  }
 
   const createButton = page.locator("#official-create-action").first();
   await createButton.waitFor({ timeout: 45_000 });
@@ -227,6 +246,9 @@ try {
   }
   report.status = "passed";
 } catch (error) {
+  if (error instanceof EvidenceComplete) {
+    // Report has already been populated and marked as passed by the ineligible-permission lane.
+  } else {
   report.error = safeFailure(error);
   report.errorDetail = typeof error?.message === "string" ? error.message : String(error);
   if (marker && cleanup.state === "not_started") {
@@ -244,6 +266,7 @@ try {
         translationGroupIds: created.translationGroupIds,
       };
     }
+  }
   }
 } finally {
   await context?.close().catch(() => {});
@@ -273,10 +296,15 @@ function parseArgs(args) {
     output: resolve("build-reports/web/official-editor-real-evidence.json"),
     evidenceDir: resolve("build-reports/web/official-editor-real-evidence"),
     media: "none",
+    expectIneligible: process.env.QUATA_OFFICIAL_EDITOR_EXPECT_INELIGIBLE === "1",
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
+    if (key === "--expect-ineligible") {
+      parsed.expectIneligible = true;
+      continue;
+    }
     if (!["--dist", "--chrome", "--out", "--evidence-dir", "--media"].includes(key) || !value || value.startsWith("--")) {
       throw new Error("invalid_arguments");
     }
@@ -290,16 +318,26 @@ function parseArgs(args) {
       parsed.media = value;
     }
   }
+  if (parsed.expectIneligible && parsed.media !== "none") throw new Error("ineligible_media_not_supported");
   return parsed;
 }
 
 function requireEnvironment() {
-  const missing = REQUIRED_ENV.filter((name) => !process.env[name]?.trim());
+  const required = options.expectIneligible
+    ? REQUIRED_ENV.filter((name) => name !== "QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN")
+    : [...REQUIRED_ENV];
+  if (options.expectIneligible) required.push("QUATA_OFFICIAL_E2E_NON_OFFICIAL_PHONE");
+  const missing = required.filter((name) => !process.env[name]?.trim());
   if (missing.length) throw new Error(`missing_environment:${missing.join(",")}`);
-  if (process.env.QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN !== OPT_IN) throw new Error("mutation_opt_in_required");
+  if (!options.expectIneligible && process.env.QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN !== OPT_IN) {
+    throw new Error("mutation_opt_in_required");
+  }
   return {
     countryCode: process.env.QUATA_OFFICIAL_E2E_COUNTRY_CODE.trim(),
-    officialPhone: process.env.QUATA_OFFICIAL_E2E_OFFICIAL_PHONE.trim(),
+    officialPhone: (options.expectIneligible
+      ? process.env.QUATA_OFFICIAL_E2E_NON_OFFICIAL_PHONE
+      : process.env.QUATA_OFFICIAL_E2E_OFFICIAL_PHONE
+    )?.trim(),
     password: process.env.QUATA_OFFICIAL_E2E_PASSWORD,
     dbUrlFile: process.env.SUPABASE_DB_URL_FILE?.trim() || DEFAULT_DB_URL_FILE,
     dbTlsCaFile: process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || DEFAULT_DB_TLS_CA_FILE,
@@ -779,6 +817,14 @@ async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {
   throw new Error(`semantic_text_missing:${id}`);
 }
 
+async function expectLocatorAbsent(locator, timeoutMs, errorCode) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await locator.isVisible().catch(() => false)) throw new Error(errorCode);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
 async function clickTranslationSingleLanguageIfShown(page) {
   const choices = [
     /Publicar solo este idioma/i,
@@ -845,6 +891,8 @@ function safeFailure(error) {
     "public_request_failed",
     "invalid_auth_response",
     "official_create_cta_not_visible",
+    "official_create_cta_visible_for_non_official_profile",
+    "official_editor_mounted_for_non_official_profile",
     "official_editor_invalid_draft_mutated",
     "official_editor_publish_request_missing",
     "created_post_readback_missing",
@@ -855,4 +903,10 @@ function safeFailure(error) {
     "marker_cleanup_verification_failed",
     "browser_runtime_fault",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_official_editor_web_real_evidence_failure";
+}
+
+class EvidenceComplete extends Error {
+  constructor() {
+    super("evidence_complete");
+  }
 }

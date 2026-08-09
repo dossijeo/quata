@@ -14,6 +14,11 @@ const webAuthRepository = await readFile(
   new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebAuthRepository.kt", import.meta.url),
   "utf8",
 );
+const webRealEvidence = await readFile(
+  new URL("./official-editor-web-real-evidence.mjs", import.meta.url),
+  "utf8",
+);
+const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 test("Web Official surface exposes the shared editor action for official users", () => {
   assert.match(webOfficialHost, /fun WebOfficialHost\(/);
@@ -40,6 +45,20 @@ test("Web Official editor route and CTA use the restored session official role",
   assert.match(webMain, /if \(currentUserIsOfficial\) \{[\s\S]*?WebOfficialEditorHost\(/);
   assert.match(webMain, /LaunchedEffect\(navigation\.route, currentUserIsOfficial\)[\s\S]*?navigation\.navigate\("official"\)/);
   assert.match(webMain, /canCreateOfficialPost = currentUserIsOfficial/);
+});
+
+test("Web real evidence covers non-official permission denial without backend mutation", () => {
+  assert.match(webRealEvidence, /--expect-ineligible/);
+  assert.match(webRealEvidence, /QUATA_OFFICIAL_E2E_NON_OFFICIAL_PHONE/);
+  assert.match(webRealEvidence, /REQUIRED_ENV\.filter\(\(name\) => name !== "QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN"\)/);
+  assert.match(webRealEvidence, /!options\.expectIneligible && process\.env\.QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN/);
+  assert.match(webRealEvidence, /official_create_cta_visible_for_non_official_profile/);
+  assert.match(webRealEvidence, /official_editor_mounted_for_non_official_profile/);
+  assert.match(webRealEvidence, /#official-editor/);
+  assert.match(webRealEvidence, /localStorage\.getItem\("web\.navigation\.route"\) === "official"/);
+  assert.match(webRealEvidence, /#official-editor-common-root/);
+  assert.match(webRealEvidence, /non_official_session_cannot_open_common_official_editor/);
+  assert.match(packageJson.scripts["evidence:web-official-editor-permissions"], /--expect-ineligible/);
 });
 
 test("Web Official editor enables the shared Fang translator instead of publishing a single-language fallback", () => {

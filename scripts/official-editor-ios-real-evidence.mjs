@@ -53,7 +53,7 @@ try {
     localCredentials,
     `${JSON.stringify({
       country_code: config.countryCode,
-      phone: e164Phone(config.countryCode, config.officialPhone),
+      phone: e164Phone(config.countryCode, options.expectIneligible ? config.nonOfficialPhone : config.officialPhone),
       password: config.password,
     })}\n`,
     { mode: 0o600 },
@@ -110,14 +110,29 @@ export QUATA_IOS_AUTH_E2E_FILE=${shellQuote(remoteCredentials)}
 export QUATA_IOS_DERIVED_DATA_PATH=${shellQuote(options.derivedDataPath)}
 export QUATA_IOS_SIMULATOR_UDID=${shellQuote(config.simulatorUdid)}
 export QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR=${shellQuote(options.remoteLogDir)}
-export QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN=${shellQuote(OPT_IN)}
-export QUATA_IOS_OFFICIAL_EDITOR_MARKER=${shellQuote(marker)}
+${options.expectIneligible ? "export QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE=1" : `export QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN=${shellQuote(OPT_IN)}
+export QUATA_IOS_OFFICIAL_EDITOR_MARKER=${shellQuote(marker)}`}
 ${remoteMediaFixture ? `export QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN=${shellQuote(MEDIA_FIXTURE_OPT_IN)}
 export QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE=${shellQuote(options.media)}
 export QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH=${shellQuote(remoteMediaFixture)}` : ""}
 bash scripts/run-ios-authenticated-official-editor-ui-test.sh
 `);
-  report.steps.push("ios_xctest_real_official_editor_publish_executed");
+  report.steps.push(options.expectIneligible
+    ? "ios_xctest_real_official_editor_ineligible_permission_executed"
+    : "ios_xctest_real_official_editor_publish_executed");
+
+  if (options.expectIneligible) {
+    report.evidence.permission = {
+      state: "verified_ineligible_session_cannot_open_editor",
+      mutation: "not_requested",
+    };
+    report.postCleanupReadback = await assertNoMarkerRows(config, marker, []);
+    await copyRemoteEvidence(options).catch((error) => {
+      report.evidence.copyWarning = safeFailure(error);
+    });
+    report.status = "passed";
+    throw new EvidenceComplete();
+  }
 
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
@@ -150,6 +165,9 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
   });
   report.status = "passed";
 } catch (error) {
+  if (error instanceof EvidenceComplete) {
+    // Report has already been populated and marked as passed by the ineligible-permission lane.
+  } else {
   report.error = safeFailure(error);
   report.errorDetail = typeof error?.message === "string" ? error.message : String(error);
   if (marker && cleanup.state === "not_started") {
@@ -196,6 +214,7 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
       };
     }
   }
+  }
 } finally {
   if (remoteCredentials) {
     await run("ssh", [options.host, "rm", "-f", remoteCredentials]).catch(() => {});
@@ -234,6 +253,7 @@ function parseArgs(args) {
     evidenceDir: "build-reports/ios/official-editor-real-evidence",
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
     media: process.env.QUATA_IOS_OFFICIAL_EDITOR_MEDIA?.trim() || "none",
+    expectIneligible: process.env.QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE === "1",
   };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -249,22 +269,31 @@ function parseArgs(args) {
     else if (arg === "--out") values.output = next();
     else if (arg === "--evidence-dir") values.evidenceDir = next();
     else if (arg === "--build-first") values.buildFirst = true;
+    else if (arg === "--expect-ineligible") values.expectIneligible = true;
     else if (arg === "--media") values.media = next();
     else throw new Error(`unknown_argument:${arg}`);
   }
   if (!["none", "image", "video"].includes(values.media)) throw new Error(`unsupported_media:${values.media}`);
+  if (values.expectIneligible && values.media !== "none") throw new Error("ineligible_media_not_supported");
   values.output = resolve(values.output);
   values.evidenceDir = resolve(values.evidenceDir);
   return values;
 }
 
 function requireEnvironment() {
-  const missing = REQUIRED_ENV.filter((name) => !process.env[name]?.trim());
+  const required = options.expectIneligible
+    ? REQUIRED_ENV.filter((name) => name !== "QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN")
+    : [...REQUIRED_ENV];
+  if (options.expectIneligible) required.push("QUATA_OFFICIAL_E2E_NON_OFFICIAL_PHONE");
+  const missing = required.filter((name) => !process.env[name]?.trim());
   if (missing.length) throw new Error(`missing_environment:${missing.join(",")}`);
-  if (process.env.QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN !== OPT_IN) throw new Error("mutation_opt_in_required");
+  if (!options.expectIneligible && process.env.QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN !== OPT_IN) {
+    throw new Error("mutation_opt_in_required");
+  }
   return {
     countryCode: process.env.QUATA_OFFICIAL_E2E_COUNTRY_CODE.trim(),
     officialPhone: process.env.QUATA_OFFICIAL_E2E_OFFICIAL_PHONE.trim(),
+    nonOfficialPhone: process.env.QUATA_OFFICIAL_E2E_NON_OFFICIAL_PHONE?.trim() ?? "",
     password: process.env.QUATA_OFFICIAL_E2E_PASSWORD,
     simulatorUdid: process.env.QUATA_IOS_SIMULATOR_UDID.trim(),
     dbUrlFile: process.env.SUPABASE_DB_URL_FILE?.trim() || DEFAULT_DB_URL_FILE,
@@ -653,4 +682,10 @@ function safeFailure(error) {
 
 function redactedTail(text) {
   return safeFailure(String(text).split(/\r?\n/).slice(-40).join("\n"));
+}
+
+class EvidenceComplete extends Error {
+  constructor() {
+    super("evidence_complete");
+  }
 }

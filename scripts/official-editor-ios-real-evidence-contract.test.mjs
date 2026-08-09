@@ -21,7 +21,7 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /QUATA_IOS_OFFICIAL_EDITOR_MARKER/);
   assert.match(runner, /bash scripts\/run-ios-authenticated-official-editor-ui-test\.sh/);
   assert.match(runner, /const remoteHead = \(await runSshScript/);
-  assert.match(runner, /phone: e164Phone\(config\.countryCode, config\.officialPhone\)/);
+  assert.match(runner, /phone: e164Phone\(config\.countryCode, options\.expectIneligible \? config\.nonOfficialPhone : config\.officialPhone\)/);
   assert.match(runner, /function e164Phone\(countryCode, phone\)/);
   assert.match(runner, /begin read only/);
   assert.match(runner, /select id, translation_group_id, media_url/);
@@ -61,10 +61,28 @@ test("iOS shell runner patches a temporary xctestrun and requires the real publi
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH/);
+  assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE'\] = expect_ineligible/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS:=300/);
   assert.match(shellRunner, /run_bounded "\$method" "\$QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS"/);
+  assert.match(shellRunner, /testAuthenticatedSessionCannotOpenOfficialEditorWhenIneligible/);
   assert.match(shellRunner, /testAuthenticatedSessionPublishesRealOfficialPost/);
   assert.match(shellRunner, /check-ios-xctest-executed\.py/);
+});
+
+test("iOS permission evidence covers non-official sessions without requesting mutation", () => {
+  assert.match(runner, /--expect-ineligible/);
+  assert.match(runner, /QUATA_OFFICIAL_E2E_NON_OFFICIAL_PHONE/);
+  assert.match(runner, /REQUIRED_ENV\.filter\(\(name\) => name !== "QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN"\)/);
+  assert.match(runner, /!options\.expectIneligible && process\.env\.QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN/);
+  assert.match(runner, /QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE=1/);
+  assert.match(runner, /verified_ineligible_session_cannot_open_editor/);
+  assert.match(runner, /mutation: "not_requested"/);
+  assert.match(uiTest, /testAuthenticatedSessionCannotOpenOfficialEditorWhenIneligible/);
+  assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE/);
+  assert.match(uiTest, /authenticated-official-editor-ineligible-blocked/);
+  assert.match(uiTest, /must not expose Crear comunicado/);
+  assert.match(uiTest, /must not mount the Official editor host/);
+  assert.match(packageJson.scripts["evidence:ios-official-editor-permissions"], /--expect-ineligible/);
 });
 
 test("iOS UI test performs validation, edits the common rich text field, publishes and skips translation only when shown", () => {

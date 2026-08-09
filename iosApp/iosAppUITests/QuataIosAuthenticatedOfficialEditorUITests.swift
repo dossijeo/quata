@@ -16,6 +16,30 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-host")
     }
 
+    func testAuthenticatedSessionCannotOpenOfficialEditorWhenIneligible() throws {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Official editor UI gate is opt-in.")
+        }
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE"] == "1" else {
+            throw XCTSkip("Official editor permission denial evidence is opt-in.")
+        }
+
+        let app = openOfficialSurface()
+        let createNotice = officialCreateNotice(in: app)
+        XCTAssertFalse(
+            createNotice.waitForExistence(timeout: 8),
+            "A non-official authenticated iOS session must not expose Crear comunicado.",
+        )
+        let editor = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-official-editor-host")
+            .firstMatch
+        XCTAssertFalse(
+            editor.waitForExistence(timeout: 2),
+            "A non-official authenticated iOS session must not mount the Official editor host.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-ineligible-blocked")
+    }
+
     func testAuthenticatedSessionPublishesRealOfficialPost() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_AUTH_UI_E2E"] == "1" else {
@@ -61,6 +85,19 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func openOfficialEditor() -> XCUIApplication {
+        let app = openOfficialSurface()
+        let createNotice = officialCreateNotice(in: app)
+        XCTAssertTrue(createNotice.waitForExistence(timeout: 10), "The Official surface must expose Crear comunicado.")
+        createNotice.tap()
+
+        let editor = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-official-editor-host")
+            .firstMatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 20), "Crear comunicado must mount the real Official editor host.")
+        return app
+    }
+
+    private func openOfficialSurface() -> XCUIApplication {
         let app = XCUIApplication()
         let environment = ProcessInfo.processInfo.environment
         for key in [
@@ -87,18 +124,13 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .matching(identifier: "quata-ios-official-host")
             .firstMatch
         XCTAssertTrue(official.waitForExistence(timeout: 20), "The real Official host must open from the shared primary navigation.")
+        return app
+    }
 
-        let createNotice = app.buttons.matching(
+    private func officialCreateNotice(in app: XCUIApplication) -> XCUIElement {
+        app.buttons.matching(
             NSPredicate(format: "label CONTAINS[c] %@ OR identifier CONTAINS[c] %@", "Crear comunicado", "Crear comunicado")
         ).firstMatch
-        XCTAssertTrue(createNotice.waitForExistence(timeout: 10), "The Official surface must expose Crear comunicado.")
-        createNotice.tap()
-
-        let editor = app.descendants(matching: .any)
-            .matching(identifier: "quata-ios-official-editor-host")
-            .firstMatch
-        XCTAssertTrue(editor.waitForExistence(timeout: 20), "Crear comunicado must mount the real Official editor host.")
-        return app
     }
 
     private func assertSharedEditorSurface(in app: XCUIApplication) {

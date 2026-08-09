@@ -90,6 +90,9 @@ def patch_target(target, hint=''):
             env['QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN'] = media_opt_in
             env['QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE'] = media_type
             env['QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH'] = media_path
+        expect_ineligible = os.environ.get('QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE', '').strip()
+        if expect_ineligible:
+            env['QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE'] = expect_ineligible
         matched.add('ui')
 for configuration in data.get('TestConfigurations', []):
     for target in configuration.get('TestTargets', []):
@@ -104,7 +107,10 @@ with open(path, 'wb') as f:
 PY
 
 seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
-if [[ -n "${QUATA_IOS_OFFICIAL_EDITOR_MARKER:-}" && -n "${QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN:-}" ]]; then
+if [[ "${QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE:-}" == "1" ]]; then
+  ui='QuataIosUITests/QuataIosAuthenticatedOfficialEditorUITests/testAuthenticatedSessionCannotOpenOfficialEditorWhenIneligible'
+  ui_method='testAuthenticatedSessionCannotOpenOfficialEditorWhenIneligible'
+elif [[ -n "${QUATA_IOS_OFFICIAL_EDITOR_MARKER:-}" && -n "${QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN:-}" ]]; then
   ui='QuataIosUITests/QuataIosAuthenticatedOfficialEditorUITests/testAuthenticatedSessionPublishesRealOfficialPost'
   ui_method='testAuthenticatedSessionPublishesRealOfficialPost'
 else
