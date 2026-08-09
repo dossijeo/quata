@@ -62,6 +62,7 @@ cuenta no oficial denegada, publicacion oficial, lectura publica y hard-delete v
 | [#210](https://github.com/dossijeo/quata/pull/210) | `817f2057` | Release History suma tags comunes de evidencia, cierre/prev/next verificables y scroll comun para notas largas. No declara GO global hasta comparativa visual/operativa Android-Wasm-iOS. |
 | [#211](https://github.com/dossijeo/quata/pull/211) | `cc6d4f72` | Registra el cierre semantico de #210 en board/inventario sin cambiar producto. |
 | [#212](https://github.com/dossijeo/quata/pull/212) | `0793ad80` | About QÜATA pasa a contenido comun Android/Web/iOS, Web deja de aliasar `about` a historial, iOS instala `QuataIosAboutViewController`, y el logo/menu abren About con enlace real a Release History y legales. No declara GO global hasta evidencia visual/operativa de About->Historial y retorno. |
+| [#214](https://github.com/dossijeo/quata/pull/214) | `9004bcc0` | About/Release History añade ruta pública `#about`, entrada autenticada iOS y anclas comunes de evidencia; la certificación final Web/Android/iOS quedó verde con `candidate-final`. No declara GO global hasta completar evidencia visual/operativa About->Historial->retorno en Android-Wasm-iOS. |
 
 ## Registro de candidato #156 y mejora de preflight
 
@@ -151,12 +152,13 @@ no una nueva evidencia de producto.
 ## Próxima cola
 
 1. Cerrar `SCR-OFFICIAL-EDITOR` con la semantica comun estable ya integrada: recorrer publicacion real, validacion, adjuntos, permisos y error en Android-Wasm-iOS con Gabrielo/Gabrielu o datos temporales reversibles, verificar lectura backend y limpieza, capturar comparativa visual y mantener la deteccion/traduccion del editor en FastText/transporte compartidos.
-2. Mantener el postflight RLS de Official en cada cierre del editor: `OFFICIAL-EDITOR-REAL-BACKEND-001` debe seguir pasando y cualquier rollout futuro debe recordar que `20260808_0001_official_posts_actor_guard.sql` se aplico manualmente sin sincronizar historial de migraciones.
-3. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y duración/seek iOS de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
-4. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
-5. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
-6. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado.
-7. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas fuera de release autorizado.
+2. Completar el candidato #215 para `SCR-AUTH-RECOVERY`: anclas comunes, tests de ViewModel/repositorio y fixture iOS ya preparados; quedan consulta real de pregunta, cuenta ausente/error, reset reversible autorizado, retorno a Login, comparativa visual Android-Wasm-iOS y limpieza/backend sin DDL/RLS/grants.
+3. Mantener el postflight RLS de Official en cada cierre del editor: `OFFICIAL-EDITOR-REAL-BACKEND-001` debe seguir pasando y cualquier rollout futuro debe recordar que `20260808_0001_official_posts_actor_guard.sql` se aplico manualmente sin sincronizar historial de migraciones.
+4. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y duración/seek iOS de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
+5. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
+6. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
+7. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado.
+8. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas fuera de release autorizado.
 
 ## Decisiones vigentes
 
