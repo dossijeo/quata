@@ -90,7 +90,7 @@ export QUATA_IOS_SIMULATOR_UDID=${shellQuote(config.simulatorUdid)}
 export QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR=${shellQuote(options.remoteLogDir)}
 export QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN=${shellQuote(OPT_IN)}
 export QUATA_IOS_OFFICIAL_EDITOR_MARKER=${shellQuote(marker)}
-scripts/run-ios-authenticated-official-editor-ui-test.sh
+bash scripts/run-ios-authenticated-official-editor-ui-test.sh
 `);
   report.steps.push("ios_xctest_real_official_editor_publish_executed");
 
