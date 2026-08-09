@@ -5,6 +5,7 @@ import test from "node:test";
 const runner = await readFile(new URL("./official-editor-ios-real-evidence.mjs", import.meta.url), "utf8");
 const shellRunner = await readFile(new URL("./run-ios-authenticated-official-editor-ui-test.sh", import.meta.url), "utf8");
 const uiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedOfficialEditorUITests.swift", import.meta.url), "utf8");
+const iosHost = await readFile(new URL("../feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 test("iOS Official editor real evidence is explicit opt-in, marker-based and cleans exact backend rows", () => {
@@ -101,6 +102,18 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /Publicar solo este idioma/);
   assert.match(uiTest, /Publish only this language/);
   assert.doesNotMatch(uiTest, /SUPABASE_DB_URL|service_role|21085800|\+240|68024260/);
+});
+
+test("iOS video fixture exposes common media state before native thumbnail work", () => {
+  const selectMedia = iosHost.slice(iosHost.indexOf("fun selectMedia("), iosHost.indexOf("LaunchedEffect("));
+  const firstVideoPick = selectMedia.indexOf("onPicked(OfficialEditorMedia(file.reference, OfficialMediaType.Video))");
+  const firstThumbnail = selectMedia.indexOf("scope.launch {\n                    videoThumbnail = (dependencies.videoThumbnails.createThumbnail(file)");
+  const secondVideoPick = selectMedia.lastIndexOf("onPicked(OfficialEditorMedia(file.reference, OfficialMediaType.Video))");
+  const secondThumbnail = selectMedia.lastIndexOf("videoThumbnail = (dependencies.videoThumbnails.createThumbnail(file)");
+
+  assert.match(iosHost, /officialEditorEvidenceMediaFixture\(type\)\?\.let/);
+  assert.ok(firstVideoPick >= 0 && firstThumbnail >= 0 && firstVideoPick < firstThumbnail);
+  assert.ok(secondVideoPick >= 0 && secondThumbnail >= 0 && secondVideoPick < secondThumbnail);
 });
 
 test("iOS real Official editor evidence is part of the fast and wave2 contract suites", () => {

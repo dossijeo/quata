@@ -285,9 +285,9 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
                 onPicked(OfficialEditorMedia(file.reference, OfficialMediaType.Image))
             } else {
                 releaseVideoThumbnail()
+                onPicked(OfficialEditorMedia(file.reference, OfficialMediaType.Video))
                 scope.launch {
                     videoThumbnail = (dependencies.videoThumbnails.createThumbnail(file) as? PlatformResult.Success)?.value
-                    onPicked(OfficialEditorMedia(file.reference, OfficialMediaType.Video))
                 }
             }
             return
@@ -304,8 +304,8 @@ private fun IosOfficialEditorHost(dependencies: IosOfficialEditorDependencies) {
                     onPicked(OfficialEditorMedia(file.reference, OfficialMediaType.Image))
                 } else {
                     releaseVideoThumbnail()
-                    videoThumbnail = (dependencies.videoThumbnails.createThumbnail(file) as? PlatformResult.Success)?.value
                     onPicked(OfficialEditorMedia(file.reference, OfficialMediaType.Video))
+                    videoThumbnail = (dependencies.videoThumbnails.createThumbnail(file) as? PlatformResult.Success)?.value
                 }
             }
         }
