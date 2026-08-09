@@ -38,6 +38,9 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /diagnostics\.text\.includes\(visibleMarker\)/);
   assert.match(runner, /createdExactReadSeen = true/);
   assert.match(runner, /hasIdFilter[\s\S]*hasAuthorization[\s\S]*containsCreatedId/);
+  assert.match(runner, /officialPublishedScreenshotHasContent/);
+  assert.match(runner, /decodeRgbaPng/);
+  assert.match(runner, /inflateSync/);
   assert.match(runner, /verified_in_database/);
   assert.match(runner, /visibleMarker = marker\.replace/);
   assert.match(runner, /QADATA Web \$\{visibleMarker\}/);

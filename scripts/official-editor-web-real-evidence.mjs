@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { copyFile, cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { inflateSync } from "node:zlib";
 import { Client } from "pg";
 import { chromium } from "playwright-core";
 
@@ -934,7 +935,10 @@ async function waitForCreatedOfficialPostRender(page, postId, visibleMarker, evi
     const hasPostId = diagnostics.officialIds.includes(`official-post-card-${postId}`)
       || diagnostics.text.includes(postId);
     const hasMarker = diagnostics.text.includes(visibleMarker);
-    if (hasRoute && ((hasPostId && hasMarker) || exactReadSeen())) return;
+    if (hasRoute && ((hasPostId && hasMarker) || exactReadSeen())) {
+      const image = await page.screenshot({ fullPage: true }).catch(() => null);
+      if (image && officialPublishedScreenshotHasContent(image)) return;
+    }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   report.routeDiagnostics = lastDiagnostics;
@@ -1010,6 +1014,81 @@ async function officialPostReadDiagnostic(response, url, headers, createdIds) {
     rowCount,
     containsCreatedId,
   };
+}
+
+function officialPublishedScreenshotHasContent(buffer) {
+  const image = decodeRgbaPng(buffer);
+  const left = Math.floor(image.width * 0.06);
+  const right = Math.floor(image.width * 0.78);
+  const top = Math.floor(image.height * 0.10);
+  const bottom = Math.floor(image.height * 0.78);
+  let darkPixels = 0;
+  let saturatedPixels = 0;
+  for (let y = top; y < bottom; y += 3) {
+    for (let x = left; x < right; x += 3) {
+      const offset = (y * image.width + x) * 4;
+      const red = image.data[offset];
+      const green = image.data[offset + 1];
+      const blue = image.data[offset + 2];
+      if (red < 120 && green < 120 && blue < 120) darkPixels += 1;
+      if (Math.max(red, green, blue) - Math.min(red, green, blue) > 55) saturatedPixels += 1;
+    }
+  }
+  return darkPixels > 120 || saturatedPixels > 180;
+}
+
+function decodeRgbaPng(buffer) {
+  if (buffer.toString("ascii", 1, 4) !== "PNG") throw new Error("png_signature_missing");
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let colorType = null;
+  const idat = [];
+  while (offset < buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString("ascii", offset + 4, offset + 8);
+    const data = buffer.subarray(offset + 8, offset + 8 + length);
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      colorType = data[9];
+      if (data[8] !== 8 || colorType !== 6) throw new Error("png_rgba8_required");
+    }
+    if (type === "IDAT") idat.push(data);
+    if (type === "IEND") break;
+    offset += length + 12;
+  }
+  const inflated = inflateSync(Buffer.concat(idat));
+  const stride = width * 4;
+  const pixels = Buffer.alloc(width * height * 4);
+  let source = 0;
+  for (let y = 0; y < height; y += 1) {
+    const filter = inflated[source++];
+    const rowStart = y * stride;
+    for (let x = 0; x < stride; x += 1) {
+      const raw = inflated[source++];
+      const left = x >= 4 ? pixels[rowStart + x - 4] : 0;
+      const up = y > 0 ? pixels[rowStart + x - stride] : 0;
+      const upLeft = y > 0 && x >= 4 ? pixels[rowStart + x - stride - 4] : 0;
+      pixels[rowStart + x] = (raw + pngFilterPredictor(filter, left, up, upLeft)) & 0xff;
+    }
+  }
+  return { width, height, data: pixels };
+}
+
+function pngFilterPredictor(filter, left, up, upLeft) {
+  if (filter === 0) return 0;
+  if (filter === 1) return left;
+  if (filter === 2) return up;
+  if (filter === 3) return Math.floor((left + up) / 2);
+  if (filter === 4) {
+    const estimate = left + up - upLeft;
+    const pa = Math.abs(estimate - left);
+    const pb = Math.abs(estimate - up);
+    const pc = Math.abs(estimate - upLeft);
+    return pa <= pb && pa <= pc ? left : pb <= pc ? up : upLeft;
+  }
+  throw new Error("png_filter_invalid");
 }
 
 function escapeRegExp(value) {
