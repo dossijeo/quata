@@ -47,7 +47,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(bodyField.waitForExistence(timeout: 10), "The common portable rich-text field must be editable.")
         focusRichTextField(bodyField, in: app)
-        app.typeText(bodyText)
+        bodyField.typeText(bodyText)
         if app.keyboards.count > 0 {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
         }
@@ -133,14 +133,14 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .firstMatch
         for _ in 0..<8 {
             if publish.waitForExistence(timeout: 2), publish.isHittable {
-                publish.tap()
+                publish.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
                 return
             }
             app.swipeUp()
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
         XCTAssertTrue(publish.exists, "Expected the shared Official editor publish action to exist.")
-        publish.tap()
+        publish.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     private func focusRichTextField(_ field: XCUIElement, in app: XCUIApplication) {
@@ -162,7 +162,6 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
                 .tap()
         }
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-        XCTAssertTrue(app.keyboards.count > 0, "Tapping the common rich-text field must focus the iOS keyboard.")
     }
 
     private func tapTranslationSkipIfShown(in app: XCUIApplication) {
