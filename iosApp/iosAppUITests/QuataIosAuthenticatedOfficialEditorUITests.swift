@@ -28,7 +28,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             throw XCTSkip("Real Official editor publish requires QUATA_IOS_OFFICIAL_EDITOR_MARKER.")
         }
 
-        let app = openOfficialEditor()
+        var app = openOfficialEditor()
         assertSharedEditorSurface(in: app)
 
         tapPublish(in: app)
@@ -40,6 +40,10 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             "An empty iOS Official editor publish must surface the shared validation feedback before any mutation.",
         )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-validation")
+
+        app.terminate()
+        app = openOfficialEditor()
+        assertSharedEditorSurface(in: app)
 
         let titleText = "QADATA iOS \(marker)"
         let summaryText = "Publicacion reversible desde iOS \(marker)"
