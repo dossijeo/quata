@@ -200,14 +200,13 @@ try {
     report.steps.push(`real_${options.media}_picker_selects_media_and_common_preview_renders`);
   }
 
-  await clickSemanticElement(page, "official-editor-body-action");
-  const bodyField = page.locator("#official-editor-body-section #quata-portable-rich-text-field").first();
-  await bodyField.waitFor({ state: "attached", timeout: 15_000 });
-  const bodyText = `Aviso temporal de prueba reversible ${visibleMarker}\n` +
-    `Este comunicado de prueba verifica el editor oficial en espanol desde la version web. ` +
-    `Marcador tecnico ${marker}.`;
-  await bodyField.fill(bodyText);
-  await expectSemanticText(page, "official-editor-body-section", new RegExp(visibleMarker));
+  await clickSemanticElement(page, "official-editor-mode-switch");
+  const titleText = `QADATA Web ${visibleMarker}`;
+  const summaryText = `Publicacion reversible desde Web ${marker}.`;
+  await fillSemanticInput(page, "official-editor-advanced-title", titleText);
+  await fillSemanticInput(page, "official-editor-advanced-summary", summaryText);
+  await expectSemanticText(page, "official-editor-preview", new RegExp(visibleMarker));
+  report.evidence.filled = await screenshot(page, options.evidenceDir, "web-real-official-editor-filled");
   await page.waitForTimeout(500);
   await clickSemanticElement(page, "official-editor-publish");
   if (await clickTranslationSingleLanguageIfShown(page)) {
@@ -890,6 +889,16 @@ async function clickSemanticElement(page, id) {
   await locator.click({ force: true, timeout: 5_000 }).catch(async () => {
     await locator.dispatchEvent("click");
   });
+}
+
+async function fillSemanticInput(page, id, value) {
+  const locator = page.locator(`#${id}`).first();
+  await locator.waitFor({ state: "attached", timeout: 15_000 });
+  await locator.scrollIntoViewIfNeeded().catch(() => null);
+  await locator.click({ force: true, timeout: 5_000 });
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A").catch(() => {});
+  await page.keyboard.insertText(value);
+  await expectSemanticText(page, id, new RegExp(escapeRegExp(value.slice(0, Math.min(value.length, 24)))));
 }
 
 async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {
