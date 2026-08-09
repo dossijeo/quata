@@ -67,14 +67,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataOrange
-import com.quata.core.language.QuataDetectedLanguage
 import com.quata.core.language.QuataLanguageIdentifier
+import com.quata.core.language.TextLanguageIdentifier
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.model.User
 import com.quata.core.text.decodeHtmlEntities
 import com.quata.core.ui.components.QuataEditorScaffold
 import com.quata.core.ui.components.QuataEditorToolButton
-import com.quata.core.ui.components.QuataFeedOverflowActionButton
 import com.quata.core.ui.richtext.QuataRichTextEditorBox
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.core.translation.QuataDeepLLanguage
@@ -184,7 +183,13 @@ fun OfficialPostEditorScreen(
             canPublish = currentUser?.isOfficial == true,
             onSubmit = onSubmit,
             newTranslationGroupId = { UUID.randomUUID().toString() },
-            detectLanguage = { draft -> detectOfficialPostLanguage(context, draft) },
+            detectLanguage = { draft ->
+                detectOfficialPostLanguage(
+                    identifier = TextLanguageIdentifier { text -> QuataLanguageIdentifier.detect(context, text) },
+                    draft = draft,
+                    fallback = currentOfficialPostLanguage(),
+                )
+            },
             translator = OfficialPostEditorTranslator { draft, source, target, groupId ->
                 translateOfficialDraft(context, draft, source, target, groupId)
             },
@@ -537,43 +542,6 @@ private fun OfficialPostPreview(
             )
         },
         media = previewMedia,
-        actionRail = { isLandscape, railModifier ->
-            OfficialPostActionRailContent(
-                post = previewPost,
-                rank = 1,
-                isLandscape = isLandscape,
-                canPublish = false,
-                canModerate = false,
-                strings = OfficialPostActionRailStrings(
-                    like = stringResource(R.string.feed_like),
-                    comments = stringResource(R.string.feed_comments),
-                    share = stringResource(R.string.feed_share),
-                    rank = stringResource(R.string.feed_rank),
-                    live = stringResource(R.string.common_live),
-                    publish = stringResource(R.string.official_create),
-                    delete = stringResource(R.string.feed_delete_post),
-                ),
-                onCreate = {},
-                onOpenLive = {},
-                onLike = {},
-                onComment = {},
-                onShare = {},
-                onDelete = {},
-                modifier = railModifier,
-            )
-        },
-        overflowAction = { overflowModifier ->
-            QuataFeedOverflowActionButton(
-                postRank = 1,
-                rankLabel = stringResource(R.string.feed_rank),
-                liveLabel = stringResource(R.string.common_live),
-                reportLabel = null,
-                showReport = false,
-                onOpenLive = {},
-                onReport = {},
-                modifier = overflowModifier,
-            )
-        },
         articleContent = { selectedPost, articleModifier ->
             QuataRichTextRenderer(
                 html = selectedPost.contentHtml,
@@ -636,24 +604,6 @@ private fun OfficialPostLanguage.localizedName(): String = stringResource(
 
 private fun currentOfficialPostLanguage(): OfficialPostLanguage =
     OfficialPostLanguage.fromAppLanguage(QuataLanguageManager.currentLanguage.tag)
-
-private suspend fun detectOfficialPostLanguage(
-    context: android.content.Context,
-    draft: OfficialPostDraft
-): OfficialPostLanguage {
-    val text = buildString {
-        appendLine(draft.title)
-        appendLine(draft.summary)
-        append(draft.contentHtml.stripHtmlForOfficialEditor())
-    }.trim()
-    val detected = runCatching { QuataLanguageIdentifier.detect(context, text) }.getOrNull()?.language
-    return when (detected) {
-        QuataDetectedLanguage.Spanish -> OfficialPostLanguage.Spanish
-        QuataDetectedLanguage.English -> OfficialPostLanguage.English
-        QuataDetectedLanguage.French -> OfficialPostLanguage.French
-        else -> currentOfficialPostLanguage()
-    }
-}
 
 private suspend fun buildTranslatedOfficialDrafts(
     context: android.content.Context,

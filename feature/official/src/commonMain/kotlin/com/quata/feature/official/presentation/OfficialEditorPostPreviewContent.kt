@@ -10,7 +10,8 @@ import com.quata.feature.official.domain.OfficialPostItem
 
 /**
  * Shared editor preview flow: portrait post card plus its read-more panel. Media decoding,
- * avatar rendering, actions and rich-text rendering remain platform slots.
+ * avatar rendering and rich-text rendering remain platform slots. Product actions are not shown
+ * here unless a host injects working callbacks.
  */
 @Composable
 fun OfficialEditorPostPreviewContent(
@@ -20,7 +21,7 @@ fun OfficialEditorPostPreviewContent(
     closeLabel: String,
     author: @Composable (Modifier) -> Unit,
     media: (@Composable (Modifier) -> Unit)?,
-    actionRail: @Composable (isLandscape: Boolean, Modifier) -> Unit,
+    actionRail: (@Composable (isLandscape: Boolean, Modifier) -> Unit)? = null,
     articleContent: @Composable (OfficialPostItem, Modifier) -> Unit,
     modifier: Modifier = Modifier,
     overflowAction: (@Composable (Modifier) -> Unit)? = null,

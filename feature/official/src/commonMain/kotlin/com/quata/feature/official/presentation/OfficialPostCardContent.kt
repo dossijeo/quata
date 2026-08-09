@@ -35,7 +35,7 @@ fun OfficialPostCardContent(
     isLandscape: Boolean,
     author: @Composable (Modifier) -> Unit,
     media: (@Composable (Modifier) -> Unit)?,
-    actionRail: @Composable (isLandscape: Boolean, Modifier) -> Unit,
+    actionRail: (@Composable (isLandscape: Boolean, Modifier) -> Unit)?,
     overflowAction: (@Composable (Modifier) -> Unit)? = null,
     onReadMore: () -> Unit,
     modifier: Modifier = Modifier,
@@ -68,9 +68,9 @@ fun OfficialPostCardContent(
                     author = author,
                     media = media,
                     onReadMore = onReadMore,
-                    modifier = Modifier.fillMaxSize().padding(start = 18.dp, top = 18.dp, end = 76.dp, bottom = 18.dp),
+                    modifier = Modifier.fillMaxSize().padding(start = 18.dp, top = 18.dp, end = if (actionRail != null) 76.dp else 18.dp, bottom = 18.dp),
                 )
-                actionRail(true, Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 16.dp))
+                actionRail?.invoke(true, Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 16.dp))
                 OfficialTypePill(typeLabel, Modifier.align(Alignment.TopEnd).padding(top = 28.dp, end = 14.dp))
                 overflowAction?.invoke(Modifier.align(Alignment.BottomStart).padding(start = 28.dp, bottom = 28.dp))
             } else {
@@ -81,9 +81,9 @@ fun OfficialPostCardContent(
                     author = author,
                     media = media,
                     onReadMore = onReadMore,
-                    modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = 20.dp, end = 76.dp, bottom = 18.dp),
+                    modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = 20.dp, end = if (actionRail != null) 76.dp else 16.dp, bottom = 18.dp),
                 )
-                actionRail(false, Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 16.dp))
+                actionRail?.invoke(false, Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 16.dp))
                 OfficialTypePill(typeLabel, Modifier.align(Alignment.TopEnd).padding(top = 38.dp, end = 8.dp))
             }
         }

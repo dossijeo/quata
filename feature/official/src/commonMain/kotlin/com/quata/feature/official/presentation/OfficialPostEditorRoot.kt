@@ -14,6 +14,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import com.quata.core.language.QuataDetectedLanguage
+import com.quata.core.language.TextLanguageIdentifier
 import com.quata.core.model.User
 import com.quata.feature.official.domain.OfficialMediaType
 import com.quata.feature.official.domain.OfficialPostDraft
@@ -235,6 +237,42 @@ fun interface OfficialPostEditorTranslator {
     ): OfficialPostDraft
 }
 
+data class OfficialPostEditorLanguageDetection(
+    val publicationLanguage: OfficialPostLanguage,
+    val translationSourceLanguage: OfficialPostLanguage?,
+)
+
+fun fallbackOfficialPostEditorLanguageDetection(
+    language: OfficialPostLanguage,
+): OfficialPostEditorLanguageDetection = OfficialPostEditorLanguageDetection(
+    publicationLanguage = language,
+    translationSourceLanguage = null,
+)
+
+fun officialPostEditorDetectionText(draft: OfficialPostDraft): String = buildString {
+    appendLine(draft.title)
+    appendLine(draft.summary)
+    append(draft.contentHtml.stripHtmlForOfficialEditor())
+}.trim()
+
+suspend fun detectOfficialPostLanguage(
+    identifier: TextLanguageIdentifier,
+    draft: OfficialPostDraft,
+    fallback: OfficialPostLanguage,
+): OfficialPostEditorLanguageDetection {
+    val language = when (identifier.detect(officialPostEditorDetectionText(draft)).language) {
+        QuataDetectedLanguage.Spanish -> OfficialPostLanguage.Spanish
+        QuataDetectedLanguage.English -> OfficialPostLanguage.English
+        QuataDetectedLanguage.French -> OfficialPostLanguage.French
+        QuataDetectedLanguage.Fang,
+        QuataDetectedLanguage.Unknown -> null
+    }
+    return OfficialPostEditorLanguageDetection(
+        publicationLanguage = language ?: fallback,
+        translationSourceLanguage = language,
+    )
+}
+
 @Composable
 fun OfficialPostEditorRoot(
     padding: PaddingValues,
@@ -247,7 +285,12 @@ fun OfficialPostEditorRoot(
     canPublish: Boolean,
     onSubmit: (List<OfficialPostDraft>) -> Unit,
     modifier: Modifier = Modifier,
-    detectLanguage: suspend (OfficialPostDraft) -> OfficialPostLanguage = { language },
+    detectLanguage: suspend (OfficialPostDraft) -> OfficialPostEditorLanguageDetection = {
+        OfficialPostEditorLanguageDetection(
+            publicationLanguage = language,
+            translationSourceLanguage = language,
+        )
+    },
     translator: OfficialPostEditorTranslator? = null,
     newTranslationGroupId: () -> String,
 ) {
@@ -271,9 +314,11 @@ fun OfficialPostEditorRoot(
         }
         val draft = draftState.buildDraft(defaultTitle = strings.defaultTitle, language = language)
         scope.launch {
-            val sourceLanguage = runCatching { detectLanguage(draft) }.getOrDefault(language)
-            if (translator == null) {
-                onSubmit(listOf(draft.copy(language = sourceLanguage)))
+            val detection = runCatching { detectLanguage(draft) }
+                .getOrDefault(fallbackOfficialPostEditorLanguageDetection(language))
+            val sourceLanguage = detection.translationSourceLanguage
+            if (translator == null || sourceLanguage == null) {
+                onSubmit(listOf(draft.copy(language = detection.publicationLanguage)))
             } else {
                 pendingTranslation = draft.pendingOfficialTranslations(sourceLanguage)
             }

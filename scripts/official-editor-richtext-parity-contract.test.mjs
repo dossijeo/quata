@@ -11,8 +11,16 @@ const ios = await readFile(
   new URL("../feature/official/src/iosMain/kotlin/com/quata/feature/official/presentation/QuataOfficialViewController.kt", import.meta.url),
   "utf8",
 );
+const android = await readFile(
+  new URL("../app/src/main/java/com/quata/feature/official/presentation/OfficialPostEditorScreen.kt", import.meta.url),
+  "utf8",
+);
 const commonTranslator = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostEditorFangTranslator.kt", import.meta.url),
+  "utf8",
+);
+const commonRoot = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostEditorRoot.kt", import.meta.url),
   "utf8",
 );
 const iosUiTest = await readFile(
@@ -64,4 +72,22 @@ test("Official editor translation is shared for Web and iOS", () => {
   assert.match(web, /translator = translator/);
   assert.match(ios, /translator = translator/);
   assert.doesNotMatch(ios, /translator = null/);
+});
+
+test("Official editor source language detection is shared and FastText-backed on Web and iOS", () => {
+  assert.match(commonRoot, /suspend fun detectOfficialPostLanguage\([\s\S]*identifier: TextLanguageIdentifier/);
+  assert.match(commonRoot, /officialPostEditorDetectionText\(draft\)/);
+  assert.match(commonRoot, /QuataDetectedLanguage\.Spanish -> OfficialPostLanguage\.Spanish/);
+  assert.match(commonRoot, /QuataDetectedLanguage\.English -> OfficialPostLanguage\.English/);
+  assert.match(commonRoot, /QuataDetectedLanguage\.French -> OfficialPostLanguage\.French/);
+  assert.match(commonRoot, /QuataDetectedLanguage\.Fang,[\s\S]*QuataDetectedLanguage\.Unknown -> null/);
+  assert.match(commonRoot, /translationSourceLanguage = null/);
+  assert.match(commonRoot, /getOrDefault\(fallbackOfficialPostEditorLanguageDetection\(language\)\)/);
+  assert.match(commonRoot, /translator == null \|\| sourceLanguage == null/);
+  assert.match(android, /detectOfficialPostLanguage\(/);
+  assert.match(android, /TextLanguageIdentifier \{ text -> QuataLanguageIdentifier\.detect\(context, text\) \}/);
+  assert.match(web, /identifier = BrowserFastTextLanguageIdentifier/);
+  assert.match(ios, /identifier = IosFastTextLanguageIdentifier/);
+  assert.doesNotMatch(web, /detectLanguage = \{\s*webOfficialPostLanguage\(\)\s*\}/);
+  assert.doesNotMatch(ios, /detectLanguage = \{\s*iosOfficialPostLanguage\(dependencies\.preferredLanguageTag\)\s*\}/);
 });
