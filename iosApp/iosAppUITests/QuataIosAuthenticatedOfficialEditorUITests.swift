@@ -149,21 +149,18 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         let field = app.descendants(matching: .any)
             .matching(identifier: identifier)
             .firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected editable field \(identifier) to exist.")
-        for _ in 0..<6 {
-            if field.isHittable {
+        for _ in 0..<10 {
+            if field.waitForExistence(timeout: 1), field.isHittable {
                 field.tap()
-            } else {
-                app.swipeDown()
-                RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-                field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                if app.keyboards.count > 0 {
+                    field.typeText(value)
+                    return
+                }
             }
-            if app.keyboards.count > 0 {
-                field.typeText(value)
-                return
-            }
+            app.swipeUp()
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
+        XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
         field.typeText(value)
     }
 

@@ -53,6 +53,7 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /official-editor-advanced-title/);
   assert.match(uiTest, /official-editor-advanced-summary/);
   assert.match(uiTest, /app\.keyboards\.count > 0/);
+  assert.match(uiTest, /app\.swipeUp\(\)/);
   assert.match(uiTest, /field\.typeText\(value\)/);
   assert.match(uiTest, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(uiTest, /official-editor-publish/);

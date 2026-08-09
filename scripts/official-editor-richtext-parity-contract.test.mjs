@@ -96,8 +96,8 @@ test("Official editor advanced text controls expose common evidence anchors", ()
   assert.match(modeSelector, /Modifier\.testTag\(OfficialEditorModeSwitchTestTag\)/);
   assert.match(advancedFields, /OfficialEditorAdvancedTitleTestTag = "official-editor-advanced-title"/);
   assert.match(advancedFields, /OfficialEditorAdvancedSummaryTestTag = "official-editor-advanced-summary"/);
-  assert.match(advancedFields, /Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedTitleTestTag\)/);
-  assert.match(advancedFields, /Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedSummaryTestTag\)/);
+  assert.match(advancedFields, /Box\(modifier = Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedTitleTestTag\)\)/);
+  assert.match(advancedFields, /Box\(modifier = Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedSummaryTestTag\)\)/);
 });
 
 test("Official editor no longer accepts browser prompt or plain iOS text field as product rich text editor", () => {
