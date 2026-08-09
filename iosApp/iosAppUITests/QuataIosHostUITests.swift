@@ -383,7 +383,7 @@ final class QuataIosHostUITests: XCTestCase {
             .firstMatch
         if let expectedQuestion {
             XCTAssertTrue(
-                question.waitForLabel(containing: expectedQuestion, timeout: 25),
+                question.waitForLabelOrValue(containing: expectedQuestion, timeout: 25),
                 "The real recovery question must be read through the iOS Auth repository.",
             )
         } else {
@@ -393,10 +393,7 @@ final class QuataIosHostUITests: XCTestCase {
 
         enterText(secretAnswer, into: "auth.recovery.secret-answer", in: app)
         enterText(newPassword, into: "auth.recovery.new-password", in: app)
-        app.descendants(matching: .any)
-            .matching(identifier: "auth.recovery.submit")
-            .firstMatch
-            .tap()
+        tapAfterDismissingKeyboard("auth.recovery.submit", in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)
                 .matching(identifier: "auth.submit")
@@ -428,6 +425,25 @@ final class QuataIosHostUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected input \(identifier) to exist.")
         field.tap()
         field.typeText(text)
+    }
+
+    private func tapAfterDismissingKeyboard(_ identifier: String, in app: XCUIApplication) {
+        let element = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+        XCTAssertTrue(element.waitForExistence(timeout: 10), "Expected \(identifier) to exist before tapping.")
+        if app.keyboards.count > 0 {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        }
+        for _ in 0..<6 {
+            if element.isHittable {
+                element.tap()
+                return
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        XCTAssertTrue(element.isHittable, "Expected \(identifier) to become hittable after dismissing keyboard.")
     }
 }
 
@@ -501,6 +517,18 @@ private enum AuthRecoveryUiConfigurationError: LocalizedError {
 }
 
 private extension XCUIElement {
+    func waitForLabelOrValue(containing expected: String, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let accessibleValue = (value as? String) ?? ""
+            if label.contains(expected) || accessibleValue.contains(expected) {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        } while Date() < deadline
+        return false
+    }
+
     func waitForLabel(containing expected: String, timeout: TimeInterval) -> Bool {
         let predicate = NSPredicate(format: "label CONTAINS %@", expected)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: self)
