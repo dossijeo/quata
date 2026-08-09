@@ -49,6 +49,7 @@ test("Official editor Web and iOS use the common portable rich text editor", () 
   assert.match(portable, /LocalSoftwareKeyboardController\.current/);
   assert.match(portable, /keyboardController\?\.show\(\)/);
   assert.match(portable, /\.testTag\(QuataPortableRichTextFieldFocusTargetTestTag\)[\s\S]*\.clickable/);
+  assert.match(portable, /\.testTag\(QuataPortableRichTextFieldTestTag\)[\s\S]*\.focusRequester\(focusRequester\)[\s\S]*\.clickable/);
   assert.match(portable, /import androidx\.compose\.foundation\.layout\.heightIn/);
   assert.match(portable, /\.heightIn\(min = 44\.dp\)/);
   assert.match(portable, /state(?:::|\.)toggleBold/);

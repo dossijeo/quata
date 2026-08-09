@@ -253,6 +253,14 @@ private fun QuataPortableRichTextBlockField(
                 .testTag(QuataPortableRichTextFieldTestTag)
                 .focusRequester(focusRequester)
                 .onFocusChanged { if (it.isFocused) onSelected() }
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                ) {
+                    onSelected()
+                    focusRequester.requestFocus()
+                    keyboardController?.show()
+                }
                 .padding(start = if (block.type == RichTextBlockType.Paragraph) 0.dp else 4.dp),
             decorationBox = { inner ->
                 Box(modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)) {
