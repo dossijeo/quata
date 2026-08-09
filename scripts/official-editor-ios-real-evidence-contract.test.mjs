@@ -46,10 +46,12 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_MARKER/);
   assert.match(uiTest, /official-editor-feedback/);
   assert.match(uiTest, /quata-portable-rich-text-field/);
-  assert.match(uiTest, /quata-portable-rich-text-focus-target/);
-  assert.match(uiTest, /focusRichTextField\(bodyField, focusTarget: focusTarget, in: app\)/);
+  assert.match(uiTest, /switchToAdvancedMode\(in: app\)/);
+  assert.match(uiTest, /official-editor-mode-switch/);
+  assert.match(uiTest, /official-editor-advanced-title/);
+  assert.match(uiTest, /official-editor-advanced-summary/);
   assert.match(uiTest, /app\.keyboards\.count > 0/);
-  assert.match(uiTest, /bodyField\.typeText\(bodyText\)/);
+  assert.match(uiTest, /field\.typeText\(value\)/);
   assert.match(uiTest, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(uiTest, /official-editor-publish/);
   assert.match(uiTest, /waitForPublishedPost\(in: app, marker: marker\)/);

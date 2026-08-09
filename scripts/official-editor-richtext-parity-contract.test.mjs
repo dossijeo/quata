@@ -23,6 +23,14 @@ const commonRoot = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostEditorRoot.kt", import.meta.url),
   "utf8",
 );
+const advancedFields = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialAdvancedTextFieldsContent.kt", import.meta.url),
+  "utf8",
+);
+const modeSelector = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialEditorModeSelectorContent.kt", import.meta.url),
+  "utf8",
+);
 const commonScreen = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialEditorScreenContent.kt", import.meta.url),
   "utf8",
@@ -81,6 +89,15 @@ test("Official editor publish remains usable while the software keyboard is open
   assert.match(commonRoot, /LocalFocusManager\.current/);
   assert.match(commonRoot, /localFeedback = null[\s\S]*val draft = draftState\.buildDraft/);
   assert.match(commonRoot, /onClick = \{[\s\S]*focusManager\.clearFocus\(force = true\)[\s\S]*requestPublication\(\)[\s\S]*\}/);
+});
+
+test("Official editor advanced text controls expose common evidence anchors", () => {
+  assert.match(modeSelector, /OfficialEditorModeSwitchTestTag = "official-editor-mode-switch"/);
+  assert.match(modeSelector, /Modifier\.testTag\(OfficialEditorModeSwitchTestTag\)/);
+  assert.match(advancedFields, /OfficialEditorAdvancedTitleTestTag = "official-editor-advanced-title"/);
+  assert.match(advancedFields, /OfficialEditorAdvancedSummaryTestTag = "official-editor-advanced-summary"/);
+  assert.match(advancedFields, /Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedTitleTestTag\)/);
+  assert.match(advancedFields, /Modifier\.fillMaxWidth\(\)\.testTag\(OfficialEditorAdvancedSummaryTestTag\)/);
 });
 
 test("Official editor no longer accepts browser prompt or plain iOS text field as product rich text editor", () => {

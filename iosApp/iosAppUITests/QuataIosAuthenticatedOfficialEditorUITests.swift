@@ -41,16 +41,11 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-validation")
 
-        let bodyText = "QADATA official iOS evidence \(marker) Publicacion reversible desde iOS."
-        let bodyField = app.descendants(matching: .any)
-            .matching(identifier: "quata-portable-rich-text-field")
-            .firstMatch
-        let focusTarget = app.descendants(matching: .any)
-            .matching(identifier: "quata-portable-rich-text-focus-target")
-            .firstMatch
-        XCTAssertTrue(bodyField.waitForExistence(timeout: 10), "The common portable rich-text field must be editable.")
-        focusRichTextField(bodyField, focusTarget: focusTarget, in: app)
-        bodyField.typeText(bodyText)
+        let titleText = "QADATA iOS \(marker)"
+        let summaryText = "Publicacion reversible desde iOS \(marker)"
+        switchToAdvancedMode(in: app)
+        typeText(titleText, into: "official-editor-advanced-title", in: app)
+        typeText(summaryText, into: "official-editor-advanced-summary", in: app)
         if app.keyboards.count > 0 {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
         }
@@ -132,39 +127,36 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         publish.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
-    private func focusRichTextField(_ field: XCUIElement, focusTarget: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<4 {
-            if field.exists, field.frame.midY > 120, field.frame.midY < app.frame.maxY - 160 {
-                break
-            }
-            app.swipeDown()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+    private func switchToAdvancedMode(in app: XCUIApplication) {
+        let modeSwitch = app.descendants(matching: .any)
+            .matching(identifier: "official-editor-mode-switch")
+            .firstMatch
+        XCTAssertTrue(modeSwitch.waitForExistence(timeout: 10), "The common Official editor mode switch must exist.")
+        if modeSwitch.value as? String != "1" {
+            modeSwitch.tap()
         }
-        if focusTarget.waitForExistence(timeout: 2), focusTarget.isHittable {
-            focusTarget.tap()
-        } else if field.isHittable {
-            field.tap()
-        } else {
-            let frame = focusTarget.exists ? focusTarget.frame : field.frame
-            let x = min(max(frame.midX, app.frame.minX + 40), app.frame.maxX - 40)
-            let y = min(max(frame.midY, app.frame.minY + 150), app.frame.maxY - 220)
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
-                .withOffset(CGVector(dx: x, dy: y))
-                .tap()
-        }
-        let deadline = Date().addingTimeInterval(5)
-        while Date() < deadline {
-            if app.keyboards.count > 0 {
-                return
-            }
-            if focusTarget.exists {
-                focusTarget.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {
+        let field = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected editable field \(identifier) to exist.")
+        for _ in 0..<6 {
+            if field.isHittable {
+                field.tap()
             } else {
+                app.swipeDown()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.3))
                 field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+            if app.keyboards.count > 0 {
+                field.typeText(value)
+                return
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
-        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        field.typeText(value)
     }
 
     private func tapTranslationSkipIfShown(in app: XCUIApplication) {
