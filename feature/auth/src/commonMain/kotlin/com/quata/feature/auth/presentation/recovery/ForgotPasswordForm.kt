@@ -51,9 +51,9 @@ fun ForgotPasswordForm(
         onPhoneChange = { onEvent(ForgotPasswordUiEvent.PhoneChanged(it)) },
         phoneLabel = strings.phone,
         searchPlaceholder = strings.searchPrefix,
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics { testTag = ForgotPasswordTestTags.Phone },
+        modifier = Modifier.fillMaxWidth(),
+        prefixTestTag = ForgotPasswordTestTags.CountryPrefix,
+        phoneTestTag = ForgotPasswordTestTags.Phone,
     )
     Spacer(Modifier.height(space))
     OutlinedTextField(

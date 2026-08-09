@@ -86,6 +86,7 @@ test("auth-launch recovery fixture resolves the same common Recovery surface and
   assert.match(launcher, /QuataAuthLaunchFixtureViewControllerForDestination\(/);
   for (const tag of [
     "auth.recovery.root",
+    "auth.recovery.country-prefix",
     "auth.recovery.phone",
     "auth.recovery.question",
     "auth.recovery.secret-answer",
@@ -97,6 +98,7 @@ test("auth-launch recovery fixture resolves the same common Recovery surface and
     assert.match(recoveryTags, new RegExp(JSON.stringify(tag).slice(1, -1)));
   }
   for (const required of [
+    "ForgotPasswordTestTags.CountryPrefix",
     "ForgotPasswordTestTags.Phone",
     "ForgotPasswordTestTags.Question",
     "ForgotPasswordTestTags.SecretAnswer",

@@ -2,6 +2,7 @@ package com.quata.feature.auth.presentation.recovery
 
 object ForgotPasswordTestTags {
     const val Root = "auth.recovery.root"
+    const val CountryPrefix = "auth.recovery.country-prefix"
     const val Phone = "auth.recovery.phone"
     const val Question = "auth.recovery.question"
     const val SecretAnswer = "auth.recovery.secret-answer"

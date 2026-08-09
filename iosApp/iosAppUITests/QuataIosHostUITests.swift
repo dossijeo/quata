@@ -65,6 +65,7 @@ final class QuataIosHostUITests: XCTestCase {
 
         for identifier in [
             "auth.recovery.root",
+            "auth.recovery.country-prefix",
             "auth.recovery.phone",
             "auth.recovery.question",
             "auth.recovery.secret-answer",

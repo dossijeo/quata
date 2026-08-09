@@ -32,6 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,7 +49,9 @@ fun PhoneInputSection(
     onPhoneChange: (String) -> Unit,
     phoneLabel: String,
     searchPlaceholder: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    prefixTestTag: String? = null,
+    phoneTestTag: String? = null,
 ) {
     val template = quataTheme()
     Row(
@@ -61,7 +65,9 @@ fun PhoneInputSection(
             onSelected = { onPrefixChange(it.code) },
             displayText = "+$selectedPrefix",
             searchPlaceholder = searchPlaceholder,
-            modifier = Modifier.weight(0.36f)
+            modifier = Modifier
+                .weight(0.36f)
+                .optionalTestTag(prefixTestTag)
         )
         OutlinedTextField(
             value = phone,
@@ -71,7 +77,8 @@ fun PhoneInputSection(
             singleLine = true,
             modifier = Modifier
                 .weight(0.64f)
-                .height(CompactTextFieldHeight),
+                .height(CompactTextFieldHeight)
+                .optionalTestTag(phoneTestTag),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = template.colors.surfaceAlt,
@@ -83,6 +90,9 @@ fun PhoneInputSection(
         )
     }
 }
+
+private fun Modifier.optionalTestTag(value: String?): Modifier =
+    if (value == null) this else semantics { testTag = value }
 
 @Composable
 fun PrefixDropdownField(

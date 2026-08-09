@@ -40,6 +40,7 @@ test("product routes do not prepend capability diagnostics to the Android-compar
 test("shared Auth recovery keeps observable common tags for Web, Android and iOS hosts", () => {
   for (const tag of [
     "auth.recovery.root",
+    "auth.recovery.country-prefix",
     "auth.recovery.phone",
     "auth.recovery.question",
     "auth.recovery.secret-answer",
@@ -53,6 +54,7 @@ test("shared Auth recovery keeps observable common tags for Web, Android and iOS
   assert.match(productAuthHost, /AuthProductDestination\.Recovery -> ForgotPasswordScreenHost\(/);
   assert.match(browserAuthHost, /AuthBrowserDestination\.Recovery -> Box\([\s\S]*ForgotPasswordTestTags\.Root[\s\S]*ForgotPasswordForm\(/);
   for (const required of [
+    "ForgotPasswordTestTags.CountryPrefix",
     "ForgotPasswordTestTags.Phone",
     "ForgotPasswordTestTags.Question",
     "ForgotPasswordTestTags.SecretAnswer",
