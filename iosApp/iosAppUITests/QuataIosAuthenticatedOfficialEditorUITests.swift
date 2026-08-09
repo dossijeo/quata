@@ -153,7 +153,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             if field.waitForExistence(timeout: 1), field.isHittable {
                 field.tap()
                 if app.keyboards.count > 0 {
-                    field.typeText(value)
+                    typeIntoFocusedElement(value, fallback: field, in: app)
                     return
                 }
             }
@@ -161,7 +161,18 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
         XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
-        field.typeText(value)
+        typeIntoFocusedElement(value, fallback: field, in: app)
+    }
+
+    private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {
+        let focused = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
+            .firstMatch
+        if focused.waitForExistence(timeout: 2) {
+            focused.typeText(value)
+        } else {
+            fallback.typeText(value)
+        }
     }
 
     private func tapTranslationSkipIfShown(in app: XCUIApplication) {
