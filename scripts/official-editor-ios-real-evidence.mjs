@@ -150,9 +150,17 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
       const found = created.ids.length ? created : await readCreatedRows(config, marker);
       const storagePaths = storagePathsFromMediaUrls(found.mediaUrls ?? []);
       if (storagePaths.length) {
-        const loginSession = await login(backend, config, `official-editor-ios-real-cleanup-${randomUUID()}`);
-        report.evidence.storageCleanup = await cleanupStorageObjects(backend, loginSession, storagePaths);
-        report.evidence.storagePostCleanup = await assertStorageObjectsAbsent(config, storagePaths);
+        try {
+          const loginSession = await login(backend, config, `official-editor-ios-real-cleanup-${randomUUID()}`);
+          report.evidence.storageCleanup = await cleanupStorageObjects(backend, loginSession, storagePaths);
+          report.evidence.storagePostCleanup = await assertStorageObjectsAbsent(config, storagePaths);
+        } catch (storageError) {
+          report.evidence.storageCleanup = {
+            state: "rollback_pending",
+            storagePaths,
+            error: safeFailure(storageError),
+          };
+        }
       }
       cleanup = await cleanupPosts(config, found.ids, found.translationGroupIds, marker);
       report.cleanup = cleanup;
@@ -304,7 +312,7 @@ async function login(backend, config, clientInstanceId) {
     password: config.password,
     client_instance_id: clientInstanceId,
   });
-  const session = response.payload?.session;
+  const session = response.payload?.session ?? response.payload ?? response.session;
   if (typeof session?.access_token !== "string") throw new Error("invalid_auth_response");
   return { accessToken: session.access_token };
 }

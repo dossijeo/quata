@@ -26,6 +26,8 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
   assert.match(runner, /created_media_readback_missing/);
   assert.match(runner, /where title like \$1 or content_html like \$1/);
   assert.match(runner, /cleanupStorageObjects/);
+  assert.match(runner, /response\.payload\?\.session \?\? response\.payload \?\? response\.session/);
+  assert.match(runner, /storageCleanup = \{[\s\S]*state: "rollback_pending"[\s\S]*storagePaths/);
   assert.match(runner, /assertStorageObjectsAbsent/);
   assert.match(runner, /storage\.objects/);
   assert.match(runner, /community-posts/);
