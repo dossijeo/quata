@@ -40,12 +40,15 @@ test("Official editor Web and iOS use the common portable rich text editor", () 
   assert.match(portable, /fun QuataPortableRichTextEditorBox\(/);
   assert.match(portable, /QuataPortableRichTextFieldTestTag/);
   assert.match(portable, /quata-portable-rich-text-field/);
+  assert.match(portable, /QuataPortableRichTextFieldFocusTargetTestTag/);
+  assert.match(portable, /quata-portable-rich-text-focus-target/);
   assert.match(portable, /QuataRichTextEditorState\(initialHtml\)/);
   assert.match(portable, /state\.updateBlockText\(block\.id, value\)/);
   assert.match(portable, /FocusRequester\(\)/);
   assert.match(portable, /\.focusRequester\(focusRequester\)/);
   assert.match(portable, /LocalSoftwareKeyboardController\.current/);
   assert.match(portable, /keyboardController\?\.show\(\)/);
+  assert.match(portable, /\.testTag\(QuataPortableRichTextFieldFocusTargetTestTag\)[\s\S]*\.clickable/);
   assert.match(portable, /import androidx\.compose\.foundation\.layout\.heightIn/);
   assert.match(portable, /\.heightIn\(min = 44\.dp\)/);
   assert.match(portable, /state(?:::|\.)toggleBold/);

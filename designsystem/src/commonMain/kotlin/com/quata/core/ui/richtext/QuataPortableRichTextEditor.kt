@@ -62,6 +62,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 
 const val QuataPortableRichTextFieldTestTag = "quata-portable-rich-text-field"
+const val QuataPortableRichTextFieldFocusTargetTestTag = "quata-portable-rich-text-focus-target"
 
 @Composable
 fun QuataPortableRichTextEditorBox(
@@ -206,6 +207,7 @@ private fun QuataPortableRichTextBlockField(
         modifier = Modifier
             .fillMaxWidth()
             .background(portableBackgroundForBlock(block.type), MaterialTheme.shapes.small)
+            .testTag(QuataPortableRichTextFieldFocusTargetTestTag)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,

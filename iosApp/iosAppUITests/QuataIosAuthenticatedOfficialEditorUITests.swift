@@ -45,8 +45,11 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         let bodyField = app.descendants(matching: .any)
             .matching(identifier: "quata-portable-rich-text-field")
             .firstMatch
+        let focusTarget = app.descendants(matching: .any)
+            .matching(identifier: "quata-portable-rich-text-focus-target")
+            .firstMatch
         XCTAssertTrue(bodyField.waitForExistence(timeout: 10), "The common portable rich-text field must be editable.")
-        focusRichTextField(bodyField, in: app)
+        focusRichTextField(bodyField, focusTarget: focusTarget, in: app)
         bodyField.typeText(bodyText)
         if app.keyboards.count > 0 {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
@@ -129,7 +132,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         publish.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
-    private func focusRichTextField(_ field: XCUIElement, in app: XCUIApplication) {
+    private func focusRichTextField(_ field: XCUIElement, focusTarget: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<4 {
             if field.exists, field.frame.midY > 120, field.frame.midY < app.frame.maxY - 160 {
                 break
@@ -137,10 +140,12 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             app.swipeDown()
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
-        if field.isHittable {
+        if focusTarget.waitForExistence(timeout: 2), focusTarget.isHittable {
+            focusTarget.tap()
+        } else if field.isHittable {
             field.tap()
         } else {
-            let frame = field.frame
+            let frame = focusTarget.exists ? focusTarget.frame : field.frame
             let x = min(max(frame.midX, app.frame.minX + 40), app.frame.maxX - 40)
             let y = min(max(frame.midY, app.frame.minY + 150), app.frame.maxY - 220)
             app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
@@ -152,7 +157,11 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             if app.keyboards.count > 0 {
                 return
             }
-            field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            if focusTarget.exists {
+                focusTarget.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            } else {
+                field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         }
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
