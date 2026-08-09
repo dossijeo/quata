@@ -6,12 +6,13 @@
 
 ## Foto de control — 2026-08-09
 
-**HEAD integrado:** `main` `4fffa2f87a3ebd86e014aeedaa2f5737eca5aed4` (PR #215), posterior a #154,
+**HEAD integrado:** `main` `c8d0cbba61800dd747cfa597646008c53c208301` (PR #216), posterior a #154,
 #156, #159, #168, #169, #170, #172, #173, #174, #175, #190, #191, #192, #193, #204, #206, #208,
-#210, #211, #212, #214 y #215. El proyecto sigue incompleto: #215 cierra `SCR-AUTH-RECOVERY` con
+#210, #211, #212, #214, #215 y #216. El proyecto sigue incompleto: #215 cierra `SCR-AUTH-RECOVERY` con
 raíz común Android/Wasm/iOS, evidencias focales y reales, limpieza Supabase verificada y certificación
-final verde. No hay GO de `SCR-OFFICIAL-EDITOR` hasta completar error y comparativa
-Android-Wasm-iOS. La migracion RLS `20260808_0001_official_posts_actor_guard.sql` fue aplicada
+final verde; #216 actualiza su post-merge documental. El candidato local
+`1ddff1930ae17caa1d29d091f6a69cbdb4443a46` declara GO local de `SCR-OFFICIAL-EDITOR`
+con Android/Web/iOS reales, limpieza exacta y comparativa visual final. La migracion RLS `20260808_0001_official_posts_actor_guard.sql` fue aplicada
 remotamente como SQL exacto versionado, sin `supabase db push` ni `migration repair`; el gate real
 `OFFICIAL-EDITOR-REAL-BACKEND-001` paso con cuenta no oficial denegada, publicacion oficial, lectura
 publica y hard-delete verificado.
@@ -28,7 +29,7 @@ publica y hard-delete verificado.
 | Comunidades/perfil público (#175) | COMÚN con límites | `NeighborhoodsScreenHost` y `CommunityProfileScreenHost` integrados en Android, Wasm e iOS; repositorios reales, entradas globales y gate de sesión conectados. | P2 vigentes: mutaciones `PROF-*`, entradas visuales desde Oficial/Conversaciones/Chat, listas anidadas, contenido/overlays, Chat↔Perfil, back Android de miembros y estados de error/retorno. |
 | Feed iOS medios (#175, #206) | COMÚN con límites | Gradiente URL/hash detrás de vídeo, superficies UIKit/AVPlayer transparentes, controles Compose play/pause y mute global conectado a `AVPlayer`; #206 publica duración/posición reales desde `AVPlayerItem`/asset/rangos seekable y acredita `seekTo` mediante XCTest local con MP4 generado. | El límite específico de duración/seek iOS de Feed queda cerrado al integrar #206; no atribuye GO a los demás visores, entradas ni retornos de `OVR-MEDIA`. |
 | Pipeline CI (#169) | Integrado, fail-closed | Preflight rápido local exacto, gates finales requeridos y concurrencia por PR sin cancelar evidencia de `main`/manual. | Aún no acredita producto; certifica candidatos ya validados localmente. |
-| RLS/DB | Official backend corregido; GO UI pendiente | El bypass remoto de `official_posts` quedo corregido con RLS explicita y trigger `SECURITY INVOKER`. `OFFICIAL-EDITOR-REAL-BACKEND-001` paso: cuenta no oficial denegada, cuenta oficial publicada/leida y fila temporal limpiada por hard delete exacto. | La migracion se aplico como SQL exacto versionado, sin registrar `supabase_migrations` ni usar `migration repair`; conservar esta condicion en proximos rollouts. No declara GO de `SCR-OFFICIAL-EDITOR` hasta cerrar errores y comparativa Android-Wasm-iOS. |
+| RLS/DB | Official backend corregido; GO local UI medido | El bypass remoto de `official_posts` quedo corregido con RLS explicita y trigger `SECURITY INVOKER`. `OFFICIAL-EDITOR-REAL-BACKEND-001` paso: cuenta no oficial denegada, cuenta oficial publicada/leida y fila temporal limpiada por hard delete exacto. El candidato local de Official Editor ya acredita errores UI y comparativa Android-Wasm-iOS. | La migracion se aplico como SQL exacto versionado, sin registrar `supabase_migrations` ni usar `migration repair`; conservar esta condicion en proximos rollouts y ejecutar el postflight RLS antes de integrar el cierre en `main`. |
 
 ## Integraciones recientes
 
