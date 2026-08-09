@@ -56,6 +56,13 @@ test("Web Official editor detects the source language with the shared FastText m
   assert.doesNotMatch(webOfficialHost, /detectLanguage = \{\s*webOfficialPostLanguage\(\)\s*\}/);
 });
 
+test("Web Official editor media preview stays in Compose canvas under common dialogs", () => {
+  const preview = webOfficialHost.match(/private fun BrowserOfficialEditorMedia[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.match(preview, /BrowserCanvasImage\(media\.url/);
+  assert.match(preview, /BrowserOfficialVideoThumbnail\(media\.url/);
+  assert.doesNotMatch(preview, /WebElementView|document\.createElement\("(img|video)"\)/);
+});
+
 test("Web local sessions persist the official role for restore and refresh", () => {
   assert.match(webAuthRepository, /val isOfficial: Boolean = false/);
   assert.match(webAuthRepository, /const val IsOfficial = "quata_web_is_official"/);
