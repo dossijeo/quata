@@ -407,13 +407,13 @@ private const val OfficialEditorMediaFixtureOptIn = "I_ACCEPT_IOS_OFFICIAL_EDITO
 
 private fun officialEditorEvidenceMediaFixture(type: OfficialMediaType): PlatformFile? {
     val environment = NSProcessInfo.processInfo.environment
-    if (environment["QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN"] != OfficialEditorMediaFixtureOptIn) return null
+    if (environment.officialEditorFixtureValue("QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN") != OfficialEditorMediaFixtureOptIn) return null
     val expectedType = when (type) {
         OfficialMediaType.Image -> "image"
         OfficialMediaType.Video -> "video"
     }
-    if ((environment["QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE"] as? String)?.lowercase() != expectedType) return null
-    val path = (environment["QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH"] as? String)
+    if (environment.officialEditorFixtureValue("QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE")?.lowercase() != expectedType) return null
+    val path = environment.officialEditorFixtureValue("QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH")
         ?.takeIf(String::isNotBlank)
         ?: return null
     val reference = if (path.startsWith("file://")) path else NSURL.fileURLWithPath(path).absoluteString ?: path
@@ -424,6 +424,9 @@ private fun officialEditorEvidenceMediaFixture(type: OfficialMediaType): Platfor
     }
     return PlatformFile(reference = reference, displayName = displayName, mimeType = mimeType)
 }
+
+private fun Map<Any?, *>.officialEditorFixtureValue(key: String): String? =
+    this[key]?.toString()?.takeIf(String::isNotBlank)
 
 @Composable
 private fun IosOfficialLocalImagePreview(file: PlatformFile, modifier: Modifier) {
