@@ -46,6 +46,7 @@ test("Official editor Web and iOS use the common portable rich text editor", () 
   assert.match(iosUiTest, /official-editor-body-action/);
   assert.match(iosUiTest, /quata-portable-rich-text-field/);
   assert.match(iosUiTest, /official-editor-preview/);
+  assert.match(iosUiTest, /Vista previa/);
 });
 
 test("Official editor no longer accepts browser prompt or plain iOS text field as product rich text editor", () => {
