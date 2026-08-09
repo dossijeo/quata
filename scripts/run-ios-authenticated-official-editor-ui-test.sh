@@ -16,6 +16,9 @@ done < <(find "$QUATA_IOS_DERIVED_DATA_PATH/Build/Products" -name '*.xctestrun' 
 [[ "${#xctestruns[@]}" -eq 1 ]] || { echo "Expected exactly one .xctestrun, found ${#xctestruns[@]}" >&2; exit 2; }
 xctestrun="${xctestruns[0]}"
 mkdir -p "$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR"
+patched_xctestrun="$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/$(basename "$xctestrun")"
+cp "$xctestrun" "$patched_xctestrun"
+xctestrun="$patched_xctestrun"
 
 redact_diagnostics() {
   /usr/bin/python3 -c '
@@ -60,7 +63,7 @@ run_bounded bootstatus 120 "$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/bootstatus.log
   xcrun simctl bootstatus "$QUATA_IOS_SIMULATOR_UDID" -b
 
 /usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" <<'PY'
-import plistlib, sys
+import os, plistlib, sys
 path, credentials = sys.argv[1:]
 with open(path, 'rb') as f:
     data = plistlib.load(f)
@@ -73,6 +76,11 @@ def patch_target(target, hint=''):
         matched.add('seed')
     if 'QuataIosUITests' in name:
         env['QUATA_IOS_AUTH_UI_E2E'] = '1'
+        marker = os.environ.get('QUATA_IOS_OFFICIAL_EDITOR_MARKER', '').strip()
+        opt_in = os.environ.get('QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN', '').strip()
+        if marker and opt_in:
+            env['QUATA_IOS_OFFICIAL_EDITOR_MARKER'] = marker
+            env['QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN'] = opt_in
         matched.add('ui')
 for configuration in data.get('TestConfigurations', []):
     for target in configuration.get('TestTargets', []):
@@ -87,7 +95,13 @@ with open(path, 'wb') as f:
 PY
 
 seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
-ui='QuataIosUITests/QuataIosAuthenticatedOfficialEditorUITests/testAuthenticatedSessionOpensRealOfficialEditor'
+if [[ -n "${QUATA_IOS_OFFICIAL_EDITOR_MARKER:-}" && -n "${QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN:-}" ]]; then
+  ui='QuataIosUITests/QuataIosAuthenticatedOfficialEditorUITests/testAuthenticatedSessionPublishesRealOfficialPost'
+  ui_method='testAuthenticatedSessionPublishesRealOfficialPost'
+else
+  ui='QuataIosUITests/QuataIosAuthenticatedOfficialEditorUITests/testAuthenticatedSessionOpensRealOfficialEditor'
+  ui_method='testAuthenticatedSessionOpensRealOfficialEditor'
+fi
 run_and_require() {
   local selected="$1" method="$2" log="$3"
   run_bounded "$method" 180 "$log" \
@@ -98,5 +112,5 @@ run_and_require() {
   printf 'PASS_EXECUTED:%s\n' "$method" | tee -a "$log"
 }
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/seed.log"
-run_and_require "$ui" testAuthenticatedSessionOpensRealOfficialEditor "$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/ui.log"
+run_and_require "$ui" "$ui_method" "$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/ui.log"
 echo "IOS_AUTHENTICATED_OFFICIAL_EDITOR_UI_GATE_PASSED" >&2
