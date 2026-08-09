@@ -61,6 +61,8 @@ test("iOS shell runner patches a temporary xctestrun and requires the real publi
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_OPT_IN/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE/);
   assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_PATH/);
+  assert.match(shellRunner, /QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS:=300/);
+  assert.match(shellRunner, /run_bounded "\$method" "\$QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS"/);
   assert.match(shellRunner, /testAuthenticatedSessionPublishesRealOfficialPost/);
   assert.match(shellRunner, /check-ios-xctest-executed\.py/);
 });

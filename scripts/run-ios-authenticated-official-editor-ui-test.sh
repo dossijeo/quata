@@ -6,6 +6,7 @@ set -euo pipefail
 : "${QUATA_IOS_DERIVED_DATA_PATH:?Build the signed simulator test bundle first and set QUATA_IOS_DERIVED_DATA_PATH.}"
 : "${QUATA_IOS_SIMULATOR_UDID:?Set QUATA_IOS_SIMULATOR_UDID.}"
 : "${QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR:=build/reports/ios/authenticated-official-editor-ui}"
+: "${QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS:=300}"
 watchdog="scripts/run-ios-command-watchdog.py"
 [[ -f "$watchdog" ]] || { echo "Missing shared iOS command watchdog: $watchdog" >&2; exit 2; }
 
@@ -112,7 +113,7 @@ else
 fi
 run_and_require() {
   local selected="$1" method="$2" log="$3"
-  run_bounded "$method" 180 "$log" \
+  run_bounded "$method" "$QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS" "$log" \
     xcodebuild test-without-building -xctestrun "$xctestrun" \
     -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" -only-testing:"$selected"
   /usr/bin/python3 scripts/check-ios-xctest-executed.py \
