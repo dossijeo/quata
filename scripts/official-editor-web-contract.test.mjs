@@ -62,4 +62,7 @@ test("Web local sessions persist the official role for restore and refresh", () 
   assert.match(webAuthRepository, /preferences\.putString\(WebAuthStorage\.IsOfficial, isOfficial\.toString\(\)\)/);
   assert.match(webAuthRepository, /preferences\.getString\(WebAuthStorage\.IsOfficial\)\.toBoolean\(\)/);
   assert.match(webAuthRepository, /isOfficial = session\.isOfficial/);
+  assert.match(webAuthRepository, /fetchAuthenticatedProfileIsOfficial\(rawSession\.bearerToken, rawSession\.userId\)/);
+  assert.match(webAuthRepository, /\/rest\/v1\/community_profiles\?select=is_official&id=eq\.\$profileId&limit=1/);
+  assert.match(webAuthRepository, /Authorization: `Bearer/);
 });

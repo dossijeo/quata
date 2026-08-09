@@ -415,6 +415,7 @@ async function login(backend, config, clientInstanceId) {
   const webSession = root?.web_session;
   if (typeof session?.access_token !== "string" || typeof session?.refresh_token !== "string") throw new Error("invalid_auth_response");
   if (typeof webSession?.token !== "string" || typeof profile?.id !== "string") throw new Error("invalid_auth_response");
+  const isOfficial = profile.is_official === true || await readAuthenticatedProfileIsOfficial(backend, session.access_token, profile.id);
   return {
     accessToken: session.access_token,
     refreshToken: session.refresh_token,
@@ -422,9 +423,29 @@ async function login(backend, config, clientInstanceId) {
     userId: profile.id,
     expiresAt: Number(session.expires_at ?? Math.floor(Date.now() / 1000) + Number(session.expires_in ?? 3600)),
     displayName: typeof profile.display_name === "string" ? profile.display_name : null,
-    isOfficial: profile.is_official === true,
+    isOfficial,
     clientInstanceId,
   };
+}
+
+async function readAuthenticatedProfileIsOfficial(backend, accessToken, profileId) {
+  const url = new URL(`${backend.url}/rest/v1/community_profiles`);
+  url.searchParams.set("select", "is_official");
+  url.searchParams.set("id", `eq.${profileId}`);
+  url.searchParams.set("limit", "1");
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      apikey: backend.key,
+      authorization: `Bearer ${accessToken}`,
+      "x-client-info": "quata-official-editor-web-real-evidence",
+    },
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => null);
+  if (!response) throw new Error("profile_role_read_failed:network");
+  if (!response.ok) throw new Error(`profile_role_read_failed:http_${response.status}`);
+  const rows = await response.json();
+  return rows?.[0]?.is_official === true;
 }
 
 async function postJson(url, headers, body) {

@@ -15,6 +15,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -252,7 +253,10 @@ class WebAuthRepository(
     }
 
     private suspend fun acceptAuthenticationPayload(payload: String): AuthSession {
-        val session = payload.toWebAuthSession()
+        val rawSession = payload.toWebAuthSession()
+        val session = rawSession.copy(
+            isOfficial = rawSession.isOfficial || fetchAuthenticatedProfileIsOfficial(rawSession.bearerToken, rawSession.userId),
+        )
         val webSessionToken = payload.webSessionToken()
         val displayName = payload.webProfileDisplayName()
         session.persist(preferences, webSessionToken, displayName)
@@ -266,6 +270,21 @@ class WebAuthRepository(
             isOfficial = session.isOfficial,
         )
         return session
+    }
+
+    private suspend fun fetchAuthenticatedProfileIsOfficial(accessToken: String, profileId: String): Boolean {
+        val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
+        val baseUrl = configuration.supabaseUrl.requireConfigured("supabase_url_missing").trimEnd('/')
+        val response = webGetJson(
+            endpoint = "$baseUrl/rest/v1/community_profiles?select=is_official&id=eq.$profileId&limit=1",
+            apiKey = apiKey,
+            accessToken = accessToken,
+        )
+        return Json.parseToJsonElement(response)
+            .jsonArray
+            .firstOrNull()
+            ?.jsonObject
+            ?.booleanOrNull("is_official") == true
     }
 
     private suspend fun registrationKeyFor(identity: String): String {
@@ -498,6 +517,20 @@ private suspend fun webPostJson(
     )
 }
 
+private suspend fun webGetJson(
+    endpoint: String,
+    apiKey: String,
+    accessToken: String,
+): String = suspendCoroutine { continuation ->
+    browserGetJson(
+        endpoint = endpoint,
+        apiKey = apiKey,
+        accessToken = accessToken,
+        onSuccess = { value -> continuation.resume(value) },
+        onFailure = { continuation.resumeWith(Result.failure(IllegalStateException(it))) },
+    )
+}
+
 private fun browserPostJson(
     endpoint: String,
     apiKey: String,
@@ -523,6 +556,31 @@ private fun browserPostJson(
         }
       })
       .catch((error) => onFailure(error?.message || 'web_auth_network_error'));
+    })()
+    """,
+)
+
+private fun browserGetJson(
+    endpoint: String,
+    apiKey: String,
+    accessToken: String,
+    onSuccess: (String) -> Unit,
+    onFailure: (String) -> Unit,
+): Unit = js(
+    """
+    (() => {
+    const headers = { apikey: apiKey, Authorization: `Bearer ${'$'}{accessToken}` };
+    globalThis.fetch(endpoint, { method: 'GET', headers })
+      .then(async (response) => {
+        const text = await response.text();
+        if (response.ok) onSuccess(text);
+        else {
+          let errorCode = null;
+          try { errorCode = JSON.parse(text)?.code || JSON.parse(text)?.message; } catch (_) {}
+          onFailure(errorCode ? `web_auth_profile_${'$'}{errorCode}` : `web_auth_profile_http_${'$'}{response.status}`);
+        }
+      })
+      .catch((error) => onFailure(error?.message || 'web_auth_profile_network_error'));
     })()
     """,
 )
