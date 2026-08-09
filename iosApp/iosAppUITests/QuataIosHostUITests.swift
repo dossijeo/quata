@@ -319,7 +319,13 @@ final class QuataIosHostUITests: XCTestCase {
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-quata-ui-test-fixture", fixture]
-        if spanishLocale { app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"] }
+        if spanishLocale {
+            app.launchArguments += [
+                "-AppleLanguages", "(es)",
+                "-AppleLocale", "es_ES",
+                "-quata-ui-test-language", "es",
+            ]
+        }
         if let deepLink { app.launchArguments += ["-quata-ui-test-deep-link", deepLink] }
         if let inAppRoute { app.launchArguments += ["-quata-ui-test-in-app-route", inAppRoute] }
         if let authDestination { app.launchArguments += ["-quata-auth-destination", authDestination] }

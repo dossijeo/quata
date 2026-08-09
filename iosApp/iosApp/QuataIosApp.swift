@@ -448,9 +448,11 @@ private final class IosAppCompositionRoot {
                 fixtureRoot.view.accessibilityLabel = "Quata iOS real Auth recovery fixture unavailable"
                 return fixtureRoot
             }
+            let languageArgument = arguments.firstIndex(of: "-quata-ui-test-language")
+                .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
             let dependencies = IosAuthHostKt.createIosAuthHostDependenciesForDestination(
                 repository: repository,
-                languageCode: Locale.current.languageCode ?? "en",
+                languageCode: languageArgument ?? Locale.current.languageCode ?? "en",
                 destination: "recovery",
                 onLoginSuccess: {},
             )

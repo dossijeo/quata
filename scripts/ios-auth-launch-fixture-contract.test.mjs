@@ -135,7 +135,10 @@ test("real iOS recovery fixture is opt-in, uses the production repository and ke
   assert.match(uiTests, /QUATA_IOS_AUTH_RECOVERY_E2E_FILE/);
   assert.match(uiTests, /AuthRecoveryUiCredentials\.load/);
   assert.match(uiTests, /fixtureApp\("auth-recovery-real", spanishLocale: true\)/);
-  assert.match(uiTests, /"-AppleLanguages", "\(es\)", "-AppleLocale", "es_ES"/);
+  assert.match(uiTests, /"-AppleLanguages", "\(es\)"[\s\S]*"-AppleLocale", "es_ES"/);
+  assert.match(uiTests, /"-quata-ui-test-language", "es"/);
+  assert.match(launcher, /arguments\.firstIndex\(of: "-quata-ui-test-language"\)/);
+  assert.match(launcher, /languageCode: languageArgument \?\? Locale\.current\.languageCode \?\? "en"/);
   assert.match(uiTests, /auth-recovery-real-mounted/);
   assert.match(uiTests, /auth-recovery-real-missing-account/);
   assert.match(uiTests, /evidencePrefix: "auth-recovery-real-temporary"/);
