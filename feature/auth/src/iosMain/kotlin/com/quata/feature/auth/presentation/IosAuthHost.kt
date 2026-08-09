@@ -38,6 +38,23 @@ fun createIosAuthHostDependencies(
     onLoginSuccess = onLoginSuccess,
 )
 
+/** Swift-facing factory for UI tests and launchers that need a non-login Auth entry point. */
+fun createIosAuthHostDependenciesForDestination(
+    repository: AuthRepository,
+    languageCode: String,
+    destination: String,
+    onLoginSuccess: () -> Unit,
+): IosAuthHostDependencies = IosAuthHostDependencies(
+    repository = repository,
+    locale = AuthCatalogLocale.fromLanguage(languageCode),
+    initialDestination = when (destination.lowercase()) {
+        "register" -> AuthProductDestination.Register
+        "recovery" -> AuthProductDestination.Recovery
+        else -> AuthProductDestination.Login
+    },
+    onLoginSuccess = onLoginSuccess,
+)
+
 /**
  * Swift-safe asynchronous boundary for the shared logout use case.
  *

@@ -20,6 +20,10 @@ const recoveryTags = readFileSync(
 );
 const launcher = readFileSync(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
 const uiTests = readFileSync(new URL("../iosApp/iosAppUITests/QuataIosHostUITests.swift", import.meta.url), "utf8");
+const iosAuthHost = readFileSync(
+  new URL("../feature/auth/src/iosMain/kotlin/com/quata/feature/auth/presentation/IosAuthHost.kt", import.meta.url),
+  "utf8",
+);
 
 test("auth-launch fixture stays isolated from runtime configuration, storage and transport", () => {
   for (const forbidden of [
@@ -77,7 +81,8 @@ test("auth-launch UI contract proves two cold launches with real Compose readine
   );
   assert.match(uiTests, /testMalformedAuthLaunchFixtureArgumentsFailClosedWithoutCompose/);
   assert.match(uiTests, /"quata-ios-test-invalid-fixture"/);
-  assert.equal(uiTests.includes("typeText"), false);
+  const hermeticRecoveryTest = uiTests.match(/func testAuthLaunchFixtureCanColdStartSharedRecoverySurface\(\)[\s\S]*?\n    func testRealAuthRecoveryFixtureRoundTripsPasswordAndKeepsEvidence/)?.[0] ?? "";
+  assert.doesNotMatch(hermeticRecoveryTest, /typeText|QUATA_IOS_AUTH_RECOVERY_E2E_FILE|I_ACCEPT_IOS_PASSWORD_RESET_ROUNDTRIP/);
 });
 
 test("auth-launch recovery fixture resolves the same common Recovery surface and tags", () => {
@@ -109,4 +114,29 @@ test("auth-launch recovery fixture resolves the same common Recovery surface and
   ]) {
     assert.match(recoveryForm, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+});
+
+test("real iOS recovery fixture is opt-in, uses the production repository and keeps screenshots", () => {
+  assert.match(iosAuthHost, /createIosAuthHostDependenciesForDestination/);
+  assert.match(iosAuthHost, /"recovery" -> AuthProductDestination\.Recovery/);
+  assert.match(launcher, /case "auth-recovery-real"/);
+  assert.match(launcher, /createAuthRepository\(/);
+  assert.match(launcher, /createIosAuthHostDependenciesForDestination\(/);
+  assert.match(launcher, /destination: "recovery"/);
+  assert.match(launcher, /IosAuthHostKt\.QuataAuthViewController\(dependencies: dependencies\)/);
+  assert.doesNotMatch(launcher, /case "auth-recovery-real"[\s\S]*IosAuthLaunchFixtureRepository/);
+
+  assert.match(uiTests, /testRealAuthRecoveryFixtureRoundTripsPasswordAndKeepsEvidence/);
+  assert.match(uiTests, /I_ACCEPT_IOS_PASSWORD_RESET_ROUNDTRIP/);
+  assert.match(uiTests, /QUATA_IOS_AUTH_RECOVERY_E2E_FILE/);
+  assert.match(uiTests, /AuthRecoveryUiCredentials\.load/);
+  assert.match(uiTests, /fixtureApp\("auth-recovery-real"\)/);
+  assert.match(uiTests, /auth-recovery-real-mounted/);
+  assert.match(uiTests, /auth-recovery-real-missing-account/);
+  assert.match(uiTests, /evidencePrefix: "auth-recovery-real-temporary"/);
+  assert.match(uiTests, /evidencePrefix: "auth-recovery-real-restored"/);
+  assert.match(uiTests, /\\\(evidencePrefix\)-login-return/);
+  assert.match(uiTests, /openRecoveryFromLogin/);
+  assert.match(uiTests, /temporaryPassword != restorePassword/);
+  assert.doesNotMatch(uiTests, /service_role|SUPABASE_DB_URL|supabase db push|migration repair|deleteUser|admin\/users/);
 });

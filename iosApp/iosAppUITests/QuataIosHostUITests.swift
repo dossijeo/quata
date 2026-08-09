@@ -1,6 +1,8 @@
 import XCTest
 
 final class QuataIosHostUITests: XCTestCase {
+    private static let realRecoveryOptIn = "I_ACCEPT_IOS_PASSWORD_RESET_ROUNDTRIP"
+
     func testAnonymousFixtureLaunchesWithoutCreatingASessionOrComposeSurface() {
         let app = fixtureApp("anonymous")
         app.launch()
@@ -82,6 +84,58 @@ final class QuataIosHostUITests: XCTestCase {
             )
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-launch-recovery")
+    }
+
+    func testRealAuthRecoveryFixtureRoundTripsPasswordAndKeepsEvidence() throws {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_RECOVERY_REAL_OPT_IN"] == Self.realRecoveryOptIn else {
+            throw XCTSkip("Real iOS recovery is opt-in because it mutates an authorized account password.")
+        }
+        guard let configurationFile = ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_RECOVERY_E2E_FILE"],
+              !configurationFile.isEmpty else {
+            throw XCTSkip("QUATA_IOS_AUTH_RECOVERY_E2E_FILE is not configured.")
+        }
+        let credentials = try AuthRecoveryUiCredentials.load(from: configurationFile)
+
+        let missingApp = fixtureApp("auth-recovery-real")
+        missingApp.launch()
+        XCTAssertTrue(
+            missingApp.descendants(matching: .any)
+                .matching(identifier: "auth.recovery.root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The real iOS recovery fixture must mount the shared recovery root.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-recovery-real-mounted")
+        enterText(credentials.missingLocalPhone, into: "auth.recovery.phone", in: missingApp)
+        XCTAssertTrue(
+            missingApp.descendants(matching: .any)
+                .matching(identifier: "auth.recovery.error")
+                .firstMatch
+                .waitForExistence(timeout: 20),
+            "A missing account must surface the shared recovery error in product UI.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-recovery-real-missing-account")
+        missingApp.terminate()
+
+        let app = fixtureApp("auth-recovery-real")
+        app.launch()
+        try performRecoveryReset(
+            in: app,
+            phone: credentials.localPhone,
+            secretAnswer: credentials.secretAnswer,
+            newPassword: credentials.temporaryPassword,
+            expectedQuestion: credentials.expectedQuestion,
+            evidencePrefix: "auth-recovery-real-temporary",
+        )
+        openRecoveryFromLogin(in: app)
+        try performRecoveryReset(
+            in: app,
+            phone: credentials.localPhone,
+            secretAnswer: credentials.secretAnswer,
+            newPassword: credentials.restorePassword,
+            expectedQuestion: credentials.expectedQuestion,
+            evidencePrefix: "auth-recovery-real-restored",
+        )
     }
 
     func testMalformedAuthLaunchFixtureArgumentsFailClosedWithoutCompose() {
@@ -306,5 +360,156 @@ final class QuataIosHostUITests: XCTestCase {
             retry.isHittable,
             "The updated real Compose action must remain hittable.",
         )
+    }
+
+    private func performRecoveryReset(
+        in app: XCUIApplication,
+        phone: String,
+        secretAnswer: String,
+        newPassword: String,
+        expectedQuestion: String?,
+        evidencePrefix: String,
+    ) throws {
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.recovery.root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared recovery root must be visible before entering account data.",
+        )
+        enterText(phone, into: "auth.recovery.phone", in: app)
+        let question = app.descendants(matching: .any)
+            .matching(identifier: "auth.recovery.question")
+            .firstMatch
+        if let expectedQuestion {
+            XCTAssertTrue(
+                question.waitForLabel(containing: expectedQuestion, timeout: 25),
+                "The real recovery question must be read through the iOS Auth repository.",
+            )
+        } else {
+            XCTAssertTrue(question.waitForNonPlaceholderLabel(timeout: 25))
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "\(evidencePrefix)-question")
+
+        enterText(secretAnswer, into: "auth.recovery.secret-answer", in: app)
+        enterText(newPassword, into: "auth.recovery.new-password", in: app)
+        app.descendants(matching: .any)
+            .matching(identifier: "auth.recovery.submit")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.submit")
+                .firstMatch
+                .waitForExistence(timeout: 25),
+            "A successful password reset must return to the shared Login surface.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "\(evidencePrefix)-login-return")
+    }
+
+    private func openRecoveryFromLogin(in app: XCUIApplication) {
+        let forgotPassword = app.descendants(matching: .any)
+            .matching(identifier: "auth.forgot-password")
+            .firstMatch
+        XCTAssertTrue(forgotPassword.waitForExistence(timeout: 10))
+        forgotPassword.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "auth.recovery.root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+        )
+    }
+
+    private func enterText(_ text: String, into identifier: String, in app: XCUIApplication) {
+        let field = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected input \(identifier) to exist.")
+        field.tap()
+        field.typeText(text)
+    }
+}
+
+private struct AuthRecoveryUiCredentials: Decodable {
+    let phone: String
+    let missingPhone: String
+    let secretAnswer: String
+    let temporaryPassword: String
+    let restorePassword: String
+    let expectedQuestion: String?
+    let countryCode: String
+    let localPhone: String
+    let missingLocalPhone: String
+
+    enum CodingKeys: String, CodingKey {
+        case phone
+        case missingPhone = "missing_phone"
+        case secretAnswer = "secret_answer"
+        case temporaryPassword = "temporary_password"
+        case restorePassword = "restore_password"
+        case expectedQuestion = "expected_question"
+        case countryCode = "country_code"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        phone = try container.decode(String.self, forKey: .phone)
+        missingPhone = try container.decode(String.self, forKey: .missingPhone)
+        secretAnswer = try container.decode(String.self, forKey: .secretAnswer)
+        temporaryPassword = try container.decode(String.self, forKey: .temporaryPassword)
+        restorePassword = try container.decode(String.self, forKey: .restorePassword)
+        expectedQuestion = try container.decodeIfPresent(String.self, forKey: .expectedQuestion)
+        let configuredCountry = try container.decodeIfPresent(String.self, forKey: .countryCode)?
+            .trimmingCharacters(in: CharacterSet(charactersIn: "+ "))
+        let phoneDigits = Self.digits(phone)
+        let missingDigits = Self.digits(missingPhone)
+        let selectedCountry = configuredCountry ?? (phoneDigits.hasPrefix("240") ? "240" : "")
+        guard selectedCountry == "240",
+              phoneDigits.hasPrefix(selectedCountry),
+              missingDigits.hasPrefix(selectedCountry),
+              phoneDigits.count > selectedCountry.count,
+              missingDigits.count > selectedCountry.count,
+              temporaryPassword.count >= 6,
+              restorePassword.count >= 6,
+              temporaryPassword != restorePassword,
+              !secretAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            throw AuthRecoveryUiConfigurationError.invalidShape
+        }
+        countryCode = selectedCountry
+        localPhone = String(phoneDigits.dropFirst(selectedCountry.count))
+        missingLocalPhone = String(missingDigits.dropFirst(selectedCountry.count))
+    }
+
+    static func load(from path: String) throws -> AuthRecoveryUiCredentials {
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        return try JSONDecoder().decode(AuthRecoveryUiCredentials.self, from: data)
+    }
+
+    private static func digits(_ value: String) -> String {
+        value.filter(\.isNumber)
+    }
+}
+
+private enum AuthRecoveryUiConfigurationError: LocalizedError {
+    case invalidShape
+
+    var errorDescription: String? {
+        "The iOS recovery E2E file has an invalid credential shape."
+    }
+}
+
+private extension XCUIElement {
+    func waitForLabel(containing expected: String, timeout: TimeInterval) -> Bool {
+        let predicate = NSPredicate(format: "label CONTAINS %@", expected)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: self)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    func waitForNonPlaceholderLabel(timeout: TimeInterval) -> Bool {
+        let predicate = NSPredicate(format: "label.length > 0 AND NOT label CONTAINS[c] 'Enter' AND NOT label CONTAINS[c] 'Loading' AND NOT label CONTAINS[c] 'Introduce' AND NOT label CONTAINS[c] 'Cargando'")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: self)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
 }
