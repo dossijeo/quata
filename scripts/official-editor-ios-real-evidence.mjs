@@ -63,12 +63,11 @@ try {
   report.steps.push("ios_real_credentials_copied_to_mac_tempfile_without_logging_contents");
 
   const localHead = report.git.head;
-  const remoteHead = (await runCapture("ssh", [
-    options.host,
-    "bash",
-    "-lc",
-    `cd ${shellQuote(options.project)} && git rev-parse HEAD`,
-  ])).trim();
+  const remoteHead = (await runSshScript(options.host, `
+set -euo pipefail
+cd ${shellQuote(options.project)}
+git rev-parse HEAD
+`)).trim();
   report.mac = { host: options.host, project: options.project, head: remoteHead };
   if (remoteHead !== localHead) throw new Error(`mac_checkout_sha_mismatch:${remoteHead}:${localHead}`);
   report.steps.push("mac_checkout_sha_matches_local_candidate");
