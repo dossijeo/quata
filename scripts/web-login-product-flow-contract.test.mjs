@@ -13,6 +13,7 @@ const recoveryForm = await source("feature/auth/src/commonMain/kotlin/com/quata/
 const recoveryTags = await source("feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/recovery/ForgotPasswordTestTags.kt");
 const authE2eBridge = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebAuthE2eBridge.kt");
 const recoveryEvidenceRunner = await source("scripts/web-auth-recovery-evidence.mjs");
+const androidRecoveryEvidence = await source("app/src/androidTest/java/com/quata/feature/auth/presentation/AuthRecoveryProductBridgeInstrumentedTest.kt");
 
 test("production Web mounts the common Auth product root without browser visual overrides", () => {
   assert.match(host, /AuthProductHostContent\(/);
@@ -54,7 +55,7 @@ test("shared Auth recovery keeps observable common tags for Web, Android and iOS
     assert.match(recoveryTags, new RegExp(JSON.stringify(tag).slice(1, -1)));
   }
   assert.match(productAuthHost, /AuthProductDestination\.Recovery -> ForgotPasswordScreenHost\(/);
-  assert.match(browserAuthHost, /AuthBrowserDestination\.Recovery -> Box\([\s\S]*ForgotPasswordTestTags\.Root[\s\S]*ForgotPasswordForm\(/);
+  assert.match(browserAuthHost, /AuthBrowserDestination\.Recovery -> Column\([\s\S]*ForgotPasswordTestTags\.Root[\s\S]*ForgotPasswordForm\(/);
   for (const required of [
     "ForgotPasswordTestTags.CountryPrefix",
     "ForgotPasswordTestTags.Phone",
@@ -86,4 +87,23 @@ test("Web recovery evidence uses the localhost product bridge and WebAuthReposit
   assert.match(recoveryEvidenceRunner, /unexpected_external_network/);
   assert.match(recoveryEvidenceRunner, /quata-auth-bridge/);
   assert.doesNotMatch(recoveryEvidenceRunner, /service_role|SUPABASE_DB_URL|supabase db push|migration repair/);
+});
+
+test("Android recovery evidence mounts the same AuthProductHostContent recovery destination", () => {
+  assert.match(androidRecoveryEvidence, /AuthProductHostContent\(/);
+  assert.match(androidRecoveryEvidence, /initialDestination = AuthProductDestination\.Recovery/);
+  assert.match(androidRecoveryEvidence, /ANDROID-AUTH-RECOVERY-001/);
+  for (const tag of [
+    "ForgotPasswordTestTags.Root",
+    "ForgotPasswordTestTags.CountryPrefix",
+    "ForgotPasswordTestTags.Phone",
+    "ForgotPasswordTestTags.Question",
+    "ForgotPasswordTestTags.SecretAnswer",
+    "ForgotPasswordTestTags.NewPassword",
+    "ForgotPasswordTestTags.Submit",
+    "ForgotPasswordTestTags.Back",
+  ]) {
+    assert.match(androidRecoveryEvidence, new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.doesNotMatch(androidRecoveryEvidence, /Supabase|service_role|SUPABASE_DB_URL|migration repair|supabase db push/);
 });

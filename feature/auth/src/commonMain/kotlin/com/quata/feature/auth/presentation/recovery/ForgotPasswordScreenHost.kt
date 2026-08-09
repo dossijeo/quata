@@ -1,5 +1,6 @@
 package com.quata.feature.auth.presentation.recovery
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -45,7 +46,7 @@ fun ForgotPasswordScreenHost(
         subtitle = catalog.recoverySubtitle,
         portraitLogoSpacing = 14.dp,
     ) { isLandscape ->
-        androidx.compose.foundation.layout.Box(
+        Column(
             modifier = Modifier.semantics { testTag = ForgotPasswordTestTags.Root },
         ) {
             ForgotPasswordForm(
