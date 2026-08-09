@@ -1052,26 +1052,38 @@ function decodeRgbaPng(buffer) {
       width = data.readUInt32BE(0);
       height = data.readUInt32BE(4);
       colorType = data[9];
-      if (data[8] !== 8 || colorType !== 6) throw new Error("png_rgba8_required");
+      if (data[8] !== 8 || ![2, 6].includes(colorType)) throw new Error("png_rgb_or_rgba8_required");
     }
     if (type === "IDAT") idat.push(data);
     if (type === "IEND") break;
     offset += length + 12;
   }
   const inflated = inflateSync(Buffer.concat(idat));
-  const stride = width * 4;
+  const sourceChannels = colorType === 6 ? 4 : 3;
+  const sourceStride = width * sourceChannels;
+  const filterBpp = sourceChannels;
   const pixels = Buffer.alloc(width * height * 4);
+  const previous = Buffer.alloc(sourceStride);
+  const current = Buffer.alloc(sourceStride);
   let source = 0;
   for (let y = 0; y < height; y += 1) {
     const filter = inflated[source++];
-    const rowStart = y * stride;
-    for (let x = 0; x < stride; x += 1) {
+    for (let x = 0; x < sourceStride; x += 1) {
       const raw = inflated[source++];
-      const left = x >= 4 ? pixels[rowStart + x - 4] : 0;
-      const up = y > 0 ? pixels[rowStart + x - stride] : 0;
-      const upLeft = y > 0 && x >= 4 ? pixels[rowStart + x - stride - 4] : 0;
-      pixels[rowStart + x] = (raw + pngFilterPredictor(filter, left, up, upLeft)) & 0xff;
+      const left = x >= filterBpp ? current[x - filterBpp] : 0;
+      const up = y > 0 ? previous[x] : 0;
+      const upLeft = y > 0 && x >= filterBpp ? previous[x - filterBpp] : 0;
+      current[x] = (raw + pngFilterPredictor(filter, left, up, upLeft)) & 0xff;
     }
+    for (let x = 0; x < width; x += 1) {
+      const sourceOffset = x * sourceChannels;
+      const targetOffset = (y * width + x) * 4;
+      pixels[targetOffset] = current[sourceOffset];
+      pixels[targetOffset + 1] = current[sourceOffset + 1];
+      pixels[targetOffset + 2] = current[sourceOffset + 2];
+      pixels[targetOffset + 3] = sourceChannels === 4 ? current[sourceOffset + 3] : 255;
+    }
+    previous.set(current);
   }
   return { width, height, data: pixels };
 }
