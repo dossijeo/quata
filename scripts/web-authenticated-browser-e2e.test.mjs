@@ -27,6 +27,7 @@ const webBuild = await readFile(new URL("../web/build.gradle.kts", import.meta.u
 const documentation = await readFile(new URL("../docs/WEB_AUTHENTICATED_BROWSER_E2E.md", import.meta.url), "utf8");
 const whatsNewHost = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt", import.meta.url), "utf8");
 const recoveryEvidence = await readFile(new URL("./web-auth-recovery-evidence.mjs", import.meta.url), "utf8");
+const realRecoveryEvidence = await readFile(new URL("./auth-recovery-real-bridge-evidence.mjs", import.meta.url), "utf8");
 
 test("hermetic Auth gate keeps the Compose product surface and uses only the localhost product bridge", () => {
   assert.match(runner, /chromium\.launch\(/);
@@ -181,6 +182,26 @@ test("the focal Web recovery runner exercises the real repository bridge without
   assert.match(recoveryEvidence, /unexpected_external_network/);
   assert.match(recoveryEvidence, /fixture_recovery_journey_incomplete/);
   assert.doesNotMatch(recoveryEvidence, /SUPABASE_DB_URL|service_role|migration repair|supabase db push/);
+});
+
+test("real Auth recovery evidence is opt-in, reversible and excludes privileged Supabase material", () => {
+  assert.match(realRecoveryEvidence, /AUTH-RECOVERY-REAL-BRIDGE-001/);
+  assert.match(realRecoveryEvidence, /I_ACCEPT_PASSWORD_RESET_ROUNDTRIP/);
+  assert.match(realRecoveryEvidence, /I_ACCEPT_AUTHORIZED_RECOVERY_ACCOUNT_MUTATION/);
+  assert.match(realRecoveryEvidence, /I_ACCEPT_DB_RECOVERY_SECRET_ROUNDTRIP/);
+  assert.match(realRecoveryEvidence, /update_recovery_secret/);
+  assert.match(realRecoveryEvidence, /reset_password/);
+  assert.match(realRecoveryEvidence, /original_password_restored/);
+  assert.match(realRecoveryEvidence, /restored_password_login_succeeded/);
+  assert.match(realRecoveryEvidence, /passwordRestored: false/);
+  assert.match(realRecoveryEvidence, /passwordRestored = true/);
+  assert.match(realRecoveryEvidence, /recoverySecretRestored/);
+  assert.match(realRecoveryEvidence, /hasColumn\(client, "community_profiles", "secret_answer_hash"\)/);
+  assert.match(realRecoveryEvidence, /select \$\{selectColumns\}[\s\S]*where phone_local = \$1/);
+  assert.match(realRecoveryEvidence, /where id = \$4/);
+  assert.match(realRecoveryEvidence, /where id = \$3/);
+  assert.match(realRecoveryEvidence, /privileged_environment_forbidden/);
+  assert.doesNotMatch(realRecoveryEvidence, /service_role|migration repair|supabase db push|admin\/users|deleteUser/);
 });
 
 test("real mode requires a dedicated preprovisioned account and accepts bridge effects explicitly", () => {
