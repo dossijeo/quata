@@ -59,7 +59,8 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /official-editor-preview/);
   assert.match(runner, /#official-editor-body-section #quata-portable-rich-text-field/);
   assert.match(runner, /waitFor\(\{ state: "attached"/);
-  assert.match(runner, /keyboard\.insertText/);
+  assert.match(runner, /bodyField\.fill\(bodyText\)/);
+  assert.match(runner, /expectSemanticText\(page, "official-editor-body-section", new RegExp\(visibleMarker\)\)/);
   assert.match(runner, /waitForTimeout\(500\)/);
   assert.doesNotMatch(runner, /#official-editor-preview[\s\S]*?getByText\(new RegExp\(escapeRegExp\(visibleMarker\)\)\)/);
   assert.match(runner, /clickTranslationSingleLanguageIfShown/);

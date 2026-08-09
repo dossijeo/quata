@@ -166,12 +166,11 @@ try {
   await clickSemanticElement(page, "official-editor-body-action");
   const bodyField = page.locator("#official-editor-body-section #quata-portable-rich-text-field").first();
   await bodyField.waitFor({ state: "attached", timeout: 15_000 });
-  await bodyField.click({ force: true });
-  await page.keyboard.insertText(
-    `Aviso temporal de prueba reversible ${visibleMarker}\n` +
-      `Este comunicado de prueba verifica el editor oficial en espanol desde la version web. ` +
-      `Marcador tecnico ${marker}.`,
-  );
+  const bodyText = `Aviso temporal de prueba reversible ${visibleMarker}\n` +
+    `Este comunicado de prueba verifica el editor oficial en espanol desde la version web. ` +
+    `Marcador tecnico ${marker}.`;
+  await bodyField.fill(bodyText);
+  await expectSemanticText(page, "official-editor-body-section", new RegExp(visibleMarker));
   await page.waitForTimeout(500);
   await clickSemanticElement(page, "official-editor-publish");
   if (await clickTranslationSingleLanguageIfShown(page)) {
