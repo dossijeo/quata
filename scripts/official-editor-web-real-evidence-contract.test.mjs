@@ -52,6 +52,9 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /getByRole\("textbox"\)/);
   assert.match(runner, /waitFor\(\{ state: "attached"/);
   assert.match(runner, /keyboard\.insertText/);
+  assert.match(runner, /clickTranslationSingleLanguageIfShown/);
+  assert.match(runner, /Publicar solo este idioma/);
+  assert.match(runner, /shared_fasttext_translation_prompt_skipped_for_reversible_single_language_publish/);
   assert.doesNotMatch(runner, /globalThis\.prompt|window\.prompt|page\.once\("dialog"|dialog\.accept/);
   assert.match(runner, /isIgnorablePublishedVideoCorsFault/);
   assert.match(runner, /egquata\\\.com\\\/wp-content\\\/uploads/);

@@ -170,6 +170,10 @@ try {
     .getByText(new RegExp(escapeRegExp(marker)))
     .waitFor({ state: "attached", timeout: 15_000 });
   await clickSemanticElement(page, "official-editor-publish");
+  if (await clickTranslationSingleLanguageIfShown(page)) {
+    report.evidence.translationPrompt = await screenshot(page, options.evidenceDir, "web-real-official-editor-after-translation-skip");
+    report.steps.push("shared_fasttext_translation_prompt_skipped_for_reversible_single_language_publish");
+  }
 
   await waitForPostgrestPost(page, report.postgrest, options.evidenceDir);
   await page.waitForFunction(() =>
@@ -767,6 +771,26 @@ async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error(`semantic_text_missing:${id}`);
+}
+
+async function clickTranslationSingleLanguageIfShown(page) {
+  const choices = [
+    /Publicar solo este idioma/i,
+    /Publish only this language/i,
+    /Publier uniquement cette langue/i,
+  ];
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    for (const pattern of choices) {
+      const action = page.getByText(pattern).first();
+      if (await action.isVisible().catch(() => false)) {
+        await action.click({ force: true });
+        return true;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
 }
 
 async function screenshot(page, evidenceDir, name) {
