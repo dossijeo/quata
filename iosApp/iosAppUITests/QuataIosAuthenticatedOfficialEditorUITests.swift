@@ -55,22 +55,8 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
 
         tapPublish(in: app)
         tapTranslationSkipIfShown(in: app)
+        waitForPublishedPost(in: app, marker: marker)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-after-publish")
-
-        let editor = app.descendants(matching: .any)
-            .matching(identifier: "quata-ios-official-editor-host")
-            .firstMatch
-        let official = app.descendants(matching: .any)
-            .matching(identifier: "quata-ios-official-host")
-            .firstMatch
-        let deadline = Date().addingTimeInterval(90)
-        while Date() < deadline {
-            if !editor.exists || official.exists {
-                return
-            }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-        }
-        XCTFail("The real Official editor did not close or return to Official after publish.")
     }
 
     private func openOfficialEditor() -> XCUIApplication {
@@ -191,5 +177,40 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
+    }
+
+    private func waitForPublishedPost(in app: XCUIApplication, marker: String) {
+        let suffix = String(marker.suffix(8))
+        let postPredicate = NSPredicate(
+            format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR identifier CONTAINS[c] %@ OR identifier CONTAINS[c] %@",
+            marker,
+            suffix,
+            marker,
+            suffix
+        )
+        let editor = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-official-editor-host")
+            .firstMatch
+        let official = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-official-host")
+            .firstMatch
+        let publishedPost = app.descendants(matching: .any)
+            .matching(postPredicate)
+            .firstMatch
+        let deadline = Date().addingTimeInterval(90)
+        while Date() < deadline {
+            if publishedPost.exists {
+                return
+            }
+            if !official.exists && editor.exists == false {
+                let officialTab = app.buttons["Oficial, Oficial"]
+                if officialTab.exists {
+                    officialTab.tap()
+                }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.75))
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-publish-missing")
+        XCTFail("The real Official editor did not show the reversible post marker after publish.")
     }
 }

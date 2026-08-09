@@ -50,6 +50,9 @@ test("iOS UI test performs validation, edits the common rich text field, publish
   assert.match(uiTest, /bodyField\.typeText\(bodyText\)/);
   assert.match(uiTest, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(uiTest, /official-editor-publish/);
+  assert.match(uiTest, /waitForPublishedPost\(in: app, marker: marker\)/);
+  assert.match(uiTest, /String\(marker\.suffix\(8\)\)/);
+  assert.match(uiTest, /authenticated-official-editor-real-publish-missing/);
   assert.match(uiTest, /Publicar solo este idioma/);
   assert.match(uiTest, /Publish only this language/);
   assert.doesNotMatch(uiTest, /SUPABASE_DB_URL|service_role|21085800|\+240|68024260/);
