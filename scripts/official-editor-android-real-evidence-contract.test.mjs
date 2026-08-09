@@ -7,6 +7,14 @@ const androidTest = await readFile(
   new URL("../app/src/androidTest/java/com/quata/feature/official/presentation/OfficialEditorRealInstrumentedTest.kt", import.meta.url),
   "utf8",
 );
+const androidPermissionTest = await readFile(
+  new URL("../app/src/androidTest/java/com/quata/feature/official/presentation/OfficialEditorPermissionInstrumentedTest.kt", import.meta.url),
+  "utf8",
+);
+const androidNavGraph = await readFile(
+  new URL("../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt", import.meta.url),
+  "utf8",
+);
 const androidAuthRepository = await readFile(
   new URL("../app/src/main/java/com/quata/feature/auth/data/AuthRepositoryImpl.kt", import.meta.url),
   "utf8",
@@ -28,6 +36,8 @@ const packageJson = JSON.parse(await readFile(new URL("../package.json", import.
 
 test("Official editor Android real evidence is opt-in, redacted and reversible", () => {
   assert.match(runner, /OFFICIAL-EDITOR-ANDROID-REAL-UI-001/);
+  assert.match(runner, /--expect-ineligible/);
+  assert.match(runner, /OFFICIAL-EDITOR-ANDROID-PERMISSIONS-001/);
   assert.match(runner, /I_ACCEPT_REVERSIBLE_OFFICIAL_POST_MUTATION/);
   assert.match(runner, /QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN/);
   assert.match(runner, /app-internal:official-editor-real-credentials\.json/);
@@ -38,6 +48,12 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
   assert.match(runner, /function resolveAdbCommand\(\)/);
   assert.match(runner, /platform-tools/);
   assert.match(runner, /android-official-editor-after-publish-tap\.png/);
+  assert.match(runner, /android-official-editor-ineligible-blocked\.png/);
+  assert.match(runner, /OfficialEditorPermissionInstrumentedTest/);
+  assert.match(runner, /quataOfficialEditorExpectIneligible/);
+  assert.match(runner, /prepareNonOfficialProfile/);
+  assert.match(runner, /update public\.community_profiles set is_official = false where id = \$1::uuid/);
+  assert.match(runner, /restoreProfileOfficialRole/);
   assert.match(runner, /adb.*run-as|run-as", "com\.quata"/);
   assert.doesNotMatch(runner, /SERVICE_ROLE|21085800|\+240|68024260/);
 
@@ -62,6 +78,20 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
   assert.doesNotMatch(androidTest, /device\.pressBack\(\)/);
   assert.doesNotMatch(androidTest, /SERVICE_ROLE|21085800|\+240|68024260/);
 
+  assert.match(androidPermissionTest, /OfficialEditorPermissionInstrumentedTest/);
+  assert.match(androidPermissionTest, /OFFICIAL-EDITOR-ANDROID-PERMISSIONS-001/);
+  assert.match(androidPermissionTest, /quataOfficialEditorExpectIneligible/);
+  assert.match(androidPermissionTest, /START_DESTINATION_FOR_EVIDENCE", "official\/editor"/);
+  assert.match(androidPermissionTest, /session\?\.isOfficial == true/);
+  assert.match(androidPermissionTest, /OfficialEditorRootTestTag/);
+  assert.match(androidPermissionTest, /OfficialCreateActionTestTag/);
+  assert.match(androidPermissionTest, /android-official-editor-ineligible-blocked/);
+  assert.doesNotMatch(androidPermissionTest, /SERVICE_ROLE|21085800|\+240|68024260/);
+
+  assert.match(androidNavGraph, /officialEditorSession\?\.isOfficial == true/);
+  assert.match(androidNavGraph, /requestAuthentication\(\)/);
+  assert.match(androidNavGraph, /navController\.navigate\(AppDestinations\.Official\.route\)/);
+
   assert.match(mainActivity, /testTagsAsResourceId = true/);
   assert.match(mainActivity, /BuildConfig\.DEBUG/);
   assert.match(mainActivity, /EvidenceStartDestinations = setOf\(AppDestinations\.OfficialPostEditor\.route\)/);
@@ -78,6 +108,7 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
 
 test("Official editor Android real evidence is callable but not automatic in fast CI", () => {
   assert.match(packageJson.scripts["evidence:android-official-editor-real"], /scripts\/official-editor-android-real-evidence\.mjs/);
+  assert.match(packageJson.scripts["evidence:android-official-editor-permissions"], /--expect-ineligible/);
   assert.match(packageJson.scripts["test:ci-fast-contracts"], /scripts\/official-editor-android-real-evidence-contract\.test\.mjs/);
   assert.match(packageJson.scripts["test:web-wave2-contracts"], /scripts\/official-editor-android-real-evidence-contract\.test\.mjs/);
   assert.doesNotMatch(packageJson.scripts["test:ci-fast-contracts"], /official-editor-android-real-evidence\.mjs/);

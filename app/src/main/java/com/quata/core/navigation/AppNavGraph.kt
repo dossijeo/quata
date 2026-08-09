@@ -751,11 +751,29 @@ fun AppNavGraph(
                 }
 
                 composable(AppDestinations.OfficialPostEditor.route) {
-                    OfficialPostEditorRoute(
-                        padding = padding,
-                        repository = container.officialRepository,
-                        onPublished = { postId ->
-                            officialFocusedPostId = postId
+                    val officialEditorSession = container.sessionManager.currentSession()
+                    if (officialEditorSession?.isOfficial == true) {
+                        OfficialPostEditorRoute(
+                            padding = padding,
+                            repository = container.officialRepository,
+                            onPublished = { postId ->
+                                officialFocusedPostId = postId
+                                navController.navigate(AppDestinations.Official.route) {
+                                    popUpTo(AppDestinations.Official.route) {
+                                        inclusive = false
+                                        saveState = false
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = false
+                                }
+                            },
+                            onFullscreenEditorVisibilityChange = { isVideoEditorOpen = it }
+                        )
+                    } else {
+                        LaunchedEffect(officialEditorSession?.userId, officialEditorSession?.isOfficial) {
+                            if (officialEditorSession == null) {
+                                requestAuthentication()
+                            }
                             navController.navigate(AppDestinations.Official.route) {
                                 popUpTo(AppDestinations.Official.route) {
                                     inclusive = false
@@ -764,9 +782,8 @@ fun AppNavGraph(
                                 launchSingleTop = true
                                 restoreState = false
                             }
-                        },
-                        onFullscreenEditorVisibilityChange = { isVideoEditorOpen = it }
-                    )
+                        }
+                    }
                 }
 
                 composable(AppDestinations.RichTextEditorQa.route) {

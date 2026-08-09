@@ -7,6 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import pg from "pg";
 
 const CHECK = "OFFICIAL-EDITOR-ANDROID-REAL-UI-001";
+const PERMISSION_CHECK = "OFFICIAL-EDITOR-ANDROID-PERMISSIONS-001";
 const OPT_IN = "I_ACCEPT_REVERSIBLE_OFFICIAL_POST_MUTATION";
 const DEFAULT_DB_URL_FILE = "C:/Users/PC/.quata-supabase-db-url.txt";
 const DEFAULT_DB_TLS_CA_FILE = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
@@ -30,9 +31,15 @@ const evidenceFiles = [
   "android-official-editor-published.png",
   "android-official-editor-real-evidence.json",
 ];
+const permissionEvidenceFiles = [
+  "android-official-editor-ineligible-blocked.png",
+  "android-official-editor-permissions-evidence.json",
+];
+
+const options = parseArgs(process.argv.slice(2));
 
 const report = {
-  check: CHECK,
+  check: options.expectIneligible ? PERMISSION_CHECK : CHECK,
   status: "failed",
   startedAt: new Date().toISOString(),
   git: await gitMetadata(),
@@ -45,14 +52,30 @@ const adb = resolveAdbCommand();
 let marker = `official-editor-android-${randomUUID()}`;
 let created = { ids: [], groupIds: [] };
 let localCredentials;
+let runtimeConfig;
+let permissionProfileRollback;
 
 try {
   const config = requireEnvironment();
+  runtimeConfig = config;
+  if (options.expectIneligible) {
+    permissionProfileRollback = await prepareNonOfficialProfile(config);
+    report.evidence.permissionProfile = {
+      state: "forced_non_official_for_evidence",
+      profileId: permissionProfileRollback.profileId,
+      previousIsOfficial: permissionProfileRollback.previousIsOfficial,
+    };
+    report.steps.push("non_official_profile_role_prepared_reversibly");
+  }
   localCredentials = join("build-reports", "android", `official-editor-credentials-${randomUUID()}.json`);
   await mkdir(dirname(localCredentials), { recursive: true });
   await writeFile(
     localCredentials,
-    `${JSON.stringify({ country_code: config.countryCode, phone: config.officialPhone, password: config.password })}\n`,
+    `${JSON.stringify({
+      country_code: config.countryCode,
+      phone: options.expectIneligible ? config.nonOfficialPhone : config.officialPhone,
+      password: config.password,
+    })}\n`,
     { mode: 0o600 },
   );
 
@@ -68,27 +91,47 @@ try {
   await run(adb, ["shell", "rm", "-f", deviceTempCredentialsPath]);
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
 
-  const instrumentationOutput = await runCapture(adb, [
+  const instrumentationClass = options.expectIneligible
+    ? "com.quata.feature.official.presentation.OfficialEditorPermissionInstrumentedTest"
+    : "com.quata.feature.official.presentation.OfficialEditorRealInstrumentedTest";
+  const instrumentationArgs = [
     "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", "com.quata.feature.official.presentation.OfficialEditorRealInstrumentedTest",
+    "-e", "class", instrumentationClass,
     "-e", "quataOfficialEditorCredentialsFile", deviceCredentialsPath,
-    "-e", "quataOfficialEditorMarker", marker,
-    "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
-  ]);
+  ];
+  if (options.expectIneligible) {
+    instrumentationArgs.push("-e", "quataOfficialEditorExpectIneligible", "1");
+  } else {
+    instrumentationArgs.push("-e", "quataOfficialEditorMarker", marker);
+  }
+  instrumentationArgs.push("com.quata.test/androidx.test.runner.AndroidJUnitRunner");
+  const instrumentationOutput = await runCapture(adb, instrumentationArgs);
   report.instrumentationTail = redactedTail(instrumentationOutput);
   if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) throw new Error("android_instrumentation_not_ok");
   if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentationOutput)) {
     throw new Error("android_instrumentation_semantic_failure");
   }
-  report.steps.push("android_real_official_editor_flow_passed");
+  report.steps.push(options.expectIneligible
+    ? "android_real_official_editor_ineligible_permission_passed"
+    : "android_real_official_editor_flow_passed");
 
-  const evidenceDir = join("build-reports", "android", "official-editor-real-evidence");
+  const evidenceDir = join("build-reports", "android", options.expectIneligible ? "official-editor-permissions-evidence" : "official-editor-real-evidence");
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
-  for (const file of evidenceFiles) {
+  for (const file of options.expectIneligible ? permissionEvidenceFiles : evidenceFiles) {
     await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file));
   }
   report.evidence.directory = resolve(evidenceDir);
+
+  if (options.expectIneligible) {
+    report.evidence.permission = {
+      state: "verified_ineligible_session_cannot_open_editor",
+      mutation: "not_requested",
+    };
+    report.postCleanupReadback = await assertNoMarkerRows(config, marker, []);
+    report.status = "passed";
+    throw new EvidenceComplete();
+  }
 
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
@@ -98,6 +141,9 @@ try {
   report.steps.push("created_post_cleaned_by_exact_ids_and_marker_absence_verified");
   report.status = "passed";
 } catch (error) {
+  if (error instanceof EvidenceComplete) {
+    // Report has already been populated and marked as passed by the ineligible-permission lane.
+  } else {
   report.error = safeFailure(error);
   report.errorDetail = typeof error?.message === "string" ? error.message : String(error);
   await copyEvidenceIfPresent().catch(() => {});
@@ -116,14 +162,31 @@ try {
       };
     }
   }
+  }
 } finally {
+  if (permissionProfileRollback && runtimeConfig) {
+    try {
+      report.evidence.permissionProfileRestore = await restoreProfileOfficialRole(runtimeConfig, permissionProfileRollback);
+    } catch (restoreError) {
+      report.evidence.permissionProfileRestore = {
+        state: "rollback_pending",
+        profileId: permissionProfileRollback.profileId,
+        previousIsOfficial: permissionProfileRollback.previousIsOfficial,
+        error: safeFailure(restoreError),
+      };
+      if (report.status === "passed") {
+        report.status = "failed";
+        report.error = "permission_profile_restore_failed";
+      }
+    }
+  }
   await run(adb, ["shell", "rm", "-f", deviceTempCredentialsPath]).catch(() => {});
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-f", `files/${deviceCredentialsPath.replace("app-internal:", "")}`]).catch(() => {});
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]).catch(() => {});
   await rm(localCredentials ?? "", { force: true }).catch(() => {});
   report.finishedAt = new Date().toISOString();
   report.marker = marker;
-  const output = join("build-reports", "android", "official-editor-real-evidence.json");
+  const output = join("build-reports", "android", options.expectIneligible ? "official-editor-permissions-evidence.json" : "official-editor-real-evidence.json");
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   console.log(`Official editor Android real evidence written: ${output}`);
@@ -137,16 +200,34 @@ if (report.status !== "passed") {
 }
 
 function requireEnvironment() {
-  const missing = REQUIRED_ENV.filter((name) => !process.env[name]?.trim());
+  const required = options.expectIneligible
+    ? REQUIRED_ENV.filter((name) => name !== "QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN")
+    : [...REQUIRED_ENV];
+  if (options.expectIneligible) required.push("QUATA_OFFICIAL_E2E_NON_OFFICIAL_PHONE");
+  const missing = required.filter((name) => !process.env[name]?.trim());
   if (missing.length) throw new Error(`missing_environment:${missing.join(",")}`);
-  if (process.env.QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN !== OPT_IN) throw new Error("mutation_opt_in_required");
+  if (!options.expectIneligible && process.env.QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN !== OPT_IN) {
+    throw new Error("mutation_opt_in_required");
+  }
   return {
     countryCode: process.env.QUATA_OFFICIAL_E2E_COUNTRY_CODE.trim(),
     officialPhone: process.env.QUATA_OFFICIAL_E2E_OFFICIAL_PHONE.trim(),
+    nonOfficialPhone: process.env.QUATA_OFFICIAL_E2E_NON_OFFICIAL_PHONE?.trim() ?? "",
     password: process.env.QUATA_OFFICIAL_E2E_PASSWORD,
     dbUrlFile: process.env.SUPABASE_DB_URL_FILE?.trim() || DEFAULT_DB_URL_FILE,
     dbTlsCaFile: process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || DEFAULT_DB_TLS_CA_FILE,
   };
+}
+
+function parseArgs(args) {
+  const parsed = {
+    expectIneligible: process.env.QUATA_OFFICIAL_EDITOR_EXPECT_INELIGIBLE === "1",
+  };
+  for (const arg of args) {
+    if (arg === "--expect-ineligible") parsed.expectIneligible = true;
+    else throw new Error(`unknown_argument:${arg}`);
+  }
+  return parsed;
 }
 
 function gradleEnvironment() {
@@ -196,6 +277,63 @@ async function withPg(config, action) {
   } finally {
     await client.end().catch(() => {});
   }
+}
+
+async function prepareNonOfficialProfile(config) {
+  return withPg(config, async (client) => {
+    await client.query("begin");
+    try {
+      const profile = await client.query({
+        text: `select cp.id, cp.is_official
+               from public.community_profiles cp
+               join auth.users au on au.id = cp.id
+               where au.phone = $1
+               limit 1
+               for update of cp`,
+        values: [`+${config.countryCode}${config.nonOfficialPhone}`],
+      });
+      if (profile.rowCount !== 1) throw new Error("permission_profile_missing");
+      const profileId = profile.rows[0].id;
+      const previousIsOfficial = profile.rows[0]?.is_official === true;
+      await client.query({
+        text: "update public.community_profiles set is_official = false where id = $1::uuid",
+        values: [profileId],
+      });
+      await client.query("commit");
+      return { profileId, previousIsOfficial };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+async function restoreProfileOfficialRole(config, rollback) {
+  return withPg(config, async (client) => {
+    await client.query("begin");
+    try {
+      await client.query({
+        text: "update public.community_profiles set is_official = $2 where id = $1::uuid",
+        values: [rollback.profileId, rollback.previousIsOfficial],
+      });
+      const restored = await client.query({
+        text: "select is_official from public.community_profiles where id = $1::uuid",
+        values: [rollback.profileId],
+      });
+      if (restored.rows[0]?.is_official !== rollback.previousIsOfficial) {
+        throw new Error("permission_profile_restore_verification_failed");
+      }
+      await client.query("commit");
+      return {
+        state: "restored",
+        profileId: rollback.profileId,
+        restoredIsOfficial: rollback.previousIsOfficial,
+      };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
 }
 
 async function readCreatedRows(config, uniqueMarker) {
@@ -294,7 +432,7 @@ async function copyEvidenceIfPresent() {
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   let copied = 0;
-  for (const file of evidenceFiles) {
+  for (const file of [...evidenceFiles, ...permissionEvidenceFiles]) {
     try {
       await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file));
       copied += 1;
@@ -348,6 +486,9 @@ function safeFailure(error) {
     "marker_cleanup_verification_failed",
     "command_failed",
     "adb_exec_out_failed",
+    "permission_profile_missing",
+    "permission_profile_restore_failed",
+    "permission_profile_restore_verification_failed",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_official_editor_android_real_failure";
 }
 
@@ -357,4 +498,10 @@ function redactedTail(value) {
     if (secret) output = output.replaceAll(secret, "[redacted]");
   }
   return output.slice(-4000);
+}
+
+class EvidenceComplete extends Error {
+  constructor() {
+    super("evidence_complete");
+  }
 }

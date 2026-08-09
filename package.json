@@ -12,6 +12,7 @@
     "evidence:web-official-editor-real-video": "node scripts/official-editor-web-real-evidence.mjs --dist web/build/dist/wasmJs/productionExecutable --out build-reports/web/official-editor-real-video-evidence.json --evidence-dir build-reports/web/official-editor-real-video-evidence --media video",
     "evidence:web-official-editor-permissions": "node scripts/official-editor-web-real-evidence.mjs --dist web/build/dist/wasmJs/productionExecutable --out build-reports/web/official-editor-permissions-evidence.json --evidence-dir build-reports/web/official-editor-permissions-evidence --expect-ineligible",
     "evidence:android-official-editor-real": "node scripts/official-editor-android-real-evidence.mjs",
+    "evidence:android-official-editor-permissions": "node scripts/official-editor-android-real-evidence.mjs --expect-ineligible",
     "evidence:ios-official-editor-real": "node scripts/official-editor-ios-real-evidence.mjs --out build-reports/ios/official-editor-real-evidence.json --evidence-dir build-reports/ios/official-editor-real-evidence",
     "evidence:ios-official-editor-permissions": "node scripts/official-editor-ios-real-evidence.mjs --out build-reports/ios/official-editor-permissions-evidence.json --evidence-dir build-reports/ios/official-editor-permissions-evidence --expect-ineligible",
     "evidence:official-editor-real-backend": "node scripts/official-editor-real-backend-evidence.mjs --out build-reports/official-editor/real-backend-evidence.json",
