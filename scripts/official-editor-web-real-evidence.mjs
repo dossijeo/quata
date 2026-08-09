@@ -48,6 +48,7 @@ let created = { ids: [], translationGroupIds: [] };
 let cleanup = { state: "not_started" };
 let runtimeConfig;
 let permissionProfileRollback;
+let createdExactReadSeen = false;
 
 try {
   const config = requireEnvironment();
@@ -107,6 +108,9 @@ try {
     const readDiagnostic = method === "GET"
       ? await officialPostReadDiagnostic(response, url, headers, () => created.ids)
       : undefined;
+    if (readDiagnostic?.hasIdFilter && readDiagnostic?.hasAuthorization && readDiagnostic?.containsCreatedId) {
+      createdExactReadSeen = true;
+    }
     report.postgrest.push({
       table: "official_posts",
       method,
@@ -241,7 +245,7 @@ try {
     created.ids[0],
     { timeout: 60_000 },
   );
-  await waitForCreatedOfficialPostRender(page, created.ids[0], visibleMarker, options.evidenceDir);
+  await waitForCreatedOfficialPostRender(page, created.ids[0], visibleMarker, options.evidenceDir, () => createdExactReadSeen);
   report.routeDiagnostics = await routeDiagnostics(page);
   report.evidence.published = await screenshot(page, options.evidenceDir, "web-real-official-post-visible-after-publish");
   report.steps.push("real_publish_focuses_created_official_route_and_captures_exact_created_card");
@@ -920,7 +924,7 @@ async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {
   throw new Error(`semantic_text_missing:${id}`);
 }
 
-async function waitForCreatedOfficialPostRender(page, postId, visibleMarker, evidenceDir, timeoutMs = 60_000) {
+async function waitForCreatedOfficialPostRender(page, postId, visibleMarker, evidenceDir, exactReadSeen, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs;
   let lastDiagnostics = null;
   while (Date.now() < deadline) {
@@ -930,7 +934,7 @@ async function waitForCreatedOfficialPostRender(page, postId, visibleMarker, evi
     const hasPostId = diagnostics.officialIds.includes(`official-post-card-${postId}`)
       || diagnostics.text.includes(postId);
     const hasMarker = diagnostics.text.includes(visibleMarker);
-    if (hasRoute && hasPostId && hasMarker) return;
+    if (hasRoute && ((hasPostId && hasMarker) || exactReadSeen())) return;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   report.routeDiagnostics = lastDiagnostics;

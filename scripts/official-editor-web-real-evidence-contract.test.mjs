@@ -32,10 +32,12 @@ test("Official editor Web real evidence is opt-in, redacted, and reversible", ()
   assert.match(runner, /readCreatedRows/);
   assert.match(runner, /#official-\$\{created\.ids\[0\]\}/);
   assert.match(runner, /data-quata-shell-route/);
-  assert.match(runner, /waitForCreatedOfficialPostRender\(page, created\.ids\[0\], visibleMarker, options\.evidenceDir\)/);
+  assert.match(runner, /waitForCreatedOfficialPostRender\(page, created\.ids\[0\], visibleMarker, options\.evidenceDir, \(\) => createdExactReadSeen\)/);
   assert.match(runner, /created_official_post_render_missing/);
   assert.match(runner, /official-post-card-\$\{postId\}/);
   assert.match(runner, /diagnostics\.text\.includes\(visibleMarker\)/);
+  assert.match(runner, /createdExactReadSeen = true/);
+  assert.match(runner, /hasIdFilter[\s\S]*hasAuthorization[\s\S]*containsCreatedId/);
   assert.match(runner, /verified_in_database/);
   assert.match(runner, /visibleMarker = marker\.replace/);
   assert.match(runner, /QADATA Web \$\{visibleMarker\}/);
