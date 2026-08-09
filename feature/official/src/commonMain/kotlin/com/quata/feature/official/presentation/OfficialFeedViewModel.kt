@@ -8,6 +8,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -207,18 +208,23 @@ class OfficialFeedViewModel(
 
     private fun ensurePostLoaded(postId: String) = scope.launch {
         if (_uiState.value.posts.any { it.id == postId }) return@launch
-        repository.getOfficialPost(postId)
-            .onSuccess { post ->
-                if (post != null && _uiState.value.posts.none { it.id == post.id }) {
-                    _uiState.value = _uiState.value.copy(
-                        posts = feedStore.prependIfMissing(post),
-                        error = null
-                    )
+        repeat(FocusedPostLoadAttempts) { attempt ->
+            repository.getOfficialPost(postId)
+                .onSuccess { post ->
+                    if (post != null && _uiState.value.posts.none { it.id == post.id }) {
+                        _uiState.value = _uiState.value.copy(
+                            posts = feedStore.prependIfMissing(post),
+                            error = null
+                        )
+                        return@launch
+                    }
                 }
-            }
-            .onFailure { error ->
-                _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
-            }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+                }
+            if (_uiState.value.posts.any { it.id == postId }) return@launch
+            if (attempt < FocusedPostLoadAttempts - 1) delay(FocusedPostLoadRetryDelayMillis)
+        }
     }
 
     private fun updatePostFromRepository(action: suspend () -> Result<OfficialPostItem?>) = scope.launch {
@@ -239,6 +245,8 @@ class OfficialFeedViewModel(
 
     companion object {
         private const val OfficialFeedPageSize = 50
+        private const val FocusedPostLoadAttempts = 4
+        private const val FocusedPostLoadRetryDelayMillis = 750L
 
     }
 

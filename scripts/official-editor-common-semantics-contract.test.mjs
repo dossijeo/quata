@@ -18,6 +18,14 @@ const longEditor = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialLongTextEditorContent.kt", import.meta.url),
   "utf8",
 );
+const feedHost = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt", import.meta.url),
+  "utf8",
+);
+const feedViewModel = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedViewModel.kt", import.meta.url),
+  "utf8",
+);
 
 const requiredTags = [
   "official-editor-common-root",
@@ -61,4 +69,15 @@ test("Official editor semantics contract stays hermetic", () => {
   for (const source of [root, status]) {
     assert.doesNotMatch(source, /SUPABASE_DB_URL|SERVICE_ROLE|21085800|\+240|68024260/);
   }
+});
+
+test("Official deep links render only the requested post and retry focused loads", () => {
+  assert.match(feedHost, /val visiblePosts = focusedPostId\?\.let \{ target -> state\.posts\.filter \{ post -> post\.id == target \} \} \?: state\.posts/);
+  assert.match(feedHost, /pagerState = rememberPagerState\(pageCount = \{ visiblePosts\.size\.coerceAtLeast\(1\) \}\)/);
+  assert.match(feedHost, /posts = visiblePosts/);
+  assert.match(feedHost, /isInitialLoading = state\.isLoading \|\| focusedPostPending/);
+  assert.match(feedHost, /onLoadOlder = \{ if \(focusedPostId == null\) viewModel\.onEvent\(OfficialFeedUiEvent\.LoadOlderPage\) \}/);
+  assert.match(feedViewModel, /private const val FocusedPostLoadAttempts = 4/);
+  assert.match(feedViewModel, /repeat\(FocusedPostLoadAttempts\)/);
+  assert.match(feedViewModel, /delay\(FocusedPostLoadRetryDelayMillis\)/);
 });
