@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -43,14 +44,14 @@ fun AuthResponsiveContent(
                     verticalArrangement = Arrangement.Center,
                 ) { QuataLogo(subtitle = subtitle) }
                 Column(
-                    modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(scrollState).padding(vertical = 2.dp),
+                    modifier = Modifier.weight(1f).fillMaxHeight().imePadding().verticalScroll(scrollState).padding(vertical = 2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) { content(true) }
             }
         } else {
             Column(
-                modifier = Modifier.fillMaxWidth().heightIn(min = maxHeight).verticalScroll(scrollState)
+                modifier = Modifier.fillMaxWidth().heightIn(min = maxHeight).imePadding().verticalScroll(scrollState)
                     .padding(horizontal = 18.dp, vertical = 14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,

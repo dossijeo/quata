@@ -1,5 +1,6 @@
 package com.quata.feature.auth.presentation.recovery
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -7,6 +8,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.CountryPrefix
 import com.quata.feature.auth.domain.PasswordRecoveryRepository
@@ -42,14 +46,18 @@ fun ForgotPasswordScreenHost(
         subtitle = catalog.recoverySubtitle,
         portraitLogoSpacing = 14.dp,
     ) { isLandscape ->
-        ForgotPasswordForm(
-            state = state,
-            prefixes = prefixes,
-            resolvedQuestion = resolvedQuestion,
-            strings = catalog.recovery,
-            isLandscape = isLandscape,
-            onEvent = viewModel::onEvent,
-            onBack = onBack,
-        )
+        Column(
+            modifier = Modifier.semantics { testTag = ForgotPasswordTestTags.Root },
+        ) {
+            ForgotPasswordForm(
+                state = state,
+                prefixes = prefixes,
+                resolvedQuestion = resolvedQuestion,
+                strings = catalog.recovery,
+                isLandscape = isLandscape,
+                onEvent = viewModel::onEvent,
+                onBack = onBack,
+            )
+        }
     }
 }

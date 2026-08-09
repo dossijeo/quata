@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,6 +27,7 @@ import com.quata.core.designsystem.theme.quataTheme
 
 @Composable
 fun QuataLogo(modifier: Modifier = Modifier, subtitle: String? = null) {
+    val template = quataTheme()
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         QuataBrandMark(
             compact = false,
@@ -35,7 +35,7 @@ fun QuataLogo(modifier: Modifier = Modifier, subtitle: String? = null) {
         )
         if (subtitle != null) {
             Spacer(Modifier.height(10.dp))
-            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(subtitle, color = template.colors.textSecondary, fontWeight = FontWeight.Medium)
         }
     }
 }

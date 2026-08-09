@@ -32,6 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,7 +49,9 @@ fun PhoneInputSection(
     onPhoneChange: (String) -> Unit,
     phoneLabel: String,
     searchPlaceholder: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    prefixTestTag: String? = null,
+    phoneTestTag: String? = null,
 ) {
     val template = quataTheme()
     Row(
@@ -61,7 +65,9 @@ fun PhoneInputSection(
             onSelected = { onPrefixChange(it.code) },
             displayText = "+$selectedPrefix",
             searchPlaceholder = searchPlaceholder,
-            modifier = Modifier.weight(0.36f)
+            testTag = prefixTestTag,
+            modifier = Modifier
+                .weight(0.36f)
         )
         OutlinedTextField(
             value = phone,
@@ -71,18 +77,26 @@ fun PhoneInputSection(
             singleLine = true,
             modifier = Modifier
                 .weight(0.64f)
-                .height(CompactTextFieldHeight),
+                .height(CompactTextFieldHeight)
+                .optionalTestTag(phoneTestTag),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = template.colors.textPrimary,
+                unfocusedTextColor = template.colors.textPrimary,
                 focusedContainerColor = template.colors.surfaceAlt,
                 unfocusedContainerColor = template.colors.surfaceAlt,
                 focusedBorderColor = template.colors.accent,
                 unfocusedBorderColor = template.colors.inputBorder,
+                focusedPlaceholderColor = template.colors.textSecondary,
+                unfocusedPlaceholderColor = template.colors.textSecondary,
                 cursorColor = template.colors.accent
             )
         )
     }
 }
+
+private fun Modifier.optionalTestTag(value: String?): Modifier =
+    if (value == null) this else semantics { testTag = value }
 
 @Composable
 fun PrefixDropdownField(
@@ -91,7 +105,8 @@ fun PrefixDropdownField(
     onSelected: (CountryPrefix) -> Unit,
     displayText: String,
     searchPlaceholder: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    testTag: String? = null,
 ) {
     val template = quataTheme()
     var expanded by remember { mutableStateOf(false) }
@@ -116,6 +131,7 @@ fun PrefixDropdownField(
                 .height(CompactDropdownHeight)
                 .border(1.dp, template.colors.inputBorder, RoundedCornerShape(16.dp))
                 .clickable { expanded = true }
+                .optionalTestTag(testTag)
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 12.dp),
@@ -144,7 +160,14 @@ fun PrefixDropdownField(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = template.colors.textPrimary,
+                    unfocusedTextColor = template.colors.textPrimary,
+                    focusedPlaceholderColor = template.colors.textSecondary,
+                    unfocusedPlaceholderColor = template.colors.textSecondary,
+                    cursorColor = template.colors.accent
+                )
             )
             LazyColumn(
                 modifier = Modifier

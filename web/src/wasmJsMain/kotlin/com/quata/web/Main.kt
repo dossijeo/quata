@@ -303,6 +303,30 @@ private fun QuataWebApp(
                     if (result is WebPushSessionResult.Success) resolve("logged_out") else reject("logout_failed")
                 }
             },
+            openRecovery = {
+                authInitialDestination = AuthProductDestination.Recovery
+                navigation.navigate("auth")
+            },
+            openLogin = {
+                authInitialDestination = AuthProductDestination.Login
+                navigation.navigate("auth")
+            },
+            recoveryQuestion = { countryCode, phone, resolve, reject ->
+                scope.launch {
+                    authRepository.getPasswordRecoveryQuestion(countryCode, phone).fold(
+                        onSuccess = { question -> resolve(question?.secretQuestion ?: "") },
+                        onFailure = { reject("recovery_question_failed") },
+                    )
+                }
+            },
+            resetPassword = { countryCode, phone, secretAnswer, newPassword, resolve, reject ->
+                scope.launch {
+                    authRepository.resetPassword(countryCode, phone, secretAnswer, newPassword).fold(
+                        onSuccess = { resolve("password_reset") },
+                        onFailure = { reject("reset_password_failed") },
+                    )
+                }
+            },
         )
         onDispose(removeBridge)
     }

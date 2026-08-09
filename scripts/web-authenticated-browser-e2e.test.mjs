@@ -26,6 +26,8 @@ const workflow = await readFile(new URL("../.github/workflows/web-android-pr.yml
 const webBuild = await readFile(new URL("../web/build.gradle.kts", import.meta.url), "utf8");
 const documentation = await readFile(new URL("../docs/WEB_AUTHENTICATED_BROWSER_E2E.md", import.meta.url), "utf8");
 const whatsNewHost = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt", import.meta.url), "utf8");
+const recoveryEvidence = await readFile(new URL("./web-auth-recovery-evidence.mjs", import.meta.url), "utf8");
+const realRecoveryEvidence = await readFile(new URL("./auth-recovery-real-bridge-evidence.mjs", import.meta.url), "utf8");
 
 test("hermetic Auth gate keeps the Compose product surface and uses only the localhost product bridge", () => {
   assert.match(runner, /chromium\.launch\(/);
@@ -40,6 +42,9 @@ test("hermetic Auth gate keeps the Compose product surface and uses only the loc
   assert.match(runner, /compose_auth_bridge_missing/);
   assert.match(runner, /bridge\.login\(countryCode, phone, password\)/);
   assert.match(runner, /bridge\.logout\(\)/);
+  assert.match(bridge, /openRecovery: \(\) => openRecovery\(\)/);
+  assert.match(bridge, /recoveryQuestion: \(countryCode, phone\)/);
+  assert.match(bridge, /resetPassword: \(countryCode, phone, secretAnswer, newPassword\)/);
   assert.match(runner, /button\[aria-label="Cerrar sesión"\]/);
   assert.match(main, /authRepository\.login\(countryCode, phone, password\)/);
   assert.match(main, /preferences\.putString\(WebSessionReadyKey, "true"\)/);
@@ -165,6 +170,38 @@ test("the final report rechecks mutations and snapshots read-only evidence immed
     runner,
     /await page\.waitForTimeout\(100\);\n  assertNoBlockedBackendMutations\(blockedBackendMutations\);\n  report\.readOnlyEvidence = \{[\s\S]*?blockedMutations: blockedBackendMutations\.length,[\s\S]*?\n  \};\n  report\.status = "passed";/,
   );
+});
+
+test("the focal Web recovery runner exercises the real repository bridge without backend secrets", () => {
+  assert.match(recoveryEvidence, /WEB-AUTH-RECOVERY-001/);
+  assert.match(recoveryEvidence, /globalThis\.__quataAuthE2eProduct\.openRecovery\(\)/);
+  assert.match(recoveryEvidence, /globalThis\.__quataAuthE2eProduct\.recoveryQuestion/);
+  assert.match(recoveryEvidence, /globalThis\.__quataAuthE2eProduct\.resetPassword/);
+  assert.match(recoveryEvidence, /TURNSTILE_BOOTSTRAP/);
+  assert.match(recoveryEvidence, /globalThis\.turnstile=\{\};/);
+  assert.match(recoveryEvidence, /unexpected_external_network/);
+  assert.match(recoveryEvidence, /fixture_recovery_journey_incomplete/);
+  assert.doesNotMatch(recoveryEvidence, /SUPABASE_DB_URL|service_role|migration repair|supabase db push/);
+});
+
+test("real Auth recovery evidence is opt-in, reversible and excludes privileged Supabase material", () => {
+  assert.match(realRecoveryEvidence, /AUTH-RECOVERY-REAL-BRIDGE-001/);
+  assert.match(realRecoveryEvidence, /I_ACCEPT_PASSWORD_RESET_ROUNDTRIP/);
+  assert.match(realRecoveryEvidence, /I_ACCEPT_AUTHORIZED_RECOVERY_ACCOUNT_MUTATION/);
+  assert.match(realRecoveryEvidence, /I_ACCEPT_DB_RECOVERY_SECRET_ROUNDTRIP/);
+  assert.match(realRecoveryEvidence, /update_recovery_secret/);
+  assert.match(realRecoveryEvidence, /reset_password/);
+  assert.match(realRecoveryEvidence, /original_password_restored/);
+  assert.match(realRecoveryEvidence, /restored_password_login_succeeded/);
+  assert.match(realRecoveryEvidence, /passwordRestored: false/);
+  assert.match(realRecoveryEvidence, /passwordRestored = true/);
+  assert.match(realRecoveryEvidence, /recoverySecretRestored/);
+  assert.match(realRecoveryEvidence, /hasColumn\(client, "community_profiles", "secret_answer_hash"\)/);
+  assert.match(realRecoveryEvidence, /select \$\{selectColumns\}[\s\S]*where phone_local = \$1/);
+  assert.match(realRecoveryEvidence, /where id = \$4/);
+  assert.match(realRecoveryEvidence, /where id = \$3/);
+  assert.match(realRecoveryEvidence, /privileged_environment_forbidden/);
+  assert.doesNotMatch(realRecoveryEvidence, /service_role|migration repair|supabase db push|admin\/users|deleteUser/);
 });
 
 test("real mode requires a dedicated preprovisioned account and accepts bridge effects explicitly", () => {

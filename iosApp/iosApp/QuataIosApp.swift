@@ -435,6 +435,30 @@ private final class IosAppCompositionRoot {
                 }
                 return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewController()
             }
+        case "auth-recovery-real":
+            guard
+                let runtimeConfiguration,
+                let runtimeBootstrap,
+                let repository = createAuthRepository(
+                    configuration: runtimeConfiguration,
+                    bootstrap: runtimeBootstrap,
+                )
+            else {
+                fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-unconfigured-auth-recovery-real"
+                fixtureRoot.view.accessibilityLabel = "Quata iOS real Auth recovery fixture unavailable"
+                return fixtureRoot
+            }
+            let languageArgument = arguments.firstIndex(of: "-quata-ui-test-language")
+                .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
+            let dependencies = IosAuthHostKt.createIosAuthHostDependenciesForDestination(
+                repository: repository,
+                languageCode: languageArgument ?? Locale.current.languageCode ?? "en",
+                destination: "recovery",
+                onLoginSuccess: {},
+            )
+            return IosAuthLaunchFixtureContainerViewController {
+                IosAuthHostKt.QuataAuthViewController(dependencies: dependencies)
+            }
         case "feed-playback":
             return IosFeedPlaybackFixtureHostKt.QuataIosFeedPlaybackFixtureViewController(
                 mediaFactory: IosFeedNativeMediaFactory.shared
