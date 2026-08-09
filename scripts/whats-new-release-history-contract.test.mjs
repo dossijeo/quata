@@ -11,6 +11,7 @@ const webMain = await source('../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt
 const ios = await source('../feature/whatsnew/src/iosMain/kotlin/com/quata/feature/whatsnew/presentation/QuataWhatsNewViewController.kt');
 const iosRuntime = await source('../feature/whatsnew/src/iosMain/kotlin/com/quata/feature/whatsnew/presentation/IosWhatsNewRuntimeBootstrap.kt');
 const iosSwift = await source('../iosApp/iosApp/QuataIosApp.swift');
+const iosSwiftTests = await source('../iosApp/iosAppTests/QuataFeedFrameworkTests.swift');
 const packageJson = JSON.parse(await source('../package.json'));
 const webAndroidWorkflow = await source('../.github/workflows/web-android-pr.yml');
 const iosWorkflow = await source('../.github/workflows/ios-build.yml');
@@ -70,6 +71,9 @@ test('About opens the common dialog and links to Release History on Android, Web
   assert.match(iosSwift, /case \.about:\s+return aboutFactory\?\(\)/);
   assert.match(iosSwift, /case \.about:\s+presentation = \("quata-ios-about-host", "Quata iOS About"\)/);
   assert.doesNotMatch(iosSwift, /onLogoClick:\s*\{\s*\}/);
+
+  assert.match(iosSwiftTests, /testAuthenticatedRouteMenuExposesWhatsNewAndAboutOnlyAfterTheirLocalFactoriesAreInstalled/);
+  assert.match(iosSwiftTests, /router\.installWhatsNewFactory \{ UIViewController\(\) \}[\s\S]*?XCTAssertFalse\(afterInstall\.actions\.contains \{ \$0\.title == "Acerca de Quata" \}\)[\s\S]*?router\.installAboutFactory \{ UIViewController\(\) \}[\s\S]*?XCTAssertTrue\(afterAboutInstall\.actions\.contains \{ \$0\.title == "Acerca de Quata" \}\)/);
 });
 
 test('Release History parity contract runs in local scripts and CI workflows', () => {

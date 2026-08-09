@@ -1636,7 +1636,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
         )
     }
 
-    func testAuthenticatedRouteMenuExposesWhatsNewOnlyAfterItsLocalFactoriesAreInstalled() {
+    func testAuthenticatedRouteMenuExposesWhatsNewAndAboutOnlyAfterTheirLocalFactoriesAreInstalled() {
         let router = IosFeedHostContainerViewController(platformServices: makePlatformServiceComposition())
         router.loadViewIfNeeded()
 
@@ -1651,7 +1651,14 @@ final class QuataFeedFrameworkTests: XCTestCase {
         router.populateAuthenticatedRouteMenu(afterInstall)
 
         XCTAssertTrue(afterInstall.actions.contains { $0.title == "Novedades" })
-        XCTAssertTrue(afterInstall.actions.contains { $0.title == "Acerca de Quata" })
+        XCTAssertFalse(afterInstall.actions.contains { $0.title == "Acerca de Quata" })
+
+        router.installAboutFactory { UIViewController() }
+        let afterAboutInstall = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        router.populateAuthenticatedRouteMenu(afterAboutInstall)
+
+        XCTAssertTrue(afterAboutInstall.actions.contains { $0.title == "Novedades" })
+        XCTAssertTrue(afterAboutInstall.actions.contains { $0.title == "Acerca de Quata" })
     }
 
     func testAuthenticatedRouteMenuContainsOnlyInstalledVerticals() {
