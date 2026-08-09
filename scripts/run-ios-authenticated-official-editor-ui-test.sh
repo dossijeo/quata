@@ -12,11 +12,12 @@ watchdog="scripts/run-ios-command-watchdog.py"
 xctestruns=()
 while IFS= read -r xctestrun_path; do
   xctestruns+=("$xctestrun_path")
-done < <(find "$QUATA_IOS_DERIVED_DATA_PATH/Build/Products" -name '*.xctestrun' -type f -print)
+done < <(find "$QUATA_IOS_DERIVED_DATA_PATH/Build/Products" -name '*.xctestrun' ! -name '*-quata-patched.xctestrun' -type f -print)
 [[ "${#xctestruns[@]}" -eq 1 ]] || { echo "Expected exactly one .xctestrun, found ${#xctestruns[@]}" >&2; exit 2; }
 xctestrun="${xctestruns[0]}"
 mkdir -p "$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR"
 patched_xctestrun="$(dirname "$xctestrun")/$(basename "$xctestrun" .xctestrun)-quata-patched.xctestrun"
+rm -f "$patched_xctestrun"
 cp "$xctestrun" "$patched_xctestrun"
 xctestrun="$patched_xctestrun"
 
