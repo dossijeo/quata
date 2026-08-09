@@ -134,7 +134,8 @@ test("real iOS recovery fixture is opt-in, uses the production repository and ke
   assert.match(uiTests, /I_ACCEPT_IOS_PASSWORD_RESET_ROUNDTRIP/);
   assert.match(uiTests, /QUATA_IOS_AUTH_RECOVERY_E2E_FILE/);
   assert.match(uiTests, /AuthRecoveryUiCredentials\.load/);
-  assert.match(uiTests, /fixtureApp\("auth-recovery-real"\)/);
+  assert.match(uiTests, /fixtureApp\("auth-recovery-real", spanishLocale: true\)/);
+  assert.match(uiTests, /"-AppleLanguages", "\(es\)", "-AppleLocale", "es_ES"/);
   assert.match(uiTests, /auth-recovery-real-mounted/);
   assert.match(uiTests, /auth-recovery-real-missing-account/);
   assert.match(uiTests, /evidencePrefix: "auth-recovery-real-temporary"/);

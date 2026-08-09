@@ -66,10 +66,14 @@ fun ForgotPasswordForm(
             .height(CompactTextFieldHeight)
             .semantics { testTag = ForgotPasswordTestTags.Question },
         colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = template.colors.textPrimary,
+            unfocusedTextColor = template.colors.textPrimary,
             focusedContainerColor = template.colors.surfaceAlt,
             unfocusedContainerColor = template.colors.surfaceAlt,
             focusedBorderColor = template.colors.accent,
             unfocusedBorderColor = template.colors.inputBorder,
+            focusedPlaceholderColor = template.colors.textSecondary,
+            unfocusedPlaceholderColor = template.colors.textSecondary,
             cursorColor = template.colors.accent,
         ),
     )

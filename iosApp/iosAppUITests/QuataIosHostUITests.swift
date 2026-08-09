@@ -96,7 +96,7 @@ final class QuataIosHostUITests: XCTestCase {
         }
         let credentials = try AuthRecoveryUiCredentials.load(from: configurationFile)
 
-        let missingApp = fixtureApp("auth-recovery-real")
+        let missingApp = fixtureApp("auth-recovery-real", spanishLocale: true)
         missingApp.launch()
         XCTAssertTrue(
             missingApp.descendants(matching: .any)
@@ -117,7 +117,7 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-recovery-real-missing-account")
         missingApp.terminate()
 
-        let app = fixtureApp("auth-recovery-real")
+        let app = fixtureApp("auth-recovery-real", spanishLocale: true)
         app.launch()
         try performRecoveryReset(
             in: app,
@@ -315,9 +315,11 @@ final class QuataIosHostUITests: XCTestCase {
         deepLink: String? = nil,
         inAppRoute: String? = nil,
         authDestination: String? = nil,
+        spanishLocale: Bool = false,
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-quata-ui-test-fixture", fixture]
+        if spanishLocale { app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"] }
         if let deepLink { app.launchArguments += ["-quata-ui-test-deep-link", deepLink] }
         if let inAppRoute { app.launchArguments += ["-quata-ui-test-in-app-route", inAppRoute] }
         if let authDestination { app.launchArguments += ["-quata-auth-destination", authDestination] }

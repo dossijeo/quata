@@ -81,10 +81,14 @@ fun PhoneInputSection(
                 .optionalTestTag(phoneTestTag),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = template.colors.textPrimary,
+                unfocusedTextColor = template.colors.textPrimary,
                 focusedContainerColor = template.colors.surfaceAlt,
                 unfocusedContainerColor = template.colors.surfaceAlt,
                 focusedBorderColor = template.colors.accent,
                 unfocusedBorderColor = template.colors.inputBorder,
+                focusedPlaceholderColor = template.colors.textSecondary,
+                unfocusedPlaceholderColor = template.colors.textSecondary,
                 cursorColor = template.colors.accent
             )
         )
@@ -156,7 +160,14 @@ fun PrefixDropdownField(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = template.colors.textPrimary,
+                    unfocusedTextColor = template.colors.textPrimary,
+                    focusedPlaceholderColor = template.colors.textSecondary,
+                    unfocusedPlaceholderColor = template.colors.textSecondary,
+                    cursorColor = template.colors.accent
+                )
             )
             LazyColumn(
                 modifier = Modifier
