@@ -121,12 +121,15 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
     }
 
     private func selectMediaIfRequested(in app: XCUIApplication) throws {
-        guard ProcessInfo.processInfo.environment["QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE"] == "image" else {
+        let mediaType = ProcessInfo.processInfo.environment["QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE"]
+        guard mediaType == "image" || mediaType == "video" else {
             return
         }
         dismissKeyboardIfPresent(in: app)
+        let pickerIdentifier = mediaType == "video" ? "official-editor-pick-video" : "official-editor-pick-image"
+        let attachmentName = mediaType == "video" ? "authenticated-official-editor-real-video-preview" : "authenticated-official-editor-real-image-preview"
         let picker = app.descendants(matching: .any)
-            .matching(identifier: "official-editor-pick-image")
+            .matching(identifier: pickerIdentifier)
             .firstMatch
         let mediaPreview = app.descendants(matching: .any)
             .matching(identifier: "official-editor-media-preview")
@@ -137,7 +140,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
                 picker.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
                 tappedPicker = true
                 if mediaPreview.waitForExistence(timeout: 4) {
-                    QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-image-preview")
+                    QuataIosHostUITestSupport.attachRenderedSurface(named: attachmentName)
                     return
                 }
             }
@@ -154,7 +157,7 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         guard mediaPreview.waitForExistence(timeout: 10) else {
             throw OfficialEditorMediaEvidenceError.previewMissing
         }
-        QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-image-preview")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: attachmentName)
     }
 
     private func dismissKeyboardIfPresent(in app: XCUIApplication) {

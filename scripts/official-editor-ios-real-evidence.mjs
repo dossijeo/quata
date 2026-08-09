@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import pg from "pg";
@@ -66,18 +66,22 @@ try {
   await run("scp", [localCredentials, `${options.host}:${remoteCredentials}`]);
   report.steps.push("ios_real_credentials_copied_to_mac_tempfile_without_logging_contents");
 
-  if (options.media === "image") {
+  if (options.media !== "none") {
     localMediaFixture = join(
       await mkdtemp(join(tmpdir(), "quata-ios-official-editor-media-")),
-      `${marker}.png`,
+      `${marker}.${options.media === "video" ? "mp4" : "png"}`,
     );
-    await writeFile(localMediaFixture, pngFixtureBuffer());
+    if (options.media === "video") {
+      await copyFile(resolve("play-store/05-assets/quata-demo-video.mp4"), localMediaFixture);
+    } else {
+      await writeFile(localMediaFixture, pngFixtureBuffer());
+    }
     remoteMediaFixture = (await runCapture("ssh", [
       options.host,
-      `mktemp /tmp/quata-ios-official-editor-media.XXXXXX.png`,
+      `python3 - <<'PY'\nimport os, tempfile\nfd, path = tempfile.mkstemp(prefix='quata-ios-official-editor-media-', suffix='.${options.media === "video" ? "mp4" : "png"}')\nos.close(fd)\nprint(path)\nPY`,
     ])).trim();
     await run("scp", [localMediaFixture, `${options.host}:${remoteMediaFixture}`]);
-    report.steps.push("ios_image_fixture_copied_to_mac_tempfile_without_sensitive_contents");
+    report.steps.push(`ios_${options.media}_fixture_copied_to_mac_tempfile_without_sensitive_contents`);
   }
 
   const localHead = report.git.head;
@@ -118,19 +122,24 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
   const storagePaths = storagePathsFromMediaUrls(created.mediaUrls ?? []);
-  if (options.media !== "none" && !storagePaths.length) throw new Error("created_media_readback_missing");
+  const wordpressVideoUrls = wordpressVideoUrlsFromMediaUrls(created.mediaUrls ?? []);
+  if (options.media === "image" && !storagePaths.length) throw new Error("created_media_readback_missing");
+  if (options.media === "video" && !wordpressVideoUrls.length) throw new Error("created_video_readback_missing");
   report.evidence.created = {
     state: "verified_in_database",
     postIds: created.ids,
     translationGroupIds: created.translationGroupIds,
     media: options.media,
     storagePaths,
+    wordpressVideoUrls,
   };
   const loginSession = storagePaths.length ? await login(backend, config, `official-editor-ios-real-${randomUUID()}`) : null;
   report.evidence.storageCleanup = loginSession
     ? await cleanupStorageObjects(backend, loginSession, storagePaths)
     : { state: "not_needed", deletedPaths: [] };
   report.evidence.storagePostCleanup = await assertStorageObjectsAbsent(config, storagePaths);
+  report.evidence.wordpressVideoCleanup = await cleanupWordpressVideoUrls(wordpressVideoUrls);
+  report.evidence.wordpressVideoPostCleanup = await assertWordpressVideoUrlsAbsent(wordpressVideoUrls);
   cleanup = await cleanupPosts(config, created.ids, created.translationGroupIds, marker);
   report.cleanup = cleanup;
   report.postCleanupReadback = await assertNoMarkerRows(config, marker, created.translationGroupIds);
@@ -149,6 +158,7 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
       const backend = await publicConfig();
       const found = created.ids.length ? created : await readCreatedRows(config, marker);
       const storagePaths = storagePathsFromMediaUrls(found.mediaUrls ?? []);
+      const wordpressVideoUrls = wordpressVideoUrlsFromMediaUrls(found.mediaUrls ?? []);
       if (storagePaths.length) {
         try {
           const loginSession = await login(backend, config, `official-editor-ios-real-cleanup-${randomUUID()}`);
@@ -159,6 +169,18 @@ bash scripts/run-ios-authenticated-official-editor-ui-test.sh
             state: "rollback_pending",
             storagePaths,
             error: safeFailure(storageError),
+          };
+        }
+      }
+      if (wordpressVideoUrls.length) {
+        try {
+          report.evidence.wordpressVideoCleanup = await cleanupWordpressVideoUrls(wordpressVideoUrls);
+          report.evidence.wordpressVideoPostCleanup = await assertWordpressVideoUrlsAbsent(wordpressVideoUrls);
+        } catch (wordpressError) {
+          report.evidence.wordpressVideoCleanup = {
+            state: "rollback_pending",
+            wordpressVideoUrls,
+            error: safeFailure(wordpressError),
           };
         }
       }
@@ -230,7 +252,7 @@ function parseArgs(args) {
     else if (arg === "--media") values.media = next();
     else throw new Error(`unknown_argument:${arg}`);
   }
-  if (!["none", "image"].includes(values.media)) throw new Error(`unsupported_media:${values.media}`);
+  if (!["none", "image", "video"].includes(values.media)) throw new Error(`unsupported_media:${values.media}`);
   values.output = resolve(values.output);
   values.evidenceDir = resolve(values.evidenceDir);
   return values;
@@ -368,6 +390,52 @@ async function cleanupStorageObjects(backend, session, storagePaths) {
   return { state: "deleted", deletedPaths: storagePaths };
 }
 
+async function cleanupWordpressVideoUrls(videoUrls) {
+  if (!videoUrls.length) return { state: "not_needed", deletedUrls: 0 };
+  const endpoint = wordpressAdminAjaxUrl(videoUrls[0]);
+  for (const url of videoUrls) {
+    if (wordpressAdminAjaxUrl(url) !== endpoint) throw new Error("wordpress_cleanup_failed:mixed_origin");
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "x-client-info": "quata-official-editor-ios-real-evidence",
+      },
+      body: new URLSearchParams({ action: "quqos_delete_post_video", url }).toString(),
+      signal: AbortSignal.timeout(20_000),
+    }).catch(() => null);
+    if (!response) throw new Error("wordpress_cleanup_failed:network");
+    const text = await response.text();
+    if (!response.ok) throw new Error(`wordpress_cleanup_failed:http_${response.status}`);
+    if (/"success"\s*:\s*false/i.test(text)) throw new Error("wordpress_cleanup_failed:success_false");
+  }
+  return { state: "delete_requested", deletedUrls: videoUrls.length };
+}
+
+async function assertWordpressVideoUrlsAbsent(videoUrls) {
+  if (!videoUrls.length) return { state: "not_needed" };
+  const checked = [];
+  for (const url of videoUrls) {
+    const probe = new URL(url);
+    probe.searchParams.set("quata_cleanup_probe", randomUUID());
+    const response = await fetch(probe, {
+      method: "GET",
+      headers: {
+        range: "bytes=0-0",
+        "cache-control": "no-store",
+        "x-client-info": "quata-official-editor-ios-real-evidence",
+      },
+      signal: AbortSignal.timeout(20_000),
+    }).catch(() => null);
+    if (!response) throw new Error("wordpress_post_cleanup_verification_failed:network");
+    checked.push({ urlKind: wordpressVideoUrlKind(url), status: response.status });
+    if (![404, 410].includes(response.status)) {
+      throw new Error(`wordpress_post_cleanup_verification_failed:http_${response.status}`);
+    }
+  }
+  return { state: "verified_absent", checked };
+}
+
 async function assertStorageObjectsAbsent(config, storagePaths) {
   if (!storagePaths.length) return { state: "not_needed" };
   return withPg(config, async (client) => {
@@ -392,6 +460,31 @@ async function assertStorageObjectsAbsent(config, storagePaths) {
 
 function storagePathsFromMediaUrls(mediaUrls) {
   return [...new Set(mediaUrls.map(storagePathFromMediaUrl).filter(Boolean))];
+}
+
+function wordpressVideoUrlsFromMediaUrls(mediaUrls) {
+  return [...new Set(mediaUrls.filter((url) => {
+    if (storagePathFromMediaUrl(url)) return false;
+    try {
+      const parsed = new URL(url);
+      return /^https?:$/i.test(parsed.protocol)
+        && parsed.hostname.toLowerCase().endsWith("egquata.com")
+        && parsed.pathname.includes("/wp-content/uploads/")
+        && parsed.pathname.toLowerCase().endsWith(".mp4");
+    } catch {
+      return false;
+    }
+  }))];
+}
+
+function wordpressAdminAjaxUrl(value) {
+  const parsed = new URL(value);
+  return `${parsed.origin}/wp-admin/admin-ajax.php`;
+}
+
+function wordpressVideoUrlKind(value) {
+  const parsed = new URL(value);
+  return `${parsed.hostname}/wp-content/uploads/${parsed.pathname.split("/").pop()}`;
 }
 
 function storagePathFromMediaUrl(value) {
