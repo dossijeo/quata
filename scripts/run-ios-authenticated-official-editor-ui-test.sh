@@ -7,6 +7,7 @@ set -euo pipefail
 : "${QUATA_IOS_SIMULATOR_UDID:?Set QUATA_IOS_SIMULATOR_UDID.}"
 : "${QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR:=build/reports/ios/authenticated-official-editor-ui}"
 : "${QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS:=300}"
+: "${QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR:=}"
 watchdog="scripts/run-ios-command-watchdog.py"
 [[ -f "$watchdog" ]] || { echo "Missing shared iOS command watchdog: $watchdog" >&2; exit 2; }
 
@@ -119,9 +120,16 @@ else
 fi
 run_and_require() {
   local selected="$1" method="$2" log="$3"
+  local result_args=()
+  if [[ -n "$QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR" ]]; then
+    mkdir -p "$QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR"
+    local result_bundle="$QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR/${method}.xcresult"
+    rm -rf "$result_bundle"
+    result_args=(-resultBundlePath "$result_bundle")
+  fi
   run_bounded "$method" "$QUATA_IOS_OFFICIAL_EDITOR_UI_TIMEOUT_SECONDS" "$log" \
     xcodebuild test-without-building -xctestrun "$xctestrun" \
-    -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" -only-testing:"$selected"
+    -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" "${result_args[@]}" -only-testing:"$selected"
   /usr/bin/python3 scripts/check-ios-xctest-executed.py \
     --method "$method" --log "$log" --require-terminal-success-marker || exit 1
   printf 'PASS_EXECUTED:%s\n' "$method" | tee -a "$log"

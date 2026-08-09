@@ -8,6 +8,8 @@ test('iOS authenticated Official editor UI runner seeds a real session and execu
   assert.match(runner, /QUATA_IOS_AUTH_E2E_FILE/);
   assert.match(runner, /QUATA_IOS_DERIVED_DATA_PATH/);
   assert.match(runner, /QUATA_IOS_SIMULATOR_UDID/);
+  assert.match(runner, /QUATA_IOS_OFFICIAL_EDITOR_UI_RESULT_BUNDLE_DIR/);
+  assert.match(runner, /-resultBundlePath "\$result_bundle"/);
   assert.match(runner, /run-ios-command-watchdog\.py/);
   assert.match(runner, /patched_xctestrun="\$\(dirname "\$xctestrun"\)\//);
   assert.match(runner, /xcrun simctl bootstatus "\$QUATA_IOS_SIMULATOR_UDID" -b/);
