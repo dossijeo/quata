@@ -158,6 +158,7 @@ final class QuataIosHostUITests: XCTestCase {
             // adapter boundary until that diagnostic surface has its own native destination.
             ("https://egquata.com/#editor-qa", "quata-ios-official-host", "Quata iOS Official", "fixture-editor-qa-via-official"),
             ("https://egquata.com/#whats-new", "quata-ios-whats-new-host", "Quata iOS What's New", "fixture-whats-new"),
+            ("https://egquata.com/#about", "quata-ios-about-host", "Quata iOS About", "fixture-about"),
             ("https://egquata.com/#release-history", "quata-ios-release-history-host", "Quata iOS Release History", "fixture-release-history"),
         ]
 

@@ -469,6 +469,8 @@ private final class IosAppCompositionRoot {
                     IosAuthenticatedRouteDispatcher(host: router).openSettings()
                 case "whats-new":
                     IosAuthenticatedRouteDispatcher(host: router).openWhatsNew()
+                case "about":
+                    IosAuthenticatedRouteDispatcher(host: router).openAbout()
                 case "release-history":
                     IosAuthenticatedRouteDispatcher(host: router).openReleaseHistory()
                 default:
@@ -1226,6 +1228,10 @@ private final class IosDeterministicDeepLinkFixtureRouter: UIViewController, Ios
 
     func showWhatsNew() {
         show(identifier: "quata-ios-whats-new-host", label: "Quata iOS What's New")
+    }
+
+    func showAbout() {
+        show(identifier: "quata-ios-about-host", label: "Quata iOS About")
     }
 
     func showReleaseHistory() {

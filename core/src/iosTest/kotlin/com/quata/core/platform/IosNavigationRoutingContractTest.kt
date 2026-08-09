@@ -64,10 +64,11 @@ class IosNavigationRoutingContractTest {
         dispatcher.openComposer()
         dispatcher.openSettings()
         dispatcher.openWhatsNew()
+        dispatcher.openAbout()
         dispatcher.openReleaseHistory()
 
         assertEquals(
-            listOf("notifications", "profileSos", "communities", "composer", "settings", "whatsNew", "releaseHistory"),
+            listOf("notifications", "profileSos", "communities", "composer", "settings", "whatsNew", "about", "releaseHistory"),
             host.calls,
         )
     }
@@ -103,6 +104,7 @@ class IosNavigationRoutingContractTest {
         override fun showComposer() { calls += "composer" }
         override fun showSettings() { calls += "settings" }
         override fun showWhatsNew() { calls += "whatsNew" }
+        override fun showAbout() { calls += "about" }
         override fun showReleaseHistory() { calls += "releaseHistory" }
     }
 }

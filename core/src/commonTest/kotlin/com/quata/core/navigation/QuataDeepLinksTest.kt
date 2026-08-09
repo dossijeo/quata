@@ -10,6 +10,7 @@ class QuataDeepLinksTest {
         assertEquals("https://egquata.com/#post-42", quataPostUrl("42"))
         assertEquals("https://egquata.com/#official-42", quataOfficialPostUrl("42"))
         assertEquals("https://egquata.com/#whats-new", quataWhatsNewUrl())
+        assertEquals("https://egquata.com/#about", quataAboutUrl())
         assertEquals("https://egquata.com/#release-history", quataReleaseHistoryUrl())
         assertEquals("42", "https://egquata.com/#post-42".quataPostIdOrNull())
         assertEquals("42", "https://www.egquata.com/#official-42".quataOfficialPostIdOrNull())
@@ -54,6 +55,7 @@ class QuataDeepLinksTest {
             "https://egquata.com/#editor-qa".quataDeepLinkTargetOrNull(),
         )
         assertEquals(QuataDeepLinkTarget.WhatsNew, quataWhatsNewUrl().quataDeepLinkTargetOrNull())
+        assertEquals(QuataDeepLinkTarget.About, quataAboutUrl().quataDeepLinkTargetOrNull())
         assertEquals(QuataDeepLinkTarget.ReleaseHistory, quataReleaseHistoryUrl().quataDeepLinkTargetOrNull())
     }
 }
