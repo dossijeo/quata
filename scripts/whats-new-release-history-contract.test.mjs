@@ -12,6 +12,7 @@ const ios = await source('../feature/whatsnew/src/iosMain/kotlin/com/quata/featu
 const iosRuntime = await source('../feature/whatsnew/src/iosMain/kotlin/com/quata/feature/whatsnew/presentation/IosWhatsNewRuntimeBootstrap.kt');
 const iosSwift = await source('../iosApp/iosApp/QuataIosApp.swift');
 const iosSwiftTests = await source('../iosApp/iosAppTests/QuataFeedFrameworkTests.swift');
+const iosHostUiTests = await source('../iosApp/iosAppUITests/QuataIosHostUITests.swift');
 const packageJson = JSON.parse(await source('../package.json'));
 const webAndroidWorkflow = await source('../.github/workflows/web-android-pr.yml');
 const iosWorkflow = await source('../.github/workflows/ios-build.yml');
@@ -46,7 +47,15 @@ test('Release History stays common, inspectable and scrollable across hosts', ()
 
 test('About opens the common dialog and links to Release History on Android, Web and iOS', () => {
   assert.match(aboutDialog, /fun QuataAboutDialogContent\(/);
-  assert.match(aboutDialog, /TextButton\(onClick = onOpenReleaseHistory\) \{ Text\(releaseHistoryLabel\) \}/);
+  assert.match(aboutDialog, /const val QuataAboutRootTestTag = "about-common-root"/);
+  assert.match(aboutDialog, /const val QuataAboutBodyTestTag = "about-common-body"/);
+  assert.match(aboutDialog, /const val QuataAboutReleaseHistoryTestTag = "about-release-history"/);
+  assert.match(aboutDialog, /const val QuataAboutCloseTestTag = "about-close"/);
+  assert.match(aboutDialog, /modifier = Modifier\.testTag\(QuataAboutRootTestTag\)/);
+  assert.match(aboutDialog, /testTag\(QuataAboutBodyTestTag\)/);
+  assert.match(aboutDialog, /testTag\(QuataAboutReleaseHistoryTestTag\)/);
+  assert.match(aboutDialog, /testTag\(QuataAboutCloseTestTag\)/);
+  assert.match(aboutDialog, /TextButton\([\s\S]*?onClick = onOpenReleaseHistory,[\s\S]*?modifier = Modifier\.testTag\(QuataAboutReleaseHistoryTestTag\),[\s\S]*?\) \{ Text\(releaseHistoryLabel\) \}/);
   assert.doesNotMatch(aboutDialog, /onOpenReleaseHistory\s*=\s*\{\s*(?:Unit)?\s*\}|onOpenReleaseHistory\s*=\s*(?:noop|Noop|NOOP)/);
 
   assert.match(androidNav, /AboutQuataDialog\([\s\S]*?onOpenReleaseHistory = \{/);
@@ -65,6 +74,7 @@ test('About opens the common dialog and links to Release History on Android, Web
   assert.match(iosRuntime, /onOpenReleaseHistory = onOpenReleaseHistory/);
   assert.match(iosRuntime, /legalLinks = \{ IosAboutLegalLinks\(runtime\.languageTags\) \}/);
   assert.match(iosSwift, /private var aboutFactory: \(\(\) -> UIViewController\)\?/);
+  assert.match(iosSwift, /case "about":\s+IosAuthenticatedRouteDispatcher\(host: router\)\.openAbout\(\)/);
   assert.match(iosSwift, /onLogoClick: \{ \[weak self\] in self\?\.showAbout\(\) \}/);
   assert.match(iosSwift, /func installAboutFactory\(_ factory: @escaping \(\) -> UIViewController\)/);
   assert.match(iosSwift, /func showAbout\(\) \{ route\(\.about\) \}/);
@@ -73,6 +83,8 @@ test('About opens the common dialog and links to Release History on Android, Web
   assert.doesNotMatch(iosSwift, /onLogoClick:\s*\{\s*\}/);
 
   assert.match(iosSwiftTests, /testAuthenticatedRouteMenuExposesWhatsNewAndAboutOnlyAfterTheirLocalFactoriesAreInstalled/);
+  assert.match(iosHostUiTests, /"https:\/\/egquata\.com\/#about", "quata-ios-about-host", "Quata iOS About", "fixture-about"/);
+  assert.match(iosSwiftTests, /dispatcher\.handleUrl\(url: "https:\/\/egquata\.com\/#about"\)[\s\S]*?XCTAssertEqual\(host\.route, \.about\)/);
   assert.match(iosSwiftTests, /router\.installWhatsNewFactory \{ UIViewController\(\) \}[\s\S]*?XCTAssertFalse\(afterInstall\.actions\.contains \{ \$0\.title == "Acerca de Quata" \}\)[\s\S]*?router\.installAboutFactory \{ UIViewController\(\) \}[\s\S]*?XCTAssertTrue\(afterAboutInstall\.actions\.contains \{ \$0\.title == "Acerca de Quata" \}\)/);
 });
 

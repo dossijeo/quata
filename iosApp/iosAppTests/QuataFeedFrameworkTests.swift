@@ -685,6 +685,9 @@ final class QuataFeedFrameworkTests: XCTestCase {
         _ = dispatcher.handleUrl(url: "https://egquata.com/#whats-new")
         XCTAssertEqual(host.route, .whatsNew)
 
+        _ = dispatcher.handleUrl(url: "https://egquata.com/#about")
+        XCTAssertEqual(host.route, .about)
+
         _ = dispatcher.handleUrl(url: "https://egquata.com/#release-history")
         XCTAssertEqual(host.route, .releaseHistory)
 
@@ -2045,6 +2048,7 @@ private final class CapturingAuthenticatedRouteHost: NSObject, IosAuthenticatedR
         case composer
         case settings
         case whatsNew
+        case about
         case releaseHistory
     }
 
@@ -2062,6 +2066,7 @@ private final class CapturingAuthenticatedRouteHost: NSObject, IosAuthenticatedR
     func showComposer() { record(.composer) }
     func showSettings() { record(.settings) }
     func showWhatsNew() { record(.whatsNew) }
+    func showAbout() { record(.about) }
     func showReleaseHistory() { record(.releaseHistory) }
 
     private func record(_ route: Route) {

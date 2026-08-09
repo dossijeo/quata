@@ -20,6 +20,7 @@ sealed class AppDestinations(val route: String) {
     }
     data object Notifications : AppDestinations("notifications")
     data object WhatsNew : AppDestinations("whats_new")
+    data object About : AppDestinations("about")
     data object ReleaseHistory : AppDestinations("release_history")
     data object Profile : AppDestinations("profile")
     data object UserProfile : AppDestinations("user_profile/{userId}") {

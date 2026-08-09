@@ -20,6 +20,7 @@ interface IosAuthenticatedRouteHost {
     fun showComposer()
     fun showSettings()
     fun showWhatsNew()
+    fun showAbout()
     fun showReleaseHistory()
 }
 
@@ -44,6 +45,7 @@ class IosAuthenticatedRouteDispatcher(
             is QuataDeepLinkTarget.OfficialPost -> host.showOfficial(target.postId)
             QuataDeepLinkTarget.RichTextEditorQa -> host.showOfficial(postId = null)
             QuataDeepLinkTarget.WhatsNew -> host.showWhatsNew()
+            QuataDeepLinkTarget.About -> host.showAbout()
             QuataDeepLinkTarget.ReleaseHistory -> host.showReleaseHistory()
         }
     }
@@ -75,6 +77,11 @@ class IosAuthenticatedRouteDispatcher(
     /** Local release catalog; callable from an in-app menu and from the public deep-link parser. */
     fun openWhatsNew() {
         host.showWhatsNew()
+    }
+
+    /** Portable About surface, callable from in-app chrome and public deep links. */
+    fun openAbout() {
+        host.showAbout()
     }
 
     /** Complete local release history, shared by About/menu and public deep links. */

@@ -9,6 +9,7 @@ private const val OfficialPostFragmentPrefix = "official-"
 private const val ChatFragmentPrefix = "chat-"
 private const val RichTextEditorQaFragment = "editor-qa"
 private const val WhatsNewFragment = "whats-new"
+private const val AboutFragment = "about"
 private const val ReleaseHistoryFragment = "release-history"
 
 fun quataPostUrl(postId: String): String = "https://$QuataWebHost/#$PostFragmentPrefix$postId"
@@ -25,6 +26,8 @@ fun quataChatUrl(conversationId: String, messageId: String? = null): String = bu
 }
 
 fun quataWhatsNewUrl(): String = "https://$QuataWebHost/#$WhatsNewFragment"
+
+fun quataAboutUrl(): String = "https://$QuataWebHost/#$AboutFragment"
 
 fun quataReleaseHistoryUrl(): String = "https://$QuataWebHost/#$ReleaseHistoryFragment"
 
@@ -63,6 +66,10 @@ sealed interface QuataDeepLinkTarget {
         override val destination: AppDestinations = AppDestinations.WhatsNew
     }
 
+    data object About : QuataDeepLinkTarget {
+        override val destination: AppDestinations = AppDestinations.About
+    }
+
     data object ReleaseHistory : QuataDeepLinkTarget {
         override val destination: AppDestinations = AppDestinations.ReleaseHistory
     }
@@ -82,6 +89,7 @@ fun String.quataDeepLinkTargetOrNull(): QuataDeepLinkTarget? =
         ?: quataOfficialPostIdOrNull()?.let(QuataDeepLinkTarget::OfficialPost)
         ?: takeIf { it.isQuataRichTextEditorQaLink() }?.let { QuataDeepLinkTarget.RichTextEditorQa }
         ?: takeIf { it.isQuataWhatsNewLink() }?.let { QuataDeepLinkTarget.WhatsNew }
+        ?: takeIf { it.isQuataAboutLink() }?.let { QuataDeepLinkTarget.About }
         ?: takeIf { it.isQuataReleaseHistoryLink() }?.let { QuataDeepLinkTarget.ReleaseHistory }
 
 fun String.quataPostIdOrNull(): String? = quataFragmentOrNull()
@@ -98,6 +106,8 @@ fun String.isQuataRichTextEditorQaLink(): Boolean =
     quataFragmentOrNull() == RichTextEditorQaFragment
 
 fun String.isQuataWhatsNewLink(): Boolean = quataFragmentOrNull() == WhatsNewFragment
+
+fun String.isQuataAboutLink(): Boolean = quataFragmentOrNull() == AboutFragment
 
 fun String.isQuataReleaseHistoryLink(): Boolean = quataFragmentOrNull() == ReleaseHistoryFragment
 
