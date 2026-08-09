@@ -80,4 +80,8 @@ test("Official deep links render only the requested post and retry focused loads
   assert.match(feedViewModel, /private const val FocusedPostLoadAttempts = 4/);
   assert.match(feedViewModel, /repeat\(FocusedPostLoadAttempts\)/);
   assert.match(feedViewModel, /delay\(FocusedPostLoadRetryDelayMillis\)/);
+  assert.match(feedViewModel, /private var exactLoadedPosts: Map<String, OfficialPostItem> = emptyMap\(\)/);
+  assert.match(feedViewModel, /setRealtime\(posts\.withExactLoadedPosts\(\)\)/);
+  assert.match(feedViewModel, /replaceInitialPage\(posts\.withExactLoadedPosts\(\)\)/);
+  assert.match(feedViewModel, /exactLoadedPosts = exactLoadedPosts \+ \(post\.id to post\)/);
 });

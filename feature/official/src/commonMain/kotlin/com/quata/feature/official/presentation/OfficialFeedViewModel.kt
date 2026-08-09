@@ -29,6 +29,7 @@ class OfficialFeedViewModel(
     private var feedJob: Job? = null
     private var refreshJob: Job? = null
     private var loadOlderJob: Job? = null
+    private var exactLoadedPosts: Map<String, OfficialPostItem> = emptyMap()
 
     init {
         observeFeed()
@@ -70,7 +71,7 @@ class OfficialFeedViewModel(
             repository.observeOfficialFeed().collect { result ->
                 result
                     .onSuccess { posts ->
-                        val mergedPosts = feedStore.setRealtime(posts)
+                        val mergedPosts = feedStore.setRealtime(posts.withExactLoadedPosts())
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             isRefreshing = false,
@@ -101,7 +102,7 @@ class OfficialFeedViewModel(
             )
             repository.refreshOfficialFeed()
                 .onSuccess { posts ->
-                    val mergedPosts = feedStore.replaceInitialPage(posts)
+                    val mergedPosts = feedStore.replaceInitialPage(posts.withExactLoadedPosts())
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isRefreshing = false,
@@ -187,6 +188,7 @@ class OfficialFeedViewModel(
     private fun deletePost(postId: String) = scope.launch {
         repository.deletePost(postId)
             .onSuccess {
+                exactLoadedPosts = exactLoadedPosts - postId
                 _uiState.value = _uiState.value.copy(
                     posts = feedStore.remove(postId),
                     message = OfficialFeedMessages.PostDeleted,
@@ -212,6 +214,7 @@ class OfficialFeedViewModel(
             repository.getOfficialPost(postId)
                 .onSuccess { post ->
                     if (post != null && _uiState.value.posts.none { it.id == post.id }) {
+                        exactLoadedPosts = exactLoadedPosts + (post.id to post)
                         _uiState.value = _uiState.value.copy(
                             posts = feedStore.prependIfMissing(post),
                             error = null
@@ -238,10 +241,14 @@ class OfficialFeedViewModel(
     }
 
     private fun replacePost(updated: OfficialPostItem) {
+        exactLoadedPosts = if (updated.id in exactLoadedPosts) exactLoadedPosts + (updated.id to updated) else exactLoadedPosts
         _uiState.value = _uiState.value.copy(
             posts = feedStore.replace(updated)
         )
     }
+
+    private fun List<OfficialPostItem>.withExactLoadedPosts(): List<OfficialPostItem> =
+        (this + exactLoadedPosts.values).distinctBy(OfficialPostItem::id)
 
     companion object {
         private const val OfficialFeedPageSize = 50
