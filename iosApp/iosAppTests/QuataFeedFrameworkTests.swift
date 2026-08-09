@@ -1317,6 +1317,11 @@ final class QuataFeedFrameworkTests: XCTestCase {
                 router.installWhatsNewFactory { controller }
                 router.showWhatsNew()
             }),
+            ("quata-ios-about-host", "Quata iOS About", true, { router, controller in
+                router.installFeedFactory { _ in UIViewController() }
+                router.installAboutFactory { controller }
+                router.showAbout()
+            }),
             ("quata-ios-release-history-host", "Quata iOS Release History", true, { router, controller in
                 router.installFeedFactory { _ in UIViewController() }
                 router.installReleaseHistoryFactory { controller }
@@ -1360,6 +1365,7 @@ final class QuataFeedFrameworkTests: XCTestCase {
 
         XCTAssertFalse(router.routeUsesSecondaryMenu(.composer))
         XCTAssertTrue(router.routeUsesSecondaryMenu(.settings))
+        XCTAssertTrue(router.routeUsesSecondaryMenu(.about))
     }
 
     func testOfficialEditorRouteDefersUntilAuthenticationCompletes() {

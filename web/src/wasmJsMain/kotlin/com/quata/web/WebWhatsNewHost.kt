@@ -5,7 +5,11 @@ package com.quata.web
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.quata.core.moderation.LegalLinks
 import com.quata.core.platform.PreferenceStore
+import com.quata.core.ui.components.QuataAboutDialogContent
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
 import com.quata.feature.whatsnew.data.QuataLocalWhatsNewCatalog
 import com.quata.feature.whatsnew.data.WhatsNewSeenStateStore
@@ -18,12 +22,13 @@ import com.quata.feature.whatsnew.presentation.WhatsNewStartupAcknowledgementSto
 import com.quata.feature.whatsnew.presentation.WhatsNewStartupCoordinator
 import com.quata.feature.whatsnew.presentation.WhatsNewStrings
 
-enum class WebWhatsNewDestination { PendingReleases, ReleaseHistory }
+enum class WebWhatsNewDestination { PendingReleases, About, ReleaseHistory }
 enum class WebWhatsNewOrigin { Startup, Settings, DeepLink }
 
 internal fun webWhatsNewDestination(route: String): WebWhatsNewDestination? = when (route) {
     "whats-new" -> WebWhatsNewDestination.PendingReleases
-    "about", "release-history" -> WebWhatsNewDestination.ReleaseHistory
+    "about" -> WebWhatsNewDestination.About
+    "release-history" -> WebWhatsNewDestination.ReleaseHistory
     else -> null
 }
 
@@ -76,6 +81,17 @@ fun WebWhatsNewHost(
             onClose = onBack,
             modifier = modifier,
         )
+        WebWhatsNewDestination.About -> QuataAboutDialogContent(
+            title = webReleaseHistoryStrings(languageTags).title,
+            version = webAboutVersion(),
+            versionDate = webAboutVersionDate(installedVersionCode),
+            body = webAboutBody(languageTags),
+            releaseHistoryLabel = webReleaseHistoryStrings(languageTags).subtitle,
+            closeLabel = webReleaseHistoryStrings(languageTags).close,
+            onDismiss = onBack,
+            onOpenReleaseHistory = { webSetBrowserFragment("release-history") },
+            legalLinks = { WebAboutLegalLinks(languageTags) },
+        )
         WebWhatsNewDestination.ReleaseHistory -> ReleaseHistoryContent(
             repository = repository,
             languageTags = languageTags,
@@ -84,6 +100,13 @@ fun WebWhatsNewHost(
             modifier = modifier,
         )
     }
+}
+
+@Composable
+private fun WebAboutLegalLinks(languageTags: List<String>) {
+    val labels = webAboutLegalLabels(languageTags)
+    TextButton(onClick = { webOpenExternalUrl(LegalLinks.Privacy) }) { Text(labels.privacy) }
+    TextButton(onClick = { webOpenExternalUrl(LegalLinks.ChildSafety) }) { Text(labels.childSafety) }
 }
 
 internal fun webWhatsNewStrings(languageTags: List<String>): WhatsNewStrings = when {
@@ -102,6 +125,25 @@ internal fun webReleaseHistoryStrings(languageTags: List<String>): ReleaseHistor
     languageTags.isSpanish() -> ReleaseHistoryStrings("Cerrar", "Aún no hay novedades publicadas.", "No se pudo cargar el historial de versiones.", "Acerca de Quata", "Historial de versiones", "Anterior", "Siguiente", { "Versión $it" }, { "Novedades de $it" })
     languageTags.isFrench() -> ReleaseHistoryStrings("Fermer", "Aucune nouveauté publiée.", "Impossible de charger l'historique des versions.", "À propos de Quata", "Historique des versions", "Précédent", "Suivant", { "Version $it" }, { "Nouveautés de $it" })
     else -> ReleaseHistoryStrings("Close", "No releases have been published yet.", "Release history could not be loaded.", "About Quata", "Release history", "Previous", "Next", { "Version $it" }, { "What's new in $it" })
+}
+
+private data class WebAboutLegalLabels(val privacy: String, val childSafety: String)
+
+private fun webAboutVersion(): String = "Version ${webDocumentMeta("quata-version-name") ?: "Web"}"
+
+private fun webAboutVersionDate(installedVersionCode: Long?): String =
+    installedVersionCode?.takeIf { it > 0 }?.let { "Version code: $it" } ?: "Version code: local"
+
+private fun webAboutBody(languageTags: List<String>): String = when {
+    languageTags.isSpanish() -> "Feed comunitario, barrios, chats, favoritos, perfiles y contactos SOS en una experiencia integrada."
+    languageTags.isFrench() -> "Feed communautaire, quartiers, chats, favoris, profils et contacts SOS dans une experience integree."
+    else -> "Community feed, districts, chats, favorites, profiles and SOS contacts in one integrated experience."
+}
+
+private fun webAboutLegalLabels(languageTags: List<String>): WebAboutLegalLabels = when {
+    languageTags.isSpanish() -> WebAboutLegalLabels("Politica de privacidad", "Seguridad infantil y normas de la comunidad")
+    languageTags.isFrench() -> WebAboutLegalLabels("Politique de confidentialite", "Securite des enfants et regles de la communaute")
+    else -> WebAboutLegalLabels("Privacy policy", "Child safety and community standards")
 }
 
 private class WebWhatsNewSeenStateStore : WhatsNewSeenStateStore {
@@ -131,6 +173,9 @@ private class WebWhatsNewStartupAcknowledgementStore(
 }
 
 private fun Long?.orEmpty(): String = this?.toString().orEmpty()
+private fun webDocumentMeta(name: String): String? = js("globalThis.document?.querySelector('meta[name=\"' + name + '\"]')?.content || null")
+private fun webOpenExternalUrl(url: String): Unit = js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
+private fun webSetBrowserFragment(fragment: String): Unit = js("globalThis.location.hash = fragment")
 private const val WebSeenKey = "quata.whatsnew.web.state.v1"
 private const val WebStartupAcknowledgementKey = "quata.whatsnew.web.startup_ack.v1"
 private fun webLocalStorageGet(key: String): String? = js("globalThis.localStorage?.getItem(key) ?? null")

@@ -227,6 +227,7 @@ private fun QuataWebApp(
     // resumes the product journey instead of dropping the person at an unrelated destination.
     var pendingAuthenticationFragment by remember { mutableStateOf<String?>(null) }
     var whatsNewOrigin by remember { mutableStateOf<WebWhatsNewOrigin?>(null) }
+    var whatsNewReturnFragment by remember { mutableStateOf<String?>(null) }
     var hasEvaluatedWhatsNewStartup by remember { mutableStateOf(false) }
     // Auth is a full-screen product flow.  The participation gate is a separate common
     // dialog over the public shell, mirroring Android's AppNavGraph contract.
@@ -483,6 +484,9 @@ private fun QuataWebApp(
                 strings = WebAuthenticatedChromeStrings,
                 onLogoClick = {
                     whatsNewOrigin = WebWhatsNewOrigin.Settings
+                    if (webWhatsNewDestination(navigation.route) == null) {
+                        whatsNewReturnFragment = navigation.fragment
+                    }
                     navigation.navigate("about")
                 },
                 // Android exposes the Notifications surface from the public header.  Its
@@ -554,16 +558,18 @@ private fun QuataWebApp(
                         repository = whatsNewRepository,
                         installedVersionCode = whatsNewInstalledVersionCode,
                         onBack = {
-                            val returnFragment = webWhatsNewReturnFragment(origin)
+                            val returnFragment = whatsNewReturnFragment ?: webWhatsNewReturnFragment(origin)
                             if (origin == WebWhatsNewOrigin.Startup) {
                                 scope.launch {
                                     whatsNewStartupCoordinator.acknowledge(whatsNewInstalledVersionCode)
                                     navigation.navigate(returnFragment)
                                     whatsNewOrigin = null
+                                    whatsNewReturnFragment = null
                                 }
                             } else {
                                 navigation.navigate(returnFragment)
                                 whatsNewOrigin = null
+                                whatsNewReturnFragment = null
                             }
                         },
                     )
