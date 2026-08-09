@@ -47,13 +47,9 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
 
         let titleText = "QADATA iOS \(marker)"
         let summaryText = "Publicacion reversible desde iOS \(marker)"
-        if environment["QUATA_IOS_OFFICIAL_EDITOR_MEDIA_FIXTURE_TYPE"] == "video" {
-            typeText("\(titleText)\n\(summaryText)", into: "quata-portable-rich-text-field", in: app)
-        } else {
-            switchToAdvancedMode(in: app)
-            typeText(titleText, into: "official-editor-advanced-title", in: app)
-            typeText(summaryText, into: "official-editor-advanced-summary", in: app)
-        }
+        switchToAdvancedMode(in: app)
+        typeText(titleText, into: "official-editor-advanced-title", in: app)
+        typeText(summaryText, into: "official-editor-advanced-summary", in: app)
         try selectMediaIfRequested(in: app)
         dismissKeyboardIfPresent(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "authenticated-official-editor-real-filled")
