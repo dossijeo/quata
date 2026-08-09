@@ -77,6 +77,11 @@ test("iOS permission evidence covers non-official sessions without requesting mu
   assert.match(runner, /QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE=1/);
   assert.match(runner, /verified_ineligible_session_cannot_open_editor/);
   assert.match(runner, /mutation: "not_requested"/);
+  assert.match(runner, /prepareNonOfficialProfile/);
+  assert.match(runner, /select is_official from public\.community_profiles where id = \$1::uuid for update/);
+  assert.match(runner, /update public\.community_profiles set is_official = false where id = \$1::uuid/);
+  assert.match(runner, /restoreProfileOfficialRole/);
+  assert.match(runner, /permissionProfileRestore/);
   assert.match(uiTest, /testAuthenticatedSessionCannotOpenOfficialEditorWhenIneligible/);
   assert.match(uiTest, /QUATA_IOS_OFFICIAL_EDITOR_EXPECT_INELIGIBLE/);
   assert.match(uiTest, /authenticated-official-editor-ineligible-blocked/);

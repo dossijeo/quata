@@ -58,6 +58,11 @@ test("Web real evidence covers non-official permission denial without backend mu
   assert.match(webRealEvidence, /localStorage\.getItem\("web\.navigation\.route"\) === "official"/);
   assert.match(webRealEvidence, /#official-editor-common-root/);
   assert.match(webRealEvidence, /non_official_session_cannot_open_common_official_editor/);
+  assert.match(webRealEvidence, /prepareNonOfficialProfile/);
+  assert.match(webRealEvidence, /select is_official from public\.community_profiles where id = \$1::uuid for update/);
+  assert.match(webRealEvidence, /update public\.community_profiles set is_official = false where id = \$1::uuid/);
+  assert.match(webRealEvidence, /restoreProfileOfficialRole/);
+  assert.match(webRealEvidence, /permissionProfileRestore/);
   assert.match(packageJson.scripts["evidence:web-official-editor-permissions"], /--expect-ineligible/);
 });
 

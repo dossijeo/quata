@@ -46,9 +46,12 @@ let marker;
 let visibleMarker;
 let created = { ids: [], translationGroupIds: [] };
 let cleanup = { state: "not_started" };
+let runtimeConfig;
+let permissionProfileRollback;
 
 try {
   const config = requireEnvironment();
+  runtimeConfig = config;
   const backend = await publicConfig();
   const wordpressBase = await wordpressBaseUrl();
   distribution = await configuredDistribution(options.distribution, backend);
@@ -56,6 +59,15 @@ try {
   marker = `official-web-ui-${randomUUID()}`;
   visibleMarker = marker.replace(/[^a-z0-9]/gi, "").slice(-10);
   server = await startServer(distribution, wordpressBase);
+  if (options.expectIneligible) {
+    permissionProfileRollback = await prepareNonOfficialProfile(backend, config);
+    report.evidence.permissionProfile = {
+      state: "forced_non_official_for_evidence",
+      profileId: permissionProfileRollback.profileId,
+      previousIsOfficial: permissionProfileRollback.previousIsOfficial,
+    };
+    report.steps.push("non_official_profile_role_prepared_reversibly");
+  }
 
   const loginSession = await login(backend, config, `official-editor-web-real-${randomUUID()}`);
   report.steps.push(options.expectIneligible
@@ -275,6 +287,22 @@ try {
   }
   }
 } finally {
+  if (permissionProfileRollback && runtimeConfig) {
+    try {
+      report.evidence.permissionProfileRestore = await restoreProfileOfficialRole(runtimeConfig, permissionProfileRollback);
+    } catch (restoreError) {
+      report.evidence.permissionProfileRestore = {
+        state: "rollback_pending",
+        profileId: permissionProfileRollback.profileId,
+        previousIsOfficial: permissionProfileRollback.previousIsOfficial,
+        error: safeFailure(restoreError),
+      };
+      if (report.status === "passed") {
+        report.status = "failed";
+        report.error = "permission_profile_restore_failed";
+      }
+    }
+  }
   await context?.close().catch(() => {});
   await browser?.close().catch(() => {});
   await server?.close().catch(() => {});
@@ -532,6 +560,59 @@ async function withPg(config, action) {
   } finally {
     await client.end();
   }
+}
+
+async function prepareNonOfficialProfile(backend, config) {
+  const session = await login(backend, config, `official-editor-web-permission-${randomUUID()}`);
+  if (!session.userId) throw new Error("permission_profile_id_missing");
+  return withPg(config, async (client) => {
+    await client.query("begin");
+    try {
+      const current = await client.query({
+        text: "select is_official from public.community_profiles where id = $1::uuid for update",
+        values: [session.userId],
+      });
+      if (current.rowCount !== 1) throw new Error("permission_profile_missing");
+      const previousIsOfficial = current.rows[0]?.is_official === true;
+      await client.query({
+        text: "update public.community_profiles set is_official = false where id = $1::uuid",
+        values: [session.userId],
+      });
+      await client.query("commit");
+      return { profileId: session.userId, previousIsOfficial };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+async function restoreProfileOfficialRole(config, rollback) {
+  return withPg(config, async (client) => {
+    await client.query("begin");
+    try {
+      await client.query({
+        text: "update public.community_profiles set is_official = $2 where id = $1::uuid",
+        values: [rollback.profileId, rollback.previousIsOfficial],
+      });
+      const restored = await client.query({
+        text: "select is_official from public.community_profiles where id = $1::uuid",
+        values: [rollback.profileId],
+      });
+      if (restored.rows[0]?.is_official !== rollback.previousIsOfficial) {
+        throw new Error("permission_profile_restore_verification_failed");
+      }
+      await client.query("commit");
+      return {
+        state: "restored",
+        profileId: rollback.profileId,
+        restoredIsOfficial: rollback.previousIsOfficial,
+      };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
 }
 
 async function readCreatedRows(config, uniqueMarker) {
