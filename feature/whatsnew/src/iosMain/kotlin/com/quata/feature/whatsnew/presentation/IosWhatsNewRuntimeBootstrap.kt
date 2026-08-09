@@ -1,7 +1,11 @@
 package com.quata.feature.whatsnew.presentation
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.quata.core.moderation.LegalLinks
 import com.quata.core.platform.PlatformResult
 import com.quata.feature.whatsnew.data.IosWhatsNewSeenStateStore
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
@@ -11,7 +15,9 @@ import kotlin.concurrent.Volatile
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import platform.Foundation.NSBundle
+import platform.Foundation.NSURL
 import platform.Foundation.NSUserDefaults
+import platform.UIKit.UIApplication
 import platform.UIKit.UIViewController
 
 class IosWhatsNewRuntimeBootstrap internal constructor(
@@ -115,6 +121,25 @@ fun QuataIosReleaseHistoryViewController(
     ),
 )
 
+/** Menu/About destination: shared About dialog with a real path to release history. */
+fun QuataIosAboutViewController(
+    runtime: IosWhatsNewRuntimeBootstrap,
+    onClose: () -> Unit,
+    onOpenReleaseHistory: () -> Unit,
+): UIViewController = QuataAboutViewController(
+    IosAboutHostDependencies(
+        title = runtime.releaseHistoryStrings().title,
+        version = iosAboutVersion(runtime),
+        versionDate = iosAboutVersionDate(runtime),
+        body = iosAboutBody(runtime.languageTags),
+        releaseHistoryLabel = runtime.releaseHistoryStrings().subtitle,
+        closeLabel = runtime.releaseHistoryStrings().close,
+        onDismiss = onClose,
+        onOpenReleaseHistory = onOpenReleaseHistory,
+        legalLinks = { IosAboutLegalLinks(runtime.languageTags) },
+    ),
+)
+
 enum class IosWhatsNewRoute { PendingReleases, ReleaseHistory }
 
 fun interface IosWhatsNewRouteHost {
@@ -172,6 +197,43 @@ private fun iosReleaseHistoryStrings(tags: List<String>): ReleaseHistoryStrings 
     tags.isSpanish() -> ReleaseHistoryStrings("Cerrar", "No hay versiones disponibles.", "No se pudo cargar el historial.", "Acerca de Quata", "Historial de versiones", "Anterior", "Siguiente", { "Version $it" }, { "Novedades de $it" })
     tags.isFrench() -> ReleaseHistoryStrings("Fermer", "Aucune nouveauté publiée.", "Impossible de charger l'historique des versions.", "À propos de Quata", "Historique des versions", "Précédent", "Suivant", { "Version $it" }, { "Nouveautés de $it" })
     else -> ReleaseHistoryStrings("Close", "No releases are available.", "Release history could not be loaded.", "About Quata", "Release history", "Previous", "Next", { "Version $it" }, { "What's new in $it" })
+}
+
+@Composable
+private fun IosAboutLegalLinks(tags: List<String>) {
+    val labels = iosAboutLegalLabels(tags)
+    TextButton(onClick = { openIosExternalUrl(LegalLinks.Privacy) }) { Text(labels.privacy) }
+    TextButton(onClick = { openIosExternalUrl(LegalLinks.ChildSafety) }) { Text(labels.childSafety) }
+}
+
+private data class IosAboutLegalLabels(val privacy: String, val childSafety: String)
+
+private fun iosAboutVersion(runtime: IosWhatsNewRuntimeBootstrap): String = when {
+    runtime.languageTags.isSpanish() -> "Version ${runtime.installedVersionName}"
+    runtime.languageTags.isFrench() -> "Version ${runtime.installedVersionName}"
+    else -> "Version ${runtime.installedVersionName}"
+}
+
+private fun iosAboutVersionDate(runtime: IosWhatsNewRuntimeBootstrap): String = when {
+    runtime.languageTags.isSpanish() -> "Codigo de version: ${runtime.installedVersionCode}"
+    runtime.languageTags.isFrench() -> "Code de version : ${runtime.installedVersionCode}"
+    else -> "Version code: ${runtime.installedVersionCode}"
+}
+
+private fun iosAboutBody(tags: List<String>): String = when {
+    tags.isSpanish() -> "Feed comunitario, barrios, chats, favoritos, perfiles y contactos SOS en una experiencia integrada."
+    tags.isFrench() -> "Feed communautaire, quartiers, chats, favoris, profils et contacts SOS dans une experience integree."
+    else -> "Community feed, districts, chats, favorites, profiles and SOS contacts in one integrated experience."
+}
+
+private fun iosAboutLegalLabels(tags: List<String>): IosAboutLegalLabels = when {
+    tags.isSpanish() -> IosAboutLegalLabels("Politica de privacidad", "Seguridad infantil y normas de la comunidad")
+    tags.isFrench() -> IosAboutLegalLabels("Politique de confidentialite", "Securite des enfants et regles de la communaute")
+    else -> IosAboutLegalLabels("Privacy policy", "Child safety and community standards")
+}
+
+private fun openIosExternalUrl(url: String) {
+    NSURL.URLWithString(url)?.let { UIApplication.sharedApplication.openURL(it) }
 }
 
 private fun List<String>.isSpanish(): Boolean = any { it.substringBefore('-').equals("es", ignoreCase = true) }

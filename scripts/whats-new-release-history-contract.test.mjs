@@ -3,10 +3,15 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
 const releaseHistory = await source('../feature/whatsnew/src/commonMain/kotlin/com/quata/feature/whatsnew/presentation/ReleaseHistoryContent.kt');
+const aboutDialog = await source('../designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataAboutDialogContent.kt');
 const android = await source('../app/src/main/java/com/quata/feature/whatsnew/presentation/ReleaseHistoryScreen.kt');
+const androidNav = await source('../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt');
 const web = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt');
+const webMain = await source('../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt');
 const ios = await source('../feature/whatsnew/src/iosMain/kotlin/com/quata/feature/whatsnew/presentation/QuataWhatsNewViewController.kt');
 const iosRuntime = await source('../feature/whatsnew/src/iosMain/kotlin/com/quata/feature/whatsnew/presentation/IosWhatsNewRuntimeBootstrap.kt');
+const iosSwift = await source('../iosApp/iosApp/QuataIosApp.swift');
+const iosSwiftTests = await source('../iosApp/iosAppTests/QuataFeedFrameworkTests.swift');
 const packageJson = JSON.parse(await source('../package.json'));
 const webAndroidWorkflow = await source('../.github/workflows/web-android-pr.yml');
 const iosWorkflow = await source('../.github/workflows/ios-build.yml');
@@ -37,6 +42,38 @@ test('Release History stays common, inspectable and scrollable across hosts', ()
   assert.match(iosRuntime, /onClose: \(\) -> Unit/);
   assert.match(iosRuntime, /onBack = onClose/);
   assert.doesNotMatch(iosRuntime, /onClose\s*=\s*\{\s*(?:Unit)?\s*\}|onClose\s*=\s*(?:noop|Noop|NOOP)/);
+});
+
+test('About opens the common dialog and links to Release History on Android, Web and iOS', () => {
+  assert.match(aboutDialog, /fun QuataAboutDialogContent\(/);
+  assert.match(aboutDialog, /TextButton\(onClick = onOpenReleaseHistory\) \{ Text\(releaseHistoryLabel\) \}/);
+  assert.doesNotMatch(aboutDialog, /onOpenReleaseHistory\s*=\s*\{\s*(?:Unit)?\s*\}|onOpenReleaseHistory\s*=\s*(?:noop|Noop|NOOP)/);
+
+  assert.match(androidNav, /AboutQuataDialog\([\s\S]*?onOpenReleaseHistory = \{/);
+  assert.match(androidNav, /QuataAboutDialogContent\([\s\S]*?onOpenReleaseHistory = onOpenReleaseHistory,/);
+
+  assert.match(web, /enum class WebWhatsNewDestination \{ PendingReleases, About, ReleaseHistory \}/);
+  assert.match(web, /"about" -> WebWhatsNewDestination\.About/);
+  assert.doesNotMatch(web, /"about", "release-history" -> WebWhatsNewDestination\.ReleaseHistory/);
+  assert.match(web, /WebWhatsNewDestination\.About -> QuataAboutDialogContent\(/);
+  assert.match(web, /onOpenReleaseHistory = \{ webSetBrowserFragment\("release-history"\) \}/);
+  assert.match(webMain, /var whatsNewReturnFragment by remember \{ mutableStateOf<String\?>\(null\) \}/);
+  assert.match(webMain, /onLogoClick = \{[\s\S]*?if \(webWhatsNewDestination\(navigation\.route\) == null\) \{[\s\S]*?whatsNewReturnFragment = navigation\.fragment[\s\S]*?\}[\s\S]*?navigation\.navigate\("about"\)/);
+
+  assert.match(ios, /fun QuataAboutViewController\(dependencies: IosAboutHostDependencies\): UIViewController/);
+  assert.match(iosRuntime, /fun QuataIosAboutViewController\(/);
+  assert.match(iosRuntime, /onOpenReleaseHistory = onOpenReleaseHistory/);
+  assert.match(iosRuntime, /legalLinks = \{ IosAboutLegalLinks\(runtime\.languageTags\) \}/);
+  assert.match(iosSwift, /private var aboutFactory: \(\(\) -> UIViewController\)\?/);
+  assert.match(iosSwift, /onLogoClick: \{ \[weak self\] in self\?\.showAbout\(\) \}/);
+  assert.match(iosSwift, /func installAboutFactory\(_ factory: @escaping \(\) -> UIViewController\)/);
+  assert.match(iosSwift, /func showAbout\(\) \{ route\(\.about\) \}/);
+  assert.match(iosSwift, /case \.about:\s+return aboutFactory\?\(\)/);
+  assert.match(iosSwift, /case \.about:\s+presentation = \("quata-ios-about-host", "Quata iOS About"\)/);
+  assert.doesNotMatch(iosSwift, /onLogoClick:\s*\{\s*\}/);
+
+  assert.match(iosSwiftTests, /testAuthenticatedRouteMenuExposesWhatsNewAndAboutOnlyAfterTheirLocalFactoriesAreInstalled/);
+  assert.match(iosSwiftTests, /router\.installWhatsNewFactory \{ UIViewController\(\) \}[\s\S]*?XCTAssertFalse\(afterInstall\.actions\.contains \{ \$0\.title == "Acerca de Quata" \}\)[\s\S]*?router\.installAboutFactory \{ UIViewController\(\) \}[\s\S]*?XCTAssertTrue\(afterAboutInstall\.actions\.contains \{ \$0\.title == "Acerca de Quata" \}\)/);
 });
 
 test('Release History parity contract runs in local scripts and CI workflows', () => {

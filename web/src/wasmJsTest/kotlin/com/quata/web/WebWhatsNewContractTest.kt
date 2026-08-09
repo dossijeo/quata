@@ -9,7 +9,7 @@ class WebWhatsNewContractTest {
     @Test
     fun routesKeepPendingAndHistoryAsSeparateDestinations() {
         assertEquals(WebWhatsNewDestination.PendingReleases, webWhatsNewDestination("whats-new"))
-        assertEquals(WebWhatsNewDestination.ReleaseHistory, webWhatsNewDestination("about"))
+        assertEquals(WebWhatsNewDestination.About, webWhatsNewDestination("about"))
         assertEquals(WebWhatsNewDestination.ReleaseHistory, webWhatsNewDestination("release-history"))
         assertNull(webWhatsNewDestination("feed"))
     }

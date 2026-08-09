@@ -1024,6 +1024,13 @@ private final class IosAppCompositionRoot {
                 },
             )
         }
+        authenticatedHost.installAboutFactory { [weak self] in
+            IosWhatsNewRuntimeBootstrapKt.QuataIosAboutViewController(
+                runtime: whatsNewRuntimeBootstrap,
+                onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                onOpenReleaseHistory: { [weak self] in self?.authenticatedHost.showReleaseHistory() },
+            )
+        }
         authenticatedHost.installReleaseHistoryFactory { [weak self] in
             IosWhatsNewRuntimeBootstrapKt.QuataIosReleaseHistoryViewController(
                 runtime: whatsNewRuntimeBootstrap,
@@ -1292,6 +1299,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var composerFactory: (() -> UIViewController)?
     private var settingsFactory: (() -> UIViewController)?
     private var whatsNewFactory: (() -> UIViewController)?
+    private var aboutFactory: (() -> UIViewController)?
     private var releaseHistoryFactory: (() -> UIViewController)?
     enum AuthenticationEntry { case login, registration }
     private var authenticationFactory: ((AuthenticationEntry) -> UIViewController)?
@@ -1323,9 +1331,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     /// below decide whether a selected destination must first acquire a session.
     private var isSharedShellInstalled = false
     private lazy var authenticatedTopChromeHost = IosAuthenticatedTopChromeHost(
-        // iOS has no About route equivalent yet. Keep this callback explicit instead of mapping
-        // the shared Q̈ mark to an unrelated release-history route.
-        onLogoClick: {},
+        onLogoClick: { [weak self] in self?.showAbout() },
         onNotificationsClick: { [weak self] in self?.showNotifications() },
         onSosClick: { [weak self] in self?.showProfileSos() },
     )
@@ -1366,11 +1372,12 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case composer
         case settings
         case whatsNew
+        case about
         case releaseHistory
 
         var isAuthenticationRequired: Bool {
             switch self {
-            case .feed, .official, .whatsNew, .releaseHistory:
+            case .feed, .official, .whatsNew, .about, .releaseHistory:
                 return false
             // Android opens Communities and Notifications anonymously; individual detail
             // actions retain their own route/mutation gates.
@@ -1676,6 +1683,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         composerFactory = fixture
         settingsFactory = fixture
         whatsNewFactory = fixture
+        aboutFactory = fixture
         releaseHistoryFactory = fixture
         hasAuthenticatedSession = true
         routeMenuButton.isHidden = false
@@ -1897,6 +1905,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         renderPendingRouteIfPossible()
     }
 
+    func installAboutFactory(_ factory: @escaping () -> UIViewController) {
+        aboutFactory = factory
+        renderPendingRouteIfPossible()
+    }
+
     func installReleaseHistoryFactory(_ factory: @escaping () -> UIViewController) {
         releaseHistoryFactory = factory
         renderPendingRouteIfPossible()
@@ -1925,6 +1938,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     func showSettings() { route(.settings) }
 
     func showWhatsNew() { route(.whatsNew) }
+
+    func showAbout() { route(.about) }
 
     /// Startup evaluation is asynchronous. Never replace a route selected while it was running.
     @discardableResult
@@ -1993,8 +2008,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if whatsNewFactory != nil {
             sheet.addAction(UIAlertAction(title: "Novedades", style: .default) { [weak self] _ in self?.showWhatsNew() })
         }
-        if releaseHistoryFactory != nil {
-            sheet.addAction(UIAlertAction(title: "Acerca de Quata", style: .default) { [weak self] _ in self?.showReleaseHistory() })
+        if aboutFactory != nil {
+            sheet.addAction(UIAlertAction(title: "Acerca de Quata", style: .default) { [weak self] _ in self?.showAbout() })
         }
         if logoutAction != nil {
             sheet.addAction(UIAlertAction(
@@ -2139,6 +2154,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             return settingsFactory?()
         case .whatsNew:
             return whatsNewFactory?()
+        case .about:
+            return aboutFactory?()
         case .releaseHistory:
             return releaseHistoryFactory?()
         }
@@ -2188,6 +2205,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             presentation = ("quata-ios-settings-host", "Quata iOS Settings")
         case .whatsNew:
             presentation = ("quata-ios-whats-new-host", "Quata iOS What's New")
+        case .about:
+            presentation = ("quata-ios-about-host", "Quata iOS About")
         case .releaseHistory:
             presentation = ("quata-ios-release-history-host", "Quata iOS Release History")
         }
@@ -2215,7 +2234,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         switch route {
         case .feed, .chat, .official, .profileSos, .communities:
             return false
-        case .officialEditor, .notifications, .settings, .whatsNew, .releaseHistory:
+        case .officialEditor, .notifications, .settings, .whatsNew, .about, .releaseHistory:
             return true
         case .composer:
             return false
