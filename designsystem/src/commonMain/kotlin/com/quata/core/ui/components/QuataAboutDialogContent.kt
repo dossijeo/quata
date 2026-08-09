@@ -14,8 +14,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+
+const val QuataAboutRootTestTag = "about-common-root"
+const val QuataAboutBodyTestTag = "about-common-body"
+const val QuataAboutReleaseHistoryTestTag = "about-release-history"
+const val QuataAboutCloseTestTag = "about-close"
 
 /** Portable About dialog; hosts inject legal-link actions and navigation destinations. */
 @Composable
@@ -31,10 +37,11 @@ fun QuataAboutDialogContent(
     legalLinks: @Composable () -> Unit,
 ) {
     AlertDialog(
+        modifier = Modifier.testTag(QuataAboutRootTestTag),
         onDismissRequest = onDismiss,
         title = { Text(title, fontWeight = FontWeight.ExtraBold) },
         text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()).testTag(QuataAboutBodyTestTag)) {
                 Text(version)
                 Spacer(Modifier.height(8.dp))
                 Text(versionDate)
@@ -46,8 +53,14 @@ fun QuataAboutDialogContent(
         },
         confirmButton = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onOpenReleaseHistory) { Text(releaseHistoryLabel) }
-                TextButton(onClick = onDismiss) { Text(closeLabel) }
+                TextButton(
+                    onClick = onOpenReleaseHistory,
+                    modifier = Modifier.testTag(QuataAboutReleaseHistoryTestTag),
+                ) { Text(releaseHistoryLabel) }
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag(QuataAboutCloseTestTag),
+                ) { Text(closeLabel) }
             }
         },
     )

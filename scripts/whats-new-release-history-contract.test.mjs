@@ -46,7 +46,15 @@ test('Release History stays common, inspectable and scrollable across hosts', ()
 
 test('About opens the common dialog and links to Release History on Android, Web and iOS', () => {
   assert.match(aboutDialog, /fun QuataAboutDialogContent\(/);
-  assert.match(aboutDialog, /TextButton\(onClick = onOpenReleaseHistory\) \{ Text\(releaseHistoryLabel\) \}/);
+  assert.match(aboutDialog, /const val QuataAboutRootTestTag = "about-common-root"/);
+  assert.match(aboutDialog, /const val QuataAboutBodyTestTag = "about-common-body"/);
+  assert.match(aboutDialog, /const val QuataAboutReleaseHistoryTestTag = "about-release-history"/);
+  assert.match(aboutDialog, /const val QuataAboutCloseTestTag = "about-close"/);
+  assert.match(aboutDialog, /modifier = Modifier\.testTag\(QuataAboutRootTestTag\)/);
+  assert.match(aboutDialog, /testTag\(QuataAboutBodyTestTag\)/);
+  assert.match(aboutDialog, /testTag\(QuataAboutReleaseHistoryTestTag\)/);
+  assert.match(aboutDialog, /testTag\(QuataAboutCloseTestTag\)/);
+  assert.match(aboutDialog, /TextButton\([\s\S]*?onClick = onOpenReleaseHistory,[\s\S]*?modifier = Modifier\.testTag\(QuataAboutReleaseHistoryTestTag\),[\s\S]*?\) \{ Text\(releaseHistoryLabel\) \}/);
   assert.doesNotMatch(aboutDialog, /onOpenReleaseHistory\s*=\s*\{\s*(?:Unit)?\s*\}|onOpenReleaseHistory\s*=\s*(?:noop|Noop|NOOP)/);
 
   assert.match(androidNav, /AboutQuataDialog\([\s\S]*?onOpenReleaseHistory = \{/);
