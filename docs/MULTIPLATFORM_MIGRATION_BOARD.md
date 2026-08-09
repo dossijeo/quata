@@ -10,12 +10,14 @@
 #156, #159, #168, #169, #170, #172, #173, #174, #175, #190, #191, #192, #193, #204, #206, #208,
 #210, #211, #212, #214, #215 y #216. El proyecto sigue incompleto: #215 cierra `SCR-AUTH-RECOVERY` con
 raíz común Android/Wasm/iOS, evidencias focales y reales, limpieza Supabase verificada y certificación
-final verde; #216 actualiza su post-merge documental. El candidato local
-`1ddff1930ae17caa1d29d091f6a69cbdb4443a46` declara GO local de `SCR-OFFICIAL-EDITOR`
-con Android/Web/iOS reales, limpieza exacta y comparativa visual final. La migracion RLS `20260808_0001_official_posts_actor_guard.sql` fue aplicada
-remotamente como SQL exacto versionado, sin `supabase db push` ni `migration repair`; el gate real
-`OFFICIAL-EDITOR-REAL-BACKEND-001` paso con cuenta no oficial denegada, publicacion oficial, lectura
-publica y hard-delete verificado.
+final verde; #216 actualiza su post-merge documental. El candidato PR #217
+`3c0a0a50dd59f759d5b36aa94f070f1f0c615deb` reabre el cierre de `SCR-OFFICIAL-EDITOR`
+tras invalidar el falso positivo Web anterior: Web/Wasm ya acredita post exacto creado con lectura autenticada,
+gate visual por pixeles, captura real y limpieza exacta en `build-reports/web/official-editor-final-visual-evidence-r10.json`.
+La migracion RLS `20260808_0001_official_posts_actor_guard.sql` fue aplicada remotamente como SQL exacto versionado,
+sin `supabase db push` ni `migration repair`; el postflight actual
+`OFFICIAL-EDITOR-REAL-BACKEND-001` paso en `build-reports/official-editor/real-backend-evidence-3c0a0a50.json`.
+Android/iOS y la comparativa final deben repetirse sobre el SHA candidato antes de declarar GO global.
 
 | Área | Estado | Qué acredita | Límite vigente |
 | --- | --- | --- | --- |
@@ -152,8 +154,8 @@ no una nueva evidencia de producto.
 
 ## Próxima cola
 
-1. `SCR-OFFICIAL-EDITOR` queda en GO local desde `1ddff1930ae17caa1d29d091f6a69cbdb4443a46`: Android, Web/Wasm e iOS acreditan publicacion real reversible, validacion/error comun sin mutacion, permisos UI no oficiales, limpieza exacta y comparativa visual final. Web/Wasm mantiene publicacion real reversible de texto, imagen y video con cleanup Storage/WordPress segun medio; iOS mantiene texto, imagen y video, y el cierre final sin medio sobre el SHA actual; Android mantiene publicacion real y ruta directa protegida por rol. Evidencias finales del mismo SHA: `build-reports/android/official-editor-real-evidence.json`, `build-reports/web/official-editor-final-visual-evidence-r2.json`, `build-reports/ios/official-editor-final-visual-evidence-r3.json` y `build-reports/official-editor/final-visual-comparison/official-editor-final-visual-comparison.md`. `LANG-FASTTEXT-PARITY-001` sigue siendo invariante: no reintroducir detectores basicos paralelos.
-2. Mantener el postflight RLS de Official en cada cierre del editor: `OFFICIAL-EDITOR-REAL-BACKEND-001` debe seguir pasando y cualquier rollout futuro debe recordar que `20260808_0001_official_posts_actor_guard.sql` se aplico manualmente sin sincronizar historial de migraciones.
+1. `SCR-OFFICIAL-EDITOR` queda reabierto en candidato PR #217 `3c0a0a50dd59f759d5b36aa94f070f1f0c615deb`: Web/Wasm ya corrige el falso positivo anterior y acredita publicacion real reversible, lectura exacta autenticada, captura con gate visual por pixeles y limpieza exacta en `build-reports/web/official-editor-final-visual-evidence-r10.json`. `LANG-FASTTEXT-PARITY-001` sigue siendo invariante: no reintroducir detectores basicos paralelos; FastText compartido es la referencia Android/Web/iOS.
+2. Mantener el postflight RLS de Official en cada cierre del editor: `OFFICIAL-EDITOR-REAL-BACKEND-001` paso en `build-reports/official-editor/real-backend-evidence-3c0a0a50.json`; cualquier rollout futuro debe recordar que `20260808_0001_official_posts_actor_guard.sql` se aplico manualmente sin sincronizar historial de migraciones. Falta repetir Android/iOS y la comparativa final sobre el SHA candidato antes de declarar GO global.
 3. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y los visores/retornos pendientes de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
 4. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
 5. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
