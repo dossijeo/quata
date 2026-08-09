@@ -916,8 +916,10 @@ async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {
 
 async function waitForCreatedOfficialPostRender(page, postId, visibleMarker, evidenceDir, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs;
+  let lastDiagnostics = null;
   while (Date.now() < deadline) {
     const diagnostics = await routeDiagnostics(page);
+    lastDiagnostics = diagnostics;
     const hasRoute = diagnostics.route === `official/${postId}` && diagnostics.shellRoute === `official/${postId}`;
     const hasPostId = diagnostics.officialIds.includes(`official-post-card-${postId}`)
       || diagnostics.text.includes(postId);
@@ -925,6 +927,7 @@ async function waitForCreatedOfficialPostRender(page, postId, visibleMarker, evi
     if (hasRoute && hasPostId && hasMarker) return;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
+  report.routeDiagnostics = lastDiagnostics;
   await screenshot(page, evidenceDir, "web-real-official-created-post-render-timeout").catch(() => null);
   throw new Error("created_official_post_render_missing");
 }

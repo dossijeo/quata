@@ -86,7 +86,11 @@ class WebOfficialRepository(
 
     override suspend fun getOfficialPost(postId: String): Result<OfficialPostItem?> = runCatching {
         if (postId.isBlank()) return@runCatching null
-        loadFeed(limit = 1, postId = postId).getOrThrow().firstOrNull()
+        loadFeed(
+            limit = 1,
+            postId = postId,
+            authMode = exactPostReadAuthMode(),
+        ).getOrThrow().firstOrNull()
     }
 
     override suspend fun refreshCurrentUser(): Result<User?> = runCatching {
@@ -186,6 +190,7 @@ class WebOfficialRepository(
         limit: Int,
         publishedBefore: String? = null,
         postId: String? = null,
+        authMode: WebPostgrestAuthMode = WebPostgrestAuthMode.Public,
     ): Result<List<OfficialPostItem>> = runCatching {
         val translation = officialTranslationReadPlan(currentWebOfficialLanguage(), limit, postId)
         val posts = client.rows(
@@ -200,6 +205,7 @@ class WebOfficialRepository(
                 postId?.let { put("id", "eq.${it.requireOfficialPostgrestIdentifier()}") }
             },
             limit = translation.fetchLimit,
+            authMode = authMode,
         ).map(JsonObject::toOfficialRemotePost).selectOfficialTranslations(currentWebOfficialLanguage())
         if (posts.isEmpty()) return@runCatching emptyList()
 
@@ -220,7 +226,7 @@ class WebOfficialRepository(
                 "official_post_id" to postIds.toOfficialPostgrestInFilter(),
             ),
         ).map(JsonObject::toOfficialRemoteLike)
-        val profiles = loadProfiles(officialRemoteProfileIds(posts, comments, likes), webOfficialReadAuthMode(WebOfficialReadOperation.Feed))
+        val profiles = loadProfiles(officialRemoteProfileIds(posts, comments, likes), authMode)
         buildOfficialDomainPosts(
             posts = posts,
             comments = comments,
@@ -268,6 +274,13 @@ class WebOfficialRepository(
     private suspend fun authenticatedUserId(): String = authRepository.restoreLocalSession()?.userId
         ?.takeIf(String::isNotBlank)
         ?: error("web_official_session_missing")
+
+    private suspend fun exactPostReadAuthMode(): WebPostgrestAuthMode =
+        if (authRepository.currentWebPushCredentials() != null) {
+            WebPostgrestAuthMode.SessionRequired
+        } else {
+            WebPostgrestAuthMode.Public
+        }
 
     private suspend fun prepareAndUploadOfficialMedia(
         profileId: String,

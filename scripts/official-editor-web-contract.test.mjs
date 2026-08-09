@@ -14,6 +14,10 @@ const webAuthRepository = await readFile(
   new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebAuthRepository.kt", import.meta.url),
   "utf8",
 );
+const webOfficialRepository = await readFile(
+  new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt", import.meta.url),
+  "utf8",
+);
 const webRealEvidence = await readFile(
   new URL("./official-editor-web-real-evidence.mjs", import.meta.url),
   "utf8",
@@ -78,6 +82,12 @@ test("Web Official editor detects the source language with the shared FastText m
   assert.match(webOfficialHost, /detectOfficialPostLanguage\(/);
   assert.match(webOfficialHost, /identifier = BrowserFastTextLanguageIdentifier/);
   assert.doesNotMatch(webOfficialHost, /detectLanguage = \{\s*webOfficialPostLanguage\(\)\s*\}/);
+});
+
+test("Web exact Official post reads use the restored session before public fallback", () => {
+  assert.match(webOfficialRepository, /override suspend fun getOfficialPost\(postId: String\)[\s\S]*authMode = exactPostReadAuthMode\(\)/);
+  assert.match(webOfficialRepository, /private suspend fun exactPostReadAuthMode\(\): WebPostgrestAuthMode =[\s\S]*authRepository\.currentWebPushCredentials\(\) != null[\s\S]*WebPostgrestAuthMode\.SessionRequired[\s\S]*WebPostgrestAuthMode\.Public/);
+  assert.match(webOfficialRepository, /override fun observeOfficialFeed\(\): Flow<Result<List<OfficialPostItem>>> = flow \{[\s\S]*emit\(loadFeed\(limit = FeedPageSize\)\)/);
 });
 
 test("Web Official editor media preview stays in Compose canvas under common dialogs", () => {
