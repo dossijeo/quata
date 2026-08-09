@@ -46,8 +46,8 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
             .matching(identifier: "quata-portable-rich-text-field")
             .firstMatch
         XCTAssertTrue(bodyField.waitForExistence(timeout: 10), "The common portable rich-text field must be editable.")
-        bodyField.tap()
-        bodyField.typeText(bodyText)
+        focusRichTextField(bodyField, in: app)
+        app.typeText(bodyText)
         if app.keyboards.count > 0 {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
         }
@@ -141,6 +141,28 @@ final class QuataIosAuthenticatedOfficialEditorUITests: XCTestCase {
         }
         XCTAssertTrue(publish.exists, "Expected the shared Official editor publish action to exist.")
         publish.tap()
+    }
+
+    private func focusRichTextField(_ field: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<4 {
+            if field.exists, field.frame.midY > 120, field.frame.midY < app.frame.maxY - 160 {
+                break
+            }
+            app.swipeDown()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        if field.isHittable {
+            field.tap()
+        } else {
+            let frame = field.frame
+            let x = min(max(frame.midX, app.frame.minX + 40), app.frame.maxX - 40)
+            let y = min(max(frame.midY, app.frame.minY + 150), app.frame.maxY - 220)
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+                .withOffset(CGVector(dx: x, dy: y))
+                .tap()
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        XCTAssertTrue(app.keyboards.count > 0, "Tapping the common rich-text field must focus the iOS keyboard.")
     }
 
     private func tapTranslationSkipIfShown(in app: XCUIApplication) {
