@@ -10,6 +10,10 @@ const status = await readFile(
   new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialStatusContent.kt", import.meta.url),
   "utf8",
 );
+const androidEditor = await readFile(
+  new URL("../app/src/main/java/com/quata/feature/official/presentation/OfficialPostEditorScreen.kt", import.meta.url),
+  "utf8",
+);
 
 const requiredTags = [
   "official-editor-common-root",
@@ -38,6 +42,10 @@ test("Official editor exposes stable commonMain semantics for platform evidence"
   assert.match(root, /fun requestPublication\(\)[\s\S]*?if \(!canPublish\)[\s\S]*?if \(!draftState\.canPublish\(\)\)/);
   assert.match(root, /OfficialPublishButtonContent\([\s\S]*?enabled = true/);
   assert.doesNotMatch(root, /fun canSubmitDraft\(/);
+  assert.match(androidEditor, /unavailable = stringResource\(R\.string\.official_form_unavailable\)/);
+  assert.match(androidEditor, /validation = stringResource\(R\.string\.official_form_validation\)/);
+  assert.doesNotMatch(androidEditor, /unavailable = stringResource\(R\.string\.error_backend_generic\)/);
+  assert.doesNotMatch(androidEditor, /validation = stringResource\(R\.string\.error_backend_generic\)/);
 });
 
 test("Official editor semantics contract stays hermetic", () => {

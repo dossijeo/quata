@@ -513,6 +513,8 @@
     <string name="official_form_read_more_label">Texto del enlace para leer m&#225;s</string>
     <string name="official_form_link">Enlace informativo</string>
     <string name="official_form_media_url">URL del contenido multimedia</string>
+    <string name="official_form_unavailable">La publicaci&#243;n oficial a&#250;n no est&#225; disponible en esta plataforma.</string>
+    <string name="official_form_validation">A&#241;ade texto o contenido multimedia antes de publicar.</string>
     <string name="official_media_none">Sin multimedia</string>
     <string name="official_media_image">Imagen</string>
     <string name="official_media_video">V&#237;deo</string>

@@ -512,6 +512,8 @@
     <string name="official_form_read_more_label">Texte du lien pour lire plus</string>
     <string name="official_form_link">Lien d information</string>
     <string name="official_form_media_url">URL du media</string>
+    <string name="official_form_unavailable">La publication officielle n\'est pas encore disponible sur cette plateforme.</string>
+    <string name="official_form_validation">Ajoute du texte ou un media avant de publier.</string>
     <string name="official_media_none">Sans media</string>
     <string name="official_media_image">Image</string>
     <string name="official_media_video">Video</string>
