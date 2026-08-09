@@ -10,6 +10,14 @@ const fixtureSwift = readFileSync(
   new URL("../iosApp/iosApp/IosAuthLaunchFixtureContainerViewController.swift", import.meta.url),
   "utf8",
 );
+const recoveryForm = readFileSync(
+  new URL("../feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/recovery/ForgotPasswordForm.kt", import.meta.url),
+  "utf8",
+);
+const recoveryTags = readFileSync(
+  new URL("../feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/recovery/ForgotPasswordTestTags.kt", import.meta.url),
+  "utf8",
+);
 const launcher = readFileSync(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
 const uiTests = readFileSync(new URL("../iosApp/iosAppUITests/QuataIosHostUITests.swift", import.meta.url), "utf8");
 
@@ -66,4 +74,33 @@ test("auth-launch UI contract proves two cold launches with real Compose readine
   assert.match(uiTests, /testMalformedAuthLaunchFixtureArgumentsFailClosedWithoutCompose/);
   assert.match(uiTests, /"quata-ios-test-invalid-fixture"/);
   assert.equal(uiTests.includes("typeText"), false);
+});
+
+test("auth-launch recovery fixture resolves the same common Recovery surface and tags", () => {
+  assert.match(fixtureKotlin, /"recovery" -> AuthProductDestination\.Recovery/);
+  assert.match(fixtureKotlin, /QuataAuthLaunchFixtureViewControllerForDestination\(destination: String\)/);
+  assert.match(launcher, /QuataAuthLaunchFixtureViewControllerForDestination\(/);
+  for (const tag of [
+    "auth.recovery.root",
+    "auth.recovery.phone",
+    "auth.recovery.question",
+    "auth.recovery.secret-answer",
+    "auth.recovery.new-password",
+    "auth.recovery.error",
+    "auth.recovery.submit",
+    "auth.recovery.back",
+  ]) {
+    assert.match(recoveryTags, new RegExp(JSON.stringify(tag).slice(1, -1)));
+  }
+  for (const required of [
+    "ForgotPasswordTestTags.Phone",
+    "ForgotPasswordTestTags.Question",
+    "ForgotPasswordTestTags.SecretAnswer",
+    "ForgotPasswordTestTags.NewPassword",
+    "ForgotPasswordTestTags.Error",
+    "ForgotPasswordTestTags.Submit",
+    "ForgotPasswordTestTags.Back",
+  ]) {
+    assert.match(recoveryForm, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
 });

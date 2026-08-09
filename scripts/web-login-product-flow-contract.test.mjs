@@ -7,6 +7,10 @@ const host = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebLoginHost.
 const main = await source("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt");
 const repository = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebAuthRepository.kt");
 const capabilityRoute = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebFeatureCapabilities.kt");
+const browserAuthHost = await source("feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/AuthBrowserLoginHostContent.kt");
+const productAuthHost = await source("feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/AuthProductHostContent.kt");
+const recoveryForm = await source("feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/recovery/ForgotPasswordForm.kt");
+const recoveryTags = await source("feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/recovery/ForgotPasswordTestTags.kt");
 
 test("production Web mounts the common Auth product root without browser visual overrides", () => {
   assert.match(host, /AuthProductHostContent\(/);
@@ -31,4 +35,32 @@ test("product routes do not prepend capability diagnostics to the Android-compar
   assert.match(capabilityRoute, /showCapabilityNotice: Boolean = false/);
   assert.match(capabilityRoute, /if \(showCapabilityNotice\) \{[\s\S]*?WebFeatureCapabilityNotice\(/);
   assert.doesNotMatch(main, /showCapabilityNotice\s*=\s*true|WebFeatureCapabilityNotice/);
+});
+
+test("shared Auth recovery keeps observable common tags for Web, Android and iOS hosts", () => {
+  for (const tag of [
+    "auth.recovery.root",
+    "auth.recovery.phone",
+    "auth.recovery.question",
+    "auth.recovery.secret-answer",
+    "auth.recovery.new-password",
+    "auth.recovery.error",
+    "auth.recovery.submit",
+    "auth.recovery.back",
+  ]) {
+    assert.match(recoveryTags, new RegExp(JSON.stringify(tag).slice(1, -1)));
+  }
+  assert.match(productAuthHost, /AuthProductDestination\.Recovery -> ForgotPasswordScreenHost\(/);
+  assert.match(browserAuthHost, /AuthBrowserDestination\.Recovery -> Box\([\s\S]*ForgotPasswordTestTags\.Root[\s\S]*ForgotPasswordForm\(/);
+  for (const required of [
+    "ForgotPasswordTestTags.Phone",
+    "ForgotPasswordTestTags.Question",
+    "ForgotPasswordTestTags.SecretAnswer",
+    "ForgotPasswordTestTags.NewPassword",
+    "ForgotPasswordTestTags.Error",
+    "ForgotPasswordTestTags.Submit",
+    "ForgotPasswordTestTags.Back",
+  ]) {
+    assert.match(recoveryForm, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
 });

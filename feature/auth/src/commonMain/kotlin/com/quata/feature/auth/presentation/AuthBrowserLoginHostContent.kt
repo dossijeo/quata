@@ -1,6 +1,7 @@
 package com.quata.feature.auth.presentation
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -11,6 +12,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.CountryPrefix
 import com.quata.feature.auth.domain.AuthRepository
@@ -21,6 +25,7 @@ import com.quata.feature.auth.presentation.login.LoginViewModel
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordEffect
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordForm
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordFormStrings
+import com.quata.feature.auth.presentation.recovery.ForgotPasswordTestTags
 import com.quata.feature.auth.presentation.recovery.ForgotPasswordViewModel
 import com.quata.feature.auth.presentation.register.RegisterSecretQuestion
 import com.quata.feature.auth.presentation.register.RegisterEffect
@@ -100,20 +105,24 @@ fun AuthBrowserLoginHostContent(
                     }
                 },
             )
-            AuthBrowserDestination.Recovery -> ForgotPasswordForm(
-                state = recoveryState,
-                prefixes = prefixes,
-                resolvedQuestion = when {
-                    recoveryState.isLoadingQuestion -> recoveryQuestionLoading
-                    recoveryState.secretQuestion.isBlank() -> recoveryQuestionWaiting
-                    else -> secretQuestions.firstOrNull { it.value == recoveryState.secretQuestion }?.label
-                        ?: recoveryState.secretQuestion
-                },
-                strings = recoveryStrings,
-                isLandscape = isLandscape,
-                onEvent = recoveryViewModel::onEvent,
-                onBack = { destination = AuthBrowserDestination.Login },
-            )
+            AuthBrowserDestination.Recovery -> Box(
+                modifier = Modifier.semantics { testTag = ForgotPasswordTestTags.Root },
+            ) {
+                ForgotPasswordForm(
+                    state = recoveryState,
+                    prefixes = prefixes,
+                    resolvedQuestion = when {
+                        recoveryState.isLoadingQuestion -> recoveryQuestionLoading
+                        recoveryState.secretQuestion.isBlank() -> recoveryQuestionWaiting
+                        else -> secretQuestions.firstOrNull { it.value == recoveryState.secretQuestion }?.label
+                            ?: recoveryState.secretQuestion
+                    },
+                    strings = recoveryStrings,
+                    isLandscape = isLandscape,
+                    onEvent = recoveryViewModel::onEvent,
+                    onBack = { destination = AuthBrowserDestination.Login },
+                )
+            }
             AuthBrowserDestination.Register -> registerStrings?.let { stringsForRegister ->
                 RegisterForm(
                     state = registerState,
