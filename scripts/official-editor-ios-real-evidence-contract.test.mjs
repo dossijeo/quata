@@ -30,7 +30,7 @@ test("iOS Official editor real evidence is explicit opt-in, marker-based and cle
 });
 
 test("iOS shell runner patches a temporary xctestrun and requires the real publish XCTest when marker is present", () => {
-  assert.match(shellRunner, /patched_xctestrun="\$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/);
+  assert.match(shellRunner, /patched_xctestrun="\$\(dirname "\$xctestrun"\)\//);
   assert.match(shellRunner, /cp "\$xctestrun" "\$patched_xctestrun"/);
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_MARKER'\] = marker/);
   assert.match(shellRunner, /env\['QUATA_IOS_OFFICIAL_EDITOR_REAL_PUBLISH_OPT_IN'\] = opt_in/);

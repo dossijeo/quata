@@ -16,7 +16,7 @@ done < <(find "$QUATA_IOS_DERIVED_DATA_PATH/Build/Products" -name '*.xctestrun' 
 [[ "${#xctestruns[@]}" -eq 1 ]] || { echo "Expected exactly one .xctestrun, found ${#xctestruns[@]}" >&2; exit 2; }
 xctestrun="${xctestruns[0]}"
 mkdir -p "$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR"
-patched_xctestrun="$QUATA_IOS_OFFICIAL_EDITOR_UI_LOG_DIR/$(basename "$xctestrun")"
+patched_xctestrun="$(dirname "$xctestrun")/$(basename "$xctestrun" .xctestrun)-quata-patched.xctestrun"
 cp "$xctestrun" "$patched_xctestrun"
 xctestrun="$patched_xctestrun"
 
