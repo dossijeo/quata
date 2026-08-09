@@ -4,18 +4,17 @@
 > Este tablero es una fotografía de progreso y no puede redefinir los gates, la arquitectura ni el
 > presupuesto de ejecución establecidos allí.
 
-## Foto de control — 2026-08-04
+## Foto de control — 2026-08-09
 
-**HEAD integrado:** `main` `59fc98f0980845c5ead581ccd0e12ec2fbc54f1c` (PR #193), posterior a #154,
-#156, #159, #168, #169, #170, #172, #173, #174, #175, #190, #191 y #192. El proyecto sigue incompleto:
-#192 integra semantica comun observable del editor oficial y evidencia Web hermetica de validacion/fallo.
-#193 actualiza el estado documental y permite gates finales en PRs docs-only. La evidencia reversible local
-del editor oficial sobre `59fc98f0` encontro que `official_posts` acepta una publicacion PostgREST de una
-cuenta no oficial; el runner hizo hard delete exacto y verifico `remainingRows = 0`. No hay GO de
-`SCR-OFFICIAL-EDITOR` hasta completar adjuntos, permisos UI y comparativa Android-Wasm-iOS. La migracion
-RLS `20260808_0001_official_posts_actor_guard.sql` fue aplicada remotamente como SQL exacto versionado,
-sin `supabase db push` ni `migration repair`; el gate real `OFFICIAL-EDITOR-REAL-BACKEND-001` paso con
-cuenta no oficial denegada, publicacion oficial, lectura publica y hard-delete verificado.
+**HEAD integrado:** `main` `4fffa2f87a3ebd86e014aeedaa2f5737eca5aed4` (PR #215), posterior a #154,
+#156, #159, #168, #169, #170, #172, #173, #174, #175, #190, #191, #192, #193, #204, #206, #208,
+#210, #211, #212, #214 y #215. El proyecto sigue incompleto: #215 cierra `SCR-AUTH-RECOVERY` con
+raíz común Android/Wasm/iOS, evidencias focales y reales, limpieza Supabase verificada y certificación
+final verde. No hay GO de `SCR-OFFICIAL-EDITOR` hasta completar adjuntos, permisos UI y comparativa
+Android-Wasm-iOS. La migracion RLS `20260808_0001_official_posts_actor_guard.sql` fue aplicada
+remotamente como SQL exacto versionado, sin `supabase db push` ni `migration repair`; el gate real
+`OFFICIAL-EDITOR-REAL-BACKEND-001` paso con cuenta no oficial denegada, publicacion oficial, lectura
+publica y hard-delete verificado.
 
 | Área | Estado | Qué acredita | Límite vigente |
 | --- | --- | --- | --- |
@@ -63,6 +62,7 @@ cuenta no oficial denegada, publicacion oficial, lectura publica y hard-delete v
 | [#211](https://github.com/dossijeo/quata/pull/211) | `cc6d4f72` | Registra el cierre semantico de #210 en board/inventario sin cambiar producto. |
 | [#212](https://github.com/dossijeo/quata/pull/212) | `0793ad80` | About QÜATA pasa a contenido comun Android/Web/iOS, Web deja de aliasar `about` a historial, iOS instala `QuataIosAboutViewController`, y el logo/menu abren About con enlace real a Release History y legales. No declara GO global hasta evidencia visual/operativa de About->Historial y retorno. |
 | [#214](https://github.com/dossijeo/quata/pull/214) | `9004bcc0` | About/Release History añade ruta pública `#about`, entrada autenticada iOS y anclas comunes de evidencia; la certificación final Web/Android/iOS quedó verde con `candidate-final`. No declara GO global hasta completar evidencia visual/operativa About->Historial->retorno en Android-Wasm-iOS. |
+| [#215](https://github.com/dossijeo/quata/pull/215) | `4fffa2f8` | Auth Recovery queda integrado como raíz común Android/Wasm/iOS con anclas comunes, tests common, evidencias Web/Android/iOS reales, backend reversible con Gabrielu restaurado y gates finales `candidate-final` verdes. `LANG-FASTTEXT-PARITY-001` mantiene FastText compartido como detector de idioma de referencia y bloquea identificadores básicos paralelos. |
 
 ## Registro de candidato #156 y mejora de preflight
 
@@ -152,13 +152,12 @@ no una nueva evidencia de producto.
 ## Próxima cola
 
 1. Cerrar `SCR-OFFICIAL-EDITOR` con la semantica comun estable ya integrada: recorrer publicacion real, validacion, adjuntos, permisos y error en Android-Wasm-iOS con Gabrielo/Gabrielu o datos temporales reversibles, verificar lectura backend y limpieza, capturar comparativa visual y mantener la deteccion/traduccion del editor en FastText/transporte compartidos.
-2. Completar el candidato #215 para `SCR-AUTH-RECOVERY`: anclas comunes, tests de ViewModel/repositorio, fixture iOS, evidencia Web hermetica `WEB-AUTH-RECOVERY-001` regenerada sobre el candidato sin solape, evidencia Android hermetica `ANDROID-AUTH-RECOVERY-001`, backend real `AUTH-RECOVERY-REAL-BRIDGE-001` y `IOS_AUTH_RECOVERY_REAL_UI_GATE_PASSED` sobre `9810c142` ya preparados. La evidencia Android detecto y corrigio en comun el wrapper de recovery de `Box` superpuesto a `Column` etiquetada. La evidencia iOS detecto y corrigio en comun que Auth no aplicaba `imePadding()`, dejando el submit inaccesible bajo teclado; el runner real paso con Gabrielu autorizado, pregunta real, reset temporal, retorno a Login, reset de restauracion y limpieza de secreto DB verificada. Las capturas Android/Web/iOS fijan español y tema claro equivalente para comparar el mismo copy comun, y `LANG-FASTTEXT-PARITY-001` evita sustituir el detector FastText compartido por un identificador basico. Queda promover #215 a `candidate-final`, pasar gates finales y fusionar/limpiar rama; la contrasena segura generada para Gabrielu permanece como dato de prueba local autorizado salvo rotacion posterior.
-3. Mantener el postflight RLS de Official en cada cierre del editor: `OFFICIAL-EDITOR-REAL-BACKEND-001` debe seguir pasando y cualquier rollout futuro debe recordar que `20260808_0001_official_posts_actor_guard.sql` se aplico manualmente sin sincronizar historial de migraciones.
-4. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y duración/seek iOS de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
-5. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
-6. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
-7. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado.
-8. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas fuera de release autorizado.
+2. Mantener el postflight RLS de Official en cada cierre del editor: `OFFICIAL-EDITOR-REAL-BACKEND-001` debe seguir pasando y cualquier rollout futuro debe recordar que `20260808_0001_official_posts_actor_guard.sql` se aplico manualmente sin sincronizar historial de migraciones.
+3. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y duración/seek iOS de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
+4. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
+5. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
+6. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado.
+7. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas fuera de release autorizado.
 
 ## Decisiones vigentes
 
@@ -176,3 +175,4 @@ no una nueva evidencia de producto.
 <!-- Actualizacion operativa 2026-08-09: main integrado e0aca4803749692246580c3278e4230965bdadd2 (PR #208) reduce `SCR-OFFICIAL-EDITOR`: Web/Wasm e iOS dejan de usar el idioma preferido como deteccion normal del editor y pasan por FastText compartido (`BrowserFastTextLanguageIdentifier`/`IosFastTextLanguageIdentifier`); Android usa el mismo helper comun con `QuataLanguageIdentifier`. Fang/Unknown y errores del modelo publican con fallback elegido sin traduccion automatica. Las previews del editor Official dejan de exponer acciones Live/Ranking/overflow sin callbacks reales. No declara GO global hasta evidencias Android-Wasm-iOS reales de publicacion, adjuntos, permisos UI, errores y limpieza. -->
 <!-- Actualizacion operativa 2026-08-09: main integrado 817f205719c31d588cd25700ca5b3a616710681a (PR #210) reduce `SCR-RELEASE-HISTORY`: `ReleaseHistoryContent` comun gana tags de evidencia `release-history-*`, cierre/prev/next verificables y paginas con scroll vertical comun para notas largas; Android/Web/iOS conservan el montaje comun y no aceptan callbacks inertes. No declara GO global hasta comparativa visual/operativa Android-Wasm-iOS de catalogo, navegacion real y retorno. -->
 <!-- Actualizacion operativa 2026-08-09: main integrado 0793ad804f30177cc4dabae76f8bdfd0e6422910 (PR #212) reduce `OVR-ABOUT`: Android/Web/iOS consumen `QuataAboutDialogContent` comun, Web separa la ruta `about` de `release-history`, iOS instala `QuataIosAboutViewController` con enlaces legales y el menu/logo abren About antes de navegar al historial. La ronda remota detecto un defecto escapado del preflight en `QuataFeedFrameworkTests`; se corrigio el XCTest y se anadio guard preventivo en `whats-new-release-history-contract.test.mjs`. No declara GO global hasta comparativa visual/operativa Android-Wasm-iOS de About, Historial y retorno. -->
+<!-- Actualizacion operativa 2026-08-09: main integrado 4fffa2f87a3ebd86e014aeedaa2f5737eca5aed4 (PR #215) cierra `SCR-AUTH-RECOVERY`: formulario, repositorio, evidencia Web/Android/iOS, reset real reversible con Gabrielu y gates finales Web/Android/iOS verdes. La rama remota del candidato debe quedar limpia tras el merge; la cola vuelve a `SCR-OFFICIAL-EDITOR`. -->
