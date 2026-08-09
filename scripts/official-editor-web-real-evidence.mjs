@@ -102,11 +102,17 @@ try {
     const url = response.url();
     if (!url.includes("/rest/v1/official_posts")) return;
     const request = response.request();
+    const method = request.method();
+    const headers = await request.allHeaders().catch(() => ({}));
+    const readDiagnostic = method === "GET"
+      ? await officialPostReadDiagnostic(response, url, headers, () => created.ids)
+      : undefined;
     report.postgrest.push({
       table: "official_posts",
-      method: request.method(),
+      method,
       status: response.status(),
       urlKind: url.includes("select=") ? "read" : "mutation_or_read",
+      ...(readDiagnostic ? { readDiagnostic } : {}),
     });
   });
   page.on("response", async (response) => {
@@ -978,6 +984,28 @@ async function routeDiagnostics(page) {
       .slice(0, 40),
     text: (document.body?.innerText ?? "").replace(/\s+/g, " ").slice(0, 800),
   }));
+}
+
+async function officialPostReadDiagnostic(response, url, headers, createdIds) {
+  const ids = createdIds();
+  const body = await response.text().catch(() => "");
+  let rowCount = null;
+  let containsCreatedId = false;
+  try {
+    const parsed = JSON.parse(body);
+    if (Array.isArray(parsed)) {
+      rowCount = parsed.length;
+      containsCreatedId = ids.some((id) => parsed.some((row) => row?.id === id));
+    }
+  } catch {
+    rowCount = null;
+  }
+  return {
+    hasIdFilter: /[?&]id=eq\./.test(url),
+    hasAuthorization: Boolean(headers.authorization),
+    rowCount,
+    containsCreatedId,
+  };
 }
 
 function escapeRegExp(value) {
