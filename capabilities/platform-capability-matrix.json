@@ -181,7 +181,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt",
-              "sha256": "211d1e6704b452436e55b93436923aa14b93dffaf82b721ab60730592763dffd",
+              "sha256": "dbc412aa251a8e6c58d1d88de37a6adc3290f2dee160d23f5343467ace65a2e9",
               "role": "implementation"
             }
           ]
@@ -196,7 +196,7 @@
             },
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt",
-              "sha256": "1a4edd5fb9fc2052febc9e6718a626b90b76223f06c70ec308ae1ef097f645c6",
+              "sha256": "70f2a3508baba72e25bead307d4273c177590b4f8d486d7668fdd92cf86e96b5",
               "role": "implementation"
             }
           ]
@@ -242,7 +242,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt",
-              "sha256": "211d1e6704b452436e55b93436923aa14b93dffaf82b721ab60730592763dffd",
+              "sha256": "dbc412aa251a8e6c58d1d88de37a6adc3290f2dee160d23f5343467ace65a2e9",
               "role": "implementation"
             }
           ]
@@ -257,7 +257,7 @@
             },
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt",
-              "sha256": "1a4edd5fb9fc2052febc9e6718a626b90b76223f06c70ec308ae1ef097f645c6",
+              "sha256": "70f2a3508baba72e25bead307d4273c177590b4f8d486d7668fdd92cf86e96b5",
               "role": "implementation"
             }
           ]
@@ -301,7 +301,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt",
-              "sha256": "211d1e6704b452436e55b93436923aa14b93dffaf82b721ab60730592763dffd",
+              "sha256": "dbc412aa251a8e6c58d1d88de37a6adc3290f2dee160d23f5343467ace65a2e9",
               "role": "implementation"
             },
             {
@@ -326,7 +326,7 @@
             },
             {
               "path": "feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt",
-              "sha256": "1a4edd5fb9fc2052febc9e6718a626b90b76223f06c70ec308ae1ef097f645c6",
+              "sha256": "70f2a3508baba72e25bead307d4273c177590b4f8d486d7668fdd92cf86e96b5",
               "role": "implementation"
             },
             {
