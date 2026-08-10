@@ -463,6 +463,35 @@ private final class IosAppCompositionRoot {
             return IosFeedPlaybackFixtureHostKt.QuataIosFeedPlaybackFixtureViewController(
                 mediaFactory: IosFeedNativeMediaFactory.shared
             )
+        case "about-release-history":
+            guard let whatsNewRuntimeBootstrap else {
+                fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-unconfigured-about-release-history"
+                fixtureRoot.view.accessibilityLabel = "Quata iOS About and Release History fixture unavailable"
+                return fixtureRoot
+            }
+            let router = IosAuthenticatedHostRouter(platformServices: platformServices)
+            router.installAboutFactory { [weak router] in
+                IosWhatsNewRuntimeBootstrapKt.QuataIosAboutViewController(
+                    runtime: whatsNewRuntimeBootstrap,
+                    onClose: { router?.showFeed(postId: nil) },
+                    onOpenReleaseHistory: { router?.showReleaseHistory() },
+                )
+            }
+            router.installReleaseHistoryFactory { [weak router] in
+                IosWhatsNewRuntimeBootstrapKt.QuataIosReleaseHistoryViewController(
+                    runtime: whatsNewRuntimeBootstrap,
+                    onClose: { router?.showAbout() },
+                )
+            }
+            let dispatcher = IosDeepLinkDispatcher()
+            dispatcher.attachHost(host: IosAuthenticatedRouteDispatcher(host: router))
+            if let deepLinkIndex = arguments.firstIndex(of: "-quata-ui-test-deep-link"),
+               arguments.indices.contains(deepLinkIndex + 1) {
+                _ = dispatcher.handleUrl(url: arguments[deepLinkIndex + 1])
+            } else {
+                router.showAbout()
+            }
+            return router
         case "authenticated":
             // This deliberately runs the production Kotlin deep-link parser and the same
             // UIKit route adapter as the authenticated launcher. The destination controllers

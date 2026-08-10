@@ -260,6 +260,47 @@ final class QuataIosHostUITests: XCTestCase {
         }
     }
 
+    func testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces() {
+        let app = fixtureApp("about-release-history", spanishLocale: true)
+        app.launch()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "about-common-root")
+                .firstMatch
+                .waitForExistence(timeout: 15),
+            "The iOS About evidence fixture must mount the real shared Compose About dialog.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "about-release-history")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared About action must be exposed before opening Release History.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "about-release-history-real-about")
+
+        app.descendants(matching: .any)
+            .matching(identifier: "about-release-history")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "release-history-common-root")
+                .firstMatch
+                .waitForExistence(timeout: 15),
+            "The iOS About action must navigate to the real shared Release History Compose surface.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "release-history-page-0")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "Release History must expose a real common page for visual evidence.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "about-release-history-real-release-history")
+    }
+
     func testAuthenticatedFixtureRendersInAppOnlyRoutesThroughTheSharedRouterAdapter() {
         // These destinations deliberately do not have public URL contracts. The fixture reaches
         // them through IosAuthenticatedRouteDispatcher's real in-app methods, which prevents a

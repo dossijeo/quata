@@ -84,7 +84,7 @@ jobs:
     needs: [classify-impact]
     if: ${{ needs.classify-impact.outputs.ios == 'true' && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'candidate-final')) }}
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Check out source
@@ -263,7 +263,7 @@ jobs:
         # The XCFramework task may invoke both device and simulator linkers.
         # Bound it independently so a linker/Gradle deadlock yields a process
         # snapshot instead of consuming the complete workflow timeout.
-        timeout-minutes: 17
+        timeout-minutes: 45
         shell: bash
         run: |
           set -euo pipefail
@@ -283,7 +283,7 @@ jobs:
             cat "$log_file"
             return "$status"
           }
-          run_watchdog 900 build/reports/ios/xcframework.log bash ./gradlew \
+          run_watchdog 2400 build/reports/ios/xcframework.log bash ./gradlew \
             :ios-shared:assembleQuataSharedDebugXCFramework \
             --stacktrace \
             --warning-mode all \

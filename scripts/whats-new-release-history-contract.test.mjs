@@ -13,6 +13,8 @@ const iosRuntime = await source('../feature/whatsnew/src/iosMain/kotlin/com/quat
 const iosSwift = await source('../iosApp/iosApp/QuataIosApp.swift');
 const iosSwiftTests = await source('../iosApp/iosAppTests/QuataFeedFrameworkTests.swift');
 const iosHostUiTests = await source('../iosApp/iosAppUITests/QuataIosHostUITests.swift');
+const androidEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/whatsnew/presentation/AboutReleaseHistoryInstrumentedTest.kt');
+const webEvidenceRunner = await source('../scripts/about-release-history-web-evidence.mjs');
 const packageJson = JSON.parse(await source('../package.json'));
 const webAndroidWorkflow = await source('../.github/workflows/web-android-pr.yml');
 const iosWorkflow = await source('../.github/workflows/ios-build.yml');
@@ -94,6 +96,33 @@ test('Release History parity contract runs in local scripts and CI workflows', (
   }
   assert.match(webAndroidWorkflow, /node --test scripts\/whats-new-release-history-contract\.test\.mjs/);
   assert.match(iosWorkflow, /node --test scripts\/whats-new-release-history-contract\.test\.mjs/);
+});
+
+test('About and Release History evidence runners exercise real common anchors', () => {
+  assert.match(androidEvidenceTest, /class AboutReleaseHistoryCommonBridgeInstrumentedTest/);
+  assert.match(androidEvidenceTest, /QuataAboutDialogContent\(/);
+  assert.match(androidEvidenceTest, /onOpenReleaseHistory = \{[\s\S]*?showingHistory = true[\s\S]*?\}/);
+  assert.match(androidEvidenceTest, /ReleaseHistoryContent\(/);
+  assert.match(androidEvidenceTest, /ReleaseHistoryNextTestTag/);
+  assert.match(androidEvidenceTest, /ReleaseHistoryPreviousTestTag/);
+  assert.match(androidEvidenceTest, /ReleaseHistoryCloseTestTag/);
+  assert.match(androidEvidenceTest, /android-about-release-history-common-evidence\.json/);
+
+  assert.match(webEvidenceRunner, /ABOUT-RELEASE-HISTORY-WEB-001/);
+  assert.match(webEvidenceRunner, /page\.goto\(`\$\{server\.origin\}\/#about`\)/);
+  assert.match(webEvidenceRunner, /clickVisibleText\(page, \/Historial de versiones\|Release history\/\)/);
+  assert.match(webEvidenceRunner, /waitForHash\(page, "#release-history"\)/);
+  assert.match(webEvidenceRunner, /page\.goto\(`\$\{server\.origin\}\/#release-history`\)/);
+  assert.doesNotMatch(webEvidenceRunner, /location\.hash\s*=\s*["']release-history["']/);
+
+  assert.match(iosSwift, /case "about-release-history":/);
+  assert.match(iosSwift, /QuataIosAboutViewController\([\s\S]*?onOpenReleaseHistory: \{ router\?\.showReleaseHistory\(\) \}/);
+  assert.match(iosSwift, /QuataIosReleaseHistoryViewController\([\s\S]*?onClose: \{ router\?\.showAbout\(\) \}/);
+  assert.match(iosHostUiTests, /testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces/);
+  assert.match(iosHostUiTests, /"about-common-root"/);
+  assert.match(iosHostUiTests, /"about-release-history"/);
+  assert.match(iosHostUiTests, /"release-history-common-root"/);
+  assert.match(iosHostUiTests, /"release-history-page-0"/);
 });
 
 async function source(path) {
