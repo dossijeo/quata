@@ -184,7 +184,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     private func clearAndTypeText(_ value: String, into identifier: String, in app: XCUIApplication) {
         let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected editable field \(identifier) to exist.")
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.78, dy: 0.5)).tap()
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5)).tap()
         field.press(forDuration: 0.7)
         let selectAll = app.menuItems.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Select All", "Seleccionar todo")).firstMatch
         if selectAll.waitForExistence(timeout: 2) {
@@ -197,7 +197,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     private func pasteText(_ value: String, into field: XCUIElement, in app: XCUIApplication) {
         UIPasteboard.general.string = value
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.78, dy: 0.5)).tap()
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5)).tap()
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         field.press(forDuration: 0.7)
         let paste = app.menuItems.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Paste", "Pegar")).firstMatch
