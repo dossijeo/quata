@@ -21,6 +21,13 @@ La comparativa final queda en `build-reports/official-editor/final-visual-compar
 
 | Área | Estado | Qué acredita | Límite vigente |
 | --- | --- | --- | --- |
+**Candidato local actual:** `codex/chat-favorites-focused-parity` `c0f06dd23f8e06e59aee5c123f34383b46825937`
+cierra `CHAT-FAVORITES` y `CHAT-FOCUSED-MESSAGE` sin declarar GO global de `SCR-CHAT`. Evidencias
+local-first finales sobre el mismo SHA: Web `build-reports/web/chat-favorites-focused-evidence.json`,
+Android `build-reports/android/chat-favorites-focused-evidence.json` e iOS
+`build-reports/ios/chat-favorites-focused-evidence.json`; las tres usan fixture reversible,
+capturas reales, estado vacío tras desfavoritar y limpieza física con residuo cero.
+
 | Web/Wasm | GO limitado | Shell público, rutas principales y varias raíces Compose comunes están integrados; #154 incorpora `CreatePostRoot` y #156 `ProfileScreenHost`. | Faltan postflights autenticados por flujo y paridad visual exacta. Avatar Web se acredita por contratos, no por una mutación E2E real guardada y limpiada. |
 | Presupuesto Wasm | Integrado | Watchdog sin ventanas visibles, baseline Linux aprobado y captura canónica reproducible. | Windows sigue siendo diagnóstico: el artefacto Wasm/JS depende del host. El presupuesto es un gate técnico, no un SLO de producto. |
 | Android | GO limitado | Build, `install -r`, arranque frío y Feed anónimo API-37 con 0 crash/ANR tras cold boot. | Falta matriz autenticada controlada; no se modifica Android publicado ni el Feed anónimo. |

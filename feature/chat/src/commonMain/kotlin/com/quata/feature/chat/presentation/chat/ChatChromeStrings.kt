@@ -11,6 +11,7 @@ package com.quata.feature.chat.presentation.chat
 data class ChatChromeStrings(
     val untitledConversation: String,
     val favoriteMessages: String,
+    val favoriteMessagesEmpty: String,
     val retryMessages: String,
     val retry: String,
     val back: String,
@@ -97,6 +98,7 @@ fun chatChromeStringsForLanguage(languageTag: String?): ChatChromeStrings =
         "es" -> ChatChromeStrings(
             untitledConversation = "Chats",
             favoriteMessages = "Mensajes favoritos",
+            favoriteMessagesEmpty = "Todavia no hay mensajes favoritos.",
             retryMessages = "Reintentar mensajes",
             retry = "Reintentar",
             back = "Volver",
@@ -180,6 +182,7 @@ fun chatChromeStringsForLanguage(languageTag: String?): ChatChromeStrings =
         "fr" -> ChatChromeStrings(
             untitledConversation = "Chats",
             favoriteMessages = "Messages favoris",
+            favoriteMessagesEmpty = "Aucun message favori.",
             retryMessages = "Réessayer les messages",
             retry = "Réessayer",
             back = "Retour",
@@ -263,6 +266,7 @@ fun chatChromeStringsForLanguage(languageTag: String?): ChatChromeStrings =
         else -> ChatChromeStrings(
             untitledConversation = "Chats",
             favoriteMessages = "Favorite messages",
+            favoriteMessagesEmpty = "No favorite messages yet.",
             retryMessages = "Retry messages",
             retry = "Retry",
             back = "Back",

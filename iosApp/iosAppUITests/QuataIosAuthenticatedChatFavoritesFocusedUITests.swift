@@ -6,6 +6,35 @@ import XCTest
 /// this test opens the same shared Chat deep links used by Android and Web.
 @available(iOS 16.4, *)
 final class QuataIosAuthenticatedChatFavoritesFocusedUITests: XCTestCase {
+    func testFavoriteRouteShowsEmptyStateAfterUnfavorite() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_FAVORITES_FOCUSED_UI_E2E"] == "1",
+              environment["QUATA_IOS_CHAT_FAVORITES_EXPECT_EMPTY"] == "1" else {
+            throw XCTSkip("Authenticated Chat favorites empty-state UI gate is opt-in.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-__favorite_messages__", in: app)
+        _ = chatHost(in: app, context: "favorite messages empty")
+        assertChatRoute("__favorite_messages__", in: app, context: "favorite messages empty")
+
+        let empty = app.staticTexts
+            .matching(NSPredicate(format: "label == %@", "Todavia no hay mensajes favoritos."))
+            .firstMatch
+        XCTAssertTrue(empty.waitForExistence(timeout: 45), app.debugDescription)
+        assertAuthenticatedChrome(in: app, context: "favorite messages empty")
+        assertPrimaryNavigationHidden(in: app, context: "favorite messages empty")
+        attachScreenshot(app, name: "ios-favorites-empty")
+    }
+
     func testFavoriteRouteOpensSourceAndFocusedDeepLinkHighlightsMessage() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_FAVORITES_FOCUSED_UI_E2E"] == "1" else {
@@ -28,6 +57,7 @@ final class QuataIosAuthenticatedChatFavoritesFocusedUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-__favorite_messages__", in: app)
         let favoriteHost = chatHost(in: app, context: "favorite messages")
+        assertChatRoute("__favorite_messages__", in: app, context: "favorite messages")
         XCTAssertTrue(messageText(markerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         assertAuthenticatedChrome(in: app, context: "favorite messages")
         assertPrimaryNavigationHidden(in: app, context: "favorite messages")
@@ -37,6 +67,7 @@ final class QuataIosAuthenticatedChatFavoritesFocusedUITests: XCTestCase {
         XCTAssertTrue(favoriteMessage.waitForExistence(timeout: 10), "The favorite message must be actionable.")
         favoriteMessage.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(favoriteHost.waitForExistence(timeout: 10), "Opening a favorite must keep the Chat host mounted.")
+        assertChatRoute(conversationId, messageId: messageId, in: app, context: "favorite source")
         XCTAssertTrue(messageText(markerProbe, in: app).waitForExistence(timeout: 20), app.debugDescription)
         assertAuthenticatedChrome(in: app, context: "favorite source")
         assertPrimaryNavigationHidden(in: app, context: "favorite source")
@@ -44,6 +75,7 @@ final class QuataIosAuthenticatedChatFavoritesFocusedUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(messageId))", in: app)
         _ = chatHost(in: app, context: "focused message")
+        assertChatRoute(conversationId, messageId: messageId, in: app, context: "focused message")
         XCTAssertTrue(messageText(markerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         assertAuthenticatedChrome(in: app, context: "focused message")
         assertPrimaryNavigationHidden(in: app, context: "focused message")
@@ -60,9 +92,13 @@ final class QuataIosAuthenticatedChatFavoritesFocusedUITests: XCTestCase {
         app.terminate()
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(messageId))", in: app)
         _ = chatHost(in: app, context: "focused message cold start")
+        assertChatRoute(conversationId, messageId: messageId, in: app, context: "focused message cold start")
         XCTAssertTrue(messageText(markerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        let coldFocusedIdentifier = app.descendants(matching: .any)
+            .matching(identifier: "chat.message.\(messageId).selected")
+            .firstMatch
         XCTAssertTrue(
-            focusedIdentifier.waitForExistence(timeout: 10),
+            coldFocusedIdentifier.waitForExistence(timeout: 10),
             "Cold-start URL handling must retain the focused message selected semantics.",
         )
         assertAuthenticatedChrome(in: app, context: "focused message cold start")
@@ -76,6 +112,15 @@ final class QuataIosAuthenticatedChatFavoritesFocusedUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(chat.waitForExistence(timeout: 20), "Chat host did not mount for \(context).")
         return chat
+    }
+
+    private func assertChatRoute(_ conversationId: String, messageId: String? = nil, in app: XCUIApplication, context: String) {
+        let chat = chatHost(in: app, context: context)
+        var expected = "chat:\(conversationId)"
+        if let messageId {
+            expected += "?message=\(messageId)"
+        }
+        XCTAssertEqual(chat.value as? String, expected, "Chat host must expose the exact route for \(context).")
     }
 
     private func messageText(_ markerProbe: String, in app: XCUIApplication) -> XCUIElement {

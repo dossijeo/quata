@@ -9,16 +9,21 @@ set -euo pipefail
 : "${QUATA_IOS_CHAT_E2E_MESSAGE_ID:?Set QUATA_IOS_CHAT_E2E_MESSAGE_ID.}"
 : "${QUATA_IOS_CHAT_E2E_MARKER_PROBE:?Set QUATA_IOS_CHAT_E2E_MARKER_PROBE.}"
 : "${QUATA_IOS_CHAT_FAVORITES_FOCUSED_LOG_DIR:=build/reports/ios/chat-favorites-focused}"
+: "${QUATA_IOS_CHAT_FAVORITES_FOCUSED_RESULT_BUNDLE_DIR:=}"
 watchdog="scripts/run-ios-command-watchdog.py"
 [[ -f "$watchdog" ]] || { echo "Missing shared iOS command watchdog: $watchdog" >&2; exit 2; }
 
 xctestruns=()
 while IFS= read -r xctestrun_path; do
   xctestruns+=("$xctestrun_path")
-done < <(find "$QUATA_IOS_DERIVED_DATA_PATH/Build/Products" -name '*.xctestrun' -type f -print)
+done < <(find "$QUATA_IOS_DERIVED_DATA_PATH/Build/Products" -name '*.xctestrun' ! -name '*-quata-patched.xctestrun' -type f -print)
 [[ "${#xctestruns[@]}" -eq 1 ]] || { echo "Expected exactly one .xctestrun, found ${#xctestruns[@]}" >&2; exit 2; }
 xctestrun="${xctestruns[0]}"
 mkdir -p "$QUATA_IOS_CHAT_FAVORITES_FOCUSED_LOG_DIR"
+patched_xctestrun="$(dirname "$xctestrun")/$(basename "$xctestrun" .xctestrun)-quata-patched.xctestrun"
+rm -f "$patched_xctestrun"
+cp "$xctestrun" "$patched_xctestrun"
+xctestrun="$patched_xctestrun"
 
 redact_diagnostics() {
   /usr/bin/python3 -c '
@@ -63,7 +68,7 @@ run_bounded bootstatus 120 "$QUATA_IOS_CHAT_FAVORITES_FOCUSED_LOG_DIR/bootstatus
   xcrun simctl bootstatus "$QUATA_IOS_SIMULATOR_UDID" -b
 
 /usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" <<'PY'
-import plistlib, sys
+import os, plistlib, sys
 path, credentials, conversation, message, marker = sys.argv[1:]
 with open(path, 'rb') as f:
     data = plistlib.load(f)
@@ -79,6 +84,9 @@ def patch_target(target, hint=''):
         env['QUATA_IOS_CHAT_E2E_CONVERSATION_ID'] = conversation
         env['QUATA_IOS_CHAT_E2E_MESSAGE_ID'] = message
         env['QUATA_IOS_CHAT_E2E_MARKER_PROBE'] = marker
+        expect_empty = os.environ.get('QUATA_IOS_CHAT_FAVORITES_EXPECT_EMPTY', '').strip()
+        if expect_empty:
+            env['QUATA_IOS_CHAT_FAVORITES_EXPECT_EMPTY'] = expect_empty
         matched.add('ui')
 for configuration in data.get('TestConfigurations', []):
     for target in configuration.get('TestTargets', []):
@@ -94,17 +102,29 @@ PY
 
 seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
 ui='QuataIosUITests/QuataIosAuthenticatedChatFavoritesFocusedUITests/testFavoriteRouteOpensSourceAndFocusedDeepLinkHighlightsMessage'
+ui_method='testFavoriteRouteOpensSourceAndFocusedDeepLinkHighlightsMessage'
+if [[ "${QUATA_IOS_CHAT_FAVORITES_EXPECT_EMPTY:-}" == "1" ]]; then
+  ui='QuataIosUITests/QuataIosAuthenticatedChatFavoritesFocusedUITests/testFavoriteRouteShowsEmptyStateAfterUnfavorite'
+  ui_method='testFavoriteRouteShowsEmptyStateAfterUnfavorite'
+fi
 
 run_and_require() {
   local selected="$1" method="$2" log="$3"
+  local result_args=()
+  if [[ -n "$QUATA_IOS_CHAT_FAVORITES_FOCUSED_RESULT_BUNDLE_DIR" ]]; then
+    mkdir -p "$QUATA_IOS_CHAT_FAVORITES_FOCUSED_RESULT_BUNDLE_DIR"
+    local result_bundle="$QUATA_IOS_CHAT_FAVORITES_FOCUSED_RESULT_BUNDLE_DIR/${method}.xcresult"
+    rm -rf "$result_bundle"
+    result_args=(-resultBundlePath "$result_bundle")
+  fi
   run_bounded "$method" 180 "$log" \
     xcodebuild test-without-building -xctestrun "$xctestrun" \
-    -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" -only-testing:"$selected"
+    -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" "${result_args[@]}" -only-testing:"$selected"
   /usr/bin/python3 scripts/check-ios-xctest-executed.py \
     --method "$method" --log "$log" --require-terminal-success-marker || exit 1
   printf 'PASS_EXECUTED:%s\n' "$method" | tee -a "$log"
 }
 
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_CHAT_FAVORITES_FOCUSED_LOG_DIR/seed.log"
-run_and_require "$ui" testFavoriteRouteOpensSourceAndFocusedDeepLinkHighlightsMessage "$QUATA_IOS_CHAT_FAVORITES_FOCUSED_LOG_DIR/ui.log"
+run_and_require "$ui" "$ui_method" "$QUATA_IOS_CHAT_FAVORITES_FOCUSED_LOG_DIR/ui.log"
 echo "CHAT_FAVORITES_FOCUSED_IOS_UI_GATE_PASSED" >&2

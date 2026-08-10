@@ -3,15 +3,25 @@ package com.quata.feature.chat.presentation.chat
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
+import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
@@ -74,61 +84,80 @@ fun AndroidChatProductScreen(
     val translationGateway = remember(context) {
         FangChatTranslationGateway(QuataCachedTranslator.get(context))
     }
+    var focusedMessageVisible by remember(conversationId) { mutableStateOf<String?>(null) }
 
-    ChatProductHostContent(
-        repository = repository,
-        audioPlayer = audioPlayerService,
-        audioRecorder = audioRecorderService,
-        filePicker = filePickerService,
-        capturePhoto = { cameraCaptureService.capturePhoto() },
-        conversationId = conversationId,
-        navigationMessage = "",
-        onOpenConversation = onOpenConversation,
-        onOpenMessageConversation = onOpenMessageConversation,
-        onBackToList = onBack,
-        onOpenAttachment = { file ->
-            context.openAttachmentWithDocumentReaderOrChooser(
-                attachment = file.toAttachmentPreview(attachmentFallbackName),
-                isDarkMode = template.resolvedTheme != QuataResolvedTheme.Light,
-            )
-        },
-        onOpenExternalLink = context::openSafeChatExternalLink,
-        onOpenUserProfile = onOpenUserProfile,
-        openingProfileUserId = openingProfileUserId,
-        onCopyMessage = { value -> scope.launch { clipboardService.writeText(value) } },
-        remoteConversationAvatar = { presentation, avatarModifier ->
-            AvatarImage(
-                name = presentation.name,
-                avatarUrl = presentation.avatarUrl,
-                profileId = presentation.profileId,
-                modifier = avatarModifier,
-            )
-        },
-        mediaSlots = ChatMediaPlatformSlots(
-            preview = { file, _, mediaModifier ->
-                AttachmentThumbnail(file.toAttachmentPreview(attachmentFallbackName), mediaModifier)
+    Box(Modifier.fillMaxSize().padding(padding)) {
+        ChatProductHostContent(
+            repository = repository,
+            audioPlayer = audioPlayerService,
+            audioRecorder = audioRecorderService,
+            filePicker = filePickerService,
+            capturePhoto = { cameraCaptureService.capturePhoto() },
+            conversationId = conversationId,
+            navigationMessage = "",
+            onOpenConversation = onOpenConversation,
+            onOpenMessageConversation = onOpenMessageConversation,
+            onBackToList = onBack,
+            onOpenAttachment = { file ->
+                context.openAttachmentWithDocumentReaderOrChooser(
+                    attachment = file.toAttachmentPreview(attachmentFallbackName),
+                    isDarkMode = template.resolvedTheme != QuataResolvedTheme.Light,
+                )
             },
-            viewer = { file, _, mediaModifier ->
-                AttachmentFullscreenMediaContent(file.toAttachmentPreview(attachmentFallbackName), mediaModifier)
+            onOpenExternalLink = context::openSafeChatExternalLink,
+            onOpenUserProfile = onOpenUserProfile,
+            openingProfileUserId = openingProfileUserId,
+            onCopyMessage = { value -> scope.launch { clipboardService.writeText(value) } },
+            remoteConversationAvatar = { presentation, avatarModifier ->
+                AvatarImage(
+                    name = presentation.name,
+                    avatarUrl = presentation.avatarUrl,
+                    profileId = presentation.profileId,
+                    modifier = avatarModifier,
+                )
             },
-        ),
-        translationGateway = translationGateway,
-        translatorStrings = chatTranslatorStringsForLanguage(languageTag),
-        translationDirection = chatTranslationDirectionForLanguage(languageTag),
-        languageTag = languageTag,
-        conversationList = {},
-        text = context::androidChatText,
-        focusedMessageId = focusedMessageId,
-        onFocusedMessageHandled = onFocusedMessageHandled,
-        modifier = Modifier.fillMaxSize().padding(padding),
-        audioRecordingConfiguration = ChatAudioRecordingConfiguration(mimeType = "audio/mp4"),
-        conversationModel = viewModel.commonModel,
-        compactHeader = compactHeader,
-        trailingActions = { appHeaderActions?.invoke(this) },
-        onOpenTranslator = {
-            translatorModeController.activate(rootView, QuataTranslatorOverlaySource.Chat)
-        },
-    )
+            mediaSlots = ChatMediaPlatformSlots(
+                preview = { file, _, mediaModifier ->
+                    AttachmentThumbnail(file.toAttachmentPreview(attachmentFallbackName), mediaModifier)
+                },
+                viewer = { file, _, mediaModifier ->
+                    AttachmentFullscreenMediaContent(file.toAttachmentPreview(attachmentFallbackName), mediaModifier)
+                },
+            ),
+            translationGateway = translationGateway,
+            translatorStrings = chatTranslatorStringsForLanguage(languageTag),
+            translationDirection = chatTranslationDirectionForLanguage(languageTag),
+            languageTag = languageTag,
+            conversationList = {},
+            text = context::androidChatText,
+            focusedMessageId = focusedMessageId,
+            onFocusedMessageVisible = { messageId -> focusedMessageVisible = messageId },
+            onFocusedMessageHandled = {
+                focusedMessageVisible = null
+                onFocusedMessageHandled()
+            },
+            modifier = Modifier.fillMaxSize(),
+            audioRecordingConfiguration = ChatAudioRecordingConfiguration(mimeType = "audio/mp4"),
+            conversationModel = viewModel.commonModel,
+            compactHeader = compactHeader,
+            trailingActions = { appHeaderActions?.invoke(this) },
+            onOpenTranslator = {
+                translatorModeController.activate(rootView, QuataTranslatorOverlaySource.Chat)
+            },
+        )
+        focusedMessageVisible?.let { messageId ->
+            val focusedMessageVisibleTag = "chat.focused-message.visible.$messageId"
+            Box(
+                Modifier
+                    .size(1.dp)
+                    .semantics {
+                        testTag = focusedMessageVisibleTag
+                        contentDescription = focusedMessageVisibleTag
+                        selected = true
+                    },
+            )
+        }
+    }
 }
 
 private fun PlatformFile.toAttachmentPreview(fallbackName: String): AttachmentPreview = AttachmentPreview(

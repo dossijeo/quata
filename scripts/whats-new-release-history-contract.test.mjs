@@ -79,7 +79,7 @@ test('About opens the common dialog and links to Release History on Android, Web
   assert.match(iosSwift, /func installAboutFactory\(_ factory: @escaping \(\) -> UIViewController\)/);
   assert.match(iosSwift, /func showAbout\(\) \{ route\(\.about\) \}/);
   assert.match(iosSwift, /case \.about:\s+return aboutFactory\?\(\)/);
-  assert.match(iosSwift, /case \.about:\s+presentation = \("quata-ios-about-host", "Quata iOS About"\)/);
+  assert.match(iosSwift, /case \.about:\s+presentation = \("quata-ios-about-host", "Quata iOS About", nil\)/);
   assert.doesNotMatch(iosSwift, /onLogoClick:\s*\{\s*\}/);
 
   assert.match(iosSwiftTests, /testAuthenticatedRouteMenuExposesWhatsNewAndAboutOnlyAfterTheirLocalFactoriesAreInstalled/);

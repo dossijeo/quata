@@ -354,6 +354,21 @@ async function attachScreenshot(page, evidenceDir, name) {
   return path;
 }
 
+async function assertSelectedMessageSignal(page, messageId) {
+  const selected = await page.evaluate(() => document.documentElement.getAttribute("data-quata-chat-focused-message-selected"));
+  if (selected !== String(messageId)) throw new Error("focused_message_selected_semantics_missing");
+}
+
+async function waitForFocusedSelectionToClear(page) {
+  const deadline = Date.now() + 12_000;
+  while (Date.now() < deadline) {
+    const selected = await page.evaluate(() => document.documentElement.getAttribute("data-quata-chat-focused-message-selected"));
+    if (!selected) return;
+    await delay(250);
+  }
+  throw new Error("focused_message_selection_not_consumed");
+}
+
 async function logicalCleanup(config, state) {
   const actions = [];
   if (state.thread && state.message && state.a) {
@@ -517,7 +532,9 @@ function safeFailure(error) {
     "chat_backend_poll_timeout", "distribution_missing", "runtime_configuration_injection_failed",
     "static_server_start_failed", "favorite_message_not_visible", "favorite_message_open_failed",
     "favorite_opened_source_message_not_visible",
-    "focused_message_not_visible", "browser_runtime_fault", "cleanup_residue_detected",
+    "focused_message_not_visible", "focused_message_selected_semantics_missing",
+    "focused_message_selection_not_consumed", "favorite_empty_state_not_visible",
+    "browser_runtime_fault", "cleanup_residue_detected",
     "missing_hard_cleanup_authorization", "missing_adjacent_profile_credentials_source",
     "invalid_adjacent_profile_phone", "missing_adjacent_recipient_profile",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_favorites_focused_failure";
@@ -651,8 +668,34 @@ try {
   await focusedPage.page.getByText(markerProbe, { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
     throw new Error("focused_message_not_visible");
   });
+  await assertSelectedMessageSignal(focusedPage.page, state.message);
+  report.steps.push("focused_deep_link_exposed_selected_message_semantics");
   report.evidence.focusedScreenshot = await attachScreenshot(focusedPage.page, options.evidenceDir, "web-focused-message");
   report.steps.push("focused_deep_link_rendered_same_message");
+  await waitForFocusedSelectionToClear(focusedPage.page);
+  report.steps.push("focused_deep_link_selection_consumed_once");
+
+  await rpc(config, state.a, "quata_chat_set_favorite", {
+    p_actor_profile_id: state.a.profileId,
+    p_thread_id: state.thread,
+    p_message_id: state.message,
+    p_favorite: false,
+  });
+  report.steps.push("favorite_removed_by_rpc_for_empty_state");
+  const emptyFavoritesPage = await openAuthenticatedChatPage(
+    browser,
+    server.origin,
+    state.a,
+    chatFragment(favoriteConversationId),
+    favoriteRoute,
+    faults,
+  );
+  contexts.push(emptyFavoritesPage.context);
+  await emptyFavoritesPage.page.getByText("Todavia no hay mensajes favoritos.", { exact: true }).waitFor({ timeout: 45_000 }).catch(() => {
+    throw new Error("favorite_empty_state_not_visible");
+  });
+  report.evidence.emptyFavoritesScreenshot = await attachScreenshot(emptyFavoritesPage.page, options.evidenceDir, "web-favorites-empty");
+  report.steps.push("favorite_route_rendered_empty_state_after_unfavorite");
 
   if (faults.length) throw new Error("browser_runtime_fault");
   report.status = "passed";

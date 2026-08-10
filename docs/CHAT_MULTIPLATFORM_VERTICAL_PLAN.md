@@ -92,6 +92,28 @@ durante esta migración: se documenta y se mantiene compatibilidad con Android y
   terminal para no dejar un spinner infinito; el fallback y retry son Compose comunes y el
   adaptador conserva sólo descarga/decoder. Falta acreditar el retry con un fallo controlado real.
 
+## Resultado focal `CHAT-FAVORITES` + `CHAT-FOCUSED-MESSAGE` (candidato `c0f06dd2`)
+
+- `CHAT-FAVORITES` queda cerrado como candidato: Android, Web/Wasm e iOS abren la ruta común
+  `FavoriteMessagesConversationId`, muestran el mensaje favorito creado por fixture reversible,
+  abren la conversación origen desde esa ruta, eliminan el favorito por RPC autorizado y vuelven a
+  abrir favoritos verificando el estado vacío común.
+- `CHAT-FOCUSED-MESSAGE` queda cerrado como candidato: la misma conversación temporal se abre por
+  deep link enfocado, el foco se resuelve desde `ChatScreenHost` común, se expone una señal
+  observable por plataforma sin duplicar producto y se consume una sola vez.
+- Evidencias finales del mismo SHA `c0f06dd23f8e06e59aee5c123f34383b46825937`: Web
+  `build-reports/web/chat-favorites-focused-evidence.json`, Android
+  `build-reports/android/chat-favorites-focused-evidence.json`, iOS
+  `build-reports/ios/chat-favorites-focused-evidence.json`.
+- Las tres lanes usaron datos temporales reversibles con identificador único, capturas reales
+  `*-favorites-list`, `*-favorites-open-source`, `*-focused-message` y `*-favorites-empty`, y
+  limpieza física verificada con residuo cero en `chat_threads`, `chat_messages`,
+  `chat_participants`, `chat_attachments`, `chat_message_states`, `chat_events` y
+  `conversation_user_state`.
+- `SCR-CHAT` permanece **COMÚN con límites**: siguen pendientes composer/envío/emoji, acciones de
+  mensaje restantes, adjuntos/audio, grupo/notificaciones, perfil global, traducción, mapa/SOS,
+  retorno completo y errores/retry por subflujo.
+
 ## Resultado local consolidado (SHA `26d385bd`, todavía sin PR)
 
 - Android, Wasm e iOS consumen ya `ChatProductHostContent`/`ChatScreenHost` para la ruta de producto. Android inyecta únicamente adaptadores de avatar, picker/cámara, audio, media/documentos, clipboard, navegación y su `ChatAndroidViewModel` lifecycle-safe; el antiguo `ChatScreen` dejó de ser la ruta activa.

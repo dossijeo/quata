@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
@@ -67,11 +68,14 @@ fun ChatConversationDetailContent(
     typingIndicator: (@Composable () -> Unit)? = null,
     /** Shown inside the history viewport while the first backend snapshot is pending. */
     initialContent: (@Composable () -> Unit)? = null,
+    /** Shown inside the history viewport after a successful empty snapshot. */
+    emptyContent: (@Composable () -> Unit)? = null,
     /** Real repository pagination; the root never manufactures history locally. */
     onLoadOlderMessages: () -> Boolean = { false },
     isLoadingOlderMessages: Boolean = false,
     /** A host-provided message target. It is ignored safely until it is present in [messages]. */
     focusedMessageId: String? = null,
+    onFocusedMessageVisible: (String) -> Unit = {},
     onFocusedMessageHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -92,6 +96,7 @@ fun ChatConversationDetailContent(
             snapshotFlow {
                 listState.layoutInfo.visibleItemsInfo.any { item -> item.key == focusedMessage.composeKey() }
             }.first { it }
+            onFocusedMessageVisible(focusedMessage.id)
             delay(FocusedMessageHighlightMillis)
             onFocusedMessageHandled()
             highlightedMessageId = null
@@ -148,6 +153,8 @@ fun ChatConversationDetailContent(
         ) {
             if (initialContent != null) {
                 item(key = "chat-initial-loading") { initialContent() }
+            } else if (messages.isEmpty() && emptyContent != null) {
+                item(key = "chat-empty") { emptyContent() }
             }
             if (isLoadingOlderMessages) {
                 item(key = "chat-history-loading") {
@@ -207,6 +214,7 @@ private fun ChatConversationMessageContent(
     val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
     val bubbleSemantics = Modifier.semantics {
         testTag = if (isSelected) "chat.message.${message.id}.selected" else "chat.message.${message.id}"
+        selected = isSelected
         stateDescription = if (isSelected) "selected" else "not selected"
     }
     ChatMessageBubbleLayoutContent(

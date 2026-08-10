@@ -18,6 +18,7 @@ const evidenceFiles = [
   "android-favorites-list.png",
   "android-favorites-open-source.png",
   "android-focused-message.png",
+  "android-favorites-empty.png",
   "android-chat-favorites-focused-evidence.json",
 ];
 
@@ -441,13 +442,38 @@ try {
   if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentationOutput)) {
     throw new Error("android_instrumentation_semantic_failure");
   }
+  report.steps.push("android_favorites_source_and_focus_verified");
+  await rpc(config, state.a, "quata_chat_set_favorite", {
+    p_actor_profile_id: state.a.profileId,
+    p_thread_id: state.thread,
+    p_message_id: state.message,
+    p_favorite: false,
+  });
+  report.steps.push("favorite_removed_by_rpc_for_android_empty_state");
+  await run("adb", ["shell", "am", "force-stop", "com.quata"]);
+  report.steps.push("android_process_restarted_before_empty_state_verification");
+  const emptyInstrumentationOutput = await runCapture("adb", [
+    "shell", "am", "instrument", "-w", "-r",
+    "-e", "class", "com.quata.feature.chat.presentation.chat.ChatFavoritesFocusedDeepLinkInstrumentedTest",
+    "-e", "quataChatEvidenceCredentialsFile", deviceCredentialsPath,
+    "-e", "quataChatEvidenceFavoritesUrl", chatUrl("__favorite_messages__"),
+    "-e", "quataChatEvidenceFocusedUrl", chatUrl(`sb:${state.thread}`, String(state.message)),
+    "-e", "quataChatEvidenceMarkerProbe", markerProbe,
+    "-e", "quataChatEvidenceMessageId", String(state.message),
+    "-e", "quataChatEvidenceExpectFavoritesEmpty", "1",
+    "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
+  ]);
+  if (!/OK \(\d+ tests?\)/.test(emptyInstrumentationOutput)) throw new Error("android_empty_instrumentation_not_ok");
+  if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(emptyInstrumentationOutput)) {
+    throw new Error("android_empty_instrumentation_semantic_failure");
+  }
+  report.steps.push("android_favorites_empty_state_verified_after_unfavorite");
   const evidenceDir = join("build-reports", "android", "chat-favorites-focused-evidence");
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   for (const file of evidenceFiles) {
     await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file));
   }
-  report.steps.push("android_favorites_source_and_focus_verified");
   report.status = "passed";
   report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
   report.fixture = { threadId: state.thread, conversationId: `sb:${state.thread}`, messageId: state.message, markerSha256: sha256(marker) };
