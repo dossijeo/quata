@@ -41,9 +41,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(messageText(composerMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-composer-sent")
 
-        selectMessage(seedMarkerProbe, in: app, context: "seed reply selection")
+        selectMessage(seedMarkerProbe, expectedMessageId: seedMessageId, in: app, context: "seed reply selection")
         tapTaggedButton("chat.action.favorite", in: app, context: "favorite seed message")
-        selectMessage(seedMarkerProbe, in: app, context: "seed reply selection after favorite")
+        selectMessage(seedMarkerProbe, expectedMessageId: seedMessageId, in: app, context: "seed reply selection after favorite")
         tapTaggedButton("chat.action.reply", in: app, context: "start reply")
         XCTAssertTrue(
             app.descendants(matching: .any).matching(identifier: "chat.composer.reply").firstMatch.waitForExistence(timeout: 10),
@@ -54,7 +54,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(messageText(replyMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-composer-reply-sent")
 
-        selectMessage(composerMarker, in: app, context: "own message edit selection")
+        selectMessage(composerMarker, expectedMessageId: nil, in: app, context: "own message edit selection")
         assertActionBarOwnMessage(in: app)
         tapTaggedButton("chat.action.edit", in: app, context: "start edit")
         XCTAssertTrue(
@@ -66,7 +66,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(messageText(editMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-composer-edit-sent")
 
-        selectMessage(editMarker, in: app, context: "edited own selected")
+        selectMessage(editMarker, expectedMessageId: nil, in: app, context: "edited own selected")
         assertActionBarOwnMessage(in: app)
         attachScreenshot(app, name: "ios-chat-actions-own-selected")
     }
@@ -94,7 +94,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
     }
 
-    private func selectMessage(_ markerProbe: String, in app: XCUIApplication, context: String) {
+    private func selectMessage(_ markerProbe: String, expectedMessageId: String?, in app: XCUIApplication, context: String) {
         let candidates = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", markerProbe))
         XCTAssertGreaterThanOrEqual(candidates.count, 1, "Expected an actionable message for \(context).")
         var target = candidates.element(boundBy: 0)
@@ -108,6 +108,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(target.waitForExistence(timeout: 10), "Expected actionable message for \(context).")
         target.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        if let expectedMessageId {
+            let selected = app.descendants(matching: .any)
+                .matching(identifier: "chat.message.\(expectedMessageId).selected")
+                .firstMatch
+            XCTAssertTrue(selected.waitForExistence(timeout: 10), "Expected selected semantics for \(context).")
+        }
     }
 
     private func assertActionBarOwnMessage(in app: XCUIApplication) {

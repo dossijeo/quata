@@ -78,6 +78,7 @@ fun CompactIconButton(
     val qaModifier = testTag?.let { Modifier.testTag(it) } ?: Modifier
     Box(
         modifier = modifier
+            .then(qaModifier)
             .requiredSize(CompactIconButtonSize)
             .clip(CircleShape)
             .clickable(
@@ -87,8 +88,7 @@ fun CompactIconButton(
                 role = Role.Button,
                 onClick = onClick
             )
-            .background(Color.Transparent)
-            .then(qaModifier),
+            .background(Color.Transparent),
         contentAlignment = Alignment.Center,
         content = content
     )
