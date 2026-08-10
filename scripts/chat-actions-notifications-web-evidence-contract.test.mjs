@@ -26,13 +26,15 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /quata_chat_set_muted/);
   assert.match(runner, /quata_chat_get_inbox/);
   assert.match(runner, /quata_chat_get_favorites/);
+  assert.match(runner, /async function clickMessage\(page, marker, error\)/);
+  assert.match(runner, /getByRole\("button", \{ name: pattern \}/);
   assert.match(runner, /fillComposerAndSend\(page, composerMarker\)/);
   assert.match(runner, /composer_text_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /const replyTargetMessageId = state\.peerMessage \?\? state\.ownMessage/);
   assert.match(runner, /messageReplyToId\(message\) === Number\(replyTargetMessageId\)/);
   assert.match(runner, /composer_reply_sent_by_shared_ui_and_verified_by_rpc/);
-  assert.match(runner, /await page\.getByText\(ownMarker\.slice\(0, 28\)[\s\S]*?await clickLabel\(page, \[\/Editar\|Edit\/i\]/);
-  assert.match(runner, /await page\.getByText\(editMarker\.slice\(0, 28\)[\s\S]*?await waitLabel\(page, \[\/Copiar mensaje\|Copy message\/i\]/);
+  assert.match(runner, /await clickMessage\(page, ownMarker, "message_action_target_not_clickable:edit"\)[\s\S]*?await clickLabel\(page, \[\/Editar\|Edit\/i\]/);
+  assert.match(runner, /await clickMessage\(page, editMarker, "message_action_target_not_clickable:own_actions"\)[\s\S]*?await waitLabel\(page, \[\/Copiar mensaje\|Copy message\/i\]/);
   assert.match(runner, /composer_edit_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /getByText\(\/Silenciar conversaci\[oó\]n\|Mute conversation\/i\)/);
   for (const label of ["Copiar mensaje", "Responder", "Reenviar", "Editar", "Favorito", "Eliminar", "Report"]) {

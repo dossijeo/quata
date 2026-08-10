@@ -344,12 +344,32 @@ async function clickLabel(page, patterns, error) {
   throw new Error(error);
 }
 
+async function clickMessage(page, marker, error) {
+  const probe = marker.slice(0, 28);
+  const pattern = new RegExp(escapeRegExp(probe));
+  for (const locator of [
+    page.getByRole("button", { name: pattern }).first(),
+    page.getByLabel(pattern).first(),
+    page.getByText(probe, { exact: false }).first(),
+  ]) {
+    if (await locator.waitFor({ timeout: 5_000 }).then(() => true).catch(() => false)) {
+      await locator.click({ timeout: 10_000, force: true });
+      return;
+    }
+  }
+  throw new Error(error);
+}
+
 async function waitLabel(page, patterns, error) {
   for (const pattern of patterns) {
     const locator = page.getByLabel(pattern).first();
     if (await locator.waitFor({ timeout: 8_000 }).then(() => true).catch(() => false)) return;
   }
   throw new Error(error);
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function fillComposerAndSend(page, value) {
@@ -492,6 +512,7 @@ function safeFailure(error) {
     "public_auth_request_failed", "invalid_auth_response", "chat_rpc_failed", "chat_contract_invalid",
     "chat_backend_poll_timeout", "distribution_missing", "runtime_configuration_injection_failed",
     "static_server_start_failed", "message_not_visible", "options_menu_not_visible", "action_bar_not_visible",
+    "message_action_target_not_clickable",
     "mute_state_not_persisted", "favorite_state_not_persisted", "browser_runtime_fault",
     "composer_message_not_visible", "composer_reply_not_visible", "composer_edit_not_visible",
     "cleanup_residue_detected", "missing_hard_cleanup_authorization",
@@ -603,7 +624,7 @@ try {
 
   const replyTargetMarker = state.peerMessage ? peerMarker : ownMarker;
   const replyTargetMessageId = state.peerMessage ?? state.ownMessage;
-  await page.getByText(replyTargetMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
+  await clickMessage(page, replyTargetMarker, "message_action_target_not_clickable:reply");
   await clickLabel(page, [/Responder|Reply/i], "action_bar_not_visible:reply");
   const replyMarker = `chat-reply-ui-${runId}`;
   await fillComposerAndSend(page, replyMarker);
@@ -620,7 +641,7 @@ try {
   report.evidence.replySent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-reply-sent");
   report.steps.push("composer_reply_sent_by_shared_ui_and_verified_by_rpc");
 
-  await page.getByText(ownMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
+  await clickMessage(page, ownMarker, "message_action_target_not_clickable:edit");
   await clickLabel(page, [/Editar|Edit/i], "action_bar_not_visible:edit");
   const editMarker = `chat-edit-ui-${runId}`;
   await page.getByLabel(/Mensaje|Message|Composer/i).fill(editMarker, { timeout: 10_000 });
@@ -650,7 +671,7 @@ try {
   if (isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:false");
   report.steps.push("mute_disabled_and_verified_by_rpc");
 
-  await page.getByText(editMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
+  await clickMessage(page, editMarker, "message_action_target_not_clickable:own_actions");
   await waitLabel(page, [/Copiar mensaje|Copy message/i], "action_bar_not_visible:copy");
   await waitLabel(page, [/Responder|Reply/i], "action_bar_not_visible:reply");
   await waitLabel(page, [/Reenviar|Forward/i], "action_bar_not_visible:forward");
@@ -667,7 +688,7 @@ try {
   report.steps.push("favorite_toggled_and_verified_by_rpc");
 
   if (state.peerMessage) {
-    await page.getByText(peerMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
+    await clickMessage(page, peerMarker, "message_action_target_not_clickable:peer_actions");
     await waitLabel(page, [/Copiar mensaje|Copy message/i], "action_bar_not_visible:peer_copy");
     await waitLabel(page, [/Responder|Reply/i], "action_bar_not_visible:peer_reply");
     await waitLabel(page, [/Reenviar|Forward/i], "action_bar_not_visible:peer_forward");
