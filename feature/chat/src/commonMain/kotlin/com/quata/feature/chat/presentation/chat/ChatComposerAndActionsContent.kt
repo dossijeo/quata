@@ -70,32 +70,32 @@ fun ChatSelectedMessageActionsContent(
             if (!message.isDeleted) {
                 CompactIconButton(
                     onClick = { onCopy(message.text); onEvent(ChatUiEvent.MessageSelected(null)) },
-                    modifier = Modifier.semantics { testTag = "chat.action.copy" },
+                    testTag = "chat.action.copy",
                 ) { CompactIcon(Icons.Filled.ContentCopy, strings.copyMessage) }
                 CompactIconButton(
                     onClick = { onEvent(ChatUiEvent.StartReply) },
-                    modifier = Modifier.semantics { testTag = "chat.action.reply" },
+                    testTag = "chat.action.reply",
                 ) { CompactIcon(Icons.AutoMirrored.Filled.Reply, strings.replyMessage) }
                 CompactIconButton(
                     onClick = { onEvent(ChatUiEvent.OpenForwardDialog) },
-                    modifier = Modifier.semantics { testTag = "chat.action.forward" },
+                    testTag = "chat.action.forward",
                 ) { CompactIcon(Icons.AutoMirrored.Filled.Forward, strings.forwardMessage) }
             }
             if (message.isMine && !message.isDeleted) CompactIconButton(
                 onClick = { onEvent(ChatUiEvent.StartEdit) },
-                modifier = Modifier.semantics { testTag = "chat.action.edit" },
+                testTag = "chat.action.edit",
             ) { CompactIcon(Icons.Filled.Edit, strings.editMessage) }
             if (!message.isMine && !message.isDeleted) CompactIconButton(
                 onClick = { confirmation = ChatConfirmation.Report },
-                modifier = Modifier.semantics { testTag = "chat.action.report" },
+                testTag = "chat.action.report",
             ) { CompactIcon(Icons.Filled.Flag, strings.reportMessage) }
             if (!message.isDeleted) CompactIconButton(
                 onClick = { onEvent(ChatUiEvent.ToggleFavoriteSelected) },
-                modifier = Modifier.semantics { testTag = "chat.action.favorite" },
+                testTag = "chat.action.favorite",
             ) { CompactIcon(if (message.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder, strings.favoriteMessage) }
             if (message.isMine && !message.isDeleted) CompactIconButton(
                 onClick = { confirmation = ChatConfirmation.Delete },
-                modifier = Modifier.semantics { testTag = "chat.action.delete" },
+                testTag = "chat.action.delete",
             ) { CompactIcon(Icons.Filled.Delete, strings.deleteMessage) }
         },
         modifier = modifier,
