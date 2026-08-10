@@ -33,6 +33,9 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /const box = await text\.boundingBox\(\)/);
   assert.match(runner, /page\.mouse\.click\(Math\.max\(1, box\.x - 12\), box\.y \+ \(box\.height \/ 2\)\)/);
   assert.match(runner, /fillComposerAndSend\(page, composerMarker\)/);
+  assert.match(runner, /const input = await visibleAriaLocator\(page, \[\/Mensaje\|Message\|Composer\/i\], 10_000\)/);
+  assert.match(runner, /const send = await visibleAriaLocator\(page, \[\/Enviar\|Send\/i\], 10_000\)/);
+  assert.match(runner, /await fillComposerAndSend\(page, editMarker\)/);
   assert.match(runner, /composer_text_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /const replyTargetMessageId = state\.peerMessage \?\? state\.ownMessage/);
   assert.match(runner, /messageReplyToId\(message\) === Number\(replyTargetMessageId\)/);

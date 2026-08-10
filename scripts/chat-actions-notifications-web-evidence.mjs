@@ -417,8 +417,12 @@ async function visibleAriaLocator(page, patterns, timeout) {
 }
 
 async function fillComposerAndSend(page, value) {
-  await page.getByLabel(/Mensaje|Message|Composer/i).fill(value, { timeout: 10_000 });
-  await page.getByLabel(/Enviar|Send/i).click({ timeout: 10_000, force: true });
+  const input = await visibleAriaLocator(page, [/Mensaje|Message|Composer/i], 10_000);
+  if (!input) throw new Error("composer_input_not_visible");
+  await input.fill(value, { timeout: 10_000 });
+  const send = await visibleAriaLocator(page, [/Enviar|Send/i], 10_000);
+  if (!send) throw new Error("composer_send_not_visible");
+  await send.click({ timeout: 10_000, force: true });
 }
 
 async function logicalCleanup(config, state) {
@@ -558,7 +562,8 @@ function safeFailure(error) {
     "static_server_start_failed", "message_not_visible", "options_menu_not_visible", "action_bar_not_visible",
     "message_action_target_not_clickable",
     "mute_state_not_persisted", "favorite_state_not_persisted", "browser_runtime_fault",
-    "composer_message_not_visible", "composer_reply_not_visible", "composer_edit_not_visible",
+        "composer_message_not_visible", "composer_reply_not_visible", "composer_edit_not_visible",
+        "composer_input_not_visible", "composer_send_not_visible",
     "cleanup_residue_detected", "missing_hard_cleanup_authorization",
     "missing_adjacent_profile_credentials_source", "invalid_adjacent_profile_phone",
     "missing_adjacent_recipient_profile",
@@ -688,8 +693,7 @@ try {
   await clickMessage(page, ownMarker, "message_action_target_not_clickable:edit");
   await clickLabel(page, [/Editar|Edit/i], "action_bar_not_visible:edit");
   const editMarker = `chat-edit-ui-${runId}`;
-  await page.getByLabel(/Mensaje|Message|Composer/i).fill(editMarker, { timeout: 10_000 });
-  await page.getByLabel(/Enviar|Send/i).click({ timeout: 10_000, force: true });
+  await fillComposerAndSend(page, editMarker);
   await pollMessage(
     config,
     state.a,
