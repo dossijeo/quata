@@ -12,6 +12,8 @@ const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
 const defaultDbTlsCaFile = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const hardCleanupAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_HARD_CLEANUP_AUTHORIZATION";
 const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_HARD_CLEANUP";
+const tempProfileHashAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH_AUTHORIZATION";
+const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const options = parseArgs(process.argv.slice(2));
@@ -28,6 +30,7 @@ const report = {
 let localCredentials;
 let remoteCredentials;
 let config;
+let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const state = {
   a: null,
   b: null,
@@ -48,6 +51,10 @@ try {
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
 
   const users = authorizedUsers();
+  profileHashWindow = await openTemporaryProfileHashWindow(users);
+  if (profileHashWindow.state === "opened") {
+    report.steps.push("temporary_profile_hash_window_opened");
+  }
   state.a = await login(config, users[0]);
   state.b = await login(config, users[1]);
   report.steps.push("two_authorized_profiles_logged_in");
@@ -156,6 +163,16 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 } catch (error) {
   report.error = safeFailure(error);
 } finally {
+  let profileHashRestoreFailed = false;
+  try {
+    await profileHashWindow.restore();
+    if (profileHashWindow.state === "opened") {
+      report.profileHashWindow = { state: "restored", count: profileHashWindow.count };
+    }
+  } catch (error) {
+    profileHashRestoreFailed = true;
+    report.profileHashWindow = { state: "restore_failed", error: safeFailure(error) };
+  }
   if (config && state.thread) {
     const cleanup = { state: "completed", actions: [] };
     let cleanupFailed = false;
@@ -183,6 +200,10 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       }
     }
     report.cleanup = cleanup;
+  }
+  if (profileHashRestoreFailed && report.status === "passed") {
+    report.status = "failed";
+    report.error = "temporary_profile_hash_window_restore_failed";
   }
   if (remoteCredentials) await run("ssh", [options.host, "rm", "-f", remoteCredentials]).catch(() => {});
   if (localCredentials) await rm(dirname(localCredentials), { recursive: true, force: true }).catch(() => {});
@@ -518,6 +539,87 @@ async function hardDeleteTemporaryThread(thread, uniqueKey) {
   } finally {
     await client.end().catch(() => {});
   }
+}
+
+async function withDatabase(callback) {
+  const dbUrlPath = process.env.SUPABASE_DB_URL_FILE?.trim() || defaultDbUrlFile;
+  const tlsCaPath = process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || defaultDbTlsCaFile;
+  const [connectionString, ca] = await Promise.all([readFile(dbUrlPath, "utf8"), readFile(tlsCaPath, "utf8")]);
+  const parsedConnection = new URL(connectionString.trim());
+  parsedConnection.searchParams.delete("sslmode");
+  const client = new pg.Client({
+    connectionString: parsedConnection.toString(),
+    ssl: { ca, rejectUnauthorized: true, servername: parsedConnection.hostname },
+  });
+  await client.connect();
+  try {
+    return await callback(client);
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+async function openTemporaryProfileHashWindow(users) {
+  if (process.env[tempProfileHashAuthorizationEnvironment]?.trim() !== tempProfileHashAuthorizationValue) {
+    return { state: "not_requested", restored: true, restore: async () => {} };
+  }
+  const opened = await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const rowsToRestore = [];
+      for (const user of users) {
+        const found = await client.query(
+          `select id, pass_hash, pass_plain
+             from public.community_profiles
+            where (
+              regexp_replace(coalesce(country_code, ''), '\\D', '', 'g') = $1
+              and regexp_replace(coalesce(phone_local, ''), '\\D', '', 'g') = $2
+            ) or regexp_replace(coalesce(phone, ''), '\\D', '', 'g') = any($3::text[])
+            order by created_at desc nulls last, id
+            limit 1
+            for update`,
+          [user.countryCode, user.phone, [`${user.countryCode}${user.phone}`, user.phone]],
+        );
+        if (found.rowCount !== 1) throw new Error("temporary_profile_hash_window:profile_not_found");
+        const row = found.rows[0];
+        rowsToRestore.push({ id: row.id, pass_hash: row.pass_hash, pass_plain: row.pass_plain });
+        await client.query(
+          "update public.community_profiles set pass_hash = $1, pass_plain = null where id = $2",
+          [sha256(user.password), row.id],
+        );
+      }
+      await client.query("commit");
+      return rowsToRestore;
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  let restored = false;
+  return {
+    state: "opened",
+    restored,
+    count: opened.length,
+    restore: async () => {
+      if (restored) return;
+      await withDatabase(async (client) => {
+        await client.query("begin");
+        try {
+          for (const row of opened) {
+            await client.query(
+              "update public.community_profiles set pass_hash = $1, pass_plain = $2 where id = $3",
+              [row.pass_hash, row.pass_plain, row.id],
+            );
+          }
+          await client.query("commit");
+          restored = true;
+        } catch (error) {
+          await client.query("rollback").catch(() => {});
+          throw error;
+        }
+      });
+    },
+  };
 }
 
 async function copyRemoteEvidence(values) {
