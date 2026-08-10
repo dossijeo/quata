@@ -36,7 +36,9 @@ const state = {
   b: null,
   thread: null,
   seedMessage: null,
+  editableMessage: null,
   seedMarker: null,
+  editableMarker: null,
   composerMarker: null,
   replyMarker: null,
   editMarker: null,
@@ -73,6 +75,7 @@ try {
   report.steps.push("isolated_group_thread_ready");
 
   state.seedMarker = `chat-actions-ios-seed-${randomUUID()}`;
+  state.editableMarker = `chat-actions-ios-editable-${randomUUID()}`;
   state.composerMarker = `chat-actions-ios-send-${randomUUID()}`;
   state.replyMarker = `chat-actions-ios-reply-${randomUUID()}`;
   state.editMarker = `chat-actions-ios-edit-${randomUUID()}`;
@@ -85,7 +88,16 @@ try {
     p_client_message_id: `chat-actions-ios-seed-${randomUUID()}`,
   }));
   await pollMessage(config, state.b, state.thread, (message) => Number(message?.id) === state.seedMessage && messageText(message) === state.seedMarker);
-  report.steps.push("unique_seed_message_visible_to_peer");
+  state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
+    p_actor_profile_id: state.a.profileId,
+    p_thread_id: state.thread,
+    p_message: state.editableMarker,
+    p_file_ids: [],
+    p_reply_to_message_id: null,
+    p_client_message_id: `chat-actions-ios-editable-${randomUUID()}`,
+  }));
+  await pollMessage(config, state.b, state.thread, (message) => Number(message?.id) === state.editableMessage && messageText(message) === state.editableMarker);
+  report.steps.push("unique_seed_and_editable_messages_visible_to_peer");
 
   localCredentials = join(await mkdtemp(join(tmpdir(), "quata-ios-chat-actions-")), "credentials.json");
   await writeFile(localCredentials, `${JSON.stringify({
@@ -128,6 +140,8 @@ export QUATA_IOS_SIMULATOR_UDID=${shellQuote(options.simulatorUdid)}
 export QUATA_IOS_CHAT_E2E_CONVERSATION_ID=${shellQuote(`sb:${state.thread}`)}
 export QUATA_IOS_CHAT_E2E_MESSAGE_ID=${shellQuote(String(state.seedMessage))}
 export QUATA_IOS_CHAT_E2E_MARKER_PROBE=${shellQuote(markerProbe)}
+export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage))}
+export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker)}
 export QUATA_IOS_CHAT_E2E_COMPOSER_MARKER=${shellQuote(state.composerMarker)}
 export QUATA_IOS_CHAT_E2E_REPLY_MARKER=${shellQuote(state.replyMarker)}
 export QUATA_IOS_CHAT_E2E_EDIT_MARKER=${shellQuote(state.editMarker)}
@@ -137,10 +151,12 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 `, 30 * 60 * 1000);
   report.steps.push("ios_xctest_composer_reply_edit_and_action_bar_verified");
 
-  state.composerMessage = messageNumericId(await pollMessage(config, state.a, state.thread, (message) => messageText(message) === state.editMarker));
+  const edited = await pollMessage(config, state.a, state.thread, (message) =>
+    Number(message?.id) === state.editableMessage && messageText(message) === state.editMarker);
+  state.composerMessage = messageNumericId(await pollMessage(config, state.a, state.thread, (message) => messageText(message) === state.composerMarker));
   state.replyMessage = messageNumericId(await pollMessage(config, state.a, state.thread, (message) =>
     messageText(message) === state.replyMarker && messageReplyToId(message) === state.seedMessage));
-  if (!state.composerMessage || !state.replyMessage) throw new Error("chat_contract_invalid:messages_missing_after_ios_ui");
+  if (messageNumericId(edited) !== state.editableMessage || !state.composerMessage || !state.replyMessage) throw new Error("chat_contract_invalid:messages_missing_after_ios_ui");
   const favoriteRows = await favorites(config, state.a);
   if (!favoriteRows.some((message) => favoriteMessageId(message) === state.seedMessage)) {
     throw new Error("chat_contract_invalid:seed_favorite_missing_after_ios_ui");
@@ -153,9 +169,11 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     threadId: state.thread,
     conversationId: `sb:${state.thread}`,
     seedMessageId: state.seedMessage,
+    editableMessageId: state.editableMessage,
     composerMessageId: state.composerMessage,
     replyMessageId: state.replyMessage,
     seedMarkerSha256: sha256(state.seedMarker),
+    editableMarkerSha256: sha256(state.editableMarker),
     composerMarkerSha256: sha256(state.composerMarker),
     replyMarkerSha256: sha256(state.replyMarker),
     editMarkerSha256: sha256(state.editMarker),
@@ -456,7 +474,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("seed_favorite_removed");
   }
-  const messageIds = [state.seedMessage, state.composerMessage, state.replyMessage].filter((value) => Number.isSafeInteger(value));
+  const messageIds = [state.seedMessage, state.editableMessage, state.composerMessage, state.replyMessage].filter((value) => Number.isSafeInteger(value));
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
       p_actor_profile_id: state.a.profileId,
@@ -465,7 +483,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("test_messages_deleted");
   }
-  const markers = [state.seedMarker, state.composerMarker, state.replyMarker, state.editMarker];
+  const markers = [state.seedMarker, state.editableMarker, state.composerMarker, state.replyMarker, state.editMarker];
   if (state.thread && state.a && await threadContainsAnyMarker(config, state.a, state.thread, markers)) {
     throw new Error("cleanup_residue_detected:message_a");
   }

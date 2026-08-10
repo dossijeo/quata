@@ -4,6 +4,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
@@ -307,7 +308,7 @@ private fun ChatCommonConversationHost(
         focusedMessageId = focusedMessageId,
         onFocusedMessageVisible = onFocusedMessageVisible,
         onFocusedMessageHandled = onFocusedMessageHandled,
-        modifier = modifier,
+        modifier = modifier.imePadding(),
         model = viewModel,
         slots = ChatScreenHostSlots(
             chromeStrings = chromeStrings,

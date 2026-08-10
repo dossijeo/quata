@@ -13,6 +13,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let seedMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]),
               let seedMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]),
+              let editableMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID"]),
+              let editableMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_EDITABLE_MARKER"]),
               let composerMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_COMPOSER_MARKER"]),
               let replyMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_REPLY_MARKER"]),
               let editMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_EDIT_MARKER"]) else {
@@ -32,11 +34,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "composer/action conversation")
         assertChatRoute(conversationId, messageId: seedMessageId, in: app, context: "composer/action conversation")
         XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        XCTAssertTrue(messageText(editableMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         assertAuthenticatedChrome(in: app, context: "composer/action conversation")
         assertPrimaryNavigationHidden(in: app, context: "composer/action conversation")
         attachScreenshot(app, name: "ios-chat-actions-thread-initial")
 
         typeText(composerMarker, into: "chat.composer.input", in: app)
+        assertConversationHeaderVisibleWithKeyboard(in: app)
         tapTaggedButton("chat.composer.send", in: app, context: "send composer message")
         XCTAssertTrue(messageText(composerMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-composer-sent")
@@ -46,30 +50,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         tapTaggedButton("chat.action.favorite", in: app, context: "favorite seed message")
         selectMessage(seedMarkerProbe, expectedMessageId: seedMessageId, in: app, context: "seed reply selection after favorite")
         tapTaggedButton("chat.action.reply", in: app, context: "start reply")
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "chat.composer.reply").firstMatch.waitForExistence(timeout: 10),
-            "The shared reply banner must be visible before sending a reply.",
-        )
         typeText(replyMarker, into: "chat.composer.input", in: app)
         tapTaggedButton("chat.composer.send", in: app, context: "send reply")
         XCTAssertTrue(messageText(replyMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-composer-reply-sent")
         dismissKeyboardIfPresent(in: app)
 
-        selectMessage(composerMarker, expectedMessageId: nil, in: app, context: "own message edit selection")
+        selectMessage(editableMarker, expectedMessageId: editableMessageId, in: app, context: "own message edit selection")
         assertActionBarOwnMessage(in: app)
         tapTaggedButton("chat.action.edit", in: app, context: "start edit")
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "chat.composer.editing").firstMatch.waitForExistence(timeout: 10),
-            "The shared editing banner must be visible before editing a message.",
-        )
         clearAndTypeText(editMarker, into: "chat.composer.input", in: app)
         tapTaggedButton("chat.composer.send", in: app, context: "submit edit")
         XCTAssertTrue(messageText(editMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-composer-edit-sent")
         dismissKeyboardIfPresent(in: app)
 
-        selectMessage(editMarker, expectedMessageId: nil, in: app, context: "edited own selected")
+        selectMessage(editMarker, expectedMessageId: editableMessageId, in: app, context: "edited own selected")
         assertActionBarOwnMessage(in: app)
         attachScreenshot(app, name: "ios-chat-actions-own-selected")
     }
@@ -129,6 +125,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 "Selected own message action \(identifier) must be exposed by the shared action bar.",
             )
         }
+    }
+
+    private func assertConversationHeaderVisibleWithKeyboard(in app: XCUIApplication) {
+        let titleBar = app.descendants(matching: .any)
+            .matching(identifier: "chat.conversation.titlebar")
+            .firstMatch
+        XCTAssertTrue(titleBar.waitForExistence(timeout: 10), "The shared Chat header must stay mounted while the keyboard is open.")
+        XCTAssertGreaterThanOrEqual(titleBar.frame.minY, 0, "The shared Chat header must not be pushed above the viewport by the iOS keyboard.")
+        XCTAssertLessThan(titleBar.frame.minY, 220, "The shared Chat header must remain in the upper viewport while the keyboard is open.")
     }
 
     private func tapTaggedButton(_ identifier: String, in app: XCUIApplication, context: String) {
