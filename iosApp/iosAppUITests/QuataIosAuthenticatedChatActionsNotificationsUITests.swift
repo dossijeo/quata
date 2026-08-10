@@ -265,9 +265,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             typeIntoFocusedElement(value, fallback: field, in: app)
             return
         }
-        let currentText = field.value as? String ?? ""
-        let deleteCount = min(max(currentText.count + 4, 12), 180)
-        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: deleteCount), fallback: field, in: app)
+        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 180), fallback: field, in: app)
         typeIntoFocusedElement(value, fallback: field, in: app)
     }
 
