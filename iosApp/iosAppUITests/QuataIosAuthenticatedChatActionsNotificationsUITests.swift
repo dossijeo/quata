@@ -233,8 +233,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         for label in ["return", "Return", "Intro", "Retorno", "Done", "Hecho"] {
             let key = app.keyboards.buttons[label].firstMatch
-            if key.exists {
-                key.tap()
+            if key.exists, key.isHittable {
+                key.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
                 RunLoop.current.run(until: Date().addingTimeInterval(0.3))
                 if app.keyboards.count == 0 {
                     return
