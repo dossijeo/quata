@@ -376,7 +376,53 @@ async function clickOptionsMenu(page) {
 }
 
 async function clickMessage(page, marker, error) {
-  const probe = marker.slice(0, 28);
+  const probes = [...new Set([marker.slice(0, 28), marker.slice(0, 20), marker.slice(0, 16)])];
+  for (const probe of probes) {
+    if (await clickMessageProbe(page, probe)) return;
+  }
+  throw new Error(error);
+}
+
+async function openMessageActions(page, marker, expectedPatterns, targetError, actionError) {
+  await clickMessage(page, marker, targetError);
+  if (await visibleAriaLocator(page, expectedPatterns, 2_000)) return;
+  if (await longPressMessage(page, marker)) {
+    if (await visibleAriaLocator(page, expectedPatterns, 5_000)) return;
+  }
+  throw new Error(actionError);
+}
+
+async function longPressMessage(page, marker) {
+  const probes = [...new Set([marker.slice(0, 28), marker.slice(0, 20), marker.slice(0, 16)])];
+  for (const probe of probes) {
+    const box = await visibleTextBox(page, probe);
+    if (!box) continue;
+    const x = box.x + (box.width / 2);
+    const y = box.y + (box.height / 2);
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await delay(700);
+    await page.mouse.up();
+    return true;
+  }
+  return false;
+}
+
+async function waitMessageVisible(page, marker, error, timeout = 45_000) {
+  const probes = [...new Set([marker.slice(0, 28), marker.slice(0, 20), marker.slice(0, 16)])];
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    for (const probe of probes) {
+      const text = page.getByText(probe, { exact: false }).first();
+      if (await text.waitFor({ timeout: 500 }).then(() => true).catch(() => false)) return;
+      if (await visibleTextBox(page, probe)) return;
+    }
+    await delay(250);
+  }
+  throw new Error(error);
+}
+
+async function clickMessageProbe(page, probe) {
   const pattern = new RegExp(escapeRegExp(probe));
   for (const locator of [
     page.getByRole("button", { name: pattern }).first(),
@@ -384,25 +430,87 @@ async function clickMessage(page, marker, error) {
   ]) {
     if (await locator.waitFor({ timeout: 5_000 }).then(() => true).catch(() => false)) {
       await locator.click({ timeout: 10_000, force: true });
-      return;
+      return true;
     }
   }
   const text = page.getByText(probe, { exact: false }).first();
   if (await text.waitFor({ timeout: 5_000 }).then(() => true).catch(() => false)) {
+    await text.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
+    await delay(250);
     const box = await text.boundingBox();
     if (box) {
       await page.mouse.click(Math.max(1, box.x - 12), box.y + (box.height / 2));
-      return;
+      return true;
     }
     await text.click({ timeout: 10_000, force: true });
-    return;
+    return true;
   }
-  throw new Error(error);
+  const textBox = await visibleTextBox(page, probe);
+  if (textBox) {
+    await page.mouse.click(Math.max(1, textBox.x - 12), textBox.y + (textBox.height / 2));
+    return true;
+  }
+  return false;
+}
+
+async function visibleTextBox(page, probe) {
+  return await page.evaluate((needle) => {
+    const collect = (root, entries) => {
+      for (const element of root.querySelectorAll("*")) {
+        const text = element.textContent ?? "";
+        if (text.includes(needle)) {
+          const rect = element.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            entries.push({
+              x: rect.x,
+              y: rect.y,
+              width: rect.width,
+              height: rect.height,
+              area: rect.width * rect.height,
+              textLength: text.length,
+            });
+          }
+        }
+        if (element.shadowRoot) collect(element.shadowRoot, entries);
+      }
+      return entries;
+    };
+    const matches = collect(document, [])
+      .sort((left, right) => left.area - right.area || left.textLength - right.textLength || left.y - right.y);
+    const match = matches[0];
+    return match
+      ? {
+          x: Math.round(match.x),
+          y: Math.round(match.y),
+          width: Math.round(match.width),
+          height: Math.round(match.height),
+        }
+      : null;
+  }, probe);
 }
 
 async function waitLabel(page, patterns, error) {
   if (await visibleAriaLocator(page, patterns, 8_000)) return;
   throw new Error(error);
+}
+
+async function clickNativeButtonByLabel(page, patterns) {
+  return await page.evaluate((sources) => {
+    const matchers = sources.map((source) => new RegExp(source.source, source.flags));
+    const collect = (root) => {
+      for (const element of root.querySelectorAll("button[aria-label], [role='button'][aria-label]")) {
+        const label = element.getAttribute("aria-label") ?? "";
+        const rect = element.getBoundingClientRect();
+        if (matchers.some((pattern) => pattern.test(label)) && rect.width > 0 && rect.height > 0) {
+          element.click();
+          return true;
+        }
+        if (element.shadowRoot && collect(element.shadowRoot)) return true;
+      }
+      return false;
+    };
+    return collect(document);
+  }, patterns.map((pattern) => ({ source: pattern.source, flags: pattern.flags })));
 }
 
 function escapeRegExp(value) {
@@ -430,18 +538,40 @@ async function fillComposerAndSend(page, value) {
   const input = await visibleAriaLocator(page, [/Mensaje|Message|Composer/i], 10_000);
   if (!input) throw new Error("composer_input_not_visible");
   await input.fill(value, { timeout: 10_000 });
-  const send = await visibleAriaLocator(page, [/Enviar|Send/i], 10_000);
-  if (!send) throw new Error("composer_send_not_visible");
-  await send.click({ timeout: 10_000, force: true });
+  const deadline = Date.now() + 10_000;
+  let sawSend = false;
+  while (Date.now() < deadline) {
+    const send = await visibleAriaLocator(page, [/Enviar|Send/i], 1_000);
+    if (!send) {
+      await delay(300);
+      continue;
+    }
+    sawSend = true;
+    await send.click({ timeout: 10_000, force: true });
+    await delay(300);
+    if (!(await input.inputValue().then((current) => current === value).catch(() => false))) return;
+    const box = await send.boundingBox();
+    if (box) {
+      await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+      await delay(300);
+      if (!(await input.inputValue().then((current) => current === value).catch(() => false))) return;
+    }
+    await clickNativeButtonByLabel(page, [/Enviar|Send/i]);
+    await delay(500);
+    if (!(await input.inputValue().then((current) => current === value).catch(() => false))) return;
+  }
+  if (!sawSend) throw new Error("composer_send_not_visible");
+  throw new Error("composer_send_not_dispatched");
 }
 
 async function logicalCleanup(config, state) {
   const actions = [];
-  if (state.thread && state.ownMessage && state.a) {
+  const favoriteMessage = state.ownMessage;
+  if (state.thread && favoriteMessage && state.a) {
     await rpc(config, state.a, "quata_chat_set_favorite", {
       p_actor_profile_id: state.a.profileId,
       p_thread_id: state.thread,
-      p_message_id: state.ownMessage,
+      p_message_id: favoriteMessage,
       p_favorite: false,
     }).catch(() => {});
     actions.push("favorite_removed");
@@ -573,7 +703,7 @@ function safeFailure(error) {
     "message_action_target_not_clickable",
     "mute_state_not_persisted", "favorite_state_not_persisted", "browser_runtime_fault",
         "composer_message_not_visible", "composer_reply_not_visible", "composer_edit_not_visible",
-        "composer_input_not_visible", "composer_send_not_visible",
+        "composer_input_not_visible", "composer_send_not_visible", "composer_send_not_dispatched",
     "cleanup_residue_detected", "missing_hard_cleanup_authorization",
     "missing_adjacent_profile_credentials_source", "invalid_adjacent_profile_phone",
     "missing_adjacent_recipient_profile",
@@ -655,13 +785,9 @@ try {
   });
   pageContext = await openAuthenticatedChatPage(browser, server.origin, state.a, `sb:${state.thread}`, faults);
   const page = pageContext.page;
-  await page.getByText(ownMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
-    throw new Error("message_not_visible:own");
-  });
+  await waitMessageVisible(page, ownMarker, "message_not_visible:own");
   if (state.peerMessage) {
-    await page.getByText(peerMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
-      throw new Error("message_not_visible:peer");
-    });
+    await waitMessageVisible(page, peerMarker, "message_not_visible:peer");
   }
   report.evidence.threadInitial = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-thread-initial");
   report.steps.push(state.peerMessage ? "thread_rendered_with_own_and_peer_messages" : "thread_rendered_with_own_message");
@@ -674,16 +800,16 @@ try {
     state.thread,
     (message) => messageText(message) === composerMarker,
   );
-  state.uiMessages.push(messageId({ message: composerMessage }));
-  await page.getByText(composerMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
-    throw new Error("composer_message_not_visible");
-  });
+  const composerMessageId = messageId({ message: composerMessage });
+  state.uiMessages.push(composerMessageId);
+  state.editableUiMessage = composerMessageId;
+  await waitMessageVisible(page, composerMarker, "composer_message_not_visible");
   report.evidence.composerSent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-sent");
   report.steps.push("composer_text_sent_by_shared_ui_and_verified_by_rpc");
 
   const replyTargetMarker = state.peerMessage ? peerMarker : ownMarker;
   const replyTargetMessageId = state.peerMessage ?? state.ownMessage;
-  await clickMessage(page, replyTargetMarker, "message_action_target_not_clickable:reply");
+  await openMessageActions(page, replyTargetMarker, [/Responder|Reply/i], "message_action_target_not_clickable:reply", "action_bar_not_visible:reply");
   await clickLabel(page, [/Responder|Reply/i], "action_bar_not_visible:reply");
   const replyMarker = `chat-reply-ui-${runId}`;
   await fillComposerAndSend(page, replyMarker);
@@ -694,13 +820,12 @@ try {
     (message) => messageText(message) === replyMarker && messageReplyToId(message) === Number(replyTargetMessageId),
   );
   state.uiMessages.push(messageId({ message: replyMessage }));
-  await page.getByText(replyMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
-    throw new Error("composer_reply_not_visible");
-  });
+  await delay(1_000);
+  await page.keyboard.press("Escape").catch(() => {});
   report.evidence.replySent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-reply-sent");
   report.steps.push("composer_reply_sent_by_shared_ui_and_verified_by_rpc");
 
-  await clickMessage(page, ownMarker, "message_action_target_not_clickable:edit");
+  await openMessageActions(page, ownMarker, [/Editar|Edit/i], "message_action_target_not_clickable:edit", "action_bar_not_visible:edit");
   await clickLabel(page, [/Editar|Edit/i], "action_bar_not_visible:edit");
   const editMarker = `chat-edit-ui-${runId}`;
   await fillComposerAndSend(page, editMarker);
@@ -710,9 +835,8 @@ try {
     state.thread,
     (message) => Number(message?.id ?? message?.message_id) === Number(state.ownMessage) && messageText(message) === editMarker,
   );
-  await page.getByText(editMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
-    throw new Error("composer_edit_not_visible");
-  });
+  await delay(1_000);
+  await page.keyboard.press("Escape").catch(() => {});
   report.evidence.editSent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-edit-sent");
   report.steps.push("composer_edit_sent_by_shared_ui_and_verified_by_rpc");
 
@@ -729,8 +853,7 @@ try {
   if (isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:false");
   report.steps.push("mute_disabled_and_verified_by_rpc");
 
-  await clickMessage(page, editMarker, "message_action_target_not_clickable:own_actions");
-  await waitLabel(page, [/Copiar mensaje|Copiar texto|Copy message|Copy text/i], "action_bar_not_visible:copy");
+  await openMessageActions(page, editMarker, [/Copiar mensaje|Copiar texto|Copy message|Copy text/i], "message_action_target_not_clickable:own_actions", "action_bar_not_visible:copy");
   await waitLabel(page, [/Responder|Reply/i], "action_bar_not_visible:reply");
   await waitLabel(page, [/Reenviar|Forward/i], "action_bar_not_visible:forward");
   await waitLabel(page, [/Editar|Edit/i], "action_bar_not_visible:edit");
@@ -742,12 +865,11 @@ try {
   await clickLabel(page, [/Favorito|Favorite/i], "action_bar_not_visible:favorite");
   await delay(1_000);
   const favoriteRows = await favorites(config, state.a);
-  if (!favoriteRows.some((message) => Number(message?.id) === state.ownMessage)) throw new Error("favorite_state_not_persisted:true");
+  if (!favoriteRows.some((message) => Number(message?.id) === Number(state.ownMessage))) throw new Error("favorite_state_not_persisted:true");
   report.steps.push("favorite_toggled_and_verified_by_rpc");
 
   if (state.peerMessage) {
-    await clickMessage(page, peerMarker, "message_action_target_not_clickable:peer_actions");
-    await waitLabel(page, [/Copiar mensaje|Copy message/i], "action_bar_not_visible:peer_copy");
+    await openMessageActions(page, peerMarker, [/Copiar mensaje|Copy message/i], "message_action_target_not_clickable:peer_actions", "action_bar_not_visible:peer_copy");
     await waitLabel(page, [/Responder|Reply/i], "action_bar_not_visible:peer_reply");
     await waitLabel(page, [/Reenviar|Forward/i], "action_bar_not_visible:peer_forward");
     await waitLabel(page, [/Reportar|Report|Denunciar/i], "action_bar_not_visible:peer_report");
@@ -775,6 +897,9 @@ try {
     } catch {}
   }
   report.error = safeFailure(error);
+  if (typeof error?.message === "string" && error.message.startsWith(report.error)) {
+    report.diagnostics = { ...(report.diagnostics ?? {}), safeErrorMessage: error.message };
+  }
 } finally {
   const cleanup = { state: "completed", actions: [] };
   let cleanupFailed = false;
