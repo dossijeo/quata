@@ -19,6 +19,35 @@ test("chat actions/notifications web evidence keeps credentials private and reve
   assert.match(runner, /cleanup_verified_physical_residue_absent/);
 });
 
+test("chat actions/notifications Android evidence keeps backend fixture reversible", async () => {
+  const runner = await source("scripts/chat-actions-notifications-android-evidence.mjs");
+  const testSource = await source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt");
+  assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP_AUTHORIZATION/);
+  assert.match(runner, /MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP/);
+  assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH_AUTHORIZATION/);
+  assert.match(runner, /MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH/);
+  assert.match(runner, /action: "login"/);
+  assert.doesNotMatch(runner, /action: "web_login"/);
+  assert.doesNotMatch(runner, /680242607|680242608|21085800/);
+  assert.match(runner, /qadata-chat-actions-notifications-android-/);
+  assert.match(runner, /select id, pass_hash, pass_plain[\s\S]*for update/);
+  assert.match(runner, /update public\.community_profiles set pass_hash = \$1, pass_plain = null where id = \$2/);
+  assert.match(runner, /update public\.community_profiles set pass_hash = \$1, pass_plain = \$2 where id = \$3/);
+  assert.match(runner, /delete from public\.chat_threads where id = \$1 and unique_key = \$2 returning id/);
+  assert.match(runner, /cleanup_verified_physical_residue_absent/);
+  assert.match(runner, /ChatActionsNotificationsInstrumentedTest/);
+  assert.match(runner, /composer_text_sent_by_shared_ui_and_verified_by_rpc/);
+  assert.match(runner, /composer_reply_sent_by_shared_ui_and_verified_by_rpc/);
+  assert.match(runner, /composer_edit_sent_by_shared_ui_and_verified_by_rpc/);
+  assert.match(runner, /favorite_toggled_and_verified_by_rpc/);
+  assert.match(testSource, /ChatComposerInputTestTag/);
+  assert.match(testSource, /ChatComposerSendTestTag/);
+  assert.match(testSource, /chat\.action\.reply/);
+  assert.match(testSource, /chat\.action\.edit/);
+  assert.match(testSource, /chat\.action\.favorite/);
+  assert.match(testSource, /android-chat-actions-own-selected/);
+});
+
 test("chat actions/notifications web evidence exercises real shared chat controls", async () => {
   const runner = await source("scripts/chat-actions-notifications-web-evidence.mjs");
   assert.match(runner, /quata_chat_start_thread/);

@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 
@@ -70,9 +71,11 @@ fun CompactIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    testTag: String? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val qaModifier = testTag?.let { Modifier.testTag(it) } ?: Modifier
     Box(
         modifier = modifier
             .requiredSize(CompactIconButtonSize)
@@ -84,7 +87,8 @@ fun CompactIconButton(
                 role = Role.Button,
                 onClick = onClick
             )
-            .background(Color.Transparent),
+            .background(Color.Transparent)
+            .then(qaModifier),
         contentAlignment = Alignment.Center,
         content = content
     )
