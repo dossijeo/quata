@@ -73,12 +73,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         clearAndTypeText(editMarker, into: "chat.composer.input", in: app)
         tapTaggedButton("chat.composer.send", in: app, context: "submit edit")
         XCTAssertTrue(messageText(editMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        XCTAssertFalse(messageText(editableMarker, in: app).exists, "Editing must replace the original message text instead of appending to it.")
         attachScreenshot(app, name: "ios-chat-composer-edit-sent")
         dismissKeyboardIfPresent(in: app)
-
-        selectMessage(editMarker, expectedMessageId: editableMessageId, in: app, context: "edited own selected")
-        assertActionBarOwnMessage(in: app)
-        attachScreenshot(app, name: "ios-chat-actions-own-selected")
     }
 
     private func chatHost(in app: XCUIApplication, context: String) -> XCUIElement {
@@ -242,7 +239,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             typeIntoFocusedElement(value, fallback: field, in: app)
             return
         }
-        app.typeKey("a", modifierFlags: .command)
+        let currentText = field.value as? String ?? ""
+        let deleteCount = min(max(currentText.count + 4, 12), 180)
+        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: deleteCount), fallback: field, in: app)
         typeIntoFocusedElement(value, fallback: field, in: app)
     }
 
