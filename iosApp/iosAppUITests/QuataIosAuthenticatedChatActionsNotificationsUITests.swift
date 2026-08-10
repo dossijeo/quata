@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 /// Opt-in, production-host gate for `CHAT-COMPOSER` / selected message actions.
 /// The companion runner seeds the Keychain session and disposable backend conversation first.
@@ -136,37 +137,60 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         for _ in 0..<10 {
             if field.waitForExistence(timeout: 1), field.isHittable {
-                field.tap()
-                typeIntoFocusedElement(value, fallback: field, in: app)
+                pasteText(value, into: field, in: app)
                 return
             }
             app.swipeDown()
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
         XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
-        typeIntoFocusedElement(value, fallback: field, in: app)
+        pasteText(value, into: field, in: app)
     }
 
     private func clearAndTypeText(_ value: String, into identifier: String, in app: XCUIApplication) {
         let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected editable field \(identifier) to exist.")
-        field.tap()
-        field.press(forDuration: 0.6)
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.78, dy: 0.5)).tap()
+        field.press(forDuration: 0.7)
         let selectAll = app.menuItems.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Select All", "Seleccionar todo")).firstMatch
         if selectAll.waitForExistence(timeout: 2) {
             selectAll.tap()
         }
-        typeIntoFocusedElement(value, fallback: field, in: app)
+        pasteText(value, into: field, in: app)
     }
 
-    private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {
-        let focused = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
-            .firstMatch
-        if focused.waitForExistence(timeout: 2) {
-            focused.typeText(value)
-        } else {
-            fallback.typeText(value)
+    private func pasteText(_ value: String, into field: XCUIElement, in app: XCUIApplication) {
+        UIPasteboard.general.string = value
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.78, dy: 0.5)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        field.press(forDuration: 0.7)
+        let paste = app.menuItems.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Paste", "Pegar")).firstMatch
+        if paste.waitForExistence(timeout: 3) {
+            paste.tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+            return
+        }
+        field.typeText(value)
+    }
+
+    private func dismissKeyboardIfPresent(in app: XCUIApplication) {
+        guard app.keyboards.count > 0 else {
+            return
+        }
+        for label in ["return", "Return", "Intro", "Retorno", "Done", "Hecho"] {
+            let key = app.keyboards.buttons[label].firstMatch
+            if key.exists {
+                key.tap()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+                if app.keyboards.count == 0 {
+                    return
+                }
+            }
+        }
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        if app.keyboards.count > 0 {
+            app.swipeDown()
         }
     }
 
