@@ -60,6 +60,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "editable message conversation")
         XCTAssertTrue(messageText(editableMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-actions-editable-focused")
+        waitForFocusedMessageHighlightToClear(editableMessageId, in: app)
 
         selectMessage(editableMarker, expectedMessageId: editableMessageId, in: app, context: "own message edit selection")
         assertActionBarOwnMessage(in: app)
@@ -139,6 +140,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(titleBar.waitForExistence(timeout: 10), "The shared Chat header must stay mounted while the keyboard is open.")
         XCTAssertGreaterThanOrEqual(titleBar.frame.minY, 0, "The shared Chat header must not be pushed above the viewport by the iOS keyboard.")
         XCTAssertLessThan(titleBar.frame.minY, 220, "The shared Chat header must remain in the upper viewport while the keyboard is open.")
+    }
+
+    private func waitForFocusedMessageHighlightToClear(_ messageId: String, in app: XCUIApplication) {
+        let focused = app.descendants(matching: .any)
+            .matching(identifier: "chat.message.\(messageId).selected")
+            .firstMatch
+        let deadline = Date().addingTimeInterval(12)
+        while focused.exists && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        XCTAssertFalse(focused.exists, "The deep-link focus highlight must clear before selecting the message for actions.")
     }
 
     private func tapTaggedButton(_ identifier: String, in app: XCUIApplication, context: String) {
