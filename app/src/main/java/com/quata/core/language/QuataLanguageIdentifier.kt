@@ -2,23 +2,42 @@ package com.quata.core.language
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 object QuataLanguageIdentifier {
+    private val identifierMutex = Mutex()
+
     @Volatile
     private var detector: FastTextLanguageDetector? = null
 
+    @Volatile
+    private var identifier: TextLanguageIdentifier? = null
+
+    suspend fun identifier(context: Context): TextLanguageIdentifier =
+        identifier ?: identifierMutex.withLock {
+            identifier ?: FastTextTextLanguageIdentifier {
+                readModelBytes(context.applicationContext)
+            }.also { identifier = it }
+        }
+
     suspend fun detector(context: Context): FastTextLanguageDetector =
         detector ?: withContext(Dispatchers.IO) {
-            detector ?: context.applicationContext.assets
-                .open(FastTextLanguageDetector.ModelAssetName)
-                .use { FastTextLanguageDetector.fromByteArray(it.readBytes()) }
+            detector ?: FastTextLanguageDetector.fromByteArray(readModelBytes(context.applicationContext))
                 .also { detector = it }
         }
 
     suspend fun detect(context: Context, text: String): QuataLanguageDetection =
-        detector(context).detect(text)
+        identifier(context).detect(text)
 
     suspend fun detectCode(context: Context, text: String): String =
-        detector(context).detectCode(text)
+        detect(context, text).code
+
+    private suspend fun readModelBytes(context: Context): ByteArray =
+        withContext(Dispatchers.IO) {
+            context.assets
+                .open(FastTextLanguageDetector.ModelAssetName)
+                .use { it.readBytes() }
+        }
 }

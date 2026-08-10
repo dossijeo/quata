@@ -18,7 +18,9 @@ test("LANG-FASTTEXT-PARITY-001 Android, Web and iOS use the shared FastText dete
   assert.match(commonDetector, /FastTextModelReader\(bytes\)\.read\(::FastTextLanguageDetector\)/);
   assert.match(commonIdentifier, /FastTextLanguageDetector\.fromByteArray\(modelBytes\(\)\)/);
 
+  assert.match(androidIdentifier, /FastTextTextLanguageIdentifier\s*\{/);
   assert.match(androidIdentifier, /assets\s*\.\s*open\(FastTextLanguageDetector\.ModelAssetName\)/);
+  assert.match(androidIdentifier, /identifier\(context\)\.detect\(text\)/);
   assert.match(webIdentifier, /FastTextTextLanguageIdentifier\(::fetchBrowserFastTextModelBytes\)/);
   assert.match(webIdentifier, /FastTextLanguageDetector\.ModelAssetName\.toJsString\(\)/);
   assert.match(iosIdentifier, /FastTextTextLanguageIdentifier\(::readIosFastTextModelBytes\)/);
