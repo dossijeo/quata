@@ -96,7 +96,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func messageText(_ markerProbe: String, in app: XCUIApplication) -> XCUIElement {
-        app.staticTexts
+        app.descendants(matching: .any)
             .matching(NSPredicate(format: "label CONTAINS %@", markerProbe))
             .firstMatch
     }
