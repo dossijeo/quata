@@ -163,7 +163,9 @@ private fun QuataWebApp(
     }
     // Test-only selection is fail-closed: both localhost and the explicit query opt-in are
     // required. All normal browsers retain the remote WebChatRepository above.
-    val chatHostRepository = remember { webChatE2eFixtureOrNull() ?: chatRepository }
+    val chatFixtureRepository = remember { webChatE2eFixtureOrNull() }
+    val chatHostRepository = chatFixtureRepository ?: chatRepository
+    val isLocalChatFixture = chatFixtureRepository != null
     DisposableEffect(chatRepository) {
         chatRepository.setAppForeground(chatBrowserDocumentIsVisible())
         val stopObserving = observeChatBrowserDocumentVisibility(chatRepository::setAppForeground)
@@ -178,8 +180,8 @@ private fun QuataWebApp(
         )
     }
     var isSessionReady by remember { mutableStateOf(false) }
-    val notificationsRepository = remember(chatRepository) { WebNotificationsRepository(chatRepository) }
-    val shouldObserveNotifications = isSessionReady && runtimeConfiguration.isBackendConfigured
+    val notificationsRepository = remember(chatHostRepository) { WebNotificationsRepository(chatHostRepository) }
+    val shouldObserveNotifications = (isSessionReady && runtimeConfiguration.isBackendConfigured) || isLocalChatFixture
     // A cold polling Flow must survive unrelated shell recompositions. Recreating it here caused
     // every navigation/layout change to cancel and immediately restart the inbox RPC.
     val notificationCountFlow = remember(notificationsRepository, shouldObserveNotifications) {
@@ -603,7 +605,7 @@ private fun QuataWebApp(
                         runtimeConfiguration = runtimeConfiguration,
                         onBack = { navigation.navigate("") },
                         onOpenConversation = navigation::navigateConversation,
-                        canMutate = isSessionReady,
+                        canMutate = isSessionReady || isLocalChatFixture,
                         onAuthenticationRequired = { conversationId ->
                             val effect = anonymousNotificationClickEffect(conversationId)
                             if (effect.navigateFeed) navigation.navigate("")

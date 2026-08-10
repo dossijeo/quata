@@ -379,6 +379,38 @@ final class QuataIosHostUITests: XCTestCase {
         }
     }
 
+    func testNotificationsRealFixtureOpensExactConversationFromSharedContent() {
+        let app = fixtureApp("notifications-real", spanishLocale: true)
+        app.launch()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "notifications.root")
+                .firstMatch
+                .waitForExistence(timeout: 15),
+            "The real iOS Notifications fixture must mount the shared Notifications root.",
+        )
+        let row = app.descendants(matching: .any)
+            .matching(identifier: "notifications.item.conversation-ios")
+            .firstMatch
+        XCTAssertTrue(
+            row.waitForExistence(timeout: 10),
+            "The shared notification row must be available through common semantics.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "notifications-real-list")
+        row.tap()
+
+        let opened = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-notifications-opened-chat")
+            .firstMatch
+        XCTAssertTrue(
+            opened.waitForExistence(timeout: 10),
+            "Tapping a notification must dispatch the exact conversation destination.",
+        )
+        XCTAssertEqual(opened.label, "Quata iOS Notifications opened conversation-ios")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "notifications-real-opened-chat")
+    }
+
     func testUnknownInAppFixtureRouteFailsClosedWithoutRenderingAProtectedSurface() {
         let app = fixtureApp("authenticated", inAppRoute: "not-a-quata-route")
         app.launch()

@@ -51,21 +51,21 @@ fun WebNotificationsHost(
             title = "Avisos",
             subtitle = webNotificationsActivitySubtitle,
             backContentDescription = "Volver",
-            loadingLabel = "Cargando avisos…",
-            emptyTitle = "Aún no hay avisos",
-            emptyMessage = "La actividad nueva aparecerá aquí.",
-            errorTitle = "Los avisos no están disponibles",
+            loadingLabel = "Cargando avisos\u2026",
+            emptyTitle = "A\u00fan no hay avisos",
+            emptyMessage = "La actividad nueva aparecer\u00e1 aqu\u00ed.",
+            errorTitle = "Los avisos no est\u00e1n disponibles",
             retryLabel = "Reintentar",
             relativeTime = { createdAt, now ->
                 notificationRelativeTimeLabel(createdAt, now, SpanishNotificationRelativeTimeStrings)
             },
             localizedBody = { it },
             sosPreviewCatalog = SosPreviewCatalog.Spanish,
-            photoPreview = "🖼️ Foto",
-            videoPreview = "🎥 Vídeo",
-            documentPreview = "📄 Documento",
-            voiceNotePreview = "🎤 Nota de voz",
-            filePreview = "📎 Archivo",
+            photoPreview = "\uD83D\uDDBC\uFE0F Foto",
+            videoPreview = "\uD83C\uDFA5 V\u00eddeo",
+            documentPreview = "\uD83D\uDCC4 Documento",
+            voiceNotePreview = "\uD83C\uDFA4 Nota de voz",
+            filePreview = "\uD83D\uDCCE Archivo",
         ),
         // The normal Android hierarchy has no delivery-status header. Registration is handled
         // by the established web_login/web_logout path, and only an actionable state may add one.
@@ -104,8 +104,8 @@ private val SpanishNotificationRelativeTimeStrings = NotificationRelativeTimeStr
     weeksAgo = { "hace $it semanas" },
     oneMonthAgo = "hace 1 mes",
     monthsAgo = { "hace $it meses" },
-    oneYearAgo = "hace 1 año",
-    yearsAgo = { "hace $it años" },
+    oneYearAgo = "hace 1 a\u00f1o",
+    yearsAgo = { "hace $it a\u00f1os" },
 )
 
 internal const val webNotificationsActivitySubtitle = "Notificaciones push y actividad"

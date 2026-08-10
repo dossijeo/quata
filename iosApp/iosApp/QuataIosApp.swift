@@ -513,6 +513,18 @@ private final class IosAppCompositionRoot {
                 router.showAbout()
             }
             return router
+        case "notifications-real":
+            var container: IosAuthLaunchFixtureContainerViewController!
+            container = IosAuthLaunchFixtureContainerViewController {
+                IosNotificationsEvidenceHostKt.QuataIosNotificationsEvidenceViewController(
+                    onOpenConversation: { conversationId in
+                        container.replaceComposeSurface(
+                            with: makeNotificationsOpenedFixtureViewController(conversationId: conversationId),
+                        )
+                    },
+                )
+            }
+            return container
         case "authenticated":
             // This deliberately runs the production Kotlin deep-link parser and the same
             // UIKit route adapter as the authenticated launcher. The destination controllers
@@ -1335,6 +1347,15 @@ private func makeWhatsNewClosedFixtureViewController() -> UIViewController {
     controller.view.backgroundColor = .systemBackground
     controller.view.accessibilityIdentifier = "quata-ios-whats-new-closed"
     controller.view.accessibilityLabel = "Quata iOS What's New closed"
+    controller.view.isAccessibilityElement = true
+    return controller
+}
+
+private func makeNotificationsOpenedFixtureViewController(conversationId: String) -> UIViewController {
+    let controller = UIViewController()
+    controller.view.backgroundColor = .systemBackground
+    controller.view.accessibilityIdentifier = "quata-ios-notifications-opened-chat"
+    controller.view.accessibilityLabel = "Quata iOS Notifications opened \(conversationId)"
     controller.view.isAccessibilityElement = true
     return controller
 }

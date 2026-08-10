@@ -36,7 +36,12 @@ private class WebChatE2eFixture : ChatRepository {
     }
 
     private val conversationId = "local:ax"
-    private val conversations = MutableStateFlow(listOf(Conversation(conversationId, "Chat de prueba", lastMessagePreview = "Sin mensajes")))
+    private val conversations = MutableStateFlow(listOf(Conversation(
+        id = conversationId,
+        title = "Chat de prueba",
+        lastMessagePreview = "Mensaje pendiente de lectura",
+        unreadCount = 2,
+    )))
     private val messages = MutableStateFlow<List<Message>>(emptyList())
     private val active = MutableStateFlow<String?>(null)
     private val foreground = MutableStateFlow(true)
@@ -82,7 +87,12 @@ private class WebChatE2eFixture : ChatRepository {
     override suspend fun cachedCommunityConversationId(communityName: String): String? = null
     override suspend fun openCommunityConversation(communityId: String, title: String, participantIds: List<String>) = Result.success(conversationId)
     override suspend fun openGroupConversation(participantIds: List<String>, title: String?) = Result.success(conversationId)
-    override suspend fun markConversationRead(conversationId: String) = Result.success(Unit)
+    override suspend fun markConversationRead(conversationId: String): Result<Unit> {
+        conversations.value = conversations.value.map { conversation ->
+            if (conversation.id == conversationId) conversation.copy(unreadCount = 0) else conversation
+        }
+        return Result.success(Unit)
+    }
     override suspend fun setConversationMuted(conversationId: String, muted: Boolean) = Result.success(Unit)
     override suspend fun setMemberInvitesEnabled(conversationId: String, enabled: Boolean) = Result.success(Unit)
     override suspend fun addParticipants(conversationId: String, participantIds: List<String>) = Result.success(Unit)
