@@ -73,6 +73,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         clearAndTypeText(editMarker, into: "chat.composer.input", in: app)
         tapTaggedButton("chat.composer.send", in: app, context: "submit edit")
         XCTAssertTrue(messageText(editMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        waitForMessagePendingToClear(editableMessageId, in: app, context: "edited message backend sync")
         XCTAssertFalse(messageText(editableMarker, in: app).exists, "Editing must replace the original message text instead of appending to it.")
         attachScreenshot(app, name: "ios-chat-composer-edit-sent")
         dismissKeyboardIfPresent(in: app)
@@ -190,6 +191,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
         XCTAssertFalse(focused.exists, "The deep-link focus highlight must clear before selecting the message for actions.")
+    }
+
+    private func waitForMessagePendingToClear(_ messageId: String, in app: XCUIApplication, context: String) {
+        let pending = app.descendants(matching: .any)
+            .matching(identifier: "chat.message.\(messageId).pending")
+            .firstMatch
+        let deadline = Date().addingTimeInterval(45)
+        while pending.exists && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        XCTAssertFalse(pending.exists, "Expected \(context) to finish before ending the UI gate.")
     }
 
     private func tapTaggedButton(_ identifier: String, in app: XCUIApplication, context: String) {

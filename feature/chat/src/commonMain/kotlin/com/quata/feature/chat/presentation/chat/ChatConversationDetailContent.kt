@@ -283,6 +283,16 @@ private fun ChatConversationMessageContent(
                     },
             )
         }
+        if (message.isPending) {
+            Box(
+                Modifier
+                    .size(1.dp)
+                    .semantics {
+                        testTag = "chat.message.${message.id}.pending"
+                        stateDescription = "pending"
+                    },
+            )
+        }
         actions?.invoke(Modifier.fillMaxWidth().padding(top = 6.dp))
     }
 }
