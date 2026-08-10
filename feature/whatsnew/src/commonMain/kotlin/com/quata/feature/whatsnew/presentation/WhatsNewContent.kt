@@ -35,6 +35,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +54,12 @@ data class WhatsNewStrings(
     val versionHeading: @Composable (String) -> String,
 )
 
+const val WhatsNewRootTestTag = "whats-new-common-root"
+const val WhatsNewDismissTestTag = "whats-new-dismiss"
+const val WhatsNewPreviousTestTag = "whats-new-previous"
+const val WhatsNewNextTestTag = "whats-new-next"
+const val WhatsNewPageTestTagPrefix = "whats-new-page-"
+
 @Composable
 fun WhatsNewContent(
     releases: List<PendingRelease>,
@@ -68,9 +75,9 @@ fun WhatsNewContent(
     val scope = rememberCoroutineScope()
     val currentPage = pagerState.currentPage
     val isLastPage = currentPage == releases.lastIndex
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
+    Surface(modifier = modifier.fillMaxSize().testTag(WhatsNewRootTestTag), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
         Box(Modifier.fillMaxSize().padding(padding)) {
-            IconButton(onClick = onDismiss, enabled = !isCompleting, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).semantics { contentDescription = "dismiss_whats_new" }) {
+            IconButton(onClick = onDismiss, enabled = !isCompleting, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).testTag(WhatsNewDismissTestTag).semantics { contentDescription = "dismiss_whats_new" }) {
                 Icon(Icons.Default.Close, contentDescription = null)
             }
             Column(
@@ -81,20 +88,20 @@ fun WhatsNewContent(
                 Text(strings.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 18.dp))
                 WhatsNewPageIndicator(releases.size, currentPage, Modifier.padding(top = 14.dp, bottom = 18.dp))
                 HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
-                    WhatsNewReleasePage(releases[page], strings, Modifier.fillMaxSize())
+                    WhatsNewReleasePage(releases[page], strings, Modifier.fillMaxSize().testTag("$WhatsNewPageTestTagPrefix$page"))
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Button(
                         onClick = { scope.launch { pagerState.animateScrollToPage(currentPage - 1, animationSpec = tween(260)) } },
                         enabled = currentPage > 0 && !isCompleting,
                         colors = ButtonDefaults.outlinedButtonColors(),
-                        modifier = Modifier.semantics { contentDescription = "previous_whats_new" },
+                        modifier = Modifier.testTag(WhatsNewPreviousTestTag).semantics { contentDescription = "previous_whats_new" },
                     ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, Modifier.size(18.dp)); Text(strings.previous, Modifier.padding(start = 6.dp)) }
                     Button(
                         onClick = { if (isLastPage) onComplete() else scope.launch { pagerState.animateScrollToPage(currentPage + 1, animationSpec = tween(260)) } },
                         enabled = !isCompleting,
                         colors = ButtonDefaults.buttonColors(containerColor = WhatsNewOrange),
-                        modifier = Modifier.semantics { contentDescription = "next_whats_new" },
+                        modifier = Modifier.testTag(WhatsNewNextTestTag).semantics { contentDescription = "next_whats_new" },
                     ) {
                         Text(if (isLastPage) strings.continueLabel else strings.next)
                         if (!isLastPage) Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.padding(start = 6.dp).size(18.dp))
