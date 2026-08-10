@@ -151,16 +151,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 `, 30 * 60 * 1000);
   report.steps.push("ios_xctest_composer_reply_edit_and_action_bar_verified");
 
-  const edited = await pollMessage(config, state.a, state.thread, (message) =>
-    Number(message?.id) === state.editableMessage && messageText(message) === state.editMarker, "edited_message");
-  state.composerMessage = messageNumericId(await pollMessage(config, state.a, state.thread, (message) => messageText(message) === state.composerMarker, "composer_message"));
-  state.replyMessage = messageNumericId(await pollMessage(config, state.a, state.thread, (message) =>
-    messageText(message) === state.replyMarker && messageReplyToId(message) === state.seedMessage, "reply_message"));
-  if (messageNumericId(edited) !== state.editableMessage || !state.composerMessage || !state.replyMessage) throw new Error("chat_contract_invalid:messages_missing_after_ios_ui");
-  const favoriteRows = await favorites(config, state.a);
-  if (!favoriteRows.some((message) => favoriteMessageId(message) === state.seedMessage)) {
-    throw new Error("chat_contract_invalid:seed_favorite_missing_after_ios_ui");
-  }
+  const backendContract = await pollBackendContract(config, state);
+  state.composerMessage = backendContract.composerMessageId;
+  state.replyMessage = backendContract.replyMessageId;
   report.steps.push("backend_verified_send_reply_edit_and_favorite");
 
   await copyRemoteEvidence(options);
@@ -429,6 +422,52 @@ async function pollMessage(config, session, thread, predicate, label = "message"
     await new Promise((resolve) => setTimeout(resolve, 1_500));
   }
   throw new Error(`chat_backend_poll_timeout:${label}`);
+}
+
+async function pollBackendContract(config, state, timeout = 180_000) {
+  const deadline = Date.now() + timeout;
+  let lastState = null;
+  while (Date.now() < deadline) {
+    lastState = await backendContractState(config, state);
+    if (
+      lastState.editedExact &&
+      lastState.composerMessageId &&
+      lastState.replyMessageId &&
+      lastState.seedFavoritePresent
+    ) {
+      return lastState;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+  }
+  throw new Error(`chat_backend_contract_incomplete:${JSON.stringify(lastState)}`);
+}
+
+async function backendContractState(config, state) {
+  const detail = await rpc(config, state.a, "quata_chat_get_thread", {
+    p_actor_profile_id: state.a.profileId,
+    p_thread_id: state.thread,
+    p_known_message_ids: [],
+    p_limit: 250,
+  });
+  const messages = rows(detail, "messages");
+  const editedMessage = messages.find((message) => messageNumericId(message) === state.editableMessage);
+  const composerMessage = messages.find((message) => messageText(message) === state.composerMarker);
+  const replyMessage = messages.find((message) =>
+    messageText(message) === state.replyMarker && messageReplyToId(message) === state.seedMessage);
+  const favoriteRows = await favorites(config, state.a);
+  return {
+    editedExact: messageText(editedMessage) === state.editMarker,
+    editedMessagePresent: Boolean(editedMessage),
+    editedTextSha256: editedMessage ? sha256(messageText(editedMessage)) : null,
+    editMarkerMessageIds: messages
+      .filter((message) => messageText(message) === state.editMarker)
+      .map(messageNumericId)
+      .filter(Boolean),
+    originalEditableStillPresent: messages.some((message) => messageText(message) === state.editableMarker),
+    composerMessageId: messageNumericId(composerMessage),
+    replyMessageId: messageNumericId(replyMessage),
+    seedFavoritePresent: favoriteRows.some((message) => favoriteMessageId(message) === state.seedMessage),
+  };
 }
 
 async function favorites(config, session) {
