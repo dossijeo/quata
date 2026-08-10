@@ -63,14 +63,16 @@ test("LANG-FASTTEXT-PARITY-002 no basic LanguageIdentifier fallback is reintrodu
 
   const offenders = [];
   for (const file of files) {
-    if (file.endsWith("-contract.test.mjs")) continue;
+    if (/\/(?:commonTest|androidTest|iosTest|wasmJsTest|test)\//.test(file) || file.endsWith(".test.mjs")) continue;
     const text = await source(file);
+    const implementsIdentifier = /\b(?:class|object)\s+\w+\s*:\s*TextLanguageIdentifier\b/.test(text);
+    const createsIdentifier = /TextLanguageIdentifier\s*\{/.test(text);
+    if ((implementsIdentifier || createsIdentifier) && !/FastTextTextLanguageIdentifier|QuataLanguageIdentifier\.detect|fun interface TextLanguageIdentifier/.test(text)) {
+      offenders.push(file);
+    }
     if (/CommonTextLanguageIdentifier|BasicTextLanguageIdentifier|HeuristicTextLanguageIdentifier/.test(text)) {
       offenders.push(file);
     }
-    if (/(startsWith|contains)\("?\s*(el|la|que|the|and|le|de)\s+"?\)/.test(text)) {
-      offenders.push(file);
-    }
   }
-  assert.deepEqual([...new Set(offenders)], [], "language detection must not use word-list heuristics");
+  assert.deepEqual([...new Set(offenders)], [], "production TextLanguageIdentifier implementations must delegate to FastText");
 });

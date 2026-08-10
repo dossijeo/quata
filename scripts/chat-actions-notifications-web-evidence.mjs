@@ -196,6 +196,12 @@ function messageText(row) {
   return String(row?.body ?? row?.text ?? row?.message ?? "");
 }
 
+function messageReplyToId(row) {
+  const raw = row?.reply_to_message_id ?? row?.replyToMessageId ?? row?.reply?.id;
+  const numeric = Number(raw);
+  return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
 async function pollMessage(config, session, thread, predicate, timeout = 45_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
@@ -596,6 +602,7 @@ try {
   report.steps.push("composer_text_sent_by_shared_ui_and_verified_by_rpc");
 
   const replyTargetMarker = state.peerMessage ? peerMarker : ownMarker;
+  const replyTargetMessageId = state.peerMessage ?? state.ownMessage;
   await page.getByText(replyTargetMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
   await clickLabel(page, [/Responder|Reply/i], "action_bar_not_visible:reply");
   const replyMarker = `chat-reply-ui-${runId}`;
@@ -604,7 +611,7 @@ try {
     config,
     state.a,
     state.thread,
-    (message) => messageText(message) === replyMarker,
+    (message) => messageText(message) === replyMarker && messageReplyToId(message) === Number(replyTargetMessageId),
   );
   state.uiMessages.push(messageId({ message: replyMessage }));
   await page.getByText(replyMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
@@ -643,7 +650,7 @@ try {
   if (isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:false");
   report.steps.push("mute_disabled_and_verified_by_rpc");
 
-  await page.getByText(ownMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
+  await page.getByText(editMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
   await waitLabel(page, [/Copiar mensaje|Copy message/i], "action_bar_not_visible:copy");
   await waitLabel(page, [/Responder|Reply/i], "action_bar_not_visible:reply");
   await waitLabel(page, [/Reenviar|Forward/i], "action_bar_not_visible:forward");
