@@ -72,7 +72,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
         clearAndTypeText(editMarker, into: "chat.composer.input", in: app)
         tapTaggedButton("chat.composer.send", in: app, context: "submit edit")
-        XCTAssertTrue(messageText(editMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        XCTAssertTrue(
+            messageWithId(editableMessageId, containing: editMarker, in: app).waitForExistence(timeout: 45),
+            "Editing must update the selected message id, not create a separate message.\n\(app.debugDescription)",
+        )
         waitForMessagePendingToClear(editableMessageId, in: app, context: "edited message backend sync")
         XCTAssertFalse(messageText(editableMarker, in: app).exists, "Editing must replace the original message text instead of appending to it.")
         attachScreenshot(app, name: "ios-chat-composer-edit-sent")
@@ -99,6 +102,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     private func messageText(_ markerProbe: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)
             .matching(NSPredicate(format: "label CONTAINS %@", markerProbe))
+            .firstMatch
+    }
+
+    private func messageWithId(_ messageId: String, containing markerProbe: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "chat.message.\(messageId)", markerProbe))
             .firstMatch
     }
 
