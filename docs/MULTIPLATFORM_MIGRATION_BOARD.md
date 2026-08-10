@@ -8,10 +8,10 @@
 
 **HEAD integrado:** `main` `c8d0cbba61800dd747cfa597646008c53c208301` (PR #216), posterior a #154,
 #156, #159, #168, #169, #170, #172, #173, #174, #175, #190, #191, #192, #193, #204, #206, #208,
-#210, #211, #212, #214, #215 y #216. El proyecto sigue incompleto: #215 cierra `SCR-AUTH-RECOVERY` con
+#210, #211, #212, #214, #215, #216 y #217. El proyecto sigue incompleto: #215 cierra `SCR-AUTH-RECOVERY` con
 raíz común Android/Wasm/iOS, evidencias focales y reales, limpieza Supabase verificada y certificación
-final verde; #216 actualiza su post-merge documental. El candidato PR #217
-`618963b12eea9916c6cf681653a6e2db1e4edce1` declara GO local de `SCR-OFFICIAL-EDITOR`
+final verde; #216 actualiza su post-merge documental. #217 queda integrado en `main`
+`a52fb67fe508d9d8f70bb9fa727832c560eac551` y cierra `SCR-OFFICIAL-EDITOR`
 tras invalidar y corregir el falso positivo Web anterior: Android, Web/Wasm e iOS acreditan publicacion real
 reversible, lectura exacta autenticada cuando existe sesion, capturas comparativas y limpieza exacta.
 La migracion RLS `20260808_0001_official_posts_actor_guard.sql` fue aplicada remotamente como SQL exacto versionado,
@@ -154,13 +154,12 @@ no una nueva evidencia de producto.
 
 ## Próxima cola
 
-1. `SCR-OFFICIAL-EDITOR` queda en GO local en candidato PR #217 `618963b12eea9916c6cf681653a6e2db1e4edce1`: Android pasa `build-reports/android/official-editor-real-evidence.json`, Web/Wasm pasa `build-reports/web/official-editor-final-visual-evidence-r12.json`, iOS pasa `build-reports/ios/official-editor-final-real-evidence-r1.json`, la comparativa final pasa en `build-reports/official-editor/final-visual-comparison/official-editor-final-visual-comparison.md`, y Web/iOS cierran lectura exacta autenticada sin cambiar el feed publico. `LANG-FASTTEXT-PARITY-001` sigue siendo invariante: no reintroducir detectores basicos paralelos; FastText compartido es la referencia Android/Web/iOS.
-2. Mantener el postflight RLS de Official en cada cierre del editor: `OFFICIAL-EDITOR-REAL-BACKEND-001` paso en `build-reports/official-editor/real-backend-evidence-618963b1.json`; cualquier rollout futuro debe recordar que `20260808_0001_official_posts_actor_guard.sql` se aplico manualmente sin sincronizar historial de migraciones.
-3. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y los visores/retornos pendientes de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
-4. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
-5. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
-6. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado.
-7. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas fuera de release autorizado.
+1. Mantener el postflight RLS de Official en cualquier cambio futuro del editor: `OFFICIAL-EDITOR-REAL-BACKEND-001` paso en `build-reports/official-editor/real-backend-evidence-618963b1.json`; cualquier rollout futuro debe recordar que `20260808_0001_official_posts_actor_guard.sql` se aplico manualmente sin sincronizar historial de migraciones.
+2. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y los visores/retornos pendientes de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
+3. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-WHATS-NEW`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raíz integrada no equivale a GO.
+4. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
+5. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado.
+6. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas fuera de release autorizado.
 
 ## Decisiones vigentes
 
