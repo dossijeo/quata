@@ -350,12 +350,21 @@ async function clickMessage(page, marker, error) {
   for (const locator of [
     page.getByRole("button", { name: pattern }).first(),
     page.getByLabel(pattern).first(),
-    page.getByText(probe, { exact: false }).first(),
   ]) {
     if (await locator.waitFor({ timeout: 5_000 }).then(() => true).catch(() => false)) {
       await locator.click({ timeout: 10_000, force: true });
       return;
     }
+  }
+  const text = page.getByText(probe, { exact: false }).first();
+  if (await text.waitFor({ timeout: 5_000 }).then(() => true).catch(() => false)) {
+    const box = await text.boundingBox();
+    if (box) {
+      await page.mouse.click(Math.max(1, box.x - 12), box.y + (box.height / 2));
+      return;
+    }
+    await text.click({ timeout: 10_000, force: true });
+    return;
   }
   throw new Error(error);
 }

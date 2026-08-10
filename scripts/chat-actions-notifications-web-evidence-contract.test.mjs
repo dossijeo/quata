@@ -28,6 +28,8 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /quata_chat_get_favorites/);
   assert.match(runner, /async function clickMessage\(page, marker, error\)/);
   assert.match(runner, /getByRole\("button", \{ name: pattern \}/);
+  assert.match(runner, /const box = await text\.boundingBox\(\)/);
+  assert.match(runner, /page\.mouse\.click\(Math\.max\(1, box\.x - 12\), box\.y \+ \(box\.height \/ 2\)\)/);
   assert.match(runner, /fillComposerAndSend\(page, composerMarker\)/);
   assert.match(runner, /composer_text_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /const replyTargetMessageId = state\.peerMessage \?\? state\.ownMessage/);
