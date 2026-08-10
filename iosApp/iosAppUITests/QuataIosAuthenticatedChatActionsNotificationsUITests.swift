@@ -56,6 +56,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-composer-reply-sent")
         dismissKeyboardIfPresent(in: app)
 
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(editableMessageId))", in: app)
+        _ = chatHost(in: app, context: "editable message conversation")
+        XCTAssertTrue(messageText(editableMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-actions-editable-focused")
+
         selectMessage(editableMarker, expectedMessageId: editableMessageId, in: app, context: "own message edit selection")
         assertActionBarOwnMessage(in: app)
         tapTaggedButton("chat.action.edit", in: app, context: "start edit")
