@@ -189,6 +189,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let selectAll = app.menuItems.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Select All", "Seleccionar todo")).firstMatch
         if selectAll.waitForExistence(timeout: 2) {
             selectAll.tap()
+        } else {
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 220))
         }
         pasteText(value, into: field, in: app)
     }

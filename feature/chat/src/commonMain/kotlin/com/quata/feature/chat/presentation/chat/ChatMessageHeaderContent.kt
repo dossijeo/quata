@@ -30,7 +30,7 @@ fun ChatMessageHeaderContent(
     favoriteMarker: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.fillMaxWidth().height(if (isEdited || isFavorite) 32.dp else 16.dp)) {
+    Box(modifier = modifier.fillMaxWidth().height(if (isEdited || isFavorite) 42.dp else 24.dp)) {
         androidx.compose.material3.Text(
             text = senderName,
             fontWeight = FontWeight.Bold,
@@ -43,7 +43,7 @@ fun ChatMessageHeaderContent(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .width(104.dp)
-                .height(16.dp),
+                .height(24.dp),
             contentAlignment = Alignment.TopEnd
         ) {
             Row(modifier = Modifier.align(Alignment.TopEnd)) {
@@ -61,7 +61,7 @@ fun ChatMessageHeaderContent(
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(y = 14.dp),
+                        .offset(y = 20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isEdited) {
