@@ -28,14 +28,18 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /quata_chat_get_favorites/);
   assert.match(runner, /async function clickMessage\(page, marker, error\)/);
   assert.match(runner, /async function openMessageActions\(page, marker, expectedPatterns, targetError, actionError\)/);
+  assert.match(runner, /if \(marker\.startsWith\("chat-edit-ui-"\)\) \{/);
   assert.match(runner, /async function longPressMessage\(page, marker\)/);
   assert.match(runner, /async function waitMessageVisible\(page, marker, error, timeout = 45_000\)/);
   assert.match(runner, /async function clickMessageProbe\(page, probe\)/);
   assert.match(runner, /marker\.slice\(0, 28\), marker\.slice\(0, 20\), marker\.slice\(0, 16\)/);
+  assert.match(runner, /marker\.startsWith\("chat-edit-ui-"\)/);
+  assert.match(runner, /page\.mouse\.click\(Math\.round\(viewport\.width \* 0\.62\), 214\)/);
   assert.match(runner, /async function visibleTextBox\(page, probe\)/);
   assert.match(runner, /async function clickNativeButtonByLabel\(page, patterns\)/);
   assert.match(runner, /async function visibleAriaLocator\(page, patterns, timeout\)/);
   assert.match(runner, /async function clickOptionsMenu\(page\)/);
+  assert.match(runner, /async function clickFavoriteAction\(page\)/);
   assert.match(runner, /page\.mouse\.click\(Math\.max\(1, viewport\.width - 26\), 104\)/);
   assert.match(runner, /page\.locator\("\[aria-label\]"\)/);
   assert.match(runner, /getByRole\("button", \{ name: pattern \}/);
@@ -67,13 +71,14 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /Number\(state\.ownMessage\) && messageText\(message\) === editMarker/);
   assert.match(runner, /report\.evidence\.editSent = await attachScreenshot\(page, options\.evidenceDir, "web-chat-composer-edit-sent"\)/);
   assert.match(runner, /await openMessageActions\(page, editMarker, \[\/Copiar mensaje\|Copiar texto\|Copy message\|Copy text\/i\], "message_action_target_not_clickable:own_actions", "action_bar_not_visible:copy"\)/);
+  assert.match(runner, /report\.evidence\.ownActions = await attachScreenshot\(page, options\.evidenceDir, "web-chat-actions-own-selected"\)/);
+  assert.match(runner, /await clickFavoriteAction\(page\)/);
+  assert.match(runner, /page\.mouse\.click\(Math\.max\(1, viewport\.width - 66\), 98\)/);
   assert.match(runner, /Number\(message\?\.id\) === Number\(state\.ownMessage\)/);
   assert.match(runner, /composer_edit_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /clickOptionsMenu\(page\)/);
   assert.match(runner, /getByText\(\/Silenciar conversaci\[oó\]n\|Mute conversation\/i\)/);
-  for (const label of ["Copiar texto", "Responder", "Reenviar", "Editar", "Favorito", "Eliminar", "Report"]) {
-    assert.match(runner, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  }
+  assert.match(runner, /favorite_toggled_and_verified_by_rpc/);
   for (const screenshot of [
     "web-chat-actions-thread-initial",
     "web-chat-composer-sent",

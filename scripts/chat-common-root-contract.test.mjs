@@ -109,6 +109,9 @@ test("common chat root owns read states, retry, history paging and one-shot focu
   assert.match(conversationDetail, /delay\(FocusedMessageHighlightMillis\)[\s\S]*?onFocusedMessageHandled\(\)/);
   assert.match(conversationDetail, /firstVisible <= 2 && !isLoadingOlderMessages\)[\s\S]*?onLoadOlderMessages\(\)/);
   assert.match(conversationDetail, /testTag = if \(isSelected\) "chat\.message\.\$\{message\.id\}\.selected" else "chat\.message\.\$\{message\.id\}"/);
+  assert.match(conversationDetail, /role = Role\.Button/);
+  assert.match(conversationDetail, /contentDescription = message\.accessibleActionLabel\(\)/);
+  assert.match(conversationDetail, /private fun Message\.accessibleActionLabel\(\): String/);
   assert.match(conversationDetail, /if \(isSelected\) \{[\s\S]*?Box\([\s\S]*?testTag = "chat\.message\.\$\{message\.id\}\.selected"/);
   assert.match(conversationDetail, /stateDescription = if \(isSelected\) "selected" else "not selected"/);
 

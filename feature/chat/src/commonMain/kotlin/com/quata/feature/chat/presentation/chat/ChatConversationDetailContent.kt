@@ -23,6 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
@@ -214,6 +217,8 @@ private fun ChatConversationMessageContent(
     val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
     val bubbleSemantics = Modifier.semantics {
         testTag = if (isSelected) "chat.message.${message.id}.selected" else "chat.message.${message.id}"
+        role = Role.Button
+        contentDescription = message.accessibleActionLabel()
         selected = isSelected
         stateDescription = if (isSelected) "selected" else "not selected"
     }
@@ -280,4 +285,9 @@ private fun ChatConversationMessageContent(
         }
         actions?.invoke(Modifier.fillMaxWidth().padding(top = 6.dp))
     }
+}
+
+private fun Message.accessibleActionLabel(): String {
+    val body = text.takeIf { it.isNotBlank() } ?: replyToText?.takeIf { it.isNotBlank() } ?: id
+    return "${senderName.ifBlank { "Mensaje" }}: $body"
 }

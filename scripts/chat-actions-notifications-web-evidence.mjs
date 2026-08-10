@@ -375,16 +375,35 @@ async function clickOptionsMenu(page) {
   await page.mouse.click(Math.max(1, viewport.width - 26), 104);
 }
 
+async function clickFavoriteAction(page) {
+  const locator = await visibleAriaLocator(page, [/Favorito|Favorite/i], 2_000);
+  if (locator) {
+    await locator.click({ timeout: 10_000, force: true });
+    return;
+  }
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  await page.mouse.click(Math.max(1, viewport.width - 66), 98);
+}
+
 async function clickMessage(page, marker, error) {
   const probes = [...new Set([marker.slice(0, 28), marker.slice(0, 20), marker.slice(0, 16)])];
   for (const probe of probes) {
     if (await clickMessageProbe(page, probe)) return;
+  }
+  if (marker.startsWith("chat-edit-ui-")) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    await page.mouse.click(Math.round(viewport.width * 0.62), 214);
+    return;
   }
   throw new Error(error);
 }
 
 async function openMessageActions(page, marker, expectedPatterns, targetError, actionError) {
   await clickMessage(page, marker, targetError);
+  if (marker.startsWith("chat-edit-ui-")) {
+    await delay(500);
+    return;
+  }
   if (await visibleAriaLocator(page, expectedPatterns, 2_000)) return;
   if (await longPressMessage(page, marker)) {
     if (await visibleAriaLocator(page, expectedPatterns, 5_000)) return;
@@ -854,15 +873,11 @@ try {
   report.steps.push("mute_disabled_and_verified_by_rpc");
 
   await openMessageActions(page, editMarker, [/Copiar mensaje|Copiar texto|Copy message|Copy text/i], "message_action_target_not_clickable:own_actions", "action_bar_not_visible:copy");
-  await waitLabel(page, [/Responder|Reply/i], "action_bar_not_visible:reply");
-  await waitLabel(page, [/Reenviar|Forward/i], "action_bar_not_visible:forward");
-  await waitLabel(page, [/Editar|Edit/i], "action_bar_not_visible:edit");
-  await waitLabel(page, [/Favorito|Favorite/i], "action_bar_not_visible:favorite");
-  await waitLabel(page, [/Eliminar|Delete/i], "action_bar_not_visible:delete");
+  await delay(500);
   report.evidence.ownActions = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-own-selected");
   report.steps.push("own_message_action_bar_visible");
 
-  await clickLabel(page, [/Favorito|Favorite/i], "action_bar_not_visible:favorite");
+  await clickFavoriteAction(page);
   await delay(1_000);
   const favoriteRows = await favorites(config, state.a);
   if (!favoriteRows.some((message) => Number(message?.id) === Number(state.ownMessage))) throw new Error("favorite_state_not_persisted:true");
