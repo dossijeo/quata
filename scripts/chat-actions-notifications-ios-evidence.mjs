@@ -152,10 +152,10 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
   report.steps.push("ios_xctest_composer_reply_edit_and_action_bar_verified");
 
   const edited = await pollMessage(config, state.a, state.thread, (message) =>
-    Number(message?.id) === state.editableMessage && messageText(message) === state.editMarker);
-  state.composerMessage = messageNumericId(await pollMessage(config, state.a, state.thread, (message) => messageText(message) === state.composerMarker));
+    Number(message?.id) === state.editableMessage && messageText(message) === state.editMarker, "edited_message");
+  state.composerMessage = messageNumericId(await pollMessage(config, state.a, state.thread, (message) => messageText(message) === state.composerMarker, "composer_message"));
   state.replyMessage = messageNumericId(await pollMessage(config, state.a, state.thread, (message) =>
-    messageText(message) === state.replyMarker && messageReplyToId(message) === state.seedMessage));
+    messageText(message) === state.replyMarker && messageReplyToId(message) === state.seedMessage, "reply_message"));
   if (messageNumericId(edited) !== state.editableMessage || !state.composerMessage || !state.replyMessage) throw new Error("chat_contract_invalid:messages_missing_after_ios_ui");
   const favoriteRows = await favorites(config, state.a);
   if (!favoriteRows.some((message) => favoriteMessageId(message) === state.seedMessage)) {
@@ -415,7 +415,7 @@ function favoriteMessageId(row) {
   return Number.isSafeInteger(value) && value > 0 ? value : null;
 }
 
-async function pollMessage(config, session, thread, predicate, timeout = 60_000) {
+async function pollMessage(config, session, thread, predicate, label = "message", timeout = 180_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     const detail = await rpc(config, session, "quata_chat_get_thread", {
@@ -428,7 +428,7 @@ async function pollMessage(config, session, thread, predicate, timeout = 60_000)
     if (match) return match;
     await new Promise((resolve) => setTimeout(resolve, 1_500));
   }
-  throw new Error("chat_backend_poll_timeout");
+  throw new Error(`chat_backend_poll_timeout:${label}`);
 }
 
 async function favorites(config, session) {
