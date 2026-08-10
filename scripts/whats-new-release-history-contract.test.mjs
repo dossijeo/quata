@@ -3,6 +3,8 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
 const releaseHistory = await source('../feature/whatsnew/src/commonMain/kotlin/com/quata/feature/whatsnew/presentation/ReleaseHistoryContent.kt');
+const whatsNewContent = await source('../feature/whatsnew/src/commonMain/kotlin/com/quata/feature/whatsnew/presentation/WhatsNewContent.kt');
+const whatsNewHost = await source('../feature/whatsnew/src/commonMain/kotlin/com/quata/feature/whatsnew/presentation/WhatsNewScreenHost.kt');
 const aboutDialog = await source('../designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataAboutDialogContent.kt');
 const android = await source('../app/src/main/java/com/quata/feature/whatsnew/presentation/ReleaseHistoryScreen.kt');
 const androidNav = await source('../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt');
@@ -14,7 +16,9 @@ const iosSwift = await source('../iosApp/iosApp/QuataIosApp.swift');
 const iosSwiftTests = await source('../iosApp/iosAppTests/QuataFeedFrameworkTests.swift');
 const iosHostUiTests = await source('../iosApp/iosAppUITests/QuataIosHostUITests.swift');
 const androidEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/whatsnew/presentation/AboutReleaseHistoryInstrumentedTest.kt');
+const androidWhatsNewEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/whatsnew/presentation/WhatsNewCommonInstrumentedTest.kt');
 const webEvidenceRunner = await source('../scripts/about-release-history-web-evidence.mjs');
+const webWhatsNewEvidenceRunner = await source('../scripts/whats-new-web-evidence.mjs');
 const packageJson = JSON.parse(await source('../package.json'));
 const webAndroidWorkflow = await source('../.github/workflows/web-android-pr.yml');
 const iosWorkflow = await source('../.github/workflows/ios-build.yml');
@@ -45,6 +49,46 @@ test('Release History stays common, inspectable and scrollable across hosts', ()
   assert.match(iosRuntime, /onClose: \(\) -> Unit/);
   assert.match(iosRuntime, /onBack = onClose/);
   assert.doesNotMatch(iosRuntime, /onClose\s*=\s*\{\s*(?:Unit)?\s*\}|onClose\s*=\s*(?:noop|Noop|NOOP)/);
+});
+
+test("What's New stays common, inspectable and monotonic across evidence hosts", () => {
+  assert.match(whatsNewContent, /const val WhatsNewRootTestTag = "whats-new-common-root"/);
+  assert.match(whatsNewContent, /const val WhatsNewDismissTestTag = "whats-new-dismiss"/);
+  assert.match(whatsNewContent, /const val WhatsNewPreviousTestTag = "whats-new-previous"/);
+  assert.match(whatsNewContent, /const val WhatsNewNextTestTag = "whats-new-next"/);
+  assert.match(whatsNewContent, /const val WhatsNewPageTestTagPrefix = "whats-new-page-"/);
+  assert.match(whatsNewContent, /modifier\.fillMaxSize\(\)\.testTag\(WhatsNewRootTestTag\)/);
+  assert.match(whatsNewContent, /testTag\(WhatsNewDismissTestTag\)/);
+  assert.match(whatsNewContent, /testTag\(WhatsNewPreviousTestTag\)/);
+  assert.match(whatsNewContent, /testTag\(WhatsNewNextTestTag\)/);
+  assert.match(whatsNewContent, /testTag\("\$WhatsNewPageTestTagPrefix\$page"\)/);
+  assert.match(whatsNewHost, /repository\.markReleasesSeen\(/);
+  assert.match(whatsNewHost, /releases\.isNullOrEmpty\(\) -> LaunchedEffect\(onClose\) \{ onClose\(\) \}/);
+
+  assert.match(androidWhatsNewEvidenceTest, /class WhatsNewCommonInstrumentedTest/);
+  assert.match(androidWhatsNewEvidenceTest, /WhatsNewScreenHost\(/);
+  assert.match(androidWhatsNewEvidenceTest, /EvidenceWhatsNewRepository/);
+  assert.match(androidWhatsNewEvidenceTest, /WhatsNewNextTestTag/);
+  assert.match(androidWhatsNewEvidenceTest, /android-whats-new-common-evidence\.json/);
+  assert.match(androidWhatsNewEvidenceTest, /whats_new_second_mount_closed_without_repeating/);
+
+  assert.match(web, /WebWhatsNewDestination\.PendingReleases -> WhatsNewScreenHost\(/);
+  assert.match(web, /createWebWhatsNewRepository\(\): WhatsNewRepository = LocalWhatsNewRepository/);
+  assert.match(web, /QuataLocalWhatsNewCatalog\.webReleases\(\)/);
+  assert.match(webWhatsNewEvidenceRunner, /WHATS-NEW-WEB-COMMON-001/);
+  assert.match(webWhatsNewEvidenceRunner, /page\.goto\(`\$\{server\.origin\}\/#whats-new`\)/);
+  assert.match(webWhatsNewEvidenceRunner, /resetWhatsNewState\(page\)/);
+  assert.match(webWhatsNewEvidenceRunner, /assertSeenState\(page\)/);
+  assert.match(webWhatsNewEvidenceRunner, /whats_new_second_open_closed_without_repeating/);
+
+  assert.match(iosSwift, /case "whats-new-real":/);
+  assert.match(iosSwift, /QuataIosManagedWhatsNewViewController\(/);
+  assert.match(iosSwift, /makeWhatsNewClosedFixtureViewController\(\)/);
+  assert.match(iosHostUiTests, /testWhatsNewFixtureRendersMarksSeenAndDoesNotRepeat/);
+  assert.match(iosHostUiTests, /"whats-new-common-root"/);
+  assert.match(iosHostUiTests, /"whats-new-page-0"/);
+  assert.match(iosHostUiTests, /"quata-ios-whats-new-closed"/);
+  assert.match(iosHostUiTests, /resetWhatsNew: true/);
 });
 
 test('About opens the common dialog and links to Release History on Android, Web and iOS', () => {

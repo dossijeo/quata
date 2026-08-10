@@ -301,6 +301,59 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "about-release-history-real-release-history")
     }
 
+    func testWhatsNewFixtureRendersMarksSeenAndDoesNotRepeat() {
+        let app = fixtureApp("whats-new-real", spanishLocale: true, resetWhatsNew: true)
+        app.launch()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "whats-new-common-root")
+                .firstMatch
+                .waitForExistence(timeout: 15),
+            "The iOS What's New evidence fixture must mount the real shared Compose surface.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "whats-new-page-0")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "What's New must expose a real common page for visual evidence.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "whats-new-real-page-0")
+
+        app.descendants(matching: .any)
+            .matching(identifier: "whats-new-next")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-whats-new-closed")
+                .firstMatch
+                .waitForExistence(timeout: 15),
+            "Completing What's New must close the real shared surface.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "whats-new-real-closed")
+        app.terminate()
+
+        let repeatedApp = fixtureApp("whats-new-real", spanishLocale: true)
+        repeatedApp.launch()
+        XCTAssertTrue(
+            repeatedApp.descendants(matching: .any)
+                .matching(identifier: "quata-ios-whats-new-closed")
+                .firstMatch
+                .waitForExistence(timeout: 15),
+            "A release already marked as seen must not render again on iOS.",
+        )
+        XCTAssertFalse(
+            repeatedApp.descendants(matching: .any)
+                .matching(identifier: "whats-new-common-root")
+                .firstMatch
+                .waitForExistence(timeout: 2),
+            "The second iOS launch must close without showing the shared What's New root.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "whats-new-real-not-repeated")
+    }
+
     func testAuthenticatedFixtureRendersInAppOnlyRoutesThroughTheSharedRouterAdapter() {
         // These destinations deliberately do not have public URL contracts. The fixture reaches
         // them through IosAuthenticatedRouteDispatcher's real in-app methods, which prevents a
@@ -357,6 +410,7 @@ final class QuataIosHostUITests: XCTestCase {
         inAppRoute: String? = nil,
         authDestination: String? = nil,
         spanishLocale: Bool = false,
+        resetWhatsNew: Bool = false,
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-quata-ui-test-fixture", fixture]
@@ -370,6 +424,7 @@ final class QuataIosHostUITests: XCTestCase {
         if let deepLink { app.launchArguments += ["-quata-ui-test-deep-link", deepLink] }
         if let inAppRoute { app.launchArguments += ["-quata-ui-test-in-app-route", inAppRoute] }
         if let authDestination { app.launchArguments += ["-quata-auth-destination", authDestination] }
+        if resetWhatsNew { app.launchArguments += ["-quata-ui-test-reset-whats-new"] }
         return app
     }
 

@@ -463,6 +463,27 @@ private final class IosAppCompositionRoot {
             return IosFeedPlaybackFixtureHostKt.QuataIosFeedPlaybackFixtureViewController(
                 mediaFactory: IosFeedNativeMediaFactory.shared
             )
+        case "whats-new-real":
+            if arguments.contains("-quata-ui-test-reset-whats-new") {
+                let defaults = UserDefaults.standard
+                defaults.removeObject(forKey: "quata.whatsnew.ios.state.v1")
+                defaults.removeObject(forKey: "quata.whatsnew.startup.acknowledged_version")
+            }
+            guard let whatsNewRuntimeBootstrap else {
+                fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-unconfigured-whats-new-real"
+                fixtureRoot.view.accessibilityLabel = "Quata iOS What's New real fixture unavailable"
+                return fixtureRoot
+            }
+            var container: IosAuthLaunchFixtureContainerViewController!
+            container = IosAuthLaunchFixtureContainerViewController {
+                IosWhatsNewRuntimeBootstrapKt.QuataIosManagedWhatsNewViewController(
+                    runtime: whatsNewRuntimeBootstrap,
+                    onClose: {
+                        container.replaceComposeSurface(with: makeWhatsNewClosedFixtureViewController())
+                    },
+                )
+            }
+            return container
         case "about-release-history":
             guard let whatsNewRuntimeBootstrap else {
                 fixtureRoot.view.accessibilityIdentifier = "quata-ios-test-unconfigured-about-release-history"
@@ -1307,6 +1328,15 @@ private func chatAccessibilityValue(conversationId: String, messageId: String?) 
         return "chat:\(conversationId)?message=\(messageId)"
     }
     return "chat:\(conversationId)"
+}
+
+private func makeWhatsNewClosedFixtureViewController() -> UIViewController {
+    let controller = UIViewController()
+    controller.view.backgroundColor = .systemBackground
+    controller.view.accessibilityIdentifier = "quata-ios-whats-new-closed"
+    controller.view.accessibilityLabel = "Quata iOS What's New closed"
+    controller.view.isAccessibilityElement = true
+    return controller
 }
 
 /// Keeps a Compose/Skia dialog transparent after its native render view is mounted.  A one-shot
