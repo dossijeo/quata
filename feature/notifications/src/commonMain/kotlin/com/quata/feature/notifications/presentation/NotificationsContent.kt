@@ -23,6 +23,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,6 +54,14 @@ data class NotificationsStrings(
     val filePreview: String,
 )
 
+const val NotificationsRootTestTag = "notifications.root"
+const val NotificationsLoadingTestTag = "notifications.loading"
+const val NotificationsEmptyTestTag = "notifications.empty"
+const val NotificationsErrorTestTag = "notifications.error"
+const val NotificationsRetryTestTag = "notifications.retry"
+const val NotificationsBackTestTag = "notifications.back"
+const val NotificationItemTestTagPrefix = "notifications.item."
+
 /**
  * Shared preview resolver for notification list content.
  *
@@ -74,6 +83,7 @@ fun NotificationsStrings.localizedNotificationBody(raw: String): String =
 @Composable
 fun NotificationsContent(
     padding: PaddingValues,
+    modifier: Modifier = Modifier,
     state: NotificationsUiState,
     timestampNowMillis: Long,
     strings: NotificationsStrings,
@@ -88,12 +98,12 @@ fun NotificationsContent(
     onDismissAuthenticationRequired: (NotificationItem) -> Unit = onAuthenticationRequired,
 ) {
     QuataScreen(padding) {
-        Column(Modifier.padding(18.dp)) {
+        Column(modifier.testTag(NotificationsRootTestTag).padding(18.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CompactIconButton(onClick = onBack) {
+                CompactIconButton(onClick = onBack, modifier = Modifier.testTag(NotificationsBackTestTag)) {
                     CompactIcon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = strings.backContentDescription
@@ -107,19 +117,31 @@ fun NotificationsContent(
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when {
                     state.isLoading -> item("notifications-loading") {
-                        NotificationStatusCard(strings.loadingLabel) {
+                        NotificationStatusCard(
+                            title = strings.loadingLabel,
+                            modifier = Modifier.testTag(NotificationsLoadingTestTag),
+                        ) {
                             CircularProgressIndicator()
                         }
                     }
                     state.error != null -> item("notifications-error") {
-                        NotificationStatusCard(strings.errorTitle) {
-                            Button(onClick = { handleNotificationRetry(onRetry) }) {
+                        NotificationStatusCard(
+                            title = strings.errorTitle,
+                            modifier = Modifier.testTag(NotificationsErrorTestTag),
+                        ) {
+                            Button(
+                                onClick = { handleNotificationRetry(onRetry) },
+                                modifier = Modifier.testTag(NotificationsRetryTestTag),
+                            ) {
                                 Text(strings.retryLabel)
                             }
                         }
                     }
                     state.items.isEmpty() -> item("notifications-empty") {
-                        NotificationStatusCard(strings.emptyTitle) {
+                        NotificationStatusCard(
+                            title = strings.emptyTitle,
+                            modifier = Modifier.testTag(NotificationsEmptyTestTag),
+                        ) {
                             Text(strings.emptyMessage, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -151,9 +173,10 @@ fun NotificationsContent(
 @Composable
 private fun NotificationStatusCard(
     title: String,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    QuataCard(modifier = Modifier.fillMaxWidth()) {
+    QuataCard(modifier = modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -207,7 +230,11 @@ private fun DismissibleNotificationCard(
         state = dismissState,
         backgroundContent = {},
         content = {
-            QuataCard(modifier = Modifier.clickable(onClick = onClick)) {
+            QuataCard(
+                modifier = Modifier
+                    .testTag("$NotificationItemTestTagPrefix${item.conversationId}")
+                    .clickable(onClick = onClick),
+            ) {
                 Column(Modifier.padding(16.dp)) {
                     val createdAt = strings.relativeTime(item.createdAt, timestampNowMillis)
                     Text(item.title, fontWeight = FontWeight.Bold)
