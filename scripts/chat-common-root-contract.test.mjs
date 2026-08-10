@@ -134,9 +134,18 @@ test("common chat action chrome owns mute and tombstone action guards", () => {
 });
 
 test("common chat composer exposes stable cross-platform evidence anchors", () => {
-  for (const tag of ["root", "input", "send", "emoji", "attach", "editing", "reply"]) {
-    assert.match(selectedActions, new RegExp(`ChatComposer[A-Za-z]+TestTag = "chat\\.composer\\.${tag}"`));
-    assert.match(selectedActions, new RegExp(`testTag = ChatComposer[A-Za-z]+TestTag`));
+  const expectedTags = {
+    Root: "root",
+    Input: "input",
+    Send: "send",
+    Emoji: "emoji",
+    Attach: "attach",
+    EditingBanner: "editing",
+    ReplyBanner: "reply",
+  };
+  for (const [constant, tag] of Object.entries(expectedTags)) {
+    assert.match(selectedActions, new RegExp(`ChatComposer${constant}TestTag = "chat\\.composer\\.${tag}"`));
+    assert.match(selectedActions, new RegExp(`testTag = ChatComposer${constant}TestTag`));
   }
   assert.match(selectedActions, /messageInputOverride\?\.invoke\([\s\S]*?taggedInputModifier/);
   assert.match(selectedActions, /sendButtonOverride\?\.let[\s\S]*?Modifier\.semantics \{ testTag = ChatComposerSendTestTag \}/);

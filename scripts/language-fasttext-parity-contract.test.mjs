@@ -1,10 +1,24 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { access, readdir, readFile } from "node:fs/promises";
+import { basename, resolve } from "node:path";
 import test from "node:test";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const source = (path) => readFile(resolve(repoRoot, path), "utf8");
+
+async function sourceFiles(dir, acc = []) {
+  const entries = await readdir(resolve(repoRoot, dir), { withFileTypes: true });
+  for (const entry of entries) {
+    const relative = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if ([".gradle", ".idea", ".kotlin", "build", "node_modules"].includes(entry.name)) continue;
+      await sourceFiles(relative, acc);
+    } else if (/\.(kt|kts|mjs|js|swift)$/.test(entry.name)) {
+      acc.push(relative);
+    }
+  }
+  return acc;
+}
 
 test("LANG-FASTTEXT-PARITY-001 Android, Web and iOS use the shared FastText detector", async () => {
   const commonDetector = await source("core/src/commonMain/kotlin/com/quata/core/language/FastTextLanguageDetector.kt");
@@ -40,4 +54,23 @@ test("LANG-FASTTEXT-PARITY-001 Android, Web and iOS use the shared FastText dete
 
   await access(resolve(repoRoot, "app/src/main/assets/lang_id_fasttext.bin"));
   await access(resolve(repoRoot, "web/src/wasmJsMain/resources/lang_id_fasttext.bin"));
+});
+
+test("LANG-FASTTEXT-PARITY-002 no basic LanguageIdentifier fallback is reintroduced", async () => {
+  const files = await sourceFiles(".");
+  const exactFallbackFiles = files.filter((file) => basename(file) === "LanguageIdentifier.kt");
+  assert.deepEqual(exactFallbackFiles, [], "language detection must stay FastText-backed, not a basic LanguageIdentifier.kt fallback");
+
+  const offenders = [];
+  for (const file of files) {
+    if (file.endsWith("-contract.test.mjs")) continue;
+    const text = await source(file);
+    if (/CommonTextLanguageIdentifier|BasicTextLanguageIdentifier|HeuristicTextLanguageIdentifier/.test(text)) {
+      offenders.push(file);
+    }
+    if (/(startsWith|contains)\("?\s*(el|la|que|the|and|le|de)\s+"?\)/.test(text)) {
+      offenders.push(file);
+    }
+  }
+  assert.deepEqual([...new Set(offenders)], [], "language detection must not use word-list heuristics");
 });
