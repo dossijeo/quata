@@ -69,8 +69,20 @@ run_bounded() {
   return "$status"
 }
 
+set +e
 run_bounded bootstatus 120 "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/bootstatus.log" \
   xcrun simctl bootstatus "$QUATA_IOS_SIMULATOR_UDID" -b
+bootstatus_status=$?
+set -e
+if [[ "$bootstatus_status" -eq 124 ]]; then
+  devices_json="$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/simulator-devices-after-bootstatus-timeout.json"
+  xcrun simctl list devices -j | tee "$devices_json"
+  /usr/bin/python3 scripts/check-ios-simulator-booted.py \
+    --udid "$QUATA_IOS_SIMULATOR_UDID" < "$devices_json" || exit 124
+  echo "bootstatus timed out but selected simulator is Booted: $QUATA_IOS_SIMULATOR_UDID" >&2
+elif [[ "$bootstatus_status" -ne 0 ]]; then
+  exit "$bootstatus_status"
+fi
 
 /usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" <<'PY'
 import plistlib, sys
