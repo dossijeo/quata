@@ -77,6 +77,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "Editing must update the selected message id, not create a separate message.\n\(app.debugDescription)",
         )
         waitForMessagePendingToClear(editableMessageId, in: app, context: "edited message backend sync")
+        RunLoop.current.run(until: Date().addingTimeInterval(12))
+        XCTAssertTrue(
+            messageWithId(editableMessageId, containing: editMarker, in: app).exists,
+            "The edited message must remain visible after the backend mutation has had time to settle.",
+        )
         XCTAssertFalse(messageText(editableMarker, in: app).exists, "Editing must replace the original message text instead of appending to it.")
         attachScreenshot(app, name: "ios-chat-composer-edit-sent")
         dismissKeyboardIfPresent(in: app)
