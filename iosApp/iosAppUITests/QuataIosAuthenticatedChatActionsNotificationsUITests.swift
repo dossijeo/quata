@@ -101,15 +101,25 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     private func selectMessage(_ markerProbe: String, expectedMessageId: String?, in app: XCUIApplication, context: String) {
         let candidates = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", markerProbe))
-        XCTAssertGreaterThanOrEqual(candidates.count, 1, "Expected an actionable message for \(context).")
-        var target = candidates.element(boundBy: 0)
-        if candidates.count > 1 {
+        var target: XCUIElement
+        if candidates.count > 0 {
+            target = candidates.element(boundBy: 0)
             for index in 1..<candidates.count {
                 let candidate = candidates.element(boundBy: index)
                 if candidate.frame.minY > target.frame.minY {
                     target = candidate
                 }
             }
+        } else if let expectedMessageId {
+            let selectedById = app.descendants(matching: .any)
+                .matching(identifier: "chat.message.\(expectedMessageId).selected")
+                .firstMatch
+            target = selectedById.exists ? selectedById : app.descendants(matching: .any)
+                .matching(identifier: "chat.message.\(expectedMessageId)")
+                .firstMatch
+        } else {
+            XCTFail("Expected an actionable message for \(context).")
+            return
         }
         XCTAssertTrue(target.waitForExistence(timeout: 10), "Expected actionable message for \(context).")
         target.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
