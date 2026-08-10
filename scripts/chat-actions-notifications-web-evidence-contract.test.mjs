@@ -7,6 +7,8 @@ const source = (path) => readFile(path, "utf8");
 test("chat actions/notifications web evidence keeps credentials private and reversible", async () => {
   const runner = await source("scripts/chat-actions-notifications-web-evidence.mjs");
   assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE/);
+  assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE/);
+  assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_SSH_CREDENTIALS_FILE/);
   assert.doesNotMatch(runner, /680242607|680242608|21085800/);
   assert.match(runner, /qadata-chat-actions-notifications-/);
   assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP_AUTHORIZATION/);
@@ -24,12 +26,19 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /quata_chat_set_muted/);
   assert.match(runner, /quata_chat_get_inbox/);
   assert.match(runner, /quata_chat_get_favorites/);
+  assert.match(runner, /fillComposerAndSend\(page, composerMarker\)/);
+  assert.match(runner, /composer_text_sent_by_shared_ui_and_verified_by_rpc/);
+  assert.match(runner, /composer_reply_sent_by_shared_ui_and_verified_by_rpc/);
+  assert.match(runner, /composer_edit_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /getByText\(\/Silenciar conversaci\[oó\]n\|Mute conversation\/i\)/);
   for (const label of ["Copiar mensaje", "Responder", "Reenviar", "Editar", "Favorito", "Eliminar", "Report"]) {
     assert.match(runner, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
   for (const screenshot of [
     "web-chat-actions-thread-initial",
+    "web-chat-composer-sent",
+    "web-chat-composer-reply-sent",
+    "web-chat-composer-edit-sent",
     "web-chat-actions-muted",
     "web-chat-actions-own-selected",
     "web-chat-actions-peer-selected",

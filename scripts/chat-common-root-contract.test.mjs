@@ -133,6 +133,20 @@ test("common chat action chrome owns mute and tombstone action guards", () => {
   assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ !it\.isMine && !it\.isDeleted && !it\.isLocalEcho \}/);
 });
 
+test("common chat composer exposes stable cross-platform evidence anchors", () => {
+  for (const tag of ["root", "input", "send", "emoji", "attach", "editing", "reply"]) {
+    assert.match(selectedActions, new RegExp(`ChatComposer[A-Za-z]+TestTag = "chat\\.composer\\.${tag}"`));
+    assert.match(selectedActions, new RegExp(`testTag = ChatComposer[A-Za-z]+TestTag`));
+  }
+  assert.match(selectedActions, /messageInputOverride\?\.invoke\([\s\S]*?taggedInputModifier/);
+  assert.match(selectedActions, /sendButtonOverride\?\.let[\s\S]*?Modifier\.semantics \{ testTag = ChatComposerSendTestTag \}/);
+  assert.match(selectedActions, /ChatComposerModeBannerContent\([\s\S]*?ChatComposerEditingBannerTestTag/);
+  assert.match(selectedActions, /ChatComposerModeBannerContent\([\s\S]*?ChatComposerReplyBannerTestTag/);
+  assert.match(webHost, /messageInputOverride = \{ value, onChange, modifier, leadingIcon, trailingIcon ->[\s\S]*?WebNativeInput\(/);
+  assert.match(webHost, /sendButtonOverride = \{ enabled, onClick, modifier ->[\s\S]*?WebNativeButton\("Enviar"/);
+  assert.match(iosHost, /ChatProductHostContent\([\s\S]*?audioRecordingConfiguration = dependencies\.audioRecordingConfiguration/);
+});
+
 test("SCR-CHAT inventory reflects the real common-root state without declaring final GO", () => {
   const scrChat = inventory.split(/\r?\n/).find((line) => line.startsWith("| `SCR-CHAT` |"));
   const chatFavorites = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-FAVORITES` |"));

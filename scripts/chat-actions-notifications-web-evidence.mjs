@@ -15,6 +15,7 @@ const defaultDbTlsCaFile = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
 const hardCleanupAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP_AUTHORIZATION";
 const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP";
+const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 
 function parseArgs(argv) {
   const result = {
@@ -83,6 +84,36 @@ async function usersFromPrivateFile() {
     throw new Error("chat_actions_notifications_users_must_differ");
   }
   return users;
+}
+
+async function authorizedUsers() {
+  if (!useAdjacentAuthorizedProfile) return usersFromPrivateFile();
+  const host = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_SSH_HOST?.trim();
+  const file = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_SSH_CREDENTIALS_FILE?.trim();
+  if (!host || !file) throw new Error("missing_adjacent_profile_credentials_source");
+  const credentials = JSON.parse((await runSilent("ssh", [host, `cat ${file}`])).replace(/^\uFEFF/, ""));
+  const primaryPhone = splitPhone(credentials.phone);
+  return [{
+    label: "A",
+    countryCode: primaryPhone.countryCode,
+    phone: primaryPhone.localPhone,
+    password: credentials.password,
+    adjacentPhoneKeys: adjacentRecipientPhones(primaryPhone),
+  }];
+}
+
+function splitPhone(phone) {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  if (!digits.startsWith("240") || digits.length <= 3) throw new Error("invalid_adjacent_profile_phone");
+  return { countryCode: "240", localPhone: digits.slice(3), phoneKey: digits };
+}
+
+function adjacentRecipientPhones(primaryPhone) {
+  return [1, -1].map((delta) => {
+    const value = Number(primaryPhone.localPhone) + delta;
+    const localPhone = String(value).padStart(primaryPhone.localPhone.length, "0");
+    return `${primaryPhone.countryCode}${localPhone}`;
+  });
 }
 
 function isPublicKey(value) {
@@ -159,6 +190,10 @@ function threadId(payload) {
 
 function messageId(payload) {
   return positiveId(rows(payload, "messages")[0]?.id ?? payload?.message?.id ?? payload?.message_id ?? payload?.id, "message_id");
+}
+
+function messageText(row) {
+  return String(row?.body ?? row?.text ?? row?.message ?? "");
 }
 
 async function pollMessage(config, session, thread, predicate, timeout = 45_000) {
@@ -311,6 +346,11 @@ async function waitLabel(page, patterns, error) {
   throw new Error(error);
 }
 
+async function fillComposerAndSend(page, value) {
+  await page.getByLabel(/Mensaje|Message|Composer/i).fill(value, { timeout: 10_000 });
+  await page.getByLabel(/Enviar|Send/i).click({ timeout: 10_000, force: true });
+}
+
 async function logicalCleanup(config, state) {
   const actions = [];
   if (state.thread && state.ownMessage && state.a) {
@@ -330,8 +370,12 @@ async function logicalCleanup(config, state) {
     }).catch(() => {});
     actions.push("conversation_unmuted");
   }
-  for (const [key, session] of [["own_message", state.a], ["peer_message", state.b]]) {
-    const message = key === "own_message" ? state.ownMessage : state.peerMessage;
+  const messagesBySession = [
+    ["own_message", state.a, state.ownMessage],
+    ["peer_message", state.b, state.peerMessage],
+    ...state.uiMessages.map((message) => ["ui_message", state.a, message]),
+  ];
+  for (const [key, session, message] of messagesBySession) {
     if (state.thread && message && session) {
       await rpc(config, session, "quata_chat_delete_messages", {
         p_actor_profile_id: session.profileId,
@@ -399,6 +443,36 @@ async function hardDeleteTemporaryThread(thread, uniqueKey) {
   }
 }
 
+async function withDatabase(callback) {
+  const dbUrlPath = process.env.SUPABASE_DB_URL_FILE?.trim() || defaultDbUrlFile;
+  const tlsCaPath = process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || defaultDbTlsCaFile;
+  const [connectionString, ca] = await Promise.all([readFile(dbUrlPath, "utf8"), readFile(tlsCaPath, "utf8")]);
+  const parsedConnection = new URL(connectionString.trim());
+  parsedConnection.searchParams.delete("sslmode");
+  const client = new pg.Client({
+    connectionString: parsedConnection.toString(),
+    ssl: { ca, rejectUnauthorized: true, servername: parsedConnection.hostname },
+  });
+  await client.connect();
+  try {
+    return await callback(client);
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+async function resolveAdjacentRecipientProfile(phoneKeys) {
+  return await withDatabase(async (client) => {
+    const result = await client.query(
+      "select profile_id from public.quata_profile_phone_directory where phone_key = any($1::text[]) order by profile_id limit 1",
+      [phoneKeys],
+    );
+    const profileId = result.rows[0]?.profile_id;
+    if (!uuid.test(profileId ?? "")) throw new Error("missing_adjacent_recipient_profile");
+    return profileId;
+  });
+}
+
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -413,7 +487,10 @@ function safeFailure(error) {
     "chat_backend_poll_timeout", "distribution_missing", "runtime_configuration_injection_failed",
     "static_server_start_failed", "message_not_visible", "options_menu_not_visible", "action_bar_not_visible",
     "mute_state_not_persisted", "favorite_state_not_persisted", "browser_runtime_fault",
+    "composer_message_not_visible", "composer_reply_not_visible", "composer_edit_not_visible",
     "cleanup_residue_detected", "missing_hard_cleanup_authorization",
+    "missing_adjacent_profile_credentials_source", "invalid_adjacent_profile_phone",
+    "missing_adjacent_recipient_profile",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_actions_notifications_web_failure";
 }
 
@@ -427,17 +504,25 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uniqueKey: null };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null };
 let config, distribution, server, browser, pageContext;
 const faults = [];
 try {
   config = await publicBackendConfig();
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) throw new Error("invalid_public_supabase_url");
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
-  const [userA, userB] = await usersFromPrivateFile();
-  state.a = await login(config, userA);
-  state.b = await login(config, userB);
-  report.steps.push("two_authorized_profiles_logged_in");
+  const users = await authorizedUsers();
+  state.a = await login(config, users[0]);
+  if (useAdjacentAuthorizedProfile) {
+    state.b = {
+      label: "B",
+      profileId: await resolveAdjacentRecipientProfile(users[0].adjacentPhoneKeys),
+    };
+    report.steps.push("authorized_profile_logged_in_and_recipient_resolved");
+  } else {
+    state.b = await login(config, users[1]);
+    report.steps.push("two_authorized_profiles_logged_in");
+  }
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
@@ -460,16 +545,20 @@ try {
     p_reply_to_message_id: null,
     p_client_message_id: `chat-actions-own-${runId}`,
   }));
-  state.peerMessage = messageId(await rpc(config, state.b, "quata_chat_send_message", {
-    p_actor_profile_id: state.b.profileId,
-    p_thread_id: state.thread,
-    p_message: peerMarker,
-    p_file_ids: [],
-    p_reply_to_message_id: null,
-    p_client_message_id: `chat-actions-peer-${runId}`,
-  }));
-  await pollMessage(config, state.a, state.thread, (message) => Number(message?.id) === state.peerMessage);
-  report.steps.push("isolated_thread_and_two_messages_ready");
+  if (state.b.accessToken) {
+    state.peerMessage = messageId(await rpc(config, state.b, "quata_chat_send_message", {
+      p_actor_profile_id: state.b.profileId,
+      p_thread_id: state.thread,
+      p_message: peerMarker,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `chat-actions-peer-${runId}`,
+    }));
+    await pollMessage(config, state.a, state.thread, (message) => Number(message?.id) === state.peerMessage);
+    report.steps.push("isolated_thread_and_two_messages_ready");
+  } else {
+    report.steps.push("isolated_thread_and_own_message_ready");
+  }
 
   distribution = await configuredDistribution(options.distribution, config);
   server = await startServer(distribution);
@@ -483,11 +572,63 @@ try {
   await page.getByText(ownMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
     throw new Error("message_not_visible:own");
   });
-  await page.getByText(peerMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
-    throw new Error("message_not_visible:peer");
-  });
+  if (state.peerMessage) {
+    await page.getByText(peerMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
+      throw new Error("message_not_visible:peer");
+    });
+  }
   report.evidence.threadInitial = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-thread-initial");
-  report.steps.push("thread_rendered_with_own_and_peer_messages");
+  report.steps.push(state.peerMessage ? "thread_rendered_with_own_and_peer_messages" : "thread_rendered_with_own_message");
+
+  const composerMarker = `chat-composer-ui-${runId}`;
+  await fillComposerAndSend(page, composerMarker);
+  const composerMessage = await pollMessage(
+    config,
+    state.a,
+    state.thread,
+    (message) => messageText(message) === composerMarker,
+  );
+  state.uiMessages.push(messageId({ message: composerMessage }));
+  await page.getByText(composerMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
+    throw new Error("composer_message_not_visible");
+  });
+  report.evidence.composerSent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-sent");
+  report.steps.push("composer_text_sent_by_shared_ui_and_verified_by_rpc");
+
+  const replyTargetMarker = state.peerMessage ? peerMarker : ownMarker;
+  await page.getByText(replyTargetMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
+  await clickLabel(page, [/Responder|Reply/i], "action_bar_not_visible:reply");
+  const replyMarker = `chat-reply-ui-${runId}`;
+  await fillComposerAndSend(page, replyMarker);
+  const replyMessage = await pollMessage(
+    config,
+    state.a,
+    state.thread,
+    (message) => messageText(message) === replyMarker,
+  );
+  state.uiMessages.push(messageId({ message: replyMessage }));
+  await page.getByText(replyMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
+    throw new Error("composer_reply_not_visible");
+  });
+  report.evidence.replySent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-reply-sent");
+  report.steps.push("composer_reply_sent_by_shared_ui_and_verified_by_rpc");
+
+  await page.getByText(ownMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
+  await clickLabel(page, [/Editar|Edit/i], "action_bar_not_visible:edit");
+  const editMarker = `chat-edit-ui-${runId}`;
+  await page.getByLabel(/Mensaje|Message|Composer/i).fill(editMarker, { timeout: 10_000 });
+  await page.getByLabel(/Enviar|Send/i).click({ timeout: 10_000, force: true });
+  await pollMessage(
+    config,
+    state.a,
+    state.thread,
+    (message) => Number(message?.id ?? message?.message_id) === Number(state.ownMessage) && messageText(message) === editMarker,
+  );
+  await page.getByText(editMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
+    throw new Error("composer_edit_not_visible");
+  });
+  report.evidence.editSent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-edit-sent");
+  report.steps.push("composer_edit_sent_by_shared_ui_and_verified_by_rpc");
 
   await clickLabel(page, [/Opciones/i, /Options/i], "options_menu_not_visible");
   await page.getByText(/Silenciar conversaci[oó]n|Mute conversation/i).click({ timeout: 10_000, force: true });
@@ -518,14 +659,16 @@ try {
   if (!favoriteRows.some((message) => Number(message?.id) === state.ownMessage)) throw new Error("favorite_state_not_persisted:true");
   report.steps.push("favorite_toggled_and_verified_by_rpc");
 
-  await page.getByText(peerMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
-  await waitLabel(page, [/Copiar mensaje|Copy message/i], "action_bar_not_visible:peer_copy");
-  await waitLabel(page, [/Responder|Reply/i], "action_bar_not_visible:peer_reply");
-  await waitLabel(page, [/Reenviar|Forward/i], "action_bar_not_visible:peer_forward");
-  await waitLabel(page, [/Reportar|Report|Denunciar/i], "action_bar_not_visible:peer_report");
-  await waitLabel(page, [/Favorito|Favorite/i], "action_bar_not_visible:peer_favorite");
-  report.evidence.peerActions = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-peer-selected");
-  report.steps.push("peer_message_action_bar_visible");
+  if (state.peerMessage) {
+    await page.getByText(peerMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
+    await waitLabel(page, [/Copiar mensaje|Copy message/i], "action_bar_not_visible:peer_copy");
+    await waitLabel(page, [/Responder|Reply/i], "action_bar_not_visible:peer_reply");
+    await waitLabel(page, [/Reenviar|Forward/i], "action_bar_not_visible:peer_forward");
+    await waitLabel(page, [/Reportar|Report|Denunciar/i], "action_bar_not_visible:peer_report");
+    await waitLabel(page, [/Favorito|Favorite/i], "action_bar_not_visible:peer_favorite");
+    report.evidence.peerActions = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-peer-selected");
+    report.steps.push("peer_message_action_bar_visible");
+  }
 
   if (faults.length) throw new Error("browser_runtime_fault");
   report.status = "passed";

@@ -44,6 +44,14 @@ import com.quata.core.ui.components.QuataConfirmationDialogContent
 import com.quata.core.ui.components.communityEmojiSections
 import com.quata.core.ui.components.insertAtSelection
 
+const val ChatComposerRootTestTag = "chat.composer.root"
+const val ChatComposerInputTestTag = "chat.composer.input"
+const val ChatComposerSendTestTag = "chat.composer.send"
+const val ChatComposerEmojiTestTag = "chat.composer.emoji"
+const val ChatComposerAttachTestTag = "chat.composer.attach"
+const val ChatComposerEditingBannerTestTag = "chat.composer.editing"
+const val ChatComposerReplyBannerTestTag = "chat.composer.reply"
+
 /** Common selection action chrome backed by [ChatUiEvent]; confirmation stays in commonMain. */
 @Composable
 fun ChatSelectedMessageActionsContent(
@@ -196,9 +204,25 @@ fun ChatComposerContent(
             fieldValue = TextFieldValue(state.messageText, TextRange(state.messageText.length))
         }
     }
-    Column(modifier.fillMaxWidth()) {
-        state.editingMessage?.let { ChatComposerModeBannerContent(strings.editingMessage, onClear = { onEvent(ChatUiEvent.CancelEdit) }) }
-        state.replyToMessage?.let { ChatComposerModeBannerContent(strings.replyingTo(it.senderName), onClear = { onEvent(ChatUiEvent.ClearReply) }) }
+    Column(
+        modifier
+            .fillMaxWidth()
+            .semantics { testTag = ChatComposerRootTestTag },
+    ) {
+        state.editingMessage?.let {
+            ChatComposerModeBannerContent(
+                strings.editingMessage,
+                onClear = { onEvent(ChatUiEvent.CancelEdit) },
+                modifier = Modifier.semantics { testTag = ChatComposerEditingBannerTestTag },
+            )
+        }
+        state.replyToMessage?.let {
+            ChatComposerModeBannerContent(
+                strings.replyingTo(it.senderName),
+                onClear = { onEvent(ChatUiEvent.ClearReply) },
+                modifier = Modifier.semantics { testTag = ChatComposerReplyBannerTestTag },
+            )
+        }
         state.attachmentName?.let { name ->
             ChatPendingAttachmentOverlayContent(
                 name = name,
@@ -256,7 +280,10 @@ fun ChatComposerContent(
         val primaryAction: (@Composable () -> Unit)? = when {
             state.messageText.isNotBlank() || state.attachmentUri != null -> {
                 {
-                    CompactIconButton(onClick = { onEvent(ChatUiEvent.Send) }) {
+                    CompactIconButton(
+                        onClick = { onEvent(ChatUiEvent.Send) },
+                        modifier = Modifier.semantics { testTag = ChatComposerSendTestTag },
+                    ) {
                         CompactIcon(Icons.AutoMirrored.Filled.Send, strings.send)
                     }
                 }
@@ -272,13 +299,20 @@ fun ChatComposerContent(
         }
         ChatComposerInputRowContent(
             textInput = { inputModifier ->
+                val taggedInputModifier = inputModifier.semantics { testTag = ChatComposerInputTestTag }
                 val leadingIcon: @Composable () -> Unit = {
-                    CompactIconButton(onClick = { emojiVisible = !emojiVisible; attachmentsVisible = false }) {
+                    CompactIconButton(
+                        onClick = { emojiVisible = !emojiVisible; attachmentsVisible = false },
+                        modifier = Modifier.semantics { testTag = ChatComposerEmojiTestTag },
+                    ) {
                         CompactIcon(Icons.Filled.InsertEmoticon, strings.emoji)
                     }
                 }
                 val trailingIcon: @Composable () -> Unit = {
-                    CompactIconButton(onClick = { attachmentsVisible = !attachmentsVisible; emojiVisible = false }) {
+                    CompactIconButton(
+                        onClick = { attachmentsVisible = !attachmentsVisible; emojiVisible = false },
+                        modifier = Modifier.semantics { testTag = ChatComposerAttachTestTag },
+                    ) {
                         CompactIcon(Icons.Filled.AttachFile, strings.attach)
                     }
                 }
@@ -288,7 +322,7 @@ fun ChatComposerContent(
                         fieldValue = TextFieldValue(value, TextRange(value.length))
                         onEvent(ChatUiEvent.MessageChanged(value))
                     },
-                    inputModifier,
+                    taggedInputModifier,
                     leadingIcon,
                     trailingIcon,
                 ) ?: OutlinedTextField(
@@ -298,7 +332,7 @@ fun ChatComposerContent(
                         onEvent(ChatUiEvent.MessageChanged(it.text))
                     },
                     placeholder = { Text(strings.message) },
-                    modifier = inputModifier,
+                    modifier = taggedInputModifier,
                     leadingIcon = leadingIcon,
                     trailingIcon = trailingIcon,
                 )
@@ -310,7 +344,7 @@ fun ChatComposerContent(
                         sendButton(
                             true,
                             { onEvent(ChatUiEvent.Send) },
-                            Modifier,
+                            Modifier.semantics { testTag = ChatComposerSendTestTag },
                         )
                     }
                 } ?: primaryAction
