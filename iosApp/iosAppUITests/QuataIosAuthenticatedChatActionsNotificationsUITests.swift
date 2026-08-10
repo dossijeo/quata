@@ -169,12 +169,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {
         let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        for _ in 0..<10 {
+        for attempt in 0..<12 {
             if field.waitForExistence(timeout: 1), field.isHittable {
-                pasteText(value, into: field, in: app)
-                return
+                field.tap()
+                if app.keyboards.count > 0 {
+                    pasteText(value, into: field, in: app)
+                    return
+                }
             }
-            app.swipeDown()
+            if attempt < 6 {
+                app.swipeDown()
+            } else {
+                app.swipeUp()
+            }
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
         XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
@@ -206,7 +213,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
             return
         }
-        field.typeText(value)
+        typeIntoFocusedElement(value, fallback: field, in: app)
+    }
+
+    private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {
+        let focused = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
+            .firstMatch
+        if focused.waitForExistence(timeout: 2) {
+            focused.typeText(value)
+        } else {
+            fallback.typeText(value)
+        }
     }
 
     private func dismissKeyboardIfPresent(in app: XCUIApplication) {
