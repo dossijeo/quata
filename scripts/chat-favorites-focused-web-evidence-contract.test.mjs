@@ -22,7 +22,12 @@ const [iosRunner, iosTest] = await Promise.all([
   source("scripts/run-ios-chat-favorites-focused-ui-test.sh"),
   source("iosApp/iosAppUITests/QuataIosAuthenticatedChatFavoritesFocusedUITests.swift"),
 ]);
+const iosEvidenceRunner = await source("scripts/chat-favorites-focused-ios-evidence.mjs");
 const chatDetailContent = await source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConversationDetailContent.kt");
+const chatScreenHost = await source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatScreenHost.kt");
+const webChatHost = await source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt");
+const androidScreen = await source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt");
+const iosAppHost = await source("iosApp/iosApp/QuataIosApp.swift");
 
 test("CHAT-FAVORITES-FOCUSED-WEB-001 is included in fast and Wave2 contracts", () => {
   const scripts = JSON.parse(packageJson).scripts;
@@ -74,16 +79,40 @@ test("runner uses the common favorite conversation route and focused deep link",
   assert.match(runner, /chatFragment\(`sb:\$\{state\.thread\}`, String\(state\.message\)\)/);
   assert.match(runner, /data-quata-shell-route/);
   assert.match(runner, /focusedPage = await openAuthenticatedChatPage\([\s\S]*?faults,\s*0,\s*\)/);
+  assert.match(runner, /assertSelectedMessageSignal\(focusedPage\.page, state\.message\)/);
+  assert.match(runner, /focused_deep_link_exposed_selected_message_semantics/);
+  assert.match(runner, /waitForFocusedSelectionToClear\(focusedPage\.page\)/);
+  assert.match(runner, /focused_deep_link_selection_consumed_once/);
+  assert.match(runner, /data-quata-chat-focused-message-selected/);
 });
 
 test("shared message semantics expose a selected identifier for focused-message gates", () => {
+  assert.match(chatDetailContent, /emptyContent: \(@Composable \(\) -> Unit\)\? = null/);
+  assert.match(chatDetailContent, /messages\.isEmpty\(\) && emptyContent != null/);
+  assert.match(chatDetailContent, /onFocusedMessageVisible: \(String\) -> Unit = \{\}/);
+  assert.match(chatDetailContent, /onFocusedMessageVisible\(focusedMessage\.id\)/);
+  assert.match(chatScreenHost, /onFocusedMessageVisible: \(String\) -> Unit = \{\}/);
+  assert.match(chatScreenHost, /onFocusedMessageVisible = onFocusedMessageVisible/);
+  assert.match(webChatHost, /setWebChatFocusedMessageSelected/);
+  assert.match(webChatHost, /clearWebChatFocusedMessageSelected/);
+  assert.match(webChatHost, /data-quata-chat-focused-message-selected/);
   assert.match(chatDetailContent, /visibleItemsInfo\.any \{ item -> item\.key == focusedMessage\.composeKey\(\) \}/);
   assert.match(chatDetailContent, /message\.id == focusedMessageId/);
+  assert.match(chatDetailContent, /selected = isSelected/);
   assert.match(chatDetailContent, /private const val FocusedMessageHighlightMillis = 8_000L/);
   assert.match(chatDetailContent, /delay\(FocusedMessageHighlightMillis\)/);
   assert.match(chatDetailContent, /testTag = if \(isSelected\) "chat\.message\.\$\{message\.id\}\.selected" else "chat\.message\.\$\{message\.id\}"/);
   assert.match(chatDetailContent, /if \(isSelected\) \{[\s\S]*?Box\([\s\S]*?testTag = "chat\.message\.\$\{message\.id\}\.selected"/);
   assert.match(chatDetailContent, /stateDescription = if \(isSelected\) "selected" else "not selected"/);
+});
+
+test("shared Favorites route exposes an identifiable empty state instead of a blank viewport", async () => {
+  const chatHost = await source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatScreenHost.kt");
+  const strings = await source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatChromeStrings.kt");
+  assert.match(strings, /val favoriteMessagesEmpty: String/);
+  assert.match(strings, /favoriteMessagesEmpty = "No favorite messages yet\."/);
+  assert.match(chatHost, /FavoriteMessagesEmptyContent\(slots\.chromeStrings\.favoriteMessagesEmpty\)/);
+  assert.match(chatHost, /testTag = "chat\.favorites\.empty"/);
 });
 
 test("runner validates backend mutation, navigation evidence and reversible cleanup", () => {
@@ -97,6 +126,9 @@ test("runner validates backend mutation, navigation evidence and reversible clea
   assert.match(runner, /web-favorites-list/);
   assert.match(runner, /web-favorites-open-source/);
   assert.match(runner, /web-focused-message/);
+  assert.match(runner, /favorite_removed_by_rpc_for_empty_state/);
+  assert.match(runner, /Todavia no hay mensajes favoritos\./);
+  assert.match(runner, /web-favorites-empty/);
   assert.match(runner, /quata_chat_set_favorite[\s\S]*p_favorite: false/);
   assert.match(runner, /quata_chat_delete_messages/);
   assert.match(runner, /quata_chat_delete_thread/);
@@ -166,8 +198,23 @@ test("Android evidence runner uses real deep links, temp credentials and reversi
   assert.match(androidTest, /SKIP_SPLASH_FOR_EVIDENCE/);
   assert.match(androidTest, /device\.findObject\(By\.textContains\(safeMarkerProbe\)\)\?\.click\(\)/);
   assert.match(androidTest, /quataChatEvidenceMessageId/);
+  assert.match(androidTest, /quataChatEvidenceExpectFavoritesEmpty/);
+  assert.match(androidTest, /waitForFavoritesEmptyState\(\)/);
+  assert.match(androidTest, /chat\.favorites\.empty/);
+  assert.match(androidTest, /Todavia no hay mensajes favoritos\./);
+  assert.match(androidTest, /No favorite messages yet\./);
+  assert.match(androidTest, /Aucun message favori\./);
+  assert.match(androidTest, /android-favorites-empty/);
+  assert.match(androidScreen, /onFocusedMessageVisible = \{ messageId -> focusedMessageVisible = messageId \}/);
+  assert.match(androidScreen, /chat\.focused-message\.visible\.\$messageId/);
+  assert.match(androidScreen, /contentDescription = focusedMessageVisibleTag/);
+  assert.match(androidTest, /chat\.focused-message\.visible\.\$messageId/);
+  assert.match(androidTest, /By\.desc\(focusedVisibleTag\)/);
+  assert.match(androidTest, /chat\.message\.\$messageId\.selected/);
+  assert.match(androidTest, /By\.res\(targetContext\.packageName, selectedTag\)/);
   assert.match(androidTest, /rootInActiveWindow/);
-  assert.match(androidTest, /node\.stateDescription\?\.toString\(\) == "selected"/);
+  assert.match(androidTest, /node\.isSelected \|\| node\.selectedStateDescription\(\) == "selected"/);
+  assert.match(androidTest, /Build\.VERSION\.SDK_INT >= 30/);
   assert.match(androidTest, /subtreeContainsText\(node, markerProbe\)/);
   assert.match(androidTest, /focused_message_selected_semantics_missing/);
   assert.match(androidTest, /android-focused-message/);
@@ -183,6 +230,12 @@ test("Android evidence runner uses real deep links, temp credentials and reversi
   assert.match(androidRunner, /android-favorites-list\.png/);
   assert.match(androidRunner, /android-favorites-open-source\.png/);
   assert.match(androidRunner, /android-focused-message\.png/);
+  assert.match(androidRunner, /android-favorites-empty\.png/);
+  assert.match(androidRunner, /favorite_removed_by_rpc_for_android_empty_state/);
+  assert.match(androidRunner, /am", "force-stop", "com\.quata"/);
+  assert.match(androidRunner, /android_process_restarted_before_empty_state_verification/);
+  assert.match(androidRunner, /quataChatEvidenceExpectFavoritesEmpty/);
+  assert.match(androidRunner, /android_favorites_empty_state_verified_after_unfavorite/);
   assert.match(androidRunner, /:app:assembleDebug/);
   assert.match(androidRunner, /:app:assembleDebugAndroidTest/);
   assert.match(androidRunner, /"adb", \["install", "-r", "app\/build\/outputs\/apk\/debug\/app-debug\.apk"\]/);
@@ -204,10 +257,20 @@ test("Android evidence runner uses real deep links, temp credentials and reversi
 });
 
 test("iOS evidence runner uses real custom-scheme deep links and the shared seeded-session lane", () => {
+  assert.match(iosAppHost, /private func chatAccessibilityValue\(conversationId: String, messageId: String\?\) -> String/);
+  assert.match(iosAppHost, /accessibilityValue: presentation\.value/);
+  assert.match(iosAppHost, /controller\.view\.accessibilityValue = accessibilityValue/);
   assert.match(iosTest, /QUATA_IOS_CHAT_FAVORITES_FOCUSED_UI_E2E/);
   assert.match(iosTest, /quata:\/\/egquata\.com\/#chat-__favorite_messages__/);
   assert.match(iosTest, /encodedFragment\(conversationId\)/);
   assert.match(iosTest, /encodedQuery\(messageId\)/);
+  assert.match(iosTest, /assertChatRoute\("__favorite_messages__"/);
+  assert.match(iosTest, /assertChatRoute\(conversationId, messageId: messageId[\s\S]*?context: "favorite source"/);
+  assert.match(iosTest, /XCTAssertEqual\(chat\.value as\? String, expected/);
+  assert.match(iosTest, /testFavoriteRouteShowsEmptyStateAfterUnfavorite/);
+  assert.match(iosTest, /QUATA_IOS_CHAT_FAVORITES_EXPECT_EMPTY/);
+  assert.match(iosTest, /Todavia no hay mensajes favoritos\./);
+  assert.match(iosTest, /ios-favorites-empty/);
   assert.match(iosTest, /matching\(identifier: "chat\.message\.\\\(messageId\)\.selected"\)/);
   assert.match(iosTest, /ios-favorites-list/);
   assert.match(iosTest, /ios-favorites-open-source/);
@@ -219,5 +282,38 @@ test("iOS evidence runner uses real custom-scheme deep links and the shared seed
   assert.match(iosRunner, /QUATA_IOS_CHAT_E2E_CONVERSATION_ID/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_E2E_MESSAGE_ID/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_E2E_MARKER_PROBE/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_FAVORITES_FOCUSED_RESULT_BUNDLE_DIR/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_FAVORITES_EXPECT_EMPTY/);
+  assert.match(iosRunner, /testFavoriteRouteShowsEmptyStateAfterUnfavorite/);
+  assert.match(iosRunner, /ui_method='testFavoriteRouteOpensSourceAndFocusedDeepLinkHighlightsMessage'/);
+  assert.match(iosRunner, /ui_method='testFavoriteRouteShowsEmptyStateAfterUnfavorite'/);
+  assert.match(iosRunner, /run_and_require "\$ui" "\$ui_method"/);
+  assert.match(iosRunner, /-resultBundlePath/);
+  assert.match(iosRunner, /-quata-patched\.xctestrun/);
   assert.match(iosRunner, /CHAT_FAVORITES_FOCUSED_IOS_UI_GATE_PASSED/);
+});
+
+test("iOS evidence owner creates, validates and cleans the same reversible fixture contract", () => {
+  assert.match(iosEvidenceRunner, /check = "CHAT-FAVORITES-FOCUSED-IOS-001"/);
+  assert.match(iosEvidenceRunner, /qadata-chat-fav-focus-ios-/);
+  assert.match(iosEvidenceRunner, /quata_chat_start_thread/);
+  assert.match(iosEvidenceRunner, /quata_chat_send_message/);
+  assert.match(iosEvidenceRunner, /quata_chat_set_favorite/);
+  assert.match(iosEvidenceRunner, /quata_chat_get_favorites/);
+  assert.match(iosEvidenceRunner, /QUATA_IOS_AUTH_E2E_FILE/);
+  assert.match(iosEvidenceRunner, /QUATA_IOS_CHAT_E2E_CONVERSATION_ID/);
+  assert.match(iosEvidenceRunner, /QUATA_IOS_CHAT_E2E_MESSAGE_ID/);
+  assert.match(iosEvidenceRunner, /QUATA_IOS_CHAT_E2E_MARKER_PROBE/);
+  assert.match(iosEvidenceRunner, /mac_checkout_sha_matches_local_candidate/);
+  assert.match(iosEvidenceRunner, /ios_xctest_favorites_source_and_focus_verified/);
+  assert.match(iosEvidenceRunner, /favorite_removed_by_rpc_for_ios_empty_state/);
+  assert.match(iosEvidenceRunner, /QUATA_IOS_CHAT_FAVORITES_EXPECT_EMPTY=1/);
+  assert.match(iosEvidenceRunner, /ios_xctest_favorites_empty_state_verified_after_unfavorite/);
+  assert.match(iosEvidenceRunner, /QUATA_CHAT_FAVORITES_FOCUSED_HARD_CLEANUP_AUTHORIZATION/);
+  assert.match(iosEvidenceRunner, /MANAGER_APPROVED_QADATA_CHAT_FAVORITES_FOCUSED_HARD_CLEANUP/);
+  assert.match(iosEvidenceRunner, /delete from public\.chat_threads where id = \$1 and unique_key = \$2 returning id/);
+  assert.match(iosEvidenceRunner, /cleanup_verified_physical_residue_absent/);
+  assert.match(iosEvidenceRunner, /safeFailure/);
+  assert.doesNotMatch(iosEvidenceRunner, /68024260[78]/);
+  assert.doesNotMatch(iosEvidenceRunner, /21085800/);
 });

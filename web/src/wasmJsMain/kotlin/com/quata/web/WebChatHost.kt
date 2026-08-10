@@ -107,7 +107,11 @@ fun WebChatHost(
         },
         conversationId = conversationId,
         focusedMessageId = focusedMessageId,
-        onFocusedMessageHandled = onFocusedMessageHandled,
+        onFocusedMessageVisible = ::setWebChatFocusedMessageSelected,
+        onFocusedMessageHandled = {
+            clearWebChatFocusedMessageSelected()
+            onFocusedMessageHandled()
+        },
         navigationMessage = navigationMessage,
         onOpenConversation = onOpenConversation,
         onOpenMessageConversation = onOpenMessageConversation,
@@ -210,6 +214,12 @@ private external fun browserChatLanguageTag(): String
 private external fun webChatNowMillisAsDouble(): Double
 
 private fun webChatNowMillis(): Long = webChatNowMillisAsDouble().toLong()
+
+@JsFun("(messageId) => { globalThis.document?.documentElement?.setAttribute('data-quata-chat-focused-message-selected', String(messageId)); }")
+private external fun setWebChatFocusedMessageSelected(messageId: String)
+
+@JsFun("() => { globalThis.document?.documentElement?.removeAttribute('data-quata-chat-focused-message-selected'); }")
+private external fun clearWebChatFocusedMessageSelected()
 
 internal fun chatBrowserDocumentIsVisible(): Boolean = js(
     "globalThis.document?.visibilityState !== 'hidden'",

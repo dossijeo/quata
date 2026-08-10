@@ -1223,7 +1223,11 @@ private final class IosDeterministicDeepLinkFixtureRouter: UIViewController, Ios
     }
 
     func showChat(conversationId: String, messageId: String?) {
-        show(identifier: "quata-ios-chat-host", label: "Quata iOS Chat")
+        show(
+            identifier: "quata-ios-chat-host",
+            label: "Quata iOS Chat",
+            value: chatAccessibilityValue(conversationId: conversationId, messageId: messageId),
+        )
     }
 
     func showOfficial(postId: String?) {
@@ -1262,10 +1266,18 @@ private final class IosDeterministicDeepLinkFixtureRouter: UIViewController, Ios
         show(identifier: "quata-ios-release-history-host", label: "Quata iOS Release History")
     }
 
-    private func show(identifier: String, label: String) {
+    private func show(identifier: String, label: String, value: String? = nil) {
         view.accessibilityIdentifier = identifier
         view.accessibilityLabel = label
+        view.accessibilityValue = value
     }
+}
+
+private func chatAccessibilityValue(conversationId: String, messageId: String?) -> String {
+    if let messageId, !messageId.isEmpty {
+        return "chat:\(conversationId)?message=\(messageId)"
+    }
+    return "chat:\(conversationId)"
 }
 
 /// Keeps a Compose/Skia dialog transparent after its native render view is mounted.  A one-shot
@@ -2213,36 +2225,45 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         case .composer: primaryNavigationHost.updateSelectedRoute(route: "composer")
         default: break
         }
-        let presentation: (identifier: String, label: String)
+        let presentation: (identifier: String, label: String, value: String?)
         switch route {
         case .feed:
-            presentation = ("quata-ios-feed-host", "Quata iOS Feed")
-        case .chat:
-            presentation = ("quata-ios-chat-host", "Quata iOS Chat")
+            presentation = ("quata-ios-feed-host", "Quata iOS Feed", nil)
+        case let .chat(conversationId, messageId):
+            presentation = (
+                "quata-ios-chat-host",
+                "Quata iOS Chat",
+                conversationId.map { chatAccessibilityValue(conversationId: $0, messageId: messageId) }
+            )
         case .official:
-            presentation = ("quata-ios-official-host", "Quata iOS Official")
+            presentation = ("quata-ios-official-host", "Quata iOS Official", nil)
         case .officialEditor:
-            presentation = ("quata-ios-official-editor-host", "Quata iOS Official Editor")
+            presentation = ("quata-ios-official-editor-host", "Quata iOS Official Editor", nil)
         case .notifications:
-            presentation = ("quata-ios-notifications-host", "Quata iOS Notifications")
+            presentation = ("quata-ios-notifications-host", "Quata iOS Notifications", nil)
         case .profileSos:
-            presentation = ("quata-ios-profile-sos-host", "Quata iOS Profile SOS")
+            presentation = ("quata-ios-profile-sos-host", "Quata iOS Profile SOS", nil)
         case .communities:
-            presentation = ("quata-ios-communities-host", "Quata iOS Communities")
+            presentation = ("quata-ios-communities-host", "Quata iOS Communities", nil)
         case .composer:
-            presentation = ("quata-ios-composer-host", "Quata iOS Composer")
+            presentation = ("quata-ios-composer-host", "Quata iOS Composer", nil)
         case .settings:
-            presentation = ("quata-ios-settings-host", "Quata iOS Settings")
+            presentation = ("quata-ios-settings-host", "Quata iOS Settings", nil)
         case .whatsNew:
-            presentation = ("quata-ios-whats-new-host", "Quata iOS What's New")
+            presentation = ("quata-ios-whats-new-host", "Quata iOS What's New", nil)
         case .about:
-            presentation = ("quata-ios-about-host", "Quata iOS About")
+            presentation = ("quata-ios-about-host", "Quata iOS About", nil)
         case .releaseHistory:
-            presentation = ("quata-ios-release-history-host", "Quata iOS Release History")
+            presentation = ("quata-ios-release-history-host", "Quata iOS Release History", nil)
         }
         routeMenuButton.isHidden = !routeUsesSecondaryMenu(route)
         primaryNavigationController.view.isHidden = shouldHidePrimaryNavigation(for: route)
-        show(controller, accessibilityIdentifier: presentation.identifier, accessibilityLabel: presentation.label)
+        show(
+            controller,
+            accessibilityIdentifier: presentation.identifier,
+            accessibilityLabel: presentation.label,
+            accessibilityValue: presentation.value,
+        )
     }
 
     private func shouldHidePrimaryNavigationForVisibleRoute() -> Bool {
@@ -2279,6 +2300,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         _ controller: UIViewController,
         accessibilityIdentifier: String?,
         accessibilityLabel: String,
+        accessibilityValue: String? = nil,
     ) {
         // A capability gate requested while the anonymous Feed is already visible must not try
         // to re-parent that same controller. UIKit treats adding an existing child as an invalid
@@ -2287,6 +2309,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if displayedController === controller {
             controller.view.accessibilityIdentifier = accessibilityIdentifier
             controller.view.accessibilityLabel = accessibilityLabel
+            controller.view.accessibilityValue = accessibilityValue
             view.setNeedsLayout()
             return
         }
@@ -2300,6 +2323,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // XCUITest, even though they remain visibly rendered.
         controller.view.isAccessibilityElement = false
         controller.view.accessibilityLabel = accessibilityLabel
+        controller.view.accessibilityValue = accessibilityValue
         view.addSubview(controller.view)
         // Feature hosts fill the router bounds. Keep the authenticated route affordance above
         // the newly inserted Compose view; otherwise it remains in the hierarchy but cannot be

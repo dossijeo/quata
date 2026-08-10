@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,6 +17,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.Conversation
 import com.quata.core.model.Message
@@ -44,6 +48,7 @@ fun ChatScreenHost(
     text: (ChatText) -> String,
     slots: ChatScreenHostSlots,
     focusedMessageId: String? = null,
+    onFocusedMessageVisible: (String) -> Unit = {},
     onFocusedMessageHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
     model: ChatViewModel = remember(repository, conversationId) {
@@ -206,9 +211,15 @@ fun ChatScreenHost(
                 messageActions = slots.messageActions,
                 typingIndicator = slots.typingIndicator(state.typingProfileIds),
                 initialContent = if (state.isLoading && state.messages.isEmpty()) slots.loadingContent else null,
+                emptyContent = if (isFavoritesConversation) {
+                    { FavoriteMessagesEmptyContent(slots.chromeStrings.favoriteMessagesEmpty) }
+                } else {
+                    null
+                },
                 onLoadOlderMessages = model::loadOlderMessages,
                 isLoadingOlderMessages = state.isLoadingOlderMessages,
                 focusedMessageId = focusedMessage?.id,
+                onFocusedMessageVisible = onFocusedMessageVisible,
                 onFocusedMessageHandled = {
                     deepLinkRequest = ChatMessageDeepLinkRequest.NoTarget
                     onFocusedMessageHandled()
@@ -235,6 +246,22 @@ fun ChatScreenHost(
                 onDismiss = { translatorActive = false },
             )
         }
+    }
+}
+
+@Composable
+private fun FavoriteMessagesEmptyContent(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 48.dp)
+            .semantics { testTag = "chat.favorites.empty" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = message,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

@@ -45,6 +45,7 @@ class ChatFavoritesFocusedDeepLinkInstrumentedTest {
         val focusedUrl = optionalArgument("quataChatEvidenceFocusedUrl")
         val markerProbe = optionalArgument("quataChatEvidenceMarkerProbe")
         val messageId = optionalArgument("quataChatEvidenceMessageId")
+        val expectFavoritesEmpty = arguments.getString("quataChatEvidenceExpectFavoritesEmpty") == "1"
         val credentials = credentialsFile?.let(::credentialsFromFile)
         assumeTrue(
             "CHAT-FAVORITES-FOCUSED Android evidence is opt-in.",
@@ -68,6 +69,18 @@ class ChatFavoritesFocusedDeepLinkInstrumentedTest {
         )
 
         ActivityScenario.launch<MainActivity>(chatIntent(safeFavoritesUrl)).use {
+            if (expectFavoritesEmpty) {
+                waitForFavoritesEmptyState()
+                saveScreenshot("android-favorites-empty")
+                writeReport(
+                    JSONObject()
+                        .put("check", "CHAT-FAVORITES-FOCUSED-ANDROID-001")
+                        .put("status", "passed")
+                        .put("mode", "favorites_empty")
+                        .put("evidenceDirectory", evidenceDir().absolutePath),
+                )
+                return@runBlocking
+            }
             waitForMarker(safeMarkerProbe, "favorites route")
             saveScreenshot("android-favorites-list")
             device.findObject(By.textContains(safeMarkerProbe))?.click()
@@ -100,9 +113,35 @@ class ChatFavoritesFocusedDeepLinkInstrumentedTest {
         assertTrue("The marker must be visible in $context.", visible)
     }
 
-    private fun waitForSelectedMessage(markerProbe: String, messageId: String) {
+    private fun waitForText(value: String, context: String) {
+        val visible = device.wait(Until.hasObject(By.text(value)), 45_000)
+        assertTrue("The expected text must be visible in $context.", visible)
+    }
+
+    private fun waitForFavoritesEmptyState() {
+        val emptyTag = "chat.favorites.empty"
         val deadline = SystemClock.uptimeMillis() + 45_000
         while (SystemClock.uptimeMillis() < deadline) {
+            if (device.hasObject(By.res(targetContext.packageName, emptyTag))) return
+            if (device.hasObject(By.res("${targetContext.packageName}:id/$emptyTag"))) return
+            if (device.hasObject(By.text("Todavia no hay mensajes favoritos."))) return
+            if (device.hasObject(By.text("No favorite messages yet."))) return
+            if (device.hasObject(By.text("Aucun message favori."))) return
+            SystemClock.sleep(500)
+        }
+        error("favorites_empty_state_missing")
+    }
+
+    private fun waitForSelectedMessage(markerProbe: String, messageId: String) {
+        val selectedTag = "chat.message.$messageId.selected"
+        val focusedVisibleTag = "chat.focused-message.visible.$messageId"
+        val deadline = SystemClock.uptimeMillis() + 45_000
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (device.hasObject(By.desc(focusedVisibleTag))) return
+            if (device.hasObject(By.res(targetContext.packageName, focusedVisibleTag))) return
+            if (device.hasObject(By.res("${targetContext.packageName}:id/$focusedVisibleTag"))) return
+            if (device.hasObject(By.res(targetContext.packageName, selectedTag))) return
+            if (device.hasObject(By.res("${targetContext.packageName}:id/$selectedTag"))) return
             val root = instrumentation.uiAutomation.rootInActiveWindow
             if (root != null && hasSelectedMessageNode(root, markerProbe)) return
             SystemClock.sleep(500)
@@ -111,7 +150,7 @@ class ChatFavoritesFocusedDeepLinkInstrumentedTest {
     }
 
     private fun hasSelectedMessageNode(node: AccessibilityNodeInfo, markerProbe: String): Boolean {
-        val selected = node.stateDescription?.toString() == "selected"
+        val selected = node.isSelected || node.selectedStateDescription() == "selected"
         if (selected && subtreeContainsText(node, markerProbe)) return true
         for (index in 0 until node.childCount) {
             val child = node.getChild(index) ?: continue
@@ -129,6 +168,9 @@ class ChatFavoritesFocusedDeepLinkInstrumentedTest {
         }
         return false
     }
+
+    private fun AccessibilityNodeInfo.selectedStateDescription(): String? =
+        if (Build.VERSION.SDK_INT >= 30) stateDescription?.toString() else null
 
     private fun saveScreenshot(name: String) {
         val bitmap = instrumentation.uiAutomation.takeScreenshot()
