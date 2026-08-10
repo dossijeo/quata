@@ -193,13 +193,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected editable field \(identifier) to exist.")
         field.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5)).tap()
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-        app.typeKey("a", modifierFlags: .command)
-        app.typeKey(XCUIKeyboardKey.delete, modifierFlags: [])
         field.press(forDuration: 0.7)
         let selectAll = app.menuItems.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Select All", "Seleccionar todo")).firstMatch
         if selectAll.waitForExistence(timeout: 2) {
             selectAll.tap()
+            typeIntoFocusedElement(value, fallback: field, in: app)
+            return
         }
+        app.typeKey("a", modifierFlags: .command)
+        app.typeKey(XCUIKeyboardKey.delete, modifierFlags: [])
         pasteText(value, into: field, in: app)
     }
 
