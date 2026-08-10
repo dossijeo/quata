@@ -43,6 +43,7 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /await clickMessage\(page, ownMarker, "message_action_target_not_clickable:edit"\)[\s\S]*?await clickLabel\(page, \[\/Editar\|Edit\/i\]/);
   assert.match(runner, /await clickMessage\(page, editMarker, "message_action_target_not_clickable:own_actions"\)[\s\S]*?await waitLabel\(page, \[\/Copiar mensaje\|Copiar texto\|Copy message\|Copy text\/i\]/);
   assert.match(runner, /composer_edit_sent_by_shared_ui_and_verified_by_rpc/);
+  assert.match(runner, /clickLabel\(page, \[\/Opciones\|Abrir\/i, \/Options\|Open\/i\]/);
   assert.match(runner, /getByText\(\/Silenciar conversaci\[oó\]n\|Mute conversation\/i\)/);
   for (const label of ["Copiar texto", "Responder", "Reenviar", "Editar", "Favorito", "Eliminar", "Report"]) {
     assert.match(runner, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));

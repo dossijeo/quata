@@ -706,14 +706,14 @@ try {
   report.evidence.editSent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-edit-sent");
   report.steps.push("composer_edit_sent_by_shared_ui_and_verified_by_rpc");
 
-  await clickLabel(page, [/Opciones/i, /Options/i], "options_menu_not_visible");
+  await clickLabel(page, [/Opciones|Abrir/i, /Options|Open/i], "options_menu_not_visible");
   await page.getByText(/Silenciar conversaci[oó]n|Mute conversation/i).click({ timeout: 10_000, force: true });
   await delay(1_000);
   if (!isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:true");
   report.evidence.muted = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-muted");
   report.steps.push("mute_enabled_and_verified_by_rpc");
 
-  await clickLabel(page, [/Opciones/i, /Options/i], "options_menu_not_visible");
+  await clickLabel(page, [/Opciones|Abrir/i, /Options|Open/i], "options_menu_not_visible");
   await page.getByText(/Reactivar notificaciones|Unmute|Reactivate notifications/i).click({ timeout: 10_000, force: true });
   await delay(1_000);
   if (isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:false");
