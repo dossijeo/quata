@@ -40,6 +40,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         tapTaggedButton("chat.composer.send", in: app, context: "send composer message")
         XCTAssertTrue(messageText(composerMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-composer-sent")
+        dismissKeyboardIfPresent(in: app)
 
         selectMessage(seedMarkerProbe, expectedMessageId: seedMessageId, in: app, context: "seed reply selection")
         tapTaggedButton("chat.action.favorite", in: app, context: "favorite seed message")
@@ -53,6 +54,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         tapTaggedButton("chat.composer.send", in: app, context: "send reply")
         XCTAssertTrue(messageText(replyMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-composer-reply-sent")
+        dismissKeyboardIfPresent(in: app)
 
         selectMessage(composerMarker, expectedMessageId: nil, in: app, context: "own message edit selection")
         assertActionBarOwnMessage(in: app)
@@ -65,6 +67,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         tapTaggedButton("chat.composer.send", in: app, context: "submit edit")
         XCTAssertTrue(messageText(editMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-composer-edit-sent")
+        dismissKeyboardIfPresent(in: app)
 
         selectMessage(editMarker, expectedMessageId: nil, in: app, context: "edited own selected")
         assertActionBarOwnMessage(in: app)
@@ -112,6 +115,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             let selected = app.descendants(matching: .any)
                 .matching(identifier: "chat.message.\(expectedMessageId).selected")
                 .firstMatch
+            if !selected.waitForExistence(timeout: 4) {
+                target.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
             XCTAssertTrue(selected.waitForExistence(timeout: 10), "Expected selected semantics for \(context).")
         }
     }
