@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { copyFile, cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { inflateSync } from "node:zlib";
 import { Client } from "pg";
 import { chromium } from "playwright-core";
 
@@ -31,26 +32,49 @@ const report = {
   evidence: {},
 };
 
+class EvidenceComplete extends Error {
+  constructor() {
+    super("evidence_complete");
+  }
+}
+
 let distribution;
 let fixtureDir;
 let server;
 let browser;
 let context;
 let marker;
+let visibleMarker;
 let created = { ids: [], translationGroupIds: [] };
 let cleanup = { state: "not_started" };
+let runtimeConfig;
+let permissionProfileRollback;
+let createdExactReadSeen = false;
 
 try {
   const config = requireEnvironment();
+  runtimeConfig = config;
   const backend = await publicConfig();
   const wordpressBase = await wordpressBaseUrl();
   distribution = await configuredDistribution(options.distribution, backend);
   fixtureDir = await mkdtemp(join(tmpdir(), "quata-official-editor-real-fixtures-"));
   marker = `official-web-ui-${randomUUID()}`;
+  visibleMarker = marker.replace(/[^a-z0-9]/gi, "").slice(-10);
   server = await startServer(distribution, wordpressBase);
+  if (options.expectIneligible) {
+    permissionProfileRollback = await prepareNonOfficialProfile(backend, config);
+    report.evidence.permissionProfile = {
+      state: "forced_non_official_for_evidence",
+      profileId: permissionProfileRollback.profileId,
+      previousIsOfficial: permissionProfileRollback.previousIsOfficial,
+    };
+    report.steps.push("non_official_profile_role_prepared_reversibly");
+  }
 
   const loginSession = await login(backend, config, `official-editor-web-real-${randomUUID()}`);
-  report.steps.push("official_profile_authenticated_through_public_web_bridge");
+  report.steps.push(options.expectIneligible
+    ? "non_official_profile_authenticated_through_public_web_bridge"
+    : "official_profile_authenticated_through_public_web_bridge");
 
   browser = await chromium.launch({
     executablePath: options.chrome,
@@ -65,6 +89,7 @@ try {
     localStorage.setItem("quata_web_user_id", session.userId);
     localStorage.setItem("quata_web_expires_at", String(session.expiresAt));
     if (session.displayName) localStorage.setItem("quata_web_display_name", session.displayName);
+    localStorage.setItem("quata_web_is_official", String(session.isOfficial === true));
     localStorage.setItem("web.auth.session_ready", "true");
     localStorage.setItem("quata_web_client_instance_id", session.clientInstanceId);
   }, loginSession);
@@ -79,11 +104,20 @@ try {
     const url = response.url();
     if (!url.includes("/rest/v1/official_posts")) return;
     const request = response.request();
+    const method = request.method();
+    const headers = await request.allHeaders().catch(() => ({}));
+    const readDiagnostic = method === "GET"
+      ? await officialPostReadDiagnostic(response, url, headers, () => created.ids)
+      : undefined;
+    if (readDiagnostic?.hasIdFilter && readDiagnostic?.hasAuthorization && readDiagnostic?.containsCreatedId) {
+      createdExactReadSeen = true;
+    }
     report.postgrest.push({
       table: "official_posts",
-      method: request.method(),
+      method,
       status: response.status(),
       urlKind: url.includes("select=") ? "read" : "mutation_or_read",
+      ...(readDiagnostic ? { readDiagnostic } : {}),
     });
   });
   page.on("response", async (response) => {
@@ -115,6 +149,23 @@ try {
     { timeout: 45_000 },
   );
   report.steps.push("official_route_mounted_with_restored_real_session");
+
+  if (options.expectIneligible) {
+    await expectLocatorAbsent(page.locator("#official-create-action").first(), 8_000, "official_create_cta_visible_for_non_official_profile");
+    report.evidence.permission = await screenshot(page, options.evidenceDir, "web-real-official-ineligible-no-create-cta");
+    await page.goto(`${server.origin}/#official-editor`, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() =>
+      localStorage.getItem("web.navigation.route") === "official" &&
+      document.documentElement.getAttribute("data-quata-shell-route") === "official",
+      { timeout: 45_000 },
+    );
+    await expectLocatorAbsent(page.locator("#official-editor-common-root").first(), 2_000, "official_editor_mounted_for_non_official_profile");
+    report.evidence.directRoute = await screenshot(page, options.evidenceDir, "web-real-official-ineligible-direct-route-blocked");
+    report.postCleanupReadback = await assertNoMarkerRows(config, marker, []);
+    report.steps.push("non_official_session_cannot_open_common_official_editor");
+    report.status = "passed";
+    throw new EvidenceComplete();
+  }
 
   const createButton = page.locator("#official-create-action").first();
   await createButton.waitFor({ timeout: 45_000 });
@@ -160,26 +211,21 @@ try {
     report.steps.push(`real_${options.media}_picker_selects_media_and_common_preview_renders`);
   }
 
-  await clickSemanticElement(page, "official-editor-body-action");
-  const bodyField = page.getByRole("textbox").first();
-  await bodyField.waitFor({ state: "attached", timeout: 15_000 });
-  await bodyField.click({ force: true });
-  await page.keyboard.insertText(`QUATA Web UI evidence ${marker}\nPublicacion reversible creada desde Wasm.`);
-  await page.locator("#official-editor-preview")
-    .getByText(new RegExp(escapeRegExp(marker)))
-    .waitFor({ state: "attached", timeout: 15_000 });
+  await clickSemanticElement(page, "official-editor-mode-switch");
+  const titleText = `QADATA Web ${visibleMarker}`;
+  const summaryText = `Publicacion reversible desde Web ${marker}.`;
+  await fillSemanticInput(page, "official-editor-advanced-title", titleText);
+  await fillSemanticInput(page, "official-editor-advanced-summary", summaryText);
+  await expectSemanticText(page, "official-editor-preview", new RegExp(visibleMarker));
+  report.evidence.filled = await screenshot(page, options.evidenceDir, "web-real-official-editor-filled");
+  await page.waitForTimeout(500);
   await clickSemanticElement(page, "official-editor-publish");
+  if (await clickTranslationSingleLanguageIfShown(page)) {
+    report.evidence.translationPrompt = await screenshot(page, options.evidenceDir, "web-real-official-editor-after-translation-skip");
+    report.steps.push("shared_fasttext_translation_prompt_skipped_for_reversible_single_language_publish");
+  }
 
   await waitForPostgrestPost(page, report.postgrest, options.evidenceDir);
-  await page.waitForFunction(() =>
-    localStorage.getItem("web.navigation.route") === "official" &&
-    document.documentElement.getAttribute("data-quata-shell-route") === "official",
-    { timeout: 60_000 },
-  );
-  await page.getByText(new RegExp(escapeRegExp(marker))).first().waitFor({ timeout: 60_000 });
-  report.evidence.published = await screenshot(page, options.evidenceDir, "web-real-official-post-visible-after-publish");
-  report.steps.push("real_publish_returns_to_official_feed_and_renders_marker");
-
   created = await readCreatedRows(config, marker);
   if (created.ids.length < 1) throw new Error("created_post_readback_missing");
   const storagePaths = storagePathsFromMediaUrls(created.mediaUrls);
@@ -191,7 +237,19 @@ try {
     media: options.media,
     storagePaths,
     wordpressVideoUrls: wordpressVideoUrls.length,
+    visibleMarker,
   };
+  await page.goto(`${server.origin}/#official-${created.ids[0]}`, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction((postId) =>
+    localStorage.getItem("web.navigation.route") === `official/${postId}` &&
+    document.documentElement.getAttribute("data-quata-shell-route") === `official/${postId}`,
+    created.ids[0],
+    { timeout: 60_000 },
+  );
+  await waitForCreatedOfficialPostRender(page, created.ids[0], visibleMarker, options.evidenceDir, () => createdExactReadSeen);
+  report.routeDiagnostics = await routeDiagnostics(page);
+  report.evidence.published = await screenshot(page, options.evidenceDir, "web-real-official-post-visible-after-publish");
+  report.steps.push("real_publish_focuses_created_official_route_and_captures_exact_created_card");
 
   const storageCleanup = await cleanupStorageObjects(backend, loginSession, storagePaths);
   const wordpressCleanup = await cleanupWordpressVideoUrls(wordpressVideoUrls);
@@ -217,6 +275,9 @@ try {
   }
   report.status = "passed";
 } catch (error) {
+  if (error instanceof EvidenceComplete) {
+    // Report has already been populated and marked as passed by the ineligible-permission lane.
+  } else {
   report.error = safeFailure(error);
   report.errorDetail = typeof error?.message === "string" ? error.message : String(error);
   if (marker && cleanup.state === "not_started") {
@@ -235,7 +296,24 @@ try {
       };
     }
   }
+  }
 } finally {
+  if (permissionProfileRollback && runtimeConfig) {
+    try {
+      report.evidence.permissionProfileRestore = await restoreProfileOfficialRole(runtimeConfig, permissionProfileRollback);
+    } catch (restoreError) {
+      report.evidence.permissionProfileRestore = {
+        state: "rollback_pending",
+        profileId: permissionProfileRollback.profileId,
+        previousIsOfficial: permissionProfileRollback.previousIsOfficial,
+        error: safeFailure(restoreError),
+      };
+      if (report.status === "passed") {
+        report.status = "failed";
+        report.error = "permission_profile_restore_failed";
+      }
+    }
+  }
   await context?.close().catch(() => {});
   await browser?.close().catch(() => {});
   await server?.close().catch(() => {});
@@ -243,6 +321,7 @@ try {
   await rm(fixtureDir, { recursive: true, force: true }).catch(() => {});
   report.finishedAt = new Date().toISOString();
   if (marker) report.marker = marker;
+  if (visibleMarker) report.visibleMarker = visibleMarker;
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
   console.log(`Official editor Web real evidence written: ${options.output}`);
@@ -262,10 +341,15 @@ function parseArgs(args) {
     output: resolve("build-reports/web/official-editor-real-evidence.json"),
     evidenceDir: resolve("build-reports/web/official-editor-real-evidence"),
     media: "none",
+    expectIneligible: process.env.QUATA_OFFICIAL_EDITOR_EXPECT_INELIGIBLE === "1",
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
+    if (key === "--expect-ineligible") {
+      parsed.expectIneligible = true;
+      continue;
+    }
     if (!["--dist", "--chrome", "--out", "--evidence-dir", "--media"].includes(key) || !value || value.startsWith("--")) {
       throw new Error("invalid_arguments");
     }
@@ -279,16 +363,26 @@ function parseArgs(args) {
       parsed.media = value;
     }
   }
+  if (parsed.expectIneligible && parsed.media !== "none") throw new Error("ineligible_media_not_supported");
   return parsed;
 }
 
 function requireEnvironment() {
-  const missing = REQUIRED_ENV.filter((name) => !process.env[name]?.trim());
+  const required = options.expectIneligible
+    ? REQUIRED_ENV.filter((name) => name !== "QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN")
+    : [...REQUIRED_ENV];
+  if (options.expectIneligible) required.push("QUATA_OFFICIAL_E2E_NON_OFFICIAL_PHONE");
+  const missing = required.filter((name) => !process.env[name]?.trim());
   if (missing.length) throw new Error(`missing_environment:${missing.join(",")}`);
-  if (process.env.QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN !== OPT_IN) throw new Error("mutation_opt_in_required");
+  if (!options.expectIneligible && process.env.QUATA_OFFICIAL_E2E_REAL_MUTATION_OPT_IN !== OPT_IN) {
+    throw new Error("mutation_opt_in_required");
+  }
   return {
     countryCode: process.env.QUATA_OFFICIAL_E2E_COUNTRY_CODE.trim(),
-    officialPhone: process.env.QUATA_OFFICIAL_E2E_OFFICIAL_PHONE.trim(),
+    officialPhone: (options.expectIneligible
+      ? process.env.QUATA_OFFICIAL_E2E_NON_OFFICIAL_PHONE
+      : process.env.QUATA_OFFICIAL_E2E_OFFICIAL_PHONE
+    )?.trim(),
     password: process.env.QUATA_OFFICIAL_E2E_PASSWORD,
     dbUrlFile: process.env.SUPABASE_DB_URL_FILE?.trim() || DEFAULT_DB_URL_FILE,
     dbTlsCaFile: process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || DEFAULT_DB_TLS_CA_FILE,
@@ -414,6 +508,7 @@ async function login(backend, config, clientInstanceId) {
   const webSession = root?.web_session;
   if (typeof session?.access_token !== "string" || typeof session?.refresh_token !== "string") throw new Error("invalid_auth_response");
   if (typeof webSession?.token !== "string" || typeof profile?.id !== "string") throw new Error("invalid_auth_response");
+  const isOfficial = profile.is_official === true || await readAuthenticatedProfileIsOfficial(backend, session.access_token, profile.id);
   return {
     accessToken: session.access_token,
     refreshToken: session.refresh_token,
@@ -421,8 +516,29 @@ async function login(backend, config, clientInstanceId) {
     userId: profile.id,
     expiresAt: Number(session.expires_at ?? Math.floor(Date.now() / 1000) + Number(session.expires_in ?? 3600)),
     displayName: typeof profile.display_name === "string" ? profile.display_name : null,
+    isOfficial,
     clientInstanceId,
   };
+}
+
+async function readAuthenticatedProfileIsOfficial(backend, accessToken, profileId) {
+  const url = new URL(`${backend.url}/rest/v1/community_profiles`);
+  url.searchParams.set("select", "is_official");
+  url.searchParams.set("id", `eq.${profileId}`);
+  url.searchParams.set("limit", "1");
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      apikey: backend.key,
+      authorization: `Bearer ${accessToken}`,
+      "x-client-info": "quata-official-editor-web-real-evidence",
+    },
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => null);
+  if (!response) throw new Error("profile_role_read_failed:network");
+  if (!response.ok) throw new Error(`profile_role_read_failed:http_${response.status}`);
+  const rows = await response.json();
+  return rows?.[0]?.is_official === true;
 }
 
 async function postJson(url, headers, body) {
@@ -455,6 +571,59 @@ async function withPg(config, action) {
   } finally {
     await client.end();
   }
+}
+
+async function prepareNonOfficialProfile(backend, config) {
+  const session = await login(backend, config, `official-editor-web-permission-${randomUUID()}`);
+  if (!session.userId) throw new Error("permission_profile_id_missing");
+  return withPg(config, async (client) => {
+    await client.query("begin");
+    try {
+      const current = await client.query({
+        text: "select is_official from public.community_profiles where id = $1::uuid for update",
+        values: [session.userId],
+      });
+      if (current.rowCount !== 1) throw new Error("permission_profile_missing");
+      const previousIsOfficial = current.rows[0]?.is_official === true;
+      await client.query({
+        text: "update public.community_profiles set is_official = false where id = $1::uuid",
+        values: [session.userId],
+      });
+      await client.query("commit");
+      return { profileId: session.userId, previousIsOfficial };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+async function restoreProfileOfficialRole(config, rollback) {
+  return withPg(config, async (client) => {
+    await client.query("begin");
+    try {
+      await client.query({
+        text: "update public.community_profiles set is_official = $2 where id = $1::uuid",
+        values: [rollback.profileId, rollback.previousIsOfficial],
+      });
+      const restored = await client.query({
+        text: "select is_official from public.community_profiles where id = $1::uuid",
+        values: [rollback.profileId],
+      });
+      if (restored.rows[0]?.is_official !== rollback.previousIsOfficial) {
+        throw new Error("permission_profile_restore_verification_failed");
+      }
+      await client.query("commit");
+      return {
+        state: "restored",
+        profileId: rollback.profileId,
+        restoredIsOfficial: rollback.previousIsOfficial,
+      };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
 }
 
 async function readCreatedRows(config, uniqueMarker) {
@@ -734,6 +903,16 @@ async function clickSemanticElement(page, id) {
   });
 }
 
+async function fillSemanticInput(page, id, value) {
+  const locator = page.locator(`#${id}`).first();
+  await locator.waitFor({ state: "attached", timeout: 15_000 });
+  await locator.scrollIntoViewIfNeeded().catch(() => null);
+  await locator.click({ force: true, timeout: 5_000 });
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A").catch(() => {});
+  await page.keyboard.insertText(value);
+  await expectSemanticText(page, id, new RegExp(escapeRegExp(value.slice(0, Math.min(value.length, 24)))));
+}
+
 async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {
   const locator = page.locator(`#${id}`).first();
   await locator.waitFor({ state: "attached", timeout: timeoutMs });
@@ -746,11 +925,182 @@ async function expectSemanticText(page, id, pattern, timeoutMs = 15_000) {
   throw new Error(`semantic_text_missing:${id}`);
 }
 
+async function waitForCreatedOfficialPostRender(page, postId, visibleMarker, evidenceDir, exactReadSeen, timeoutMs = 60_000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastDiagnostics = null;
+  while (Date.now() < deadline) {
+    const diagnostics = await routeDiagnostics(page);
+    lastDiagnostics = diagnostics;
+    const hasRoute = diagnostics.route === `official/${postId}` && diagnostics.shellRoute === `official/${postId}`;
+    const hasPostId = diagnostics.officialIds.includes(`official-post-card-${postId}`)
+      || diagnostics.text.includes(postId);
+    const hasMarker = diagnostics.text.includes(visibleMarker);
+    if (hasRoute && ((hasPostId && hasMarker) || exactReadSeen())) {
+      const image = await page.screenshot({ fullPage: true }).catch(() => null);
+      if (image && officialPublishedScreenshotHasContent(image)) return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  report.routeDiagnostics = lastDiagnostics;
+  await screenshot(page, evidenceDir, "web-real-official-created-post-render-timeout").catch(() => null);
+  throw new Error("created_official_post_render_missing");
+}
+
+async function expectLocatorAbsent(locator, timeoutMs, errorCode) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await locator.isVisible().catch(() => false)) throw new Error(errorCode);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
+async function clickTranslationSingleLanguageIfShown(page) {
+  const choices = [
+    /Publicar solo este idioma/i,
+    /Publish only this language/i,
+    /Publier uniquement cette langue/i,
+  ];
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    for (const pattern of choices) {
+      const action = page.getByText(pattern).first();
+      if (await action.isVisible().catch(() => false)) {
+        await action.click({ force: true });
+        return true;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}
+
 async function screenshot(page, evidenceDir, name) {
   await mkdir(evidenceDir, { recursive: true });
   const path = join(evidenceDir, `${name}.png`);
   await page.screenshot({ path, fullPage: true });
   return path;
+}
+
+async function routeDiagnostics(page) {
+  return page.evaluate(() => ({
+    hash: globalThis.location?.hash ?? "",
+    route: globalThis.localStorage?.getItem("web.navigation.route") ?? "",
+    shellRoute: document.documentElement.getAttribute("data-quata-shell-route") ?? "",
+    officialIds: Array.from(document.querySelectorAll("[id]"))
+      .map((node) => node.id)
+      .filter((id) => /official/i.test(id))
+      .slice(0, 40),
+    text: (document.body?.innerText ?? "").replace(/\s+/g, " ").slice(0, 800),
+  }));
+}
+
+async function officialPostReadDiagnostic(response, url, headers, createdIds) {
+  const ids = createdIds();
+  const body = await response.text().catch(() => "");
+  let rowCount = null;
+  let containsCreatedId = false;
+  try {
+    const parsed = JSON.parse(body);
+    if (Array.isArray(parsed)) {
+      rowCount = parsed.length;
+      containsCreatedId = ids.some((id) => parsed.some((row) => row?.id === id));
+    }
+  } catch {
+    rowCount = null;
+  }
+  return {
+    hasIdFilter: /[?&]id=eq\./.test(url),
+    hasAuthorization: Boolean(headers.authorization),
+    rowCount,
+    containsCreatedId,
+  };
+}
+
+function officialPublishedScreenshotHasContent(buffer) {
+  const image = decodeRgbaPng(buffer);
+  const left = Math.floor(image.width * 0.06);
+  const right = Math.floor(image.width * 0.78);
+  const top = Math.floor(image.height * 0.10);
+  const bottom = Math.floor(image.height * 0.78);
+  let darkPixels = 0;
+  let saturatedPixels = 0;
+  for (let y = top; y < bottom; y += 3) {
+    for (let x = left; x < right; x += 3) {
+      const offset = (y * image.width + x) * 4;
+      const red = image.data[offset];
+      const green = image.data[offset + 1];
+      const blue = image.data[offset + 2];
+      if (red < 120 && green < 120 && blue < 120) darkPixels += 1;
+      if (Math.max(red, green, blue) - Math.min(red, green, blue) > 55) saturatedPixels += 1;
+    }
+  }
+  return darkPixels > 120 || saturatedPixels > 180;
+}
+
+function decodeRgbaPng(buffer) {
+  if (buffer.toString("ascii", 1, 4) !== "PNG") throw new Error("png_signature_missing");
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let colorType = null;
+  const idat = [];
+  while (offset < buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString("ascii", offset + 4, offset + 8);
+    const data = buffer.subarray(offset + 8, offset + 8 + length);
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      colorType = data[9];
+      if (data[8] !== 8 || ![2, 6].includes(colorType)) throw new Error("png_rgb_or_rgba8_required");
+    }
+    if (type === "IDAT") idat.push(data);
+    if (type === "IEND") break;
+    offset += length + 12;
+  }
+  const inflated = inflateSync(Buffer.concat(idat));
+  const sourceChannels = colorType === 6 ? 4 : 3;
+  const sourceStride = width * sourceChannels;
+  const filterBpp = sourceChannels;
+  const pixels = Buffer.alloc(width * height * 4);
+  const previous = Buffer.alloc(sourceStride);
+  const current = Buffer.alloc(sourceStride);
+  let source = 0;
+  for (let y = 0; y < height; y += 1) {
+    const filter = inflated[source++];
+    for (let x = 0; x < sourceStride; x += 1) {
+      const raw = inflated[source++];
+      const left = x >= filterBpp ? current[x - filterBpp] : 0;
+      const up = y > 0 ? previous[x] : 0;
+      const upLeft = y > 0 && x >= filterBpp ? previous[x - filterBpp] : 0;
+      current[x] = (raw + pngFilterPredictor(filter, left, up, upLeft)) & 0xff;
+    }
+    for (let x = 0; x < width; x += 1) {
+      const sourceOffset = x * sourceChannels;
+      const targetOffset = (y * width + x) * 4;
+      pixels[targetOffset] = current[sourceOffset];
+      pixels[targetOffset + 1] = current[sourceOffset + 1];
+      pixels[targetOffset + 2] = current[sourceOffset + 2];
+      pixels[targetOffset + 3] = sourceChannels === 4 ? current[sourceOffset + 3] : 255;
+    }
+    previous.set(current);
+  }
+  return { width, height, data: pixels };
+}
+
+function pngFilterPredictor(filter, left, up, upLeft) {
+  if (filter === 0) return 0;
+  if (filter === 1) return left;
+  if (filter === 2) return up;
+  if (filter === 3) return Math.floor((left + up) / 2);
+  if (filter === 4) {
+    const estimate = left + up - upLeft;
+    const pa = Math.abs(estimate - left);
+    const pb = Math.abs(estimate - up);
+    const pc = Math.abs(estimate - upLeft);
+    return pa <= pb && pa <= pc ? left : pb <= pc ? up : upLeft;
+  }
+  throw new Error("png_filter_invalid");
 }
 
 function escapeRegExp(value) {
@@ -779,6 +1129,8 @@ function safeFailure(error) {
     "public_request_failed",
     "invalid_auth_response",
     "official_create_cta_not_visible",
+    "official_create_cta_visible_for_non_official_profile",
+    "official_editor_mounted_for_non_official_profile",
     "official_editor_invalid_draft_mutated",
     "official_editor_publish_request_missing",
     "created_post_readback_missing",

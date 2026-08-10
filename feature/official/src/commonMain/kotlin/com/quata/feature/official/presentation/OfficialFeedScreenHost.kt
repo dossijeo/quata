@@ -177,6 +177,8 @@ fun OfficialFeedScreenHost(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val windowInfo = rememberQuataWindowLayoutInfo()
+    val visiblePosts = focusedPostId?.let { target -> state.posts.filter { post -> post.id == target } } ?: state.posts
+    val focusedPostPending = focusedPostId != null && visiblePosts.isEmpty()
     var readMorePost by rememberSaveable { mutableStateOf<String?>(null) }
     var commentsPost by rememberSaveable { mutableStateOf<String?>(null) }
     var mediaPost by rememberSaveable { mutableStateOf<String?>(null) }
@@ -187,11 +189,11 @@ fun OfficialFeedScreenHost(
     var handledFocus by rememberSaveable { mutableStateOf<String?>(null) }
     var retainedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var restored by remember { mutableStateOf(retainedPostId == null) }
-    val pagerState = rememberPagerState(pageCount = { state.posts.size.coerceAtLeast(1) })
+    val pagerState = rememberPagerState(pageCount = { visiblePosts.size.coerceAtLeast(1) })
     val effectiveUserId = currentUserId ?: state.currentUser?.id
     val canPublish = state.currentUser?.isOfficial == true && slots.canCreateOfficialPost
     val ranks = remember(state.posts) { calculateOfficialPostRanking(state.posts) }
-    val canPullRefresh = pagerState.currentPage == 0 && !state.isRefreshing && commentsPost == null && readMorePost == null && !liveOpen
+    val canPullRefresh = focusedPostId == null && pagerState.currentPage == 0 && !state.isRefreshing && commentsPost == null && readMorePost == null && !liveOpen
     val pullRefresh = rememberQuataFeedPullRefreshState(canPullRefresh, state.isRefreshing) { viewModel.onEvent(OfficialFeedUiEvent.Refresh) }
     fun message(value: String) {
         slots.message(value)
@@ -205,21 +207,21 @@ fun OfficialFeedScreenHost(
         if (state.message == OfficialFeedMessages.CommentReportFailed) { message(strings.reportFailed); viewModel.onEvent(OfficialFeedUiEvent.ClearMessage) }
     }
     LaunchedEffect(focusedPostId) {
-        focusedPostId?.takeIf { it != handledFocus && state.posts.none { post -> post.id == it } }?.let { viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(it)) }
+        focusedPostId?.takeIf { state.posts.none { post -> post.id == it } }?.let { viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(it)) }
     }
     LaunchedEffect(focusedPostId, state.posts) {
         val target = focusedPostId ?: return@LaunchedEffect
-        val index = state.posts.indexOfFirst { it.id == target }
+        val index = visiblePosts.indexOfFirst { it.id == target }
         if (target != handledFocus && index >= 0) { pagerState.scrollToPage(index); retainedPostId = target; restored = true; handledFocus = target; onFocusedPostHandled() }
     }
     LaunchedEffect(retainedPostId, state.posts, focusedPostId) {
         val index = state.posts.indexOfFirst { it.id == retainedPostId }
         if (!restored && focusedPostId == null && index >= 0) { pagerState.scrollToPage(index); restored = true }
     }
-    LaunchedEffect(pagerState.currentPage, state.posts) { if (restored) state.posts.getOrNull(pagerState.currentPage)?.let { retainedPostId = it.id } }
-    LaunchedEffect(rankingTargetPostId, state.posts) {
+    LaunchedEffect(pagerState.currentPage, visiblePosts) { if (restored) visiblePosts.getOrNull(pagerState.currentPage)?.let { retainedPostId = it.id } }
+    LaunchedEffect(rankingTargetPostId, visiblePosts) {
         val target = rankingTargetPostId ?: return@LaunchedEffect
-        val index = state.posts.indexOfFirst { it.id == target }
+        val index = visiblePosts.indexOfFirst { it.id == target }
         if (index >= 0) {
             pagerState.scrollToPage(index)
             retainedPostId = target
@@ -233,11 +235,11 @@ fun OfficialFeedScreenHost(
             else -> OfficialFeedPagerContent(
                 padding = padding,
                 pagerState = pagerState,
-                posts = state.posts,
-                hasMoreOlderPosts = state.hasMoreOlderPosts,
+                posts = visiblePosts,
+                hasMoreOlderPosts = focusedPostId == null && state.hasMoreOlderPosts,
                 isLoadingOlder = state.isLoadingOlder,
-                isInitialLoading = state.isLoading,
-                onLoadOlder = { viewModel.onEvent(OfficialFeedUiEvent.LoadOlderPage) },
+                isInitialLoading = state.isLoading || focusedPostPending,
+                onLoadOlder = { if (focusedPostId == null) viewModel.onEvent(OfficialFeedUiEvent.LoadOlderPage) },
                 emptyContent = { loading -> if (loading) OfficialLoadingContent(canPublish, OfficialStatusStrings(strings.empty, strings.create), ::create, Modifier.fillMaxSize()) else OfficialEmptyContent(canPublish, OfficialStatusStrings(strings.empty, strings.create), ::create, Modifier.fillMaxSize()) },
                 pageContent = { index, post, _ ->
                     OfficialPagerPostPageContent(card = { cardModifier ->

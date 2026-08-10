@@ -9,10 +9,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.quataTheme
+
+const val OfficialEditorModeSwitchTestTag = "official-editor-mode-switch"
 
 /** Portable quick/advanced editor-mode selector with state controlled by the host. */
 @Composable
@@ -43,7 +46,11 @@ fun OfficialEditorModeSelectorContent(
                     lineHeight = 17.sp,
                 )
             }
-            Switch(checked = isAdvanced, onCheckedChange = onAdvancedChange)
+            Switch(
+                checked = isAdvanced,
+                onCheckedChange = onAdvancedChange,
+                modifier = Modifier.testTag(OfficialEditorModeSwitchTestTag),
+            )
         }
     }
 }

@@ -13,13 +13,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.WebElementView
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoLibrary
@@ -65,8 +63,6 @@ import kotlinx.browser.document
 import kotlinx.coroutines.launch
 import kotlin.js.JsString
 import kotlin.js.toJsString
-import org.w3c.dom.HTMLImageElement
-import org.w3c.dom.HTMLVideoElement
 
 /** Browser adapter: navigation and browser services only; the Official screen itself is common. */
 @Composable
@@ -264,36 +260,12 @@ private fun webOfficialEditorPlatformSlots(platformServices: WebPlatformServices
     preview = { state, previewModifier -> WebOfficialEditorPreview(state, previewModifier) },
 )
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun BrowserOfficialEditorMedia(media: OfficialEditorMedia, modifier: Modifier) {
     if (media.type == OfficialMediaType.Video) {
-        WebElementView(
-            factory = {
-                (document.createElement("video") as HTMLVideoElement).apply {
-                    controls = true
-                    preload = "metadata"
-                    style.width = "100%"
-                    style.height = "100%"
-                    style.backgroundColor = "transparent"
-                }
-            },
-            update = { it.src = media.url },
-            modifier = modifier,
-        )
+        BrowserOfficialVideoThumbnail(media.url, null, modifier)
     } else {
-        WebElementView(
-            factory = {
-                (document.createElement("img") as HTMLImageElement).apply {
-                    alt = "Vista previa"
-                    style.width = "100%"
-                    style.height = "100%"
-                    style.objectFit = "cover"
-                }
-            },
-            update = { it.src = media.url },
-            modifier = modifier,
-        )
+        BrowserCanvasImage(media.url, "Vista previa", ContentScale.Crop, modifier)
     }
 }
 

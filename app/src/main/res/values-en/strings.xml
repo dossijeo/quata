@@ -539,6 +539,8 @@
     <string name="official_form_read_more_label">Read more link text</string>
     <string name="official_form_link">Information link</string>
     <string name="official_form_media_url">Media URL</string>
+    <string name="official_form_unavailable">Official publishing is not available on this platform yet.</string>
+    <string name="official_form_validation">Add text or media before publishing.</string>
     <string name="official_media_none">No media</string>
     <string name="official_media_image">Image</string>
     <string name="official_media_video">Video</string>

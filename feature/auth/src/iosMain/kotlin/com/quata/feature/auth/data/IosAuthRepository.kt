@@ -22,6 +22,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -56,8 +57,9 @@ data class IosAuthRuntimeConfiguration(
 )
 
 /** Small injectable URLSession boundary so host tests can exercise auth parsing without a network. */
-fun interface IosAuthHttpTransport {
+interface IosAuthHttpTransport {
     suspend fun post(endpoint: String, headers: Map<String, String>, body: String): IosAuthHttpResponse
+    suspend fun get(endpoint: String, headers: Map<String, String>): IosAuthHttpResponse
 }
 
 data class IosAuthHttpResponse(
@@ -114,7 +116,11 @@ class IosAuthRepository(
                 put("password", password)
             }.toString(),
         )
-        payload.toIosAuthSession().also(session::save)
+        val rawSession = payload.toIosAuthSession()
+        val acceptedSession = rawSession.copy(
+            isOfficial = rawSession.isOfficial || fetchAuthenticatedProfileIsOfficial(rawSession.bearerToken, rawSession.userId),
+        )
+        acceptedSession.also(session::save)
     }
 
     override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> =
@@ -238,6 +244,27 @@ class IosAuthRepository(
         if (response.statusCode !in 200..299) throw IosAuthHttpException(response.statusCode, response.body.errorCode())
         return response.body
     }
+
+    private suspend fun fetchAuthenticatedProfileIsOfficial(accessToken: String, profileId: String): Boolean {
+        val response = transport.get(
+            endpoint = "${configuration.baseUrl()}/rest/v1/community_profiles?select=is_official&id=eq.$profileId&limit=1",
+            headers = mapOf(
+                "Accept" to "application/json",
+                "apikey" to configuration.publishableKey(),
+                "Authorization" to "Bearer $accessToken",
+            ),
+        )
+        if (response.statusCode !in 200..299) return false
+        return runCatching {
+            Json.parseToJsonElement(response.body)
+                .jsonArray
+                .firstOrNull()
+                ?.jsonObject
+                ?.get("is_official")
+                ?.jsonPrimitive
+                ?.booleanOrNull == true
+        }.getOrDefault(false)
+    }
 }
 
 /**
@@ -273,6 +300,15 @@ class IosUrlSessionAuthHttpTransport : IosAuthHttpTransport {
         val request = NSMutableURLRequest.requestWithURL(url).apply {
             setHTTPMethod("POST")
             setHTTPBody(body.encodeToByteArray().toIosAuthData())
+            headers.forEach { (name, value) -> setValue(value, name) }
+        }
+        return NSURLSessionConfiguration.ephemeralSessionConfiguration().iosAuthData(request)
+    }
+
+    override suspend fun get(endpoint: String, headers: Map<String, String>): IosAuthHttpResponse {
+        val url = NSURL(string = endpoint) ?: error("ios_auth_url_invalid")
+        val request = NSMutableURLRequest.requestWithURL(url).apply {
+            setHTTPMethod("GET")
             headers.forEach { (name, value) -> setValue(value, name) }
         }
         return NSURLSessionConfiguration.ephemeralSessionConfiguration().iosAuthData(request)

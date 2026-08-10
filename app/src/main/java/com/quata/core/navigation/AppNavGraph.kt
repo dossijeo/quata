@@ -200,7 +200,8 @@ fun AppNavGraph(
     incomingLink: Uri? = null,
     onIncomingLinkHandled: () -> Unit = {},
     incomingShare: ExternalSharePayload? = null,
-    onIncomingShareHandled: () -> Unit = {}
+    onIncomingShareHandled: () -> Unit = {},
+    startDestinationOverride: String? = null,
 ) {
     val navController = rememberNavController()
     val currentBackStackEntry = navController.currentBackStackEntryAsState().value
@@ -220,7 +221,7 @@ fun AppNavGraph(
     val touchFlowEnabled by remember(currentUserId, container.touchFlowPreferences) {
         container.touchFlowPreferences.observeEnabled(currentUserId)
     }.collectAsState(initial = container.touchFlowPreferences.isEnabled(currentUserId))
-    val startDestination = AppDestinations.Feed.route
+    val startDestination = startDestinationOverride ?: AppDestinations.Feed.route
     val template = quataTheme()
     var isVideoEditorOpen by rememberSaveable { mutableStateOf(false) }
     var isCreatePostUploadInProgress by rememberSaveable { mutableStateOf(false) }
@@ -750,11 +751,29 @@ fun AppNavGraph(
                 }
 
                 composable(AppDestinations.OfficialPostEditor.route) {
-                    OfficialPostEditorRoute(
-                        padding = padding,
-                        repository = container.officialRepository,
-                        onPublished = { postId ->
-                            officialFocusedPostId = postId
+                    val officialEditorSession = container.sessionManager.currentSession()
+                    if (officialEditorSession?.isOfficial == true) {
+                        OfficialPostEditorRoute(
+                            padding = padding,
+                            repository = container.officialRepository,
+                            onPublished = { postId ->
+                                officialFocusedPostId = postId
+                                navController.navigate(AppDestinations.Official.route) {
+                                    popUpTo(AppDestinations.Official.route) {
+                                        inclusive = false
+                                        saveState = false
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = false
+                                }
+                            },
+                            onFullscreenEditorVisibilityChange = { isVideoEditorOpen = it }
+                        )
+                    } else {
+                        LaunchedEffect(officialEditorSession?.userId, officialEditorSession?.isOfficial) {
+                            if (officialEditorSession == null) {
+                                requestAuthentication()
+                            }
                             navController.navigate(AppDestinations.Official.route) {
                                 popUpTo(AppDestinations.Official.route) {
                                     inclusive = false
@@ -763,9 +782,8 @@ fun AppNavGraph(
                                 launchSingleTop = true
                                 restoreState = false
                             }
-                        },
-                        onFullscreenEditorVisibilityChange = { isVideoEditorOpen = it }
-                    )
+                        }
+                    }
                 }
 
                 composable(AppDestinations.RichTextEditorQa.route) {

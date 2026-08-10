@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import com.quata.core.language.QuataDetectedLanguage
@@ -33,6 +34,7 @@ const val OfficialEditorImagePickerTestTag = "official-editor-pick-image"
 const val OfficialEditorVideoPickerTestTag = "official-editor-pick-video"
 const val OfficialEditorBodySectionTestTag = "official-editor-body-section"
 const val OfficialEditorBodyActionTestTag = "official-editor-body-action"
+const val OfficialEditorMediaPreviewTestTag = "official-editor-media-preview"
 const val OfficialEditorPreviewTestTag = "official-editor-preview"
 const val OfficialEditorFeedbackTestTag = "official-editor-feedback"
 const val OfficialEditorPublishTestTag = "official-editor-publish"
@@ -302,6 +304,7 @@ fun OfficialPostEditorRoot(
     var pendingTranslation by remember { mutableStateOf<OfficialPendingTranslation?>(null) }
     var localFeedback by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
 
     fun requestPublication() {
         if (!canPublish) {
@@ -312,6 +315,7 @@ fun OfficialPostEditorRoot(
             localFeedback = strings.validation
             return
         }
+        localFeedback = null
         val draft = draftState.buildDraft(defaultTitle = strings.defaultTitle, language = language)
         scope.launch {
             val detection = runCatching { detectLanguage(draft) }
@@ -399,7 +403,7 @@ fun OfficialPostEditorRoot(
                                 OfficialEditorMedia(draftState.mediaUrl, selectedMediaType),
                                 { media -> draftState = draftState.withMedia(media.type, media.url) },
                                 { draftState = draftState.withoutMedia() },
-                                Modifier.fillMaxWidth(),
+                                Modifier.fillMaxWidth().testTag(OfficialEditorMediaPreviewTestTag),
                             )
                         }
                     },
@@ -490,7 +494,10 @@ fun OfficialPostEditorRoot(
                     isPublishing = isPublishing,
                     publishLabel = strings.publish,
                     publishingLabel = strings.publishing,
-                    onClick = { requestPublication() },
+                    onClick = {
+                        focusManager.clearFocus(force = true)
+                        requestPublication()
+                    },
                     modifier = Modifier.fillMaxWidth().testTag(OfficialEditorPublishTestTag),
                 )
             },

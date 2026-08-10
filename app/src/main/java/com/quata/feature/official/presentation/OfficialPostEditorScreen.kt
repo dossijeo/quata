@@ -152,19 +152,7 @@ fun OfficialPostEditorScreen(
         isLongEditorOpen = false
     }
 
-    if (isLongEditorOpen) {
-        OfficialLongContentEditor(
-            html = longEditorHtml,
-            title = longEditorTitle,
-            onHtmlChange = { longEditorHtml = it },
-            onBack = { isLongEditorOpen = false },
-            onSave = {
-                pendingBodySave?.invoke(longEditorHtml)
-                pendingBodySave = null
-                isLongEditorOpen = false
-            }
-        )
-    } else {
+    Box(Modifier.fillMaxSize()) {
         val spanishName = stringResource(R.string.official_language_spanish)
         val englishName = stringResource(R.string.official_language_english)
         val frenchName = stringResource(R.string.official_language_french)
@@ -211,8 +199,8 @@ fun OfficialPostEditorScreen(
                 preview = stringResource(R.string.composer_preview),
                 publish = stringResource(R.string.official_publish),
                 publishing = stringResource(R.string.composer_publishing),
-                unavailable = stringResource(R.string.error_backend_generic),
-                validation = stringResource(R.string.error_backend_generic),
+                unavailable = stringResource(R.string.official_form_unavailable),
+                validation = stringResource(R.string.official_form_validation),
                 close = stringResource(R.string.common_close),
                 defaultTitle = stringResource(R.string.official_post_default_title),
                 translationTitle = stringResource(R.string.official_translation_title),
@@ -305,6 +293,20 @@ fun OfficialPostEditorScreen(
                 },
             ),
         )
+
+        if (isLongEditorOpen) {
+            OfficialLongContentEditor(
+                html = longEditorHtml,
+                title = longEditorTitle,
+                onHtmlChange = { longEditorHtml = it },
+                onBack = { isLongEditorOpen = false },
+                onSave = {
+                    pendingBodySave?.invoke(longEditorHtml)
+                    pendingBodySave = null
+                    isLongEditorOpen = false
+                },
+            )
+        }
     }
 
     imageEditorUri?.let { sourceUri ->

@@ -88,6 +88,51 @@ async function readProfiles(config) {
   });
 }
 
+async function withTemporaryOfficialRole(config, profileId, temporaryIsOfficial, action) {
+  return withPg(config, async (client) => {
+    await client.query("begin");
+    let previousIsOfficial;
+    try {
+      const current = await client.query({
+        text: "select is_official from public.community_profiles where id = $1::uuid for update",
+        values: [profileId],
+      });
+      if (current.rowCount !== 1) throw new Error("profile_permission_fixture_unavailable");
+      previousIsOfficial = current.rows[0]?.is_official === true;
+      await client.query({
+        text: "update public.community_profiles set is_official = $2 where id = $1::uuid",
+        values: [profileId, temporaryIsOfficial],
+      });
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+    try {
+      return await action({ profileId, previousIsOfficial, temporaryIsOfficial });
+    } finally {
+      await withPg(config, async (restoreClient) => {
+        await restoreClient.query("begin");
+        try {
+          await restoreClient.query({
+            text: "update public.community_profiles set is_official = $2 where id = $1::uuid",
+            values: [profileId, previousIsOfficial],
+          });
+          const restored = await restoreClient.query({
+            text: "select is_official from public.community_profiles where id = $1::uuid",
+            values: [profileId],
+          });
+          if (restored.rows[0]?.is_official !== previousIsOfficial) throw new Error("profile_role_restore_verification_failed");
+          await restoreClient.query("commit");
+        } catch (error) {
+          await restoreClient.query("rollback").catch(() => {});
+          throw error;
+        }
+      });
+    }
+  });
+}
+
 async function cleanupPosts(config, ids, groupId) {
   if (!ids.length && !groupId) return { state: "not_needed", deletedRows: 0, remainingRows: 0 };
   return withPg(config, async (client) => {
@@ -269,13 +314,31 @@ async function main() {
     stage = "login_official";
     const officialSession = await login(backend, config, config.officialPhone);
     stage = "login_nonofficial";
-    const nonofficialSession = await login(backend, config, config.nonofficialPhone);
+    const nonofficialSession = await login(backend, config, config.nonofficialPhone).catch((error) => {
+      if (/public_request_failed:http_401/.test(error?.message ?? "")) return null;
+      throw error;
+    });
     stage = "assert_nonofficial_denied";
-    const nonofficialAttempt = await tryCreateForbiddenOfficialPost(
-      backend,
-      nonofficialSession,
-      postPayload(profiles.nonofficial.id, marker, translationGroupId),
-    );
+    let permissionFallback = null;
+    const nonofficialAttempt = nonofficialSession
+      ? await tryCreateForbiddenOfficialPost(
+        backend,
+        nonofficialSession,
+        postPayload(profiles.nonofficial.id, marker, translationGroupId),
+      )
+      : await withTemporaryOfficialRole(config, profiles.official.id, false, async (rollback) => {
+        permissionFallback = {
+          state: "official_profile_temporarily_demoted_for_denial_evidence",
+          profileId: rollback.profileId,
+          previousIsOfficial: rollback.previousIsOfficial,
+          restored: true,
+        };
+        return tryCreateForbiddenOfficialPost(
+          backend,
+          officialSession,
+          postPayload(profiles.official.id, marker, translationGroupId),
+        );
+      });
     stage = "create_official_post";
     const officialPost = postPayload(profiles.official.id, marker, translationGroupId);
     const created = await createOfficialPost(backend, officialSession, officialPost);
@@ -296,9 +359,10 @@ async function main() {
       finishedAt: new Date().toISOString(),
       marker,
       mutationPolicy: "Creates one reversible text-only official post through authenticated PostgREST, verifies public readback, hard-deletes by exact IDs in a parameterized transaction, and verifies absence by marker.",
-      fixtures: { officialProfile: "verified_official", nonofficialProfile: "verified_nonofficial" },
+      fixtures: { officialProfile: "verified_official", nonofficialProfile: nonofficialSession ? "verified_nonofficial" : "login_unavailable_used_reversible_official_role_toggle" },
       evidence: {
         nonofficialPublish: { state: "denied_by_backend", status: nonofficialAttempt.status },
+        ...(permissionFallback ? { permissionFallback } : {}),
         officialPublish: { state: "created_by_backend", postIds: createdIds, translationGroupId },
         publicReadback: { state: "verified", postId: created.id, markerObserved: publicRead.title.includes(marker) },
       },

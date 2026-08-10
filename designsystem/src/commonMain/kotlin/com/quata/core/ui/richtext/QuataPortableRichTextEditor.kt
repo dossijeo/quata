@@ -1,13 +1,16 @@
 package com.quata.core.ui.richtext
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,9 +42,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -56,6 +62,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 
 const val QuataPortableRichTextFieldTestTag = "quata-portable-rich-text-field"
+const val QuataPortableRichTextFieldFocusTargetTestTag = "quata-portable-rich-text-focus-target"
 
 @Composable
 fun QuataPortableRichTextEditorBox(
@@ -183,6 +190,9 @@ private fun QuataPortableRichTextBlockField(
 ) {
     val textStyle = portableStyleForBlock(block.type)
     val visualTransformation = rememberPortableRichTextVisualTransformation(block.spans)
+    val focusRequester = remember(block.id) { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val interactionSource = remember(block.id) { MutableInteractionSource() }
     if (block.type == RichTextBlockType.Divider) {
         HorizontalDivider(
             modifier = Modifier
@@ -197,6 +207,15 @@ private fun QuataPortableRichTextBlockField(
         modifier = Modifier
             .fillMaxWidth()
             .background(portableBackgroundForBlock(block.type), MaterialTheme.shapes.small)
+            .testTag(QuataPortableRichTextFieldFocusTargetTestTag)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+            ) {
+                onSelected()
+                focusRequester.requestFocus()
+                keyboardController?.show()
+            }
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.Top,
     ) {
@@ -230,11 +249,21 @@ private fun QuataPortableRichTextBlockField(
             visualTransformation = visualTransformation,
             modifier = Modifier
                 .weight(1f)
+                .heightIn(min = 44.dp)
                 .testTag(QuataPortableRichTextFieldTestTag)
+                .focusRequester(focusRequester)
                 .onFocusChanged { if (it.isFocused) onSelected() }
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                ) {
+                    onSelected()
+                    focusRequester.requestFocus()
+                    keyboardController?.show()
+                }
                 .padding(start = if (block.type == RichTextBlockType.Paragraph) 0.dp else 4.dp),
             decorationBox = { inner ->
-                Box(modifier = Modifier.fillMaxWidth()) {
+                Box(modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)) {
                     if (block.text.text.isEmpty()) {
                         Text(
                             text = placeholder,

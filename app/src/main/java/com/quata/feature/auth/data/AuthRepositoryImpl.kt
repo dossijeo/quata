@@ -19,6 +19,7 @@ import com.quata.data.supabase.AuthBridgeBoundary
 import com.quata.data.supabase.AuthBridgeShadowVerifier
 import com.quata.data.supabase.SupabaseCommunityApi
 import com.quata.data.supabase.SupabaseApiException
+import com.quata.data.supabase.SupabaseCacheMode
 import com.quata.data.supabase.SupabaseResponseCacheStore
 import com.quata.data.supabase.QuataRegistrationRequest
 import com.quata.feature.chat.data.ChatAttachmentFileCache
@@ -52,7 +53,12 @@ internal class AuthRepositoryImpl(
             profile.toSession(token = "mock-phone-token")
         } else {
             val auth = authBridgeBoundary.login(countryCode, phone, password)
-            auth.toSession()
+            val profile = supabaseApi.getProfiles(
+                ids = listOf(auth.profile.id),
+                limit = 1,
+                cacheMode = SupabaseCacheMode.NETWORK_ONLY
+            ).firstOrNull()
+            auth.toSession(fallbackProfile = profile)
         }
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
         .onSuccess { sessionManager.setSession(it) }
@@ -238,7 +244,8 @@ internal class AuthRepositoryImpl(
             refreshToken = session.refresh_token,
             expiresAt = session.expires_at ?: session.expires_in?.let { System.currentTimeMillis() / 1000L + it },
             email = user.email ?: phoneEmail(countryCode, phoneLocal),
-            displayName = displayName
+            displayName = displayName,
+            isOfficial = (profile.is_official ?: fallbackProfile?.is_official) == true
         )
     }
 

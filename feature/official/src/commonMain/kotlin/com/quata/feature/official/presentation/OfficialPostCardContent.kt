@@ -19,9 +19,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.feature.official.domain.OfficialPostItem
+
+fun officialPostCardTestTag(postId: String): String = "official-post-card-$postId"
 
 /**
  * Portable shell for an Official post. Platform hosts provide media, avatar, navigation and
@@ -47,6 +50,7 @@ fun OfficialPostCardContent(
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier
+            .testTag(officialPostCardTestTag(post.id))
             .fillMaxWidth()
             .border(1.dp, template.colors.divider.copy(alpha = 0.7f), RoundedCornerShape(20.dp)),
     ) {
