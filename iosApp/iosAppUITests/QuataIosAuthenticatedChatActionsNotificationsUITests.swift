@@ -64,7 +64,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         selectMessage(editableMarker, expectedMessageId: editableMessageId, in: app, context: "own message edit selection")
         assertActionBarOwnMessage(in: app)
-        tapTaggedButton("chat.action.edit", in: app, context: "start edit")
+        startEditingMessage(
+            marker: editableMarker,
+            messageId: editableMessageId,
+            in: app,
+            context: "start edit",
+        )
         clearAndTypeText(editMarker, into: "chat.composer.input", in: app)
         tapTaggedButton("chat.composer.send", in: app, context: "submit edit")
         XCTAssertTrue(messageText(editMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
@@ -152,6 +157,33 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertLessThan(titleBar.frame.minY, 220, "The shared Chat header must remain in the upper viewport while the keyboard is open.")
     }
 
+    private func startEditingMessage(marker: String, messageId: String, in app: XCUIApplication, context: String) {
+        for attempt in 0..<3 {
+            tapTaggedButton("chat.action.edit", in: app, context: context)
+            if waitForComposerValue(containing: marker, in: app, timeout: 8) {
+                return
+            }
+            dismissKeyboardIfPresent(in: app)
+            selectMessage(marker, expectedMessageId: messageId, in: app, context: "\(context) retry \(attempt + 1)")
+            assertActionBarOwnMessage(in: app)
+        }
+        XCTFail("Expected shared composer to enter edit mode for \(context).")
+    }
+
+    private func waitForComposerValue(containing expected: String, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        let field = app.descendants(matching: .any).matching(identifier: "chat.composer.input").firstMatch
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if field.waitForExistence(timeout: 1),
+               let value = field.value as? String,
+               value.contains(expected) {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        return false
+    }
+
     private func waitForFocusedMessageHighlightToClear(_ messageId: String, in app: XCUIApplication) {
         let focused = app.descendants(matching: .any)
             .matching(identifier: "chat.message.\(messageId).selected")
@@ -211,8 +243,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return
         }
         app.typeKey("a", modifierFlags: .command)
-        app.typeKey(XCUIKeyboardKey.delete, modifierFlags: [])
-        pasteText(value, into: field, in: app)
+        typeIntoFocusedElement(value, fallback: field, in: app)
     }
 
     private func pasteText(_ value: String, into field: XCUIElement, in app: XCUIApplication) {

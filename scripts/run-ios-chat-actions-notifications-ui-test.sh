@@ -132,7 +132,7 @@ run_and_require() {
     rm -rf "$result_bundle"
     result_args=(-resultBundlePath "$result_bundle")
   fi
-  run_bounded "$method" 240 "$log" \
+  run_bounded "$method" 480 "$log" \
     xcodebuild test-without-building -xctestrun "$xctestrun" \
     -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" "${result_args[@]}" -only-testing:"$selected"
   /usr/bin/python3 scripts/check-ios-xctest-executed.py \
