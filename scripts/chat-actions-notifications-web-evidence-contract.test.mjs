@@ -27,6 +27,8 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /quata_chat_get_inbox/);
   assert.match(runner, /quata_chat_get_favorites/);
   assert.match(runner, /async function clickMessage\(page, marker, error\)/);
+  assert.match(runner, /async function visibleAriaLocator\(page, patterns, timeout\)/);
+  assert.match(runner, /page\.locator\("\[aria-label\]"\)/);
   assert.match(runner, /getByRole\("button", \{ name: pattern \}/);
   assert.match(runner, /const box = await text\.boundingBox\(\)/);
   assert.match(runner, /page\.mouse\.click\(Math\.max\(1, box\.x - 12\), box\.y \+ \(box\.height \/ 2\)\)/);
@@ -36,10 +38,10 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /messageReplyToId\(message\) === Number\(replyTargetMessageId\)/);
   assert.match(runner, /composer_reply_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /await clickMessage\(page, ownMarker, "message_action_target_not_clickable:edit"\)[\s\S]*?await clickLabel\(page, \[\/Editar\|Edit\/i\]/);
-  assert.match(runner, /await clickMessage\(page, editMarker, "message_action_target_not_clickable:own_actions"\)[\s\S]*?await waitLabel\(page, \[\/Copiar mensaje\|Copy message\/i\]/);
+  assert.match(runner, /await clickMessage\(page, editMarker, "message_action_target_not_clickable:own_actions"\)[\s\S]*?await waitLabel\(page, \[\/Copiar mensaje\|Copiar texto\|Copy message\|Copy text\/i\]/);
   assert.match(runner, /composer_edit_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /getByText\(\/Silenciar conversaci\[oó\]n\|Mute conversation\/i\)/);
-  for (const label of ["Copiar mensaje", "Responder", "Reenviar", "Editar", "Favorito", "Eliminar", "Report"]) {
+  for (const label of ["Copiar texto", "Responder", "Reenviar", "Editar", "Favorito", "Eliminar", "Report"]) {
     assert.match(runner, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
   for (const screenshot of [

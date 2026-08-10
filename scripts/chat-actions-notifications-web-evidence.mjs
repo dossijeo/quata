@@ -357,12 +357,10 @@ async function visibleNativeControls(page) {
 }
 
 async function clickLabel(page, patterns, error) {
-  for (const pattern of patterns) {
-    const locator = page.getByLabel(pattern).first();
-    if (await locator.count().catch(() => 0)) {
-      await locator.click({ timeout: 10_000, force: true });
-      return;
-    }
+  const locator = await visibleAriaLocator(page, patterns, 5_000);
+  if (locator) {
+    await locator.click({ timeout: 10_000, force: true });
+    return;
   }
   throw new Error(error);
 }
@@ -393,15 +391,29 @@ async function clickMessage(page, marker, error) {
 }
 
 async function waitLabel(page, patterns, error) {
-  for (const pattern of patterns) {
-    const locator = page.getByLabel(pattern).first();
-    if (await locator.waitFor({ timeout: 8_000 }).then(() => true).catch(() => false)) return;
-  }
+  if (await visibleAriaLocator(page, patterns, 8_000)) return;
   throw new Error(error);
 }
 
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function visibleAriaLocator(page, patterns, timeout) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const controls = page.locator("[aria-label]");
+    const count = await controls.count().catch(() => 0);
+    for (let index = 0; index < count; index += 1) {
+      const locator = controls.nth(index);
+      const label = await locator.getAttribute("aria-label").catch(() => "");
+      if (!patterns.some((pattern) => pattern.test(label ?? ""))) continue;
+      const visible = await locator.boundingBox().then((box) => Boolean(box && box.width > 0 && box.height > 0)).catch(() => false);
+      if (visible) return locator;
+    }
+    await delay(250);
+  }
+  return null;
 }
 
 async function fillComposerAndSend(page, value) {
@@ -704,7 +716,7 @@ try {
   report.steps.push("mute_disabled_and_verified_by_rpc");
 
   await clickMessage(page, editMarker, "message_action_target_not_clickable:own_actions");
-  await waitLabel(page, [/Copiar mensaje|Copy message/i], "action_bar_not_visible:copy");
+  await waitLabel(page, [/Copiar mensaje|Copiar texto|Copy message|Copy text/i], "action_bar_not_visible:copy");
   await waitLabel(page, [/Responder|Reply/i], "action_bar_not_visible:reply");
   await waitLabel(page, [/Reenviar|Forward/i], "action_bar_not_visible:forward");
   await waitLabel(page, [/Editar|Edit/i], "action_bar_not_visible:edit");
