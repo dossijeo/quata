@@ -365,6 +365,16 @@ async function clickLabel(page, patterns, error) {
   throw new Error(error);
 }
 
+async function clickOptionsMenu(page) {
+  const locator = await visibleAriaLocator(page, [/Opciones|Abrir/i, /Options|Open/i], 4_000);
+  if (locator) {
+    await locator.click({ timeout: 10_000, force: true });
+    return;
+  }
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  await page.mouse.click(Math.max(1, viewport.width - 26), 104);
+}
+
 async function clickMessage(page, marker, error) {
   const probe = marker.slice(0, 28);
   const pattern = new RegExp(escapeRegExp(probe));
@@ -706,14 +716,14 @@ try {
   report.evidence.editSent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-edit-sent");
   report.steps.push("composer_edit_sent_by_shared_ui_and_verified_by_rpc");
 
-  await clickLabel(page, [/Opciones|Abrir/i, /Options|Open/i], "options_menu_not_visible");
+  await clickOptionsMenu(page);
   await page.getByText(/Silenciar conversaci[oó]n|Mute conversation/i).click({ timeout: 10_000, force: true });
   await delay(1_000);
   if (!isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:true");
   report.evidence.muted = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-muted");
   report.steps.push("mute_enabled_and_verified_by_rpc");
 
-  await clickLabel(page, [/Opciones|Abrir/i, /Options|Open/i], "options_menu_not_visible");
+  await clickOptionsMenu(page);
   await page.getByText(/Reactivar notificaciones|Unmute|Reactivate notifications/i).click({ timeout: 10_000, force: true });
   await delay(1_000);
   if (isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:false");
