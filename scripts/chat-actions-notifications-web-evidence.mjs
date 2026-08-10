@@ -333,6 +333,29 @@ async function attachScreenshot(page, evidenceDir, name) {
   return path;
 }
 
+async function visibleNativeControls(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    return [...scope.querySelectorAll("button[aria-label], input[aria-label], [role][aria-label]")]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          tag: element.tagName,
+          role: element.getAttribute("role"),
+          label: element.getAttribute("aria-label"),
+          visible: rect.width > 0 && rect.height > 0,
+          x: Math.round(rect.x),
+          y: Math.round(rect.y),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        };
+      })
+      .filter((entry) => entry.visible)
+      .slice(0, 80);
+  });
+}
+
 async function clickLabel(page, patterns, error) {
   for (const pattern of patterns) {
     const locator = page.getByLabel(pattern).first();
@@ -719,6 +742,12 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
+  if (pageContext?.page) {
+    try {
+      report.evidence.failure = await attachScreenshot(pageContext.page, options.evidenceDir, "web-chat-actions-failure");
+      report.diagnostics = { visibleNativeControls: await visibleNativeControls(pageContext.page) };
+    } catch {}
+  }
   report.error = safeFailure(error);
 } finally {
   const cleanup = { state: "completed", actions: [] };
