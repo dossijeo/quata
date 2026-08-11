@@ -33,7 +33,7 @@ fun FavoriteMessagesHeaderContent(
 ) {
     val template = quataTheme()
     Surface(
-        color = template.colors.surface.copy(alpha = 0.92f),
+        color = chatHeaderSurfaceColor(),
         modifier = modifier.fillMaxWidth()
     ) {
         Row(
