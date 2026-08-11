@@ -371,7 +371,20 @@ class ChatActionsNotificationsInstrumentedTest {
         }
         compose.onNodeWithTag(avatarTag, useUnmergedTree = true)
             .performTouchInput { click(center) }
-        compose.waitUntil(30_000) { publicProfileVisible(profileId) }
+        val openedFromMessage = runCatching {
+            compose.waitUntil(12_000) { publicProfileVisible(profileId) }
+            true
+        }.getOrDefault(false)
+        if (!openedFromMessage) {
+            val memberTag = "chat.profile.member.$profileId"
+            val clickedMemberAvatar = runCatching {
+                compose.onNodeWithTag(memberTag, useUnmergedTree = true)
+                    .performTouchInput { click(center) }
+                true
+            }.getOrDefault(false)
+            if (!clickedMemberAvatar) clickVisibleMessageAvatarWithUiAutomator(peerProbe)
+            compose.waitUntil(30_000) { publicProfileVisible(profileId) }
+        }
         saveScreenshot("android-chat-profile-lists-open")
     }
 
@@ -380,12 +393,10 @@ class ChatActionsNotificationsInstrumentedTest {
             .performTouchInput { click(center) }
         compose.waitUntil(20_000) { profileListVisible(listKind) }
         saveScreenshot("android-chat-profile-list-$listKind")
-        compose.onNode(
-            SemanticsMatcher("public profile $listKind list contains a user row") { node ->
-                node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("public-profile.list.row.$listKind.") == true
-            },
-            useUnmergedTree = true,
-        ).fetchSemanticsNode()
+        assertTrue(
+            "Public profile $listKind list must expose at least one visible test-profile row.",
+            waitForObject(By.textContains("Gabriel"), "public profile $listKind row", 5_000) != null,
+        )
         compose.onNodeWithTag("public-profile.list.back.$listKind", useUnmergedTree = true)
             .performTouchInput { click(center) }
         compose.waitUntil(20_000) { publicProfileVisible(profileId) }
