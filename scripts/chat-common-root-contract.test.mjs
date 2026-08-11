@@ -159,6 +159,24 @@ test("common chat composer exposes stable cross-platform evidence anchors", () =
   assert.match(iosHost, /ChatProductHostContent\([\s\S]*?audioRecordingConfiguration = dependencies\.audioRecordingConfiguration/);
 });
 
+test("common chat forward picker exposes stable cross-platform evidence anchors", () => {
+  const expectedTags = {
+    Root: "root",
+    Search: "search",
+    LoadMore: "loadMore",
+    Send: "send",
+    Cancel: "cancel",
+  };
+  for (const [constant, tag] of Object.entries(expectedTags)) {
+    assert.match(selectedActions, new RegExp(`ChatForwardPicker${constant}TestTag = "chat\\.forward\\.${tag}"`));
+    assert.match(selectedActions, new RegExp(`testTag = ChatForwardPicker${constant}TestTag`));
+  }
+  assert.match(selectedActions, /ChatForwardPickerCandidateTestTagPrefix = "chat\.forward\.candidate\."/);
+  assert.match(selectedActions, /testTag = ChatForwardPickerCandidateTestTagPrefix \+ candidate\.profileId/);
+  assert.match(selectedActions, /ChatUiEvent\.OpenForwardDialog/);
+  assert.match(selectedActions, /ChatUiEvent\.SendForward/);
+});
+
 test("SCR-CHAT inventory reflects the real common-root state without declaring final GO", () => {
   const scrChat = inventory.split(/\r?\n/).find((line) => line.startsWith("| `SCR-CHAT` |"));
   const chatFavorites = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-FAVORITES` |"));
@@ -170,7 +188,7 @@ test("SCR-CHAT inventory reflects the real common-root state without declaring f
   assert.match(scrChat, /no declarar GO/);
   assert.match(chatFavorites, /FavoriteMessagesConversationId/);
   assert.match(chatFavorites, /Android, Wasm e iOS/);
-  assert.match(inventory, /\| `CHAT-MESSAGES` \|[\s\S]*?Raíz común conectada para lectura/);
+  assert.match(inventory, /\| `CHAT-MESSAGES` \|[\s\S]*?#226 \(`702aad06`\)/);
   assert.match(inventory, /\| `CHAT-FOCUSED-MESSAGE` \|[\s\S]*?contrato común de foco/);
   assert.doesNotMatch(inventory, /Web\/iOS aún conservan `ChatBrowserHostContent`/);
 

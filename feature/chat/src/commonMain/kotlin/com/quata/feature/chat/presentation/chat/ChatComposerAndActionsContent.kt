@@ -51,6 +51,12 @@ const val ChatComposerEmojiTestTag = "chat.composer.emoji"
 const val ChatComposerAttachTestTag = "chat.composer.attach"
 const val ChatComposerEditingBannerTestTag = "chat.composer.editing"
 const val ChatComposerReplyBannerTestTag = "chat.composer.reply"
+const val ChatForwardPickerRootTestTag = "chat.forward.root"
+const val ChatForwardPickerSearchTestTag = "chat.forward.search"
+const val ChatForwardPickerCandidateTestTagPrefix = "chat.forward.candidate."
+const val ChatForwardPickerLoadMoreTestTag = "chat.forward.loadMore"
+const val ChatForwardPickerSendTestTag = "chat.forward.send"
+const val ChatForwardPickerCancelTestTag = "chat.forward.cancel"
 
 /** Common selection action chrome backed by [ChatUiEvent]; confirmation stays in commonMain. */
 @Composable
@@ -127,6 +133,7 @@ fun ChatForwardPickerContent(
 ) {
     AlertDialog(
         onDismissRequest = { onEvent(ChatUiEvent.CloseForwardDialog) },
+        modifier = Modifier.semantics { testTag = ChatForwardPickerRootTestTag },
         title = { Text(strings.forwardTitle) },
         text = {
             Column {
@@ -134,6 +141,7 @@ fun ChatForwardPickerContent(
                     value = state.forwardCandidateQuery,
                     onValueChange = onQueryChanged,
                     label = { Text(strings.search) },
+                    modifier = Modifier.semantics { testTag = ChatForwardPickerSearchTestTag },
                 )
                 if (state.isForwardCandidateInitialLoading) {
                     Text(strings.searchingPeople)
@@ -141,7 +149,10 @@ fun ChatForwardPickerContent(
                     Text(strings.noPeopleFound)
                 }
                 state.forwardConversationCandidates.forEach { candidate ->
-                    Button(onClick = { onEvent(ChatUiEvent.ForwardProfileToggled(candidate.profileId)) }) {
+                    Button(
+                        onClick = { onEvent(ChatUiEvent.ForwardProfileToggled(candidate.profileId)) },
+                        modifier = Modifier.semantics { testTag = ChatForwardPickerCandidateTestTagPrefix + candidate.profileId },
+                    ) {
                         Text(if (candidate.profileId in state.selectedForwardProfileIds) "✓ ${candidate.displayName}" else candidate.displayName)
                     }
                 }
@@ -150,6 +161,7 @@ fun ChatForwardPickerContent(
                     Button(
                         onClick = onLoadMore,
                         enabled = !state.isForwardCandidatePageLoading,
+                        modifier = Modifier.semantics { testTag = ChatForwardPickerLoadMoreTestTag },
                     ) {
                         Text(if (state.isForwardCandidatePageLoading) strings.loading else strings.loadMore)
                     }
@@ -160,9 +172,15 @@ fun ChatForwardPickerContent(
             Button(
                 onClick = { onEvent(ChatUiEvent.SendForward) },
                 enabled = state.selectedForwardProfileIds.isNotEmpty() && !state.isConversationActionInProgress,
+                modifier = Modifier.semantics { testTag = ChatForwardPickerSendTestTag },
             ) { Text(strings.forwardMessage) }
         },
-        dismissButton = { Button(onClick = { onEvent(ChatUiEvent.CloseForwardDialog) }) { Text(strings.cancel) } },
+        dismissButton = {
+            Button(
+                onClick = { onEvent(ChatUiEvent.CloseForwardDialog) },
+                modifier = Modifier.semantics { testTag = ChatForwardPickerCancelTestTag },
+            ) { Text(strings.cancel) }
+        },
     )
 }
 

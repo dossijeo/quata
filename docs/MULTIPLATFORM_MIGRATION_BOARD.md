@@ -9,12 +9,13 @@
 **HEAD integrado:** `main` `702aad06d5dd8d7091a18326142fbdaeab157ec6` (PR #226), posterior a #154,
 #156, #159, #168, #169, #170, #172, #173, #174, #175, #190, #191, #192, #193, #204, #206, #208,
 #210, #211, #212, #214, #215, #216, #217, #219, #222, #224, #225 y #226. El proyecto sigue
-incompleto: #226 reduce límites de `SCR-CHAT` sin declarar GO global. Android, Web/Wasm e iOS
+incompleto: #226 reduce límites de `SCR-CHAT` sin declarar GO global. Candidato `31f20f31`
+cierra `CHAT-FORWARD` con evidencia local Android, Web/Wasm e iOS sobre el mismo SHA, sin declarar
+GO global de Chat. Android, Web/Wasm e iOS
 acreditan envío, respuesta, edición, selección/copiar, favorito, reportar, borrar y mute/unmute en
 una conversación reversible con limpieza física de residuo cero; la barra de acciones seleccionadas
 usa superficie común coherente con el encabezado. Persisten `CHAT-ATTACHMENTS`, `CHAT-AUDIO`,
-`CHAT-FORWARD`, `CHAT-GROUP`, `CHAT-LOCATION-SOS`, `CHAT-TRANSLATION`/`FLOW-TRANSLATOR` y
-`CHAT-PROFILE`.
+`CHAT-GROUP`, `CHAT-LOCATION-SOS`, `CHAT-TRANSLATION`/`FLOW-TRANSLATOR` y `CHAT-PROFILE`.
 
 #217 queda integrado en `main` `a52fb67fe508d9d8f70bb9fa727832c560eac551` y cierra
 `SCR-OFFICIAL-EDITOR` tras invalidar y corregir el falso positivo Web anterior: Android, Web/Wasm e
@@ -28,6 +29,7 @@ La comparativa final queda en `build-reports/official-editor/final-visual-compar
 | Área | Estado | Qué acredita | Límite vigente |
 | --- | --- | --- | --- |
 | Chat acciones/composer (#226) | COMÚN con límites reducidos | `ChatProductHostContent`/`ChatScreenHost` comunes acreditan envío, reply, edit, copiar, favorito, reportar, borrar y mute/unmute en Android, Web/Wasm e iOS sobre datos temporales reversibles. CI final Web/Android e iOS verde con `candidate-final`; merge `702aad06`; rama remota eliminada. | No declara GO global de `SCR-CHAT`: faltan adjuntos/audio, reenvío final, grupo, mapa/SOS, traducción de Chat, perfil/retorno y errores/rollback forzados. |
+| Chat reenvío (candidato `31f20f31`) | GO focal pendiente de PR/merge | `CHAT-FORWARD` usa picker común `chat.forward.*`; Web `build-reports/web/chat-actions-notifications-evidence.json`, Android `build-reports/android/chat-actions-notifications-evidence.json` e iOS `build-reports/ios/chat-actions-notifications-evidence.json` pasan sobre `31f20f3112c25b75b7b43e3cca64cadb14c49b41`, con reenvío real verificado por RPC, hilo/perfil temporal reversible y residuo físico cero. | No cierra errores/rollback forzados ni el GO global de `SCR-CHAT`; faltan adjuntos/audio, grupo, mapa/SOS, traducción y perfil/retorno. |
 | Chat favoritos/foco (#219) | GO limitado | `CHAT-FAVORITES` y `CHAT-FOCUSED-MESSAGE` quedan cerrados en `main` con evidencia Web/Android/iOS sobre la misma conversación temporal reversible, capturas reales, estado vacío tras desfavoritar y limpieza física con residuo cero. | No cierra los demás `CHAT-*`. |
 
 | Web/Wasm | GO limitado | Shell público, rutas principales y varias raíces Compose comunes están integrados; #154 incorpora `CreatePostRoot` y #156 `ProfileScreenHost`. | Faltan postflights autenticados por flujo y paridad visual exacta. Avatar Web se acredita por contratos, no por una mutación E2E real guardada y limpiada. |

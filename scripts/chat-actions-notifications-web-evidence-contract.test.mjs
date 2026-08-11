@@ -12,11 +12,15 @@ test("chat actions/notifications web evidence keeps credentials private and reve
   assert.doesNotMatch(runner, /680242607|680242608|21085800/);
   assert.match(runner, /qadata-chat-actions-notifications-/);
   assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP_AUTHORIZATION/);
+  assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE/);
   assert.match(runner, /MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP/);
   assert.match(runner, /begin/);
   assert.match(runner, /for update/);
   assert.match(runner, /delete from public\.chat_threads where id = \$1 and unique_key = \$2 returning id/);
   assert.match(runner, /cleanup_verified_physical_residue_absent/);
+  assert.match(runner, /createTemporaryForwardProfile/);
+  assert.match(runner, /hardDeleteTemporaryForwardDestination/);
+  assert.match(runner, /forward_destination_cleanup_verified_physical_residue_absent/);
 });
 
 test("chat actions/notifications Android evidence keeps backend fixture reversible", async () => {
@@ -35,6 +39,9 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(runner, /update public\.community_profiles set pass_hash = \$1, pass_plain = \$2 where id = \$3/);
   assert.match(runner, /delete from public\.chat_threads where id = \$1 and unique_key = \$2 returning id/);
   assert.match(runner, /cleanup_verified_physical_residue_absent/);
+  assert.match(runner, /createTemporaryForwardProfile/);
+  assert.match(runner, /hardDeleteTemporaryForwardDestination/);
+  assert.match(runner, /forward_destination_cleanup_verified_physical_residue_absent/);
   assert.match(runner, /ChatActionsNotificationsInstrumentedTest/);
   assert.match(runner, /composer_text_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /composer_reply_sent_by_shared_ui_and_verified_by_rpc/);
@@ -45,7 +52,30 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(testSource, /chat\.action\.reply/);
   assert.match(testSource, /chat\.action\.edit/);
   assert.match(testSource, /chat\.action\.favorite/);
+  assert.match(testSource, /chat\.action\.forward/);
+  assert.match(testSource, /ChatForwardPickerSearchTestTag/);
+  assert.match(testSource, /ChatForwardPickerSendTestTag/);
   assert.match(testSource, /android-chat-actions-own-selected/);
+  assert.match(testSource, /android-chat-forward-picker-selected/);
+  assert.match(testSource, /android-chat-forward-submitted/);
+});
+
+test("chat actions/notifications iOS evidence forwards through the shared picker", async () => {
+  const runner = await source("scripts/chat-actions-notifications-ios-evidence.mjs");
+  const wrapper = await source("scripts/run-ios-chat-actions-notifications-ui-test.sh");
+  const testSource = await source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift");
+  assert.match(runner, /QUATA_IOS_CHAT_E2E_FORWARD_QUERY/);
+  assert.match(wrapper, /QUATA_IOS_CHAT_E2E_FORWARD_QUERY/);
+  assert.match(runner, /createTemporaryForwardProfile/);
+  assert.match(runner, /pollForwardDestinationThread/);
+  assert.match(runner, /message_forwarded_by_shared_ui_and_verified_by_rpc/);
+  assert.match(runner, /hardDeleteTemporaryForwardDestination/);
+  assert.match(runner, /forward_destination_cleanup_verified_physical_residue_absent/);
+  assert.match(testSource, /chat\.action\.forward/);
+  assert.match(testSource, /chat\.forward\.root/);
+  assert.match(testSource, /chat\.forward\.search/);
+  assert.match(testSource, /ios-chat-forward-picker-selected/);
+  assert.match(testSource, /chat\.forward\.send/);
 });
 
 test("chat actions/notifications web evidence exercises real shared chat controls", async () => {
@@ -55,6 +85,10 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /quata_chat_set_muted/);
   assert.match(runner, /quata_chat_get_inbox/);
   assert.match(runner, /quata_chat_get_favorites/);
+  assert.match(runner, /quata_chat_get_or_create_private_thread|pollForwardDestinationThread/);
+  assert.match(runner, /message_forwarded_by_shared_ui_and_verified_by_rpc/);
+  assert.match(runner, /web-chat-forward-picker-selected/);
+  assert.match(runner, /web-chat-forwarded-message/);
   assert.match(runner, /async function clickMessage\(page, marker, error\)/);
   assert.match(runner, /async function openMessageActions\(page, marker, expectedPatterns, targetError, actionError\)/);
   assert.match(runner, /if \(marker\.startsWith\("chat-edit-ui-"\)\) \{/);
@@ -63,6 +97,7 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /async function clickMessageProbe\(page, probe\)/);
   assert.match(runner, /marker\.slice\(0, 28\), marker\.slice\(0, 20\), marker\.slice\(0, 16\)/);
   assert.match(runner, /marker\.startsWith\("chat-edit-ui-"\)/);
+  assert.match(runner, /marker\.startsWith\("chat-actions-own-"\)/);
   assert.match(runner, /page\.mouse\.click\(Math\.round\(viewport\.width \* 0\.62\), 214\)/);
   assert.match(runner, /async function visibleTextBox\(page, probe\)/);
   assert.match(runner, /async function clickNativeButtonByLabel\(page, patterns\)/);
@@ -116,6 +151,8 @@ test("chat actions/notifications web evidence exercises real shared chat control
     "web-chat-actions-muted",
     "web-chat-actions-own-selected",
     "web-chat-actions-peer-selected",
+    "web-chat-forward-picker-selected",
+    "web-chat-forwarded-message",
   ]) {
     assert.match(runner, new RegExp(screenshot));
   }

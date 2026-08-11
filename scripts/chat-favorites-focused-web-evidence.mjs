@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const favoriteConversationId = "__favorite_messages__";
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
 const defaultDbTlsCaFile = "C:/Users/PC/.quata-supabase-pooler-ca.pem";

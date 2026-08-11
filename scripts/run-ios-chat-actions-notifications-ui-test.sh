@@ -13,6 +13,7 @@ set -euo pipefail
 : "${QUATA_IOS_CHAT_E2E_COMPOSER_MARKER:?Set QUATA_IOS_CHAT_E2E_COMPOSER_MARKER.}"
 : "${QUATA_IOS_CHAT_E2E_REPLY_MARKER:?Set QUATA_IOS_CHAT_E2E_REPLY_MARKER.}"
 : "${QUATA_IOS_CHAT_E2E_EDIT_MARKER:?Set QUATA_IOS_CHAT_E2E_EDIT_MARKER.}"
+: "${QUATA_IOS_CHAT_E2E_FORWARD_QUERY:?Set QUATA_IOS_CHAT_E2E_FORWARD_QUERY.}"
 : "${QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR:=build/reports/ios/chat-actions-notifications}"
 : "${QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_RESULT_BUNDLE_DIR:=}"
 watchdog="scripts/run-ios-command-watchdog.py"
@@ -84,9 +85,9 @@ elif [[ "$bootstatus_status" -ne 0 ]]; then
   exit "$bootstatus_status"
 fi
 
-/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" <<'PY'
+/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" "$QUATA_IOS_CHAT_E2E_FORWARD_QUERY" <<'PY'
 import plistlib, sys
-path, credentials, conversation, message, marker, editable_message, editable_marker, composer, reply, edit = sys.argv[1:]
+path, credentials, conversation, message, marker, editable_message, editable_marker, composer, reply, edit, forward_query = sys.argv[1:]
 with open(path, 'rb') as f:
     data = plistlib.load(f)
 matched = set()
@@ -106,6 +107,7 @@ def patch_target(target, hint=''):
         env['QUATA_IOS_CHAT_E2E_COMPOSER_MARKER'] = composer
         env['QUATA_IOS_CHAT_E2E_REPLY_MARKER'] = reply
         env['QUATA_IOS_CHAT_E2E_EDIT_MARKER'] = edit
+        env['QUATA_IOS_CHAT_E2E_FORWARD_QUERY'] = forward_query
         matched.add('ui')
 for configuration in data.get('TestConfigurations', []):
     for target in configuration.get('TestTargets', []):

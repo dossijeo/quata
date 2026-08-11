@@ -9,7 +9,7 @@ import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
 const defaultDbTlsCaFile = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
@@ -264,6 +264,28 @@ async function inboxThread(config, session, thread) {
   return allRows.find((row) => Number(row?.thread_id ?? row?.id) === Number(thread)) ?? null;
 }
 
+async function pollForwardDestinationThread(config, session, profileId, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const payload = await rpc(config, session, "quata_chat_get_inbox", {
+      p_actor_profile_id: session.profileId,
+      p_limit: 100,
+    });
+    const allRows = [
+      payload?.thread,
+      payload?.conversation,
+      ...(Array.isArray(payload?.threads) ? payload.threads : []),
+      ...(Array.isArray(payload?.conversations) ? payload.conversations : []),
+      ...(Array.isArray(payload?.update?.threads) ? payload.update.threads : []),
+      ...(Array.isArray(payload?.update?.conversations) ? payload.update.conversations : []),
+    ].filter(Boolean);
+    const match = allRows.find((row) => JSON.stringify(row).includes(profileId));
+    if (match) return { threadId: threadId(match), row: match };
+    await delay(1_000);
+  }
+  throw new Error("forward_state_not_persisted:destination_thread");
+}
+
 function isMuted(row) {
   return row?.muted === true || row?.is_muted === true || row?.isMuted === true;
 }
@@ -349,6 +371,16 @@ async function openAuthenticatedChatPage(browser, origin, session, conversationI
   return { context, page };
 }
 
+async function openAuthenticatedChatRoute(page, origin, conversationId) {
+  await page.goto(`${origin}/#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(
+    (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
+    `chat/${conversationId}`,
+    { timeout: 45_000 },
+  );
+  await delay(1_500);
+}
+
 async function attachScreenshot(page, evidenceDir, name) {
   await mkdir(evidenceDir, { recursive: true });
   const path = join(evidenceDir, `${name}.png`);
@@ -408,6 +440,64 @@ async function clickFavoriteAction(page) {
   await page.mouse.click(Math.max(1, viewport.width - 66), 98);
 }
 
+async function clickEditAction(page) {
+  const locator = await visibleAriaLocator(page, [/Editar|Edit/i], 2_000);
+  if (locator) {
+    await locator.click({ timeout: 10_000, force: true });
+    return;
+  }
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  await page.mouse.click(Math.max(1, viewport.width - 106), 98);
+}
+
+async function clickForwardAction(page) {
+  const locator = await visibleAriaLocator(page, [/Reenviar|Forward/i], 2_000);
+  if (locator) {
+    await locator.click({ timeout: 10_000, force: true });
+    return;
+  }
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  await page.mouse.click(Math.max(1, viewport.width - 146), 98);
+}
+
+async function selectForwardDestination(page, query, displayName, error) {
+  const search = await visibleAriaLocator(page, [/Buscar|Search/i], 10_000);
+  if (search) {
+    await search.fill(query, { timeout: 10_000 });
+  } else {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    await page.mouse.click(Math.round(viewport.width * 0.5), 108);
+    await page.keyboard.press("Control+A").catch(() => {});
+    await page.keyboard.type(query, { delay: 8 });
+  }
+  await delay(1_000);
+  const destination = page.getByText(new RegExp(escapeRegExp(displayName))).first();
+  if (await destination.waitFor({ timeout: 10_000 }).then(() => true).catch(() => false)) {
+    await destination.click({ timeout: 10_000, force: true });
+    return;
+  }
+  const box = await visibleTextBox(page, displayName);
+  if (box) {
+    await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+    return;
+  }
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  await page.mouse.click(Math.round(viewport.width * 0.46), 486);
+  await delay(500);
+  if (await page.getByText(/✓|âœ“/).first().isVisible({ timeout: 1_000 }).catch(() => false)) return;
+  throw new Error(error);
+}
+
+async function clickForwardSend(page) {
+  const locator = await visibleAriaLocator(page, [/Reenviar|Forward/i], 2_000);
+  if (locator) {
+    await locator.click({ timeout: 10_000, force: true });
+    return;
+  }
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  await page.mouse.click(Math.round(viewport.width * 0.69), 558);
+}
+
 async function clickMessage(page, marker, error) {
   const probes = [...new Set([marker.slice(0, 28), marker.slice(0, 20), marker.slice(0, 16)])];
   for (const probe of probes) {
@@ -416,6 +506,12 @@ async function clickMessage(page, marker, error) {
   if (marker.startsWith("chat-edit-ui-")) {
     const viewport = page.viewportSize() ?? { width: 430, height: 932 };
     await page.mouse.click(Math.round(viewport.width * 0.62), 214);
+    return;
+  }
+  if (marker.startsWith("chat-actions-own-")) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    await page.mouse.click(Math.round(viewport.width * 0.62), 306);
+    await delay(250);
     return;
   }
   if (marker.startsWith("chat-actions-peer-")) {
@@ -430,7 +526,9 @@ async function clickMessage(page, marker, error) {
 async function openMessageActions(page, marker, expectedPatterns, targetError, actionError) {
   await closeTransientMenus(page);
   await clickMessage(page, marker, targetError);
-  if (marker.startsWith("chat-edit-ui-") || marker.startsWith("chat-actions-peer-")) {
+  if (marker.startsWith("chat-edit-ui-") || marker.startsWith("chat-actions-peer-") || marker.startsWith("chat-actions-own-")) {
+    if (await visibleAriaLocator(page, expectedPatterns, 1_000)) return;
+    if (!(await longPressMessage(page, marker))) throw new Error(targetError);
     await delay(500);
     return;
   }
@@ -444,7 +542,7 @@ async function openMessageActions(page, marker, expectedPatterns, targetError, a
 async function closeTransientMenus(page) {
   await page.keyboard.press("Escape").catch(() => {});
   await delay(150);
-  const conversationMenu = page.getByText(/Silenciar conversaci[oÃ³]n|Mute conversation|A[Ã±n]adir nuevos participantes|Add new participants/i).first();
+  const conversationMenu = page.getByText(/Silenciar conversaci[oó]n|Mute conversation|A[ñn]adir nuevos participantes|Add new participants/i).first();
   if (await conversationMenu.isVisible({ timeout: 500 }).catch(() => false)) {
     const viewport = page.viewportSize() ?? { width: 430, height: 932 };
     await page.mouse.click(Math.max(1, viewport.width - 18), Math.min(viewport.height - 18, 210));
@@ -461,6 +559,36 @@ async function longPressMessage(page, marker) {
     if (!box) continue;
     const x = box.x + (box.width / 2);
     const y = box.y + (box.height / 2);
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await delay(700);
+    await page.mouse.up();
+    return true;
+  }
+  if (marker.startsWith("chat-edit-ui-")) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    const x = Math.round(viewport.width * 0.62);
+    const y = 214;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await delay(700);
+    await page.mouse.up();
+    return true;
+  }
+  if (marker.startsWith("chat-actions-own-")) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    const x = Math.round(viewport.width * 0.62);
+    const y = 306;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await delay(700);
+    await page.mouse.up();
+    return true;
+  }
+  if (marker.startsWith("chat-actions-peer-")) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    const x = Math.round(viewport.width * 0.44);
+    const y = 344;
     await page.mouse.move(x, y);
     await page.mouse.down();
     await delay(700);
@@ -750,6 +878,70 @@ async function hardDeleteTemporaryThread(thread, uniqueKey) {
   }
 }
 
+async function createTemporaryForwardProfile(runId) {
+  const id = randomUUID();
+  const phoneLocal = `999${Date.now().toString().slice(-6)}`;
+  const displayName = `QADATA Forward ${phoneLocal}`;
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      await client.query(
+        `insert into public.community_profiles
+          (id, display_name, phone, pass_hash, phone_normalized, country_code, phone_local, phone_e164, neighborhood, barrio, barrio_normalized, account_status)
+         values ($1, $2, $3, $4, $5, '240', $6, $7, 'QADATA', 'QADATA', 'qadata', 'active')`,
+        [id, displayName, `+240 ${phoneLocal}`, `qadata-chat-forward-no-login-${runId}`, `240${phoneLocal}`, phoneLocal, `+240${phoneLocal}`],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  return { id, phoneLocal, displayName };
+}
+
+async function hardDeleteTemporaryForwardDestination(profile, threadId) {
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const owned = await client.query(
+        "select id from public.community_profiles where id = $1 and display_name = $2 and phone_local = $3 for update",
+        [profile.id, profile.displayName, profile.phoneLocal],
+      );
+      if (owned.rowCount !== 1) throw new Error("cleanup_residue_detected:forward_profile_not_owned");
+      if (threadId) {
+        const participant = await client.query(
+          "select 1 from public.chat_participants where thread_id = $1 and profile_id = $2 for update",
+          [threadId, profile.id],
+        );
+        if (participant.rowCount !== 1) throw new Error("cleanup_residue_detected:forward_thread_not_owned");
+        await client.query("delete from public.chat_threads where id = $1", [threadId]);
+      }
+      const deleted = await client.query(
+        "delete from public.community_profiles where id = $1 and display_name = $2 and phone_local = $3 returning id",
+        [profile.id, profile.displayName, profile.phoneLocal],
+      );
+      if (deleted.rowCount !== 1) throw new Error("cleanup_residue_detected:forward_profile_delete_failed");
+      const residue = await client.query(
+        `select
+          (select count(*)::int from public.community_profiles where id = $1) as community_profiles,
+          (select count(*)::int from public.chat_threads where id = $2) as chat_threads,
+          (select count(*)::int from public.chat_messages where thread_id = $2) as chat_messages,
+          (select count(*)::int from public.chat_participants where profile_id = $1 or thread_id = $2) as chat_participants,
+          (select count(*)::int from public.chat_private_threads where thread_id = $2 or profile_low_id = $1 or profile_high_id = $1) as chat_private_threads`,
+        [profile.id, threadId ?? -1],
+      );
+      const counts = residue.rows[0] ?? {};
+      if (Object.values(counts).some((count) => Number(count) !== 0)) throw new Error("cleanup_residue_detected:forward_physical_rows");
+      await client.query("commit");
+      return { profileIdSha256: sha256(profile.id), threadId, residueCounts: counts };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
 async function withDatabase(callback) {
   const dbUrlPath = process.env.SUPABASE_DB_URL_FILE?.trim() || defaultDbUrlFile;
   const tlsCaPath = process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || defaultDbTlsCaFile;
@@ -857,7 +1049,7 @@ function safeFailure(error) {
     "chat_backend_poll_timeout", "distribution_missing", "runtime_configuration_injection_failed",
     "static_server_start_failed", "message_not_visible", "options_menu_not_visible", "action_bar_not_visible",
     "message_action_target_not_clickable",
-    "mute_state_not_persisted", "favorite_state_not_persisted", "browser_runtime_fault",
+    "mute_state_not_persisted", "favorite_state_not_persisted", "forward_state_not_persisted", "browser_runtime_fault",
         "composer_message_not_visible", "composer_reply_not_visible", "composer_edit_not_visible",
         "composer_input_not_visible", "composer_send_not_visible", "composer_send_not_dispatched",
     "cleanup_residue_detected", "missing_hard_cleanup_authorization",
@@ -876,7 +1068,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -904,6 +1096,8 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
+  state.forwardProfile = await createTemporaryForwardProfile(runId);
+  report.steps.push("temporary_forward_destination_profile_created");
   state.thread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
     p_actor_profile_id: state.a.profileId,
     p_recipient_profile_ids: [state.b.profileId],
@@ -989,7 +1183,7 @@ try {
   report.steps.push("composer_reply_sent_by_shared_ui_and_verified_by_rpc");
 
   await openMessageActions(page, ownMarker, [/Editar|Edit/i], "message_action_target_not_clickable:edit", "action_bar_not_visible:edit");
-  await clickLabel(page, [/Editar|Edit/i], "action_bar_not_visible:edit");
+  await clickEditAction(page);
   const editMarker = `chat-edit-ui-${runId}`;
   await fillComposerAndSend(page, editMarker);
   await pollMessage(
@@ -1027,6 +1221,25 @@ try {
   if (!favoriteRows.some((message) => Number(message?.id) === Number(state.ownMessage))) throw new Error("favorite_state_not_persisted:true");
   report.steps.push("favorite_toggled_and_verified_by_rpc");
 
+  await openMessageActions(page, editMarker, [/Reenviar|Forward/i], "message_action_target_not_clickable:forward", "action_bar_not_visible:forward");
+  await clickForwardAction(page);
+  await selectForwardDestination(page, state.forwardProfile.phoneLocal, state.forwardProfile.displayName, "forward_state_not_persisted:picker");
+  report.evidence.forwardPicker = await attachScreenshot(page, options.evidenceDir, "web-chat-forward-picker-selected");
+  await clickForwardSend(page);
+  const forwardDestination = await pollForwardDestinationThread(config, state.a, state.forwardProfile.id);
+  state.forwardThread = forwardDestination.threadId;
+  const forwardedMessage = await pollMessage(
+    config,
+    state.a,
+    state.forwardThread,
+    (message) => messageText(message) === editMarker && Number(message?.forwarded_from_message_id) === Number(state.ownMessage),
+  );
+  state.forwardedMessage = messageId({ message: forwardedMessage });
+  await openAuthenticatedChatRoute(page, server.origin, `sb:${state.forwardThread}`);
+  await delay(1_500);
+  report.evidence.forwardedMessage = await attachScreenshot(page, options.evidenceDir, "web-chat-forwarded-message");
+  report.steps.push("message_forwarded_by_shared_ui_and_verified_by_rpc");
+
   if (state.peerMessage) {
     await openMessageActions(page, peerMarker, [/Copiar mensaje|Copy message/i], "message_action_target_not_clickable:peer_actions", "action_bar_not_visible:peer_copy");
     report.evidence.peerActions = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-peer-selected");
@@ -1040,6 +1253,9 @@ try {
     conversationId: `sb:${state.thread}`,
     ownMessageId: state.ownMessage,
     peerMessageId: state.peerMessage,
+    forwardThreadId: state.forwardThread,
+    forwardedMessageId: state.forwardedMessage,
+    forwardProfileIdSha256: sha256(state.forwardProfile.id),
     uniqueKeySha256: sha256(state.uniqueKey),
     ownMarkerSha256: sha256(ownMarker),
     peerMarkerSha256: sha256(peerMarker),
@@ -1093,6 +1309,16 @@ try {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);
       }
+    }
+  }
+  if (state.forwardProfile) {
+    try {
+      cleanup.forwardDestination = await hardDeleteTemporaryForwardDestination(state.forwardProfile, state.forwardThread);
+      cleanup.actions.push("temporary_forward_destination_deleted");
+      cleanup.actions.push("forward_destination_cleanup_verified_physical_residue_absent");
+    } catch (error) {
+      cleanupFailed = true;
+      cleanup.error = safeFailure(error);
     }
   }
   if (cleanupFailed) {
