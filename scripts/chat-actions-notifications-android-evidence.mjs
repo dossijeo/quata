@@ -72,9 +72,11 @@ async function authorizedUsers() {
   if (!host || !file) throw new Error("missing_adjacent_profile_credentials_source");
   const credentials = JSON.parse(await runSilent("ssh", [host, `cat ${file}`]));
   const phone = splitPhone(credentials.phone);
+  const previousLocal = (BigInt(phone.localPhone) - 1n).toString().padStart(phone.localPhone.length, "0");
+  if (previousLocal.length !== phone.localPhone.length) throw new Error("invalid_adjacent_profile_phone");
   return {
-    a: { label: "A", countryCode: phone.countryCode, phone: phone.localPhone, password: credentials.password },
-    b: { label: "B", adjacentPhoneKeys: adjacentRecipientPhones(phone) },
+    a: { label: "A", countryCode: phone.countryCode, phone: previousLocal, password: credentials.password },
+    b: { label: "B", countryCode: phone.countryCode, phone: phone.localPhone, password: credentials.password, adjacentPhoneKeys: adjacentRecipientPhones(phone) },
   };
 }
 
@@ -622,7 +624,7 @@ try {
     report.steps.push("temporary_profile_hash_window_opened");
   }
   state.a = await login(config, userA);
-  if (useAdjacentAuthorizedProfile) {
+  if (useAdjacentAuthorizedProfile && !userB.password) {
     state.b = { label: "B", profileId: await resolveAdjacentRecipientProfile(userB.adjacentPhoneKeys) };
     report.steps.push("authorized_profile_logged_in_and_recipient_resolved");
   } else {

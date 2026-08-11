@@ -109,13 +109,23 @@ async function authorizedUsers() {
   if (!host || !file) throw new Error("missing_adjacent_profile_credentials_source");
   const credentials = JSON.parse((await runSilent("ssh", [host, `cat ${file}`])).replace(/^\uFEFF/, ""));
   const primaryPhone = splitPhone(credentials.phone);
-  return [{
-    label: "A",
-    countryCode: primaryPhone.countryCode,
-    phone: primaryPhone.localPhone,
-    password: credentials.password,
-    adjacentPhoneKeys: adjacentRecipientPhones(primaryPhone),
-  }];
+  const previousLocal = (BigInt(primaryPhone.localPhone) - 1n).toString().padStart(primaryPhone.localPhone.length, "0");
+  if (previousLocal.length !== primaryPhone.localPhone.length) throw new Error("invalid_adjacent_profile_phone");
+  return [
+    {
+      label: "A",
+      countryCode: primaryPhone.countryCode,
+      phone: previousLocal,
+      password: credentials.password,
+    },
+    {
+      label: "B",
+      countryCode: primaryPhone.countryCode,
+      phone: primaryPhone.localPhone,
+      password: credentials.password,
+      adjacentPhoneKeys: adjacentRecipientPhones(primaryPhone),
+    },
+  ];
 }
 
 function splitPhone(phone) {
@@ -175,7 +185,8 @@ async function login(config, user) {
     throw new Error(`invalid_auth_response:${user.label}`);
   }
   const displayName = String(payload?.profile?.display_name ?? payload?.profile?.displayName ?? payload?.profile?.name ?? "").trim();
-  return { label: user.label, profileId, displayName, accessToken: session.access_token, refreshToken: session.refresh_token, expiresAt: session.expires_at, webSessionToken };
+  const neighborhood = String(payload?.profile?.neighborhood ?? payload?.profile?.barrio ?? "").trim();
+  return { label: user.label, profileId, displayName, neighborhood, accessToken: session.access_token, refreshToken: session.refresh_token, expiresAt: session.expires_at, webSessionToken };
 }
 
 function rpc(config, session, name, body) {
@@ -636,6 +647,7 @@ async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenc
   if (!opened) throw new Error("profile_state_not_opened:avatar_not_clickable");
   const visible = await waitForProfileVisible(page, peerProfile);
   if (!visible) throw new Error("profile_state_not_opened:profile_not_visible");
+  await assertProfileHeaderVisible(page, peerProfile);
   report.evidence.profileOpen = await attachScreenshot(page, evidenceDir, "web-chat-profile-open");
   if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
   await delay(1_000);
@@ -705,6 +717,27 @@ async function waitForProfileVisible(page, profile) {
     await delay(500);
   }
   return false;
+}
+
+async function assertProfileHeaderVisible(page, profile) {
+  const displayName = profile.displayName?.trim();
+  const neighborhood = profile.neighborhood?.trim();
+  const checks = [
+    ["profile_header_name_missing", displayName],
+    ["profile_header_neighborhood_missing", neighborhood],
+  ].filter(([, value]) => value);
+  for (const [error, value] of checks) {
+    const visible = await page.getByText(new RegExp(escapeRegExp(value))).first()
+      .isVisible({ timeout: 5_000 })
+      .catch(() => false);
+    if (!visible) throw new Error(`${error}:${value}`);
+  }
+  for (const pattern of [/Publicaciones|Posts/i, /Seguidores|Followers/i, /Siguiendo|Following/i]) {
+    const visible = await page.getByText(pattern).first()
+      .isVisible({ timeout: 5_000 })
+      .catch(() => false);
+    if (!visible) throw new Error(`profile_header_kpi_missing:${pattern}`);
+  }
 }
 
 async function clickMessageProbe(page, probe) {
@@ -1034,7 +1067,7 @@ async function createTemporaryForwardProfile(runId) {
       throw error;
     }
   });
-  return { id, phoneLocal, displayName };
+  return { id, phoneLocal, displayName, neighborhood: "Bovano" };
 }
 
 async function hardDeleteTemporaryForwardDestination(profile, threadId) {
@@ -1222,7 +1255,7 @@ try {
     report.steps.push("temporary_profile_hash_window_opened");
   }
   state.a = await login(config, users[0]);
-  if (useAdjacentAuthorizedProfile) {
+  if (useAdjacentAuthorizedProfile && users.length === 1) {
     state.b = {
       label: "B",
       profileId: await resolveAdjacentRecipientProfile(users[0].adjacentPhoneKeys),

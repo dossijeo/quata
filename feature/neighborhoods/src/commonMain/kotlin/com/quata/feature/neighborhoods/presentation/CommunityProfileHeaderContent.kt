@@ -27,12 +27,14 @@ fun CommunityProfileHeaderContent(
     moderationActions: @Composable () -> Unit,
     adminControls: (@Composable () -> Unit)?,
     errorMessage: (@Composable () -> Unit)?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    displayNameModifier: Modifier = Modifier,
+    neighborhoodModifier: Modifier = Modifier,
 ) {
     val template = quataTheme()
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.Top) {
-        Text(displayName, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
-        Text(neighborhood, color = template.colors.textSecondary, fontSize = 16.sp)
+        Text(displayName, modifier = displayNameModifier, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
+        Text(neighborhood, modifier = neighborhoodModifier, color = template.colors.textSecondary, fontSize = 16.sp)
         Spacer(Modifier.height(18.dp))
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { avatar() }
         Spacer(Modifier.height(24.dp))

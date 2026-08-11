@@ -40,6 +40,7 @@ const [
   groupManagement,
   chatBrowserHostContent,
   communityProfileHost,
+  communityProfileHeader,
   communityProfileSheet,
   viewModel,
 ] = await Promise.all([
@@ -62,6 +63,7 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatGroupManagementContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatBrowserHostContent.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
+  source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileHeaderContent.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileSheetContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt"),
 ]);
@@ -240,9 +242,25 @@ test("common chat profile entry exposes stable cross-platform evidence anchors",
   assert.match(communityProfileHost, /PublicProfileRootTestTag = "public-profile\.root"/);
   assert.match(communityProfileHost, /PublicProfileBackTestTag = "public-profile\.back"/);
   assert.match(communityProfileHost, /PublicProfileUserTestTagPrefix = "public-profile\.user\."/);
+  assert.match(communityProfileHost, /PublicProfileHeaderTestTagPrefix = PublicProfileUserTestTagPrefix/);
+  [
+    "Avatar",
+    "Name",
+    "Neighborhood",
+    "PostsKpi",
+    "FollowersKpi",
+    "FollowingKpi",
+  ].forEach((constant) => {
+    assert.match(communityProfileHost, new RegExp(`PublicProfile${constant}TestTagPrefix = "public-profile\\.`));
+    assert.match(communityProfileHost, new RegExp(`PublicProfile${constant}TestTagPrefix \\+ profile\\.user\\.id`));
+  });
   assert.match(communityProfileHost, /testTag = PublicProfileRootTestTag/);
   assert.match(communityProfileHost, /testTag = PublicProfileBackTestTag/);
-  assert.match(communityProfileHost, /testTag = PublicProfileUserTestTagPrefix \+ profile\.user\.id/);
+  assert.match(communityProfileHost, /testTag = PublicProfileHeaderTestTagPrefix \+ profile\.user\.id/);
+  assert.match(communityProfileHeader, /displayNameModifier: Modifier = Modifier/);
+  assert.match(communityProfileHeader, /neighborhoodModifier: Modifier = Modifier/);
+  assert.match(communityProfileHeader, /Text\(displayName, modifier = displayNameModifier/);
+  assert.match(communityProfileHeader, /Text\(neighborhood, modifier = neighborhoodModifier/);
   assert.match(communityProfileSheet, /modifier: Modifier = Modifier/);
   assert.match(communityProfileSheet, /ModalBottomSheet\([\s\S]*?modifier = modifier/);
 });
