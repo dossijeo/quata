@@ -8,13 +8,16 @@ async function source(path) {
   return readFile(new URL(path, root), "utf8");
 }
 
-const [profileHost, profileList, userRow, androidTest, androidRunner, webRunner] = await Promise.all([
+const [profileHost, profileList, userRow, androidTest, androidRunner, webRunner, iosTest, iosWrapper, iosRunner] = await Promise.all([
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileUsersListCommon.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodUserRowContent.kt"),
   source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
   source("scripts/chat-actions-notifications-android-evidence.mjs"),
   source("scripts/chat-actions-notifications-web-evidence.mjs"),
+  source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+  source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
+  source("scripts/chat-actions-notifications-ios-evidence.mjs"),
 ]);
 
 test("public profile follower and following lists expose stable common evidence anchors", () => {
@@ -57,4 +60,15 @@ test("Web profile list evidence opens both common lists and returns to Chat", ()
   assert.match(webRunner, /web-chat-profile-list-\$\{listKind\}/);
   assert.match(webRunner, /peer_public_profile_followers_and_following_lists_opened_and_returned/);
   assert.match(webRunner, /ProfileListsOnlyCompleted/);
+});
+
+test("iOS profile list evidence selects the opt-in follow-list XCTest", () => {
+  assert.match(iosTest, /testProfileFollowListsFromChatOpenAndReturn/);
+  assert.match(iosTest, /"public-profile\.list\.\\\(listKind\)"/);
+  assert.match(iosTest, /"public-profile\.list\.row\.\\\(listKind\)\."/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E/);
+  assert.match(iosWrapper, /testProfileFollowListsFromChatOpenAndReturn/);
+  assert.match(iosRunner, /--profile-lists-only/);
+  assert.match(iosRunner, /profileListsOnly/);
+  assert.match(iosRunner, /ios_xctest_profile_followers_and_following_lists_verified/);
 });
