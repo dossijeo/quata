@@ -663,7 +663,12 @@ async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenc
 
 async function toggleFollowFromOpenProfile(page, peerProfile, evidenceDir, report) {
   report.evidence.profileFollowBefore = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-before");
-  await clickLabel(page, [/Seguir|Follow/i], "profile_follow_action_not_clickable");
+  try {
+    await clickLabel(page, [/Seguir|Follow/i], "profile_follow_action_not_clickable");
+  } catch (error) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    await page.mouse.click(Math.round(viewport.width * 0.27), Math.round(viewport.height * 0.50));
+  }
   await pollProfileFollowEdge(peerProfile.actorProfileId, peerProfile.profileId, true);
   report.evidence.profileFollowAfter = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-after");
 }

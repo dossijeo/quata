@@ -138,8 +138,10 @@ PY
 
 seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
 profile='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfileEntryFromChatOpensPublicProfileAndReturns'
+profile_follow='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfileFollowFromChatTogglesSharedPublicProfileAction'
 ui='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testComposerReplyEditAndSelectedActionsUseSharedChatSurface'
 profile_method='testProfileEntryFromChatOpensPublicProfileAndReturns'
+profile_follow_method='testProfileFollowFromChatTogglesSharedPublicProfileAction'
 ui_method='testComposerReplyEditAndSelectedActionsUseSharedChatSurface'
 
 run_and_require() {
@@ -160,7 +162,11 @@ run_and_require() {
 }
 
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/seed.log"
-run_and_require "$profile" "$profile_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile.log"
+if [[ "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" == "1" ]]; then
+  run_and_require "$profile_follow" "$profile_follow_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile-follow.log"
+else
+  run_and_require "$profile" "$profile_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile.log"
+fi
 if [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" != "1" ]]; then
   run_and_require "$ui" "$ui_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/ui.log"
 fi
