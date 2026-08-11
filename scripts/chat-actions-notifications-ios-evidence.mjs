@@ -58,6 +58,7 @@ const state = {
   forwardThread: null,
   forwardedMessage: null,
   profileFollow: null,
+  profileListEdges: null,
 };
 
 try {
@@ -203,6 +204,10 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
     }
+    if (profileListsOnly) {
+      state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
+      report.steps.push("profile_follow_list_edges_prepared_reversibly");
+    }
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
@@ -264,6 +269,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         seedMarkerSha256: sha256(state.seedMarker),
         peerMarkerSha256: sha256(state.peerMarker),
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
+        profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
       }
       : {
         threadId: state.thread,
@@ -302,6 +308,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     const cleanup = { state: "completed", actions: [] };
     let cleanupFailed = false;
     try {
+      if (state.profileListEdges) {
+        cleanup.actions.push(...await restoreProfileListEdges(state.profileListEdges));
+      }
       cleanup.actions.push(...await logicalCleanup(config, state));
     } catch (error) {
       cleanupFailed = true;
@@ -1000,6 +1009,73 @@ async function withDatabase(callback) {
   } finally {
     await client.end().catch(() => {});
   }
+}
+
+async function prepareProfileListEdges(followerId, followedId) {
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const pairs = [
+        { label: "a_follows_b", followerId, followedId },
+        { label: "b_follows_a", followerId: followedId, followedId: followerId },
+      ];
+      const initial = [];
+      for (const pair of pairs) {
+        const existing = await client.query(
+          `select id
+             from public.community_profile_follows
+            where follower_profile_id = $1 and followed_profile_id = $2
+            limit 1
+            for update`,
+          [pair.followerId, pair.followedId],
+        );
+        const existed = existing.rowCount > 0;
+        initial.push({ ...pair, existed });
+        if (!existed) {
+          await client.query(
+            `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+             values ($1, $2)
+             on conflict do nothing`,
+            [pair.followerId, pair.followedId],
+          );
+        }
+      }
+      await client.query("commit");
+      return initial;
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+async function restoreProfileListEdges(edges) {
+  if (!Array.isArray(edges) || edges.length === 0) return [];
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      for (const edge of edges) {
+        if (edge.existed) {
+          await client.query(
+            `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+             values ($1, $2)
+             on conflict do nothing`,
+            [edge.followerId, edge.followedId],
+          );
+        } else {
+          await client.query(
+            "delete from public.community_profile_follows where follower_profile_id = $1 and followed_profile_id = $2",
+            [edge.followerId, edge.followedId],
+          );
+        }
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  return ["profile_follow_list_edges_restored_to_initial_state"];
 }
 
 async function openTemporaryProfileHashWindow(users) {
