@@ -152,6 +152,14 @@ avanzar trabajo preparatorio aislado y reproducible. Ese trabajo se mantiene fue
 remota hasta que el candidato activo cierre; no puede reutilizar evidencia final ni competir por
 `main`.
 
+La certificación CI en GitHub se observa de forma asíncrona. Una vez lanzados los workflows del
+candidato congelado, el orquestador no debe quedarse esperando ociosamente a que terminen jobs de
+varios minutos: registra el PR, base/head/merge y checks esperados, deja una comprobación periódica
+no bloqueante, y usa las lanes locales libres para avanzar otra unidad segura. Sólo vuelve al
+candidato cuando cambia el estado remoto, aparece un fallo que clasificar, o todos los checks
+requeridos están verdes para proceder al merge. En ningún caso este trabajo paralelo puede modificar
+el SHA congelado ni crear una segunda candidata final.
+
 Todo defecto descubierto tras publicar se clasifica antes de corregirlo: **DEFECTO ESCAPADO DEL
 PREFLIGHT LOCAL** si era reproducible con comandos/artefactos locales disponibles; defecto de
 runner, caché, toolchain o servicio exclusivo remoto si no lo era. En el primer caso no basta con
@@ -256,6 +264,8 @@ Reglas de aplicación:
 No se informa mediante polling del mismo job. Cada actualización útil indica: PR activa; base/head/
 merge; lane remota; lanes locales ocupadas; trabajo paralelo; último resultado; bloqueo concreto y
 siguiente decisión. Sólo se comunica de nuevo cuando cambia uno de esos elementos.
+La espera de CI no es trabajo activo: si no hay cambio de estado remoto, se continúa con tareas
+locales independientes y se revisa el resultado de GitHub Actions de manera asíncrona.
 
 ## 8. Runtimes estables
 
