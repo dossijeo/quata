@@ -2,6 +2,7 @@ import XCTest
 
 /// Opt-in, production-host gate for `CHAT-TRANSLATION` / `FLOW-TRANSLATOR`.
 /// The runner seeds the normal Keychain session and supplies disposable backend fixture IDs.
+@available(iOS 16.4, *)
 final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
     func testRealChatMessageTranslatesAndReturnsToTheConversation() throws {
         let environment = ProcessInfo.processInfo.environment
