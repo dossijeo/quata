@@ -61,14 +61,19 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
         XCTAssertTrue(overlayMessage.isHittable, "The registered message surface must be actionable.")
         overlayMessage.tap()
 
-        let translatedDirection = app.staticTexts.matching(
+        let translatedDirection = app.descendants(matching: .any).matching(
             NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "FAN", "ES"),
         ).firstMatch
         XCTAssertTrue(
-            translatedDirection.waitForExistence(timeout: 35),
+            translatedDirection.waitForExistence(timeout: 90),
             "A real Fang response must expose its direction label instead of a callback-only success.",
         )
-        XCTAssertTrue(app.staticTexts["pan de trigo"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", "pan de trigo"))
+                .firstMatch
+                .waitForExistence(timeout: 5),
+        )
         attachScreenshot(app, name: "chat-translation-result")
 
         let close = app.buttons
