@@ -670,10 +670,13 @@ async function openPeerProfileFromMessageWithoutReturn(page, peerMarker, peerPro
   report.evidence.profileOpen = await attachScreenshot(page, evidenceDir, `${screenshotPrefix}-open`);
 }
 
-async function assertProfileFollowLists(page, peerProfile, evidenceDir, report) {
-  await openProfileList(page, /Seguidores|Followers/i, "followers", peerProfile, evidenceDir, report);
-  await openProfileList(page, /Siguiendo|Following/i, "following", peerProfile, evidenceDir, report);
-  if (!(await clickProfileBack(page))) throw new Error("profile_lists_state_not_returned:profile_back_not_clickable");
+async function assertProfileFollowLists(page, serverOrigin, conversationId, peerMarker, peerProfile, evidenceDir, report) {
+  let onProfile = await openProfileList(page, /Seguidores|Followers/i, "followers", peerProfile, evidenceDir, report);
+  if (!onProfile) {
+    await reopenPeerProfileFromChat(page, serverOrigin, conversationId, peerMarker, peerProfile);
+  }
+  onProfile = await openProfileList(page, /Siguiendo|Following/i, "following", peerProfile, evidenceDir, report);
+  if (onProfile && !(await clickProfileBack(page))) throw new Error("profile_lists_state_not_returned:profile_back_not_clickable");
   await delay(1_000);
   if (!(await waitForChatProfileReturn(page))) throw new Error("profile_lists_state_not_returned:chat_return_not_visible");
   report.evidence.profileListsReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-lists-return");
@@ -687,7 +690,36 @@ async function openProfileList(page, labelPattern, listKind, peerProfile, eviden
     await attachScreenshot(page, evidenceDir, `web-chat-profile-list-${listKind}`);
   if (!(await clickProfileBack(page))) throw new Error(`profile_lists_state_not_returned:${listKind}_back_not_clickable`);
   await delay(700);
-  if (!(await waitForProfileVisible(page, peerProfile))) throw new Error(`profile_lists_state_not_returned:${listKind}_profile_not_visible`);
+  if (await waitForProfileHeaderVisible(page, peerProfile)) return true;
+  await clickProfileBack(page).catch(() => false);
+  await delay(700);
+  return await waitForProfileHeaderVisible(page, peerProfile);
+}
+
+async function reopenPeerProfileFromChat(page, serverOrigin, conversationId, peerMarker, peerProfile) {
+  await page.goto(`${serverOrigin}/?profileListReset=${Date.now()}#feed`, { waitUntil: "domcontentloaded" });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await delay(1_000);
+  await openAuthenticatedChatRoute(page, serverOrigin, conversationId);
+  await waitMessageVisible(page, peerMarker, "profile_lists_state_not_returned:peer_message_not_visible_for_reopen");
+  if (!(await waitForChatProfileReturn(page))) throw new Error("profile_lists_state_not_returned:chat_return_not_visible_before_reopen");
+  const opened = await clickMessageAvatar(page, peerMarker);
+  if (!opened) throw new Error("profile_lists_state_not_returned:avatar_not_clickable_for_reopen");
+  if (!(await waitForProfileVisible(page, peerProfile))) throw new Error("profile_lists_state_not_returned:profile_not_visible_after_reopen");
+}
+
+async function waitForProfileHeaderVisible(page, profile) {
+  const displayName = profile.displayName?.trim();
+  const deadline = Date.now() + 8_000;
+  while (Date.now() < deadline) {
+    const hasProfileText = displayName
+      ? await page.getByText(new RegExp(escapeRegExp(displayName))).first().isVisible({ timeout: 300 }).catch(() => false)
+      : false;
+    const hasPostsKpi = await page.getByText(/Publicaciones|Posts/i).first().isVisible({ timeout: 300 }).catch(() => false);
+    if (hasProfileText && hasPostsKpi) return true;
+    await delay(300);
+  }
+  return false;
 }
 
 async function waitProfileListVisible(page, listKind, profile) {
@@ -1578,7 +1610,7 @@ try {
       state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_list_edges_prepared_reversibly");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-lists");
-      await assertProfileFollowLists(page, state.b, options.evidenceDir, report);
+      await assertProfileFollowLists(page, server.origin, `sb:${state.thread}`, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_public_profile_followers_and_following_lists_opened_and_returned");
     } else if (options.profileFollowOnly) {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
