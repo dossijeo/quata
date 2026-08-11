@@ -40,6 +40,7 @@ fun ChatConversationTitleBarContent(
 ) {
     val template = quataTheme()
     val verticalPadding = if (compact) 6.dp else 10.dp
+    val headerSurfaceColor = chatHeaderSurfaceColor()
     @Composable
     fun TitleBar(titleBarModifier: Modifier) {
         Row(
@@ -66,7 +67,7 @@ fun ChatConversationTitleBarContent(
     }
     if (showSurface) {
         Surface(
-            color = template.colors.surface.copy(alpha = 0.92f),
+            color = headerSurfaceColor,
             modifier = modifier.fillMaxWidth().semantics { testTag = ChatConversationTitleBarTestTag },
         ) {
             TitleBar(Modifier)
@@ -75,5 +76,8 @@ fun ChatConversationTitleBarContent(
         TitleBar(modifier.semantics { testTag = ChatConversationTitleBarTestTag })
     }
 }
+
+@Composable
+internal fun chatHeaderSurfaceColor() = quataTheme().colors.surface
 
 const val ChatConversationTitleBarTestTag = "chat.conversation.titlebar"

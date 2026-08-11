@@ -12,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.quata.core.designsystem.theme.quataTheme
 
 /**
  * Structural action bar shown while a message is selected.
@@ -27,9 +26,8 @@ fun ChatSelectedMessageActionBarContent(
     actions: @Composable RowScope.() -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val template = quataTheme()
     Surface(
-        color = template.colors.surface.copy(alpha = 0.92f),
+        color = chatHeaderSurfaceColor(),
         modifier = modifier.fillMaxWidth(),
     ) {
         Row(

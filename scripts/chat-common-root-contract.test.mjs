@@ -32,6 +32,9 @@ const [
   conversationDetail,
   deepLinkFocus,
   selectedActions,
+  selectedActionBar,
+  titleBar,
+  favoriteHeader,
   groupManagement,
   viewModel,
 ] = await Promise.all([
@@ -46,6 +49,9 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConversationDetailContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatMessageDeepLinkFocus.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatComposerAndActionsContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatSelectedMessageActionBarContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConversationTitleBarContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/FavoriteMessagesHeaderContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatGroupManagementContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt"),
 ]);
@@ -134,6 +140,17 @@ test("common chat action chrome owns mute and tombstone action guards", () => {
   assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ !it\.isLocalEcho && !it\.isDeleted \}/);
   assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ it\.isMine && !it\.isDeleted && !it\.isLocalEcho \}/);
   assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ !it\.isMine && !it\.isDeleted && !it\.isLocalEcho \}/);
+});
+
+test("common chat headers and selected-message menu use one opaque surface color", () => {
+  assert.match(titleBar, /internal fun chatHeaderSurfaceColor\(\) = quataTheme\(\)\.colors\.surface/);
+  assert.match(titleBar, /val headerSurfaceColor = chatHeaderSurfaceColor\(\)/);
+  assert.match(titleBar, /color = headerSurfaceColor/);
+  for (const sourceText of [selectedActionBar, favoriteHeader]) {
+    assert.match(sourceText, /color = chatHeaderSurfaceColor\(\)/);
+    assert.doesNotMatch(sourceText, /colors\.surface\.copy\(alpha\s*=/);
+  }
+  assert.doesNotMatch(titleBar, /colors\.surface\.copy\(alpha\s*=/);
 });
 
 test("common chat composer exposes stable cross-platform evidence anchors", () => {
