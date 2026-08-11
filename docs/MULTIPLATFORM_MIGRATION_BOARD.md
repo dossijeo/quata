@@ -6,16 +6,23 @@
 
 ## Foto de control — 2026-08-11
 
-**HEAD integrado:** `main` `702aad06d5dd8d7091a18326142fbdaeab157ec6` (PR #226), posterior a #154,
+**HEAD integrado:** `main` `53075226f7c00edea72b52516f6a2c4f6d3ce85d` (PR #231), posterior a #154,
 #156, #159, #168, #169, #170, #172, #173, #174, #175, #190, #191, #192, #193, #204, #206, #208,
-#210, #211, #212, #214, #215, #216, #217, #219, #222, #224, #225 y #226. El proyecto sigue
+#210, #211, #212, #214, #215, #216, #217, #219, #222, #224, #225, #226 y #231. El proyecto sigue
 incompleto: #226 reduce límites de `SCR-CHAT` sin declarar GO global. Candidato `31f20f31`
 cierra `CHAT-FORWARD` con evidencia local Android, Web/Wasm e iOS sobre el mismo SHA, sin declarar
-GO global de Chat. Android, Web/Wasm e iOS
+GO global de Chat. #231 cierra `CHAT-TRANSLATION` en `main`. Candidato `824b267f`
+cierra `CHAT-PROFILE` con evidencia local Android, Web/Wasm e iOS sobre el mismo SHA. Android, Web/Wasm e iOS
 acreditan envío, respuesta, edición, selección/copiar, favorito, reportar, borrar y mute/unmute en
 una conversación reversible con limpieza física de residuo cero; la barra de acciones seleccionadas
 usa superficie común coherente con el encabezado. Persisten `CHAT-ATTACHMENTS`, `CHAT-AUDIO`,
-`CHAT-GROUP`, `CHAT-LOCATION-SOS`, `FLOW-TRANSLATOR` fuera de Chat y `CHAT-PROFILE`.
+`CHAT-GROUP`, `CHAT-LOCATION-SOS` y `FLOW-TRANSLATOR` fuera de Chat.
+
+**Candidato actual:** `824b267f985cabcec119e77fccf7ab93771a90fa` cierra `CHAT-PROFILE` con
+evidencias finales Android (`build-reports/android/chat-actions-notifications-evidence.json`),
+Web/Wasm (`build-reports/web/chat-profile-evidence.json`) e iOS
+(`build-reports/ios/chat-profile-evidence.json`), todas con apertura de perfil publico desde Chat,
+retorno al mismo hilo y limpieza fisica de residuo cero.
 
 #217 queda integrado en `main` `a52fb67fe508d9d8f70bb9fa727832c560eac551` y cierra
 `SCR-OFFICIAL-EDITOR` tras invalidar y corregir el falso positivo Web anterior: Android, Web/Wasm e
