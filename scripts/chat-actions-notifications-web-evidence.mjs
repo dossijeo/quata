@@ -30,6 +30,7 @@ function parseArgs(argv) {
     evidenceDir: resolve("build-reports/web/chat-actions-notifications-evidence"),
     translationOnly: false,
     profileOnly: false,
+    profileFollowOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -39,6 +40,10 @@ function parseArgs(argv) {
     }
     if (key === "--profile-only") {
       result.profileOnly = true;
+      continue;
+    }
+    if (key === "--profile-follow-only") {
+      result.profileFollowOnly = true;
       continue;
     }
     const value = argv[++index];
@@ -640,7 +645,7 @@ async function waitMessageVisible(page, marker, error, timeout = 45_000) {
   throw new Error(error);
 }
 
-async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenceDir, report) {
+async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenceDir, report, afterOpen = null) {
   await waitMessageVisible(page, peerMarker, "message_not_visible:peer_profile_source");
   report.evidence.profileThreadInitial = await attachScreenshot(page, evidenceDir, "web-chat-profile-thread-initial");
   const opened = await clickMessageAvatar(page, peerMarker);
@@ -649,10 +654,18 @@ async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenc
   if (!visible) throw new Error("profile_state_not_opened:profile_not_visible");
   await assertProfileHeaderVisible(page, peerProfile);
   report.evidence.profileOpen = await attachScreenshot(page, evidenceDir, "web-chat-profile-open");
+  if (afterOpen) await afterOpen();
   if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
   await delay(1_000);
   if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
   report.evidence.profileReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-return");
+}
+
+async function toggleFollowFromOpenProfile(page, peerProfile, evidenceDir, report) {
+  report.evidence.profileFollowBefore = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-before");
+  await clickLabel(page, [/Seguir|Follow/i], "profile_follow_action_not_clickable");
+  await pollProfileFollowEdge(peerProfile.actorProfileId, peerProfile.profileId, true);
+  report.evidence.profileFollowAfter = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-after");
 }
 
 async function waitForChatProfileReturn(page) {
@@ -1048,6 +1061,100 @@ async function hardDeleteTemporaryThread(thread, uniqueKey) {
   }
 }
 
+async function withPoolerClient(callback) {
+  const dbUrlPath = process.env.SUPABASE_DB_URL_FILE?.trim() || defaultDbUrlFile;
+  const tlsCaPath = process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || defaultDbTlsCaFile;
+  const [connectionString, ca] = await Promise.all([readFile(dbUrlPath, "utf8"), readFile(tlsCaPath, "utf8")]);
+  const parsedConnection = new URL(connectionString.trim());
+  parsedConnection.searchParams.delete("sslmode");
+  const client = new pg.Client({
+    connectionString: parsedConnection.toString(),
+    ssl: { ca, rejectUnauthorized: true, servername: parsedConnection.hostname },
+  });
+  await client.connect();
+  try {
+    return await callback(client);
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+async function profileFollowExists(actorProfileId, targetProfileId) {
+  return await withPoolerClient(async (client) => {
+    const result = await client.query(
+      `select exists (
+         select 1 from public.community_profile_follows
+         where follower_profile_id = $1 and followed_profile_id = $2
+       ) as exists`,
+      [actorProfileId, targetProfileId],
+    );
+    return result.rows[0]?.exists === true;
+  });
+}
+
+async function prepareProfileFollowAbsent(actorProfileId, targetProfileId) {
+  return await withPoolerClient(async (client) => {
+    await client.query("begin");
+    try {
+      const existing = await client.query(
+        `select id from public.community_profile_follows
+         where follower_profile_id = $1 and followed_profile_id = $2
+         for update`,
+        [actorProfileId, targetProfileId],
+      );
+      if (existing.rowCount > 0) {
+        await client.query(
+          `delete from public.community_profile_follows
+           where follower_profile_id = $1 and followed_profile_id = $2`,
+          [actorProfileId, targetProfileId],
+        );
+      }
+      await client.query("commit");
+      return { initiallyFollowing: existing.rowCount > 0 };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+async function restoreProfileFollowEdge(actorProfileId, targetProfileId, initiallyFollowing) {
+  await withPoolerClient(async (client) => {
+    await client.query("begin");
+    try {
+      if (initiallyFollowing) {
+        await client.query(
+          `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+           values ($1, $2)
+           on conflict do nothing`,
+          [actorProfileId, targetProfileId],
+        );
+      } else {
+        await client.query(
+          `delete from public.community_profile_follows
+           where follower_profile_id = $1 and followed_profile_id = $2`,
+          [actorProfileId, targetProfileId],
+        );
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  const restored = await profileFollowExists(actorProfileId, targetProfileId);
+  if (restored !== initiallyFollowing) throw new Error("cleanup_residue_detected:profile_follow_edge");
+}
+
+async function pollProfileFollowEdge(actorProfileId, targetProfileId, expected, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await profileFollowExists(actorProfileId, targetProfileId) === expected) return;
+    await delay(750);
+  }
+  throw new Error(`profile_follow_backend_poll_timeout:${expected ? "created" : "removed"}`);
+}
+
 async function createTemporaryForwardProfile(runId) {
   const id = randomUUID();
   const phoneLocal = `999${Date.now().toString().slice(-6)}`;
@@ -1268,7 +1375,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
-  if (!options.translationOnly && !options.profileOnly) {
+  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1345,9 +1452,18 @@ try {
   }
 
   if (state.peerMessage && state.b.accessToken) {
-    await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
+    if (options.profileFollowOnly) {
+      state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
+      report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
+    }
+    await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report, options.profileFollowOnly
+      ? async () => {
+        await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
+        report.steps.push("profile_follow_toggled_and_verified_by_db");
+      }
+      : null);
     report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
-    if (options.profileOnly) {
+    if (options.profileOnly || options.profileFollowOnly) {
       if (faults.length) throw new Error("browser_runtime_fault");
       report.status = "passed";
       report.fixture = {
@@ -1359,10 +1475,11 @@ try {
         uniqueKeySha256: sha256(state.uniqueKey),
         ownMarkerSha256: sha256(ownMarker),
         peerMarkerSha256: sha256(peerMarker),
+        profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
       };
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
@@ -1520,6 +1637,15 @@ try {
   if (state.thread && config) {
     try { cleanup.actions.push(...await logicalCleanup(config, state)); }
     catch (error) { cleanupFailed = true; cleanup.error = safeFailure(error); }
+    if (state.profileFollow && state.a && state.b) {
+      try {
+        await restoreProfileFollowEdge(state.a.profileId, state.b.profileId, state.profileFollow.initiallyFollowing);
+        cleanup.actions.push("profile_follow_edge_restored_to_initial_state");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
     if (state.uniqueKey) {
       try {
         const hardCleanup = await hardDeleteTemporaryThread(state.thread, state.uniqueKey);
