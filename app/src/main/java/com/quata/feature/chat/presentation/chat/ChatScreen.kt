@@ -48,6 +48,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Forward
@@ -711,13 +713,15 @@ fun ChatScreen(
                     if (!isFavoritesConversation) state.editingMessage?.let {
                         ComposerModeBanner(
                             text = stringResource(R.string.conversation_editing_message),
-                            onClear = { viewModel.onEvent(ChatUiEvent.CancelEdit) }
+                            onClear = { viewModel.onEvent(ChatUiEvent.CancelEdit) },
+                            modifier = Modifier.semantics { testTag = ChatComposerEditingBannerTestTag },
                         )
                     }
                     if (!isFavoritesConversation) state.replyToMessage?.let { reply ->
                         ComposerModeBanner(
                             text = stringResource(R.string.conversation_replying_to, reply.senderName),
-                            onClear = { viewModel.onEvent(ChatUiEvent.ClearReply) }
+                            onClear = { viewModel.onEvent(ChatUiEvent.ClearReply) },
+                            modifier = Modifier.semantics { testTag = ChatComposerReplyBannerTestTag },
                         )
                     }
                     if (!isFavoritesConversation && isEmojiPickerVisible && !isLandscapeLayout) {
@@ -780,6 +784,7 @@ fun ChatScreen(
                                 },
                                 placeholder = { Text(stringResource(R.string.conversation_message)) },
                                 modifier = inputModifier
+                                    .semantics { testTag = ChatComposerInputTestTag }
                                     .onFocusChanged { focusState ->
                                         if (focusState.isFocused) {
                                             attachmentMenuExpanded = false
@@ -850,6 +855,9 @@ fun ChatScreen(
                                             attachmentMenuExpanded = false
                                             launchAudioRecorder()
                                         }
+                                },
+                                modifier = Modifier.semantics {
+                                    testTag = if (canSend) ChatComposerSendTestTag else "chat.composer.record"
                                 },
                                 icon = {
                                 CompactIcon(
@@ -1111,9 +1119,10 @@ private fun rememberProceduralChatBackground(
 @Composable
 private fun ComposerModeBanner(
     text: String,
-    onClear: () -> Unit
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    ChatComposerModeBannerContent(text = text, onClear = onClear)
+    ChatComposerModeBannerContent(text = text, onClear = onClear, modifier = modifier)
 }
 
 @Composable
@@ -1248,33 +1257,54 @@ private fun ChatHeader(
                         }
                     },
                     actions = {
-                    CompactIconButton(onClick = onCopySelected) {
+                    CompactIconButton(
+                        onClick = onCopySelected,
+                        testTag = "chat.action.copy",
+                    ) {
                         CompactIcon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.conversation_copy_message))
                     }
-                    CompactIconButton(onClick = onReplySelected) {
+                    CompactIconButton(
+                        onClick = onReplySelected,
+                        testTag = "chat.action.reply",
+                    ) {
                         CompactIcon(Icons.AutoMirrored.Filled.Reply, contentDescription = stringResource(R.string.conversation_reply_message), tint = template.colors.textPrimary)
                     }
-                    CompactIconButton(onClick = onForwardSelected) {
+                    CompactIconButton(
+                        onClick = onForwardSelected,
+                        testTag = "chat.action.forward",
+                    ) {
                         CompactIcon(Icons.AutoMirrored.Filled.Forward, contentDescription = stringResource(R.string.conversation_forward_message), tint = template.colors.textPrimary)
                     }
                     if (selectedMessage.isMine && !selectedMessage.isDeleted) {
-                        CompactIconButton(onClick = onEditSelected) {
+                        CompactIconButton(
+                            onClick = onEditSelected,
+                            testTag = "chat.action.edit",
+                        ) {
                             CompactIcon(Icons.Filled.Edit, contentDescription = stringResource(R.string.conversation_edit_message))
                         }
                     }
                     if (!selectedMessage.isMine && !selectedMessage.isDeleted) {
-                        CompactIconButton(onClick = onReportSelected) {
+                        CompactIconButton(
+                            onClick = onReportSelected,
+                            testTag = "chat.action.report",
+                        ) {
                             CompactIcon(Icons.Filled.Flag, contentDescription = stringResource(R.string.moderation_report))
                         }
                     }
-                    CompactIconButton(onClick = onToggleFavoriteSelected) {
+                    CompactIconButton(
+                        onClick = onToggleFavoriteSelected,
+                        testTag = "chat.action.favorite",
+                    ) {
                         CompactIcon(
                             if (selectedMessage.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
                             contentDescription = stringResource(R.string.conversation_favorite_message)
                         )
                     }
                     if (selectedMessage.isMine && !selectedMessage.isDeleted) {
-                        CompactIconButton(onClick = onDeleteSelected) {
+                        CompactIconButton(
+                            onClick = onDeleteSelected,
+                            testTag = "chat.action.delete",
+                        ) {
                             CompactIcon(Icons.Filled.Delete, contentDescription = stringResource(R.string.conversation_delete_message))
                         }
                     }

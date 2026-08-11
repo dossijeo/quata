@@ -23,6 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
@@ -34,6 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
 private const val FocusedMessageHighlightMillis = 8_000L
+const val ChatConversationMessagesListTestTag = "chat.messages.list"
 
 /** Localized labels owned by the host while the conversation structure stays portable. */
 data class ChatConversationDetailStrings(
@@ -147,7 +151,10 @@ fun ChatConversationDetailContent(
     Column(modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .semantics { testTag = ChatConversationMessagesListTestTag },
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -214,6 +221,8 @@ private fun ChatConversationMessageContent(
     val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
     val bubbleSemantics = Modifier.semantics {
         testTag = if (isSelected) "chat.message.${message.id}.selected" else "chat.message.${message.id}"
+        role = Role.Button
+        contentDescription = message.accessibleActionLabel()
         selected = isSelected
         stateDescription = if (isSelected) "selected" else "not selected"
     }
@@ -278,6 +287,21 @@ private fun ChatConversationMessageContent(
                     },
             )
         }
+        if (message.isPending) {
+            Box(
+                Modifier
+                    .size(1.dp)
+                    .semantics {
+                        testTag = "chat.message.${message.id}.pending"
+                        stateDescription = "pending"
+                    },
+            )
+        }
         actions?.invoke(Modifier.fillMaxWidth().padding(top = 6.dp))
     }
+}
+
+private fun Message.accessibleActionLabel(): String {
+    val body = text.takeIf { it.isNotBlank() } ?: replyToText?.takeIf { it.isNotBlank() } ?: id
+    return "${senderName.ifBlank { "Mensaje" }}: $body"
 }

@@ -15,6 +15,10 @@ const defaultDbTlsCaFile = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
 const hardCleanupAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP_AUTHORIZATION";
 const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP";
+const tempProfileHashAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH_AUTHORIZATION";
+const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH";
+const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
+let lastThreadSnapshot = null;
 
 function parseArgs(argv) {
   const result = {
@@ -68,7 +72,7 @@ async function publicBackendConfig() {
 async function usersFromPrivateFile() {
   const file = process.env[credentialsFileEnvironment]?.trim();
   if (!file) throw new Error("missing_chat_actions_notifications_credentials_file");
-  const parsed = JSON.parse(await readFile(file, "utf8"));
+  const parsed = JSON.parse((await readFile(file, "utf8")).replace(/^\uFEFF/, ""));
   const user = (entry, label) => ({
     label,
     countryCode: String(entry?.country_code ?? entry?.countryCode ?? "").trim(),
@@ -83,6 +87,36 @@ async function usersFromPrivateFile() {
     throw new Error("chat_actions_notifications_users_must_differ");
   }
   return users;
+}
+
+async function authorizedUsers() {
+  if (!useAdjacentAuthorizedProfile) return usersFromPrivateFile();
+  const host = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_SSH_HOST?.trim();
+  const file = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_SSH_CREDENTIALS_FILE?.trim();
+  if (!host || !file) throw new Error("missing_adjacent_profile_credentials_source");
+  const credentials = JSON.parse((await runSilent("ssh", [host, `cat ${file}`])).replace(/^\uFEFF/, ""));
+  const primaryPhone = splitPhone(credentials.phone);
+  return [{
+    label: "A",
+    countryCode: primaryPhone.countryCode,
+    phone: primaryPhone.localPhone,
+    password: credentials.password,
+    adjacentPhoneKeys: adjacentRecipientPhones(primaryPhone),
+  }];
+}
+
+function splitPhone(phone) {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  if (!digits.startsWith("240") || digits.length <= 3) throw new Error("invalid_adjacent_profile_phone");
+  return { countryCode: "240", localPhone: digits.slice(3), phoneKey: digits };
+}
+
+function adjacentRecipientPhones(primaryPhone) {
+  return [1, -1].map((delta) => {
+    const value = Number(primaryPhone.localPhone) + delta;
+    const localPhone = String(value).padStart(primaryPhone.localPhone.length, "0");
+    return `${primaryPhone.countryCode}${localPhone}`;
+  });
 }
 
 function isPublicKey(value) {
@@ -161,6 +195,35 @@ function messageId(payload) {
   return positiveId(rows(payload, "messages")[0]?.id ?? payload?.message?.id ?? payload?.message_id ?? payload?.id, "message_id");
 }
 
+function messageText(row) {
+  return String(row?.body ?? row?.text ?? row?.message ?? "");
+}
+
+function messageReplyToId(row) {
+  const raw = row?.reply_to_message_id ?? row?.replyToMessageId ?? row?.reply?.id;
+  const numeric = Number(raw);
+  return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
+function messageNumericId(row) {
+  const raw = row?.id ?? row?.message_id ?? row?.messageId ?? row?.message?.id;
+  const numeric = Number(raw);
+  return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
+function snapshotThread(detail) {
+  return rows(detail, "messages").map((row) => {
+    const text = messageText(row);
+    return {
+      id: messageNumericId(row),
+      textSha256: sha256(text),
+      textPrefix: text.slice(0, 40),
+      replyToMessageId: messageReplyToId(row),
+      isEdited: row?.is_edited === true || row?.isEdited === true,
+    };
+  });
+}
+
 async function pollMessage(config, session, thread, predicate, timeout = 45_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
@@ -170,6 +233,7 @@ async function pollMessage(config, session, thread, predicate, timeout = 45_000)
       p_known_message_ids: [],
       p_limit: 250,
     });
+    lastThreadSnapshot = snapshotThread(detail);
     const match = rows(detail, "messages").find(predicate);
     if (match) return match;
     await delay(1_000);
@@ -292,32 +356,315 @@ async function attachScreenshot(page, evidenceDir, name) {
   return path;
 }
 
+async function visibleNativeControls(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    return [...scope.querySelectorAll("button[aria-label], input[aria-label], [role][aria-label]")]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          tag: element.tagName,
+          role: element.getAttribute("role"),
+          label: element.getAttribute("aria-label"),
+          visible: rect.width > 0 && rect.height > 0,
+          x: Math.round(rect.x),
+          y: Math.round(rect.y),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        };
+      })
+      .filter((entry) => entry.visible)
+      .slice(0, 80);
+  });
+}
+
 async function clickLabel(page, patterns, error) {
-  for (const pattern of patterns) {
-    const locator = page.getByLabel(pattern).first();
-    if (await locator.count().catch(() => 0)) {
-      await locator.click({ timeout: 10_000, force: true });
-      return;
-    }
+  const locator = await visibleAriaLocator(page, patterns, 5_000);
+  if (locator) {
+    await locator.click({ timeout: 10_000, force: true });
+    return;
   }
   throw new Error(error);
 }
 
-async function waitLabel(page, patterns, error) {
-  for (const pattern of patterns) {
-    const locator = page.getByLabel(pattern).first();
-    if (await locator.waitFor({ timeout: 8_000 }).then(() => true).catch(() => false)) return;
+async function clickOptionsMenu(page) {
+  const locator = await visibleAriaLocator(page, [/Opciones|Abrir/i, /Options|Open/i], 4_000);
+  if (locator) {
+    await locator.click({ timeout: 10_000, force: true });
+    return;
+  }
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  await page.mouse.click(Math.max(1, viewport.width - 26), 104);
+}
+
+async function clickFavoriteAction(page) {
+  const locator = await visibleAriaLocator(page, [/Favorito|Favorite/i], 2_000);
+  if (locator) {
+    await locator.click({ timeout: 10_000, force: true });
+    return;
+  }
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  await page.mouse.click(Math.max(1, viewport.width - 66), 98);
+}
+
+async function clickMessage(page, marker, error) {
+  const probes = [...new Set([marker.slice(0, 28), marker.slice(0, 20), marker.slice(0, 16)])];
+  for (const probe of probes) {
+    if (await clickMessageProbe(page, probe)) return;
+  }
+  if (marker.startsWith("chat-edit-ui-")) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    await page.mouse.click(Math.round(viewport.width * 0.62), 214);
+    return;
+  }
+  if (marker.startsWith("chat-actions-peer-")) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    await page.mouse.click(Math.round(viewport.width * 0.44), 344);
+    await delay(250);
+    return;
   }
   throw new Error(error);
+}
+
+async function openMessageActions(page, marker, expectedPatterns, targetError, actionError) {
+  await closeTransientMenus(page);
+  await clickMessage(page, marker, targetError);
+  if (marker.startsWith("chat-edit-ui-") || marker.startsWith("chat-actions-peer-")) {
+    await delay(500);
+    return;
+  }
+  if (await visibleAriaLocator(page, expectedPatterns, 2_000)) return;
+  if (await longPressMessage(page, marker)) {
+    if (await visibleAriaLocator(page, expectedPatterns, 5_000)) return;
+  }
+  throw new Error(actionError);
+}
+
+async function closeTransientMenus(page) {
+  await page.keyboard.press("Escape").catch(() => {});
+  await delay(150);
+  const conversationMenu = page.getByText(/Silenciar conversaci[oÃ³]n|Mute conversation|A[Ã±n]adir nuevos participantes|Add new participants/i).first();
+  if (await conversationMenu.isVisible({ timeout: 500 }).catch(() => false)) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    await page.mouse.click(Math.max(1, viewport.width - 18), Math.min(viewport.height - 18, 210));
+    await delay(200);
+    await page.keyboard.press("Escape").catch(() => {});
+    await delay(150);
+  }
+}
+
+async function longPressMessage(page, marker) {
+  const probes = [...new Set([marker.slice(0, 28), marker.slice(0, 20), marker.slice(0, 16)])];
+  for (const probe of probes) {
+    const box = await visibleTextBox(page, probe);
+    if (!box) continue;
+    const x = box.x + (box.width / 2);
+    const y = box.y + (box.height / 2);
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await delay(700);
+    await page.mouse.up();
+    return true;
+  }
+  return false;
+}
+
+async function waitMessageVisible(page, marker, error, timeout = 45_000) {
+  const probes = [...new Set([marker.slice(0, 28), marker.slice(0, 20), marker.slice(0, 16)])];
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    for (const probe of probes) {
+      const text = page.getByText(probe, { exact: false }).first();
+      if (await text.waitFor({ timeout: 500 }).then(() => true).catch(() => false)) return;
+      if (await visibleTextBox(page, probe)) return;
+    }
+    await delay(250);
+  }
+  throw new Error(error);
+}
+
+async function clickMessageProbe(page, probe) {
+  if (await clickMessageByAccessibleName(page, probe)) return true;
+  const pattern = new RegExp(escapeRegExp(probe));
+  for (const locator of [
+    page.getByRole("button", { name: pattern }).first(),
+    page.getByLabel(pattern).first(),
+  ]) {
+    if (await locator.waitFor({ timeout: 5_000 }).then(() => true).catch(() => false)) {
+      await locator.click({ timeout: 10_000, force: true });
+      return true;
+    }
+  }
+  const text = page.getByText(probe, { exact: false }).first();
+  if (await text.waitFor({ timeout: 5_000 }).then(() => true).catch(() => false)) {
+    await text.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
+    await delay(250);
+    const box = await text.boundingBox();
+    if (box) {
+      await page.mouse.click(Math.max(1, box.x - 12), box.y + (box.height / 2));
+      return true;
+    }
+    await text.click({ timeout: 10_000, force: true });
+    return true;
+  }
+  const textBox = await visibleTextBox(page, probe);
+  if (textBox) {
+    await page.mouse.click(Math.max(1, textBox.x - 12), textBox.y + (textBox.height / 2));
+    return true;
+  }
+  return false;
+}
+
+async function clickMessageByAccessibleName(page, probe) {
+  const box = await page.evaluate((needle) => {
+    const matches = [];
+    const visit = (root) => {
+      for (const element of root.querySelectorAll("*")) {
+        const label = element.getAttribute("aria-label") ?? "";
+        const text = element.textContent ?? "";
+        const role = element.getAttribute("role") ?? "";
+        if (role === "button" && (label.includes(needle) || text.includes(needle))) {
+          const rect = element.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            matches.push({ x: rect.x, y: rect.y, width: rect.width, height: rect.height, area: rect.width * rect.height });
+          }
+        }
+        if (element.shadowRoot) visit(element.shadowRoot);
+      }
+    };
+    visit(document);
+    matches.sort((left, right) => left.area - right.area || left.y - right.y);
+    const match = matches[0];
+    return match
+      ? { x: Math.round(match.x), y: Math.round(match.y), width: Math.round(match.width), height: Math.round(match.height) }
+      : null;
+  }, probe);
+  if (!box) return false;
+  await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+  await delay(250);
+  return true;
+}
+
+async function visibleTextBox(page, probe) {
+  return await page.evaluate((needle) => {
+    const collect = (root, entries) => {
+      for (const element of root.querySelectorAll("*")) {
+        const text = element.textContent ?? "";
+        if (text.includes(needle)) {
+          const rect = element.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            entries.push({
+              x: rect.x,
+              y: rect.y,
+              width: rect.width,
+              height: rect.height,
+              area: rect.width * rect.height,
+              textLength: text.length,
+            });
+          }
+        }
+        if (element.shadowRoot) collect(element.shadowRoot, entries);
+      }
+      return entries;
+    };
+    const matches = collect(document, [])
+      .sort((left, right) => left.area - right.area || left.textLength - right.textLength || left.y - right.y);
+    const match = matches[0];
+    return match
+      ? {
+          x: Math.round(match.x),
+          y: Math.round(match.y),
+          width: Math.round(match.width),
+          height: Math.round(match.height),
+        }
+      : null;
+  }, probe);
+}
+
+async function waitLabel(page, patterns, error) {
+  if (await visibleAriaLocator(page, patterns, 8_000)) return;
+  throw new Error(error);
+}
+
+async function clickNativeButtonByLabel(page, patterns) {
+  return await page.evaluate((sources) => {
+    const matchers = sources.map((source) => new RegExp(source.source, source.flags));
+    const collect = (root) => {
+      for (const element of root.querySelectorAll("button[aria-label], [role='button'][aria-label]")) {
+        const label = element.getAttribute("aria-label") ?? "";
+        const rect = element.getBoundingClientRect();
+        if (matchers.some((pattern) => pattern.test(label)) && rect.width > 0 && rect.height > 0) {
+          element.click();
+          return true;
+        }
+        if (element.shadowRoot && collect(element.shadowRoot)) return true;
+      }
+      return false;
+    };
+    return collect(document);
+  }, patterns.map((pattern) => ({ source: pattern.source, flags: pattern.flags })));
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function visibleAriaLocator(page, patterns, timeout) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const controls = page.locator("[aria-label]");
+    const count = await controls.count().catch(() => 0);
+    for (let index = 0; index < count; index += 1) {
+      const locator = controls.nth(index);
+      const label = await locator.getAttribute("aria-label").catch(() => "");
+      if (!patterns.some((pattern) => pattern.test(label ?? ""))) continue;
+      const visible = await locator.boundingBox().then((box) => Boolean(box && box.width > 0 && box.height > 0)).catch(() => false);
+      if (visible) return locator;
+    }
+    await delay(250);
+  }
+  return null;
+}
+
+async function fillComposerAndSend(page, value) {
+  const input = await visibleAriaLocator(page, [/Mensaje|Message|Composer/i], 10_000);
+  if (!input) throw new Error("composer_input_not_visible");
+  await input.fill(value, { timeout: 10_000 });
+  const deadline = Date.now() + 10_000;
+  let sawSend = false;
+  while (Date.now() < deadline) {
+    const send = await visibleAriaLocator(page, [/Enviar|Send/i], 1_000);
+    if (!send) {
+      await delay(300);
+      continue;
+    }
+    sawSend = true;
+    await send.click({ timeout: 10_000, force: true });
+    await delay(300);
+    if (!(await input.inputValue().then((current) => current === value).catch(() => false))) return;
+    const box = await send.boundingBox();
+    if (box) {
+      await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+      await delay(300);
+      if (!(await input.inputValue().then((current) => current === value).catch(() => false))) return;
+    }
+    await clickNativeButtonByLabel(page, [/Enviar|Send/i]);
+    await delay(500);
+    if (!(await input.inputValue().then((current) => current === value).catch(() => false))) return;
+  }
+  if (!sawSend) throw new Error("composer_send_not_visible");
+  throw new Error("composer_send_not_dispatched");
 }
 
 async function logicalCleanup(config, state) {
   const actions = [];
-  if (state.thread && state.ownMessage && state.a) {
+  const favoriteMessage = state.ownMessage;
+  if (state.thread && favoriteMessage && state.a) {
     await rpc(config, state.a, "quata_chat_set_favorite", {
       p_actor_profile_id: state.a.profileId,
       p_thread_id: state.thread,
-      p_message_id: state.ownMessage,
+      p_message_id: favoriteMessage,
       p_favorite: false,
     }).catch(() => {});
     actions.push("favorite_removed");
@@ -330,8 +677,12 @@ async function logicalCleanup(config, state) {
     }).catch(() => {});
     actions.push("conversation_unmuted");
   }
-  for (const [key, session] of [["own_message", state.a], ["peer_message", state.b]]) {
-    const message = key === "own_message" ? state.ownMessage : state.peerMessage;
+  const messagesBySession = [
+    ["own_message", state.a, state.ownMessage],
+    ["peer_message", state.b, state.peerMessage],
+    ...state.uiMessages.map((message) => ["ui_message", state.a, message]),
+  ];
+  for (const [key, session, message] of messagesBySession) {
     if (state.thread && message && session) {
       await rpc(config, session, "quata_chat_delete_messages", {
         p_actor_profile_id: session.profileId,
@@ -399,6 +750,99 @@ async function hardDeleteTemporaryThread(thread, uniqueKey) {
   }
 }
 
+async function withDatabase(callback) {
+  const dbUrlPath = process.env.SUPABASE_DB_URL_FILE?.trim() || defaultDbUrlFile;
+  const tlsCaPath = process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || defaultDbTlsCaFile;
+  const [connectionString, ca] = await Promise.all([readFile(dbUrlPath, "utf8"), readFile(tlsCaPath, "utf8")]);
+  const parsedConnection = new URL(connectionString.trim());
+  parsedConnection.searchParams.delete("sslmode");
+  const client = new pg.Client({
+    connectionString: parsedConnection.toString(),
+    ssl: { ca, rejectUnauthorized: true, servername: parsedConnection.hostname },
+  });
+  await client.connect();
+  try {
+    return await callback(client);
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+async function resolveAdjacentRecipientProfile(phoneKeys) {
+  return await withDatabase(async (client) => {
+    const result = await client.query(
+      "select profile_id from public.quata_profile_phone_directory where phone_key = any($1::text[]) order by profile_id limit 1",
+      [phoneKeys],
+    );
+    const profileId = result.rows[0]?.profile_id;
+    if (!uuid.test(profileId ?? "")) throw new Error("missing_adjacent_recipient_profile");
+    return profileId;
+  });
+}
+
+async function openTemporaryProfileHashWindow(users) {
+  if (process.env[tempProfileHashAuthorizationEnvironment]?.trim() !== tempProfileHashAuthorizationValue) {
+    return { state: "not_requested", restored: true, restore: async () => {} };
+  }
+  const opened = await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const rowsToRestore = [];
+      for (const user of users) {
+        const found = await client.query(
+          `select id, pass_hash, pass_plain
+             from public.community_profiles
+            where (
+              regexp_replace(coalesce(country_code, ''), '\\D', '', 'g') = $1
+              and regexp_replace(coalesce(phone_local, ''), '\\D', '', 'g') = $2
+            ) or regexp_replace(coalesce(phone, ''), '\\D', '', 'g') = any($3::text[])
+            order by created_at desc nulls last, id
+            limit 1
+            for update`,
+          [user.countryCode, user.phone, [`${user.countryCode}${user.phone}`, user.phone]],
+        );
+        if (found.rowCount !== 1) throw new Error("temporary_profile_hash_window:profile_not_found");
+        const row = found.rows[0];
+        rowsToRestore.push({ id: row.id, pass_hash: row.pass_hash, pass_plain: row.pass_plain });
+        await client.query(
+          "update public.community_profiles set pass_hash = $1, pass_plain = null where id = $2",
+          [sha256(user.password), row.id],
+        );
+      }
+      await client.query("commit");
+      return rowsToRestore;
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  let restored = false;
+  return {
+    state: "opened",
+    restored,
+    count: opened.length,
+    restore: async () => {
+      if (restored) return;
+      await withDatabase(async (client) => {
+        await client.query("begin");
+        try {
+          for (const row of opened) {
+            await client.query(
+              "update public.community_profiles set pass_hash = $1, pass_plain = $2 where id = $3",
+              [row.pass_hash, row.pass_plain, row.id],
+            );
+          }
+          await client.query("commit");
+          restored = true;
+        } catch (error) {
+          await client.query("rollback").catch(() => {});
+          throw error;
+        }
+      });
+    },
+  };
+}
+
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -412,8 +856,13 @@ function safeFailure(error) {
     "public_auth_request_failed", "invalid_auth_response", "chat_rpc_failed", "chat_contract_invalid",
     "chat_backend_poll_timeout", "distribution_missing", "runtime_configuration_injection_failed",
     "static_server_start_failed", "message_not_visible", "options_menu_not_visible", "action_bar_not_visible",
+    "message_action_target_not_clickable",
     "mute_state_not_persisted", "favorite_state_not_persisted", "browser_runtime_fault",
+        "composer_message_not_visible", "composer_reply_not_visible", "composer_edit_not_visible",
+        "composer_input_not_visible", "composer_send_not_visible", "composer_send_not_dispatched",
     "cleanup_residue_detected", "missing_hard_cleanup_authorization",
+    "missing_adjacent_profile_credentials_source", "invalid_adjacent_profile_phone",
+    "missing_adjacent_recipient_profile", "temporary_profile_hash_window",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_actions_notifications_web_failure";
 }
 
@@ -427,17 +876,31 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uniqueKey: null };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null };
 let config, distribution, server, browser, pageContext;
+let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
 try {
   config = await publicBackendConfig();
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) throw new Error("invalid_public_supabase_url");
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
-  const [userA, userB] = await usersFromPrivateFile();
-  state.a = await login(config, userA);
-  state.b = await login(config, userB);
-  report.steps.push("two_authorized_profiles_logged_in");
+  const users = await authorizedUsers();
+  const usersForTemporaryHash = users.filter((user) => user?.countryCode && user?.phone && user?.password);
+  profileHashWindow = await openTemporaryProfileHashWindow(usersForTemporaryHash);
+  if (profileHashWindow.state === "opened") {
+    report.steps.push("temporary_profile_hash_window_opened");
+  }
+  state.a = await login(config, users[0]);
+  if (useAdjacentAuthorizedProfile) {
+    state.b = {
+      label: "B",
+      profileId: await resolveAdjacentRecipientProfile(users[0].adjacentPhoneKeys),
+    };
+    report.steps.push("authorized_profile_logged_in_and_recipient_resolved");
+  } else {
+    state.b = await login(config, users[1]);
+    report.steps.push("two_authorized_profiles_logged_in");
+  }
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
@@ -460,16 +923,21 @@ try {
     p_reply_to_message_id: null,
     p_client_message_id: `chat-actions-own-${runId}`,
   }));
-  state.peerMessage = messageId(await rpc(config, state.b, "quata_chat_send_message", {
-    p_actor_profile_id: state.b.profileId,
-    p_thread_id: state.thread,
-    p_message: peerMarker,
-    p_file_ids: [],
-    p_reply_to_message_id: null,
-    p_client_message_id: `chat-actions-peer-${runId}`,
-  }));
-  await pollMessage(config, state.a, state.thread, (message) => Number(message?.id) === state.peerMessage);
-  report.steps.push("isolated_thread_and_two_messages_ready");
+  if (state.b.accessToken) {
+    await rpc(config, state.b, "quata_chat_send_message", {
+      p_actor_profile_id: state.b.profileId,
+      p_thread_id: state.thread,
+      p_message: peerMarker,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `chat-actions-peer-${runId}`,
+    });
+    const peerMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === peerMarker);
+    state.peerMessage = messageId({ message: peerMessage });
+    report.steps.push("isolated_thread_and_two_messages_ready");
+  } else {
+    report.steps.push("isolated_thread_and_own_message_ready");
+  }
 
   distribution = await configuredDistribution(options.distribution, config);
   server = await startServer(distribution);
@@ -480,52 +948,90 @@ try {
   });
   pageContext = await openAuthenticatedChatPage(browser, server.origin, state.a, `sb:${state.thread}`, faults);
   const page = pageContext.page;
-  await page.getByText(ownMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
-    throw new Error("message_not_visible:own");
-  });
-  await page.getByText(peerMarker.slice(0, 28), { exact: false }).waitFor({ timeout: 45_000 }).catch(() => {
-    throw new Error("message_not_visible:peer");
-  });
+  await waitMessageVisible(page, ownMarker, "message_not_visible:own");
+  if (state.peerMessage) {
+    await waitMessageVisible(page, peerMarker, "message_not_visible:peer");
+  }
   report.evidence.threadInitial = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-thread-initial");
-  report.steps.push("thread_rendered_with_own_and_peer_messages");
+  report.steps.push(state.peerMessage ? "thread_rendered_with_own_and_peer_messages" : "thread_rendered_with_own_message");
 
-  await clickLabel(page, [/Opciones/i, /Options/i], "options_menu_not_visible");
+  const composerMarker = `chat-composer-ui-${runId}`;
+  await fillComposerAndSend(page, composerMarker);
+  const composerMessage = await pollMessage(
+    config,
+    state.a,
+    state.thread,
+    (message) => messageText(message) === composerMarker,
+  );
+  const composerMessageId = messageId({ message: composerMessage });
+  state.uiMessages.push(composerMessageId);
+  state.editableUiMessage = composerMessageId;
+  await waitMessageVisible(page, composerMarker, "composer_message_not_visible");
+  report.evidence.composerSent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-sent");
+  report.steps.push("composer_text_sent_by_shared_ui_and_verified_by_rpc");
+
+  const replyTargetMarker = state.peerMessage ? peerMarker : ownMarker;
+  const replyTargetMessageId = state.peerMessage ?? state.ownMessage;
+  await openMessageActions(page, replyTargetMarker, [/Responder|Reply/i], "message_action_target_not_clickable:reply", "action_bar_not_visible:reply");
+  await clickLabel(page, [/Responder|Reply/i], "action_bar_not_visible:reply");
+  const replyMarker = `chat-reply-ui-${runId}`;
+  await fillComposerAndSend(page, replyMarker);
+  const replyMessage = await pollMessage(
+    config,
+    state.a,
+    state.thread,
+    (message) => messageText(message).startsWith(replyMarker) && messageReplyToId(message) === Number(replyTargetMessageId),
+  );
+  state.uiMessages.push(messageId({ message: replyMessage }));
+  await delay(1_000);
+  await page.keyboard.press("Escape").catch(() => {});
+  report.evidence.replySent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-reply-sent");
+  report.steps.push("composer_reply_sent_by_shared_ui_and_verified_by_rpc");
+
+  await openMessageActions(page, ownMarker, [/Editar|Edit/i], "message_action_target_not_clickable:edit", "action_bar_not_visible:edit");
+  await clickLabel(page, [/Editar|Edit/i], "action_bar_not_visible:edit");
+  const editMarker = `chat-edit-ui-${runId}`;
+  await fillComposerAndSend(page, editMarker);
+  await pollMessage(
+    config,
+    state.a,
+    state.thread,
+    (message) => Number(message?.id ?? message?.message_id) === Number(state.ownMessage) && messageText(message) === editMarker,
+  );
+  await delay(1_000);
+  await page.keyboard.press("Escape").catch(() => {});
+  report.evidence.editSent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-edit-sent");
+  report.steps.push("composer_edit_sent_by_shared_ui_and_verified_by_rpc");
+
+  await clickOptionsMenu(page);
   await page.getByText(/Silenciar conversaci[oó]n|Mute conversation/i).click({ timeout: 10_000, force: true });
   await delay(1_000);
   if (!isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:true");
   report.evidence.muted = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-muted");
   report.steps.push("mute_enabled_and_verified_by_rpc");
 
-  await clickLabel(page, [/Opciones/i, /Options/i], "options_menu_not_visible");
+  await clickOptionsMenu(page);
   await page.getByText(/Reactivar notificaciones|Unmute|Reactivate notifications/i).click({ timeout: 10_000, force: true });
   await delay(1_000);
   if (isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:false");
   report.steps.push("mute_disabled_and_verified_by_rpc");
 
-  await page.getByText(ownMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
-  await waitLabel(page, [/Copiar mensaje|Copy message/i], "action_bar_not_visible:copy");
-  await waitLabel(page, [/Responder|Reply/i], "action_bar_not_visible:reply");
-  await waitLabel(page, [/Reenviar|Forward/i], "action_bar_not_visible:forward");
-  await waitLabel(page, [/Editar|Edit/i], "action_bar_not_visible:edit");
-  await waitLabel(page, [/Favorito|Favorite/i], "action_bar_not_visible:favorite");
-  await waitLabel(page, [/Eliminar|Delete/i], "action_bar_not_visible:delete");
+  await openMessageActions(page, editMarker, [/Copiar mensaje|Copiar texto|Copy message|Copy text/i], "message_action_target_not_clickable:own_actions", "action_bar_not_visible:copy");
+  await delay(500);
   report.evidence.ownActions = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-own-selected");
   report.steps.push("own_message_action_bar_visible");
 
-  await clickLabel(page, [/Favorito|Favorite/i], "action_bar_not_visible:favorite");
+  await clickFavoriteAction(page);
   await delay(1_000);
   const favoriteRows = await favorites(config, state.a);
-  if (!favoriteRows.some((message) => Number(message?.id) === state.ownMessage)) throw new Error("favorite_state_not_persisted:true");
+  if (!favoriteRows.some((message) => Number(message?.id) === Number(state.ownMessage))) throw new Error("favorite_state_not_persisted:true");
   report.steps.push("favorite_toggled_and_verified_by_rpc");
 
-  await page.getByText(peerMarker.slice(0, 28), { exact: false }).click({ timeout: 10_000, force: true });
-  await waitLabel(page, [/Copiar mensaje|Copy message/i], "action_bar_not_visible:peer_copy");
-  await waitLabel(page, [/Responder|Reply/i], "action_bar_not_visible:peer_reply");
-  await waitLabel(page, [/Reenviar|Forward/i], "action_bar_not_visible:peer_forward");
-  await waitLabel(page, [/Reportar|Report|Denunciar/i], "action_bar_not_visible:peer_report");
-  await waitLabel(page, [/Favorito|Favorite/i], "action_bar_not_visible:peer_favorite");
-  report.evidence.peerActions = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-peer-selected");
-  report.steps.push("peer_message_action_bar_visible");
+  if (state.peerMessage) {
+    await openMessageActions(page, peerMarker, [/Copiar mensaje|Copy message/i], "message_action_target_not_clickable:peer_actions", "action_bar_not_visible:peer_copy");
+    report.evidence.peerActions = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-peer-selected");
+    report.steps.push("peer_message_action_bar_visible");
+  }
 
   if (faults.length) throw new Error("browser_runtime_fault");
   report.status = "passed";
@@ -539,7 +1045,23 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
+  if (pageContext?.page) {
+    try {
+      report.evidence.failure = await attachScreenshot(pageContext.page, options.evidenceDir, "web-chat-actions-failure");
+      report.diagnostics = { visibleNativeControls: await visibleNativeControls(pageContext.page) };
+    } catch {}
+  }
   report.error = safeFailure(error);
+  if (lastThreadSnapshot) report.diagnostics = { ...(report.diagnostics ?? {}), lastThreadSnapshot };
+  if (typeof error?.message === "string" && error.message.startsWith(report.error)) {
+    report.diagnostics = { ...(report.diagnostics ?? {}), safeErrorMessage: error.message };
+  } else if (report.error === "unexpected_chat_actions_notifications_web_failure") {
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      unexpectedErrorName: typeof error?.name === "string" ? error.name : "Error",
+      unexpectedErrorMessage: typeof error?.message === "string" ? error.message : "unknown",
+    };
+  }
 } finally {
   const cleanup = { state: "completed", actions: [] };
   let cleanupFailed = false;
@@ -547,6 +1069,17 @@ try {
   try { await browser?.close(); } catch {}
   try { await server?.close(); } catch {}
   try { await rm(distribution, { recursive: true, force: true }); } catch {}
+  try {
+    await profileHashWindow.restore();
+    if (profileHashWindow.state === "opened") {
+      cleanup.actions.push("temporary_profile_hash_window_restored");
+      report.profileHashWindow = { state: "restored", count: profileHashWindow.count };
+    }
+  } catch (error) {
+    cleanupFailed = true;
+    cleanup.error = safeFailure(error);
+    report.profileHashWindow = { state: "restore_failed" };
+  }
   if (state.thread && config) {
     try { cleanup.actions.push(...await logicalCleanup(config, state)); }
     catch (error) { cleanupFailed = true; cleanup.error = safeFailure(error); }

@@ -109,6 +109,9 @@ test("common chat root owns read states, retry, history paging and one-shot focu
   assert.match(conversationDetail, /delay\(FocusedMessageHighlightMillis\)[\s\S]*?onFocusedMessageHandled\(\)/);
   assert.match(conversationDetail, /firstVisible <= 2 && !isLoadingOlderMessages\)[\s\S]*?onLoadOlderMessages\(\)/);
   assert.match(conversationDetail, /testTag = if \(isSelected\) "chat\.message\.\$\{message\.id\}\.selected" else "chat\.message\.\$\{message\.id\}"/);
+  assert.match(conversationDetail, /role = Role\.Button/);
+  assert.match(conversationDetail, /contentDescription = message\.accessibleActionLabel\(\)/);
+  assert.match(conversationDetail, /private fun Message\.accessibleActionLabel\(\): String/);
   assert.match(conversationDetail, /if \(isSelected\) \{[\s\S]*?Box\([\s\S]*?testTag = "chat\.message\.\$\{message\.id\}\.selected"/);
   assert.match(conversationDetail, /stateDescription = if \(isSelected\) "selected" else "not selected"/);
 
@@ -131,6 +134,29 @@ test("common chat action chrome owns mute and tombstone action guards", () => {
   assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ !it\.isLocalEcho && !it\.isDeleted \}/);
   assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ it\.isMine && !it\.isDeleted && !it\.isLocalEcho \}/);
   assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ !it\.isMine && !it\.isDeleted && !it\.isLocalEcho \}/);
+});
+
+test("common chat composer exposes stable cross-platform evidence anchors", () => {
+  const expectedTags = {
+    Root: "root",
+    Input: "input",
+    Send: "send",
+    Emoji: "emoji",
+    Attach: "attach",
+    EditingBanner: "editing",
+    ReplyBanner: "reply",
+  };
+  for (const [constant, tag] of Object.entries(expectedTags)) {
+    assert.match(selectedActions, new RegExp(`ChatComposer${constant}TestTag = "chat\\.composer\\.${tag}"`));
+    assert.match(selectedActions, new RegExp(`testTag = ChatComposer${constant}TestTag`));
+  }
+  assert.match(selectedActions, /messageInputOverride\?\.invoke\([\s\S]*?taggedInputModifier/);
+  assert.match(selectedActions, /sendButtonOverride\?\.let[\s\S]*?Modifier\.semantics \{ testTag = ChatComposerSendTestTag \}/);
+  assert.match(selectedActions, /ChatComposerModeBannerContent\([\s\S]*?ChatComposerEditingBannerTestTag/);
+  assert.match(selectedActions, /ChatComposerModeBannerContent\([\s\S]*?ChatComposerReplyBannerTestTag/);
+  assert.match(webHost, /messageInputOverride = \{ value, onChange, modifier, leadingIcon, trailingIcon ->[\s\S]*?WebNativeInput\(/);
+  assert.match(webHost, /sendButtonOverride = \{ enabled, onClick, modifier ->[\s\S]*?WebNativeButton\("Enviar"/);
+  assert.match(iosHost, /ChatProductHostContent\([\s\S]*?audioRecordingConfiguration = dependencies\.audioRecordingConfiguration/);
 });
 
 test("SCR-CHAT inventory reflects the real common-root state without declaring final GO", () => {

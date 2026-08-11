@@ -14,6 +14,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,10 +65,15 @@ fun ChatConversationTitleBarContent(
         }
     }
     if (showSurface) {
-        Surface(color = template.colors.surface.copy(alpha = 0.92f), modifier = modifier.fillMaxWidth()) {
+        Surface(
+            color = template.colors.surface.copy(alpha = 0.92f),
+            modifier = modifier.fillMaxWidth().semantics { testTag = ChatConversationTitleBarTestTag },
+        ) {
             TitleBar(Modifier)
         }
     } else {
-        TitleBar(modifier)
+        TitleBar(modifier.semantics { testTag = ChatConversationTitleBarTestTag })
     }
 }
+
+const val ChatConversationTitleBarTestTag = "chat.conversation.titlebar"

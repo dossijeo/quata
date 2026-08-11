@@ -1,7 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -19,18 +19,18 @@ fun ChatMessageBubbleContent(
     mapAction: (@Composable () -> Unit)? = null,
 ) {
     header()
-    Spacer(Modifier.padding(2.dp))
+    Spacer(Modifier.height(6.dp))
     forwardedMarker?.let { marker ->
         marker()
-        Spacer(Modifier.padding(2.dp))
+        Spacer(Modifier.height(6.dp))
     }
     replyQuote?.let { quote ->
         quote()
-        Spacer(Modifier.padding(4.dp))
+        Spacer(Modifier.height(8.dp))
     }
     body()
     mapAction?.let { action ->
-        Spacer(Modifier.padding(4.dp))
+        Spacer(Modifier.height(8.dp))
         action()
     }
 }

@@ -491,7 +491,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/feature/chat/data/ChatRepositoryImpl.kt",
-              "sha256": "bcb52d346f7f2940be62ea81304bba0bdc1b3e6110348457fded19a89983344b",
+              "sha256": "a5cbf9d000c5552df0d711d5c458bb362076aa3ae2e01f438e9147fe23c795ad",
               "role": "implementation"
             }
           ]
@@ -564,7 +564,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/feature/chat/data/ChatRepositoryImpl.kt",
-              "sha256": "bcb52d346f7f2940be62ea81304bba0bdc1b3e6110348457fded19a89983344b",
+              "sha256": "a5cbf9d000c5552df0d711d5c458bb362076aa3ae2e01f438e9147fe23c795ad",
               "role": "implementation"
             }
           ]
