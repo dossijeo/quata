@@ -17,6 +17,7 @@ const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const options = parseArgs(process.argv.slice(2));
+const translationOnly = options.translationOnly;
 const report = {
   check,
   status: "failed",
@@ -76,14 +77,16 @@ try {
     p_community_id: null,
   }));
   report.steps.push("isolated_group_thread_ready");
-  state.forwardProfile = await createTemporaryForwardProfile(runId);
-  report.steps.push("temporary_forward_destination_profile_created");
+  if (!translationOnly) {
+    state.forwardProfile = await createTemporaryForwardProfile(runId);
+    report.steps.push("temporary_forward_destination_profile_created");
+  }
 
-  state.seedMarker = `chat-actions-ios-seed-${randomUUID()}`;
-  state.editableMarker = `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = `chat-actions-ios-send-${randomUUID()}`;
-  state.replyMarker = `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = `chat-actions-ios-edit-${randomUUID()}`;
+  state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
+  state.editableMarker = translationOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.composerMarker = translationOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
+  state.replyMarker = translationOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -93,16 +96,20 @@ try {
     p_client_message_id: `chat-actions-ios-seed-${randomUUID()}`,
   }));
   await pollMessage(config, state.b, state.thread, (message) => Number(message?.id) === state.seedMessage && messageText(message) === state.seedMarker);
-  state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
-    p_actor_profile_id: state.a.profileId,
-    p_thread_id: state.thread,
-    p_message: state.editableMarker,
-    p_file_ids: [],
-    p_reply_to_message_id: null,
-    p_client_message_id: `chat-actions-ios-editable-${randomUUID()}`,
-  }));
-  await pollMessage(config, state.b, state.thread, (message) => Number(message?.id) === state.editableMessage && messageText(message) === state.editableMarker);
-  report.steps.push("unique_seed_and_editable_messages_visible_to_peer");
+  if (!translationOnly) {
+    state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
+      p_actor_profile_id: state.a.profileId,
+      p_thread_id: state.thread,
+      p_message: state.editableMarker,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `chat-actions-ios-editable-${randomUUID()}`,
+    }));
+    await pollMessage(config, state.b, state.thread, (message) => Number(message?.id) === state.editableMessage && messageText(message) === state.editableMarker);
+    report.steps.push("unique_seed_and_editable_messages_visible_to_peer");
+  } else {
+    report.steps.push("translation_seed_message_visible_to_peer");
+  }
 
   localCredentials = join(await mkdtemp(join(tmpdir(), "quata-ios-chat-actions-")), "credentials.json");
   await writeFile(localCredentials, `${JSON.stringify({
@@ -136,7 +143,31 @@ scripts/build-ios-intel-simulator-signed.sh
   }
 
   const markerProbe = state.seedMarker.slice(0, 28);
-  await runSshScript(options.host, `
+  if (translationOnly) {
+    await runSshScript(options.host, `
+set -euo pipefail
+cd ${shellQuote(options.project)}
+export QUATA_IOS_AUTH_E2E_FILE=${shellQuote(remoteCredentials)}
+export QUATA_IOS_DERIVED_DATA_PATH=${shellQuote(options.derivedDataPath)}
+export QUATA_IOS_SIMULATOR_UDID=${shellQuote(options.simulatorUdid)}
+export QUATA_IOS_CHAT_E2E_CONVERSATION_ID=${shellQuote(`sb:${state.thread}`)}
+export QUATA_IOS_CHAT_E2E_MESSAGE_ID=${shellQuote(String(state.seedMessage))}
+export QUATA_IOS_CHAT_E2E_MARKER_PROBE=${shellQuote(markerProbe)}
+export QUATA_IOS_CHAT_TRANSLATION_LOG_DIR=${shellQuote(options.remoteLogDir)}
+export QUATA_IOS_CHAT_TRANSLATION_RESULT_BUNDLE_DIR=${shellQuote(options.remoteResultBundleDir)}
+bash scripts/run-ios-chat-translation-ui-test.sh
+`, 30 * 60 * 1000);
+    report.steps.push("ios_xctest_chat_translation_common_overlay_verified");
+    await copyRemoteEvidence(options);
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      translatedMessageId: state.seedMessage,
+      seedMarkerSha256: sha256(state.seedMarker),
+    };
+  } else {
+    await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
 export QUATA_IOS_AUTH_E2E_FILE=${shellQuote(remoteCredentials)}
@@ -155,40 +186,41 @@ export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR=${shellQuote(options.remoteL
 export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_RESULT_BUNDLE_DIR=${shellQuote(options.remoteResultBundleDir)}
 bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 `, 30 * 60 * 1000);
-  report.steps.push("ios_xctest_composer_reply_edit_and_action_bar_verified");
+    report.steps.push("ios_xctest_composer_reply_edit_and_action_bar_verified");
 
-  const backendContract = await pollBackendContract(config, state);
-  state.composerMessage = backendContract.composerMessageId;
-  state.replyMessage = backendContract.replyMessageId;
-  report.steps.push("backend_verified_send_reply_edit_and_favorite");
-  const forwardDestination = await pollForwardDestinationThread(config, state.a, state.forwardProfile.id);
-  state.forwardThread = forwardDestination.threadId;
-  const forwardedMessage = await pollMessage(config, state.a, state.forwardThread, (message) =>
-    messageText(message) === state.editMarker &&
-      Number(message?.forwarded_from_message_id) === Number(state.editableMessage),
-    "forwarded_message",
-  );
-  state.forwardedMessage = messageId(forwardedMessage);
-  report.steps.push("message_forwarded_by_shared_ui_and_verified_by_rpc");
+    const backendContract = await pollBackendContract(config, state);
+    state.composerMessage = backendContract.composerMessageId;
+    state.replyMessage = backendContract.replyMessageId;
+    report.steps.push("backend_verified_send_reply_edit_and_favorite");
+    const forwardDestination = await pollForwardDestinationThread(config, state.a, state.forwardProfile.id);
+    state.forwardThread = forwardDestination.threadId;
+    const forwardedMessage = await pollMessage(config, state.a, state.forwardThread, (message) =>
+      messageText(message) === state.editMarker &&
+        Number(message?.forwarded_from_message_id) === Number(state.editableMessage),
+      "forwarded_message",
+    );
+    state.forwardedMessage = messageId(forwardedMessage);
+    report.steps.push("message_forwarded_by_shared_ui_and_verified_by_rpc");
 
-  await copyRemoteEvidence(options);
-  report.status = "passed";
-  report.fixture = {
-    threadId: state.thread,
-    conversationId: `sb:${state.thread}`,
-    seedMessageId: state.seedMessage,
-    editableMessageId: state.editableMessage,
-    composerMessageId: state.composerMessage,
-    replyMessageId: state.replyMessage,
-    forwardThreadId: state.forwardThread,
-    forwardedMessageId: state.forwardedMessage,
-    forwardProfileIdSha256: sha256(state.forwardProfile.id),
-    seedMarkerSha256: sha256(state.seedMarker),
-    editableMarkerSha256: sha256(state.editableMarker),
-    composerMarkerSha256: sha256(state.composerMarker),
-    replyMarkerSha256: sha256(state.replyMarker),
-    editMarkerSha256: sha256(state.editMarker),
-  };
+    await copyRemoteEvidence(options);
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      seedMessageId: state.seedMessage,
+      editableMessageId: state.editableMessage,
+      composerMessageId: state.composerMessage,
+      replyMessageId: state.replyMessage,
+      forwardThreadId: state.forwardThread,
+      forwardedMessageId: state.forwardedMessage,
+      forwardProfileIdSha256: sha256(state.forwardProfile.id),
+      seedMarkerSha256: sha256(state.seedMarker),
+      editableMarkerSha256: sha256(state.editableMarker),
+      composerMarkerSha256: sha256(state.composerMarker),
+      replyMarkerSha256: sha256(state.replyMarker),
+      editMarkerSha256: sha256(state.editMarker),
+    };
+  }
 } catch (error) {
   report.error = safeFailure(error);
 } finally {
@@ -270,12 +302,21 @@ function parseArgs(argv) {
     output: resolve("build-reports/ios/chat-actions-notifications-evidence.json"),
     evidenceDir: resolve("build-reports/ios/chat-actions-notifications-evidence"),
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
+    translationOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_TRANSLATION_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     const value = argv[index + 1];
     if (key === "--build-first") {
       result.buildFirst = true;
+      continue;
+    }
+    if (key === "--translation-only") {
+      result.translationOnly = true;
+      result.output = resolve("build-reports/ios/chat-translation-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/chat-translation-evidence");
+      result.remoteLogDir = "build/reports/ios/chat-translation";
+      result.remoteResultBundleDir = "build/reports/ios/chat-translation/xcresults";
       continue;
     }
     if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {

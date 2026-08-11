@@ -89,6 +89,20 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(testSource, /chat\.forward\.send/);
 });
 
+test("chat actions/notifications iOS evidence can run translation-only against the shared overlay", async () => {
+  const runner = await source("scripts/chat-actions-notifications-ios-evidence.mjs");
+  const wrapper = await source("scripts/run-ios-chat-translation-ui-test.sh");
+  const testSource = await source("iosApp/iosAppUITests/QuataIosAuthenticatedChatTranslationUITests.swift");
+  assert.match(runner, /--translation-only/);
+  assert.match(runner, /state\.seedMarker = translationOnly \? "Mbolo"/);
+  assert.match(runner, /bash scripts\/run-ios-chat-translation-ui-test\.sh/);
+  assert.match(runner, /ios_xctest_chat_translation_common_overlay_verified/);
+  assert.match(wrapper, /QUATA_IOS_AUTH_UI_E2E/);
+  assert.match(wrapper, /QuataIosAuthenticatedChatTranslationUITests\/testRealChatMessageTranslatesAndReturnsToTheConversation/);
+  assert.match(testSource, /openDeepLink\("quata:\/\/egquata\.com\/#chat-/);
+  assert.match(testSource, /chat-translation-result/);
+});
+
 test("chat actions/notifications web evidence exercises real shared chat controls", async () => {
   const runner = await source("scripts/chat-actions-notifications-web-evidence.mjs");
   assert.match(runner, /quata_chat_start_thread/);
