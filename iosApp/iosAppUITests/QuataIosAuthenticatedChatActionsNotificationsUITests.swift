@@ -256,16 +256,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     private func clearAndTypeText(_ value: String, into identifier: String, in app: XCUIApplication) {
         let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected editable field \(identifier) to exist.")
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 220), fallback: field, in: app)
         field.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5)).tap()
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-        field.press(forDuration: 0.7)
-        let selectAll = app.menuItems.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Select All", "Seleccionar todo")).firstMatch
-        if selectAll.waitForExistence(timeout: 2) {
-            selectAll.tap()
-            typeIntoFocusedElement(value, fallback: field, in: app)
-            return
-        }
-        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 180), fallback: field, in: app)
         typeIntoFocusedElement(value, fallback: field, in: app)
     }
 
@@ -290,7 +285,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         if focused.waitForExistence(timeout: 2) {
             focused.typeText(value)
         } else {
-            fallback.typeText(value)
+            fallback.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            let refocused = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "hasKeyboardFocus == 1"))
+                .firstMatch
+            if refocused.waitForExistence(timeout: 2) {
+                refocused.typeText(value)
+            } else {
+                fallback.typeText(value)
+            }
         }
     }
 
