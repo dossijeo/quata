@@ -8,21 +8,24 @@
 
 **HEAD integrado:** `main` `53075226f7c00edea72b52516f6a2c4f6d3ce85d` (PR #231), posterior a #154,
 #156, #159, #168, #169, #170, #172, #173, #174, #175, #190, #191, #192, #193, #204, #206, #208,
-#210, #211, #212, #214, #215, #216, #217, #219, #222, #224, #225, #226 y #231. El proyecto sigue
+#210, #211, #212, #214, #215, #216, #217, #219, #222, #224, #225, #226, #231 y #232. El proyecto sigue
 incompleto: #226 reduce límites de `SCR-CHAT` sin declarar GO global. Candidato `31f20f31`
 cierra `CHAT-FORWARD` con evidencia local Android, Web/Wasm e iOS sobre el mismo SHA, sin declarar
-GO global de Chat. #231 cierra `CHAT-TRANSLATION` en `main`. Candidato `824b267f`
-cierra `CHAT-PROFILE` con evidencia local Android, Web/Wasm e iOS sobre el mismo SHA. Android, Web/Wasm e iOS
+GO global de Chat. #231 cierra `CHAT-TRANSLATION` en `main`; #232 cierra `CHAT-PROFILE`.
+Candidato `f6bc0b7d` cierra `PROF-HEADER` con evidencia local Android, Web/Wasm e iOS. Android, Web/Wasm e iOS
 acreditan envío, respuesta, edición, selección/copiar, favorito, reportar, borrar y mute/unmute en
 una conversación reversible con limpieza física de residuo cero; la barra de acciones seleccionadas
 usa superficie común coherente con el encabezado. Persisten `CHAT-ATTACHMENTS`, `CHAT-AUDIO`,
 `CHAT-GROUP`, `CHAT-LOCATION-SOS` y `FLOW-TRANSLATOR` fuera de Chat.
 
-**Candidato actual:** `824b267f985cabcec119e77fccf7ab93771a90fa` cierra `CHAT-PROFILE` con
-evidencias finales Android (`build-reports/android/chat-actions-notifications-evidence.json`),
-Web/Wasm (`build-reports/web/chat-profile-evidence.json`) e iOS
-(`build-reports/ios/chat-profile-evidence.json`), todas con apertura de perfil publico desde Chat,
-retorno al mismo hilo y limpieza fisica de residuo cero.
+**Candidato actual:** `f6bc0b7dbea366d1325dc5ece1240c2b78fa7f51` cierra `PROF-HEADER` dentro de
+`OVR-PUBLIC-PROFILE`: cabecera común con avatar, nombre, barrio y KPIs visible en Android, Web/Wasm
+e iOS desde la entrada Chat→perfil. Evidencias finales: Android
+`build-reports/android/chat-actions-notifications-evidence.json`, Web/Wasm
+`build-reports/web/profile-header-evidence.json` e iOS `build-reports/ios/profile-header-evidence.json`
+con attachment exportado `build-reports/ios/profile-header-evidence/ios-chat-profile-open.png`; las tres
+usan datos temporales reversibles y limpieza física de residuo cero. La biografía queda fuera de este GO
+porque el modelo común actual no expone ese campo.
 
 #217 queda integrado en `main` `a52fb67fe508d9d8f70bb9fa727832c560eac551` y cierra
 `SCR-OFFICIAL-EDITOR` tras invalidar y corregir el falso positivo Web anterior: Android, Web/Wasm e
@@ -89,6 +92,7 @@ La comparativa final queda en `build-reports/official-editor/final-visual-compar
 | [#222](https://github.com/dossijeo/quata/pull/222) | `6faffa9f` | `SCR-WHATS-NEW` queda cerrado en Android/Web/iOS con anclas comunes, version visible, cierre real, persistencia de visto y segunda apertura sin repeticion; gates `candidate-final` verdes y rama remota borrada tras merge. |
 | [#226](https://github.com/dossijeo/quata/pull/226) | `702aad06` | Reduce `SCR-CHAT`: composer/envio, reply/edit, acciones seleccionadas, mute/unmute y menu visual comun pasan en Android/Web/iOS con datos reversibles, gates finales verdes y rama remota `codex/chat-composer-text-parity` borrada tras merge. No declara GO global de Chat. |
 | [#229](https://github.com/dossijeo/quata/pull/229) | candidato | Ajusta `CHAT-MESSAGE-ACTIONS`: encabezado de conversacion, favoritos y barra seleccionada comparten `chatHeaderSurfaceColor()` opaco desde `commonMain`; la evidencia Web `build-reports/web/chat-actions-menu-bg-evidence.json` verifica que la barra de copiar/responder/reenviar/editar/favorito/borrar ya no transparenta el patron de conversacion. No declara GO global de Chat. |
+| [#232](https://github.com/dossijeo/quata/pull/232) | `7b39c238` | `CHAT-PROFILE` queda integrado: apertura de avatar de mensaje hacia perfil público global y retorno al mismo Chat en Android, Web/Wasm e iOS; gates finales requeridos verdes, reutilización de evidencia documentada para el commit docs-only y rama remota borrada tras merge. No declara GO global de Chat. |
 
 ## Registro de candidato #156 y mejora de preflight
 
