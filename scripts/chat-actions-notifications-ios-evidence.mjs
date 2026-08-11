@@ -21,6 +21,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const options = parseArgs(process.argv.slice(2));
 const translationOnly = options.translationOnly;
 const profileOnly = options.profileOnly;
+const profileFollowOnly = options.profileFollowOnly;
 const report = {
   check,
   status: "failed",
@@ -54,6 +55,7 @@ const state = {
   forwardProfile: null,
   forwardThread: null,
   forwardedMessage: null,
+  profileFollow: null,
 };
 
 try {
@@ -82,17 +84,17 @@ try {
     p_community_id: null,
   }));
   report.steps.push("isolated_group_thread_ready");
-  if (!translationOnly && !profileOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
 
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
-  state.editableMarker = translationOnly || profileOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = translationOnly || profileOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
-  state.replyMarker = translationOnly || profileOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = translationOnly || profileOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
+  state.editableMarker = translationOnly || profileOnly || profileFollowOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.composerMarker = translationOnly || profileOnly || profileFollowOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
+  state.replyMarker = translationOnly || profileOnly || profileFollowOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly || profileOnly || profileFollowOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -112,7 +114,7 @@ try {
       p_client_message_id: `chat-profile-ios-peer-${randomUUID()}`,
     }));
     await pollMessage(config, state.a, state.thread, (message) => Number(message?.id) === state.peerMessage && messageText(message) === state.peerMarker);
-    if (!profileOnly) {
+    if (!profileOnly && !profileFollowOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
         p_thread_id: state.thread,
@@ -195,6 +197,10 @@ bash scripts/run-ios-chat-translation-ui-test.sh
     };
   } else {
     const peerMarkerProbe = state.peerMarker.slice(0, 28);
+    if (profileFollowOnly) {
+      state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
+      report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
+    }
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
@@ -206,7 +212,8 @@ export QUATA_IOS_CHAT_E2E_MESSAGE_ID=${shellQuote(String(state.seedMessage))}
 export QUATA_IOS_CHAT_E2E_MARKER_PROBE=${shellQuote(markerProbe)}
 export QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE=${shellQuote(peerMarkerProbe)}
 export QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID=${shellQuote(state.b.profileId)}
-export QUATA_IOS_CHAT_PROFILE_ONLY=${profileOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_ONLY=${profileOnly || profileFollowOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_COMPOSER_MARKER=${shellQuote(state.composerMarker ?? "profile-only")}
@@ -219,7 +226,12 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 `, 30 * 60 * 1000);
     report.steps.push("ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
 
-    if (!profileOnly) {
+    if (profileFollowOnly) {
+      await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
+      report.steps.push("profile_follow_toggled_and_verified_by_db");
+    }
+
+    if (!profileOnly && !profileFollowOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -237,7 +249,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     await copyRemoteEvidence(options);
     report.status = "passed";
-    report.fixture = profileOnly
+    report.fixture = profileOnly || profileFollowOnly
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -246,6 +258,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         peerProfileIdSha256: sha256(state.b.profileId),
         seedMarkerSha256: sha256(state.seedMarker),
         peerMarkerSha256: sha256(state.peerMarker),
+        profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
       }
       : {
         threadId: state.thread,
@@ -288,6 +301,15 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     } catch (error) {
       cleanupFailed = true;
       cleanup.error = safeFailure(error);
+    }
+    if (state.profileFollow && state.a && state.b) {
+      try {
+        await restoreProfileFollowEdge(state.a.profileId, state.b.profileId, state.profileFollow.initiallyFollowing);
+        cleanup.actions.push("profile_follow_edge_restored_to_initial_state");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
     }
     if (state.uniqueKey) {
       try {
@@ -350,6 +372,7 @@ function parseArgs(argv) {
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
     translationOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_TRANSLATION_ONLY === "1",
     profileOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ONLY === "1",
+    profileFollowOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_FOLLOW_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -368,6 +391,10 @@ function parseArgs(argv) {
     }
     if (key === "--profile-only") {
       result.profileOnly = true;
+      continue;
+    }
+    if (key === "--profile-follow-only") {
+      result.profileFollowOnly = true;
       continue;
     }
     if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
@@ -809,6 +836,100 @@ async function createTemporaryForwardProfile(runId) {
     }
   });
   return { id, phoneLocal, displayName };
+}
+
+async function withPoolerClient(callback) {
+  const dbUrlPath = process.env.SUPABASE_DB_URL_FILE?.trim() || defaultDbUrlFile;
+  const tlsCaPath = process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || defaultDbTlsCaFile;
+  const [connectionString, ca] = await Promise.all([readFile(dbUrlPath, "utf8"), readFile(tlsCaPath, "utf8")]);
+  const parsedConnection = new URL(connectionString.trim());
+  parsedConnection.searchParams.delete("sslmode");
+  const client = new pg.Client({
+    connectionString: parsedConnection.toString(),
+    ssl: { ca, rejectUnauthorized: true, servername: parsedConnection.hostname },
+  });
+  await client.connect();
+  try {
+    return await callback(client);
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+async function profileFollowExists(actorProfileId, targetProfileId) {
+  return await withPoolerClient(async (client) => {
+    const result = await client.query(
+      `select exists (
+         select 1 from public.community_profile_follows
+         where follower_profile_id = $1 and followed_profile_id = $2
+       ) as exists`,
+      [actorProfileId, targetProfileId],
+    );
+    return result.rows[0]?.exists === true;
+  });
+}
+
+async function prepareProfileFollowAbsent(actorProfileId, targetProfileId) {
+  return await withPoolerClient(async (client) => {
+    await client.query("begin");
+    try {
+      const existing = await client.query(
+        `select id from public.community_profile_follows
+         where follower_profile_id = $1 and followed_profile_id = $2
+         for update`,
+        [actorProfileId, targetProfileId],
+      );
+      if (existing.rowCount > 0) {
+        await client.query(
+          `delete from public.community_profile_follows
+           where follower_profile_id = $1 and followed_profile_id = $2`,
+          [actorProfileId, targetProfileId],
+        );
+      }
+      await client.query("commit");
+      return { initiallyFollowing: existing.rowCount > 0 };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+async function restoreProfileFollowEdge(actorProfileId, targetProfileId, initiallyFollowing) {
+  await withPoolerClient(async (client) => {
+    await client.query("begin");
+    try {
+      if (initiallyFollowing) {
+        await client.query(
+          `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+           values ($1, $2)
+           on conflict do nothing`,
+          [actorProfileId, targetProfileId],
+        );
+      } else {
+        await client.query(
+          `delete from public.community_profile_follows
+           where follower_profile_id = $1 and followed_profile_id = $2`,
+          [actorProfileId, targetProfileId],
+        );
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  const restored = await profileFollowExists(actorProfileId, targetProfileId);
+  if (restored !== initiallyFollowing) throw new Error("cleanup_residue_detected:profile_follow_edge");
+}
+
+async function pollProfileFollowEdge(actorProfileId, targetProfileId, expected, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await profileFollowExists(actorProfileId, targetProfileId) === expected) return;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 750));
+  }
+  throw new Error(`profile_follow_backend_poll_timeout:${expected ? "created" : "removed"}`);
 }
 
 async function hardDeleteTemporaryForwardDestination(profile, threadId) {
