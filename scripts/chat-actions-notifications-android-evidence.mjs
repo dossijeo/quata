@@ -20,6 +20,9 @@ const evidenceFiles = [
   "android-chat-actions-thread-initial.png",
   "android-chat-composer-sent.png",
   "android-chat-composer-reply-sent.png",
+  "android-chat-composer-edit-mode.png",
+  "android-chat-composer-edit-filled.png",
+  "android-chat-composer-edit-submitted.png",
   "android-chat-composer-edit-sent.png",
   "android-chat-actions-own-selected.png",
   "android-chat-actions-notifications-evidence.json",
@@ -274,6 +277,19 @@ async function adbRunAsCat(remotePath, localPath) {
   await writeFile(localPath, Buffer.concat(chunks));
 }
 
+async function collectAvailableDeviceEvidence(destination) {
+  await rm(destination, { recursive: true, force: true });
+  await mkdir(destination, { recursive: true });
+  const copied = [];
+  for (const file of evidenceFiles) {
+    try {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(destination, file));
+      copied.push(file);
+    } catch {}
+  }
+  return copied;
+}
+
 async function logicalCleanup(config, state) {
   const actions = [];
   const favoriteMessageId = state.favoriteMessage ?? state.editedMessage ?? state.message;
@@ -479,6 +495,7 @@ const report = {
 const state = { a: null, b: null, thread: null, message: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
+const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
 try {
   const config = await publicBackendConfig();
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) throw new Error("invalid_public_supabase_url");
@@ -596,7 +613,6 @@ try {
   );
   state.editedMessage = messageId(editedMessage);
   report.steps.push("composer_edit_sent_by_shared_ui_and_verified_by_rpc");
-  const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   for (const file of evidenceFiles) {
@@ -619,6 +635,13 @@ try {
 } catch (error) {
   report.error = safeFailure(error);
   if (lastThreadSnapshot) report.diagnostics = { lastThreadSnapshot };
+  try {
+    const copied = await collectAvailableDeviceEvidence(evidenceDir);
+    if (copied.length) {
+      report.evidence.failureDirectory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+      report.evidence.failureFiles = copied;
+    }
+  } catch {}
 } finally {
   const cleanup = { state: "completed", actions: [] };
   let cleanupFailed = false;

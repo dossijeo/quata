@@ -16,6 +16,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
@@ -138,7 +139,12 @@ class ChatActionsNotificationsInstrumentedTest {
                     .fetchSemanticsNode()
             }.isSuccess
         }
-        fillComposer(editMarker, forceNativeSend = true)
+        saveScreenshot("android-chat-composer-edit-mode")
+        fillComposer(
+            editMarker,
+            beforeSendScreenshotName = "android-chat-composer-edit-filled",
+            afterSendScreenshotName = "android-chat-composer-edit-submitted",
+        )
         flushPendingChatMessages()
         waitForMarker(editMarker.take(28), "edited message")
         saveScreenshot("android-chat-composer-edit-sent")
@@ -162,15 +168,22 @@ class ChatActionsNotificationsInstrumentedTest {
         error("chat_pending_outbox_not_flushed")
     }
 
-    private fun fillComposer(text: String, forceNativeSend: Boolean = false) {
+    private fun fillComposer(
+        text: String,
+        forceNativeSend: Boolean = false,
+        beforeSendScreenshotName: String? = null,
+        afterSendScreenshotName: String? = null,
+    ) {
         compose.waitUntil(15_000) {
             runCatching {
                 compose.onNodeWithTag(ChatComposerInputTestTag, useUnmergedTree = true).fetchSemanticsNode()
             }.isSuccess
         }
-        compose.onNodeWithTag(ChatComposerInputTestTag, useUnmergedTree = true)
-            .performTextReplacement(text)
+        val input = compose.onNodeWithTag(ChatComposerInputTestTag, useUnmergedTree = true)
+        input.performClick()
+        input.performTextReplacement(text)
         compose.waitForIdle()
+        beforeSendScreenshotName?.let(::saveScreenshot)
         if (forceNativeSend && clickComposerSendNative()) return
         compose.waitUntil(10_000) {
             runCatching {
@@ -180,10 +193,12 @@ class ChatActionsNotificationsInstrumentedTest {
         }
         runCatching {
             compose.onNodeWithTag(ChatComposerSendTestTag, useUnmergedTree = true)
-                .performClick()
+                .performTouchInput { click(center) }
         }.getOrElse {
             tapComposerPrimaryAction()
         }
+        compose.waitForIdle()
+        afterSendScreenshotName?.let(::saveScreenshot)
     }
 
     private fun clickComposerSendNative(): Boolean {
@@ -237,7 +252,14 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.waitUntil(45_000) { messageNodeVisible(markerProbe) }
             true
         }.getOrDefault(false)
-        assertTrue("The marker must be visible in $context.", visible)
+        if (visible) return
+        val scrolled = runCatching {
+            compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                .performScrollToNode(messageNodeMatcher(markerProbe))
+            compose.waitUntil(10_000) { messageNodeVisible(markerProbe) }
+            true
+        }.getOrDefault(false)
+        assertTrue("The marker must be visible in $context.", scrolled)
     }
 
     private fun messageNodeVisible(markerProbe: String): Boolean =

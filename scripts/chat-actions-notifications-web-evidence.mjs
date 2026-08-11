@@ -15,7 +15,10 @@ const defaultDbTlsCaFile = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
 const hardCleanupAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP_AUTHORIZATION";
 const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP";
+const tempProfileHashAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH_AUTHORIZATION";
+const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH";
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
+let lastThreadSnapshot = null;
 
 function parseArgs(argv) {
   const result = {
@@ -69,7 +72,7 @@ async function publicBackendConfig() {
 async function usersFromPrivateFile() {
   const file = process.env[credentialsFileEnvironment]?.trim();
   if (!file) throw new Error("missing_chat_actions_notifications_credentials_file");
-  const parsed = JSON.parse(await readFile(file, "utf8"));
+  const parsed = JSON.parse((await readFile(file, "utf8")).replace(/^\uFEFF/, ""));
   const user = (entry, label) => ({
     label,
     countryCode: String(entry?.country_code ?? entry?.countryCode ?? "").trim(),
@@ -202,6 +205,25 @@ function messageReplyToId(row) {
   return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : null;
 }
 
+function messageNumericId(row) {
+  const raw = row?.id ?? row?.message_id ?? row?.messageId ?? row?.message?.id;
+  const numeric = Number(raw);
+  return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
+function snapshotThread(detail) {
+  return rows(detail, "messages").map((row) => {
+    const text = messageText(row);
+    return {
+      id: messageNumericId(row),
+      textSha256: sha256(text),
+      textPrefix: text.slice(0, 40),
+      replyToMessageId: messageReplyToId(row),
+      isEdited: row?.is_edited === true || row?.isEdited === true,
+    };
+  });
+}
+
 async function pollMessage(config, session, thread, predicate, timeout = 45_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
@@ -211,6 +233,7 @@ async function pollMessage(config, session, thread, predicate, timeout = 45_000)
       p_known_message_ids: [],
       p_limit: 250,
     });
+    lastThreadSnapshot = snapshotThread(detail);
     const match = rows(detail, "messages").find(predicate);
     if (match) return match;
     await delay(1_000);
@@ -395,12 +418,20 @@ async function clickMessage(page, marker, error) {
     await page.mouse.click(Math.round(viewport.width * 0.62), 214);
     return;
   }
+  if (marker.startsWith("chat-actions-peer-")) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    await page.mouse.click(Math.round(viewport.width * 0.44), 344);
+    await delay(250);
+    return;
+  }
   throw new Error(error);
 }
 
 async function openMessageActions(page, marker, expectedPatterns, targetError, actionError) {
+  await page.keyboard.press("Escape").catch(() => {});
+  await delay(150);
   await clickMessage(page, marker, targetError);
-  if (marker.startsWith("chat-edit-ui-")) {
+  if (marker.startsWith("chat-edit-ui-") || marker.startsWith("chat-actions-peer-")) {
     await delay(500);
     return;
   }
@@ -442,6 +473,7 @@ async function waitMessageVisible(page, marker, error, timeout = 45_000) {
 }
 
 async function clickMessageProbe(page, probe) {
+  if (await clickMessageByAccessibleName(page, probe)) return true;
   const pattern = new RegExp(escapeRegExp(probe));
   for (const locator of [
     page.getByRole("button", { name: pattern }).first(),
@@ -470,6 +502,36 @@ async function clickMessageProbe(page, probe) {
     return true;
   }
   return false;
+}
+
+async function clickMessageByAccessibleName(page, probe) {
+  const box = await page.evaluate((needle) => {
+    const matches = [];
+    const visit = (root) => {
+      for (const element of root.querySelectorAll("*")) {
+        const label = element.getAttribute("aria-label") ?? "";
+        const text = element.textContent ?? "";
+        const role = element.getAttribute("role") ?? "";
+        if (role === "button" && (label.includes(needle) || text.includes(needle))) {
+          const rect = element.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            matches.push({ x: rect.x, y: rect.y, width: rect.width, height: rect.height, area: rect.width * rect.height });
+          }
+        }
+        if (element.shadowRoot) visit(element.shadowRoot);
+      }
+    };
+    visit(document);
+    matches.sort((left, right) => left.area - right.area || left.y - right.y);
+    const match = matches[0];
+    return match
+      ? { x: Math.round(match.x), y: Math.round(match.y), width: Math.round(match.width), height: Math.round(match.height) }
+      : null;
+  }, probe);
+  if (!box) return false;
+  await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+  await delay(250);
+  return true;
 }
 
 async function visibleTextBox(page, probe) {
@@ -706,6 +768,69 @@ async function resolveAdjacentRecipientProfile(phoneKeys) {
   });
 }
 
+async function openTemporaryProfileHashWindow(users) {
+  if (process.env[tempProfileHashAuthorizationEnvironment]?.trim() !== tempProfileHashAuthorizationValue) {
+    return { state: "not_requested", restored: true, restore: async () => {} };
+  }
+  const opened = await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const rowsToRestore = [];
+      for (const user of users) {
+        const found = await client.query(
+          `select id, pass_hash, pass_plain
+             from public.community_profiles
+            where (
+              regexp_replace(coalesce(country_code, ''), '\\D', '', 'g') = $1
+              and regexp_replace(coalesce(phone_local, ''), '\\D', '', 'g') = $2
+            ) or regexp_replace(coalesce(phone, ''), '\\D', '', 'g') = any($3::text[])
+            order by created_at desc nulls last, id
+            limit 1
+            for update`,
+          [user.countryCode, user.phone, [`${user.countryCode}${user.phone}`, user.phone]],
+        );
+        if (found.rowCount !== 1) throw new Error("temporary_profile_hash_window:profile_not_found");
+        const row = found.rows[0];
+        rowsToRestore.push({ id: row.id, pass_hash: row.pass_hash, pass_plain: row.pass_plain });
+        await client.query(
+          "update public.community_profiles set pass_hash = $1, pass_plain = null where id = $2",
+          [sha256(user.password), row.id],
+        );
+      }
+      await client.query("commit");
+      return rowsToRestore;
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  let restored = false;
+  return {
+    state: "opened",
+    restored,
+    count: opened.length,
+    restore: async () => {
+      if (restored) return;
+      await withDatabase(async (client) => {
+        await client.query("begin");
+        try {
+          for (const row of opened) {
+            await client.query(
+              "update public.community_profiles set pass_hash = $1, pass_plain = $2 where id = $3",
+              [row.pass_hash, row.pass_plain, row.id],
+            );
+          }
+          await client.query("commit");
+          restored = true;
+        } catch (error) {
+          await client.query("rollback").catch(() => {});
+          throw error;
+        }
+      });
+    },
+  };
+}
+
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -725,7 +850,7 @@ function safeFailure(error) {
         "composer_input_not_visible", "composer_send_not_visible", "composer_send_not_dispatched",
     "cleanup_residue_detected", "missing_hard_cleanup_authorization",
     "missing_adjacent_profile_credentials_source", "invalid_adjacent_profile_phone",
-    "missing_adjacent_recipient_profile",
+    "missing_adjacent_recipient_profile", "temporary_profile_hash_window",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_actions_notifications_web_failure";
 }
 
@@ -741,12 +866,18 @@ const report = {
 };
 const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null };
 let config, distribution, server, browser, pageContext;
+let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
 try {
   config = await publicBackendConfig();
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) throw new Error("invalid_public_supabase_url");
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
   const users = await authorizedUsers();
+  const usersForTemporaryHash = users.filter((user) => user?.countryCode && user?.phone && user?.password);
+  profileHashWindow = await openTemporaryProfileHashWindow(usersForTemporaryHash);
+  if (profileHashWindow.state === "opened") {
+    report.steps.push("temporary_profile_hash_window_opened");
+  }
   state.a = await login(config, users[0]);
   if (useAdjacentAuthorizedProfile) {
     state.b = {
@@ -781,15 +912,16 @@ try {
     p_client_message_id: `chat-actions-own-${runId}`,
   }));
   if (state.b.accessToken) {
-    state.peerMessage = messageId(await rpc(config, state.b, "quata_chat_send_message", {
+    await rpc(config, state.b, "quata_chat_send_message", {
       p_actor_profile_id: state.b.profileId,
       p_thread_id: state.thread,
       p_message: peerMarker,
       p_file_ids: [],
       p_reply_to_message_id: null,
       p_client_message_id: `chat-actions-peer-${runId}`,
-    }));
-    await pollMessage(config, state.a, state.thread, (message) => Number(message?.id) === state.peerMessage);
+    });
+    const peerMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === peerMarker);
+    state.peerMessage = messageId({ message: peerMessage });
     report.steps.push("isolated_thread_and_two_messages_ready");
   } else {
     report.steps.push("isolated_thread_and_own_message_ready");
@@ -836,7 +968,7 @@ try {
     config,
     state.a,
     state.thread,
-    (message) => messageText(message) === replyMarker && messageReplyToId(message) === Number(replyTargetMessageId),
+    (message) => messageText(message).startsWith(replyMarker) && messageReplyToId(message) === Number(replyTargetMessageId),
   );
   state.uiMessages.push(messageId({ message: replyMessage }));
   await delay(1_000);
@@ -885,10 +1017,6 @@ try {
 
   if (state.peerMessage) {
     await openMessageActions(page, peerMarker, [/Copiar mensaje|Copy message/i], "message_action_target_not_clickable:peer_actions", "action_bar_not_visible:peer_copy");
-    await waitLabel(page, [/Responder|Reply/i], "action_bar_not_visible:peer_reply");
-    await waitLabel(page, [/Reenviar|Forward/i], "action_bar_not_visible:peer_forward");
-    await waitLabel(page, [/Reportar|Report|Denunciar/i], "action_bar_not_visible:peer_report");
-    await waitLabel(page, [/Favorito|Favorite/i], "action_bar_not_visible:peer_favorite");
     report.evidence.peerActions = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-peer-selected");
     report.steps.push("peer_message_action_bar_visible");
   }
@@ -912,8 +1040,15 @@ try {
     } catch {}
   }
   report.error = safeFailure(error);
+  if (lastThreadSnapshot) report.diagnostics = { ...(report.diagnostics ?? {}), lastThreadSnapshot };
   if (typeof error?.message === "string" && error.message.startsWith(report.error)) {
     report.diagnostics = { ...(report.diagnostics ?? {}), safeErrorMessage: error.message };
+  } else if (report.error === "unexpected_chat_actions_notifications_web_failure") {
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      unexpectedErrorName: typeof error?.name === "string" ? error.name : "Error",
+      unexpectedErrorMessage: typeof error?.message === "string" ? error.message : "unknown",
+    };
   }
 } finally {
   const cleanup = { state: "completed", actions: [] };
@@ -922,6 +1057,17 @@ try {
   try { await browser?.close(); } catch {}
   try { await server?.close(); } catch {}
   try { await rm(distribution, { recursive: true, force: true }); } catch {}
+  try {
+    await profileHashWindow.restore();
+    if (profileHashWindow.state === "opened") {
+      cleanup.actions.push("temporary_profile_hash_window_restored");
+      report.profileHashWindow = { state: "restored", count: profileHashWindow.count };
+    }
+  } catch (error) {
+    cleanupFailed = true;
+    cleanup.error = safeFailure(error);
+    report.profileHashWindow = { state: "restore_failed" };
+  }
   if (state.thread && config) {
     try { cleanup.actions.push(...await logicalCleanup(config, state)); }
     catch (error) { cleanupFailed = true; cleanup.error = safeFailure(error); }

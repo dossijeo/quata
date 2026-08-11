@@ -927,7 +927,8 @@ class ChatRepositoryImpl(
         }
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
         val threadId = messageThreadId(messageId)
-        remote.editChatMessage(session.userId, threadId, messageId.toLongOrNull() ?: error("Mensaje no valido"), text)
+        val payload = remote.editChatMessage(session.userId, threadId, messageId.toLongOrNull() ?: error("Mensaje no valido"), text)
+        mergeChatPayload(payload, session.userId)
         refreshLoadedThreads()
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
@@ -1392,12 +1393,19 @@ class ChatRepositoryImpl(
         cacheStore.replaceFavoriteMessages(profileId, updatedFavorites)
     }
 
-    private fun messageThreadId(messageId: String): Long =
+    private fun messageThreadId(messageId: String): Long {
         loadedMessages()
             .firstOrNull { it.id == messageId }
             ?.conversationId
             ?.requireThreadId()
-            ?: error("Mensaje no cargado")
+            ?.let { return it }
+        if (messageId.toLongOrNull() != null) {
+            _activeConversationId.value
+                ?.supabaseThreadIdOrNull()
+                ?.let { return it }
+        }
+        error("Mensaje no cargado")
+    }
 
     private suspend fun mergeChatPayload(
         payload: JsonElement,
