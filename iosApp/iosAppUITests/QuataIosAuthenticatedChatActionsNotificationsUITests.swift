@@ -72,6 +72,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
         clearAndTypeText(editMarker, into: "chat.composer.input", in: app)
         tapTaggedButton("chat.composer.send", in: app, context: "submit edit")
+        dismissKeyboardIfPresent(in: app)
         XCTAssertTrue(
             messageWithId(editableMessageId, containing: editMarker, in: app).waitForExistence(timeout: 45),
             "Editing must update the selected message id, not create a separate message.\n\(app.debugDescription)",
@@ -84,7 +85,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
         XCTAssertFalse(messageText(editableMarker, in: app).exists, "Editing must replace the original message text instead of appending to it.")
         attachScreenshot(app, name: "ios-chat-composer-edit-sent")
-        dismissKeyboardIfPresent(in: app)
     }
 
     private func chatHost(in app: XCUIApplication, context: String) -> XCUIElement {
@@ -256,12 +256,27 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     private func clearAndTypeText(_ value: String, into identifier: String, in app: XCUIApplication) {
         let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected editable field \(identifier) to exist.")
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-        typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 220), fallback: field, in: app)
+        for _ in 0..<6 {
+            let current = fieldValue(field)
+            if current.isEmpty || current == "Mensaje" || current == "Message" || !current.starts(with: "chat-actions-ios-") {
+                break
+            }
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+            typeIntoFocusedElement(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 320), fallback: field, in: app)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        XCTAssertFalse(fieldValue(field).starts(with: "chat-actions-ios-"), "The edit composer still contains the original message text.")
         field.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5)).tap()
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         typeIntoFocusedElement(value, fallback: field, in: app)
+    }
+
+    private func fieldValue(_ field: XCUIElement) -> String {
+        if let value = field.value as? String {
+            return value
+        }
+        return ""
     }
 
     private func pasteText(_ value: String, into field: XCUIElement, in app: XCUIApplication) {
