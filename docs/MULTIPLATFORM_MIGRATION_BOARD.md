@@ -4,16 +4,22 @@
 > Este tablero es una fotografía de progreso y no puede redefinir los gates, la arquitectura ni el
 > presupuesto de ejecución establecidos allí.
 
-## Foto de control — 2026-08-09
+## Foto de control — 2026-08-11
 
-**HEAD integrado:** `main` `c8d0cbba61800dd747cfa597646008c53c208301` (PR #216), posterior a #154,
+**HEAD integrado:** `main` `702aad06d5dd8d7091a18326142fbdaeab157ec6` (PR #226), posterior a #154,
 #156, #159, #168, #169, #170, #172, #173, #174, #175, #190, #191, #192, #193, #204, #206, #208,
-#210, #211, #212, #214, #215, #216 y #217. El proyecto sigue incompleto: #215 cierra `SCR-AUTH-RECOVERY` con
-raíz común Android/Wasm/iOS, evidencias focales y reales, limpieza Supabase verificada y certificación
-final verde; #216 actualiza su post-merge documental. #217 queda integrado en `main`
-`a52fb67fe508d9d8f70bb9fa727832c560eac551` y cierra `SCR-OFFICIAL-EDITOR`
-tras invalidar y corregir el falso positivo Web anterior: Android, Web/Wasm e iOS acreditan publicacion real
-reversible, lectura exacta autenticada cuando existe sesion, capturas comparativas y limpieza exacta.
+#210, #211, #212, #214, #215, #216, #217, #219, #222, #224, #225 y #226. El proyecto sigue
+incompleto: #226 reduce límites de `SCR-CHAT` sin declarar GO global. Android, Web/Wasm e iOS
+acreditan envío, respuesta, edición, selección/copiar, favorito, reportar, borrar y mute/unmute en
+una conversación reversible con limpieza física de residuo cero; la barra de acciones seleccionadas
+usa superficie común coherente con el encabezado. Persisten `CHAT-ATTACHMENTS`, `CHAT-AUDIO`,
+`CHAT-FORWARD`, `CHAT-GROUP`, `CHAT-LOCATION-SOS`, `CHAT-TRANSLATION`/`FLOW-TRANSLATOR` y
+`CHAT-PROFILE`.
+
+#217 queda integrado en `main` `a52fb67fe508d9d8f70bb9fa727832c560eac551` y cierra
+`SCR-OFFICIAL-EDITOR` tras invalidar y corregir el falso positivo Web anterior: Android, Web/Wasm e
+iOS acreditan publicacion real reversible, lectura exacta autenticada cuando existe sesion, capturas
+comparativas y limpieza exacta.
 La migracion RLS `20260808_0001_official_posts_actor_guard.sql` fue aplicada remotamente como SQL exacto versionado,
 sin `supabase db push` ni `migration repair`; el postflight actual
 `OFFICIAL-EDITOR-REAL-BACKEND-001` paso en `build-reports/official-editor/real-backend-evidence-618963b1.json`.
@@ -21,12 +27,8 @@ La comparativa final queda en `build-reports/official-editor/final-visual-compar
 
 | Área | Estado | Qué acredita | Límite vigente |
 | --- | --- | --- | --- |
-**Candidato local actual:** `codex/chat-favorites-focused-parity` `c0f06dd23f8e06e59aee5c123f34383b46825937`
-cierra `CHAT-FAVORITES` y `CHAT-FOCUSED-MESSAGE` sin declarar GO global de `SCR-CHAT`. Evidencias
-local-first finales sobre el mismo SHA: Web `build-reports/web/chat-favorites-focused-evidence.json`,
-Android `build-reports/android/chat-favorites-focused-evidence.json` e iOS
-`build-reports/ios/chat-favorites-focused-evidence.json`; las tres usan fixture reversible,
-capturas reales, estado vacío tras desfavoritar y limpieza física con residuo cero.
+| Chat acciones/composer (#226) | COMÚN con límites reducidos | `ChatProductHostContent`/`ChatScreenHost` comunes acreditan envío, reply, edit, copiar, favorito, reportar, borrar y mute/unmute en Android, Web/Wasm e iOS sobre datos temporales reversibles. CI final Web/Android e iOS verde con `candidate-final`; merge `702aad06`; rama remota eliminada. | No declara GO global de `SCR-CHAT`: faltan adjuntos/audio, reenvío final, grupo, mapa/SOS, traducción de Chat, perfil/retorno y errores/rollback forzados. |
+| Chat favoritos/foco (#219) | GO limitado | `CHAT-FAVORITES` y `CHAT-FOCUSED-MESSAGE` quedan cerrados en `main` con evidencia Web/Android/iOS sobre la misma conversación temporal reversible, capturas reales, estado vacío tras desfavoritar y limpieza física con residuo cero. | No cierra los demás `CHAT-*`. |
 
 | Web/Wasm | GO limitado | Shell público, rutas principales y varias raíces Compose comunes están integrados; #154 incorpora `CreatePostRoot` y #156 `ProfileScreenHost`. | Faltan postflights autenticados por flujo y paridad visual exacta. Avatar Web se acredita por contratos, no por una mutación E2E real guardada y limpiada. |
 | Presupuesto Wasm | Integrado | Watchdog sin ventanas visibles, baseline Linux aprobado y captura canónica reproducible. | Windows sigue siendo diagnóstico: el artefacto Wasm/JS depende del host. El presupuesto es un gate técnico, no un SLO de producto. |
@@ -75,6 +77,7 @@ capturas reales, estado vacío tras desfavoritar y limpieza física con residuo 
 | [#214](https://github.com/dossijeo/quata/pull/214) | `9004bcc0` | About/Release History añade ruta pública `#about`, entrada autenticada iOS y anclas comunes de evidencia; la certificación final Web/Android/iOS quedó verde con `candidate-final`. No declara GO global hasta completar evidencia visual/operativa About->Historial->retorno en Android-Wasm-iOS. |
 | [#215](https://github.com/dossijeo/quata/pull/215) | `4fffa2f8` | Auth Recovery queda integrado como raíz común Android/Wasm/iOS con anclas comunes, tests common, evidencias Web/Android/iOS reales, backend reversible con Gabrielu restaurado y gates finales `candidate-final` verdes. `LANG-FASTTEXT-PARITY-001` mantiene FastText compartido como detector de idioma de referencia y bloquea identificadores básicos paralelos. |
 | [#222](https://github.com/dossijeo/quata/pull/222) | `6faffa9f` | `SCR-WHATS-NEW` queda cerrado en Android/Web/iOS con anclas comunes, version visible, cierre real, persistencia de visto y segunda apertura sin repeticion; gates `candidate-final` verdes y rama remota borrada tras merge. |
+| [#226](https://github.com/dossijeo/quata/pull/226) | `702aad06` | Reduce `SCR-CHAT`: composer/envio, reply/edit, acciones seleccionadas, mute/unmute y menu visual comun pasan en Android/Web/iOS con datos reversibles, gates finales verdes y rama remota `codex/chat-composer-text-parity` borrada tras merge. No declara GO global de Chat. |
 
 ## Registro de candidato #156 y mejora de preflight
 
