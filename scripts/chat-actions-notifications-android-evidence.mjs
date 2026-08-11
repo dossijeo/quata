@@ -609,6 +609,73 @@ async function resolveAdjacentRecipientProfile(phoneKeys) {
   });
 }
 
+async function prepareProfileListEdges(followerId, followedId) {
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const pairs = [
+        { label: "a_follows_b", followerId, followedId },
+        { label: "b_follows_a", followerId: followedId, followedId: followerId },
+      ];
+      const initial = [];
+      for (const pair of pairs) {
+        const existing = await client.query(
+          `select id
+             from public.community_profile_follows
+            where follower_profile_id = $1 and followed_profile_id = $2
+            limit 1
+            for update`,
+          [pair.followerId, pair.followedId],
+        );
+        const existed = existing.rowCount > 0;
+        initial.push({ ...pair, existed });
+        if (!existed) {
+          await client.query(
+            `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+             values ($1, $2)
+             on conflict do nothing`,
+            [pair.followerId, pair.followedId],
+          );
+        }
+      }
+      await client.query("commit");
+      return initial;
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+async function restoreProfileListEdges(edges) {
+  if (!Array.isArray(edges) || edges.length === 0) return [];
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      for (const edge of edges) {
+        if (edge.existed) {
+          await client.query(
+            `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+             values ($1, $2)
+             on conflict do nothing`,
+            [edge.followerId, edge.followedId],
+          );
+        } else {
+          await client.query(
+            "delete from public.community_profile_follows where follower_profile_id = $1 and followed_profile_id = $2",
+            [edge.followerId, edge.followedId],
+          );
+        }
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  return ["profile_follow_list_edges_restored_to_initial_state"];
+}
+
 async function verifyRecipientParticipant(thread, recipientProfileId) {
   await withDatabase(async (client) => {
     const result = await client.query(
@@ -711,7 +778,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
@@ -738,7 +805,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  if (!translationOnly && !profileOnly && !profileFollowOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -850,6 +917,10 @@ try {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
     }
+    if (profileListsOnly) {
+      state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
+      report.steps.push("profile_follow_list_edges_prepared_reversibly");
+    }
     const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (profileFollowOnly) {
@@ -876,6 +947,7 @@ try {
       markerSha256: sha256(marker),
       peerMarkerSha256: sha256(peerMarker),
       profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
+      profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
     };
     throw new Error(profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
   }
@@ -975,6 +1047,10 @@ try {
   if (state.thread) {
     const config = await publicBackendConfig().catch(() => null);
     if (config) {
+      if (state.profileListEdges) {
+        try { cleanup.actions.push(...await restoreProfileListEdges(state.profileListEdges)); }
+        catch (error) { cleanupFailed = true; cleanup.error = safeFailure(error); }
+      }
       try { cleanup.actions.push(...await logicalCleanup(config, state)); }
       catch (error) { cleanupFailed = true; cleanup.error = safeFailure(error); }
       if (state.profileFollow && state.a && state.b) {
