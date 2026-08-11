@@ -428,8 +428,7 @@ async function clickMessage(page, marker, error) {
 }
 
 async function openMessageActions(page, marker, expectedPatterns, targetError, actionError) {
-  await page.keyboard.press("Escape").catch(() => {});
-  await delay(150);
+  await closeTransientMenus(page);
   await clickMessage(page, marker, targetError);
   if (marker.startsWith("chat-edit-ui-") || marker.startsWith("chat-actions-peer-")) {
     await delay(500);
@@ -440,6 +439,19 @@ async function openMessageActions(page, marker, expectedPatterns, targetError, a
     if (await visibleAriaLocator(page, expectedPatterns, 5_000)) return;
   }
   throw new Error(actionError);
+}
+
+async function closeTransientMenus(page) {
+  await page.keyboard.press("Escape").catch(() => {});
+  await delay(150);
+  const conversationMenu = page.getByText(/Silenciar conversaci[oÃ³]n|Mute conversation|A[Ã±n]adir nuevos participantes|Add new participants/i).first();
+  if (await conversationMenu.isVisible({ timeout: 500 }).catch(() => false)) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    await page.mouse.click(Math.max(1, viewport.width - 18), Math.min(viewport.height - 18, 210));
+    await delay(200);
+    await page.keyboard.press("Escape").catch(() => {});
+    await delay(150);
+  }
 }
 
 async function longPressMessage(page, marker) {
