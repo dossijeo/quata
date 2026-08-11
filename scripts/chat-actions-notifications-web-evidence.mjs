@@ -1300,6 +1300,73 @@ async function resolveAdjacentRecipientProfile(phoneKeys) {
   });
 }
 
+async function prepareProfileListEdges(followerId, followedId) {
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const pairs = [
+        { label: "a_follows_b", followerId, followedId },
+        { label: "b_follows_a", followerId: followedId, followedId: followerId },
+      ];
+      const initial = [];
+      for (const pair of pairs) {
+        const existing = await client.query(
+          `select id
+             from public.community_profile_follows
+            where follower_profile_id = $1 and followed_profile_id = $2
+            limit 1
+            for update`,
+          [pair.followerId, pair.followedId],
+        );
+        const existed = existing.rowCount > 0;
+        initial.push({ ...pair, existed });
+        if (!existed) {
+          await client.query(
+            `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+             values ($1, $2)
+             on conflict do nothing`,
+            [pair.followerId, pair.followedId],
+          );
+        }
+      }
+      await client.query("commit");
+      return initial;
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+async function restoreProfileListEdges(edges) {
+  if (!Array.isArray(edges) || edges.length === 0) return [];
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      for (const edge of edges) {
+        if (edge.existed) {
+          await client.query(
+            `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+             values ($1, $2)
+             on conflict do nothing`,
+            [edge.followerId, edge.followedId],
+          );
+        } else {
+          await client.query(
+            "delete from public.community_profile_follows where follower_profile_id = $1 and followed_profile_id = $2",
+            [edge.followerId, edge.followedId],
+          );
+        }
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  return ["profile_follow_list_edges_restored_to_initial_state"];
+}
+
 async function openTemporaryProfileHashWindow(users) {
   if (process.env[tempProfileHashAuthorizationEnvironment]?.trim() !== tempProfileHashAuthorizationValue) {
     return { state: "not_requested", restored: true, restore: async () => {} };
@@ -1377,7 +1444,7 @@ function safeFailure(error) {
     "chat_backend_poll_timeout", "distribution_missing", "runtime_configuration_injection_failed",
     "static_server_start_failed", "message_not_visible", "options_menu_not_visible", "action_bar_not_visible",
     "message_action_target_not_clickable",
-    "mute_state_not_persisted", "favorite_state_not_persisted", "forward_state_not_persisted", "profile_state_not_opened", "browser_runtime_fault",
+    "mute_state_not_persisted", "favorite_state_not_persisted", "forward_state_not_persisted", "profile_state_not_opened", "profile_lists_state_not_opened", "profile_lists_state_not_returned", "browser_runtime_fault",
         "composer_message_not_visible", "composer_reply_not_visible", "composer_edit_not_visible",
         "composer_input_not_visible", "composer_send_not_visible", "composer_send_not_dispatched",
     "cleanup_residue_detected", "missing_hard_cleanup_authorization",
@@ -1398,7 +1465,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -1426,7 +1493,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
-  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly) {
+  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1508,6 +1575,8 @@ try {
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
     }
     if (options.profileListsOnly) {
+      state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
+      report.steps.push("profile_follow_list_edges_prepared_reversibly");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-lists");
       await assertProfileFollowLists(page, state.b, options.evidenceDir, report);
       report.steps.push("peer_public_profile_followers_and_following_lists_opened_and_returned");
@@ -1537,6 +1606,7 @@ try {
         ownMarkerSha256: sha256(ownMarker),
         peerMarkerSha256: sha256(peerMarker),
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
+        profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
       };
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       throw new ProfileOnlyCompleted();
@@ -1695,6 +1765,10 @@ try {
     cleanupFailed = true;
     cleanup.error = safeFailure(error);
     report.profileHashWindow = { state: "restore_failed" };
+  }
+  if (state.profileListEdges && config) {
+    try { cleanup.actions.push(...await restoreProfileListEdges(state.profileListEdges)); }
+    catch (error) { cleanupFailed = true; cleanup.error = safeFailure(error); }
   }
   if (state.thread && config) {
     try { cleanup.actions.push(...await logicalCleanup(config, state)); }
