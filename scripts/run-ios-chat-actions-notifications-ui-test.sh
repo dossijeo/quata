@@ -8,12 +8,24 @@ set -euo pipefail
 : "${QUATA_IOS_CHAT_E2E_CONVERSATION_ID:?Set QUATA_IOS_CHAT_E2E_CONVERSATION_ID.}"
 : "${QUATA_IOS_CHAT_E2E_MESSAGE_ID:?Set QUATA_IOS_CHAT_E2E_MESSAGE_ID.}"
 : "${QUATA_IOS_CHAT_E2E_MARKER_PROBE:?Set QUATA_IOS_CHAT_E2E_MARKER_PROBE.}"
-: "${QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID:?Set QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID.}"
-: "${QUATA_IOS_CHAT_E2E_EDITABLE_MARKER:?Set QUATA_IOS_CHAT_E2E_EDITABLE_MARKER.}"
-: "${QUATA_IOS_CHAT_E2E_COMPOSER_MARKER:?Set QUATA_IOS_CHAT_E2E_COMPOSER_MARKER.}"
-: "${QUATA_IOS_CHAT_E2E_REPLY_MARKER:?Set QUATA_IOS_CHAT_E2E_REPLY_MARKER.}"
-: "${QUATA_IOS_CHAT_E2E_EDIT_MARKER:?Set QUATA_IOS_CHAT_E2E_EDIT_MARKER.}"
-: "${QUATA_IOS_CHAT_E2E_FORWARD_QUERY:?Set QUATA_IOS_CHAT_E2E_FORWARD_QUERY.}"
+: "${QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE:?Set QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE.}"
+: "${QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID:?Set QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID.}"
+: "${QUATA_IOS_CHAT_PROFILE_ONLY:=0}"
+if [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" == "1" ]]; then
+  : "${QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID:=profile-only}"
+  : "${QUATA_IOS_CHAT_E2E_EDITABLE_MARKER:=profile-only}"
+  : "${QUATA_IOS_CHAT_E2E_COMPOSER_MARKER:=profile-only}"
+  : "${QUATA_IOS_CHAT_E2E_REPLY_MARKER:=profile-only}"
+  : "${QUATA_IOS_CHAT_E2E_EDIT_MARKER:=profile-only}"
+  : "${QUATA_IOS_CHAT_E2E_FORWARD_QUERY:=profile-only}"
+else
+  : "${QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID:?Set QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID.}"
+  : "${QUATA_IOS_CHAT_E2E_EDITABLE_MARKER:?Set QUATA_IOS_CHAT_E2E_EDITABLE_MARKER.}"
+  : "${QUATA_IOS_CHAT_E2E_COMPOSER_MARKER:?Set QUATA_IOS_CHAT_E2E_COMPOSER_MARKER.}"
+  : "${QUATA_IOS_CHAT_E2E_REPLY_MARKER:?Set QUATA_IOS_CHAT_E2E_REPLY_MARKER.}"
+  : "${QUATA_IOS_CHAT_E2E_EDIT_MARKER:?Set QUATA_IOS_CHAT_E2E_EDIT_MARKER.}"
+  : "${QUATA_IOS_CHAT_E2E_FORWARD_QUERY:?Set QUATA_IOS_CHAT_E2E_FORWARD_QUERY.}"
+fi
 : "${QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR:=build/reports/ios/chat-actions-notifications}"
 : "${QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_RESULT_BUNDLE_DIR:=}"
 watchdog="scripts/run-ios-command-watchdog.py"
@@ -85,9 +97,9 @@ elif [[ "$bootstatus_status" -ne 0 ]]; then
   exit "$bootstatus_status"
 fi
 
-/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" "$QUATA_IOS_CHAT_E2E_FORWARD_QUERY" <<'PY'
+/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" "$QUATA_IOS_CHAT_E2E_FORWARD_QUERY" <<'PY'
 import plistlib, sys
-path, credentials, conversation, message, marker, editable_message, editable_marker, composer, reply, edit, forward_query = sys.argv[1:]
+path, credentials, conversation, message, marker, profile_marker, profile_id, editable_message, editable_marker, composer, reply, edit, forward_query = sys.argv[1:]
 with open(path, 'rb') as f:
     data = plistlib.load(f)
 matched = set()
@@ -99,9 +111,12 @@ def patch_target(target, hint=''):
         matched.add('seed')
     if 'QuataIosUITests' in name:
         env['QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_UI_E2E'] = '1'
+        env['QUATA_IOS_CHAT_PROFILE_UI_E2E'] = '1'
         env['QUATA_IOS_CHAT_E2E_CONVERSATION_ID'] = conversation
         env['QUATA_IOS_CHAT_E2E_MESSAGE_ID'] = message
         env['QUATA_IOS_CHAT_E2E_MARKER_PROBE'] = marker
+        env['QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE'] = profile_marker
+        env['QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID'] = profile_id
         env['QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID'] = editable_message
         env['QUATA_IOS_CHAT_E2E_EDITABLE_MARKER'] = editable_marker
         env['QUATA_IOS_CHAT_E2E_COMPOSER_MARKER'] = composer
@@ -122,7 +137,9 @@ with open(path, 'wb') as f:
 PY
 
 seed='QuataIosTests/QuataIosAuthenticatedSessionSeederTests/testSeedAuthenticatedSessionForVisualGates'
+profile='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfileEntryFromChatOpensPublicProfileAndReturns'
 ui='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testComposerReplyEditAndSelectedActionsUseSharedChatSurface'
+profile_method='testProfileEntryFromChatOpensPublicProfileAndReturns'
 ui_method='testComposerReplyEditAndSelectedActionsUseSharedChatSurface'
 
 run_and_require() {
@@ -143,5 +160,8 @@ run_and_require() {
 }
 
 run_and_require "$seed" testSeedAuthenticatedSessionForVisualGates "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/seed.log"
-run_and_require "$ui" "$ui_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/ui.log"
+run_and_require "$profile" "$profile_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile.log"
+if [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" != "1" ]]; then
+  run_and_require "$ui" "$ui_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/ui.log"
+fi
 echo "CHAT_ACTIONS_NOTIFICATIONS_IOS_UI_GATE_PASSED" >&2

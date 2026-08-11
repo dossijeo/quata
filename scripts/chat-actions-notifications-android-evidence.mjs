@@ -13,6 +13,7 @@ const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTI
 const tempProfileHashAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH_AUTHORIZATION";
 const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH";
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
+const profileOnly = process.argv.includes("--profile-only");
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/chat-actions-notifications-credentials.json";
@@ -32,6 +33,9 @@ const evidenceFiles = [
   "android-chat-actions-own-selected.png",
   "android-chat-forward-picker-selected.png",
   "android-chat-forward-submitted.png",
+  "android-chat-profile-thread-initial.png",
+  "android-chat-profile-open.png",
+  "android-chat-profile-return.png",
   "android-chat-actions-notifications-evidence.json",
 ];
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
@@ -345,7 +349,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("favorite_removed");
   }
-  const messageIds = [state.message, state.editedMessage, ...state.uiMessages]
+  const messageIds = [state.message, state.peerMessage, state.editedMessage, ...state.uiMessages]
     .filter((id, index, all) => Number.isInteger(Number(id)) && all.indexOf(id) === index);
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
@@ -601,7 +605,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
@@ -643,6 +647,8 @@ try {
   }));
   const marker = translationOnly ? "Mbolo" : `chat-actions-notifications-android-${randomUUID()}`;
   const markerProbe = marker.slice(0, 24);
+  const peerMarker = `chat-profile-peer-android-${randomUUID()}`;
+  const peerProbe = peerMarker.slice(0, 24);
   const composerMarker = `chat-compose-ui-android-${randomUUID()}`;
   const replyMarker = `chat-reply-ui-android-${randomUUID()}`;
   const editMarker = `chat-edit-ui-android-${randomUUID()}`;
@@ -656,7 +662,16 @@ try {
   }));
   if (state.b.accessToken) {
     await pollMessage(config, state.b, state.thread, (message) => Number(message?.id) === state.message && messageText(message) === marker);
-    report.steps.push("unique_message_visible_to_peer");
+    state.peerMessage = messageId(await rpc(config, state.b, "quata_chat_send_message", {
+      p_actor_profile_id: state.b.profileId,
+      p_thread_id: state.thread,
+      p_message: peerMarker,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `chat-profile-peer-android-${randomUUID()}`,
+    }));
+    await pollMessage(config, state.a, state.thread, (message) => Number(message?.id) === state.peerMessage && messageText(message) === peerMarker);
+    report.steps.push("unique_own_and_peer_messages_visible");
   } else {
     await verifyRecipientParticipant(state.thread, state.b.profileId);
     report.steps.push("adjacent_recipient_participant_verified");
@@ -690,6 +705,8 @@ try {
     "-e", "quataChatActionsCredentialsFile", deviceCredentialsPath,
     "-e", "quataChatActionsUrl", chatUrl(`sb:${state.thread}`),
     "-e", "quataChatActionsOwnProbe", markerProbe,
+    "-e", "quataChatActionsPeerProbe", peerProbe,
+    "-e", "quataChatActionsProfileId", state.b.profileId,
     "-e", "quataChatActionsComposerMarker", composerMarker,
     "-e", "quataChatActionsReplyMarker", replyMarker,
     "-e", "quataChatActionsEditMarker", editMarker,
@@ -720,6 +737,31 @@ try {
       markerSha256: sha256(marker),
     };
     throw new EvidenceCompleted();
+  }
+
+  if (state.b.accessToken) {
+    assertInstrumentationPassed("profile", await runInstrumentationStage("profile"));
+    report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
+  }
+
+  if (profileOnly) {
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((name) => name.includes("profile") || name.endsWith("evidence.json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file));
+    }
+    report.status = "passed";
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      seedMessageId: state.message,
+      peerMessageId: state.peerMessage,
+      peerProfileIdSha256: sha256(state.b.profileId),
+      markerSha256: sha256(marker),
+      peerMarkerSha256: sha256(peerMarker),
+    };
+    throw new Error("profile_only_completed");
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));
@@ -768,6 +810,8 @@ try {
     threadId: state.thread,
     conversationId: `sb:${state.thread}`,
     seedMessageId: state.message,
+    peerMessageId: state.peerMessage,
+    peerProfileIdSha256: sha256(state.b.profileId),
     composerMessageId: messageId(composerMessage),
     replyMessageId: messageId(replyMessage),
     editedMessageId: state.editedMessage,
@@ -780,8 +824,8 @@ try {
     editMarkerSha256: sha256(editMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted) {
-    // Focal mode finished successfully; cleanup and report writing still happen in finally.
+  if (error instanceof EvidenceCompleted || error?.message === "profile_only_completed") {
+    // Focal modes finished successfully; cleanup and report writing still happen in finally.
   } else {
     report.error = safeFailure(error);
     if (lastThreadSnapshot) report.diagnostics = { lastThreadSnapshot };

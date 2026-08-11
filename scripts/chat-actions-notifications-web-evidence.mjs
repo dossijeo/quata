@@ -20,6 +20,8 @@ const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 let lastThreadSnapshot = null;
 
+class ProfileOnlyCompleted extends Error {}
+
 function parseArgs(argv) {
   const result = {
     distribution: resolve("web/build/dist/wasmJs/productionExecutable"),
@@ -27,11 +29,16 @@ function parseArgs(argv) {
     output: resolve("build-reports/web/chat-actions-notifications-evidence.json"),
     evidenceDir: resolve("build-reports/web/chat-actions-notifications-evidence"),
     translationOnly: false,
+    profileOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (key === "--translation-only") {
       result.translationOnly = true;
+      continue;
+    }
+    if (key === "--profile-only") {
+      result.profileOnly = true;
       continue;
     }
     const value = argv[++index];
@@ -167,7 +174,8 @@ async function login(config, user) {
   if (!uuid.test(profileId ?? "") || !session?.access_token || !session?.refresh_token || !Number.isFinite(session?.expires_at) || !webSessionToken) {
     throw new Error(`invalid_auth_response:${user.label}`);
   }
-  return { label: user.label, profileId, accessToken: session.access_token, refreshToken: session.refresh_token, expiresAt: session.expires_at, webSessionToken };
+  const displayName = String(payload?.profile?.display_name ?? payload?.profile?.displayName ?? payload?.profile?.name ?? "").trim();
+  return { label: user.label, profileId, displayName, accessToken: session.access_token, refreshToken: session.refresh_token, expiresAt: session.expires_at, webSessionToken };
 }
 
 function rpc(config, session, name, body) {
@@ -609,6 +617,9 @@ async function waitMessageVisible(page, marker, error, timeout = 45_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     for (const probe of probes) {
+      const controls = await visibleNativeControls(page);
+      if (controls.some((control) => control.label.includes(probe))) return;
+      if (await visibleAriaLocator(page, [new RegExp(escapeRegExp(probe))], 250)) return;
       const text = page.getByText(probe, { exact: false }).first();
       if (await text.waitFor({ timeout: 500 }).then(() => true).catch(() => false)) return;
       if (await visibleTextBox(page, probe)) return;
@@ -616,6 +627,84 @@ async function waitMessageVisible(page, marker, error, timeout = 45_000) {
     await delay(250);
   }
   throw new Error(error);
+}
+
+async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenceDir, report) {
+  await waitMessageVisible(page, peerMarker, "message_not_visible:peer_profile_source");
+  report.evidence.profileThreadInitial = await attachScreenshot(page, evidenceDir, "web-chat-profile-thread-initial");
+  const opened = await clickMessageAvatar(page, peerMarker);
+  if (!opened) throw new Error("profile_state_not_opened:avatar_not_clickable");
+  const visible = await waitForProfileVisible(page, peerProfile);
+  if (!visible) throw new Error("profile_state_not_opened:profile_not_visible");
+  report.evidence.profileOpen = await attachScreenshot(page, evidenceDir, "web-chat-profile-open");
+  if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
+  await delay(1_000);
+  if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
+  report.evidence.profileReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-return");
+}
+
+async function waitForChatProfileReturn(page) {
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    const controls = await visibleNativeControls(page);
+    const composerVisible = controls.some((control) => /Mensaje|Message/i.test(control.label));
+    if (composerVisible) return true;
+    await delay(500);
+  }
+  return false;
+}
+
+async function clickProfileBack(page) {
+  const labeled = await visibleAriaLocator(page, [/Volver|Back/i], 3_000);
+  if (labeled) {
+    const box = await labeled.boundingBox().catch(() => null);
+    if (box) {
+      await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+      return true;
+    }
+  }
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  await page.mouse.click(34, Math.min(140, Math.max(90, viewport.height * 0.14)));
+  await delay(500);
+  return true;
+}
+
+async function clickMessageAvatar(page, marker) {
+  const probes = [...new Set([marker.slice(0, 28), marker.slice(0, 20), marker.slice(0, 16)])];
+  for (const probe of probes) {
+    const text = page.getByText(probe, { exact: false }).first();
+    if (await text.waitFor({ timeout: 3_000 }).then(() => true).catch(() => false)) {
+      await text.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
+      await delay(250);
+      const box = await text.boundingBox();
+      if (box) {
+        await page.mouse.click(Math.max(8, box.x - 26), box.y + Math.min(22, box.height * 0.22));
+        await delay(1_500);
+        return true;
+      }
+    }
+    const textBox = await visibleTextBox(page, probe);
+    if (textBox) {
+      await page.mouse.click(Math.max(8, textBox.x - 26), textBox.y + Math.min(22, textBox.height * 0.22));
+      await delay(1_500);
+      return true;
+    }
+  }
+  return false;
+}
+
+async function waitForProfileVisible(page, profile) {
+  const displayName = profile.displayName?.trim();
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const hasProfileText = displayName
+      ? await page.getByText(new RegExp(escapeRegExp(displayName))).first().isVisible({ timeout: 500 }).catch(() => false)
+      : false;
+    const hasProfileChrome = await page.getByText(/Publicaciones|Posts|Seguidores|Followers|Siguiendo|Following/i).first().isVisible({ timeout: 500 }).catch(() => false);
+    if (hasProfileText && hasProfileChrome) return true;
+    await delay(500);
+  }
+  return false;
 }
 
 async function clickMessageProbe(page, probe) {
@@ -1097,7 +1186,7 @@ function safeFailure(error) {
     "chat_backend_poll_timeout", "distribution_missing", "runtime_configuration_injection_failed",
     "static_server_start_failed", "message_not_visible", "options_menu_not_visible", "action_bar_not_visible",
     "message_action_target_not_clickable",
-    "mute_state_not_persisted", "favorite_state_not_persisted", "forward_state_not_persisted", "browser_runtime_fault",
+    "mute_state_not_persisted", "favorite_state_not_persisted", "forward_state_not_persisted", "profile_state_not_opened", "browser_runtime_fault",
         "composer_message_not_visible", "composer_reply_not_visible", "composer_edit_not_visible",
         "composer_input_not_visible", "composer_send_not_visible", "composer_send_not_dispatched",
     "cleanup_residue_detected", "missing_hard_cleanup_authorization",
@@ -1146,7 +1235,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
-  if (!options.translationOnly) {
+  if (!options.translationOnly && !options.profileOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1220,6 +1309,28 @@ try {
       translatedMarkerSha256: sha256(ownMarker),
     };
     throw new EvidenceCompleted();
+  }
+
+  if (state.peerMessage && state.b.accessToken) {
+    await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
+    report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
+    if (options.profileOnly) {
+      if (faults.length) throw new Error("browser_runtime_fault");
+      report.status = "passed";
+      report.fixture = {
+        threadId: state.thread,
+        conversationId: `sb:${state.thread}`,
+        ownMessageId: state.ownMessage,
+        peerMessageId: state.peerMessage,
+        peerProfileIdSha256: sha256(state.b.profileId),
+        uniqueKeySha256: sha256(state.uniqueKey),
+        ownMarkerSha256: sha256(ownMarker),
+        peerMarkerSha256: sha256(peerMarker),
+      };
+      throw new ProfileOnlyCompleted();
+    }
+  } else if (options.profileOnly) {
+    throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
   const composerMarker = `chat-composer-ui-${runId}`;
@@ -1334,26 +1445,26 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted) {
-    // Focal mode finished successfully; cleanup and report writing still happen in finally.
+  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted) {
+    // Focal modes already set report.status and fixture; cleanup still runs in finally.
   } else {
-  if (pageContext?.page) {
-    try {
-      report.evidence.failure = await attachScreenshot(pageContext.page, options.evidenceDir, "web-chat-actions-failure");
-      report.diagnostics = { visibleNativeControls: await visibleNativeControls(pageContext.page) };
-    } catch {}
-  }
-  report.error = safeFailure(error);
-  if (lastThreadSnapshot) report.diagnostics = { ...(report.diagnostics ?? {}), lastThreadSnapshot };
-  if (typeof error?.message === "string" && error.message.startsWith(report.error)) {
-    report.diagnostics = { ...(report.diagnostics ?? {}), safeErrorMessage: error.message };
-  } else if (report.error === "unexpected_chat_actions_notifications_web_failure") {
-    report.diagnostics = {
-      ...(report.diagnostics ?? {}),
-      unexpectedErrorName: typeof error?.name === "string" ? error.name : "Error",
-      unexpectedErrorMessage: typeof error?.message === "string" ? error.message : "unknown",
-    };
-  }
+    if (pageContext?.page) {
+      try {
+        report.evidence.failure = await attachScreenshot(pageContext.page, options.evidenceDir, "web-chat-actions-failure");
+        report.diagnostics = { visibleNativeControls: await visibleNativeControls(pageContext.page) };
+      } catch {}
+    }
+    report.error = safeFailure(error);
+    if (lastThreadSnapshot) report.diagnostics = { ...(report.diagnostics ?? {}), lastThreadSnapshot };
+    if (typeof error?.message === "string" && error.message.startsWith(report.error)) {
+      report.diagnostics = { ...(report.diagnostics ?? {}), safeErrorMessage: error.message };
+    } else if (report.error === "unexpected_chat_actions_notifications_web_failure") {
+      report.diagnostics = {
+        ...(report.diagnostics ?? {}),
+        unexpectedErrorName: typeof error?.name === "string" ? error.name : "Error",
+        unexpectedErrorMessage: typeof error?.message === "string" ? error.message : "unknown",
+      };
+    }
   }
 } finally {
   const cleanup = { state: "completed", actions: [] };

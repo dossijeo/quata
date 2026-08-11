@@ -25,6 +25,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
@@ -35,6 +37,10 @@ import com.quata.core.ui.components.CompactIconButton
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
+
+const val PublicProfileRootTestTag = "public-profile.root"
+const val PublicProfileBackTestTag = "public-profile.back"
+const val PublicProfileUserTestTagPrefix = "public-profile.user."
 
 data class CommunityProfileStrings(
     val posts: String,
@@ -135,11 +141,12 @@ fun CommunityProfileScreenHost(
         sheetState = sheetState,
         containerColor = template.colors.background,
         contentColor = template.colors.textPrimary,
+        modifier = Modifier.semantics { testTag = PublicProfileRootTestTag },
         onDismiss = onBack,
     ) {
         if (showDismissButton) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                CompactIconButton(onClick = onBack) {
+                CompactIconButton(onClick = onBack, modifier = Modifier.semantics { testTag = PublicProfileBackTestTag }) {
                     CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back)
                 }
             }
@@ -170,6 +177,7 @@ fun CommunityProfileScreenHost(
                     CommunityProfileHeaderContent(
                         displayName = profile.user.displayName,
                         neighborhood = profile.user.neighborhood,
+                        modifier = Modifier.semantics { testTag = PublicProfileUserTestTagPrefix + profile.user.id },
                         avatar = {
                             slots.avatar(
                                 profile.user,

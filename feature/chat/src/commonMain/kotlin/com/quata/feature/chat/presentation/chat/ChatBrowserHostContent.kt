@@ -59,6 +59,9 @@ import com.quata.feature.chat.presentation.conversations.resolveMessageAvatarPre
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
+const val ChatProfileMemberAvatarTestTagPrefix = "chat.profile.member."
+const val ChatProfileMessageAvatarTestTagPrefix = "chat.profile.message."
+
 /**
  * Recording format selected by a platform launcher for the shared chat composer.
  *
@@ -353,9 +356,12 @@ private fun ChatCommonConversationHost(
                             isMuted = false,
                             isLoading = openingProfileUserId == member.id,
                         ),
-                        Modifier.size(34.dp).clickable(
-                            enabled = member.canOpenProfile && openingProfileUserId != member.id,
-                        ) { onOpenUserProfile(member.id) },
+                        Modifier
+                            .size(34.dp)
+                            .semantics { testTag = ChatProfileMemberAvatarTestTagPrefix + member.id }
+                            .clickable(
+                                enabled = member.canOpenProfile && openingProfileUserId != member.id,
+                            ) { onOpenUserProfile(member.id) },
                     )
                 }
             },
@@ -375,9 +381,10 @@ private fun ChatCommonConversationHost(
                         Modifier
                             .size(34.dp)
                             .border(1.dp, template.colors.divider, CircleShape)
+                            .semantics { testTag = ChatProfileMessageAvatarTestTagPrefix + message.senderId }
                             .clickable(
-                            enabled = openingProfileUserId != message.senderId,
-                        ) { onOpenUserProfile(message.senderId) },
+                                enabled = openingProfileUserId != message.senderId,
+                            ) { onOpenUserProfile(message.senderId) },
                     )
                 }
             },
