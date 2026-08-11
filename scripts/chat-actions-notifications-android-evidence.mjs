@@ -15,6 +15,7 @@ const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
 const profileOnly = process.argv.includes("--profile-only");
 const profileFollowOnly = process.argv.includes("--profile-follow-only");
+const profileListsOnly = process.argv.includes("--profile-lists-only");
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/chat-actions-notifications-credentials.json";
@@ -40,6 +41,11 @@ const evidenceFiles = [
   "android-chat-profile-follow-before.png",
   "android-chat-profile-follow-after.png",
   "android-chat-profile-follow-return.png",
+  "android-chat-profile-lists-thread-initial.png",
+  "android-chat-profile-lists-open.png",
+  "android-chat-profile-list-followers.png",
+  "android-chat-profile-list-following.png",
+  "android-chat-profile-lists-return.png",
   "android-chat-actions-notifications-evidence.json",
 ];
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
@@ -844,15 +850,16 @@ try {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
     }
-    assertInstrumentationPassed(profileFollowOnly ? "profile-follow" : "profile", await runInstrumentationStage(profileFollowOnly ? "profile-follow" : "profile"));
+    const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : "profile";
+    assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
       report.steps.push("profile_follow_toggled_and_verified_by_db");
     }
-    report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
+    report.steps.push(profileListsOnly ? "peer_public_profile_followers_and_following_lists_opened_and_returned" : "peer_avatar_opened_public_profile_and_returned_to_chat");
   }
 
-  if (profileOnly || profileFollowOnly) {
+  if (profileOnly || profileFollowOnly || profileListsOnly) {
     await rm(evidenceDir, { recursive: true, force: true });
     await mkdir(evidenceDir, { recursive: true });
     for (const file of evidenceFiles.filter((name) => name.includes("profile") || name.endsWith("evidence.json"))) {
@@ -870,7 +877,7 @@ try {
       peerMarkerSha256: sha256(peerMarker),
       profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
     };
-    throw new Error("profile_only_completed");
+    throw new Error(profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));
@@ -933,7 +940,7 @@ try {
     editMarkerSha256: sha256(editMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted || error?.message === "profile_only_completed") {
+  if (error instanceof EvidenceCompleted || error?.message === "profile_only_completed" || error?.message === "profile_lists_only_completed") {
     // Focal modes finished successfully; cleanup and report writing still happen in finally.
   } else {
     report.error = safeFailure(error);
