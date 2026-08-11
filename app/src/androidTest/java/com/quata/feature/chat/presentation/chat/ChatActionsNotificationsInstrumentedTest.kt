@@ -84,6 +84,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "send-reply" -> runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                 "edit-favorite" -> runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
                 "forward" -> runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
+                "translation" -> runTranslationStage(ownProbe.orEmpty())
                 "full" -> {
                     runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                     runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
@@ -99,6 +100,48 @@ class ChatActionsNotificationsInstrumentedTest {
                 .put("status", "passed")
                 .put("evidenceDirectory", evidenceDir().absolutePath),
         )
+    }
+
+    private suspend fun runTranslationStage(markerProbe: String) {
+        waitForMarker(markerProbe, "initial chat translation thread")
+        saveScreenshot("android-chat-translation-before")
+        compose.onNodeWithTag(ChatTranslatorTriggerTestTag, useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(15_000) {
+            runCatching {
+                compose.onNodeWithTag(ChatTranslatorOverlayTestTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        compose.waitUntil(15_000) {
+            runCatching {
+                compose.onNodeWithTag(ChatTranslatorInstructionTestTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        saveScreenshot("android-chat-translation-overlay")
+        compose.onNode(
+            SemanticsMatcher("translator message contains marker") { node ->
+                node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(ChatTranslatorMessageTestTagPrefix) == true &&
+                    node.config.getOrNull(SemanticsProperties.ContentDescription)?.any { it.contains(markerProbe) } == true
+            },
+            useUnmergedTree = true,
+        ).performClick()
+        compose.waitForIdle()
+        device.click((device.displayWidth * 0.62f).toInt(), (device.displayHeight * 0.36f).toInt())
+        waitForAnyTranslatorMarker(listOf("pan de trigo", "The bread", "Le pain"), "translated chat message", 90_000)
+        waitForAnyTranslatorMarker(listOf("FAN->ES", "FAN->EN", "FAN->FR"), "translation direction", 10_000)
+        saveScreenshot("android-chat-translation-result")
+        compose.onNodeWithTag(ChatTranslatorExitTestTag, useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(10_000) {
+            runCatching {
+                compose.onNodeWithTag(ChatTranslatorOverlayTestTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isFailure
+        }
+        waitForMarker(markerProbe, "chat translation return")
+        saveScreenshot("android-chat-translation-return")
     }
 
     private fun chatIntent(url: String): Intent =
@@ -308,9 +351,9 @@ class ChatActionsNotificationsInstrumentedTest {
         return false
     }
 
-    private fun waitForMarker(markerProbe: String, context: String) {
+    private fun waitForMarker(markerProbe: String, context: String, timeoutMillis: Long = 45_000) {
         val visible = runCatching {
-            compose.waitUntil(45_000) { messageNodeVisible(markerProbe) }
+            compose.waitUntil(timeoutMillis) { messageNodeVisible(markerProbe) }
             true
         }.getOrDefault(false)
         if (visible) return
@@ -323,9 +366,31 @@ class ChatActionsNotificationsInstrumentedTest {
         assertTrue("The marker must be visible in $context.", scrolled)
     }
 
+    private fun waitForAnyMarker(markerProbes: List<String>, context: String, timeoutMillis: Long = 45_000) {
+        val visible = runCatching {
+            compose.waitUntil(timeoutMillis) { markerProbes.any(::messageNodeVisible) }
+            true
+        }.getOrDefault(false)
+        assertTrue("One of the expected markers must be visible in $context.", visible)
+    }
+
+    private fun waitForAnyTranslatorMarker(markerProbes: List<String>, context: String, timeoutMillis: Long) {
+        val visible = runCatching {
+            compose.waitUntil(timeoutMillis) { markerProbes.any(::translatorNodeVisible) }
+            true
+        }.getOrDefault(false)
+        assertTrue("One of the expected translator markers must be visible in $context.", visible)
+    }
+
     private fun messageNodeVisible(markerProbe: String): Boolean =
         runCatching {
             compose.onNode(messageNodeMatcher(markerProbe), useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }.isSuccess
+
+    private fun translatorNodeVisible(markerProbe: String): Boolean =
+        runCatching {
+            compose.onNode(translatorNodeMatcher(markerProbe), useUnmergedTree = true)
                 .fetchSemanticsNode()
         }.isSuccess
 
@@ -344,6 +409,12 @@ class ChatActionsNotificationsInstrumentedTest {
             SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button) and
             SemanticsMatcher("testTag starts with chat.message.") { node ->
                 node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("chat.message.") == true
+            }
+
+    private fun translatorNodeMatcher(markerProbe: String): SemanticsMatcher =
+        hasContentDescription(markerProbe, substring = true) and
+            SemanticsMatcher("testTag starts with chat.translator.message.") { node ->
+                node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(ChatTranslatorMessageTestTagPrefix) == true
             }
 
     private fun tapComposerPrimaryAction() {

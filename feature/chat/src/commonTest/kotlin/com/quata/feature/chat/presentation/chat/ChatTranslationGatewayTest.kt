@@ -21,7 +21,7 @@ class ChatTranslationGatewayTest {
         assertEquals(direction.source, translator.source)
         assertEquals(direction.target, translator.target)
         assertEquals("Hola", state.translation)
-        assertEquals("FAN→ES", state.directionLabel)
+        assertEquals("FAN->ES", state.directionLabel)
         assertTrue(state.showTranslation)
     }
 

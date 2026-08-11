@@ -18,6 +18,10 @@ const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentia
 const deviceTempCredentialsPath = "/data/local/tmp/chat-actions-notifications-credentials.json";
 const deviceEvidencePath = "files/chat-actions-notifications-evidence";
 const evidenceFiles = [
+  "android-chat-translation-before.png",
+  "android-chat-translation-overlay.png",
+  "android-chat-translation-result.png",
+  "android-chat-translation-return.png",
   "android-chat-actions-thread-initial.png",
   "android-chat-composer-sent.png",
   "android-chat-composer-reply-sent.png",
@@ -30,6 +34,7 @@ const evidenceFiles = [
   "android-chat-forward-submitted.png",
   "android-chat-actions-notifications-evidence.json",
 ];
+const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
 let lastThreadSnapshot = null;
 
 function env(name) {
@@ -585,6 +590,8 @@ function safeFailure(error) {
   return prefix ? message : "unexpected_chat_actions_notifications_android_failure";
 }
 
+class EvidenceCompleted extends Error {}
+
 const report = {
   check: "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
   status: "failed",
@@ -621,8 +628,10 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  state.forwardProfile = await createTemporaryForwardProfile(runId);
-  report.steps.push("temporary_forward_destination_profile_created");
+  if (!translationOnly) {
+    state.forwardProfile = await createTemporaryForwardProfile(runId);
+    report.steps.push("temporary_forward_destination_profile_created");
+  }
   state.thread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
     p_actor_profile_id: state.a.profileId,
     p_recipient_profile_ids: [state.b.profileId],
@@ -632,7 +641,7 @@ try {
     p_unique_key: state.uniqueKey,
     p_community_id: null,
   }));
-  const marker = `chat-actions-notifications-android-${randomUUID()}`;
+  const marker = translationOnly ? "Mbolo" : `chat-actions-notifications-android-${randomUUID()}`;
   const markerProbe = marker.slice(0, 24);
   const composerMarker = `chat-compose-ui-android-${randomUUID()}`;
   const replyMarker = `chat-reply-ui-android-${randomUUID()}`;
@@ -684,7 +693,7 @@ try {
     "-e", "quataChatActionsComposerMarker", composerMarker,
     "-e", "quataChatActionsReplyMarker", replyMarker,
     "-e", "quataChatActionsEditMarker", editMarker,
-    "-e", "quataChatActionsForwardQuery", state.forwardProfile.phoneLocal,
+    "-e", "quataChatActionsForwardQuery", state.forwardProfile?.phoneLocal ?? "translation-only",
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
   const assertInstrumentationPassed = (stage, instrumentationOutput) => {
@@ -692,6 +701,25 @@ try {
     if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentationOutput)) {
       throw new Error(`android_instrumentation_semantic_failure:${stage}`);
     }
+  }
+
+  if (translationOnly) {
+    assertInstrumentationPassed("translation", await runInstrumentationStage("translation"));
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((candidate) => candidate.startsWith("android-chat-translation-") || candidate.endsWith(".json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
+    }
+    report.status = "passed";
+    report.steps.push("chat_translation_common_overlay_translated_fang_message_and_returned");
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      translatedMessageId: state.message,
+      markerSha256: sha256(marker),
+    };
+    throw new EvidenceCompleted();
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));
@@ -752,15 +780,19 @@ try {
     editMarkerSha256: sha256(editMarker),
   };
 } catch (error) {
-  report.error = safeFailure(error);
-  if (lastThreadSnapshot) report.diagnostics = { lastThreadSnapshot };
-  try {
-    const copied = await collectAvailableDeviceEvidence(evidenceDir);
-    if (copied.length) {
-      report.evidence.failureDirectory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
-      report.evidence.failureFiles = copied;
-    }
-  } catch {}
+  if (error instanceof EvidenceCompleted) {
+    // Focal mode finished successfully; cleanup and report writing still happen in finally.
+  } else {
+    report.error = safeFailure(error);
+    if (lastThreadSnapshot) report.diagnostics = { lastThreadSnapshot };
+    try {
+      const copied = await collectAvailableDeviceEvidence(evidenceDir);
+      if (copied.length) {
+        report.evidence.failureDirectory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+        report.evidence.failureFiles = copied;
+      }
+    } catch {}
+  }
 } finally {
   const cleanup = { state: "completed", actions: [] };
   let cleanupFailed = false;

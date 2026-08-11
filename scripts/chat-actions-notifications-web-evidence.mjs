@@ -26,9 +26,15 @@ function parseArgs(argv) {
     chrome: "C:/Program Files/Google/Chrome/Application/chrome.exe",
     output: resolve("build-reports/web/chat-actions-notifications-evidence.json"),
     evidenceDir: resolve("build-reports/web/chat-actions-notifications-evidence"),
+    translationOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
-    const key = argv[index], value = argv[++index];
+    const key = argv[index];
+    if (key === "--translation-only") {
+      result.translationOnly = true;
+      continue;
+    }
+    const value = argv[++index];
     if (!["--dist", "--chrome", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
       throw new Error("invalid_arguments");
     }
@@ -644,6 +650,48 @@ async function clickMessageProbe(page, probe) {
   return false;
 }
 
+async function verifyChatTranslation(page, evidenceDir, marker) {
+  await clickLabel(page, [/Traductor Fang|Fang translator|Traducteur Fang/i], "translator_trigger_not_visible");
+  await waitMessageVisible(page, "Toca cualquier mensaje para traducirlo", "translator_overlay_not_visible", 15_000);
+  await attachScreenshot(page, evidenceDir, "web-chat-translation-overlay");
+  if (!(await clickTranslatorOverlayMessage(page, marker))) throw new Error("translator_message_not_clickable");
+  await waitMessageVisible(page, "pan de trigo", "translator_result_not_visible", 90_000);
+  await waitMessageVisible(page, "FAN->ES", "translator_direction_not_visible", 5_000);
+  await attachScreenshot(page, evidenceDir, "web-chat-translation-result");
+  await clickLabel(page, [/Salir|Exit|Quitter/i], "translator_exit_not_visible");
+  await waitMessageVisible(page, marker, "translator_return_message_not_visible", 15_000);
+  await attachScreenshot(page, evidenceDir, "web-chat-translation-return");
+}
+
+async function clickTranslatorOverlayMessage(page, marker) {
+  const box = await page.evaluate((needle) => {
+    const matches = [];
+    const visit = (root) => {
+      for (const element of root.querySelectorAll("*")) {
+        const label = element.getAttribute("aria-label") ?? "";
+        const role = element.getAttribute("role") ?? "";
+        if (role === "button" && label.includes(" | ") && label.includes(needle)) {
+          const rect = element.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            matches.push({ x: rect.x, y: rect.y, width: rect.width, height: rect.height });
+          }
+        }
+        if (element.shadowRoot) visit(element.shadowRoot);
+      }
+    };
+    visit(document);
+    matches.sort((left, right) => right.y - left.y);
+    const match = matches[0];
+    return match
+      ? { x: Math.round(match.x), y: Math.round(match.y), width: Math.round(match.width), height: Math.round(match.height) }
+      : null;
+  }, marker);
+  if (!box) return clickMessageProbe(page, marker);
+  await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+  await delay(250);
+  return true;
+}
+
 async function clickMessageByAccessibleName(page, probe) {
   const box = await page.evaluate((needle) => {
     const matches = [];
@@ -1058,6 +1106,8 @@ function safeFailure(error) {
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_actions_notifications_web_failure";
 }
 
+class EvidenceCompleted extends Error {}
+
 const options = parseArgs(process.argv.slice(2));
 const report = {
   check: "CHAT-ACTIONS-NOTIFICATIONS-WEB-001",
@@ -1096,8 +1146,10 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
-  state.forwardProfile = await createTemporaryForwardProfile(runId);
-  report.steps.push("temporary_forward_destination_profile_created");
+  if (!options.translationOnly) {
+    state.forwardProfile = await createTemporaryForwardProfile(runId);
+    report.steps.push("temporary_forward_destination_profile_created");
+  }
   state.thread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
     p_actor_profile_id: state.a.profileId,
     p_recipient_profile_ids: [state.b.profileId],
@@ -1107,8 +1159,8 @@ try {
     p_unique_key: state.uniqueKey,
     p_community_id: null,
   }));
-  const ownMarker = `chat-actions-own-${runId}`;
-  const peerMarker = `chat-actions-peer-${runId}`;
+  const ownMarker = options.translationOnly ? "Mbolo" : `chat-actions-own-${runId}`;
+  const peerMarker = "Mbolo";
   state.ownMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -1148,6 +1200,27 @@ try {
   }
   report.evidence.threadInitial = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-thread-initial");
   report.steps.push(state.peerMessage ? "thread_rendered_with_own_and_peer_messages" : "thread_rendered_with_own_message");
+
+  const translationMarker = state.peerMessage ? peerMarker : ownMarker;
+  if (options.translationOnly || state.peerMessage) {
+    await verifyChatTranslation(page, options.evidenceDir, translationMarker);
+    report.evidence.translationOverlay = join(options.evidenceDir, "web-chat-translation-overlay.png");
+    report.evidence.translationResult = join(options.evidenceDir, "web-chat-translation-result.png");
+    report.evidence.translationReturn = join(options.evidenceDir, "web-chat-translation-return.png");
+    report.steps.push("chat_translation_common_overlay_translated_fang_message_and_returned");
+  }
+
+  if (options.translationOnly) {
+    if (faults.length) throw new Error("browser_runtime_fault");
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      translatedMessageId: state.ownMessage,
+      translatedMarkerSha256: sha256(ownMarker),
+    };
+    throw new EvidenceCompleted();
+  }
 
   const composerMarker = `chat-composer-ui-${runId}`;
   await fillComposerAndSend(page, composerMarker);
@@ -1261,6 +1334,9 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
+  if (error instanceof EvidenceCompleted) {
+    // Focal mode finished successfully; cleanup and report writing still happen in finally.
+  } else {
   if (pageContext?.page) {
     try {
       report.evidence.failure = await attachScreenshot(pageContext.page, options.evidenceDir, "web-chat-actions-failure");
@@ -1277,6 +1353,7 @@ try {
       unexpectedErrorName: typeof error?.name === "string" ? error.name : "Error",
       unexpectedErrorMessage: typeof error?.message === "string" ? error.message : "unknown",
     };
+  }
   }
 } finally {
   const cleanup = { state: "completed", actions: [] };

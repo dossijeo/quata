@@ -30,7 +30,7 @@ class QuataTranslatorClient(
         const val DefaultMaxNewTokens: Int = FangTranslationService.DefaultMaxNewTokens
         const val MaxNewTokensLimit: Int = FangTranslationService.MaxNewTokensLimit
 
-        fun defaultTranslationClient(): OkHttpClient = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).writeTimeout(20, TimeUnit.SECONDS).callTimeout(25, TimeUnit.SECONDS).build()
+        fun defaultTranslationClient(): OkHttpClient = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(90, TimeUnit.SECONDS).writeTimeout(20, TimeUnit.SECONDS).callTimeout(120, TimeUnit.SECONDS).build()
         fun defaultWarmupClient(): OkHttpClient = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(75, TimeUnit.SECONDS).writeTimeout(20, TimeUnit.SECONDS).callTimeout(80, TimeUnit.SECONDS).build()
     }
 }
