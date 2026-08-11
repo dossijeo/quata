@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,14 +58,19 @@ import com.quata.designsystem.translation.QuataTranslatableTextRegistry
 import com.quata.designsystem.translation.QuataTranslatorBackdrop
 import kotlinx.coroutines.launch
 
+const val ChatTranslatorTriggerTestTag = "chat.translator.trigger"
+const val ChatTranslatorOverlayTestTag = "chat.translator.overlay"
+const val ChatTranslatorExitTestTag = "chat.translator.exit"
+const val ChatTranslatorInstructionTestTag = "chat.translator.instruction"
+const val ChatTranslatorMessageTestTagPrefix = "chat.translator.message."
+
 data class ChatTranslationDirection(
     val source: QuataTranslationLanguage,
     val target: QuataTranslationLanguage,
 ) {
-    val label: String get() = "${source.shortCode()}→${target.shortCode()}"
+    val label: String get() = "${source.shortCode()}->${target.shortCode()}"
     fun reversed() = ChatTranslationDirection(target, source)
 }
-
 fun interface ChatTranslationGateway {
     suspend fun translate(text: String, direction: ChatTranslationDirection): TranslatorBoxState
 }
@@ -160,6 +166,7 @@ fun ChatTranslatorOverlayContent(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
+            .semantics { testTag = ChatTranslatorOverlayTestTag }
             .onGloballyPositioned { overlayOrigin = it.boundsInWindow().topLeft },
     ) {
         val density = LocalDensity.current
@@ -179,6 +186,21 @@ fun ChatTranslatorOverlayContent(
             val height = with(density) { box.bounds.height.coerceAtLeast(48f).toDp() }.coerceAtMost(maxHeight)
             val state = states[box.id]
             val translated = state?.translation?.takeIf { it.showTranslation }?.translation
+            val accessibilityText = buildString {
+                append(box.displayText)
+                if (translated != null) {
+                    append('\n')
+                    append(translated)
+                    state.translation?.directionLabel?.let { direction ->
+                        append('\n')
+                        append(direction)
+                    }
+                }
+                if (state?.failed == true) {
+                    append('\n')
+                    append(strings.error)
+                }
+            }
             TranslatorMessageSurface(
                 displayText = box.displayText,
                 originalText = box.text,
@@ -189,6 +211,10 @@ fun ChatTranslatorOverlayContent(
                 modifier = Modifier
                     .offset(left, top)
                     .size(width, height)
+                    .semantics {
+                        testTag = ChatTranslatorMessageTestTagPrefix + box.id
+                        contentDescription = accessibilityText
+                    }
                     .clickable(enabled = state?.loading != true) {
                         val existing = state?.translation
                         if (existing?.translation != null) {
@@ -349,7 +375,10 @@ private fun TranslatorModeHeader(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
                     .clickable(role = Role.Button, onClick = onDismiss)
-                    .semantics { contentDescription = strings.exit }
+                    .semantics {
+                        testTag = ChatTranslatorExitTestTag
+                        contentDescription = strings.exit
+                    }
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -391,7 +420,9 @@ private fun SparkleDot(size: Int) {
 @Composable
 private fun TranslatorModeFooter(instruction: String, modifier: Modifier = Modifier) {
     Row(
-        modifier = modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+        modifier = modifier
+            .semantics { testTag = ChatTranslatorInstructionTestTag }
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(

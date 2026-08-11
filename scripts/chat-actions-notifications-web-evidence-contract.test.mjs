@@ -43,11 +43,22 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(runner, /hardDeleteTemporaryForwardDestination/);
   assert.match(runner, /forward_destination_cleanup_verified_physical_residue_absent/);
   assert.match(runner, /ChatActionsNotificationsInstrumentedTest/);
+  assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY/);
+  assert.match(runner, /android-chat-translation-overlay/);
+  assert.match(runner, /android-chat-translation-result/);
+  assert.match(runner, /android-chat-translation-return/);
+  assert.match(runner, /assertInstrumentationPassed\("translation", await runInstrumentationStage\("translation"\)\)/);
+  assert.match(runner, /chat_translation_common_overlay_translated_fang_message_and_returned/);
   assert.match(runner, /composer_text_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /composer_reply_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /composer_edit_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /favorite_toggled_and_verified_by_rpc/);
   assert.match(testSource, /ChatComposerInputTestTag/);
+  assert.match(testSource, /runTranslationStage/);
+  assert.match(testSource, /ChatTranslatorTriggerTestTag/);
+  assert.match(testSource, /ChatTranslatorOverlayTestTag/);
+  assert.match(testSource, /ChatTranslatorMessageTestTagPrefix/);
+  assert.match(testSource, /android-chat-translation-result/);
   assert.match(testSource, /ChatComposerSendTestTag/);
   assert.match(testSource, /chat\.action\.reply/);
   assert.match(testSource, /chat\.action\.edit/);
@@ -78,6 +89,20 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(testSource, /chat\.forward\.send/);
 });
 
+test("chat actions/notifications iOS evidence can run translation-only against the shared overlay", async () => {
+  const runner = await source("scripts/chat-actions-notifications-ios-evidence.mjs");
+  const wrapper = await source("scripts/run-ios-chat-translation-ui-test.sh");
+  const testSource = await source("iosApp/iosAppUITests/QuataIosAuthenticatedChatTranslationUITests.swift");
+  assert.match(runner, /--translation-only/);
+  assert.match(runner, /state\.seedMarker = translationOnly \? "Mbolo"/);
+  assert.match(runner, /bash scripts\/run-ios-chat-translation-ui-test\.sh/);
+  assert.match(runner, /ios_xctest_chat_translation_common_overlay_verified/);
+  assert.match(wrapper, /QUATA_IOS_AUTH_UI_E2E/);
+  assert.match(wrapper, /QuataIosAuthenticatedChatTranslationUITests\/testRealChatMessageTranslatesAndReturnsToTheConversation/);
+  assert.match(testSource, /openDeepLink\("quata:\/\/egquata\.com\/#chat-/);
+  assert.match(testSource, /chat-translation-result/);
+});
+
 test("chat actions/notifications web evidence exercises real shared chat controls", async () => {
   const runner = await source("scripts/chat-actions-notifications-web-evidence.mjs");
   assert.match(runner, /quata_chat_start_thread/);
@@ -87,6 +112,18 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /quata_chat_get_favorites/);
   assert.match(runner, /quata_chat_get_or_create_private_thread|pollForwardDestinationThread/);
   assert.match(runner, /message_forwarded_by_shared_ui_and_verified_by_rpc/);
+  assert.match(runner, /const ownMarker = options\.translationOnly \? "Mbolo" : `chat-actions-own-\$\{runId\}`/);
+  assert.match(runner, /--translation-only/);
+  assert.match(runner, /class EvidenceCompleted extends Error/);
+  assert.match(runner, /if \(options\.translationOnly\) \{/);
+  assert.match(runner, /const translationMarker = state\.peerMessage \? peerMarker : ownMarker/);
+  assert.match(runner, /verifyChatTranslation\(page, options\.evidenceDir, translationMarker\)/);
+  assert.match(runner, /async function verifyChatTranslation\(page, evidenceDir, marker\)/);
+  assert.match(runner, /async function clickTranslatorOverlayMessage\(page, marker\)/);
+  assert.match(runner, /role === "button" && label\.includes\(" \| "\) && label\.includes\(needle\)/);
+  assert.match(runner, /waitMessageVisible\(page, "pan de trigo", "translator_result_not_visible", 90_000\)/);
+  assert.match(runner, /waitMessageVisible\(page, "FAN->ES", "translator_direction_not_visible"/);
+  assert.match(runner, /chat_translation_common_overlay_translated_fang_message_and_returned/);
   assert.match(runner, /web-chat-forward-picker-selected/);
   assert.match(runner, /web-chat-forwarded-message/);
   assert.match(runner, /async function clickMessage\(page, marker, error\)/);
@@ -145,6 +182,9 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /favorite_toggled_and_verified_by_rpc/);
   for (const screenshot of [
     "web-chat-actions-thread-initial",
+    "web-chat-translation-overlay",
+    "web-chat-translation-result",
+    "web-chat-translation-return",
     "web-chat-composer-sent",
     "web-chat-composer-reply-sent",
     "web-chat-composer-edit-sent",

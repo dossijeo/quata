@@ -15,7 +15,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -35,8 +34,6 @@ import com.quata.core.platform.ClipboardService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.translation.QuataCachedTranslator
-import com.quata.core.translation.LocalQuataTranslatorModeController
-import com.quata.designsystem.translation.QuataTranslatorOverlaySource
 import com.quata.core.ui.components.AttachmentFullscreenMediaContent
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentThumbnail
@@ -75,8 +72,6 @@ fun AndroidChatProductScreen(
     ),
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val rootView = LocalView.current
-    val translatorModeController = LocalQuataTranslatorModeController.current
     val scope = rememberCoroutineScope()
     val languageTag = QuataLanguageManager.currentLanguage.tag
     val template = quataTheme()
@@ -141,9 +136,6 @@ fun AndroidChatProductScreen(
             conversationModel = viewModel.commonModel,
             compactHeader = compactHeader,
             trailingActions = { appHeaderActions?.invoke(this) },
-            onOpenTranslator = {
-                translatorModeController.activate(rootView, QuataTranslatorOverlaySource.Chat)
-            },
         )
         focusedMessageVisible?.let { messageId ->
             val focusedMessageVisibleTag = "chat.focused-message.visible.$messageId"

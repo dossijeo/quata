@@ -26,6 +26,7 @@ const [
   verticalPlan,
   appNavGraph,
   androidHost,
+  androidTranslatorClient,
   webHost,
   iosHost,
   chatScreenHost,
@@ -35,6 +36,7 @@ const [
   selectedActionBar,
   titleBar,
   favoriteHeader,
+  chatTranslatorOverlay,
   groupManagement,
   viewModel,
 ] = await Promise.all([
@@ -43,6 +45,7 @@ const [
   source("docs/CHAT_MULTIPLATFORM_VERTICAL_PLAN.md"),
   source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt"),
+  source("app/src/main/java/com/quata/core/language/QuataTranslatorClient.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatScreenHost.kt"),
@@ -52,6 +55,7 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatSelectedMessageActionBarContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConversationTitleBarContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/FavoriteMessagesHeaderContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatTranslatorOverlayContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatGroupManagementContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt"),
 ]);
@@ -192,6 +196,31 @@ test("common chat forward picker exposes stable cross-platform evidence anchors"
   assert.match(selectedActions, /testTag = ChatForwardPickerCandidateTestTagPrefix \+ candidate\.profileId/);
   assert.match(selectedActions, /ChatUiEvent\.OpenForwardDialog/);
   assert.match(selectedActions, /ChatUiEvent\.SendForward/);
+});
+
+test("CHAT-TRANSLATION uses the common overlay and stable evidence anchors on every platform", () => {
+  assert.match(chatScreenHost, /FangTranslatorTriggerContent\([\s\S]*?modifier = Modifier\.semantics \{ testTag = ChatTranslatorTriggerTestTag \}/);
+  assert.match(chatScreenHost, /slots\.onOpenTranslator\?\.invoke\(\) \?: run \{ translatorActive = true \}/);
+  assert.match(chatScreenHost, /ChatTranslatorOverlayContent\(/);
+
+  for (const [constant, tag] of Object.entries({
+    Trigger: "chat.translator.trigger",
+    Overlay: "chat.translator.overlay",
+    Exit: "chat.translator.exit",
+    Instruction: "chat.translator.instruction",
+  })) {
+    assert.match(chatTranslatorOverlay, new RegExp(`ChatTranslator${constant}TestTag = "${tag.replaceAll(".", "\\.")}"`));
+  }
+  assert.match(chatTranslatorOverlay, /ChatTranslatorMessageTestTagPrefix = "chat\.translator\.message\."/);
+  assert.match(chatTranslatorOverlay, /testTag = ChatTranslatorMessageTestTagPrefix \+ box\.id/);
+  assert.match(chatTranslatorOverlay, /val label: String get\(\) = "\$\{source\.shortCode\(\)\}->\$\{target\.shortCode\(\)\}"/);
+
+  assert.match(androidHost, /FangChatTranslationGateway\(QuataCachedTranslator\.get\(context\)\)/);
+  assert.doesNotMatch(androidHost, /LocalQuataTranslatorModeController|QuataTranslatorOverlaySource\.Chat|onOpenTranslator = \{/);
+  assert.match(androidTranslatorClient, /readTimeout\(90, TimeUnit\.SECONDS\)/);
+  assert.match(androidTranslatorClient, /callTimeout\(120, TimeUnit\.SECONDS\)/);
+  assert.match(webHost, /FangChatTranslationGateway\(FangTranslationService\(transport = BrowserTranslationHttpTransport\(\)\)\)/);
+  assert.match(iosHost, /FangChatTranslationGateway\(FangTranslationService\(transport = IosTranslationHttpTransport\(\)\)\)/);
 });
 
 test("SCR-CHAT inventory reflects the real common-root state without declaring final GO", () => {

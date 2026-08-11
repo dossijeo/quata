@@ -122,6 +122,7 @@ fun ChatScreenHost(
                                 slots.onOpenTranslator?.invoke() ?: run { translatorActive = true }
                             },
                             enabled = state.messages.any { !it.isDeleted && it.text.isNotBlank() },
+                            modifier = Modifier.semantics { testTag = ChatTranslatorTriggerTestTag },
                         )
                     }, onOpenProfile = slots.onOpenUserProfile,
                     onLoadMoreParticipants = model::loadMoreParticipantCandidates,

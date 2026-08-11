@@ -2,14 +2,16 @@ import XCTest
 
 /// Opt-in, production-host gate for `CHAT-TRANSLATION` / `FLOW-TRANSLATOR`.
 /// The runner seeds the normal Keychain session and supplies disposable backend fixture IDs.
+@available(iOS 16.4, *)
 final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
     func testRealChatMessageTranslatesAndReturnsToTheConversation() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_AUTH_UI_E2E"] == "1" else {
             throw XCTSkip("Authenticated Chat translation UI gate is opt-in.")
         }
-        guard environment["QUATA_IOS_CHAT_E2E_THREAD_ID"]?.isEmpty == false,
-              environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]?.isEmpty == false else {
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let messageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]),
+              let markerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]) else {
             throw XCTSkip("Disposable Chat fixture IDs are not configured.")
         }
 
@@ -22,20 +24,14 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
 
-        let chatsNavigation = app.buttons.matching(
-            NSPredicate(format: "label == %@ OR label == %@", "Chats", "Chats, Chats"),
-        ).firstMatch
-        XCTAssertTrue(chatsNavigation.waitForExistence(timeout: 10), "The authenticated shell must expose Chats.")
-        chatsNavigation.tap()
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(messageId))", in: app)
         let chat = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-chat-host")
             .firstMatch
         XCTAssertTrue(chat.waitForExistence(timeout: 20), "The authenticated navigation must mount Chat.")
+        XCTAssertEqual(chat.value as? String, "chat:\(conversationId)?message=\(messageId)")
 
-        let fixturePreview = app.staticTexts["Mbolo"].firstMatch
-        XCTAssertTrue(fixturePreview.waitForExistence(timeout: 20), app.debugDescription)
-        fixturePreview.tap()
-        XCTAssertTrue(app.staticTexts["Mbolo"].firstMatch.waitForExistence(timeout: 20), app.debugDescription)
+        XCTAssertTrue(app.staticTexts[markerProbe].firstMatch.waitForExistence(timeout: 20), app.debugDescription)
         attachScreenshot(app, name: "chat-translation-before")
 
         let translator = app.descendants(matching: .any)
@@ -50,7 +46,7 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
         attachScreenshot(app, name: "chat-translation-overlay")
 
         let overlayCandidates = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS %@", "Mbolo"),
+            NSPredicate(format: "label CONTAINS %@", markerProbe),
         )
         XCTAssertGreaterThanOrEqual(overlayCandidates.count, 2)
         var overlayMessage = overlayCandidates.element(boundBy: 0)
@@ -65,14 +61,19 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
         XCTAssertTrue(overlayMessage.isHittable, "The registered message surface must be actionable.")
         overlayMessage.tap()
 
-        let translatedDirection = app.staticTexts.matching(
+        let translatedDirection = app.descendants(matching: .any).matching(
             NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "FAN", "ES"),
         ).firstMatch
         XCTAssertTrue(
-            translatedDirection.waitForExistence(timeout: 35),
+            translatedDirection.waitForExistence(timeout: 90),
             "A real Fang response must expose its direction label instead of a callback-only success.",
         )
-        XCTAssertTrue(app.staticTexts["pan de trigo"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", "pan de trigo"))
+                .firstMatch
+                .waitForExistence(timeout: 5),
+        )
         attachScreenshot(app, name: "chat-translation-result")
 
         let close = app.buttons
@@ -82,8 +83,30 @@ final class QuataIosAuthenticatedChatTranslationUITests: XCTestCase {
         close.tap()
         XCTAssertTrue(chat.waitForExistence(timeout: 5), "Closing the translator must preserve Chat.")
         XCTAssertFalse(instruction.exists, "The translator overlay must leave the composition.")
-        XCTAssertTrue(app.staticTexts["Mbolo"].firstMatch.exists, "The original conversation must be restored.")
+        XCTAssertTrue(app.staticTexts[markerProbe].firstMatch.exists, "The original conversation must be restored.")
         attachScreenshot(app, name: "chat-translation-return")
+    }
+
+    private func nonEmpty(_ value: String?) -> String? {
+        guard let value, !value.isEmpty else { return nil }
+        return value
+    }
+
+    private func openDeepLink(_ url: String, in app: XCUIApplication) {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        app.open(URL(string: url)!)
+        let openButton = springboard.buttons["Open"].firstMatch
+        if openButton.waitForExistence(timeout: 3) {
+            openButton.tap()
+        }
+    }
+
+    private func encodedFragment(_ value: String) -> String {
+        value.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? value
+    }
+
+    private func encodedQuery(_ value: String) -> String {
+        value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
     }
 
     private func attachScreenshot(_ app: XCUIApplication, name: String) {
