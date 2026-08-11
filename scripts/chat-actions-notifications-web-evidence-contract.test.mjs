@@ -69,6 +69,12 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(testSource, /android-chat-actions-own-selected/);
   assert.match(testSource, /android-chat-forward-picker-selected/);
   assert.match(testSource, /android-chat-forward-submitted/);
+  assert.match(testSource, /public-profile\.avatar\.\$profileId/);
+  assert.match(testSource, /public-profile\.name\.\$profileId/);
+  assert.match(testSource, /public-profile\.neighborhood\.\$profileId/);
+  assert.match(testSource, /public-profile\.kpi\.posts\.\$profileId/);
+  assert.match(testSource, /public-profile\.kpi\.followers\.\$profileId/);
+  assert.match(testSource, /public-profile\.kpi\.following\.\$profileId/);
 });
 
 test("chat actions/notifications iOS evidence forwards through the shared picker", async () => {
@@ -87,6 +93,20 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(testSource, /chat\.forward\.search/);
   assert.match(testSource, /ios-chat-forward-picker-selected/);
   assert.match(testSource, /chat\.forward\.send/);
+  assert.match(runner, /QUATA_CHAT_EVIDENCE_PAIR_FROM_SINGLE_FILE/);
+  assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_USE_ADJACENT_AUTHORIZED_PROFILE/);
+  assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_SSH_CREDENTIALS_FILE/);
+  assert.match(runner, /async function authorizedUsersFromAdjacentSshCredential\(\)/);
+  assert.match(runner, /function authorizedPairFromSingleCredential\(entry\)/);
+  assert.match(runner, /scripts\/ios-public-client-config\.py/);
+  assert.match(runner, /QuataPublicRuntime\.local\.xcconfig/);
+  assert.doesNotMatch(runner, /680242607|680242608|21085800/);
+  assert.match(testSource, /public-profile\.avatar\.\\\(peerProfileId\)/);
+  assert.match(testSource, /public-profile\.name\.\\\(peerProfileId\)/);
+  assert.match(testSource, /public-profile\.neighborhood\.\\\(peerProfileId\)/);
+  assert.match(testSource, /public-profile\.kpi\.posts\.\\\(peerProfileId\)/);
+  assert.match(testSource, /public-profile\.kpi\.followers\.\\\(peerProfileId\)/);
+  assert.match(testSource, /public-profile\.kpi\.following\.\\\(peerProfileId\)/);
 });
 
 test("chat actions/notifications iOS evidence can run translation-only against the shared overlay", async () => {
@@ -131,6 +151,10 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /if \(marker\.startsWith\("chat-edit-ui-"\)\) \{/);
   assert.match(runner, /async function longPressMessage\(page, marker\)/);
   assert.match(runner, /async function waitMessageVisible\(page, marker, error, timeout = 45_000\)/);
+  assert.match(runner, /async function assertProfileHeaderVisible\(page, profile\)/);
+  assert.match(runner, /profile_header_name_missing/);
+  assert.match(runner, /profile_header_neighborhood_missing/);
+  assert.match(runner, /profile_header_kpi_missing/);
   assert.match(runner, /async function clickMessageProbe\(page, probe\)/);
   assert.match(runner, /marker\.slice\(0, 28\), marker\.slice\(0, 20\), marker\.slice\(0, 16\)/);
   assert.match(runner, /marker\.startsWith\("chat-edit-ui-"\)/);

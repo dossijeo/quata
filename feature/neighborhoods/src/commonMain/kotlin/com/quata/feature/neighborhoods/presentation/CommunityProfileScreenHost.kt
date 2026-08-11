@@ -41,6 +41,13 @@ import com.quata.feature.neighborhoods.domain.ProfileAttachment
 const val PublicProfileRootTestTag = "public-profile.root"
 const val PublicProfileBackTestTag = "public-profile.back"
 const val PublicProfileUserTestTagPrefix = "public-profile.user."
+const val PublicProfileHeaderTestTagPrefix = PublicProfileUserTestTagPrefix
+const val PublicProfileAvatarTestTagPrefix = "public-profile.avatar."
+const val PublicProfileNameTestTagPrefix = "public-profile.name."
+const val PublicProfileNeighborhoodTestTagPrefix = "public-profile.neighborhood."
+const val PublicProfilePostsKpiTestTagPrefix = "public-profile.kpi.posts."
+const val PublicProfileFollowersKpiTestTagPrefix = "public-profile.kpi.followers."
+const val PublicProfileFollowingKpiTestTagPrefix = "public-profile.kpi.following."
 
 data class CommunityProfileStrings(
     val posts: String,
@@ -177,20 +184,34 @@ fun CommunityProfileScreenHost(
                     CommunityProfileHeaderContent(
                         displayName = profile.user.displayName,
                         neighborhood = profile.user.neighborhood,
-                        modifier = Modifier.semantics { testTag = PublicProfileUserTestTagPrefix + profile.user.id },
+                        modifier = Modifier.semantics { testTag = PublicProfileHeaderTestTagPrefix + profile.user.id },
+                        displayNameModifier = Modifier.semantics { testTag = PublicProfileNameTestTagPrefix + profile.user.id },
+                        neighborhoodModifier = Modifier.semantics { testTag = PublicProfileNeighborhoodTestTagPrefix + profile.user.id },
                         avatar = {
                             slots.avatar(
                                 profile.user,
-                                Modifier.size(92.dp),
+                                Modifier.size(92.dp).semantics { testTag = PublicProfileAvatarTestTagPrefix + profile.user.id },
                                 isRefreshingProfile,
                                 profile.user.avatarUrl?.takeIf(String::isNotBlank)?.let { { slots.openAttachment(profile.user.toAvatarAttachment()) } },
                             )
                         },
                         kpis = {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                                ProfileKpiContent(profile.user.postsCount, strings.posts, Modifier.weight(1f)) { showPosts = true }
-                                ProfileKpiContent(profile.user.followersCount, strings.followers, Modifier.weight(1f)) { userList = ProfileUserList.Followers }
-                                ProfileKpiContent(profile.user.followingCount, strings.following, Modifier.weight(1f)) { userList = ProfileUserList.Following }
+                                ProfileKpiContent(
+                                    profile.user.postsCount,
+                                    strings.posts,
+                                    Modifier.weight(1f).semantics { testTag = PublicProfilePostsKpiTestTagPrefix + profile.user.id },
+                                ) { showPosts = true }
+                                ProfileKpiContent(
+                                    profile.user.followersCount,
+                                    strings.followers,
+                                    Modifier.weight(1f).semantics { testTag = PublicProfileFollowersKpiTestTagPrefix + profile.user.id },
+                                ) { userList = ProfileUserList.Followers }
+                                ProfileKpiContent(
+                                    profile.user.followingCount,
+                                    strings.following,
+                                    Modifier.weight(1f).semantics { testTag = PublicProfileFollowingKpiTestTagPrefix + profile.user.id },
+                                ) { userList = ProfileUserList.Following }
                             }
                         },
                         primaryActions = {

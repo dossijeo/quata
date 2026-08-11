@@ -358,10 +358,10 @@ private fun ChatCommonConversationHost(
                         ),
                         Modifier
                             .size(34.dp)
-                            .semantics { testTag = ChatProfileMemberAvatarTestTagPrefix + member.id }
                             .clickable(
                                 enabled = member.canOpenProfile && openingProfileUserId != member.id,
-                            ) { onOpenUserProfile(member.id) },
+                            ) { onOpenUserProfile(member.id) }
+                            .semantics { testTag = ChatProfileMemberAvatarTestTagPrefix + member.id },
                     )
                 }
             },
@@ -381,10 +381,10 @@ private fun ChatCommonConversationHost(
                         Modifier
                             .size(34.dp)
                             .border(1.dp, template.colors.divider, CircleShape)
-                            .semantics { testTag = ChatProfileMessageAvatarTestTagPrefix + message.senderId }
                             .clickable(
                                 enabled = openingProfileUserId != message.senderId,
-                            ) { onOpenUserProfile(message.senderId) },
+                            ) { onOpenUserProfile(message.senderId) }
+                            .semantics { testTag = ChatProfileMessageAvatarTestTagPrefix + message.senderId },
                     )
                 }
             },

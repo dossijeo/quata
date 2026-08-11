@@ -142,6 +142,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: "public-profile.user.\(peerProfileId)")
             .firstMatch
         XCTAssertTrue(profile.waitForExistence(timeout: 30), "Opening the peer avatar must mount the shared public profile.")
+        for identifier in [
+            "public-profile.avatar.\(peerProfileId)",
+            "public-profile.name.\(peerProfileId)",
+            "public-profile.neighborhood.\(peerProfileId)",
+            "public-profile.kpi.posts.\(peerProfileId)",
+            "public-profile.kpi.followers.\(peerProfileId)",
+            "public-profile.kpi.following.\(peerProfileId)",
+        ] {
+            let headerField = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            XCTAssertTrue(headerField.waitForExistence(timeout: 10), "The shared public-profile header field \(identifier) must be visible.")
+        }
         attachScreenshot(app, name: "ios-chat-profile-open")
 
         let back = app.descendants(matching: .any)

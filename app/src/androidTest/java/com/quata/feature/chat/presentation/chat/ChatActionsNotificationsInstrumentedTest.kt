@@ -271,6 +271,7 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun runProfileStage(peerProbe: String, profileId: String) {
         waitForMarker(peerProbe, "peer message for profile entry")
+        dismissTranslatorOverlayIfActive()
         saveScreenshot("android-chat-profile-thread-initial")
         val avatarTag = "chat.profile.message.$profileId"
         compose.waitUntil(20_000) {
@@ -280,12 +281,31 @@ class ChatActionsNotificationsInstrumentedTest {
             }.isSuccess
         }
         compose.onNodeWithTag(avatarTag, useUnmergedTree = true)
-            .performClick()
-        compose.waitUntil(30_000) {
-            runCatching {
-                compose.onNodeWithTag("public-profile.user.$profileId", useUnmergedTree = true)
-                    .fetchSemanticsNode()
-            }.isSuccess
+            .performTouchInput { click(center) }
+        val openedFromMessage = runCatching {
+            compose.waitUntil(12_000) { publicProfileVisible(profileId) }
+            true
+        }.getOrDefault(false)
+        if (!openedFromMessage) {
+            val memberTag = "chat.profile.member.$profileId"
+            val clickedMemberAvatar = runCatching {
+                compose.onNodeWithTag(memberTag, useUnmergedTree = true)
+                    .performTouchInput { click(center) }
+                true
+            }.getOrDefault(false)
+            if (!clickedMemberAvatar) clickVisibleMessageAvatarWithUiAutomator(peerProbe)
+            compose.waitUntil(30_000) { publicProfileVisible(profileId) }
+        }
+        listOf(
+            "public-profile.avatar.$profileId",
+            "public-profile.name.$profileId",
+            "public-profile.neighborhood.$profileId",
+            "public-profile.kpi.posts.$profileId",
+            "public-profile.kpi.followers.$profileId",
+            "public-profile.kpi.following.$profileId",
+        ).forEach { tag ->
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
         }
         saveScreenshot("android-chat-profile-open")
         val closedByCommonBack = runCatching {
@@ -296,6 +316,39 @@ class ChatActionsNotificationsInstrumentedTest {
         if (!closedByCommonBack) device.pressBack()
         compose.waitUntil(20_000) { messageNodeVisible(peerProbe) }
         saveScreenshot("android-chat-profile-return")
+    }
+
+    private fun publicProfileVisible(profileId: String): Boolean =
+        runCatching {
+            compose.onNodeWithTag("public-profile.user.$profileId", useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }.isSuccess
+
+    private fun clickVisibleMessageAvatarWithUiAutomator(peerProbe: String) {
+        val probe = peerProbe.take(28)
+        val message = device.wait(Until.findObject(By.textContains(probe)), 10_000)
+            ?: error("profile_message_probe_not_visible:$probe")
+        val bounds = message.visibleBounds
+        val x = (bounds.left - 72).coerceAtLeast(20)
+        val y = bounds.centerY().coerceAtLeast(20)
+        assertTrue("UIAutomator must dispatch a real tap on the visible message avatar.", device.click(x, y))
+        SystemClock.sleep(1_000)
+    }
+
+    private fun dismissTranslatorOverlayIfActive() {
+        val dismissed = runCatching {
+            compose.onNodeWithTag(ChatTranslatorExitTestTag, useUnmergedTree = true)
+                .performTouchInput { click(center) }
+            true
+        }.getOrDefault(false)
+        if (dismissed) {
+            compose.waitUntil(10_000) {
+                runCatching {
+                    compose.onNodeWithTag(ChatTranslatorOverlayTestTag, useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                }.isFailure
+            }
+        }
     }
 
     private suspend fun flushPendingChatMessages() {

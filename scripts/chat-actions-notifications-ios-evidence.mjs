@@ -15,6 +15,7 @@ const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTI
 const tempProfileHashAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH_AUTHORIZATION";
 const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH";
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
+const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const options = parseArgs(process.argv.slice(2));
@@ -152,6 +153,14 @@ git rev-parse HEAD
   report.steps.push("mac_checkout_sha_matches_local_candidate");
 
   if (options.buildFirst) {
+    await runSshScript(options.host, `
+set -euo pipefail
+cd ${shellQuote(options.project)}
+python3 scripts/ios-public-client-config.py \\
+  --source core/src/commonMain/kotlin/com/quata/core/config/QuataPublicBackendConfig.kt \\
+  --output iosApp/Configuration/QuataPublicRuntime.local.xcconfig
+`, 2 * 60 * 1000);
+    report.steps.push("ios_public_runtime_local_xcconfig_generated_on_mac");
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
@@ -379,9 +388,15 @@ function parseArgs(argv) {
 }
 
 async function authorizedUsers() {
+  if (useAdjacentAuthorizedProfile) return authorizedUsersFromAdjacentSshCredential();
   const file = process.env[credentialsFileEnvironment]?.trim();
   if (file) {
     const parsed = JSON.parse((await readFile(file, "utf8")).replace(/^\uFEFF/, ""));
+    if (process.env.QUATA_CHAT_EVIDENCE_PAIR_FROM_SINGLE_FILE === "1") {
+      const users = authorizedPairFromSingleCredential(parsed);
+      validateAuthorizedUsers(users);
+      return users;
+    }
     const user = (entry, label) => ({
       label,
       countryCode: String(entry?.country_code ?? entry?.countryCode ?? "").trim(),
@@ -400,6 +415,32 @@ async function authorizedUsers() {
   }));
   validateAuthorizedUsers(users);
   return users;
+}
+
+async function authorizedUsersFromAdjacentSshCredential() {
+  const host = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_SSH_HOST?.trim()
+    || process.env.QUATA_CHAT_EVIDENCE_SSH_HOST?.trim();
+  const file = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_SSH_CREDENTIALS_FILE?.trim()
+    || process.env.QUATA_CHAT_EVIDENCE_SSH_CREDENTIALS_FILE?.trim();
+  if (!host || !file) throw new Error("missing_ios_adjacent_profile_credentials_source");
+  const users = authorizedPairFromSingleCredential(JSON.parse(await runSilent("ssh", [host, `cat ${shellQuote(file)}`])));
+  validateAuthorizedUsers(users);
+  return users;
+}
+
+function authorizedPairFromSingleCredential(entry) {
+  const countryCode = String(entry?.country_code ?? entry?.countryCode ?? "240").replace(/\D/g, "");
+  const phone = String(entry?.phone ?? "").trim();
+  const password = String(entry?.password ?? "");
+  const digits = phone.replace(/\D/g, "");
+  const local = digits.startsWith(countryCode) ? digits.slice(countryCode.length) : digits;
+  if (!countryCode || !local || !/^\d+$/.test(local)) throw new Error("single_chat_evidence_credential_phone_required");
+  const previousLocal = (BigInt(local) - 1n).toString().padStart(local.length, "0");
+  if (previousLocal.length !== local.length) throw new Error("single_chat_evidence_pair_underflow");
+  return [
+    { label: "A", countryCode, phone: previousLocal, password },
+    { label: "B", countryCode, phone: local, password },
+  ];
 }
 
 function validateAuthorizedUsers(users) {
