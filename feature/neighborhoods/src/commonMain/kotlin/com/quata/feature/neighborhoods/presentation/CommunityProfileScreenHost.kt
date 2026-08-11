@@ -216,6 +216,7 @@ fun CommunityProfileScreenHost(
                         },
                         primaryActions = {
                             ProfilePrimaryActions(
+                                userId = profile.user.id,
                                 isOwnProfile = isOwnProfile,
                                 isFollowing = profile.user.isFollowing,
                                 isFollowingLoading = followingUserId == profile.user.id,

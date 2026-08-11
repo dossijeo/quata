@@ -62,6 +62,48 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `follow success updates selected profile counters and follower list`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.toggleFollowUser("a")
+        advanceUntilIdle()
+
+        val profile = model.uiState.value.selectedProfile
+        assertTrue(profile?.user?.isFollowing == true)
+        assertEquals(1, profile?.user?.followersCount)
+        assertEquals(listOf("me"), profile?.followers?.map { it.id })
+        assertEquals(null, model.uiState.value.followingUserId)
+        model.close()
+    }
+
+    @Test
+    fun `unfollow success restores selected profile counters and follower list`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        repository.profileOverride = profile(
+            "a",
+            user = user("a").copy(isFollowing = true, followersCount = 1),
+            followers = listOf(user("me")),
+        )
+        repository.followResult = CompletableDeferred(Result.success(FollowUserResult("a", false, user("me"))))
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+
+        model.toggleFollowUser("a")
+        advanceUntilIdle()
+
+        val profile = model.uiState.value.selectedProfile
+        assertFalse(profile?.user?.isFollowing == true)
+        assertEquals(0, profile?.user?.followersCount)
+        assertTrue(profile?.followers.orEmpty().isEmpty())
+        assertEquals(null, model.uiState.value.followingUserId)
+        model.close()
+    }
+
+    @Test
     fun `comment is optimistic and rolls back on backend failure`() = runTest {
         val repository = FakeNeighborhoodRepository()
         val model = model(repository)
@@ -114,6 +156,7 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var followResult = CompletableDeferred(Result.success(FollowUserResult("a", true, user("me"))))
     var commentResult = CompletableDeferred<Result<Post?>>(Result.success(null))
     var likeResult = CompletableDeferred<Result<Post?>>(Result.success(null))
+    var profileOverride: CommunityUserProfile? = null
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
     override suspend fun openNeighborhoodChat(neighborhood: String) = Result.success("community")
@@ -130,12 +173,20 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     override suspend fun getCachedUserProfile(userId: String, maxAgeMillis: Long?) = null
     override suspend fun cacheUserProfile(profile: CommunityUserProfile) = Unit
     override fun observeUserProfile(userId: String): Flow<Result<CommunityUserProfile>> = flow { emit(getUserProfile(userId)) }
-    override suspend fun getUserProfile(userId: String) = Result.success(profile(userId))
+    override suspend fun getUserProfile(userId: String) = Result.success(profileOverride ?: profile(userId))
 
-    private fun profile(id: String): CommunityUserProfile = CommunityUserProfile(
-        user = user(id),
-        posts = listOf(Post("post-$id", User(id, "", id), "post", createdAt = "now")),
-    )
 }
 
 private fun user(id: String) = NeighborhoodUser(id, id, "", "Barrio")
+
+private fun profile(
+    id: String,
+    user: NeighborhoodUser = user(id),
+    followers: List<NeighborhoodUser> = emptyList(),
+    following: List<NeighborhoodUser> = emptyList(),
+): CommunityUserProfile = CommunityUserProfile(
+    user = user,
+    posts = listOf(Post("post-$id", User(id, "", id), "post", createdAt = "now")),
+    followers = followers,
+    following = following,
+)
