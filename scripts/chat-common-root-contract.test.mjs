@@ -38,6 +38,9 @@ const [
   favoriteHeader,
   chatTranslatorOverlay,
   groupManagement,
+  chatBrowserHostContent,
+  communityProfileHost,
+  communityProfileSheet,
   viewModel,
 ] = await Promise.all([
   source("package.json"),
@@ -57,6 +60,9 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/FavoriteMessagesHeaderContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatTranslatorOverlayContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatGroupManagementContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatBrowserHostContent.kt"),
+  source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
+  source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileSheetContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt"),
 ]);
 
@@ -221,6 +227,24 @@ test("CHAT-TRANSLATION uses the common overlay and stable evidence anchors on ev
   assert.match(androidTranslatorClient, /callTimeout\(120, TimeUnit\.SECONDS\)/);
   assert.match(webHost, /FangChatTranslationGateway\(FangTranslationService\(transport = BrowserTranslationHttpTransport\(\)\)\)/);
   assert.match(iosHost, /FangChatTranslationGateway\(FangTranslationService\(transport = IosTranslationHttpTransport\(\)\)\)/);
+});
+
+test("common chat profile entry exposes stable cross-platform evidence anchors", () => {
+  assert.match(chatBrowserHostContent, /ChatProfileMemberAvatarTestTagPrefix = "chat\.profile\.member\."/);
+  assert.match(chatBrowserHostContent, /ChatProfileMessageAvatarTestTagPrefix = "chat\.profile\.message\."/);
+  assert.match(chatBrowserHostContent, /testTag = ChatProfileMemberAvatarTestTagPrefix \+ member\.id/);
+  assert.match(chatBrowserHostContent, /testTag = ChatProfileMessageAvatarTestTagPrefix \+ message\.senderId/);
+  assert.match(chatBrowserHostContent, /onOpenUserProfile\(member\.id\)/);
+  assert.match(chatBrowserHostContent, /onOpenUserProfile\(message\.senderId\)/);
+
+  assert.match(communityProfileHost, /PublicProfileRootTestTag = "public-profile\.root"/);
+  assert.match(communityProfileHost, /PublicProfileBackTestTag = "public-profile\.back"/);
+  assert.match(communityProfileHost, /PublicProfileUserTestTagPrefix = "public-profile\.user\."/);
+  assert.match(communityProfileHost, /testTag = PublicProfileRootTestTag/);
+  assert.match(communityProfileHost, /testTag = PublicProfileBackTestTag/);
+  assert.match(communityProfileHost, /testTag = PublicProfileUserTestTagPrefix \+ profile\.user\.id/);
+  assert.match(communityProfileSheet, /modifier: Modifier = Modifier/);
+  assert.match(communityProfileSheet, /ModalBottomSheet\([\s\S]*?modifier = modifier/);
 });
 
 test("SCR-CHAT inventory reflects the real common-root state without declaring final GO", () => {

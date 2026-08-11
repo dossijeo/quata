@@ -59,16 +59,21 @@ class ChatActionsNotificationsInstrumentedTest {
         val credentialsFile = optionalArgument("quataChatActionsCredentialsFile")
         val chatUrl = optionalArgument("quataChatActionsUrl")
         val ownProbe = optionalArgument("quataChatActionsOwnProbe")
+        val peerProbe = optionalArgument("quataChatActionsPeerProbe")
+        val profileId = optionalArgument("quataChatActionsProfileId")
         val composerMarker = optionalArgument("quataChatActionsComposerMarker")
         val replyMarker = optionalArgument("quataChatActionsReplyMarker")
         val editMarker = optionalArgument("quataChatActionsEditMarker")
         val forwardQuery = optionalArgument("quataChatActionsForwardQuery")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
+        val hasRequiredStageArguments = when (stage) {
+            "profile" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+            else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
+        }
         assumeTrue(
             "CHAT-ACTIONS-NOTIFICATIONS Android evidence is opt-in.",
-            credentials != null &&
-                listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() },
+            credentials != null && hasRequiredStageArguments,
         )
 
         suppressStartupPrompts()
@@ -85,6 +90,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "edit-favorite" -> runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
                 "forward" -> runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
                 "translation" -> runTranslationStage(ownProbe.orEmpty())
+                "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "full" -> {
                     runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                     runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
@@ -261,6 +267,35 @@ class ChatActionsNotificationsInstrumentedTest {
             }.isFailure
         }
         delay(1_500)
+    }
+
+    private fun runProfileStage(peerProbe: String, profileId: String) {
+        waitForMarker(peerProbe, "peer message for profile entry")
+        saveScreenshot("android-chat-profile-thread-initial")
+        val avatarTag = "chat.profile.message.$profileId"
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNodeWithTag(avatarTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        compose.onNodeWithTag(avatarTag, useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(30_000) {
+            runCatching {
+                compose.onNodeWithTag("public-profile.user.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        saveScreenshot("android-chat-profile-open")
+        val closedByCommonBack = runCatching {
+            compose.onNodeWithTag("public-profile.back", useUnmergedTree = true)
+                .performTouchInput { click(center) }
+            true
+        }.getOrDefault(false)
+        if (!closedByCommonBack) device.pressBack()
+        compose.waitUntil(20_000) { messageNodeVisible(peerProbe) }
+        saveScreenshot("android-chat-profile-return")
     }
 
     private suspend fun flushPendingChatMessages() {

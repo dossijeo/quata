@@ -5,6 +5,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -17,12 +18,14 @@ fun CommunityProfileSheetContent(
     sheetState: SheetState,
     containerColor: Color,
     contentColor: Color,
+    modifier: Modifier = Modifier,
     onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        modifier = modifier,
         containerColor = containerColor,
         contentColor = contentColor,
         content = content,
