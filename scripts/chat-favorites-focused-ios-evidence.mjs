@@ -13,7 +13,7 @@ const defaultDbTlsCaFile = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const hardCleanupAuthorizationEnvironment = "QUATA_CHAT_FAVORITES_FOCUSED_HARD_CLEANUP_AUTHORIZATION";
 const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_FAVORITES_FOCUSED_HARD_CLEANUP";
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_FAVORITES_FOCUSED_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const options = parseArgs(process.argv.slice(2));
 const report = {

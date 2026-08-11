@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -61,6 +62,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val composerMarker = optionalArgument("quataChatActionsComposerMarker")
         val replyMarker = optionalArgument("quataChatActionsReplyMarker")
         val editMarker = optionalArgument("quataChatActionsEditMarker")
+        val forwardQuery = optionalArgument("quataChatActionsForwardQuery")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
         assumeTrue(
@@ -81,9 +83,11 @@ class ChatActionsNotificationsInstrumentedTest {
             when (stage) {
                 "send-reply" -> runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                 "edit-favorite" -> runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
+                "forward" -> runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
                 "full" -> {
                     runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                     runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
+                    runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
                 }
                 else -> error("unknown_chat_actions_stage:$stage")
             }
@@ -157,6 +161,63 @@ class ChatActionsNotificationsInstrumentedTest {
         waitForAction("chat.action.favorite", "Favorito")
         waitForAction("chat.action.delete", "Eliminar")
         saveScreenshot("android-chat-actions-own-selected")
+    }
+
+    private suspend fun runForwardStage(editMarker: String, forwardQuery: String) {
+        check(forwardQuery.isNotBlank()) { "forward_destination_query_missing" }
+        waitForMarker(editMarker.take(28), "edited message for forward")
+        openMessageActions(editMarker.take(28))
+        clickAction("chat.action.forward", "Reenviar")
+        compose.waitUntil(15_000) {
+            runCatching {
+                compose.onNodeWithTag(ChatForwardPickerRootTestTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        compose.onNodeWithTag(ChatForwardPickerSearchTestTag, useUnmergedTree = true)
+            .performTextReplacement(forwardQuery)
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNode(hasText(forwardQuery, substring = true), useUnmergedTree = true).fetchSemanticsNode()
+            }.isSuccess || waitForObject(By.textContains(forwardQuery), forwardQuery, 250) != null
+        }
+        runCatching {
+            compose.onNode(
+                SemanticsMatcher("forward candidate contains query") { node ->
+                    node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(ChatForwardPickerCandidateTestTagPrefix) == true &&
+                        node.config.getOrNull(SemanticsProperties.Text)?.any { it.text.contains(forwardQuery) } == true
+                },
+                useUnmergedTree = true,
+            ).performClick()
+        }.getOrElse {
+            val nativeDestination = waitForObject(By.textContains(forwardQuery), forwardQuery, 2_000)
+            check(nativeDestination != null) { "forward_destination_not_visible:$forwardQuery" }
+            nativeDestination.click()
+        }
+        SystemClock.sleep(500)
+        device.click(device.displayWidth / 2, (device.displayHeight * 0.35f).toInt())
+        compose.waitForIdle()
+        SystemClock.sleep(500)
+        saveScreenshot("android-chat-forward-picker-selected")
+        compose.onNodeWithTag(ChatForwardPickerSendTestTag, useUnmergedTree = true)
+            .performClick()
+        SystemClock.sleep(300)
+        val nativeForward = waitForObject(By.textContains("Forward"), "Forward", 1_500)
+            ?: waitForObject(By.textContains("Reenviar"), "Reenviar", 1_500)
+        if (nativeForward != null) {
+            nativeForward.click()
+        } else {
+            device.click((device.displayWidth * 0.72f).toInt(), (device.displayHeight * 0.472f).toInt())
+        }
+        compose.waitForIdle()
+        saveScreenshot("android-chat-forward-submitted")
+        compose.waitUntil(90_000) {
+            runCatching {
+                compose.onNodeWithTag(ChatForwardPickerRootTestTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isFailure
+        }
+        delay(1_500)
     }
 
     private suspend fun flushPendingChatMessages() {

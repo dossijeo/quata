@@ -17,7 +17,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let editableMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_EDITABLE_MARKER"]),
               let composerMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_COMPOSER_MARKER"]),
               let replyMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_REPLY_MARKER"]),
-              let editMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_EDIT_MARKER"]) else {
+              let editMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_EDIT_MARKER"]),
+              let forwardQuery = nonEmpty(environment["QUATA_IOS_CHAT_E2E_FORWARD_QUERY"]) else {
             throw XCTSkip("Disposable Chat composer/action fixture is not configured.")
         }
 
@@ -71,6 +72,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             context: "start edit",
         )
         clearAndTypeText(editMarker, into: "chat.composer.input", in: app)
+        XCTAssertTrue(waitForComposerValue(containing: editMarker, in: app, timeout: 8), "The edit composer must contain the exact replacement marker before submit.")
         tapTaggedButton("chat.composer.send", in: app, context: "submit edit")
         dismissKeyboardIfPresent(in: app)
         XCTAssertTrue(
@@ -85,6 +87,23 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
         XCTAssertFalse(messageText(editableMarker, in: app).exists, "Editing must replace the original message text instead of appending to it.")
         attachScreenshot(app, name: "ios-chat-composer-edit-sent")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(editableMessageId))", in: app)
+        _ = chatHost(in: app, context: "forward refreshed conversation")
+        XCTAssertTrue(messageWithId(editableMessageId, containing: editMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        waitForFocusedMessageHighlightToClear(editableMessageId, in: app)
+        selectMessage(editMarker, expectedMessageId: editableMessageId, in: app, context: "own message forward selection")
+        assertActionBarOwnMessage(in: app)
+        tapTaggedButton("chat.action.forward", in: app, context: "start forward")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "chat.forward.root").firstMatch.waitForExistence(timeout: 15),
+            "The shared forward picker must mount.",
+        )
+        clearAndTypeText(forwardQuery, into: "chat.forward.search", in: app)
+        selectForwardDestination(forwardQuery, in: app)
+        attachScreenshot(app, name: "ios-chat-forward-picker-selected")
+        tapTaggedButton("chat.forward.send", in: app, context: "send forward")
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
     }
 
     private func chatHost(in app: XCUIApplication, context: String) -> XCUIElement {
@@ -232,6 +251,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
+    private func selectForwardDestination(_ query: String, in app: XCUIApplication) {
+        let destination = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", query)).firstMatch
+        if destination.waitForExistence(timeout: 15) {
+            destination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            return
+        }
+        let anyDestination = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", query))
+            .firstMatch
+        XCTAssertTrue(anyDestination.waitForExistence(timeout: 10), "Expected forward destination containing \(query).")
+        anyDestination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
     private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {
         let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         for attempt in 0..<12 {
@@ -267,9 +299,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
         XCTAssertFalse(fieldValue(field).starts(with: "chat-actions-ios-"), "The edit composer still contains the original message text.")
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.5)).tap()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-        typeIntoFocusedElement(value, fallback: field, in: app)
+        pasteText(value, into: field, in: app)
     }
 
     private func fieldValue(_ field: XCUIElement) -> String {

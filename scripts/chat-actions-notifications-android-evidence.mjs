@@ -5,13 +5,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
 const defaultDbTlsCaFile = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const hardCleanupAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP_AUTHORIZATION";
 const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP";
 const tempProfileHashAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH_AUTHORIZATION";
 const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH";
+const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/chat-actions-notifications-credentials.json";
@@ -25,6 +26,8 @@ const evidenceFiles = [
   "android-chat-composer-edit-submitted.png",
   "android-chat-composer-edit-sent.png",
   "android-chat-actions-own-selected.png",
+  "android-chat-forward-picker-selected.png",
+  "android-chat-forward-submitted.png",
   "android-chat-actions-notifications-evidence.json",
 ];
 let lastThreadSnapshot = null;
@@ -37,6 +40,17 @@ function env(name) {
 
 async function authorizedUsers() {
   if (!useAdjacentAuthorizedProfile) {
+    const file = process.env[credentialsFileEnvironment]?.trim();
+    if (file) {
+      const parsed = JSON.parse((await readFile(file, "utf8")).replace(/^\uFEFF/, ""));
+      const user = (entry, label) => ({
+        label,
+        countryCode: String(entry?.country_code ?? entry?.countryCode ?? "").trim(),
+        phone: String(entry?.phone ?? "").trim(),
+        password: String(entry?.password ?? ""),
+      });
+      return { a: user(parsed.a, "A"), b: user(parsed.b, "B") };
+    }
     return {
       a: { label: "A", countryCode: env("QUATA_CHAT_EVIDENCE_A_COUNTRY_CODE"), phone: env("QUATA_CHAT_EVIDENCE_A_PHONE"), password: env("QUATA_CHAT_EVIDENCE_A_PASSWORD") },
       b: { label: "B", countryCode: env("QUATA_CHAT_EVIDENCE_B_COUNTRY_CODE"), phone: env("QUATA_CHAT_EVIDENCE_B_PHONE"), password: env("QUATA_CHAT_EVIDENCE_B_PASSWORD") },
@@ -218,6 +232,30 @@ async function favorites(config, session) {
   }), "messages");
 }
 
+async function pollForwardDestinationThread(config, session, profileId, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const payload = await rpc(config, session, "quata_chat_get_inbox", {
+      p_actor_profile_id: session.profileId,
+      p_limit: 100,
+    });
+    const allRows = [
+      payload?.thread,
+      payload?.conversation,
+      ...(Array.isArray(payload?.threads) ? payload.threads : []),
+      ...(Array.isArray(payload?.conversations) ? payload.conversations : []),
+      ...(Array.isArray(payload?.data?.threads) ? payload.data.threads : []),
+      ...(Array.isArray(payload?.data?.conversations) ? payload.data.conversations : []),
+      ...(Array.isArray(payload?.update?.threads) ? payload.update.threads : []),
+      ...(Array.isArray(payload?.update?.conversations) ? payload.update.conversations : []),
+    ].filter(Boolean);
+    const match = allRows.find((row) => JSON.stringify(row).includes(profileId));
+    if (match) return { threadId: threadId(match), row: match };
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+  throw new Error("chat_contract_invalid:forward_destination_thread");
+}
+
 function chatUrl(conversationId, messageIdValue) {
   const encodedConversation = encodeURIComponent(conversationId);
   const suffix = messageIdValue ? `?message=${encodeURIComponent(messageIdValue)}` : "";
@@ -362,6 +400,70 @@ async function hardDeleteTemporaryThread(thread, uniqueKey) {
   }
 }
 
+async function createTemporaryForwardProfile(runId) {
+  const id = randomUUID();
+  const phoneLocal = `999${Date.now().toString().slice(-6)}`;
+  const displayName = `QADATA Forward ${phoneLocal}`;
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      await client.query(
+        `insert into public.community_profiles
+          (id, display_name, phone, pass_hash, phone_normalized, country_code, phone_local, phone_e164, neighborhood, barrio, barrio_normalized, account_status)
+         values ($1, $2, $3, $4, $5, '240', $6, $7, 'QADATA', 'QADATA', 'qadata', 'active')`,
+        [id, displayName, `+240 ${phoneLocal}`, `qadata-chat-forward-no-login-${runId}`, `240${phoneLocal}`, phoneLocal, `+240${phoneLocal}`],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  return { id, phoneLocal, displayName };
+}
+
+async function hardDeleteTemporaryForwardDestination(profile, threadId) {
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const owned = await client.query(
+        "select id from public.community_profiles where id = $1 and display_name = $2 and phone_local = $3 for update",
+        [profile.id, profile.displayName, profile.phoneLocal],
+      );
+      if (owned.rowCount !== 1) throw new Error("cleanup_residue_detected:forward_profile_not_owned");
+      if (threadId) {
+        const participant = await client.query(
+          "select 1 from public.chat_participants where thread_id = $1 and profile_id = $2 for update",
+          [threadId, profile.id],
+        );
+        if (participant.rowCount !== 1) throw new Error("cleanup_residue_detected:forward_thread_not_owned");
+        await client.query("delete from public.chat_threads where id = $1", [threadId]);
+      }
+      const deleted = await client.query(
+        "delete from public.community_profiles where id = $1 and display_name = $2 and phone_local = $3 returning id",
+        [profile.id, profile.displayName, profile.phoneLocal],
+      );
+      if (deleted.rowCount !== 1) throw new Error("cleanup_residue_detected:forward_profile_delete_failed");
+      const residue = await client.query(
+        `select
+          (select count(*)::int from public.community_profiles where id = $1) as community_profiles,
+          (select count(*)::int from public.chat_threads where id = $2) as chat_threads,
+          (select count(*)::int from public.chat_messages where thread_id = $2) as chat_messages,
+          (select count(*)::int from public.chat_participants where profile_id = $1 or thread_id = $2) as chat_participants,
+          (select count(*)::int from public.chat_private_threads where thread_id = $2 or profile_low_id = $1 or profile_high_id = $1) as chat_private_threads`,
+        [profile.id, threadId ?? -1],
+      );
+      const counts = residue.rows[0] ?? {};
+      if (Object.values(counts).some((count) => Number(count) !== 0)) throw new Error("cleanup_residue_detected:forward_physical_rows");
+      await client.query("commit");
+      return { profileIdSha256: sha256(profile.id), threadId, residueCounts: counts };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
 async function withDatabase(callback) {
   const dbUrlPath = process.env.SUPABASE_DB_URL_FILE?.trim() || defaultDbUrlFile;
   const tlsCaPath = process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || defaultDbTlsCaFile;
@@ -492,7 +594,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null };
+const state = { a: null, b: null, thread: null, message: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
@@ -519,6 +621,8 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
+  state.forwardProfile = await createTemporaryForwardProfile(runId);
+  report.steps.push("temporary_forward_destination_profile_created");
   state.thread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
     p_actor_profile_id: state.a.profileId,
     p_recipient_profile_ids: [state.b.profileId],
@@ -580,6 +684,7 @@ try {
     "-e", "quataChatActionsComposerMarker", composerMarker,
     "-e", "quataChatActionsReplyMarker", replyMarker,
     "-e", "quataChatActionsEditMarker", editMarker,
+    "-e", "quataChatActionsForwardQuery", state.forwardProfile.phoneLocal,
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
   const assertInstrumentationPassed = (stage, instrumentationOutput) => {
@@ -613,6 +718,17 @@ try {
   );
   state.editedMessage = messageId(editedMessage);
   report.steps.push("composer_edit_sent_by_shared_ui_and_verified_by_rpc");
+
+  assertInstrumentationPassed("forward", await runInstrumentationStage("forward"));
+  const forwardDestination = await pollForwardDestinationThread(config, state.a, state.forwardProfile.id);
+  state.forwardThread = forwardDestination.threadId;
+  const forwardedMessage = await pollMessage(config, state.a, state.forwardThread, (message) =>
+    messageText(message) === editMarker &&
+      Number(message?.forwarded_from_message_id) === Number(state.editedMessage),
+  );
+  state.forwardedMessage = messageId(forwardedMessage);
+  report.steps.push("message_forwarded_by_shared_ui_and_verified_by_rpc");
+
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   for (const file of evidenceFiles) {
@@ -627,6 +743,9 @@ try {
     composerMessageId: messageId(composerMessage),
     replyMessageId: messageId(replyMessage),
     editedMessageId: state.editedMessage,
+    forwardThreadId: state.forwardThread,
+    forwardedMessageId: state.forwardedMessage,
+    forwardProfileIdSha256: sha256(state.forwardProfile.id),
     markerSha256: sha256(marker),
     composerMarkerSha256: sha256(composerMarker),
     replyMarkerSha256: sha256(replyMarker),
@@ -677,6 +796,16 @@ try {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);
       }
+    }
+  }
+  if (state.forwardProfile) {
+    try {
+      cleanup.forwardDestination = await hardDeleteTemporaryForwardDestination(state.forwardProfile, state.forwardThread);
+      cleanup.actions.push("temporary_forward_destination_deleted");
+      cleanup.actions.push("forward_destination_cleanup_verified_physical_residue_absent");
+    } catch (error) {
+      cleanupFailed = true;
+      cleanup.error = safeFailure(error);
     }
   }
   if (cleanupFailed) {
