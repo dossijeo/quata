@@ -602,11 +602,16 @@ async function scrollRegisterLegalLinksIntoView(page) {
 }
 
 async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallbackIndex) {
-  const box = await waitForTextBounds(page, pattern, 2_000).catch(() => registerLegalFallbackBounds(page, fallbackIndex));
   const previousOpenCount = await page.evaluate(() =>
     Array.isArray(globalThis.__quataDocumentOpenEvidence) ? globalThis.__quataDocumentOpenEvidence.length : 0,
   );
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  const nativeButton = page.getByRole("button", { name: pattern }).first();
+  if (await nativeButton.count()) {
+    await nativeButton.click();
+  } else {
+    const box = await waitForTextBounds(page, pattern, 2_000).catch(() => registerLegalFallbackBounds(page, fallbackIndex));
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  }
   const openedHandle = await page.waitForFunction(({ name, previousCount }) =>
     (Array.isArray(globalThis.__quataDocumentOpenEvidence) ? globalThis.__quataDocumentOpenEvidence : [])
       .slice(previousCount)
@@ -667,6 +672,7 @@ async function findVisibleTextBounds(page, pattern) {
     const candidates = [scope, ...scope.querySelectorAll("*")].filter(Boolean);
     const matches = [];
     for (const element of candidates) {
+      if (typeof element.getBoundingClientRect !== "function") continue;
       const text = element.innerText || element.textContent || "";
       if (!expression.test(text)) continue;
       const rect = element.getBoundingClientRect();
