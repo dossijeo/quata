@@ -59,6 +59,8 @@ test("auth-launch fixture stays isolated from runtime configuration, storage and
 test("auth-launch uses real Compose Auth inside a complete UIKit containment shell", () => {
   assert.match(launcher, /case "auth-launch"/);
   assert.match(launcher, /IosAuthLaunchFixtureHostKt\.QuataAuthLaunchFixtureViewController\(\)/);
+  assert.match(launcher, /QuataAuthLaunchLegalEvidenceViewControllerForDestination/);
+  assert.match(launcher, /legal-document-opened-\\\(name\)/);
   assert.match(launcher, /guard let fixtureIndex = arguments\.firstIndex\(of: "-quata-ui-test-fixture"\) else \{ return nil \}/);
   assert.match(launcher, /guard arguments\.indices\.contains\(fixtureIndex \+ 1\) else \{/);
   assert.match(launcher, /"quata-ios-test-invalid-fixture"/);
@@ -99,7 +101,10 @@ test("auth-launch UI contract proves two cold launches with real Compose readine
 test("auth-launch recovery fixture resolves the same common Recovery surface and tags", () => {
   assert.match(fixtureKotlin, /"recovery" -> AuthProductDestination\.Recovery/);
   assert.match(fixtureKotlin, /QuataAuthLaunchFixtureViewControllerForDestination\(destination: String\)/);
-  assert.match(launcher, /QuataAuthLaunchFixtureViewControllerForDestination\(/);
+  assert.match(fixtureKotlin, /QuataAuthLaunchLegalEvidenceViewControllerForDestination/);
+  assert.match(fixtureKotlin, /RecordingIosAuthLaunchFixtureDocumentOpener/);
+  assert.match(launcher, /QuataAuthLaunchLegalEvidenceViewControllerForDestination\(/);
+  assert.match(launcher, /QuataAuthLaunchFixtureViewController\(\)/);
   for (const tag of [
     "auth.recovery.root",
     "auth.recovery.country-prefix",

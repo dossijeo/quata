@@ -427,14 +427,27 @@ private final class IosAppCompositionRoot {
             // provides stable containment/readiness for CI without an account or runtime setup.
             let destinationArgument = arguments.firstIndex(of: "-quata-auth-destination")
                 .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
-            return IosAuthLaunchFixtureContainerViewController {
+            var container: IosAuthLaunchFixtureContainerViewController!
+            container = IosAuthLaunchFixtureContainerViewController {
                 if let destinationArgument {
-                    return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewControllerForDestination(
+                    return IosAuthLaunchFixtureHostKt.QuataAuthLaunchLegalEvidenceViewControllerForDestination(
                         destination: destinationArgument,
+                        onOpened: { name in
+                            DispatchQueue.main.async {
+                                guard let view = container?.view else { return }
+                                let marker = UILabel()
+                                marker.accessibilityIdentifier = "legal-document-opened-\(name)"
+                                marker.accessibilityLabel = name
+                                marker.isAccessibilityElement = true
+                                marker.isHidden = true
+                                view.addSubview(marker)
+                            }
+                        },
                     )
                 }
                 return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewController()
             }
+            return container
         case "auth-recovery-real":
             guard
                 let runtimeConfiguration,

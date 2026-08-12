@@ -29,18 +29,42 @@ fun QuataAuthLaunchFixtureViewControllerForDestination(destination: String): UIV
     },
 )
 
-private fun fixtureViewController(initialDestination: AuthProductDestination): UIViewController = QuataAuthViewController(
+fun QuataAuthLaunchLegalEvidenceViewControllerForDestination(
+    destination: String,
+    onOpened: (String) -> Unit,
+): UIViewController = fixtureViewController(
+    initialDestination = when (destination.lowercase()) {
+        "register" -> AuthProductDestination.Register
+        "recovery" -> AuthProductDestination.Recovery
+        else -> AuthProductDestination.Login
+    },
+    documentOpener = RecordingIosAuthLaunchFixtureDocumentOpener(onOpened),
+)
+
+private fun fixtureViewController(
+    initialDestination: AuthProductDestination,
+    documentOpener: DocumentOpenService = IosAuthLaunchFixtureDocumentOpener,
+): UIViewController = QuataAuthViewController(
     dependencies = IosAuthHostDependencies(
         repository = IosAuthLaunchFixtureRepository(),
         locale = AuthCatalogLocale.English,
         initialDestination = initialDestination,
-        documentOpener = IosAuthLaunchFixtureDocumentOpener,
+        documentOpener = documentOpener,
         onLoginSuccess = {},
     ),
 )
 
 private object IosAuthLaunchFixtureDocumentOpener : DocumentOpenService {
     override suspend fun open(file: PlatformFile): PlatformResult<Unit> = PlatformResult.Success(Unit)
+}
+
+private class RecordingIosAuthLaunchFixtureDocumentOpener(
+    private val onOpened: (String) -> Unit,
+) : DocumentOpenService {
+    override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
+        onOpened(file.displayName.orEmpty())
+        return PlatformResult.Success(Unit)
+    }
 }
 
 private class IosAuthLaunchFixtureRepository : AuthRepository {
