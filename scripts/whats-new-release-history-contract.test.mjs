@@ -168,7 +168,7 @@ test('About and Release History evidence runners exercise real common anchors', 
   assert.doesNotMatch(webEvidenceRunner, /location\.hash\s*=\s*["']release-history["']/);
 
   assert.match(iosSwift, /case "about-release-history":/);
-  assert.match(iosSwift, /QuataIosAboutViewController\([\s\S]*?onOpenReleaseHistory: \{ router\?\.showReleaseHistory\(\) \}/);
+  assert.match(iosSwift, /QuataIosAbout(?:LegalEvidence)?ViewController\([\s\S]*?onOpenReleaseHistory: \{ router\?\.showReleaseHistory\(\) \}/);
   assert.match(iosSwift, /QuataIosReleaseHistoryViewController\([\s\S]*?onClose: \{ router\?\.showAbout\(\) \}/);
   assert.match(iosHostUiTests, /testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces/);
   assert.match(iosHostUiTests, /"about-common-root"/);

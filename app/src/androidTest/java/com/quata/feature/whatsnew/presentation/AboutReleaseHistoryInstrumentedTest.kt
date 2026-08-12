@@ -2,8 +2,6 @@ package com.quata.feature.whatsnew.presentation
 
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -14,11 +12,15 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
+import com.quata.core.localization.QuataLanguage
+import com.quata.core.moderation.assetName
 import com.quata.core.ui.components.QuataAboutBodyTestTag
 import com.quata.core.ui.components.QuataAboutCloseTestTag
 import com.quata.core.ui.components.QuataAboutDialogContent
 import com.quata.core.ui.components.QuataAboutReleaseHistoryTestTag
 import com.quata.core.ui.components.QuataAboutRootTestTag
+import com.quata.core.ui.components.QuataLegalDocumentLinkTestTagPrefix
+import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.feature.whatsnew.domain.PendingRelease
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import org.json.JSONArray
@@ -42,6 +44,7 @@ class AboutReleaseHistoryCommonBridgeInstrumentedTest {
     fun aboutDialogOpensSharedReleaseHistoryAndNavigatesPages() {
         var showingHistory by mutableStateOf(false)
         var dismissed by mutableStateOf(false)
+        val openedLegalDocuments = mutableListOf<String>()
 
         compose.setContent {
             QuataTheme(mode = QuataThemeMode.Light) {
@@ -69,17 +72,35 @@ class AboutReleaseHistoryCommonBridgeInstrumentedTest {
                             showingHistory = true
                         },
                         legalLinks = {
-                            TextButton(onClick = {}) { Text("Privacidad") }
+                            QuataLegalDocumentLinksContent(
+                                language = QuataLanguage.Spanish,
+                                onOpenDocument = { document ->
+                                    openedLegalDocuments += document.assetName(QuataLanguage.Spanish)
+                                },
+                            )
                         },
                     )
                 }
             }
         }
 
-        for (tag in listOf(QuataAboutRootTestTag, QuataAboutBodyTestTag, QuataAboutReleaseHistoryTestTag, QuataAboutCloseTestTag)) {
+        for (tag in listOf(
+            QuataAboutRootTestTag,
+            QuataAboutBodyTestTag,
+            QuataAboutReleaseHistoryTestTag,
+            QuataAboutCloseTestTag,
+            "${QuataLegalDocumentLinkTestTagPrefix}privacy",
+            "${QuataLegalDocumentLinkTestTagPrefix}childsafety",
+        )) {
             compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode()
         }
         saveScreenshot("android-about-common")
+        compose.onNodeWithTag("${QuataLegalDocumentLinkTestTagPrefix}privacy", useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("${QuataLegalDocumentLinkTestTagPrefix}childsafety", useUnmergedTree = true).performClick()
+        check(openedLegalDocuments == listOf("privacy_es.docx", "child_safety_es.docx")) {
+            "android_legal_document_open_mismatch:$openedLegalDocuments"
+        }
+        steps += "about_legal_documents_resolved_locally"
 
         compose.onNodeWithTag(QuataAboutReleaseHistoryTestTag, useUnmergedTree = true).performClick()
         compose.waitUntil(5_000) {
@@ -117,6 +138,7 @@ class AboutReleaseHistoryCommonBridgeInstrumentedTest {
                 "android-about-to-release-history.png",
                 "android-release-history-next.png",
             ),
+            openedLegalDocuments = openedLegalDocuments,
         )
     }
 
@@ -131,13 +153,20 @@ class AboutReleaseHistoryCommonBridgeInstrumentedTest {
         }
     }
 
-    private fun writeReport(name: String, check: String, steps: List<String>, screenshots: List<String>) {
+    private fun writeReport(
+        name: String,
+        check: String,
+        steps: List<String>,
+        screenshots: List<String>,
+        openedLegalDocuments: List<String>,
+    ) {
         File(evidenceDir(), name).writeText(
             JSONObject()
                 .put("check", check)
                 .put("status", "passed")
                 .put("steps", JSONArray(steps))
                 .put("screenshots", JSONArray(screenshots))
+                .put("openedLegalDocuments", JSONArray(openedLegalDocuments))
                 .put("evidenceDirectory", evidenceDir().absolutePath)
                 .toString(2) + "\n",
         )

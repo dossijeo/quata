@@ -6,10 +6,13 @@ const legalDocument = await source('../core/src/commonMain/kotlin/com/quata/core
 const legalLinksContent = await source('../designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataLegalDocumentLinksContent.kt');
 const androidNav = await source('../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt');
 const androidLegal = await source('../app/src/main/java/com/quata/core/moderation/LegalDocuments.kt');
+const androidEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/whatsnew/presentation/AboutReleaseHistoryInstrumentedTest.kt');
 const web = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt');
+const webEvidenceRunner = await source('../scripts/about-release-history-web-evidence.mjs');
 const iosRuntime = await source('../feature/whatsnew/src/iosMain/kotlin/com/quata/feature/whatsnew/presentation/IosWhatsNewRuntimeBootstrap.kt');
 const iosProject = await source('../iosApp/project.yml');
 const iosSwift = await source('../iosApp/iosApp/QuataIosApp.swift');
+const iosHostUiTests = await source('../iosApp/iosAppUITests/QuataIosHostUITests.swift');
 
 test('legal documents have one shared catalog for labels, URLs and assets', () => {
   assert.match(legalDocument, /enum class LegalDocument \{\s*Privacy,\s*ChildSafety,?\s*\}/);
@@ -69,6 +72,22 @@ test('iOS packages the same legal document bundle directory as Android', async (
     await access(new URL(`../app/src/main/assets/legal/privacy_${language}.docx`, import.meta.url));
     await access(new URL(`../app/src/main/assets/legal/child_safety_${language}.docx`, import.meta.url));
   }
+});
+
+test('About evidence runners exercise both shared legal document actions', () => {
+  assert.match(androidEvidenceTest, /QuataLegalDocumentLinksContent\(/);
+  assert.match(androidEvidenceTest, /privacy_es\.docx/);
+  assert.match(androidEvidenceTest, /child_safety_es\.docx/);
+
+  assert.match(webEvidenceRunner, /clickAndCaptureDownload\(page, \/Política de privacidad\|Privacy policy\/, "privacy_es\.docx"\)/);
+  assert.match(webEvidenceRunner, /clickAndCaptureDownload\(page, \/Seguridad de menores\|Child safety\/, "child_safety_es\.docx"\)/);
+
+  assert.match(iosRuntime, /fun QuataIosAboutLegalEvidenceViewController\(/);
+  assert.match(iosSwift, /QuataIosAboutLegalEvidenceViewController\(/);
+  assert.match(iosHostUiTests, /"legal-document-link-privacy"/);
+  assert.match(iosHostUiTests, /"legal-document-link-childsafety"/);
+  assert.match(iosHostUiTests, /"legal-document-opened-privacy_es\.docx"/);
+  assert.match(iosHostUiTests, /"legal-document-opened-child_safety_es\.docx"/);
 });
 
 async function source(path) {

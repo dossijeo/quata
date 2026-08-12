@@ -492,9 +492,19 @@ private final class IosAppCompositionRoot {
             }
             let router = IosAuthenticatedHostRouter(platformServices: platformServices)
             router.installAboutFactory { [weak router] in
-                IosWhatsNewRuntimeBootstrapKt.QuataIosAboutViewController(
+                IosWhatsNewRuntimeBootstrapKt.QuataIosAboutLegalEvidenceViewController(
                     runtime: whatsNewRuntimeBootstrap,
-                    documentOpener: platformServices.services.documentOpener,
+                    onOpened: { name in
+                        DispatchQueue.main.async {
+                            guard let view = router?.view else { return }
+                            let marker = UILabel()
+                            marker.accessibilityIdentifier = "legal-document-opened-\(name)"
+                            marker.accessibilityLabel = name
+                            marker.isAccessibilityElement = true
+                            marker.isHidden = true
+                            view.addSubview(marker)
+                        }
+                    },
                     onClose: { router?.showFeed(postId: nil) },
                     onOpenReleaseHistory: { router?.showReleaseHistory() },
                 )

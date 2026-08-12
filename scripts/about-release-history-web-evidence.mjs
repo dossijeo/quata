@@ -27,7 +27,11 @@ try {
     headless: true,
     args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--no-first-run"],
   });
-  const context = await browser.newContext({ locale: "es-ES", viewport: { width: 390, height: 844 } });
+  const context = await browser.newContext({
+    acceptDownloads: true,
+    locale: "es-ES",
+    viewport: { width: 390, height: 844 },
+  });
   const page = await context.newPage();
 
   await page.goto(`${server.origin}/#about`);
@@ -35,6 +39,10 @@ try {
   await expectVisibleText(page, /Acerca de Quata|About Quata/);
   report.steps.push("about_deeplink_rendered");
   report.evidence.about = await screenshot(page, "web-about");
+  report.evidence.legalDocuments = [];
+  report.evidence.legalDocuments.push(await clickAndCaptureDownload(page, /Política de privacidad|Privacy policy/, "privacy_es.docx"));
+  report.evidence.legalDocuments.push(await clickAndCaptureDownload(page, /Seguridad de menores|Child safety/, "child_safety_es.docx"));
+  report.steps.push("about_legal_documents_downloaded_from_local_assets");
 
   await clickVisibleText(page, /Historial de versiones|Release history/);
   await waitForHash(page, "#release-history");
@@ -151,6 +159,21 @@ async function clickVisibleText(page, pattern) {
   const locator = page.getByText(pattern).first();
   await locator.waitFor({ state: "visible", timeout: 30_000 });
   await clickLocatorCenter(page, locator);
+}
+
+async function clickAndCaptureDownload(page, pattern, expectedName) {
+  const locator = page.getByText(pattern).first();
+  await locator.waitFor({ state: "visible", timeout: 30_000 });
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 30_000 }),
+    clickLocatorCenter(page, locator),
+  ]);
+  const suggestedName = download.suggestedFilename();
+  if (suggestedName !== expectedName) throw new Error(`legal_download_name_mismatch:${suggestedName}`);
+  return {
+    displayName: suggestedName,
+    localAsset: `legal/${suggestedName}`,
+  };
 }
 
 async function clickLocatorCenter(page, locator) {

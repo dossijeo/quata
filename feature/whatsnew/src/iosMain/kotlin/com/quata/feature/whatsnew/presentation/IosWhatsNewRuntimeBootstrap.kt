@@ -143,6 +143,28 @@ fun QuataIosAboutViewController(
     ),
 )
 
+/** iOS UI evidence fixture: real shared About content with a recording document opener. */
+fun QuataIosAboutLegalEvidenceViewController(
+    runtime: IosWhatsNewRuntimeBootstrap,
+    onOpened: (String) -> Unit,
+    onClose: () -> Unit,
+    onOpenReleaseHistory: () -> Unit,
+): UIViewController = QuataIosAboutViewController(
+    runtime = runtime,
+    documentOpener = RecordingIosLegalDocumentOpenService(onOpened),
+    onClose = onClose,
+    onOpenReleaseHistory = onOpenReleaseHistory,
+)
+
+private class RecordingIosLegalDocumentOpenService(
+    private val onOpened: (String) -> Unit,
+) : DocumentOpenService {
+    override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
+        onOpened(file.displayName.orEmpty())
+        return PlatformResult.Success(Unit)
+    }
+}
+
 enum class IosWhatsNewRoute { PendingReleases, ReleaseHistory }
 
 fun interface IosWhatsNewRouteHost {

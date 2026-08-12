@@ -278,7 +278,44 @@ final class QuataIosHostUITests: XCTestCase {
                 .waitForExistence(timeout: 10),
             "The shared About action must be exposed before opening Release History.",
         )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-link-privacy")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared privacy legal document action must be exposed on iOS.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-link-childsafety")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared child safety legal document action must be exposed on iOS.",
+        )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "about-release-history-real-about")
+
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-privacy")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-opened-privacy_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS About fixture must resolve Privacy to the packaged Spanish DOCX.",
+        )
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-childsafety")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-opened-child_safety_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS About fixture must resolve Child Safety to the packaged Spanish DOCX.",
+        )
 
         app.descendants(matching: .any)
             .matching(identifier: "about-release-history")
