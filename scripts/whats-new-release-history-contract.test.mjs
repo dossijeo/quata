@@ -111,14 +111,22 @@ test('About opens the common dialog and links to Release History on Android, Web
   assert.match(web, /"about" -> WebWhatsNewDestination\.About/);
   assert.doesNotMatch(web, /"about", "release-history" -> WebWhatsNewDestination\.ReleaseHistory/);
   assert.match(web, /WebWhatsNewDestination\.About -> QuataAboutDialogContent\(/);
+  assert.match(web, /title = webAboutTitle\(languageTags\)/);
+  assert.match(web, /releaseHistoryLabel = webAboutReleaseHistoryLabel\(languageTags\)/);
   assert.match(web, /onOpenReleaseHistory = \{ webSetBrowserFragment\("release-history"\) \}/);
+  assert.doesNotMatch(web, /title = webReleaseHistoryStrings\(languageTags\)\.title/);
+  assert.doesNotMatch(web, /releaseHistoryLabel = webReleaseHistoryStrings\(languageTags\)\.subtitle/);
   assert.match(webMain, /var whatsNewReturnFragment by remember \{ mutableStateOf<String\?>\(null\) \}/);
   assert.match(webMain, /onLogoClick = \{[\s\S]*?if \(webWhatsNewDestination\(navigation\.route\) == null\) \{[\s\S]*?whatsNewReturnFragment = navigation\.fragment[\s\S]*?\}[\s\S]*?navigation\.navigate\("about"\)/);
 
   assert.match(ios, /fun QuataAboutViewController\(dependencies: IosAboutHostDependencies\): UIViewController/);
   assert.match(iosRuntime, /fun QuataIosAboutViewController\(/);
+  assert.match(iosRuntime, /title = iosAboutTitle\(runtime\.languageTags\)/);
+  assert.match(iosRuntime, /releaseHistoryLabel = iosAboutReleaseHistoryLabel\(runtime\.languageTags\)/);
   assert.match(iosRuntime, /onOpenReleaseHistory = onOpenReleaseHistory/);
   assert.match(iosRuntime, /legalLinks = \{ IosAboutLegalLinks\(runtime\.languageTags\) \}/);
+  assert.doesNotMatch(iosRuntime, /title = runtime\.releaseHistoryStrings\(\)\.title/);
+  assert.doesNotMatch(iosRuntime, /releaseHistoryLabel = runtime\.releaseHistoryStrings\(\)\.subtitle/);
   assert.match(iosSwift, /private var aboutFactory: \(\(\) -> UIViewController\)\?/);
   assert.match(iosSwift, /case "about":\s+IosAuthenticatedRouteDispatcher\(host: router\)\.openAbout\(\)/);
   assert.match(iosSwift, /onLogoClick: \{ \[weak self\] in self\?\.showAbout\(\) \}/);

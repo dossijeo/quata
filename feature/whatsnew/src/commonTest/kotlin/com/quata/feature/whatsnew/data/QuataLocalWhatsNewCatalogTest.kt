@@ -42,6 +42,21 @@ class QuataLocalWhatsNewCatalogTest {
             }
         }
     }
+
+    @Test
+    fun platformCatalogsResolveRegionalLanguageTagsBeforeEnglishFallback() = runTest {
+        val webRepository = LocalWhatsNewRepository(QuataLocalWhatsNewCatalog.webReleases(), CatalogSeenStateStore)
+        val iosRepository = LocalWhatsNewRepository(QuataLocalWhatsNewCatalog.iosReleases(), CatalogSeenStateStore)
+
+        assertEquals(
+            QuataLocalWhatsNewCatalog.webReleases().single().notes.getValue("es"),
+            webRepository.getReleaseHistory(listOf("es-ES", "en")).getOrThrow().single().localizedNote,
+        )
+        assertEquals(
+            QuataLocalWhatsNewCatalog.iosReleases().single().notes.getValue("fr"),
+            iosRepository.getReleaseHistory(listOf("fr-FR", "en")).getOrThrow().single().localizedNote,
+        )
+    }
 }
 
 private object CatalogSeenStateStore : WhatsNewSeenStateStore {

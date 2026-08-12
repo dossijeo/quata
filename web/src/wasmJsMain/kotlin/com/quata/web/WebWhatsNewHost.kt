@@ -82,11 +82,11 @@ fun WebWhatsNewHost(
             modifier = modifier,
         )
         WebWhatsNewDestination.About -> QuataAboutDialogContent(
-            title = webReleaseHistoryStrings(languageTags).title,
+            title = webAboutTitle(languageTags),
             version = webAboutVersion(),
             versionDate = webAboutVersionDate(installedVersionCode),
             body = webAboutBody(languageTags),
-            releaseHistoryLabel = webReleaseHistoryStrings(languageTags).subtitle,
+            releaseHistoryLabel = webAboutReleaseHistoryLabel(languageTags),
             closeLabel = webReleaseHistoryStrings(languageTags).close,
             onDismiss = onBack,
             onOpenReleaseHistory = { webSetBrowserFragment("release-history") },
@@ -122,9 +122,9 @@ internal fun webWhatsNewSaveError(languageTags: List<String>): String = when {
 }
 
 internal fun webReleaseHistoryStrings(languageTags: List<String>): ReleaseHistoryStrings = when {
-    languageTags.isSpanish() -> ReleaseHistoryStrings("Cerrar", "Aún no hay novedades publicadas.", "No se pudo cargar el historial de versiones.", "Acerca de Quata", "Historial de versiones", "Anterior", "Siguiente", { "Versión $it" }, { "Novedades de $it" })
-    languageTags.isFrench() -> ReleaseHistoryStrings("Fermer", "Aucune nouveauté publiée.", "Impossible de charger l'historique des versions.", "À propos de Quata", "Historique des versions", "Précédent", "Suivant", { "Version $it" }, { "Nouveautés de $it" })
-    else -> ReleaseHistoryStrings("Close", "No releases have been published yet.", "Release history could not be loaded.", "About Quata", "Release history", "Previous", "Next", { "Version $it" }, { "What's new in $it" })
+    languageTags.isSpanish() -> ReleaseHistoryStrings("Cerrar", "Aún no hay novedades publicadas.", "No se pudo cargar el historial de versiones.", "Historial de versiones", "Consulta las novedades de todas las versiones registradas.", "Anterior", "Siguiente", { "Versión $it" }, { "Novedades de $it" })
+    languageTags.isFrench() -> ReleaseHistoryStrings("Fermer", "Aucune nouveauté publiée.", "Impossible de charger l'historique des versions.", "Historique des versions", "Consultez les nouveautés de toutes les versions suivies.", "Précédent", "Suivant", { "Version $it" }, { "Nouveautés de $it" })
+    else -> ReleaseHistoryStrings("Close", "No releases have been published yet.", "Release history could not be loaded.", "Version history", "Browse the notes for every tracked release.", "Previous", "Next", { "Version $it" }, { "What's new in $it" })
 }
 
 private data class WebAboutLegalLabels(val privacy: String, val childSafety: String)
@@ -133,6 +133,18 @@ private fun webAboutVersion(): String = "Version ${webDocumentMeta("quata-versio
 
 private fun webAboutVersionDate(installedVersionCode: Long?): String =
     installedVersionCode?.takeIf { it > 0 }?.let { "Version code: $it" } ?: "Version code: local"
+
+private fun webAboutTitle(languageTags: List<String>): String = when {
+    languageTags.isSpanish() -> "Acerca de Quata"
+    languageTags.isFrench() -> "À propos de Quata"
+    else -> "About Quata"
+}
+
+private fun webAboutReleaseHistoryLabel(languageTags: List<String>): String = when {
+    languageTags.isSpanish() -> "Historial de versiones"
+    languageTags.isFrench() -> "Historique des versions"
+    else -> "Release history"
+}
 
 private fun webAboutBody(languageTags: List<String>): String = when {
     languageTags.isSpanish() -> "Feed comunitario, barrios, chats, favoritos, perfiles y contactos SOS en una experiencia integrada."
