@@ -14,12 +14,12 @@ data class LegalDocumentLabelSet(
 
 fun legalDocumentLabels(language: QuataLanguage): LegalDocumentLabelSet = when (language) {
     QuataLanguage.Spanish -> LegalDocumentLabelSet(
-        privacy = "Politica de privacidad",
+        privacy = "Política de privacidad",
         childSafety = "Seguridad infantil y normas de la comunidad",
     )
     QuataLanguage.French -> LegalDocumentLabelSet(
-        privacy = "Politique de confidentialite",
-        childSafety = "Securite des enfants et regles de la communaute",
+        privacy = "Politique de confidentialité",
+        childSafety = "Sécurité des enfants et règles de la communauté",
     )
     QuataLanguage.English -> LegalDocumentLabelSet(
         privacy = "Privacy policy",

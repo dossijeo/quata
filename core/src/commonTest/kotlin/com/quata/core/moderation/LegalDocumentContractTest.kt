@@ -24,10 +24,10 @@ class LegalDocumentContractTest {
         val french = legalDocumentLabels(QuataLanguage.French)
         val english = legalDocumentLabels(QuataLanguage.English)
 
-        assertEquals("Politica de privacidad", LegalDocument.Privacy.label(spanish))
+        assertEquals("Política de privacidad", LegalDocument.Privacy.label(spanish))
         assertEquals("Seguridad infantil y normas de la comunidad", LegalDocument.ChildSafety.label(spanish))
-        assertEquals("Politique de confidentialite", LegalDocument.Privacy.label(french))
-        assertEquals("Securite des enfants et regles de la communaute", LegalDocument.ChildSafety.label(french))
+        assertEquals("Politique de confidentialité", LegalDocument.Privacy.label(french))
+        assertEquals("Sécurité des enfants et règles de la communauté", LegalDocument.ChildSafety.label(french))
         assertEquals("Privacy policy", LegalDocument.Privacy.label(english))
         assertEquals("Child safety and community standards", LegalDocument.ChildSafety.label(english))
     }
