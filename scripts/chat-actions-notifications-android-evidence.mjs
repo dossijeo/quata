@@ -14,6 +14,7 @@ const tempProfileHashAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATION
 const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH";
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
 const profileOnly = process.argv.includes("--profile-only");
+const profileFollowOnly = process.argv.includes("--profile-follow-only");
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/chat-actions-notifications-credentials.json";
@@ -36,6 +37,9 @@ const evidenceFiles = [
   "android-chat-profile-thread-initial.png",
   "android-chat-profile-open.png",
   "android-chat-profile-return.png",
+  "android-chat-profile-follow-before.png",
+  "android-chat-profile-follow-after.png",
+  "android-chat-profile-follow-return.png",
   "android-chat-actions-notifications-evidence.json",
 ];
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
@@ -411,6 +415,100 @@ async function hardDeleteTemporaryThread(thread, uniqueKey) {
   }
 }
 
+async function withPoolerClient(callback) {
+  const dbUrlPath = process.env.SUPABASE_DB_URL_FILE?.trim() || defaultDbUrlFile;
+  const tlsCaPath = process.env.SUPABASE_DB_TLS_CA_FILE?.trim() || defaultDbTlsCaFile;
+  const [connectionString, ca] = await Promise.all([readFile(dbUrlPath, "utf8"), readFile(tlsCaPath, "utf8")]);
+  const parsedConnection = new URL(connectionString.trim());
+  parsedConnection.searchParams.delete("sslmode");
+  const client = new pg.Client({
+    connectionString: parsedConnection.toString(),
+    ssl: { ca, rejectUnauthorized: true, servername: parsedConnection.hostname },
+  });
+  await client.connect();
+  try {
+    return await callback(client);
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+async function profileFollowExists(actorProfileId, targetProfileId) {
+  return await withPoolerClient(async (client) => {
+    const result = await client.query(
+      `select exists (
+         select 1 from public.community_profile_follows
+         where follower_profile_id = $1 and followed_profile_id = $2
+       ) as exists`,
+      [actorProfileId, targetProfileId],
+    );
+    return result.rows[0]?.exists === true;
+  });
+}
+
+async function prepareProfileFollowAbsent(actorProfileId, targetProfileId) {
+  return await withPoolerClient(async (client) => {
+    await client.query("begin");
+    try {
+      const existing = await client.query(
+        `select id from public.community_profile_follows
+         where follower_profile_id = $1 and followed_profile_id = $2
+         for update`,
+        [actorProfileId, targetProfileId],
+      );
+      if (existing.rowCount > 0) {
+        await client.query(
+          `delete from public.community_profile_follows
+           where follower_profile_id = $1 and followed_profile_id = $2`,
+          [actorProfileId, targetProfileId],
+        );
+      }
+      await client.query("commit");
+      return { initiallyFollowing: existing.rowCount > 0 };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+async function restoreProfileFollowEdge(actorProfileId, targetProfileId, initiallyFollowing) {
+  await withPoolerClient(async (client) => {
+    await client.query("begin");
+    try {
+      if (initiallyFollowing) {
+        await client.query(
+          `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+           values ($1, $2)
+           on conflict do nothing`,
+          [actorProfileId, targetProfileId],
+        );
+      } else {
+        await client.query(
+          `delete from public.community_profile_follows
+           where follower_profile_id = $1 and followed_profile_id = $2`,
+          [actorProfileId, targetProfileId],
+        );
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  const restored = await profileFollowExists(actorProfileId, targetProfileId);
+  if (restored !== initiallyFollowing) throw new Error("cleanup_residue_detected:profile_follow_edge");
+}
+
+async function pollProfileFollowEdge(actorProfileId, targetProfileId, expected, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await profileFollowExists(actorProfileId, targetProfileId) === expected) return;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 750));
+  }
+  throw new Error(`profile_follow_backend_poll_timeout:${expected ? "created" : "removed"}`);
+}
+
 async function createTemporaryForwardProfile(runId) {
   const id = randomUUID();
   const phoneLocal = `999${Date.now().toString().slice(-6)}`;
@@ -607,7 +705,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
@@ -634,7 +732,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  if (!translationOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -742,11 +840,19 @@ try {
   }
 
   if (state.b.accessToken) {
-    assertInstrumentationPassed("profile", await runInstrumentationStage("profile"));
+    if (profileFollowOnly) {
+      state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
+      report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
+    }
+    assertInstrumentationPassed(profileFollowOnly ? "profile-follow" : "profile", await runInstrumentationStage(profileFollowOnly ? "profile-follow" : "profile"));
+    if (profileFollowOnly) {
+      await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
+      report.steps.push("profile_follow_toggled_and_verified_by_db");
+    }
     report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
   }
 
-  if (profileOnly) {
+  if (profileOnly || profileFollowOnly) {
     await rm(evidenceDir, { recursive: true, force: true });
     await mkdir(evidenceDir, { recursive: true });
     for (const file of evidenceFiles.filter((name) => name.includes("profile") || name.endsWith("evidence.json"))) {
@@ -762,6 +868,7 @@ try {
       peerProfileIdSha256: sha256(state.b.profileId),
       markerSha256: sha256(marker),
       peerMarkerSha256: sha256(peerMarker),
+      profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
     };
     throw new Error("profile_only_completed");
   }
@@ -863,6 +970,15 @@ try {
     if (config) {
       try { cleanup.actions.push(...await logicalCleanup(config, state)); }
       catch (error) { cleanupFailed = true; cleanup.error = safeFailure(error); }
+      if (state.profileFollow && state.a && state.b) {
+        try {
+          await restoreProfileFollowEdge(state.a.profileId, state.b.profileId, state.profileFollow.initiallyFollowing);
+          cleanup.actions.push("profile_follow_edge_restored_to_initial_state");
+        } catch (error) {
+          cleanupFailed = true;
+          cleanup.error = safeFailure(error);
+        }
+      }
     }
     if (state.uniqueKey) {
       try {

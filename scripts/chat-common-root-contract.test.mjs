@@ -41,6 +41,7 @@ const [
   chatBrowserHostContent,
   communityProfileHost,
   communityProfileHeader,
+  profilePrimaryActions,
   communityProfileSheet,
   viewModel,
 ] = await Promise.all([
@@ -64,6 +65,7 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatBrowserHostContent.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileHeaderContent.kt"),
+  source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfilePrimaryActions.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileSheetContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatViewModel.kt"),
 ]);
@@ -261,6 +263,14 @@ test("common chat profile entry exposes stable cross-platform evidence anchors",
   assert.match(communityProfileHeader, /neighborhoodModifier: Modifier = Modifier/);
   assert.match(communityProfileHeader, /Text\(displayName, modifier = displayNameModifier/);
   assert.match(communityProfileHeader, /Text\(neighborhood, modifier = neighborhoodModifier/);
+  assert.match(communityProfileHost, /PublicProfileHeaderTestTagPrefix = PublicProfileUserTestTagPrefix/);
+  assert.match(communityProfileHost, /userId = profile\.user\.id/);
+  assert.match(profilePrimaryActions, /PublicProfileFollowActionTestTagPrefix = "public-profile\.follow\."/);
+  assert.match(profilePrimaryActions, /PublicProfileFollowLoadingTestTagPrefix = "public-profile\.follow\.loading\."/);
+  assert.match(profilePrimaryActions, /PublicProfileChatActionTestTagPrefix = "public-profile\.chat\."/);
+  assert.match(profilePrimaryActions, /testTag = PublicProfileFollowActionTestTagPrefix \+ userId/);
+  assert.match(profilePrimaryActions, /testTag = PublicProfileFollowLoadingTestTagPrefix \+ userId/);
+  assert.match(profilePrimaryActions, /testTag = PublicProfileChatActionTestTagPrefix \+ userId/);
   assert.match(communityProfileSheet, /modifier: Modifier = Modifier/);
   assert.match(communityProfileSheet, /ModalBottomSheet\([\s\S]*?modifier = modifier/);
 });

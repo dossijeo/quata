@@ -68,7 +68,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
         val hasRequiredStageArguments = when (stage) {
-            "profile" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+            "profile", "profile-follow" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
         }
         assumeTrue(
@@ -91,6 +91,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "forward" -> runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
                 "translation" -> runTranslationStage(ownProbe.orEmpty())
                 "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
+                "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "full" -> {
                     runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                     runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
@@ -270,6 +271,29 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun runProfileStage(peerProbe: String, profileId: String) {
+        openPeerProfile(peerProbe, profileId)
+        saveScreenshot("android-chat-profile-open")
+        closePublicProfile(peerProbe)
+        saveScreenshot("android-chat-profile-return")
+    }
+
+    private fun runProfileFollowStage(peerProbe: String, profileId: String) {
+        openPeerProfile(peerProbe, profileId)
+        saveScreenshot("android-chat-profile-follow-before")
+        compose.onNodeWithTag("public-profile.follow.$profileId", useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNodeWithTag("public-profile.follow.loading.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isFailure
+        }
+        saveScreenshot("android-chat-profile-follow-after")
+        closePublicProfile(peerProbe)
+        saveScreenshot("android-chat-profile-follow-return")
+    }
+
+    private fun openPeerProfile(peerProbe: String, profileId: String) {
         waitForMarker(peerProbe, "peer message for profile entry")
         dismissTranslatorOverlayIfActive()
         saveScreenshot("android-chat-profile-thread-initial")
@@ -307,7 +331,9 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.onNodeWithTag(tag, useUnmergedTree = true)
                 .fetchSemanticsNode()
         }
-        saveScreenshot("android-chat-profile-open")
+    }
+
+    private fun closePublicProfile(peerProbe: String) {
         val closedByCommonBack = runCatching {
             compose.onNodeWithTag("public-profile.back", useUnmergedTree = true)
                 .performTouchInput { click(center) }
@@ -315,7 +341,6 @@ class ChatActionsNotificationsInstrumentedTest {
         }.getOrDefault(false)
         if (!closedByCommonBack) device.pressBack()
         compose.waitUntil(20_000) { messageNodeVisible(peerProbe) }
-        saveScreenshot("android-chat-profile-return")
     }
 
     private fun publicProfileVisible(profileId: String): Boolean =

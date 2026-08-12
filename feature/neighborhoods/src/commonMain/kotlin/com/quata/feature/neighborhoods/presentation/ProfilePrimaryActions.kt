@@ -16,6 +16,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,8 +27,13 @@ import com.quata.core.ui.components.CompactIcon
 
 data class ProfileActionStrings(val follow: String, val following: String, val chat: String)
 
+const val PublicProfileFollowActionTestTagPrefix = "public-profile.follow."
+const val PublicProfileFollowLoadingTestTagPrefix = "public-profile.follow.loading."
+const val PublicProfileChatActionTestTagPrefix = "public-profile.chat."
+
 @Composable
 fun ProfilePrimaryActions(
+    userId: String,
     isOwnProfile: Boolean,
     isFollowing: Boolean,
     isFollowingLoading: Boolean,
@@ -36,12 +43,12 @@ fun ProfilePrimaryActions(
     onChat: () -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = onFollow, enabled = !isOwnProfile && !isFollowingLoading, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black), modifier = Modifier.weight(1f)) {
-            if (isFollowingLoading) CircularProgressIndicator(Modifier.size(18.dp), color = Color.Black, strokeWidth = 2.dp)
+        Button(onClick = onFollow, enabled = !isOwnProfile && !isFollowingLoading, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black), modifier = Modifier.weight(1f).semantics { testTag = PublicProfileFollowActionTestTagPrefix + userId }) {
+            if (isFollowingLoading) CircularProgressIndicator(Modifier.size(18.dp).semantics { testTag = PublicProfileFollowLoadingTestTagPrefix + userId }, color = Color.Black, strokeWidth = 2.dp)
             else CompactIcon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp)); Text(if (isFollowing) strings.following else strings.follow, fontSize = 18.sp)
         }
-        OutlinedButton(onClick = onChat, enabled = !isOwnProfile && !isOpeningChat, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange), modifier = Modifier.weight(1f)) {
+        OutlinedButton(onClick = onChat, enabled = !isOwnProfile && !isOpeningChat, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = QuataOrange), modifier = Modifier.weight(1f).semantics { testTag = PublicProfileChatActionTestTagPrefix + userId }) {
             if (isOpeningChat) CircularProgressIndicator(Modifier.size(18.dp), color = QuataOrange, strokeWidth = 2.dp)
             else CompactIcon(Icons.AutoMirrored.Filled.Message, null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp)); Text(strings.chat, fontSize = 18.sp)
