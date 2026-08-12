@@ -51,7 +51,9 @@ test("Android profile list evidence runs as an isolated profile stage", () => {
   assert.match(androidTest, /waitForObject\(By\.textContains\("Gabriel"\), "public profile \$listKind row"/);
   assert.match(androidTest, /android-chat-profile-list-\$listKind/);
   assert.match(androidRunner, /process\.argv\.includes\("--profile-lists-only"\)/);
-  assert.match(androidRunner, /runInstrumentationStage\("profile-lists"\)/);
+  assert.match(androidRunner, /profileListsOnly \? "profile-lists" : "profile"/);
+  assert.match(androidRunner, /runInstrumentationStage\(profileStage\)/);
+  assert.match(androidRunner, /profile_follow_list_edges_prepared_reversibly/);
   assert.match(androidRunner, /profile_lists_only_completed/);
 });
 
