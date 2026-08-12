@@ -601,7 +601,7 @@ async function assertAccountSettingsLegalDocumentViewer(page, reportOutput) {
   for (const route of ["profile", "settings"]) {
     await page.evaluate(fragment => { globalThis.location.hash = fragment; }, route);
     await waitForShellRoute(page, route);
-    if (route === "profile") await returnToProfileOverview(page);
+    if (route === "profile") await returnToProfileOverviewRobust(page);
     await scrollLegalLinksIntoView(page);
     const screenshot = reportOutput.replace(/\.json$/i, `.legal-${route}.png`);
     await page.screenshot({ path: screenshot, fullPage: true });
@@ -634,6 +634,35 @@ async function returnToProfileOverview(page) {
   if (!managementVisible) return;
   await page.mouse.click(Math.max(8, managementVisible.x - 24), managementVisible.y + managementVisible.height / 2);
   await page.waitForFunction(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    return [scope, ...scope.querySelectorAll("*")].some(element =>
+      (element.innerText || element.textContent || "").includes("Configurar contactos de emergencia") ||
+      (element.innerText || element.textContent || "").includes("Documentos legales"));
+  });
+}
+
+async function returnToProfileOverviewRobust(page) {
+  if (await isProfileOverviewVisible(page)) return;
+  const managementVisible = await findVisibleTextBounds(page, /Gesti..n de cuenta|Account management/i);
+  if (!managementVisible) return;
+  const y = managementVisible.y + managementVisible.height / 2;
+  const clickTargets = [
+    { x: Math.max(8, managementVisible.x - 24), y },
+    { x: 24, y },
+    { x: 16, y },
+    { x: 32, y },
+  ];
+  for (const target of clickTargets) {
+    await page.mouse.click(target.x, target.y);
+    await page.waitForTimeout(350);
+    if (await isProfileOverviewVisible(page)) return;
+  }
+  throw new Error("profile_management_back_navigation_failed");
+}
+
+async function isProfileOverviewVisible(page) {
+  return await page.evaluate(() => {
     const root = document.querySelector("#quata-root");
     const scope = root?.shadowRoot ?? root ?? document;
     return [scope, ...scope.querySelectorAll("*")].some(element =>
