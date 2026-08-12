@@ -588,7 +588,7 @@ async function assertRegisterLegalDocumentDownloads(page) {
 
 async function scrollRegisterLegalLinksIntoView(page) {
   for (let attempt = 0; attempt < 8; attempt += 1) {
-    if (await page.getByText(/privacidad|Privacy policy/i).first().isVisible().catch(() => false)) return;
+    if (await findVisibleTextBounds(page, /privacidad|Privacy policy/i)) return;
     await page.mouse.wheel(0, 720);
     await page.keyboard.press("PageDown").catch(() => {});
     await page.waitForTimeout(150);
@@ -596,11 +596,10 @@ async function scrollRegisterLegalLinksIntoView(page) {
 }
 
 async function clickAndCaptureDownload(page, pattern, expectedName) {
-  const locator = page.getByText(pattern).first();
-  await locator.waitFor({ state: "visible", timeout: 30_000 });
+  const box = await waitForTextBounds(page, pattern, 30_000);
   const [download] = await Promise.all([
     page.waitForEvent("download", { timeout: 30_000 }),
-    clickLocatorCenter(page, locator),
+    page.mouse.click(box.x + box.width / 2, box.y + box.height / 2),
   ]);
   const suggestedName = download.suggestedFilename();
   if (suggestedName !== expectedName) throw new Error(`register_legal_download_name_mismatch:${suggestedName}`);
@@ -610,10 +609,33 @@ async function clickAndCaptureDownload(page, pattern, expectedName) {
   };
 }
 
-async function clickLocatorCenter(page, locator) {
-  const box = await locator.boundingBox();
-  if (!box) throw new Error("register_legal_click_target_missing_bounding_box");
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+async function waitForTextBounds(page, pattern, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const box = await findVisibleTextBounds(page, pattern);
+    if (box) return box;
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`register_legal_text_target_missing:${pattern}`);
+}
+
+async function findVisibleTextBounds(page, pattern) {
+  return await page.evaluate(({ source, flags }) => {
+    const expression = new RegExp(source, flags);
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const candidates = [...scope.querySelectorAll("button, a, [role='button'], div, span")];
+    for (const element of candidates) {
+      const text = element.textContent || "";
+      if (!expression.test(text)) continue;
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      if (rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none") {
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+      }
+    }
+    return null;
+  }, { source: pattern.source, flags: pattern.flags });
 }
 
 async function assertAutomaticLoginReturn(page) {
