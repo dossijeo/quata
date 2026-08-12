@@ -15,8 +15,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun ProfileGalleryHeader(title: String, currentIndex: Int?, total: Int, emptyLabel: String?) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+fun ProfileGalleryHeader(
+    title: String,
+    currentIndex: Int?,
+    total: Int,
+    emptyLabel: String?,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
         if (currentIndex != null && total > 0) Text("$currentIndex / $total", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

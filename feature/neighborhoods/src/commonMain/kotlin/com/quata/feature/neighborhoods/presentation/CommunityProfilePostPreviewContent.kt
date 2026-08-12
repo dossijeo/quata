@@ -29,6 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,6 +40,14 @@ import com.quata.core.model.Post
 import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.text.withoutPostShortcodes
 import com.quata.core.ui.textCanvasBrush
+
+const val PublicProfilePostPreviewTestTagPrefix = "public-profile.post.preview."
+const val PublicProfilePostMediaTestTagPrefix = "public-profile.post.media."
+const val PublicProfilePostTextFallbackTestTagPrefix = "public-profile.post.text."
+const val PublicProfilePostLikeActionTestTagPrefix = "public-profile.post.action.like."
+const val PublicProfilePostCommentsActionTestTagPrefix = "public-profile.post.action.comments."
+const val PublicProfilePostShareActionTestTagPrefix = "public-profile.post.action.share."
+const val PublicProfilePostReportActionTestTagPrefix = "public-profile.post.action.report."
 
 /**
  * Shared profile-gallery post composition.
@@ -67,10 +77,15 @@ fun CommunityProfilePostPreviewContent(
 
     ProfilePostPreviewFrameContent(
         backgroundSeed = mediaSeed,
-        modifier = modifier,
+        modifier = modifier.semantics { testTag = PublicProfilePostPreviewTestTagPrefix + post.id },
         media = {
             if (post.imageUrl != null || post.videoUrl != null) {
-                Box(Modifier.fillMaxWidth().height(430.dp)) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(430.dp)
+                        .semantics { testTag = PublicProfilePostMediaTestTagPrefix + post.id },
+                ) {
                     media(isVideoLoaded) { isVideoLoaded = true }
                     if (shouldShowProfileVideoStart(post, isVideoLoaded)) {
                         Box(
@@ -108,6 +123,7 @@ fun CommunityProfilePostPreviewContent(
                         color = Color.White,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 24.sp,
+                        modifier = Modifier.semantics { testTag = PublicProfilePostTextFallbackTestTagPrefix + post.id },
                     )
                 }
             }
@@ -140,14 +156,26 @@ fun CommunityProfilePostPreviewContent(
                     onClick = {
                         if (canParticipate) onToggleLike() else onAuthRequired()
                     },
+                    modifier = Modifier.semantics { testTag = PublicProfilePostLikeActionTestTagPrefix + post.id },
                 )
-                ProfilePostActionContent(Icons.Filled.ChatBubble, commentsCount.toString(), onClick = onOpenComments)
-                ProfilePostActionContent(Icons.Filled.Share, null, onClick = onShare)
+                ProfilePostActionContent(
+                    Icons.Filled.ChatBubble,
+                    commentsCount.toString(),
+                    onClick = onOpenComments,
+                    modifier = Modifier.semantics { testTag = PublicProfilePostCommentsActionTestTagPrefix + post.id },
+                )
+                ProfilePostActionContent(
+                    Icons.Filled.Share,
+                    null,
+                    onClick = onShare,
+                    modifier = Modifier.semantics { testTag = PublicProfilePostShareActionTestTagPrefix + post.id },
+                )
                 ProfilePostActionContent(
                     icon = Icons.Filled.Flag,
                     count = null,
                     tint = if (post.isReportedByCurrentUser) QuataOrange else Color.White,
                     onClick = onReport,
+                    modifier = Modifier.semantics { testTag = PublicProfilePostReportActionTestTagPrefix + post.id },
                 )
             }
         },

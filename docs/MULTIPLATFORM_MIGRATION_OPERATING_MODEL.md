@@ -165,6 +165,11 @@ activa del turno: si la certificación remota no ha cambiado, la siguiente acci�
 local preparatorio, aislado y seguro, con evidencia propia y sin mezclarlo con el SHA congelado del
 candidato.
 
+Regla persistente: CI nunca debe mantener al orquestador en espera pasiva. Tras lanzar la
+certificacion remota, se consulta GitHub Actions por polling asincrono y se cambia a trabajo local
+independiente hasta que haya una transicion de estado que exija clasificar fallo, revalidar o
+promover el candidato.
+
 Todo defecto descubierto tras publicar se clasifica antes de corregirlo: **DEFECTO ESCAPADO DEL
 PREFLIGHT LOCAL** si era reproducible con comandos/artefactos locales disponibles; defecto de
 runner, caché, toolchain o servicio exclusivo remoto si no lo era. En el primer caso no basta con
@@ -226,6 +231,9 @@ conexión conceptual a `commonMain`, el backend real o la comparación visual 1:
 - Una reparación puede avanzar la rama de una PR solo mediante fast-forward verificado.
 - Los commits son pequeños y describen una unidad real de producto o validación.
 - Las PR permanecen draft hasta obtener GO independiente.
+- Durante la certificación CI de una PR publicada no se espera de forma ociosa: el candidato queda
+  congelado, GitHub Actions se revisa de manera asíncrona y las lanes locales libres avanzan trabajo
+  preparatorio aislado que no altere ese head ni cree una segunda candidata final.
 - Una PR superseded se cierra solo cuando su sucesora contiene su ancestry necesaria y ha obtenido
   evidencia suficiente; después se eliminan ambas ramas obsoletas.
 - Tras completar la migración y limpiar lo integrado, el objetivo de repositorio es conservar solo

@@ -16,7 +16,9 @@ const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS
 const profileOnly = process.argv.includes("--profile-only");
 const profileFollowOnly = process.argv.includes("--profile-follow-only");
 const profileListsOnly = process.argv.includes("--profile-lists-only");
+const profileContentOnly = process.argv.includes("--profile-content-only");
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
+const chatAttachmentsBucket = "chat-attachments";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/chat-actions-notifications-credentials.json";
 const deviceEvidencePath = "files/chat-actions-notifications-evidence";
@@ -36,6 +38,8 @@ const evidenceFiles = [
   "android-chat-forward-picker-selected.png",
   "android-chat-forward-submitted.png",
   "android-chat-profile-thread-initial.png",
+  "android-chat-profile-message-avatar-open-failed.png",
+  "android-chat-profile-open-failed.png",
   "android-chat-profile-open.png",
   "android-chat-profile-return.png",
   "android-chat-profile-follow-before.png",
@@ -46,10 +50,173 @@ const evidenceFiles = [
   "android-chat-profile-list-followers.png",
   "android-chat-profile-list-following.png",
   "android-chat-profile-lists-return.png",
+  "android-chat-profile-content.png",
   "android-chat-actions-notifications-evidence.json",
 ];
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
 let lastThreadSnapshot = null;
+
+async function prepareProfileContentFixture(fixture) {
+  if (!fixture?.marker?.startsWith("qadata-profile-content-")) throw new Error("profile_content_fixture_marker_invalid");
+  if (!fixture.config || !fixture.actorSession || !fixture.targetSession || !Number.isSafeInteger(Number(fixture.threadId))) {
+    throw new Error("profile_content_fixture_invalid_context");
+  }
+  if (fixture.prepared) return fixture;
+  const marker = fixture.marker;
+  const content = `profile content attachment ${marker}\n`;
+  fixture.storagePath = `${fixture.actorSession.profileId}/profile-content/${marker}.txt`;
+  await storageRequest(fixture.config, fixture.actorSession, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(fixture.storagePath)}`, {
+    method: "POST",
+    headers: { "content-type": "text/plain; charset=utf-8", "x-upsert": "false" },
+    body: content,
+  }, "profile_content_storage_upload_failed");
+  fixture.storageObjectCreated = true;
+  const publicUrl = `${fixture.config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(fixture.storagePath)}`;
+  fixture.attachmentId = attachmentId(await rpc(fixture.config, fixture.actorSession, "quata_chat_register_attachment", {
+    p_actor_profile_id: fixture.actorSession.profileId,
+    p_thread_id: fixture.threadId,
+    p_file_url: publicUrl,
+    p_storage_bucket: chatAttachmentsBucket,
+    p_storage_path: fixture.storagePath,
+    p_mime_type: "text/plain",
+    p_name: "qadata-profile-content.txt",
+    p_size_bytes: Buffer.byteLength(content),
+    p_ext: "txt",
+    p_thumb: null,
+  }));
+  fixture.attachmentMessageId = messageId(await rpc(fixture.config, fixture.actorSession, "quata_chat_send_message", {
+    p_actor_profile_id: fixture.actorSession.profileId,
+    p_thread_id: fixture.threadId,
+    p_message: "",
+    p_file_ids: [fixture.attachmentId],
+    p_reply_to_message_id: null,
+    p_client_message_id: `profile-content-attachment-${marker}`,
+  }));
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const post = await client.query(
+        `with selected_wall as (
+           select wall_id as id
+           from public.community_members
+           where profile_id = $1
+           order by created_at desc
+           limit 1
+         ), fallback_wall as (
+           select id
+           from public.community_walls_stats
+           where is_active = true
+           order by sort_order asc
+           limit 1
+         ), wall as (
+           select id from selected_wall
+           union all
+           select id from fallback_wall
+           limit 1
+         )
+         insert into public.community_posts(id, wall_id, profile_id, body)
+         select gen_random_uuid(), wall.id, $1, $2
+         from wall
+         returning id`,
+        [fixture.targetSession.profileId, `${marker} post body`],
+      );
+      fixture.postId = post.rows[0]?.id;
+      if (!uuid.test(fixture.postId ?? "")) throw new Error("profile_content_fixture_wall_unavailable");
+      const comment = await client.query(
+        `insert into public.community_comments(id, post_id, profile_id, body)
+         values (gen_random_uuid(), $1, $2, $3)
+         returning id`,
+        [fixture.postId, fixture.actorSession.profileId, `${marker} seed comment`],
+      );
+      fixture.seedCommentId = comment.rows[0]?.id;
+      await client.query(
+        `insert into public.community_post_likes(post_id, profile_id)
+         values ($1, $2)
+         on conflict do nothing`,
+        [fixture.postId, fixture.actorSession.profileId],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  fixture.prepared = true;
+  return fixture;
+}
+
+async function cleanupProfileContentFixture(fixture) {
+  if (!fixture) return null;
+  if (fixture.storageObjectCreated && fixture.config && fixture.actorSession && fixture.storagePath) {
+    await storageRequest(fixture.config, fixture.actorSession, `/storage/v1/object/${chatAttachmentsBucket}`, {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prefixes: [fixture.storagePath] }),
+    }, "profile_content_storage_delete_failed");
+    fixture.storageObjectCreated = false;
+  }
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      if (fixture.postId) {
+        await client.query(
+          `delete from public.community_post_likes
+           where post_id = $1 and profile_id in ($2, $3)`,
+          [fixture.postId, fixture.actorSession?.profileId ?? "00000000-0000-0000-0000-000000000000", fixture.targetSession?.profileId ?? "00000000-0000-0000-0000-000000000000"],
+        );
+        await client.query(
+          `delete from public.community_comments
+           where post_id = $1 and (body like $2 or id = $3)`,
+          [fixture.postId, `%${fixture.marker}%`, fixture.seedCommentId ?? "00000000-0000-0000-0000-000000000000"],
+        );
+        await client.query(
+          `delete from public.community_posts
+           where id = $1 and body like $2`,
+          [fixture.postId, `%${fixture.marker}%`],
+        );
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+    const residue = await client.query(
+      `select
+        (select count(*)::int from public.community_posts where id = $1 or body like $2) as community_posts,
+        (select count(*)::int from public.community_comments where post_id = $1 or body like $2) as community_comments,
+        (select count(*)::int from public.community_post_likes where post_id = $1) as community_post_likes,
+        (select count(*)::int from public.chat_attachments where id = $3 and storage_path = $4) as chat_attachments`,
+      [fixture.postId ?? "00000000-0000-0000-0000-000000000000", `%${fixture.marker}%`, fixture.attachmentId ?? -1, fixture.storagePath ?? ""],
+    );
+    const counts = residue.rows[0] ?? {};
+    if (Object.values(counts).some((count) => Number(count) !== 0)) throw new Error("cleanup_residue_detected:profile_content");
+    return {
+      postId: fixture.postId ?? null,
+      seedCommentId: fixture.seedCommentId ?? null,
+      attachmentId: fixture.attachmentId ?? null,
+      residueCounts: counts,
+      status: "cleanup_verified_profile_content_residue_absent",
+    };
+  });
+}
+
+async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => await client.query(
+      `select id
+         from public.community_comments
+        where post_id = $1 and profile_id = $2 and body = $3
+        order by created_at desc
+        limit 1`,
+      [fixture.postId, fixture.actorSession.profileId, marker],
+    ));
+    const id = result.rows[0]?.id;
+    if (uuid.test(id ?? "")) return id;
+    await delay(1_000);
+  }
+  throw new Error("profile_content_comment_not_persisted");
+}
 
 function env(name) {
   const value = process.env[name]?.trim();
@@ -169,6 +336,26 @@ async function rpc(config, session, name, body) {
   return payload;
 }
 
+async function storageRequest(config, session, path, options, prefix) {
+  let response;
+  try {
+    response = await fetch(`${config.baseUrl}${path}`, {
+      ...options,
+      headers: {
+        apikey: config.key,
+        ...(options.headers ?? {}),
+        ...(session?.accessToken ? { authorization: `Bearer ${session.accessToken}` } : {}),
+      },
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch {
+    throw new Error(`${prefix}:network`);
+  }
+  const text = await response.text();
+  if (!response.ok) throw new Error(`${prefix}:http_${response.status}`);
+  return text;
+}
+
 function rows(payload, key) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.[key])) return payload[key];
@@ -192,6 +379,21 @@ function messageId(payload) {
   const value = Number(raw);
   if (!Number.isInteger(value) || value <= 0) throw new Error("chat_contract_invalid:message_id");
   return value;
+}
+
+function attachmentId(payload) {
+  const raw = payload?.id ?? payload?.file?.id;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0) throw new Error("chat_contract_invalid:attachment_id");
+  return value;
+}
+
+function pathSegment(path) {
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
+function adbShellQuote(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
 }
 
 function messageText(row) {
@@ -361,7 +563,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("favorite_removed");
   }
-  const messageIds = [state.message, state.peerMessage, state.editedMessage, ...state.uiMessages]
+  const messageIds = [state.message, state.peerMessage, state.editedMessage, state.profileContent?.attachmentMessageId, ...state.uiMessages]
     .filter((id, index, all) => Number.isInteger(Number(id)) && all.indexOf(id) === index);
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
@@ -778,7 +980,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
@@ -805,7 +1007,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -872,19 +1074,26 @@ try {
   await run("adb", ["shell", "rm", "-f", deviceTempCredentialsPath]);
   await run("adb", ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
   const runInstrumentationStage = async (stage) => await runCapture("adb", [
-    "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", "com.quata.feature.chat.presentation.chat.ChatActionsNotificationsInstrumentedTest",
-    "-e", "quataChatActionsStage", stage,
-    "-e", "quataChatActionsCredentialsFile", deviceCredentialsPath,
-    "-e", "quataChatActionsUrl", chatUrl(`sb:${state.thread}`),
-    "-e", "quataChatActionsOwnProbe", markerProbe,
-    "-e", "quataChatActionsPeerProbe", peerProbe,
-    "-e", "quataChatActionsProfileId", state.b.profileId,
-    "-e", "quataChatActionsComposerMarker", composerMarker,
-    "-e", "quataChatActionsReplyMarker", replyMarker,
-    "-e", "quataChatActionsEditMarker", editMarker,
-    "-e", "quataChatActionsForwardQuery", state.forwardProfile?.phoneLocal ?? "translation-only",
-    "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
+    "shell",
+    [
+      "am", "instrument", "-w", "-r",
+      "-e", "class", "com.quata.feature.chat.presentation.chat.ChatActionsNotificationsInstrumentedTest",
+      "-e", "quataChatActionsStage", stage,
+      "-e", "quataChatActionsCredentialsFile", deviceCredentialsPath,
+      "-e", "quataChatActionsUrl", chatUrl(`sb:${state.thread}`),
+      "-e", "quataChatActionsOwnProbe", markerProbe,
+      "-e", "quataChatActionsPeerProbe", peerProbe,
+      "-e", "quataChatActionsProfileId", state.b.profileId,
+      "-e", "quataChatActionsComposerMarker", composerMarker,
+      "-e", "quataChatActionsReplyMarker", replyMarker,
+      "-e", "quataChatActionsEditMarker", editMarker,
+      "-e", "quataChatActionsForwardQuery", state.forwardProfile?.phoneLocal ?? "translation-only",
+      "-e", "quataChatActionsPostId", state.profileContent?.postId ?? "",
+      "-e", "quataChatActionsCommentId", state.profileContent?.seedCommentId ?? "",
+      "-e", "quataChatActionsAttachmentId", String(state.profileContent?.attachmentId ?? ""),
+      "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
+      "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
+    ].map(adbShellQuote).join(" "),
   ]);
   const assertInstrumentationPassed = (stage, instrumentationOutput) => {
     if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) throw new Error(`android_instrumentation_not_ok:${stage}`);
@@ -921,16 +1130,36 @@ try {
       state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_list_edges_prepared_reversibly");
     }
-    const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : "profile";
+    if (profileContentOnly) {
+      state.profileContent = {
+        marker: `qadata-profile-content-${runId}`,
+        config,
+        actorSession: state.a,
+        targetSession: state.b,
+        threadId: state.thread,
+      };
+      state.profileContent.uiCommentMarker = `${state.profileContent.marker} android ui comment`;
+      await prepareProfileContentFixture(state.profileContent);
+      report.steps.push("profile_content_fixture_prepared");
+    }
+    const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
       report.steps.push("profile_follow_toggled_and_verified_by_db");
     }
-    report.steps.push(profileListsOnly ? "peer_public_profile_followers_and_following_lists_opened_and_returned" : "peer_avatar_opened_public_profile_and_returned_to_chat");
+    report.steps.push(profileListsOnly
+      ? "peer_public_profile_followers_and_following_lists_opened_and_returned"
+      : profileContentOnly
+        ? "profile_content_gallery_comments_and_attachments_verified"
+        : "peer_avatar_opened_public_profile_and_returned_to_chat");
+    if (profileContentOnly) {
+      state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
+      report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
+    }
   }
 
-  if (profileOnly || profileFollowOnly || profileListsOnly) {
+  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly) {
     await rm(evidenceDir, { recursive: true, force: true });
     await mkdir(evidenceDir, { recursive: true });
     for (const file of evidenceFiles.filter((name) => name.includes("profile") || name.endsWith("evidence.json"))) {
@@ -948,8 +1177,16 @@ try {
       peerMarkerSha256: sha256(peerMarker),
       profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
       profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
+      profileContent: state.profileContent ? {
+        markerSha256: sha256(state.profileContent.marker),
+        postId: state.profileContent.postId,
+        seedCommentId: state.profileContent.seedCommentId,
+        uiCommentId: state.profileContent.uiCommentId,
+        attachmentId: state.profileContent.attachmentId,
+        attachmentMessageId: state.profileContent.attachmentMessageId,
+      } : null,
     };
-    throw new Error(profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
+    throw new Error(profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));
@@ -1012,7 +1249,13 @@ try {
     editMarkerSha256: sha256(editMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted || error?.message === "profile_only_completed" || error?.message === "profile_lists_only_completed") {
+  if (
+    error instanceof EvidenceCompleted ||
+    error?.message === "profile_only_completed" ||
+    error?.message === "profile_follow_only_completed" ||
+    error?.message === "profile_lists_only_completed" ||
+    error?.message === "profile_content_only_completed"
+  ) {
     // Focal modes finished successfully; cleanup and report writing still happen in finally.
   } else {
     report.error = safeFailure(error);
@@ -1074,6 +1317,16 @@ try {
         cleanup.error = safeFailure(error);
       }
     }
+    if (config && state.profileContent) {
+      try {
+        cleanup.profileContent = await cleanupProfileContentFixture(state.profileContent);
+        cleanup.actions.push("profile_content_fixture_deleted");
+        cleanup.actions.push("cleanup_verified_profile_content_residue_absent");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
   }
   if (state.forwardProfile) {
     try {
@@ -1093,6 +1346,7 @@ try {
     }
   }
   report.cleanup = cleanup;
+  if (report.status === "passed") delete report.error;
   report.finishedAt = new Date().toISOString();
   const output = join("build-reports", "android", "chat-actions-notifications-evidence.json");
   await mkdir(dirname(output), { recursive: true });

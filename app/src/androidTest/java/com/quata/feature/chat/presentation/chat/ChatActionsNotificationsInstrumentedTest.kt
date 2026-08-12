@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -65,10 +66,16 @@ class ChatActionsNotificationsInstrumentedTest {
         val replyMarker = optionalArgument("quataChatActionsReplyMarker")
         val editMarker = optionalArgument("quataChatActionsEditMarker")
         val forwardQuery = optionalArgument("quataChatActionsForwardQuery")
+        val postId = optionalArgument("quataChatActionsPostId")
+        val commentId = optionalArgument("quataChatActionsCommentId")
+        val attachmentId = optionalArgument("quataChatActionsAttachmentId")
+        val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
-    val hasRequiredStageArguments = when (stage) {
-        "profile", "profile-follow", "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+        val hasRequiredStageArguments = when (stage) {
+            "profile", "profile-follow" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+            "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+            "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment).all { !it.isNullOrBlank() }
             else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
         }
         assumeTrue(
@@ -93,7 +100,13 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
             "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
             "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
-                "full" -> {
+            "profile-content" -> {
+                openPeerProfile(peerProbe.orEmpty(), profileId.orEmpty())
+                assertProfileContentStage(profileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty())
+                closePublicProfile(peerProbe.orEmpty())
+                saveScreenshot("android-chat-profile-return")
+            }
+            "full" -> {
                     runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                     runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
                     runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
@@ -294,8 +307,42 @@ class ChatActionsNotificationsInstrumentedTest {
         saveScreenshot("android-chat-profile-follow-return")
     }
 
+    private fun assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String) {
+        compose.onNodeWithTag("public-profile.kpi.posts.$profileId", useUnmergedTree = true)
+            .performClick()
+        saveScreenshot("android-chat-profile-content")
+        listOf(
+            "public-profile.gallery.header.$profileId",
+            "public-profile.gallery.$profileId",
+            "public-profile.gallery.post.$postId",
+            "public-profile.post.preview.$postId",
+            "public-profile.post.action.comments.$postId",
+            "public-profile.attachments",
+            "public-profile.attachments.item.sb:$attachmentId",
+        ).forEach { tag ->
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }
+        compose.onNodeWithTag("public-profile.post.action.comments.$postId", useUnmergedTree = true)
+            .performClick()
+        listOf(
+            "public-profile.comments.panel",
+            "public-profile.comments.list",
+            "public-profile.comments.row.$commentId",
+            "public-profile.comments.input",
+            "public-profile.comments.send",
+        ).forEach { tag ->
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }
+        compose.onNodeWithTag("public-profile.comments.input", useUnmergedTree = true)
+            .performTextReplacement(uiComment)
+        compose.onNodeWithTag("public-profile.comments.send", useUnmergedTree = true)
+            .performClick()
+    }
+
     private fun openPeerProfile(peerProbe: String, profileId: String) {
-        waitForMarker(peerProbe, "peer message for profile entry")
+        waitForMarkerOrProfileAvatar(peerProbe, profileId, "peer message for profile entry")
         dismissTranslatorOverlayIfActive()
         saveScreenshot("android-chat-profile-thread-initial")
         val avatarTag = "chat.profile.message.$profileId"
@@ -311,6 +358,7 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.waitUntil(12_000) { publicProfileVisible(profileId) }
             true
         }.getOrDefault(false)
+        if (!openedFromMessage) saveScreenshot("android-chat-profile-message-avatar-open-failed")
         if (!openedFromMessage) {
             val memberTag = "chat.profile.member.$profileId"
             val clickedMemberAvatar = runCatching {
@@ -318,8 +366,13 @@ class ChatActionsNotificationsInstrumentedTest {
                     .performTouchInput { click(center) }
                 true
             }.getOrDefault(false)
-            if (!clickedMemberAvatar) clickVisibleMessageAvatarWithUiAutomator(peerProbe)
-            compose.waitUntil(30_000) { publicProfileVisible(profileId) }
+            if (!clickedMemberAvatar) clickVisibleMessageAvatarWithUiAutomator(peerProbe, profileId)
+            runCatching {
+                compose.waitUntil(30_000) { publicProfileVisible(profileId) }
+            }.onFailure {
+                saveScreenshot("android-chat-profile-open-failed")
+                throw AssertionError("public_profile_not_visible_after_avatar_click:$profileId", it)
+            }.getOrThrow()
         }
         listOf(
             "public-profile.avatar.$profileId",
@@ -384,7 +437,7 @@ class ChatActionsNotificationsInstrumentedTest {
                     .performTouchInput { click(center) }
                 true
             }.getOrDefault(false)
-            if (!clickedMemberAvatar) clickVisibleMessageAvatarWithUiAutomator(peerProbe)
+            if (!clickedMemberAvatar) clickVisibleMessageAvatarWithUiAutomator(peerProbe, profileId)
             compose.waitUntil(30_000) { publicProfileVisible(profileId) }
         }
         saveScreenshot("android-chat-profile-lists-open")
@@ -405,10 +458,17 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun publicProfileVisible(profileId: String): Boolean =
-        runCatching {
-            compose.onNodeWithTag("public-profile.user.$profileId", useUnmergedTree = true)
-                .fetchSemanticsNode()
-        }.isSuccess
+        listOf(
+            "public-profile.user.$profileId",
+            "public-profile.avatar.$profileId",
+            "public-profile.name.$profileId",
+            "public-profile.kpi.posts.$profileId",
+        ).any { tag ->
+            runCatching {
+                compose.onNodeWithTag(tag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
 
     private fun profileListVisible(listKind: String): Boolean =
         runCatching {
@@ -416,7 +476,8 @@ class ChatActionsNotificationsInstrumentedTest {
                 .fetchSemanticsNode()
         }.isSuccess
 
-    private fun clickVisibleMessageAvatarWithUiAutomator(peerProbe: String) {
+    private fun clickVisibleMessageAvatarWithUiAutomator(peerProbe: String, profileId: String) {
+        clickMessageAvatarBySemanticsBounds(profileId).takeIf { it }?.let { return }
         val probe = peerProbe.take(28)
         dismissSystemAnrDialogIfVisible()
         val message = device.wait(Until.findObject(By.textContains(probe)), 10_000)
@@ -426,6 +487,22 @@ class ChatActionsNotificationsInstrumentedTest {
         val y = (bounds.top + 34).coerceAtLeast(20)
         assertTrue("UIAutomator must dispatch a real tap on the visible message avatar.", device.click(x, y))
         SystemClock.sleep(1_000)
+    }
+
+    private fun clickMessageAvatarBySemanticsBounds(profileId: String): Boolean {
+        val avatarTag = ChatProfileMessageAvatarTestTagPrefix + profileId
+        return runCatching {
+            val bounds = compose.onNodeWithTag(avatarTag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
+            val center: Offset = bounds.center
+            assertTrue(
+                "UIAutomator must dispatch a real tap on the semantic message avatar.",
+                device.click(center.x.toInt(), center.y.toInt()),
+            )
+            SystemClock.sleep(1_000)
+            true
+        }.getOrDefault(false)
     }
 
     private fun dismissTranslatorOverlayIfActive() {
@@ -555,6 +632,32 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         assertTrue("The marker must be visible in $context.", scrolled)
+    }
+
+    private fun waitForMarkerOrProfileAvatar(markerProbe: String, profileId: String, context: String, timeoutMillis: Long = 45_000) {
+        val avatarTag = ChatProfileMessageAvatarTestTagPrefix + profileId
+        val visible = runCatching {
+            compose.waitUntil(timeoutMillis) {
+                messageNodeVisible(markerProbe) ||
+                    runCatching {
+                        compose.onNodeWithTag(avatarTag, useUnmergedTree = true).fetchSemanticsNode()
+                    }.isSuccess
+            }
+            true
+        }.getOrDefault(false)
+        if (visible) return
+        val scrolled = runCatching {
+            compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                .performScrollToNode(messageNodeMatcher(markerProbe))
+            compose.waitUntil(10_000) {
+                messageNodeVisible(markerProbe) ||
+                    runCatching {
+                        compose.onNodeWithTag(avatarTag, useUnmergedTree = true).fetchSemanticsNode()
+                    }.isSuccess
+            }
+            true
+        }.getOrDefault(false)
+        assertTrue("The marker or avatar must be visible in $context.", scrolled)
     }
 
     private fun waitForAnyMarker(markerProbes: List<String>, context: String, timeoutMillis: Long = 45_000) {

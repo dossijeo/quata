@@ -247,6 +247,95 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-lists-return")
     }
 
+    func testProfileContentFromChatUsesSharedPublicProfileSurface() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat profile content UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
+              let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]),
+              let postId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID"]),
+              let commentId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID"]),
+              let attachmentId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID"]),
+              let uiComment = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT"]) else {
+            throw XCTSkip("Disposable Chat profile content fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "profile content conversation")
+        assertChatRoute(conversationId, in: app, context: "profile content conversation")
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-profile-content-thread-initial")
+
+        let profile = openPeerPublicProfile(peerProfileId: peerProfileId, in: app)
+        assertProfileContentStage(profileId: peerProfileId, postId: postId, commentId: commentId, attachmentId: attachmentId, uiComment: uiComment, in: app)
+
+        closePublicProfile(in: app)
+        XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after checking content.")
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 20), "Closing the profile content view must return to the same Chat conversation.")
+        attachScreenshot(app, name: "ios-chat-profile-content-return")
+    }
+
+    private func assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, in app: XCUIApplication) {
+        let posts = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.kpi.posts.\(profileId)")
+            .firstMatch
+        XCTAssertTrue(posts.waitForExistence(timeout: 10), "The shared profile posts KPI must be visible.")
+        posts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        for identifier in [
+            "public-profile.gallery.header.\(profileId)",
+            "public-profile.gallery.\(profileId)",
+            "public-profile.gallery.post.\(postId)",
+            "public-profile.post.preview.\(postId)",
+            "public-profile.post.action.comments.\(postId)",
+            "public-profile.attachments",
+            "public-profile.attachments.item.\(attachmentId)",
+        ] {
+            let element = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            XCTAssertTrue(element.waitForExistence(timeout: 10), "The shared public-profile content element \(identifier) must be visible.")
+        }
+        let commentsAction = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.post.action.comments.\(postId)")
+            .firstMatch
+        commentsAction.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        for identifier in [
+            "public-profile.comments.panel",
+            "public-profile.comments.list",
+            "public-profile.comments.row.\(commentId)",
+            "public-profile.comments.input",
+            "public-profile.comments.send",
+        ] {
+            let element = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            XCTAssertTrue(element.waitForExistence(timeout: 10), "The shared public-profile comments element \(identifier) must be visible.")
+        }
+        let input = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.comments.input")
+            .firstMatch
+        input.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        input.typeText(uiComment)
+        app.descendants(matching: .any)
+            .matching(identifier: "public-profile.comments.send")
+            .firstMatch
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        attachScreenshot(app, name: "ios-chat-profile-content")
+    }
+
     private func chatHost(in app: XCUIApplication, context: String) -> XCUIElement {
         let chat = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-chat-host")

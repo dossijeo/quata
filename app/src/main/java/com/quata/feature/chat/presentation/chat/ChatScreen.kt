@@ -1246,7 +1246,7 @@ private fun ChatHeader(
     val isModerator = currentUser?.id != null && currentUser.id in conversation?.moderatorIds.orEmpty()
     val canInvite = isModerator || conversation?.canMembersInvite == true
     val template = quataTheme()
-    Surface(color = template.colors.surface.copy(alpha = 0.92f), modifier = Modifier.fillMaxWidth()) {
+    Surface(color = template.colors.surface, modifier = Modifier.fillMaxWidth()) {
         Column {
             if (selectedMessage != null) {
                 ChatSelectedMessageActionBarContent(

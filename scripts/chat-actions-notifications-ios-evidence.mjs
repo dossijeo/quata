@@ -17,13 +17,15 @@ const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const chatAttachmentsBucket = "chat-attachments";
 
 const options = parseArgs(process.argv.slice(2));
 const translationOnly = options.translationOnly;
 const profileOnly = options.profileOnly;
 const profileFollowOnly = options.profileFollowOnly;
 const profileListsOnly = options.profileListsOnly;
-const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly;
+const profileContentOnly = options.profileContentOnly;
+const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly;
 const report = {
   check,
   status: "failed",
@@ -59,6 +61,7 @@ const state = {
   forwardedMessage: null,
   profileFollow: null,
   profileListEdges: null,
+  profileContent: null,
 };
 
 try {
@@ -208,6 +211,18 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_list_edges_prepared_reversibly");
     }
+    if (profileContentOnly) {
+      state.profileContent = {
+        marker: `qadata-profile-content-${runId}`,
+        config,
+        actorSession: state.a,
+        targetSession: state.b,
+        threadId: state.thread,
+      };
+      state.profileContent.uiCommentMarker = `${state.profileContent.marker} ios ui comment`;
+      await prepareProfileContentFixture(state.profileContent);
+      report.steps.push("profile_content_fixture_prepared");
+    }
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
@@ -222,6 +237,11 @@ export QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID=${shellQuote(state.b.profileId)}
 export QUATA_IOS_CHAT_PROFILE_ONLY=${profileEvidenceOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E=${profileListsOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E=${profileContentOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID=${shellQuote(state.profileContent?.postId ?? "profile-only")}
+export QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID=${shellQuote(state.profileContent?.seedCommentId ?? "profile-only")}
+export QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID=${shellQuote(state.profileContent?.attachmentId ?? "profile-only")}
+export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT=${shellQuote(state.profileContent?.uiCommentMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_COMPOSER_MARKER=${shellQuote(state.composerMarker ?? "profile-only")}
@@ -234,11 +254,17 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 `, 30 * 60 * 1000);
     report.steps.push(profileListsOnly
       ? "ios_xctest_profile_followers_and_following_lists_verified"
-      : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
+      : profileContentOnly
+        ? "ios_xctest_profile_content_gallery_comments_and_attachments_verified"
+        : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
 
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
       report.steps.push("profile_follow_toggled_and_verified_by_db");
+    }
+    if (profileContentOnly) {
+      state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
+      report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
     }
 
     if (!profileEvidenceOnly) {
@@ -270,6 +296,14 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         peerMarkerSha256: sha256(state.peerMarker),
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
         profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
+        profileContent: state.profileContent ? {
+          markerSha256: sha256(state.profileContent.marker),
+          postId: state.profileContent.postId,
+          seedCommentId: state.profileContent.seedCommentId,
+          uiCommentId: state.profileContent.uiCommentId,
+          attachmentId: state.profileContent.attachmentId,
+          attachmentMessageId: state.profileContent.attachmentMessageId,
+        } : null,
       }
       : {
         threadId: state.thread,
@@ -335,6 +369,16 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         cleanup.error = safeFailure(error);
       }
     }
+    if (state.profileContent) {
+      try {
+        cleanup.profileContent = await cleanupProfileContentFixture(state.profileContent);
+        cleanup.actions.push("profile_content_fixture_deleted");
+        cleanup.actions.push("cleanup_verified_profile_content_residue_absent");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
     if (state.forwardProfile) {
       try {
         cleanup.forwardDestination = await hardDeleteTemporaryForwardDestination(state.forwardProfile, state.forwardThread);
@@ -388,6 +432,7 @@ function parseArgs(argv) {
     profileOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ONLY === "1",
     profileFollowOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_FOLLOW_ONLY === "1",
     profileListsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_LISTS_ONLY === "1",
+    profileContentOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -414,6 +459,10 @@ function parseArgs(argv) {
     }
     if (key === "--profile-lists-only") {
       result.profileListsOnly = true;
+      continue;
+    }
+    if (key === "--profile-content-only") {
+      result.profileContentOnly = true;
       continue;
     }
     if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
@@ -576,6 +625,26 @@ function rpc(config, session, name, body) {
   }, `chat_rpc_failed:${name}`);
 }
 
+async function storageRequest(config, session, path, options, prefix) {
+  let response;
+  try {
+    response = await fetch(`${config.baseUrl}${path}`, {
+      ...options,
+      headers: {
+        apikey: config.key,
+        ...(options.headers ?? {}),
+        ...(session?.accessToken ? { authorization: `Bearer ${session.accessToken}` } : {}),
+      },
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch {
+    throw new Error(`${prefix}:network`);
+  }
+  const text = await response.text();
+  if (!response.ok) throw new Error(`${prefix}:http_${response.status}`);
+  return text;
+}
+
 function rows(payload, key) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.[key])) return payload[key];
@@ -599,6 +668,17 @@ function messageId(payload) {
   const value = Number(raw);
   if (!Number.isSafeInteger(value) || value <= 0) throw new Error("chat_contract_invalid:message_id");
   return value;
+}
+
+function attachmentId(payload) {
+  const raw = payload?.id ?? payload?.file?.id;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value <= 0) throw new Error("chat_contract_invalid:attachment_id");
+  return value;
+}
+
+function pathSegment(path) {
+  return path.split("/").map(encodeURIComponent).join("/");
 }
 
 function messageText(row) {
@@ -750,7 +830,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("seed_favorite_removed");
   }
-  const messageIds = [state.seedMessage, state.peerMessage, state.editableMessage, state.composerMessage, state.replyMessage].filter((value) => Number.isSafeInteger(value));
+  const messageIds = [state.seedMessage, state.peerMessage, state.editableMessage, state.composerMessage, state.replyMessage, state.profileContent?.attachmentMessageId].filter((value) => Number.isSafeInteger(value));
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
       p_actor_profile_id: state.a.profileId,
@@ -949,6 +1029,168 @@ async function pollProfileFollowEdge(actorProfileId, targetProfileId, expected, 
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 750));
   }
   throw new Error(`profile_follow_backend_poll_timeout:${expected ? "created" : "removed"}`);
+}
+
+async function prepareProfileContentFixture(fixture) {
+  if (!fixture?.marker?.startsWith("qadata-profile-content-")) throw new Error("profile_content_fixture_marker_invalid");
+  if (!fixture.config || !fixture.actorSession || !fixture.targetSession || !Number.isSafeInteger(Number(fixture.threadId))) {
+    throw new Error("profile_content_fixture_invalid_context");
+  }
+  if (fixture.prepared) return fixture;
+  const marker = fixture.marker;
+  const content = `profile content attachment ${marker}\n`;
+  fixture.storagePath = `${fixture.actorSession.profileId}/profile-content/${marker}.txt`;
+  await storageRequest(fixture.config, fixture.actorSession, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(fixture.storagePath)}`, {
+    method: "POST",
+    headers: { "content-type": "text/plain; charset=utf-8", "x-upsert": "false" },
+    body: content,
+  }, "profile_content_storage_upload_failed");
+  fixture.storageObjectCreated = true;
+  const publicUrl = `${fixture.config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(fixture.storagePath)}`;
+  fixture.attachmentId = attachmentId(await rpc(fixture.config, fixture.actorSession, "quata_chat_register_attachment", {
+    p_actor_profile_id: fixture.actorSession.profileId,
+    p_thread_id: fixture.threadId,
+    p_file_url: publicUrl,
+    p_storage_bucket: chatAttachmentsBucket,
+    p_storage_path: fixture.storagePath,
+    p_mime_type: "text/plain",
+    p_name: "qadata-profile-content.txt",
+    p_size_bytes: Buffer.byteLength(content),
+    p_ext: "txt",
+    p_thumb: null,
+  }));
+  fixture.attachmentMessageId = messageId(await rpc(fixture.config, fixture.actorSession, "quata_chat_send_message", {
+    p_actor_profile_id: fixture.actorSession.profileId,
+    p_thread_id: fixture.threadId,
+    p_message: "",
+    p_file_ids: [fixture.attachmentId],
+    p_reply_to_message_id: null,
+    p_client_message_id: `profile-content-attachment-${marker}`,
+  }));
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const post = await client.query(
+        `with selected_wall as (
+           select wall_id as id
+           from public.community_members
+           where profile_id = $1
+           order by created_at desc
+           limit 1
+         ), fallback_wall as (
+           select id
+           from public.community_walls_stats
+           where is_active = true
+           order by sort_order asc
+           limit 1
+         ), wall as (
+           select id from selected_wall
+           union all
+           select id from fallback_wall
+           limit 1
+         )
+         insert into public.community_posts(id, wall_id, profile_id, body)
+         select gen_random_uuid(), wall.id, $1, $2
+         from wall
+         returning id`,
+        [fixture.targetSession.profileId, `${marker} post body`],
+      );
+      fixture.postId = post.rows[0]?.id;
+      if (!uuid.test(fixture.postId ?? "")) throw new Error("profile_content_fixture_wall_unavailable");
+      const comment = await client.query(
+        `insert into public.community_comments(id, post_id, profile_id, body)
+         values (gen_random_uuid(), $1, $2, $3)
+         returning id`,
+        [fixture.postId, fixture.actorSession.profileId, `${marker} seed comment`],
+      );
+      fixture.seedCommentId = comment.rows[0]?.id;
+      await client.query(
+        `insert into public.community_post_likes(post_id, profile_id)
+         values ($1, $2)
+         on conflict do nothing`,
+        [fixture.postId, fixture.actorSession.profileId],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  fixture.prepared = true;
+  return fixture;
+}
+
+async function cleanupProfileContentFixture(fixture) {
+  if (!fixture) return null;
+  if (fixture.storageObjectCreated && fixture.config && fixture.actorSession && fixture.storagePath) {
+    await storageRequest(fixture.config, fixture.actorSession, `/storage/v1/object/${chatAttachmentsBucket}`, {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prefixes: [fixture.storagePath] }),
+    }, "profile_content_storage_delete_failed");
+    fixture.storageObjectCreated = false;
+  }
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      if (fixture.postId) {
+        await client.query(
+          `delete from public.community_post_likes
+           where post_id = $1 and profile_id in ($2, $3)`,
+          [fixture.postId, fixture.actorSession?.profileId ?? "00000000-0000-0000-0000-000000000000", fixture.targetSession?.profileId ?? "00000000-0000-0000-0000-000000000000"],
+        );
+        await client.query(
+          `delete from public.community_comments
+           where post_id = $1 and (body like $2 or id = $3)`,
+          [fixture.postId, `%${fixture.marker}%`, fixture.seedCommentId ?? "00000000-0000-0000-0000-000000000000"],
+        );
+        await client.query(
+          `delete from public.community_posts
+           where id = $1 and body like $2`,
+          [fixture.postId, `%${fixture.marker}%`],
+        );
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+    const residue = await client.query(
+      `select
+        (select count(*)::int from public.community_posts where id = $1 or body like $2) as community_posts,
+        (select count(*)::int from public.community_comments where post_id = $1 or body like $2) as community_comments,
+        (select count(*)::int from public.community_post_likes where post_id = $1) as community_post_likes,
+        (select count(*)::int from public.chat_attachments where id = $3 and storage_path = $4) as chat_attachments`,
+      [fixture.postId ?? "00000000-0000-0000-0000-000000000000", `%${fixture.marker}%`, fixture.attachmentId ?? -1, fixture.storagePath ?? ""],
+    );
+    const counts = residue.rows[0] ?? {};
+    if (Object.values(counts).some((count) => Number(count) !== 0)) throw new Error("cleanup_residue_detected:profile_content");
+    return {
+      postId: fixture.postId ?? null,
+      seedCommentId: fixture.seedCommentId ?? null,
+      attachmentId: fixture.attachmentId ?? null,
+      residueCounts: counts,
+      status: "cleanup_verified_profile_content_residue_absent",
+    };
+  });
+}
+
+async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => await client.query(
+      `select id
+         from public.community_comments
+        where post_id = $1 and profile_id = $2 and body = $3
+        order by created_at desc
+        limit 1`,
+      [fixture.postId, fixture.actorSession.profileId, marker],
+    ));
+    const id = result.rows[0]?.id;
+    if (uuid.test(id ?? "")) return id;
+    await delay(1_000);
+  }
+  throw new Error("profile_content_comment_not_persisted");
 }
 
 async function hardDeleteTemporaryForwardDestination(profile, threadId) {

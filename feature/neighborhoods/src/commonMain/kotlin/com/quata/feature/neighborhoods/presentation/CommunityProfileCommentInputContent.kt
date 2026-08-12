@@ -12,8 +12,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
+
+const val PublicProfileCommentsInputTestTag = "public-profile.comments.input"
+const val PublicProfileCommentsSendTestTag = "public-profile.comments.send"
 
 /** Shared comment composer row; hosts retain authorization and comment persistence in onSend. */
 @Composable
@@ -35,11 +40,13 @@ fun CommunityProfileCommentInputContent(
             modifier = Modifier
                 .weight(1f)
                 .heightIn(min = 58.dp)
+                .semantics { testTag = PublicProfileCommentsInputTestTag }
         )
         Spacer(Modifier.width(8.dp))
         Button(
             enabled = value.isNotBlank(),
             onClick = onSend,
+            modifier = Modifier.semantics { testTag = PublicProfileCommentsSendTestTag },
             colors = ButtonDefaults.buttonColors(
                 containerColor = template.colors.accent,
                 contentColor = template.colors.accentContent

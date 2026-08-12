@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonArray
@@ -257,7 +258,7 @@ class NeighborhoodRepositoryImpl(
             return flowOf(runCatching { mockCommunityUserProfile(userId) })
         }
         val currentUserId = sessionManager.currentSession()?.userId
-        return profileRemote.observeProfile(userId)
+        val liveProfile = profileRemote.observeProfile(userId)
             .flatMapLatest { profile ->
                 if (profile == null) {
                     flowOf<Result<CommunityUserProfile>>(Result.failure(IllegalStateException("Usuario no encontrado")))
@@ -328,9 +329,12 @@ class NeighborhoodRepositoryImpl(
                         }
                 }
             }
-            .catch { error ->
-                emit(Result.failure<CommunityUserProfile>(error).mapFailureToUserFacing(appContext, R.string.error_load_profile))
-            }
+        return flow {
+            emit(getUserProfile(userId))
+            liveProfile.collect { emit(it) }
+        }.catch { error ->
+            emit(Result.failure<CommunityUserProfile>(error).mapFailureToUserFacing(appContext, R.string.error_load_profile))
+        }
     }
 
     override suspend fun getUserProfile(userId: String): Result<CommunityUserProfile> = runCatching {
