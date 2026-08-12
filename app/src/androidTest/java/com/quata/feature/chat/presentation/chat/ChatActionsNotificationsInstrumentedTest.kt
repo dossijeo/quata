@@ -361,9 +361,11 @@ class ChatActionsNotificationsInstrumentedTest {
     private fun openProfileFromPeerMessage(peerProbe: String, profileId: String) {
         waitForMarker(peerProbe, "peer message for profile entry")
         dismissTranslatorOverlayIfActive()
+        dismissSystemAnrDialogIfVisible()
         saveScreenshot("android-chat-profile-lists-thread-initial")
         val avatarTag = "chat.profile.message.$profileId"
         compose.waitUntil(20_000) {
+            dismissSystemAnrDialogIfVisible()
             runCatching {
                 compose.onNodeWithTag(avatarTag, useUnmergedTree = true)
                     .fetchSemanticsNode()
@@ -416,6 +418,7 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun clickVisibleMessageAvatarWithUiAutomator(peerProbe: String) {
         val probe = peerProbe.take(28)
+        dismissSystemAnrDialogIfVisible()
         val message = device.wait(Until.findObject(By.textContains(probe)), 10_000)
             ?: error("profile_message_probe_not_visible:$probe")
         val bounds = message.visibleBounds
@@ -438,6 +441,16 @@ class ChatActionsNotificationsInstrumentedTest {
                         .fetchSemanticsNode()
                 }.isFailure
             }
+        }
+    }
+
+    private fun dismissSystemAnrDialogIfVisible() {
+        val waitButton = device.findObject(By.text("Wait"))
+            ?: device.findObject(By.text("Esperar"))
+        if (waitButton != null) {
+            waitButton.click()
+            device.waitForIdle()
+            SystemClock.sleep(1_000)
         }
     }
 
