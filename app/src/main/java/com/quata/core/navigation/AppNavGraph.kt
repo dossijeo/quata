@@ -67,7 +67,6 @@ import com.quata.core.ui.components.QuataAccountLifecycleConfirmationDialogConte
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -133,6 +132,7 @@ import com.quata.core.network.ForegroundConnectivityReconciler
 import com.quata.core.presence.LocalUserPresence
 import com.quata.core.platform.PermissionStatus
 import com.quata.core.platform.PlatformPermission
+import com.quata.core.platform.PlatformResult
 import com.quata.core.session.AuthState
 import com.quata.core.text.SosShortcodeKind
 import com.quata.core.text.buildSosShortcode
@@ -1121,6 +1121,7 @@ fun AppNavGraph(
 
         if (isAboutDialogOpen) {
             AboutQuataDialog(
+                container = container,
                 onDismiss = { isAboutDialogOpen = false },
                 onOpenReleaseHistory = {
                     isAboutDialogOpen = false
@@ -1172,6 +1173,7 @@ fun AppNavGraph(
 
         if (currentUserId != null && ugcTermsAccepted == false) {
             UgcTermsDialog(
+                container = container,
                 isAccepting = isAcceptingUgcTerms,
                 onAccept = {
                     if (!isAcceptingUgcTerms) {
@@ -1407,6 +1409,7 @@ private fun ConfigureTranslatorDialogWindow() {
 
 @Composable
 private fun AboutQuataDialog(
+    container: AppContainer,
     onDismiss: () -> Unit,
     onOpenReleaseHistory: () -> Unit
 ) {
@@ -1421,7 +1424,7 @@ private fun AboutQuataDialog(
         onDismiss = onDismiss,
         onOpenReleaseHistory = onOpenReleaseHistory,
         legalLinks = {
-            LegalDocumentLinks(context)
+            LegalDocumentLinks(context, container)
         },
     )
 }
@@ -1456,12 +1459,13 @@ private fun AccountLifecycleConfirmationDialog(
 
 @Composable
 private fun UgcTermsDialog(
+    container: AppContainer,
     isAccepting: Boolean,
     onAccept: () -> Unit,
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
-    val isDarkMode = quataTheme().resolvedTheme != QuataResolvedTheme.Light
+    val scope = rememberCoroutineScope()
     QuataTermsAcceptanceDialogContent(
         title = stringResource(R.string.ugc_terms_title),
         body = stringResource(R.string.ugc_terms_body),
@@ -1475,31 +1479,41 @@ private fun UgcTermsDialog(
             QuataLegalDocumentLinksColumnContent(
                 language = QuataLanguageManager.currentLanguage,
                 documents = listOf(LegalDocument.ChildSafety, LegalDocument.Privacy),
-                onOpenDocument = { document -> LegalDocuments.open(context, document, isDarkMode) },
+                onOpenDocument = { document ->
+                    scope.launch { openLegalDocument(context, container, document) }
+                },
             )
         },
     )
 }
 
 @Composable
-private fun LegalLinkButton(label: Int, url: String, context: Context) {
-    TextButton(
-        onClick = {
-            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-        },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(stringResource(label), modifier = Modifier.fillMaxWidth())
-    }
-}
-
-@Composable
-private fun LegalDocumentLinks(context: Context) {
-    val isDarkMode = quataTheme().resolvedTheme != QuataResolvedTheme.Light
+private fun LegalDocumentLinks(context: Context, container: AppContainer) {
+    val scope = rememberCoroutineScope()
     QuataLegalDocumentLinksContent(
         language = QuataLanguageManager.currentLanguage,
-        onOpenDocument = { document -> LegalDocuments.open(context, document, isDarkMode) },
+        onOpenDocument = { document ->
+            scope.launch { openLegalDocument(context, container, document) }
+        },
     )
+}
+
+private suspend fun openLegalDocument(
+    context: Context,
+    container: AppContainer,
+    document: LegalDocument,
+) {
+    when (val file = LegalDocuments.platformFile(context, document)) {
+        is PlatformResult.Success -> when (container.documentOpenService.open(file.value)) {
+            is PlatformResult.Success -> Unit
+            PlatformResult.Cancelled -> Unit
+            is PlatformResult.Failure,
+            PlatformResult.Unsupported -> Toast.makeText(context, R.string.error_generic, Toast.LENGTH_LONG).show()
+        }
+        is PlatformResult.Failure,
+        PlatformResult.Cancelled,
+        PlatformResult.Unsupported -> Toast.makeText(context, R.string.error_generic, Toast.LENGTH_LONG).show()
+    }
 }
 
 @Composable

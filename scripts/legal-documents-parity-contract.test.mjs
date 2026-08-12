@@ -30,10 +30,13 @@ test('common legal links content renders all platforms from the shared catalog',
 test('Android, Web and iOS About links use common legal document content', () => {
   assert.match(androidNav, /QuataLegalDocumentLinksContent\(/);
   assert.match(androidNav, /QuataLegalDocumentLinksColumnContent\(/);
-  assert.match(androidNav, /LegalDocuments\.open\(context, document, isDarkMode\)/);
+  assert.match(androidNav, /LegalDocuments\.platformFile\(context, document\)/);
+  assert.match(androidNav, /container\.documentOpenService\.open\(file\.value\)/);
   assert.doesNotMatch(androidNav, /LegalDocumentLinkButton\(R\.string\.legal_privacy/);
   assert.doesNotMatch(androidNav, /LegalDocumentLinkButton\(R\.string\.legal_child_safety/);
+  assert.match(androidLegal, /fun platformFile\(context: Context, document: LegalDocument\): PlatformResult<PlatformFile>/);
   assert.match(androidLegal, /document\.assetName\(QuataLanguageManager\.currentLanguage\)/);
+  assert.doesNotMatch(androidLegal, /QuataDocumentReader\.open/);
 
   assert.match(web, /QuataLegalDocumentLinksContent\(/);
   assert.match(web, /onOpenDocument = \{ document -> webOpenExternalUrl\(document\.publicUrl\(\)\) \}/);
