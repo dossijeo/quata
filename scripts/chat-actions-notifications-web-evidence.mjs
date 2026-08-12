@@ -1866,7 +1866,6 @@ try {
       throw new ProfileOnlyCompleted();
     }
   } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly) {
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
