@@ -25,7 +25,8 @@ const profileOnly = options.profileOnly;
 const profileFollowOnly = options.profileFollowOnly;
 const profileListsOnly = options.profileListsOnly;
 const profileContentOnly = options.profileContentOnly;
-const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly;
+const profilePrivateChatOnly = options.profilePrivateChatOnly;
+const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profilePrivateChatOnly;
 const report = {
   check,
   status: "failed",
@@ -62,6 +63,7 @@ const state = {
   profileFollow: null,
   profileListEdges: null,
   profileContent: null,
+  profilePrivateChat: null,
 };
 
 try {
@@ -97,6 +99,7 @@ try {
 
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
+  state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
   state.editableMarker = translationOnly || profileEvidenceOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
   state.composerMarker = translationOnly || profileEvidenceOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
   state.replyMarker = translationOnly || profileEvidenceOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
@@ -120,6 +123,22 @@ try {
       p_client_message_id: `chat-profile-ios-peer-${randomUUID()}`,
     }));
     await pollMessage(config, state.a, state.thread, (message) => Number(message?.id) === state.peerMessage && messageText(message) === state.peerMarker);
+    if (profilePrivateChatOnly) {
+      state.profilePrivateChat = threadId(await rpc(config, state.a, "quata_chat_get_or_create_private_thread", {
+        p_actor_profile_id: state.a.profileId,
+        p_peer_profile_id: state.b.profileId,
+      }));
+      await rpc(config, state.b, "quata_chat_send_message", {
+        p_actor_profile_id: state.b.profileId,
+        p_thread_id: state.profilePrivateChat,
+        p_message: state.privateMarker,
+        p_file_ids: [],
+        p_reply_to_message_id: null,
+        p_client_message_id: `chat-profile-private-ios-${randomUUID()}`,
+      });
+      await pollMessage(config, state.a, state.profilePrivateChat, (message) => messageText(message) === state.privateMarker);
+      report.steps.push("profile_private_chat_seed_message_ready");
+    }
     if (!profileEvidenceOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
@@ -242,6 +261,8 @@ export QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID=${shellQuote(state.profileContent?
 export QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID=${shellQuote(state.profileContent?.seedCommentId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID=${shellQuote(state.profileContent?.attachmentId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT=${shellQuote(state.profileContent?.uiCommentMarker ?? "profile-only")}
+export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E=${profilePrivateChatOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE=${shellQuote(state.privateMarker?.slice(0, 28) ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_COMPOSER_MARKER=${shellQuote(state.composerMarker ?? "profile-only")}
@@ -256,6 +277,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? "ios_xctest_profile_followers_and_following_lists_verified"
       : profileContentOnly
         ? "ios_xctest_profile_content_gallery_comments_and_attachments_verified"
+        : profilePrivateChatOnly
+          ? "profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc"
         : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
 
     if (profileFollowOnly) {
@@ -304,6 +327,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           attachmentId: state.profileContent.attachmentId,
           attachmentMessageId: state.profileContent.attachmentMessageId,
         } : null,
+        privateMarkerSha256: profilePrivateChatOnly ? sha256(state.privateMarker) : null,
+        profilePrivateChatThreadId: state.profilePrivateChat ?? null,
       }
       : {
         threadId: state.thread,
@@ -433,6 +458,7 @@ function parseArgs(argv) {
     profileFollowOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_FOLLOW_ONLY === "1",
     profileListsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_LISTS_ONLY === "1",
     profileContentOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_ONLY === "1",
+    profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -463,6 +489,10 @@ function parseArgs(argv) {
     }
     if (key === "--profile-content-only") {
       result.profileContentOnly = true;
+      continue;
+    }
+    if (key === "--profile-private-chat-only") {
+      result.profilePrivateChatOnly = true;
       continue;
     }
     if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {

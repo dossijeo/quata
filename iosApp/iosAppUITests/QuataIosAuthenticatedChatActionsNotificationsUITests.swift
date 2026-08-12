@@ -336,6 +336,46 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-content")
     }
 
+    func testProfilePrivateChatFromChatUsesSharedPublicProfileAction() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat profile private-chat UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
+              let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]),
+              let privateMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE"]) else {
+            throw XCTSkip("Disposable Chat profile private-chat fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "profile private-chat source conversation")
+        assertChatRoute(conversationId, in: app, context: "profile private-chat source conversation")
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-profile-private-chat-thread-initial")
+
+        _ = openPeerPublicProfile(peerProfileId: peerProfileId, in: app)
+        attachScreenshot(app, name: "ios-chat-profile-private-chat-before")
+
+        let chat = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.chat.\(peerProfileId)")
+            .firstMatch
+        XCTAssertTrue(chat.waitForExistence(timeout: 10), "The shared public profile chat action must be exposed.")
+        chat.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        XCTAssertTrue(messageText(privateMarkerProbe, in: app).waitForExistence(timeout: 45), "Opening profile Chat must navigate to the private conversation.")
+        attachScreenshot(app, name: "ios-chat-profile-private-chat-opened")
+    }
+
     private func chatHost(in app: XCUIApplication, context: String) -> XCUIElement {
         let chat = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-chat-host")

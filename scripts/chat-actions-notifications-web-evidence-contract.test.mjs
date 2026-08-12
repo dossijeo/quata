@@ -22,6 +22,7 @@ test("chat actions/notifications web evidence keeps credentials private and reve
   assert.match(runner, /hardDeleteTemporaryForwardDestination/);
   assert.match(runner, /forward_destination_cleanup_verified_physical_residue_absent/);
   assert.match(runner, /--profile-follow-only/);
+  assert.match(runner, /--profile-private-chat-only/);
   assert.match(runner, /prepareProfileFollowAbsent/);
   assert.match(runner, /pollProfileFollowEdge/);
   assert.match(runner, /restoreProfileFollowEdge/);
@@ -87,7 +88,9 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(testSource, /public-profile\.kpi\.following\.\$profileId/);
   assert.match(testSource, /profile-follow/);
   assert.match(testSource, /public-profile\.follow\.\$profileId/);
+  assert.match(testSource, /public-profile\.chat\.\$profileId/);
   assert.match(testSource, /android-chat-profile-follow-after/);
+  assert.match(testSource, /android-chat-profile-private-chat-opened/);
 });
 
 test("chat actions/notifications iOS evidence forwards through the shared picker", async () => {
@@ -102,7 +105,9 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(runner, /hardDeleteTemporaryForwardDestination/);
   assert.match(runner, /forward_destination_cleanup_verified_physical_residue_absent/);
   assert.match(runner, /--profile-follow-only/);
+  assert.match(runner, /--profile-private-chat-only/);
   assert.match(runner, /QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E/);
+  assert.match(runner, /QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E/);
   assert.match(runner, /prepareProfileFollowAbsent/);
   assert.match(runner, /pollProfileFollowEdge/);
   assert.match(runner, /restoreProfileFollowEdge/);
@@ -128,7 +133,9 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(testSource, /public-profile\.kpi\.following\.\\\(peerProfileId\)/);
   assert.match(testSource, /testProfileFollowFromChatTogglesSharedPublicProfileAction/);
   assert.match(testSource, /public-profile\.follow\.\\\(peerProfileId\)/);
+  assert.match(testSource, /public-profile\.chat\.\\\(peerProfileId\)/);
   assert.match(testSource, /ios-chat-profile-follow-after/);
+  assert.match(testSource, /ios-chat-profile-private-chat-opened/);
 });
 
 test("chat actions/notifications iOS evidence can run translation-only against the shared overlay", async () => {
@@ -157,7 +164,15 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /const ownMarker = options\.translationOnly \? "Mbolo" : `chat-actions-own-\$\{runId\}`/);
   assert.match(runner, /--translation-only/);
   assert.match(runner, /--profile-follow-only/);
+  assert.match(runner, /--profile-private-chat-only/);
   assert.match(runner, /toggleFollowFromOpenProfile/);
+  assert.match(runner, /openPrivateChatFromOpenProfile/);
+  assert.match(runner, /createPrivateChatSeed/);
+  assert.match(runner, /quata_chat_get_or_create_private_thread/);
+  assert.match(runner, /profile_private_chat_seed_message_ready/);
+  assert.match(runner, /profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc/);
+  assert.match(runner, /profile_private_chat_not_opened:private_marker_not_visible/);
+  assert.doesNotMatch(runner, /openAuthenticatedChatRoute\(page, serverOrigin, `sb:\$\{opened\.threadId\}`\)/);
   assert.match(runner, /profile_follow_toggled_and_verified_by_db/);
   assert.match(runner, /profile_follow_edge_restored_to_initial_state/);
   assert.match(runner, /class EvidenceCompleted extends Error/);

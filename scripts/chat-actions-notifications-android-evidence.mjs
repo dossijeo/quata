@@ -17,6 +17,7 @@ const profileOnly = process.argv.includes("--profile-only");
 const profileFollowOnly = process.argv.includes("--profile-follow-only");
 const profileListsOnly = process.argv.includes("--profile-lists-only");
 const profileContentOnly = process.argv.includes("--profile-content-only");
+const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const chatAttachmentsBucket = "chat-attachments";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
@@ -51,6 +52,8 @@ const evidenceFiles = [
   "android-chat-profile-list-following.png",
   "android-chat-profile-lists-return.png",
   "android-chat-profile-content.png",
+  "android-chat-profile-private-chat-before.png",
+  "android-chat-profile-private-chat-opened.png",
   "android-chat-actions-notifications-evidence.json",
 ];
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
@@ -980,7 +983,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profilePrivateChat: null };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
@@ -1007,7 +1010,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profilePrivateChatOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1024,6 +1027,8 @@ try {
   const markerProbe = marker.slice(0, 24);
   const peerMarker = `chat-profile-peer-android-${randomUUID()}`;
   const peerProbe = peerMarker.slice(0, 24);
+  const privateMarker = `chat-profile-private-android-${randomUUID()}`;
+  const privateProbe = privateMarker.slice(0, 28);
   const composerMarker = `chat-compose-ui-android-${randomUUID()}`;
   const replyMarker = `chat-reply-ui-android-${randomUUID()}`;
   const editMarker = `chat-edit-ui-android-${randomUUID()}`;
@@ -1047,6 +1052,22 @@ try {
     }));
     await pollMessage(config, state.a, state.thread, (message) => Number(message?.id) === state.peerMessage && messageText(message) === peerMarker);
     report.steps.push("unique_own_and_peer_messages_visible");
+    if (profilePrivateChatOnly) {
+      state.profilePrivateChat = threadId(await rpc(config, state.a, "quata_chat_get_or_create_private_thread", {
+        p_actor_profile_id: state.a.profileId,
+        p_peer_profile_id: state.b.profileId,
+      }));
+      await rpc(config, state.b, "quata_chat_send_message", {
+        p_actor_profile_id: state.b.profileId,
+        p_thread_id: state.profilePrivateChat,
+        p_message: privateMarker,
+        p_file_ids: [],
+        p_reply_to_message_id: null,
+        p_client_message_id: `chat-profile-private-android-${randomUUID()}`,
+      });
+      await pollMessage(config, state.a, state.profilePrivateChat, (message) => messageText(message) === privateMarker);
+      report.steps.push("profile_private_chat_seed_message_ready");
+    }
   } else {
     await verifyRecipientParticipant(state.thread, state.b.profileId);
     report.steps.push("adjacent_recipient_participant_verified");
@@ -1083,6 +1104,7 @@ try {
       "-e", "quataChatActionsUrl", chatUrl(`sb:${state.thread}`),
       "-e", "quataChatActionsOwnProbe", markerProbe,
       "-e", "quataChatActionsPeerProbe", peerProbe,
+      "-e", "quataChatActionsPrivateProbe", privateProbe,
       "-e", "quataChatActionsProfileId", state.b.profileId,
       "-e", "quataChatActionsComposerMarker", composerMarker,
       "-e", "quataChatActionsReplyMarker", replyMarker,
@@ -1142,7 +1164,7 @@ try {
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
     }
-    const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : "profile";
+    const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profilePrivateChatOnly ? "profile-private-chat" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
@@ -1152,6 +1174,8 @@ try {
       ? "peer_public_profile_followers_and_following_lists_opened_and_returned"
       : profileContentOnly
         ? "profile_content_gallery_comments_and_attachments_verified"
+        : profilePrivateChatOnly
+          ? "profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc"
         : "peer_avatar_opened_public_profile_and_returned_to_chat");
     if (profileContentOnly) {
       state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
@@ -1159,7 +1183,7 @@ try {
     }
   }
 
-  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly) {
+  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profilePrivateChatOnly) {
     await rm(evidenceDir, { recursive: true, force: true });
     await mkdir(evidenceDir, { recursive: true });
     for (const file of evidenceFiles.filter((name) => name.includes("profile") || name.endsWith("evidence.json"))) {
@@ -1175,6 +1199,8 @@ try {
       peerProfileIdSha256: sha256(state.b.profileId),
       markerSha256: sha256(marker),
       peerMarkerSha256: sha256(peerMarker),
+      privateMarkerSha256: profilePrivateChatOnly ? sha256(privateMarker) : null,
+      profilePrivateChatThreadId: state.profilePrivateChat ?? null,
       profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
       profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
       profileContent: state.profileContent ? {
@@ -1186,7 +1212,7 @@ try {
         attachmentMessageId: state.profileContent.attachmentMessageId,
       } : null,
     };
-    throw new Error(profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
+    throw new Error(profilePrivateChatOnly ? "profile_private_chat_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));
@@ -1254,7 +1280,8 @@ try {
     error?.message === "profile_only_completed" ||
     error?.message === "profile_follow_only_completed" ||
     error?.message === "profile_lists_only_completed" ||
-    error?.message === "profile_content_only_completed"
+    error?.message === "profile_content_only_completed" ||
+    error?.message === "profile_private_chat_only_completed"
   ) {
     // Focal modes finished successfully; cleanup and report writing still happen in finally.
   } else {
