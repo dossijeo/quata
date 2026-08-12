@@ -606,6 +606,8 @@ async function assertAccountSettingsLegalDocumentViewer(page, reportOutput, step
     await scrollLegalLinksIntoView(page);
     const screenshot = reportOutput.replace(/\.json$/i, `.legal-${route}.png`);
     await page.screenshot({ path: screenshot, fullPage: true });
+    await page.mouse.wheel(0, 260);
+    await page.waitForTimeout(150);
     steps.push(`account_settings_legal_route_${route}_screenshot`);
     const privacy = await clickAndCaptureDocumentViewer(page, /privacidad|Privacy policy/i, "privacy_es.docx", 0);
     steps.push(`account_settings_legal_route_${route}_privacy_opened`);
