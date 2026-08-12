@@ -390,6 +390,10 @@ function pathSegment(path) {
   return path.split("/").map(encodeURIComponent).join("/");
 }
 
+function adbShellQuote(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
 function messageText(row) {
   return String(row?.body ?? row?.text ?? row?.message ?? "");
 }
@@ -1068,23 +1072,26 @@ try {
   await run("adb", ["shell", "rm", "-f", deviceTempCredentialsPath]);
   await run("adb", ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
   const runInstrumentationStage = async (stage) => await runCapture("adb", [
-    "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", "com.quata.feature.chat.presentation.chat.ChatActionsNotificationsInstrumentedTest",
-    "-e", "quataChatActionsStage", stage,
-    "-e", "quataChatActionsCredentialsFile", deviceCredentialsPath,
-    "-e", "quataChatActionsUrl", chatUrl(`sb:${state.thread}`),
-    "-e", "quataChatActionsOwnProbe", markerProbe,
-    "-e", "quataChatActionsPeerProbe", peerProbe,
-    "-e", "quataChatActionsProfileId", state.b.profileId,
-    "-e", "quataChatActionsComposerMarker", composerMarker,
-    "-e", "quataChatActionsReplyMarker", replyMarker,
-    "-e", "quataChatActionsEditMarker", editMarker,
-    "-e", "quataChatActionsForwardQuery", state.forwardProfile?.phoneLocal ?? "translation-only",
-    "-e", "quataChatActionsPostId", state.profileContent?.postId ?? "",
-    "-e", "quataChatActionsCommentId", state.profileContent?.seedCommentId ?? "",
-    "-e", "quataChatActionsAttachmentId", String(state.profileContent?.attachmentId ?? ""),
-    "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
-    "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
+    "shell",
+    [
+      "am", "instrument", "-w", "-r",
+      "-e", "class", "com.quata.feature.chat.presentation.chat.ChatActionsNotificationsInstrumentedTest",
+      "-e", "quataChatActionsStage", stage,
+      "-e", "quataChatActionsCredentialsFile", deviceCredentialsPath,
+      "-e", "quataChatActionsUrl", chatUrl(`sb:${state.thread}`),
+      "-e", "quataChatActionsOwnProbe", markerProbe,
+      "-e", "quataChatActionsPeerProbe", peerProbe,
+      "-e", "quataChatActionsProfileId", state.b.profileId,
+      "-e", "quataChatActionsComposerMarker", composerMarker,
+      "-e", "quataChatActionsReplyMarker", replyMarker,
+      "-e", "quataChatActionsEditMarker", editMarker,
+      "-e", "quataChatActionsForwardQuery", state.forwardProfile?.phoneLocal ?? "translation-only",
+      "-e", "quataChatActionsPostId", state.profileContent?.postId ?? "",
+      "-e", "quataChatActionsCommentId", state.profileContent?.seedCommentId ?? "",
+      "-e", "quataChatActionsAttachmentId", String(state.profileContent?.attachmentId ?? ""),
+      "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
+      "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
+    ].map(adbShellQuote).join(" "),
   ]);
   const assertInstrumentationPassed = (stage, instrumentationOutput) => {
     if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) throw new Error(`android_instrumentation_not_ok:${stage}`);
