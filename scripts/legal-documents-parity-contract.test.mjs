@@ -143,6 +143,7 @@ test('Auth registration exposes legal documents through the shared common slot',
   assert.match(webAuthEvidenceRunner, /register_shared_legal_documents_opened_from_local_assets/);
   assert.match(webAuthEvidenceRunner, /clickAndCaptureDocumentViewer\(page, \/privacidad\|Privacy policy\/i, "privacy_es\.docx", 0\)/);
   assert.match(webAuthEvidenceRunner, /clickAndCaptureDocumentViewer\(page, \/Seguridad infantil\|Seguridad de menores\|Child safety\/i, "child_safety_es\.docx", 1\)/);
+  assert.match(webAuthEvidenceRunner, /__quataDocumentOpenEvidence/);
   assert.match(webAuthEvidenceRunner, /data-quata-docmentis-viewer/);
   assert.match(webAuthEvidenceRunner, /viewer: "docmentis-overlay"/);
   assert.match(webAuthEvidenceRunner, /renderReady/);

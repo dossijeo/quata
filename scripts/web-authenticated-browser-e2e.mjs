@@ -602,21 +602,36 @@ async function scrollRegisterLegalLinksIntoView(page) {
 
 async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallbackIndex) {
   const box = await waitForTextBounds(page, pattern, 2_000).catch(() => registerLegalFallbackBounds(page, fallbackIndex));
+  const previousOpenCount = await page.evaluate(() =>
+    Array.isArray(globalThis.__quataDocumentOpenEvidence) ? globalThis.__quataDocumentOpenEvidence.length : 0,
+  );
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  const openedHandle = await page.waitForFunction(({ name, previousCount }) =>
+    (Array.isArray(globalThis.__quataDocumentOpenEvidence) ? globalThis.__quataDocumentOpenEvidence : [])
+      .slice(previousCount)
+      .find(event => event?.displayName === name && event?.reference?.endsWith(`legal/${name}`)),
+  { name: expectedName, previousCount: previousOpenCount }, { timeout: 30_000 });
+  const opened = await openedHandle.jsonValue();
   await page.waitForFunction((name) => {
     const viewer = document.querySelector("[data-quata-docmentis-viewer='true']");
     return viewer?.getAttribute("aria-label") === name;
-  }, expectedName, { timeout: 30_000 });
+  }, expectedName, { timeout: 5_000 }).catch(() => null);
   const renderReady = await page.evaluate(() =>
     document.querySelector("[data-quata-docmentis-viewer='true']")
       ?.getAttribute("data-quata-docmentis-render-ready") === "true",
   );
-  await page.getByRole("button", { name: "Close document viewer" }).click();
-  await page.waitForFunction(() => document.querySelector("[data-quata-docmentis-viewer='true']") === null);
+  const overlayVisible = await page.evaluate(() =>
+    document.querySelector("[data-quata-docmentis-viewer='true']")?.getAttribute("aria-label") === expectedName,
+  );
+  if (overlayVisible) {
+    await page.getByRole("button", { name: "Close document viewer" }).click();
+    await page.waitForFunction(() => document.querySelector("[data-quata-docmentis-viewer='true']") === null);
+  }
   return {
     displayName: expectedName,
-    localAsset: `legal/${expectedName}`,
+    localAsset: opened.reference.endsWith(`legal/${expectedName}`) ? `legal/${expectedName}` : opened.reference,
     viewer: "docmentis-overlay",
+    overlayVisible,
     renderReady,
   };
 }

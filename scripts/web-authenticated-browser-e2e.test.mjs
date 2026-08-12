@@ -64,6 +64,7 @@ test("the hermetic browser journey proves the permanent public shell, participat
   assert.match(runner, /register_shared_legal_documents_opened_from_local_assets/);
   assert.match(runner, /clickAndCaptureDocumentViewer\(page, \/privacidad\|Privacy policy\/i, "privacy_es\.docx", 0\)/);
   assert.match(runner, /clickAndCaptureDocumentViewer\(page, \/Seguridad infantil\|Seguridad de menores\|Child safety\/i, "child_safety_es\.docx", 1\)/);
+  assert.match(runner, /__quataDocumentOpenEvidence/);
   assert.match(runner, /data-quata-docmentis-viewer/);
   assert.match(runner, /viewer: "docmentis-overlay"/);
   assert.match(runner, /renderReady/);
