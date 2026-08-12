@@ -93,14 +93,25 @@ private fun LocalWhatsNewRelease.localized(languageTags: List<String>): PendingR
 
 /** Exact tag, language-only tag, English and finally the first stable catalog translation. */
 private fun Map<String, String>.resolve(languageTags: List<String>): String? {
-    languageTags.firstNotNullOfOrNull { requested ->
-        entries.firstOrNull { it.key.normalizedLanguageTag() == requested.normalizedLanguageTag() }?.value
-    }?.let { return it }
-    languageTags.map { it.normalizedLanguageTag().substringBefore('-') }.firstNotNullOfOrNull { language ->
-        entries.firstOrNull { it.key.normalizedLanguageTag().substringBefore('-') == language }?.value
-    }?.let { return it }
-    entries.firstOrNull { it.key.normalizedLanguageTag().substringBefore('-') == "en" }?.value?.let { return it }
+    for (requested in languageTags) {
+        val exact = requested.normalizedLanguageTag()
+        get(exact)?.let { return it }
+        val language = exact.primaryLanguage()
+        get(language)?.let { return it }
+        entries.firstOrNull { it.key.normalizedLanguageTag().primaryLanguage() == language }?.value?.let { return it }
+    }
+    get("en")?.let { return it }
+    entries.firstOrNull { it.key.normalizedLanguageTag().primaryLanguage() == "en" }?.value?.let { return it }
     return entries.firstOrNull()?.value
 }
 
 private fun String.normalizedLanguageTag(): String = trim().replace('_', '-').lowercase()
+
+private fun String.primaryLanguage(): String {
+    val builder = StringBuilder()
+    for (character in this) {
+        if (character == '-') break
+        builder.append(character)
+    }
+    return builder.toString()
+}
