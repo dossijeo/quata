@@ -946,6 +946,16 @@ private final class IosAppCompositionRoot {
                 filePicker: filePicker,
                 touchFlowEnabled: appearancePreferences.touchFlowEnabled,
                 themeModeStorageValue: appearancePreferences.themeModeStorageValue,
+                languageCode: Locale.current.languageCode ?? "en",
+                documentOpener: self?.platformServices.services.documentOpener,
+                openLegalDocument: { [weak self] document, opener in
+                    guard let bootstrap = self?.whatsNewRuntimeBootstrap else { return }
+                    IosWhatsNewRuntimeBootstrapKt.openIosLegalDocumentForSettings(
+                        runtime: bootstrap,
+                        document: document,
+                        documentOpener: opener,
+                    )
+                },
                 onTouchFlowEnabledChange: { enabled in
                     appearancePreferences.setTouchFlowEnabled(enabled.boolValue)
                 },

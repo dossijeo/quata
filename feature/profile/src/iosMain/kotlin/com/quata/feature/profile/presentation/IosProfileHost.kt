@@ -14,6 +14,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
+import com.quata.core.localization.QuataLanguage
+import com.quata.core.moderation.LegalDocument
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.ui.components.IosRemoteAvatar
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
@@ -24,6 +27,8 @@ import com.quata.core.platform.PlatformResult
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
+import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
+import com.quata.feature.settings.presentation.SettingsLegalDocumentsStrings
 import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
@@ -38,6 +43,9 @@ class IosProfileHostDependencies(
     val onTouchFlowEnabledChange: (Boolean) -> Unit,
     val themeMode: QuataThemeMode,
     val onThemeModeChange: (QuataThemeMode) -> Unit,
+    val languageCode: String,
+    val documentOpener: DocumentOpenService?,
+    val openLegalDocument: (LegalDocument, DocumentOpenService) -> Unit,
 )
 
 fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIViewController = ComposeUIViewController {
@@ -90,9 +98,26 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
                         onToggle = toggle,
                     )
                 },
+                legalDocuments = {
+                    dependencies.documentOpener?.let { opener ->
+                        SettingsLegalDocumentsSectionContent(
+                            language = dependencies.languageCode.toQuataLanguage(),
+                            strings = SettingsLegalDocumentsStrings(title = "Legal documents"),
+                            onOpenDocument = { document ->
+                                dependencies.openLegalDocument(document, opener)
+                            },
+                        )
+                    }
+                },
             ),
         )
     }
+}
+
+private fun String.toQuataLanguage(): QuataLanguage = when {
+    lowercase().startsWith("es") -> QuataLanguage.Spanish
+    lowercase().startsWith("fr") -> QuataLanguage.French
+    else -> QuataLanguage.English
 }
 
 private val IosProfileScreenStrings = ProfileScreenStrings(

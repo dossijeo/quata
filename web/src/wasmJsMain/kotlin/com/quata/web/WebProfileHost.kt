@@ -67,6 +67,8 @@ import com.quata.feature.profile.presentation.ProfileScreenHost
 import com.quata.feature.profile.presentation.ProfileScreenSlots
 import com.quata.feature.profile.presentation.ProfileScreenStrings
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
+import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
+import com.quata.feature.settings.presentation.SettingsLegalDocumentsStrings
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -90,6 +92,7 @@ internal fun WebProfileHost(
     modifier: Modifier = Modifier,
 ) {
     val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
+    val scope = rememberCoroutineScope()
     ProfileScreenHost(
         repository = repository,
         strings = WebProfileScreenStrings,
@@ -105,6 +108,16 @@ internal fun WebProfileHost(
             isLandscapeLayout = { isLandscape },
             avatar = { name, avatarUrl -> BrowserRemoteAvatar(name, name, avatarUrl, false, null, Modifier.size(56.dp), allowOwnedBlobReference = true) },
             avatarActions = { change -> WebProfileAvatarActions(platformServices, avatarReferences, change) },
+            legalDocuments = {
+                val language = listOfNotNull(webProfileLanguageTag()).toQuataLanguage()
+                SettingsLegalDocumentsSectionContent(
+                    language = language,
+                    strings = SettingsLegalDocumentsStrings(title = "Documentos legales"),
+                    onOpenDocument = { document ->
+                        scope.launch { platformServices.documentOpener.open(webLegalDocumentFile(document, language)) }
+                    },
+                )
+            },
             emergencyContactRow = { contact, selected, toggle -> EmergencyUserRowContent(contact, selected, "Añadir", "Quitar", avatar = { BrowserRemoteAvatar(contact.displayName, contact.id, contact.avatarUrl, false, null, Modifier.size(46.dp)) }, onToggle = toggle) },
         ),
     )

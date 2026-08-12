@@ -2,7 +2,9 @@ package com.quata.feature.profile.presentation
 
 import com.quata.core.model.CountryPrefix
 import com.quata.core.designsystem.theme.QuataThemeMode
+import com.quata.core.moderation.LegalDocument
 import com.quata.core.platform.ContactPickerService
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PlatformContact
 import com.quata.core.platform.PlatformResult
@@ -89,6 +91,9 @@ class IosProfileSosRuntimeBootstrap(
         filePicker: com.quata.core.platform.FilePickerService,
         touchFlowEnabled: Boolean,
         themeModeStorageValue: String?,
+        languageCode: String,
+        documentOpener: DocumentOpenService?,
+        openLegalDocument: (LegalDocument, DocumentOpenService) -> Unit,
         onTouchFlowEnabledChange: (Boolean) -> Unit,
         onThemeModeStorageValueChange: (String) -> Unit,
     ): IosProfileHostDependencies = IosProfileHostDependencies(
@@ -101,6 +106,9 @@ class IosProfileSosRuntimeBootstrap(
         onTouchFlowEnabledChange = onTouchFlowEnabledChange,
         themeMode = QuataThemeMode.fromStorageValue(themeModeStorageValue),
         onThemeModeChange = { mode -> onThemeModeStorageValueChange(mode.storageValue) },
+        languageCode = languageCode,
+        documentOpener = documentOpener,
+        openLegalDocument = openLegalDocument,
     )
 
     /**

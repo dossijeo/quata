@@ -12,6 +12,7 @@ const androidAuthEvidenceTest = await source('../app/src/androidTest/java/com/qu
 const androidEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/whatsnew/presentation/AboutReleaseHistoryInstrumentedTest.kt');
 const web = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt');
 const webSettings = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebSettingsHost.kt');
+const webProfile = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt');
   const webLogin = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebLoginHost.kt');
   const webNativeLegalLinks = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebNativeLegalDocumentLinksContent.kt');
 const webMain = await source('../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt');
@@ -26,6 +27,8 @@ const androidProfile = await source('../app/src/main/java/com/quata/feature/prof
 const iosRuntime = await source('../feature/whatsnew/src/iosMain/kotlin/com/quata/feature/whatsnew/presentation/IosWhatsNewRuntimeBootstrap.kt');
 const iosAuth = await source('../feature/auth/src/iosMain/kotlin/com/quata/feature/auth/presentation/IosAuthHost.kt');
 const iosSettings = await source('../feature/settings/src/iosMain/kotlin/com/quata/feature/settings/presentation/IosSettingsHost.kt');
+const iosProfile = await source('../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileHost.kt');
+const iosProfileBootstrap = await source('../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileSosRuntimeBootstrap.kt');
 const iosProject = await source('../iosApp/project.yml');
 const iosSwift = await source('../iosApp/iosApp/QuataIosApp.swift');
 const iosHostUiTests = await source('../iosApp/iosAppUITests/QuataIosHostUITests.swift');
@@ -115,10 +118,18 @@ test('Account and Settings surfaces expose the shared legal document section', (
   assert.match(androidProfile, /LegalDocuments\.platformFile\(context, document\)/);
   assert.match(androidProfile, /documentOpenService\.open\(file\.value\)/);
 
+  assert.match(webProfile, /legalDocuments = \{/);
+  assert.match(webProfile, /listOfNotNull\(webProfileLanguageTag\(\)\)\.toQuataLanguage\(\)/);
+  assert.match(webProfile, /SettingsLegalDocumentsSectionContent\(/);
+  assert.match(webProfile, /platformServices\.documentOpener\.open\(webLegalDocumentFile\(document, language\)\)/);
   assert.match(webSettings, /SettingsLegalDocumentsSectionContent\(/);
   assert.match(webSettings, /documentOpener\.open\(webLegalDocumentFile\(document, language\)\)/);
   assert.match(webMain, /documentOpener = platformServices\.documentOpener/);
 
+  assert.match(iosProfile, /legalDocuments = \{/);
+  assert.match(iosProfile, /SettingsLegalDocumentsSectionContent\(/);
+  assert.match(iosProfile, /dependencies\.openLegalDocument\(document, opener\)/);
+  assert.match(iosProfileBootstrap, /openLegalDocument: \(LegalDocument, DocumentOpenService\) -> Unit/);
   assert.match(iosSettings, /SettingsLegalDocumentsSectionContent\(/);
   assert.match(iosSettings, /openLegalDocument\(document, opener\)/);
   assert.match(iosRuntime, /fun openIosLegalDocumentForSettings\(/);
