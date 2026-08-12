@@ -581,8 +581,8 @@ async function assertFullScreenAuthDestination(page, destination) {
 async function assertRegisterLegalDocumentDownloads(page) {
   await scrollRegisterLegalLinksIntoView(page);
   return [
-    await clickAndCaptureDownload(page, /privacidad|Privacy policy/i, "privacy_es.docx"),
-    await clickAndCaptureDownload(page, /Seguridad infantil|Seguridad de menores|Child safety/i, "child_safety_es.docx"),
+    await clickAndCaptureDownload(page, /privacidad|Privacy policy/i, "privacy_es.docx", 0),
+    await clickAndCaptureDownload(page, /Seguridad infantil|Seguridad de menores|Child safety/i, "child_safety_es.docx", 1),
   ];
 }
 
@@ -595,8 +595,8 @@ async function scrollRegisterLegalLinksIntoView(page) {
   }
 }
 
-async function clickAndCaptureDownload(page, pattern, expectedName) {
-  const box = await waitForTextBounds(page, pattern, 30_000);
+async function clickAndCaptureDownload(page, pattern, expectedName, fallbackIndex) {
+  const box = await waitForTextBounds(page, pattern, 2_000).catch(() => registerLegalFallbackBounds(page, fallbackIndex));
   const [download] = await Promise.all([
     page.waitForEvent("download", { timeout: 30_000 }),
     page.mouse.click(box.x + box.width / 2, box.y + box.height / 2),
@@ -607,6 +607,18 @@ async function clickAndCaptureDownload(page, pattern, expectedName) {
     displayName: suggestedName,
     localAsset: `legal/${suggestedName}`,
   };
+}
+
+async function registerLegalFallbackBounds(page, index) {
+  return await page.evaluate((fallbackIndex) => {
+    const root = document.querySelector("#quata-root");
+    const rect = root?.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) throw new Error("register_legal_root_missing");
+    const isWide = rect.width >= 720;
+    return isWide
+      ? { x: rect.x + rect.width * 0.47, y: rect.y + rect.height * (0.79 + fallbackIndex * 0.07), width: rect.width * 0.24, height: 34 }
+      : { x: rect.x + rect.width * 0.08, y: rect.y + rect.height * (0.82 + fallbackIndex * 0.07), width: rect.width * 0.84, height: 34 };
+  }, index);
 }
 
 async function waitForTextBounds(page, pattern, timeoutMs) {

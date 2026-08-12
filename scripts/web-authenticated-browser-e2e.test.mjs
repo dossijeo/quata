@@ -61,11 +61,13 @@ test("the hermetic browser journey proves the permanent public shell, participat
   assert.match(runner, /await assertFullScreenAuthDestination\(page, "register"\)/);
   assert.match(runner, /await assertRegisterLegalDocumentDownloads\(page\)/);
   assert.match(runner, /register_shared_legal_documents_downloaded_from_local_assets/);
-  assert.match(runner, /clickAndCaptureDownload\(page, \/privacidad\|Privacy policy\/i, "privacy_es\.docx"\)/);
-  assert.match(runner, /clickAndCaptureDownload\(page, \/Seguridad infantil\|Seguridad de menores\|Child safety\/i, "child_safety_es\.docx"\)/);
+  assert.match(runner, /clickAndCaptureDownload\(page, \/privacidad\|Privacy policy\/i, "privacy_es\.docx", 0\)/);
+  assert.match(runner, /clickAndCaptureDownload\(page, \/Seguridad infantil\|Seguridad de menores\|Child safety\/i, "child_safety_es\.docx", 1\)/);
   assert.match(runner, /findVisibleTextBounds\(page, pattern\)/);
   assert.match(runner, /element\.innerText \|\| element\.textContent/);
   assert.match(runner, /\[scope, \.\.\.scope\.querySelectorAll\("\*"\)\]\.filter\(Boolean\)/);
+  assert.match(runner, /registerLegalFallbackBounds\(page, fallbackIndex\)/);
+  assert.match(runner, /rect\.width >= 720/);
   assert.match(runner, /await invokeAuthGateAction\(page, "chooseLogin"\)/);
   assert.match(runner, /await assertFullScreenAuthDestination\(page, "login"\)/);
   assert.match(runner, /data-quata-auth-required-prompt/);

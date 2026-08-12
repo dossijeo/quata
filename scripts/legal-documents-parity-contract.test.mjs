@@ -141,8 +141,8 @@ test('Auth registration exposes legal documents through the shared common slot',
   assert.match(webLogin, /documentOpener\.open\(webLegalDocumentFile\(document, QuataLanguage\.Spanish\)\)/);
   assert.match(webMain, /documentOpener = platformServices\.documentOpener/);
   assert.match(webAuthEvidenceRunner, /register_shared_legal_documents_downloaded_from_local_assets/);
-  assert.match(webAuthEvidenceRunner, /clickAndCaptureDownload\(page, \/privacidad\|Privacy policy\/i, "privacy_es\.docx"\)/);
-  assert.match(webAuthEvidenceRunner, /clickAndCaptureDownload\(page, \/Seguridad infantil\|Seguridad de menores\|Child safety\/i, "child_safety_es\.docx"\)/);
+  assert.match(webAuthEvidenceRunner, /clickAndCaptureDownload\(page, \/privacidad\|Privacy policy\/i, "privacy_es\.docx", 0\)/);
+  assert.match(webAuthEvidenceRunner, /clickAndCaptureDownload\(page, \/Seguridad infantil\|Seguridad de menores\|Child safety\/i, "child_safety_es\.docx", 1\)/);
 
   assert.match(iosAuth, /registerLegalLinks = \{ IosAuthRegisterLegalLinks\(dependencies\.locale, dependencies\.documentOpener\) \}/);
   assert.match(iosAuth, /fun openIosAuthLegalDocument\(/);
