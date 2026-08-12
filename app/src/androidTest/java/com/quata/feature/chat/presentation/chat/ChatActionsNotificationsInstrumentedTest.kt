@@ -62,6 +62,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val ownProbe = optionalArgument("quataChatActionsOwnProbe")
         val peerProbe = optionalArgument("quataChatActionsPeerProbe")
         val profileId = optionalArgument("quataChatActionsProfileId")
+        val privateProbe = optionalArgument("quataChatActionsPrivateProbe")
         val composerMarker = optionalArgument("quataChatActionsComposerMarker")
         val replyMarker = optionalArgument("quataChatActionsReplyMarker")
         val editMarker = optionalArgument("quataChatActionsEditMarker")
@@ -75,6 +76,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val hasRequiredStageArguments = when (stage) {
             "profile", "profile-follow" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+            "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment).all { !it.isNullOrBlank() }
             else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
         }
@@ -100,13 +102,14 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
             "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
             "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
-            "profile-content" -> {
-                openPeerProfile(peerProbe.orEmpty(), profileId.orEmpty())
-                assertProfileContentStage(profileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty())
-                closePublicProfile(peerProbe.orEmpty())
-                saveScreenshot("android-chat-profile-return")
-            }
-            "full" -> {
+                "profile-content" -> {
+                    openPeerProfile(peerProbe.orEmpty(), profileId.orEmpty())
+                    assertProfileContentStage(profileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty())
+                    closePublicProfile(peerProbe.orEmpty())
+                    saveScreenshot("android-chat-profile-return")
+                }
+                "profile-private-chat" -> runProfilePrivateChatStage(peerProbe.orEmpty(), profileId.orEmpty(), privateProbe.orEmpty())
+                "full" -> {
                     runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                     runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
                     runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
@@ -339,6 +342,15 @@ class ChatActionsNotificationsInstrumentedTest {
             .performTextReplacement(uiComment)
         compose.onNodeWithTag("public-profile.comments.send", useUnmergedTree = true)
             .performClick()
+    }
+
+    private fun runProfilePrivateChatStage(peerProbe: String, profileId: String, privateProbe: String) {
+        openPeerProfile(peerProbe, profileId)
+        saveScreenshot("android-chat-profile-private-chat-before")
+        compose.onNodeWithTag("public-profile.chat.$profileId", useUnmergedTree = true)
+            .performClick()
+        waitForMarker(privateProbe, "private conversation opened from public profile")
+        saveScreenshot("android-chat-profile-private-chat-opened")
     }
 
     private fun openPeerProfile(peerProbe: String, profileId: String) {

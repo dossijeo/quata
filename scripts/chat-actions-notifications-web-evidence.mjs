@@ -35,6 +35,7 @@ function parseArgs(argv) {
     profileFollowOnly: false,
     profileListsOnly: false,
     profileContentOnly: false,
+    profilePrivateChatOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -56,6 +57,10 @@ function parseArgs(argv) {
     }
     if (key === "--profile-content-only") {
       result.profileContentOnly = true;
+      continue;
+    }
+    if (key === "--profile-private-chat-only") {
+      result.profilePrivateChatOnly = true;
       continue;
     }
     const value = argv[++index];
@@ -354,6 +359,24 @@ async function pollForwardDestinationThread(config, session, profileId, timeout 
     await delay(1_000);
   }
   throw new Error("forward_state_not_persisted:destination_thread");
+}
+
+async function createPrivateChatSeed(config, actorSession, peerSession, marker) {
+  if (!peerSession.accessToken) throw new Error("profile_private_chat_not_opened:peer_session_unavailable");
+  const thread = threadId(await rpc(config, actorSession, "quata_chat_get_or_create_private_thread", {
+    p_actor_profile_id: actorSession.profileId,
+    p_peer_profile_id: peerSession.profileId,
+  }));
+  await rpc(config, peerSession, "quata_chat_send_message", {
+    p_actor_profile_id: peerSession.profileId,
+    p_thread_id: thread,
+    p_message: marker,
+    p_file_ids: [],
+    p_reply_to_message_id: null,
+    p_client_message_id: `chat-profile-private-web-${randomUUID()}`,
+  });
+  const message = await pollMessage(config, actorSession, thread, (row) => messageText(row) === marker);
+  return { threadId: thread, markerMessageId: messageId({ message }) };
 }
 
 function isMuted(row) {
@@ -678,6 +701,7 @@ async function waitMessageVisible(page, marker, error, timeout = 45_000) {
       if (await visibleAriaLocator(page, [new RegExp(escapeRegExp(probe))], 250)) return;
       const text = page.getByText(probe, { exact: false }).first();
       if (await text.waitFor({ timeout: 500 }).then(() => true).catch(() => false)) return;
+      if (await visibleTextIncludes(page, probe)) return;
       if (await visibleTextBox(page, probe)) return;
     }
     await delay(250);
@@ -1127,6 +1151,22 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
   report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
 }
 
+async function openPrivateChatFromOpenProfile(page, peerProfile, privateChat, privateMarker, evidenceDir, report) {
+  report.evidence.profilePrivateChatBefore = await attachScreenshot(page, evidenceDir, "web-chat-profile-private-chat-before");
+  const chatButton = await visibleAriaLocator(page, [new RegExp(escapeRegExp(`public-profile.chat.${peerProfile.profileId}`))], 10_000);
+  const textBox = chatButton ? null : await visibleTextBox(page, "Chat");
+  if (!chatButton && !textBox) throw new Error("profile_private_chat_not_opened:common_chat_action_missing");
+  const box = textBox ?? await chatButton.boundingBox().catch(() => null);
+  if (!box) throw new Error("profile_private_chat_not_opened:common_chat_action_unbounded");
+  await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+  await waitForExactChatRoute(page, `sb:${privateChat.threadId}`);
+  if (!(await waitForChatProfileReturn(page))) throw new Error("profile_private_chat_not_opened:chat_return_not_visible");
+  await pollMessage(config, state.a, privateChat.threadId, (message) => messageText(message) === privateMarker);
+  await delay(1_000);
+  report.evidence.profilePrivateChatOpened = await attachScreenshot(page, evidenceDir, "web-chat-profile-private-chat-opened");
+  return { peerProfileId: peerProfile.profileId, conversationId: `sb:${privateChat.threadId}` };
+}
+
 async function waitForChatProfileReturn(page) {
   const deadline = Date.now() + 20_000;
   while (Date.now() < deadline) {
@@ -1136,6 +1176,16 @@ async function waitForChatProfileReturn(page) {
     await delay(500);
   }
   return false;
+}
+
+async function waitForExactChatRoute(page, conversationId) {
+  const expected = `chat/${conversationId}`;
+  await page.waitForFunction((route) => {
+    const current = localStorage.getItem("web.navigation.route") ||
+      document.documentElement.getAttribute("data-quata-shell-route") ||
+      "";
+    return current === route;
+  }, expected, { timeout: 20_000 });
 }
 
 async function clickProfileBack(page) {
@@ -1352,6 +1402,30 @@ async function visibleTextBox(page, probe) {
   }, probe);
 }
 
+async function visibleTextIncludes(page, probe) {
+  return await page.evaluate((needle) => {
+    const visible = (element) => {
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return false;
+      const style = window.getComputedStyle(element);
+      return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
+    };
+    const visit = (root) => {
+      for (const element of root.querySelectorAll("*")) {
+        const ownText = [...element.childNodes]
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.textContent ?? "")
+          .join(" ");
+        if (ownText.includes(needle) && visible(element)) return true;
+        if (element.shadowRoot && visit(element.shadowRoot)) return true;
+      }
+      return false;
+    };
+    const appRoot = document.querySelector("#quata-root");
+    return visit(appRoot?.shadowRoot ?? appRoot ?? document);
+  }, probe);
+}
+
 async function waitLabel(page, patterns, error) {
   if (await visibleAriaLocator(page, patterns, 8_000)) return;
   throw new Error(error);
@@ -1463,6 +1537,24 @@ async function logicalCleanup(config, state) {
       actions.push(`${key}_deleted`);
     }
   }
+  if (state.profilePrivateChat?.threadId && state.profilePrivateChat?.markerMessageId && state.b) {
+    await rpc(config, state.b, "quata_chat_delete_messages", {
+      p_actor_profile_id: state.b.profileId,
+      p_thread_id: state.profilePrivateChat.threadId,
+      p_message_ids: [state.profilePrivateChat.markerMessageId],
+    });
+    actions.push("profile_private_chat_marker_deleted");
+  }
+  const deletedStalePrivateMarkers = await deletePrivateChatTestMarkers(config, state);
+  if (deletedStalePrivateMarkers > 0) actions.push(`stale_profile_private_chat_markers_deleted:${deletedStalePrivateMarkers}`);
+  const privateMarkers = [state.privateMarker].filter(Boolean);
+  if (state.profilePrivateChat?.threadId && state.a && await threadContainsAnyMarker(config, state.a, state.profilePrivateChat.threadId, privateMarkers)) {
+    throw new Error("cleanup_residue_detected:profile_private_chat_marker_a");
+  }
+  if (state.profilePrivateChat?.threadId && state.b && await threadContainsAnyMarker(config, state.b, state.profilePrivateChat.threadId, privateMarkers)) {
+    throw new Error("cleanup_residue_detected:profile_private_chat_marker_b");
+  }
+  if (state.profilePrivateChat?.threadId) actions.push("cleanup_verified_profile_private_chat_marker_absent");
   if (state.thread && state.a) {
     await rpc(config, state.a, "quata_chat_delete_thread", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread }).catch(() => {});
     actions.push("thread_removed_from_a_inbox");
@@ -1472,6 +1564,40 @@ async function logicalCleanup(config, state) {
     actions.push("thread_removed_from_b_inbox");
   }
   return actions;
+}
+
+async function threadContainsAnyMarker(config, session, thread, markers) {
+  const markerSet = new Set(markers.filter(Boolean));
+  if (markerSet.size === 0) return false;
+  const detail = await rpc(config, session, "quata_chat_get_thread", {
+    p_actor_profile_id: session.profileId,
+    p_thread_id: thread,
+    p_known_message_ids: [],
+    p_limit: 250,
+  });
+  return rows(detail, "messages").some((message) => markerSet.has(messageText(message)));
+}
+
+async function deletePrivateChatTestMarkers(config, state) {
+  if (!state.profilePrivateChat?.threadId || !state.a) return 0;
+  const detail = await rpc(config, state.a, "quata_chat_get_thread", {
+    p_actor_profile_id: state.a.profileId,
+    p_thread_id: state.profilePrivateChat.threadId,
+    p_known_message_ids: [],
+    p_limit: 250,
+  });
+  const messageIds = rows(detail, "messages")
+    .filter((message) => /^chat-profile-private-(web|android|ios)-/.test(messageText(message)))
+    .map((message) => messageId({ message }))
+    .filter((id) => Number.isSafeInteger(Number(id)));
+  const uniqueIds = [...new Set(messageIds)];
+  if (!uniqueIds.length) return 0;
+  await rpc(config, state.a, "quata_chat_delete_messages", {
+    p_actor_profile_id: state.a.profileId,
+    p_thread_id: state.profilePrivateChat.threadId,
+    p_message_ids: uniqueIds,
+  });
+  return uniqueIds.length;
 }
 
 async function hardDeleteTemporaryThread(thread, uniqueKey) {
@@ -1862,6 +1988,7 @@ function safeFailure(error) {
     "profile_content_tag_missing", "profile_content_comments_action_not_clickable",
     "profile_content_comments_input_not_visible", "profile_content_comments_send_not_clickable",
     "profile_content_comment_not_persisted",
+    "profile_private_chat_not_opened",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_actions_notifications_web_failure";
 }
 
@@ -1877,7 +2004,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, privateMarker: null };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -1905,7 +2032,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
-  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly && !options.profileContentOnly) {
+  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly && !options.profileContentOnly && !options.profilePrivateChatOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -2003,6 +2130,13 @@ try {
       report.steps.push("profile_content_fixture_prepared");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-content-open");
       await verifyProfileContentFromOpenProfile(page, state.b, state.profileContent, options.evidenceDir, report);
+    } else if (options.profilePrivateChatOnly) {
+      state.privateMarker = `chat-profile-private-web-${runId}`;
+      state.profilePrivateChat = await createPrivateChatSeed(config, state.a, state.b, state.privateMarker);
+      report.steps.push("profile_private_chat_seed_message_ready");
+      await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-private-chat");
+      await openPrivateChatFromOpenProfile(page, state.b, state.profilePrivateChat, state.privateMarker, options.evidenceDir, report);
+      report.steps.push("profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc");
     } else if (options.profileFollowOnly) {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
       await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
@@ -2016,7 +2150,7 @@ try {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profilePrivateChatOnly) {
       if (faults.length) throw new Error("browser_runtime_fault");
       report.status = "passed";
       report.fixture = {
@@ -2038,11 +2172,13 @@ try {
           attachmentId: state.profileContent.attachmentId,
           attachmentMessageId: state.profileContent.attachmentMessageId,
         } : null,
+        profilePrivateChatThreadId: state.profilePrivateChat?.threadId ?? null,
+        privateMarkerSha256: state.privateMarker ? sha256(state.privateMarker) : null,
       };
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profilePrivateChatOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 

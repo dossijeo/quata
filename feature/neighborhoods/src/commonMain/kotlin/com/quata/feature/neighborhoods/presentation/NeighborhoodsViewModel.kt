@@ -16,10 +16,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class NeighborhoodsViewModel(
     private val repository: NeighborhoodRepository,
-    dispatchers: AppDispatchers = AppDispatchers()
+    private val dispatchers: AppDispatchers = AppDispatchers()
 ) : NeighborhoodsScreenModel {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.default)
     private val _uiState = MutableStateFlow(NeighborhoodsUiState())
@@ -125,7 +126,9 @@ class NeighborhoodsViewModel(
             repository.openPrivateChat(userId)
                 .onSuccess { conversationId ->
                     _uiState.value = _uiState.value.copy(openingPrivateChatUserId = null)
-                    onOpened(conversationId)
+                    withContext(dispatchers.main) {
+                        onOpened(conversationId)
+                    }
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
