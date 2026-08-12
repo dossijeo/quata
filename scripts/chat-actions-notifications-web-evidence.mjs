@@ -929,6 +929,24 @@ async function cleanupProfileContentFixture(fixture) {
   });
 }
 
+async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const result = await withPoolerClient(async (client) => await client.query(
+      `select id
+         from public.community_comments
+        where post_id = $1 and profile_id = $2 and body = $3
+        order by created_at desc
+        limit 1`,
+      [fixture.postId, fixture.actorSession.profileId, marker],
+    ));
+    const id = result.rows[0]?.id;
+    if (uuid.test(id ?? "")) return id;
+    await delay(1_000);
+  }
+  throw new Error("profile_content_comment_not_persisted");
+}
+
 async function verifyProfileContentFromOpenProfile(page, profile, fixture, evidenceDir, report) {
   await prepareProfileContentFixture(fixture);
   for (const tag of [
@@ -938,11 +956,6 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
     `public-profile.gallery.post.${fixture.postId}`,
     `public-profile.post.preview.${fixture.postId}`,
     `public-profile.post.action.comments.${fixture.postId}`,
-    "public-profile.comments.panel",
-    "public-profile.comments.list",
-    `public-profile.comments.row.${fixture.seedCommentId}`,
-    "public-profile.comments.input",
-    "public-profile.comments.send",
     "public-profile.attachments",
     `public-profile.attachments.item.${fixture.attachmentId}`,
   ]) {
@@ -950,8 +963,24 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
     const visible = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 10_000);
     if (!visible) throw new Error(`profile_content_tag_missing:${tag}`);
   }
+  await clickLabel(page, [new RegExp(escapeRegExp(`public-profile.post.action.comments.${fixture.postId}`))], "profile_content_comments_action_not_clickable");
+  const input = await visibleAriaLocator(page, [new RegExp(escapeRegExp("public-profile.comments.input"))], 10_000);
+  if (!input) throw new Error("profile_content_comments_input_not_visible");
+  const uiCommentMarker = `${fixture.marker} ui comment`;
+  await input.fill(uiCommentMarker, { timeout: 10_000 });
+  await clickLabel(page, [new RegExp(escapeRegExp("public-profile.comments.send"))], "profile_content_comments_send_not_clickable");
+  fixture.uiCommentId = await pollProfileContentComment(fixture, uiCommentMarker);
+  for (const tag of [
+    "public-profile.comments.panel",
+    "public-profile.comments.list",
+    `public-profile.comments.row.${fixture.seedCommentId}`,
+    `public-profile.comments.row.${fixture.uiCommentId}`,
+  ]) {
+    const visible = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 10_000);
+    if (!visible) throw new Error(`profile_content_tag_missing:${tag}`);
+  }
   report.evidence.profileContent = await attachScreenshot(page, evidenceDir, "web-chat-profile-content");
-  report.steps.push("profile_content_comment_created_and_cleaned");
+  report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
 }
 
 async function waitForChatProfileReturn(page) {
@@ -1277,6 +1306,7 @@ async function logicalCleanup(config, state) {
   const messagesBySession = [
     ["own_message", state.a, state.ownMessage],
     ["peer_message", state.b, state.peerMessage],
+    ["profile_content_attachment_message", state.a, state.profileContent?.attachmentMessageId],
     ...state.uiMessages.map((message) => ["ui_message", state.a, message]),
   ];
   for (const [key, session, message] of messagesBySession) {
@@ -1826,7 +1856,6 @@ try {
       report.steps.push("profile_content_fixture_prepared");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-content-open");
       await verifyProfileContentFromOpenProfile(page, state.b, state.profileContent, options.evidenceDir, report);
-      report.steps.push("profile_content_comment_created_and_cleaned");
     } else if (options.profileFollowOnly) {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
       await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
@@ -1858,6 +1887,7 @@ try {
           markerSha256: sha256(state.profileContent.marker),
           postId: state.profileContent.postId,
           seedCommentId: state.profileContent.seedCommentId,
+          uiCommentId: state.profileContent.uiCommentId,
           attachmentId: state.profileContent.attachmentId,
           attachmentMessageId: state.profileContent.attachmentMessageId,
         } : null,

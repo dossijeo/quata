@@ -20,7 +20,9 @@ test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
     assert.match(runner, /community_post_likes/);
     assert.match(runner, /chat_attachments/);
     assert.match(runner, /cleanup_verified_profile_content_residue_absent/);
-    assert.match(runner, /profile_content_comment_created_and_cleaned/);
+    assert.match(runner, /pollProfileContentComment/);
+    assert.match(runner, /profile_content_comment_created_from_ui_and_verified_by_db/);
+    assert.match(runner, /attachmentMessageId/);
     assert.doesNotMatch(runner, /else if \(options\.profileOnly \|\| options\.profileFollowOnly \|\| options\.profileListsOnly \|\| options\.profileContentOnly\) \{\s*\}\s*else if/);
     assert.doesNotMatch(runner, /profile_content_fixture_not_implemented/);
     assert.doesNotMatch(runner, /680242607|680242608|21085800|SERVICE_ROLE\s*=/);
@@ -43,6 +45,9 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
     assert.match(source, /public-profile\.attachments/);
     assert.match(source, /public-profile\.attachments\.item\./);
   }
+  assert.match(androidUiTest, /performTextReplacement\(uiComment\)/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT/);
+  assert.match(iosUiTest, /typeText\(uiComment\)/);
 });
 
 test("PROF-CONTENT contract is part of local fast contract suites", () => {

@@ -219,6 +219,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
         targetSession: state.b,
         threadId: state.thread,
       };
+      state.profileContent.uiCommentMarker = `${state.profileContent.marker} ios ui comment`;
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
     }
@@ -240,6 +241,7 @@ export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E=${profileContentOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID=${shellQuote(state.profileContent?.postId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID=${shellQuote(state.profileContent?.seedCommentId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID=${shellQuote(state.profileContent?.attachmentId ?? "profile-only")}
+export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT=${shellQuote(state.profileContent?.uiCommentMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_COMPOSER_MARKER=${shellQuote(state.composerMarker ?? "profile-only")}
@@ -261,7 +263,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("profile_follow_toggled_and_verified_by_db");
     }
     if (profileContentOnly) {
-      report.steps.push("profile_content_comment_created_and_cleaned");
+      state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
+      report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
     }
 
     if (!profileEvidenceOnly) {
@@ -297,6 +300,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           markerSha256: sha256(state.profileContent.marker),
           postId: state.profileContent.postId,
           seedCommentId: state.profileContent.seedCommentId,
+          uiCommentId: state.profileContent.uiCommentId,
           attachmentId: state.profileContent.attachmentId,
           attachmentMessageId: state.profileContent.attachmentMessageId,
         } : null,
@@ -826,7 +830,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("seed_favorite_removed");
   }
-  const messageIds = [state.seedMessage, state.peerMessage, state.editableMessage, state.composerMessage, state.replyMessage].filter((value) => Number.isSafeInteger(value));
+  const messageIds = [state.seedMessage, state.peerMessage, state.editableMessage, state.composerMessage, state.replyMessage, state.profileContent?.attachmentMessageId].filter((value) => Number.isSafeInteger(value));
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
       p_actor_profile_id: state.a.profileId,
@@ -1169,6 +1173,24 @@ async function cleanupProfileContentFixture(fixture) {
       status: "cleanup_verified_profile_content_residue_absent",
     };
   });
+}
+
+async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => await client.query(
+      `select id
+         from public.community_comments
+        where post_id = $1 and profile_id = $2 and body = $3
+        order by created_at desc
+        limit 1`,
+      [fixture.postId, fixture.actorSession.profileId, marker],
+    ));
+    const id = result.rows[0]?.id;
+    if (uuid.test(id ?? "")) return id;
+    await delay(1_000);
+  }
+  throw new Error("profile_content_comment_not_persisted");
 }
 
 async function hardDeleteTemporaryForwardDestination(profile, threadId) {

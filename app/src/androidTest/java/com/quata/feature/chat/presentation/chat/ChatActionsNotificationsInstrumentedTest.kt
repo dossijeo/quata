@@ -68,14 +68,15 @@ class ChatActionsNotificationsInstrumentedTest {
         val postId = optionalArgument("quataChatActionsPostId")
         val commentId = optionalArgument("quataChatActionsCommentId")
         val attachmentId = optionalArgument("quataChatActionsAttachmentId")
+        val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
-    val hasRequiredStageArguments = when (stage) {
-        "profile", "profile-follow" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
-        "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
-        "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId).all { !it.isNullOrBlank() }
-        else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
-    }
+        val hasRequiredStageArguments = when (stage) {
+            "profile", "profile-follow" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+            "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+            "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment).all { !it.isNullOrBlank() }
+            else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
+        }
         assumeTrue(
             "CHAT-ACTIONS-NOTIFICATIONS Android evidence is opt-in.",
             credentials != null && hasRequiredStageArguments,
@@ -100,7 +101,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
             "profile-content" -> {
                 openPeerProfile(peerProbe.orEmpty(), profileId.orEmpty())
-                assertProfileContentStage(profileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty())
+                assertProfileContentStage(profileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty())
                 closePublicProfile(peerProbe.orEmpty())
                 saveScreenshot("android-chat-profile-return")
             }
@@ -305,7 +306,7 @@ class ChatActionsNotificationsInstrumentedTest {
         saveScreenshot("android-chat-profile-follow-return")
     }
 
-    private fun assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String) {
+    private fun assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String) {
         compose.onNodeWithTag("public-profile.kpi.posts.$profileId", useUnmergedTree = true)
             .performClick()
         listOf(
@@ -314,17 +315,28 @@ class ChatActionsNotificationsInstrumentedTest {
             "public-profile.gallery.post.$postId",
             "public-profile.post.preview.$postId",
             "public-profile.post.action.comments.$postId",
-            "public-profile.comments.panel",
-            "public-profile.comments.list",
-            "public-profile.comments.row.$commentId",
-            "public-profile.comments.input",
-            "public-profile.comments.send",
             "public-profile.attachments",
             "public-profile.attachments.item.$attachmentId",
         ).forEach { tag ->
             compose.onNodeWithTag(tag, useUnmergedTree = true)
                 .fetchSemanticsNode()
         }
+        compose.onNodeWithTag("public-profile.post.action.comments.$postId", useUnmergedTree = true)
+            .performClick()
+        listOf(
+            "public-profile.comments.panel",
+            "public-profile.comments.list",
+            "public-profile.comments.row.$commentId",
+            "public-profile.comments.input",
+            "public-profile.comments.send",
+        ).forEach { tag ->
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }
+        compose.onNodeWithTag("public-profile.comments.input", useUnmergedTree = true)
+            .performTextReplacement(uiComment)
+        compose.onNodeWithTag("public-profile.comments.send", useUnmergedTree = true)
+            .performClick()
         saveScreenshot("android-chat-profile-content")
     }
 

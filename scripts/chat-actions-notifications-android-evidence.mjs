@@ -198,6 +198,24 @@ async function cleanupProfileContentFixture(fixture) {
   });
 }
 
+async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => await client.query(
+      `select id
+         from public.community_comments
+        where post_id = $1 and profile_id = $2 and body = $3
+        order by created_at desc
+        limit 1`,
+      [fixture.postId, fixture.actorSession.profileId, marker],
+    ));
+    const id = result.rows[0]?.id;
+    if (uuid.test(id ?? "")) return id;
+    await delay(1_000);
+  }
+  throw new Error("profile_content_comment_not_persisted");
+}
+
 function env(name) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`missing_environment:${name}`);
@@ -539,7 +557,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("favorite_removed");
   }
-  const messageIds = [state.message, state.peerMessage, state.editedMessage, ...state.uiMessages]
+  const messageIds = [state.message, state.peerMessage, state.editedMessage, state.profileContent?.attachmentMessageId, ...state.uiMessages]
     .filter((id, index, all) => Number.isInteger(Number(id)) && all.indexOf(id) === index);
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
@@ -1065,6 +1083,7 @@ try {
     "-e", "quataChatActionsPostId", state.profileContent?.postId ?? "",
     "-e", "quataChatActionsCommentId", state.profileContent?.seedCommentId ?? "",
     "-e", "quataChatActionsAttachmentId", String(state.profileContent?.attachmentId ?? ""),
+    "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
   const assertInstrumentationPassed = (stage, instrumentationOutput) => {
@@ -1110,6 +1129,7 @@ try {
         targetSession: state.b,
         threadId: state.thread,
       };
+      state.profileContent.uiCommentMarker = `${state.profileContent.marker} android ui comment`;
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
     }
@@ -1125,7 +1145,8 @@ try {
         ? "profile_content_gallery_comments_and_attachments_verified"
         : "peer_avatar_opened_public_profile_and_returned_to_chat");
     if (profileContentOnly) {
-      report.steps.push("profile_content_comment_created_and_cleaned");
+      state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
+      report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
     }
   }
 
@@ -1151,6 +1172,7 @@ try {
         markerSha256: sha256(state.profileContent.marker),
         postId: state.profileContent.postId,
         seedCommentId: state.profileContent.seedCommentId,
+        uiCommentId: state.profileContent.uiCommentId,
         attachmentId: state.profileContent.attachmentId,
         attachmentMessageId: state.profileContent.attachmentMessageId,
       } : null,
