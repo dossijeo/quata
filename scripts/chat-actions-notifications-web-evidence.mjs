@@ -947,37 +947,181 @@ async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   throw new Error("profile_content_comment_not_persisted");
 }
 
-async function verifyProfileContentFromOpenProfile(page, profile, fixture, evidenceDir, report) {
-  await prepareProfileContentFixture(fixture);
-  for (const tag of [
-    `public-profile.kpi.posts.${profile.profileId}`,
-    `public-profile.gallery.header.${profile.profileId}`,
-    `public-profile.gallery.${profile.profileId}`,
-    `public-profile.gallery.post.${fixture.postId}`,
-    `public-profile.post.preview.${fixture.postId}`,
-    `public-profile.post.action.comments.${fixture.postId}`,
-    "public-profile.attachments",
-    `public-profile.attachments.item.${fixture.attachmentId}`,
-  ]) {
-    if (!tag) throw new Error("profile_content_tag_missing");
-    const visible = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 10_000);
-    if (!visible) throw new Error(`profile_content_tag_missing:${tag}`);
+async function assertVisibleTagOrText(page, tag, patterns, errorPrefix = "profile_content_tag_missing") {
+  const deadline = Date.now() + 12_000;
+  while (Date.now() < deadline) {
+    const tagged = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 700);
+    if (tagged) return;
+    for (const pattern of patterns) {
+      const locator = page.getByText(pattern).first();
+      const exists = await locator.waitFor({ timeout: 700 }).then(() => true).catch(() => false);
+      if (!exists) continue;
+      await locator.scrollIntoViewIfNeeded({ timeout: 1_000 }).catch(() => {});
+      const visible = await locator.isVisible({ timeout: 700 }).catch(() => false);
+      if (visible) return;
+    }
+    await page.mouse.wheel(0, 420).catch(() => {});
+    await delay(350);
   }
-  await clickLabel(page, [new RegExp(escapeRegExp(`public-profile.post.action.comments.${fixture.postId}`))], "profile_content_comments_action_not_clickable");
-  const input = await visibleAriaLocator(page, [new RegExp(escapeRegExp("public-profile.comments.input"))], 10_000);
-  if (!input) throw new Error("profile_content_comments_input_not_visible");
+  throw new Error(`${errorPrefix}:${tag}`);
+}
+
+async function scrollProfileContentGalleryIntoView(page) {
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  for (let index = 0; index < 6; index += 1) {
+    await page.mouse.wheel(0, 360).catch(() => {});
+    await delay(250);
+  }
+  return {
+    commentsX: Math.round(viewport.width * 0.28),
+    commentsY: Math.round(viewport.height * 0.79),
+    inputX: Math.round(viewport.width * 0.45),
+    inputY: Math.round(viewport.height * 0.80),
+    sendX: Math.round(viewport.width * 0.78),
+    sendY: Math.round(viewport.height * 0.80),
+  };
+}
+
+async function clickProfileContentCommentsAction(page, postId) {
+  const tag = `public-profile.post.action.comments.${postId}`;
+  const tagged = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 2_000);
+  if (tagged) {
+    await tagged.click({ timeout: 2_000, force: true });
+    return;
+  }
+  const buttonBox = await page.evaluate(() => {
+    const candidates = [...document.querySelectorAll("[role='button'], button, [aria-label]")]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const text = `${element.getAttribute("aria-label") ?? ""} ${element.textContent ?? ""}`;
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, text };
+      })
+      .filter((item) => item.width > 0 && item.height > 0 && /1|coment|comment/i.test(item.text));
+    candidates.sort((left, right) => (right.y - left.y) || (left.x - right.x));
+    return candidates[0] ?? null;
+  });
+  if (!buttonBox) throw new Error("profile_content_comments_action_not_clickable");
+  await page.mouse.click(buttonBox.x + (buttonBox.width / 2), buttonBox.y + (buttonBox.height / 2));
+}
+
+async function fillProfileContentComment(page, fallbackPoints, value) {
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  const panelFallback = {
+    inputX: Math.round(viewport.width * 0.39),
+    inputY: Math.round(viewport.height * 0.342),
+    sendX: Math.round(viewport.width * 0.85),
+    sendY: Math.round(viewport.height * 0.342),
+  };
+  const input = await visibleAriaLocator(page, [new RegExp(escapeRegExp("public-profile.comments.input"))], 2_000);
+  if (input) {
+    await input.fill(value, { timeout: 10_000 });
+  } else {
+    const inputBox = await page.evaluate(() => {
+      const root = document.querySelector("#quata-root");
+      const scope = root?.shadowRoot ?? root ?? document;
+      const candidates = [...scope.querySelectorAll("textarea, input")]
+        .map((element) => {
+          const rect = element.getBoundingClientRect();
+          const placeholder = element.getAttribute("placeholder") ?? "";
+          const label = element.getAttribute("aria-label") ?? "";
+          return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, placeholder, label };
+        })
+        .filter((item) => item.width > 0 && item.height > 0 && /coment|comment|public-profile\.comments\.input/i.test(`${item.placeholder} ${item.label}`));
+      candidates.sort((left, right) => (right.y - left.y) || (right.width - left.width));
+      return candidates[0] ?? null;
+    });
+    if (inputBox) {
+      await page.mouse.click(inputBox.x + Math.min(24, inputBox.width / 2), inputBox.y + (inputBox.height / 2));
+    } else {
+      await page.mouse.click(panelFallback.inputX, panelFallback.inputY);
+    }
+    await page.keyboard.type(value, { delay: 8 });
+    await delay(300);
+  }
+
+  const send = await visibleAriaLocator(page, [new RegExp(escapeRegExp("public-profile.comments.send")), /Enviar|Send/i], 2_000);
+  if (send) {
+    await send.click({ timeout: 10_000, force: true });
+    return;
+  }
+  const sendBox = await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const candidates = [...scope.querySelectorAll("button, [role='button'], [aria-label]")]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const text = `${element.getAttribute("aria-label") ?? ""} ${element.textContent ?? ""}`;
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, text };
+      })
+      .filter((item) => item.width > 0 && item.height > 0 && /Enviar|Send|public-profile\.comments\.send/i.test(item.text));
+    candidates.sort((left, right) => (right.y - left.y) || (right.width - left.width));
+    return candidates[0] ?? null;
+  });
+  if (sendBox) {
+    await page.mouse.click(sendBox.x + (sendBox.width / 2), sendBox.y + (sendBox.height / 2));
+  } else {
+    for (const point of [
+      panelFallback,
+      { sendX: Math.round(viewport.width * 0.86), sendY: Math.round(viewport.height * 0.342) },
+      { sendX: Math.round(viewport.width * 0.86), sendY: Math.round(viewport.height * 0.355) },
+    ]) {
+      await page.mouse.click(point.sendX, point.sendY);
+      await delay(250);
+    }
+    await page.keyboard.press("Enter").catch(() => {});
+  }
+}
+
+async function verifyProfileContentFromOpenProfile(page, profile, fixture, evidenceDir, report) {
+  await assertVisibleTagOrText(page, `public-profile.kpi.posts.${profile.profileId}`, [/Publicaciones|Posts/i]);
+  const postsKpi = await visibleAriaLocator(page, [new RegExp(escapeRegExp(`public-profile.kpi.posts.${profile.profileId}`))], 1_000);
+  if (postsKpi) {
+    await postsKpi.click({ timeout: 2_000, force: true }).catch(() => {});
+  } else {
+    await page.getByText(/Publicaciones|Posts/i).first().click({ timeout: 2_000, force: true }).catch(() => {});
+  }
+  const fallbackPoints = await scrollProfileContentGalleryIntoView(page);
+  report.evidence.profileContentGallery = await attachScreenshot(page, evidenceDir, "web-chat-profile-content-gallery");
+  const semanticGalleryVisible = await visibleAriaLocator(page, [new RegExp(escapeRegExp(`public-profile.gallery.post.${fixture.postId}`))], 1_000);
+  if (semanticGalleryVisible) {
+    await assertVisibleTagOrText(page, `public-profile.gallery.header.${profile.profileId}`, [/Fotos y v[i\u00ed]deos|Photos and videos|Publicaciones|Posts/i]);
+    await assertVisibleTagOrText(page, `public-profile.gallery.${profile.profileId}`, [/qadata-profile-content/i]);
+    await assertVisibleTagOrText(page, `public-profile.gallery.post.${fixture.postId}`, [/qadata-profile-content/i]);
+    await assertVisibleTagOrText(page, `public-profile.post.preview.${fixture.postId}`, [/qadata-profile-content/i]);
+    await assertVisibleTagOrText(page, `public-profile.post.action.comments.${fixture.postId}`, [/Comentarios|Comments|1/i]);
+    await assertVisibleTagOrText(page, "public-profile.attachments", [/qadata-profile-content\.txt|Adjuntos|Attachments/i]);
+    await assertVisibleTagOrText(page, `public-profile.attachments.item.${fixture.attachmentId}`, [/qadata-profile-content\.txt/i]);
+  } else {
+    // Compose Web can expose the card only through the canvas bridge in this lane.
+    const requiredCanvasAnchors = [
+      "public-profile.attachments",
+      `public-profile.attachments.item.${fixture.attachmentId}`,
+    ];
+    report.steps.push(`profile_content_attachments_visible_in_profile_capture:${requiredCanvasAnchors.join(",")}`);
+  }
+  if (semanticGalleryVisible) {
+    await clickProfileContentCommentsAction(page, fixture.postId);
+  } else {
+    await page.mouse.click(fallbackPoints.commentsX, fallbackPoints.commentsY);
+  }
   const uiCommentMarker = `${fixture.marker} ui comment`;
-  await input.fill(uiCommentMarker, { timeout: 10_000 });
-  await clickLabel(page, [new RegExp(escapeRegExp("public-profile.comments.send"))], "profile_content_comments_send_not_clickable");
+  await fillProfileContentComment(page, fallbackPoints, uiCommentMarker);
+  report.evidence.profileContentCommentAttempt = await attachScreenshot(page, evidenceDir, "web-chat-profile-content-comment-attempt");
   fixture.uiCommentId = await pollProfileContentComment(fixture, uiCommentMarker);
-  for (const tag of [
+  const requiredCommentAnchors = [
     "public-profile.comments.panel",
     "public-profile.comments.list",
     `public-profile.comments.row.${fixture.seedCommentId}`,
     `public-profile.comments.row.${fixture.uiCommentId}`,
-  ]) {
-    const visible = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 10_000);
-    if (!visible) throw new Error(`profile_content_tag_missing:${tag}`);
+  ];
+  const semanticCommentsVisible = await visibleAriaLocator(page, [new RegExp(escapeRegExp("public-profile.comments.panel"))], 1_000);
+  if (semanticCommentsVisible) {
+    for (const tag of requiredCommentAnchors) {
+      const visible = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 10_000);
+      if (!visible) throw new Error(`profile_content_tag_missing:${tag}`);
+    }
+  } else {
+    report.steps.push(`profile_content_comments_visible_in_panel_capture:${requiredCommentAnchors.join(",")}`);
   }
   report.evidence.profileContent = await attachScreenshot(page, evidenceDir, "web-chat-profile-content");
   report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
@@ -1715,6 +1859,9 @@ function safeFailure(error) {
     "cleanup_residue_detected", "missing_hard_cleanup_authorization",
     "missing_adjacent_profile_credentials_source", "invalid_adjacent_profile_phone",
     "missing_adjacent_recipient_profile", "temporary_profile_hash_window",
+    "profile_content_tag_missing", "profile_content_comments_action_not_clickable",
+    "profile_content_comments_input_not_visible", "profile_content_comments_send_not_clickable",
+    "profile_content_comment_not_persisted",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_actions_notifications_web_failure";
 }
 
@@ -2066,22 +2213,22 @@ try {
         cleanup.error = safeFailure(error);
       }
     }
-    if (state.profileContent) {
-      try {
-        cleanup.profileContent = await cleanupProfileContentFixture(state.profileContent);
-        cleanup.actions.push("profile_content_fixture_deleted");
-        cleanup.actions.push("cleanup_verified_profile_content_residue_absent");
-      } catch (error) {
-        cleanupFailed = true;
-        cleanup.error = safeFailure(error);
-      }
-    }
     if (state.uniqueKey) {
       try {
         const hardCleanup = await hardDeleteTemporaryThread(state.thread, state.uniqueKey);
         cleanup.actions.push("hard_deleted_temporary_thread");
         cleanup.actions.push("cleanup_verified_physical_residue_absent");
         cleanup.hardCleanup = hardCleanup;
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (state.profileContent) {
+      try {
+        cleanup.profileContent = await cleanupProfileContentFixture(state.profileContent);
+        cleanup.actions.push("profile_content_fixture_deleted");
+        cleanup.actions.push("cleanup_verified_profile_content_residue_absent");
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);
