@@ -5,7 +5,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PreferenceStore
-import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.feature.auth.presentation.AuthCatalog
 import com.quata.feature.auth.presentation.AuthCatalogLocale
 import com.quata.feature.auth.presentation.AuthProductDestination
@@ -32,7 +31,7 @@ fun WebLoginHost(
         prefixes = AuthCatalog.countryPrefixes(AuthCatalogLocale.Spanish),
         initialDestination = initialDestination,
         registerLegalLinks = {
-            QuataLegalDocumentLinksContent(
+            WebNativeLegalDocumentLinksContent(
                 language = QuataLanguage.Spanish,
                 onOpenDocument = { document ->
                     scope.launch { documentOpener.open(webLegalDocumentFile(document, QuataLanguage.Spanish)) }

@@ -12,7 +12,8 @@ const androidAuthEvidenceTest = await source('../app/src/androidTest/java/com/qu
 const androidEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/whatsnew/presentation/AboutReleaseHistoryInstrumentedTest.kt');
 const web = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt');
 const webSettings = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebSettingsHost.kt');
-const webLogin = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebLoginHost.kt');
+  const webLogin = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebLoginHost.kt');
+  const webNativeLegalLinks = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebNativeLegalDocumentLinksContent.kt');
 const webMain = await source('../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt');
 const webEvidenceRunner = await source('../scripts/about-release-history-web-evidence.mjs');
 const webAuthEvidenceRunner = await source('../scripts/web-authenticated-browser-e2e.mjs');
@@ -137,8 +138,11 @@ test('Auth registration exposes legal documents through the shared common slot',
   assert.match(androidAuthEvidenceTest, /sharedRegisterSurfaceExposesLegalDocumentsAndDispatchesClicks/);
 
   assert.match(webLogin, /registerLegalLinks = \{/);
-  assert.match(webLogin, /QuataLegalDocumentLinksContent\(/);
+  assert.match(webLogin, /WebNativeLegalDocumentLinksContent\(/);
   assert.match(webLogin, /documentOpener\.open\(webLegalDocumentFile\(document, QuataLanguage\.Spanish\)\)/);
+  assert.match(webNativeLegalLinks, /legalDocumentLabels\(language\)/);
+  assert.match(webNativeLegalLinks, /legalDocument\.label\(labels\)/);
+  assert.match(webNativeLegalLinks, /HTMLButtonElement/);
   assert.match(webMain, /documentOpener = platformServices\.documentOpener/);
   assert.match(webAuthEvidenceRunner, /register_shared_legal_documents_opened_from_local_assets/);
   assert.match(webAuthEvidenceRunner, /clickAndCaptureDocumentViewer\(page, \/privacidad\|Privacy policy\/i, "privacy_es\.docx", 0\)/);
