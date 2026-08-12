@@ -632,7 +632,7 @@ async function scrollLegalLinksIntoView(page) {
 async function returnToProfileOverview(page) {
   const managementVisible = await findVisibleTextBounds(page, /Gestión de cuenta|Account management/i);
   if (!managementVisible) return;
-  await clickVisibleText(page, /Volver|Back/i);
+  await page.mouse.click(Math.max(8, managementVisible.x - 24), managementVisible.y + managementVisible.height / 2);
   await page.waitForFunction(() => {
     const root = document.querySelector("#quata-root");
     const scope = root?.shadowRoot ?? root ?? document;
