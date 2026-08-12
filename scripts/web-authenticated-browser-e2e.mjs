@@ -601,6 +601,7 @@ async function assertAccountSettingsLegalDocumentViewer(page, reportOutput) {
   for (const route of ["profile", "settings"]) {
     await page.evaluate(fragment => { globalThis.location.hash = fragment; }, route);
     await waitForShellRoute(page, route);
+    if (route === "profile") await returnToProfileOverview(page);
     await scrollLegalLinksIntoView(page);
     const screenshot = reportOutput.replace(/\.json$/i, `.legal-${route}.png`);
     await page.screenshot({ path: screenshot, fullPage: true });
@@ -628,6 +629,19 @@ async function scrollLegalLinksIntoView(page) {
   }
 }
 
+async function returnToProfileOverview(page) {
+  const managementVisible = await findVisibleTextBounds(page, /Gestión de cuenta|Account management/i);
+  if (!managementVisible) return;
+  await clickVisibleText(page, /Volver|Back/i);
+  await page.waitForFunction(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    return [scope, ...scope.querySelectorAll("*")].some(element =>
+      (element.innerText || element.textContent || "").includes("Configurar contactos de emergencia") ||
+      (element.innerText || element.textContent || "").includes("Documentos legales"));
+  });
+}
+
 async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallbackIndex) {
   const previousOpenCount = await page.evaluate(() =>
     Array.isArray(globalThis.__quataDocumentOpenEvidence) ? globalThis.__quataDocumentOpenEvidence.length : 0,
@@ -635,11 +649,11 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
   const nativeButton = page.getByRole("button", { name: pattern }).first();
   if (await nativeButton.count()) {
     await nativeButton.click({ timeout: 3_000 }).catch(async () => {
-      const box = await waitForTextBounds(page, pattern, 2_000).catch(() => registerLegalFallbackBounds(page, fallbackIndex));
+      const box = await waitForTextBounds(page, pattern, 2_000).catch(() => legalFallbackBounds(page, fallbackIndex));
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     });
   } else {
-    const box = await waitForTextBounds(page, pattern, 2_000).catch(() => registerLegalFallbackBounds(page, fallbackIndex));
+    const box = await waitForTextBounds(page, pattern, 2_000).catch(() => legalFallbackBounds(page, fallbackIndex));
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   }
   const openedHandle = await page.waitForFunction(({ name, previousCount }) =>
@@ -672,11 +686,16 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
   };
 }
 
-async function registerLegalFallbackBounds(page, index) {
+async function clickVisibleText(page, pattern) {
+  const box = await waitForTextBounds(page, pattern, 2_000);
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+}
+
+async function legalFallbackBounds(page, index) {
   return await page.evaluate((fallbackIndex) => {
     const root = document.querySelector("#quata-root");
     const rect = root?.getBoundingClientRect();
-    if (!rect || rect.width <= 0 || rect.height <= 0) throw new Error("register_legal_root_missing");
+    if (!rect || rect.width <= 0 || rect.height <= 0) throw new Error("legal_root_missing");
     const isWide = rect.width >= 720;
     return isWide
       ? { x: rect.x + rect.width * 0.47, y: rect.y + rect.height * (0.79 + fallbackIndex * 0.07), width: rect.width * 0.12, height: 34 }
@@ -691,7 +710,7 @@ async function waitForTextBounds(page, pattern, timeoutMs) {
     if (box) return box;
     await page.waitForTimeout(100);
   }
-  throw new Error(`register_legal_text_target_missing:${pattern}`);
+  throw new Error(`legal_text_target_missing:${pattern}`);
 }
 
 async function findVisibleTextBounds(page, pattern) {
