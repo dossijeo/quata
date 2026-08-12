@@ -86,6 +86,31 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-launch-recovery")
     }
 
+    func testAuthLaunchFixtureCanColdStartSharedRegisterLegalLinks() {
+        let app = fixtureApp("auth-launch", authDestination: "register", spanishLocale: true)
+        app.launch()
+
+        let host = QuataIosHostUITestSupport.fixtureRoot(
+            in: app,
+            identifier: "quata-ios-auth-launch-host",
+        )
+        XCTAssertEqual(host.label, "Quata iOS Auth launch fixture")
+
+        for identifier in [
+            "legal-document-link-privacy",
+            "legal-document-link-childsafety",
+        ] {
+            XCTAssertTrue(
+                app.descendants(matching: .any)
+                    .matching(identifier: identifier)
+                    .firstMatch
+                    .waitForExistence(timeout: 10),
+                "The shared register legal semantic \(identifier) must be available in the iOS fixture.",
+            )
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-launch-register-legal")
+    }
+
     func testRealAuthRecoveryFixtureRoundTripsPasswordAndKeepsEvidence() throws {
         guard ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_RECOVERY_REAL_OPT_IN"] == Self.realRecoveryOptIn else {
             throw XCTSkip("Real iOS recovery is opt-in because it mutates an authorized account password.")

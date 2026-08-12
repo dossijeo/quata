@@ -8,6 +8,7 @@ const androidNav = await source('../app/src/main/java/com/quata/core/navigation/
 const androidLegal = await source('../app/src/main/java/com/quata/core/moderation/LegalDocuments.kt');
 const iosLegal = await source('../core/src/iosMain/kotlin/com/quata/core/moderation/IosLegalDocuments.kt');
 const androidRegister = await source('../app/src/main/java/com/quata/feature/auth/presentation/register/RegisterScreen.kt');
+const androidAuthEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/auth/presentation/AuthRecoveryProductBridgeInstrumentedTest.kt');
 const androidEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/whatsnew/presentation/AboutReleaseHistoryInstrumentedTest.kt');
 const web = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt');
 const webSettings = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebSettingsHost.kt');
@@ -131,6 +132,7 @@ test('Auth registration exposes legal documents through the shared common slot',
   assert.match(androidRegister, /QuataLegalDocumentLinksContent\(/);
   assert.match(androidRegister, /scope\.launch \{ openLegalDocument\(document\) \}/);
   assert.match(androidNav, /openLegalDocument = \{ document -> openLegalDocument\(appContext, container, document\) \}/);
+  assert.match(androidAuthEvidenceTest, /sharedRegisterSurfaceExposesLegalDocumentsAndDispatchesClicks/);
 
   assert.match(webLogin, /registerLegalLinks = \{/);
   assert.match(webLogin, /QuataLegalDocumentLinksContent\(/);
@@ -141,6 +143,8 @@ test('Auth registration exposes legal documents through the shared common slot',
   assert.match(iosAuth, /fun openIosAuthLegalDocument\(/);
   assert.match(iosAuth, /iosLegalDocumentFile\(document, language\)\?\.let \{ documentOpener\.open\(it\) \}/);
   assert.match(iosSwift, /createIosAuthHostDependencies[\s\S]*documentOpener: platformServices\.services\.documentOpener/);
+  assert.match(iosHostUiTests, /testAuthLaunchFixtureCanColdStartSharedRegisterLegalLinks/);
+  assert.match(iosHostUiTests, /auth-launch-register-legal/);
 });
 
 async function source(path) {

@@ -17,8 +17,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
+import com.quata.core.localization.QuataLanguage
+import com.quata.core.moderation.LegalDocument
 import com.quata.core.model.AuthSession
 import com.quata.core.model.CountryPrefix
+import com.quata.core.ui.components.QuataLegalDocumentLinkTestTagPrefix
+import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
@@ -38,6 +42,40 @@ class AuthRecoveryProductBridgeInstrumentedTest {
     val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
+
+    @Test
+    fun sharedRegisterSurfaceExposesLegalDocumentsAndDispatchesClicks() {
+        val repository = FixtureAuthRepository()
+        val openedLegalDocuments = mutableListOf<LegalDocument>()
+
+        compose.setContent {
+            QuataTheme(mode = QuataThemeMode.Light) {
+                AuthProductHostContent(
+                    repository = repository,
+                    catalog = AuthCatalog.copy(AuthCatalogLocale.Spanish),
+                    prefixes = listOf(CountryPrefix("240", "+240 - Guinea Ecuatorial")),
+                    initialDestination = AuthProductDestination.Register,
+                    registerLegalLinks = {
+                        QuataLegalDocumentLinksContent(
+                            language = QuataLanguage.Spanish,
+                            onOpenDocument = { openedLegalDocuments += it },
+                        )
+                    },
+                    onAuthenticated = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag("${QuataLegalDocumentLinkTestTagPrefix}privacy", useUnmergedTree = true)
+            .performScrollTo()
+            .performTouchInput { click(center) }
+        compose.onNodeWithTag("${QuataLegalDocumentLinkTestTagPrefix}childsafety", useUnmergedTree = true)
+            .performScrollTo()
+            .performTouchInput { click(center) }
+
+        assertEquals(listOf(LegalDocument.Privacy, LegalDocument.ChildSafety), openedLegalDocuments)
+        saveScreenshot("android-auth-register-legal-documents")
+    }
 
     @Test
     fun sharedRecoverySurfaceHandlesQuestionResetAndReturnToLogin() {

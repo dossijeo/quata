@@ -78,6 +78,11 @@ test("auth-launch UI contract proves two cold launches with real Compose readine
   assert.match(uiTests, /authDestination: "recovery"/);
   assert.match(uiTests, /"auth\.recovery\.root"/);
   assert.match(uiTests, /"auth\.recovery\.submit"/);
+  assert.match(uiTests, /testAuthLaunchFixtureCanColdStartSharedRegisterLegalLinks/);
+  assert.match(uiTests, /authDestination: "register"/);
+  assert.match(uiTests, /"legal-document-link-privacy"/);
+  assert.match(uiTests, /"legal-document-link-childsafety"/);
+  assert.match(uiTests, /auth-launch-register-legal/);
   assert.doesNotMatch(
     uiTests,
     /(?:quata-ios-auth-launch-ready|containmentMarker)[\s\S]{0,160}waitForExistence/,
