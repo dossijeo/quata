@@ -18,6 +18,7 @@ const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTI
 const tempProfileHashAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH_AUTHORIZATION";
 const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH";
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
+const chatAttachmentsBucket = "chat-attachments";
 let lastThreadSnapshot = null;
 
 class ProfileOnlyCompleted extends Error {}
@@ -213,6 +214,26 @@ function rpc(config, session, name, body) {
   }, `chat_rpc_failed:${name}`);
 }
 
+async function storageRequest(config, session, path, options, prefix) {
+  let response;
+  try {
+    response = await fetch(`${config.baseUrl}${path}`, {
+      ...options,
+      headers: {
+        apikey: config.key,
+        ...(options.headers ?? {}),
+        ...(session?.accessToken ? { authorization: `Bearer ${session.accessToken}` } : {}),
+      },
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch {
+    throw new Error(`${prefix}:network`);
+  }
+  const text = await response.text();
+  if (!response.ok) throw new Error(`${prefix}:http_${response.status}`);
+  return text;
+}
+
 function rows(payload, key) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.[key])) return payload[key];
@@ -234,6 +255,14 @@ function threadId(payload) {
 
 function messageId(payload) {
   return positiveId(rows(payload, "messages")[0]?.id ?? payload?.message?.id ?? payload?.message_id ?? payload?.id, "message_id");
+}
+
+function attachmentId(payload) {
+  return positiveId(payload?.id ?? payload?.file?.id, "attachment_id");
+}
+
+function pathSegment(path) {
+  return path.split("/").map(encodeURIComponent).join("/");
 }
 
 function messageText(row) {
@@ -758,22 +787,143 @@ async function toggleFollowFromOpenProfile(page, peerProfile, evidenceDir, repor
 
 async function prepareProfileContentFixture(fixture) {
   if (!fixture?.marker?.startsWith("qadata-profile-content-")) throw new Error("profile_content_fixture_marker_invalid");
-  throw new Error("profile_content_fixture_not_implemented");
+  if (!config || !fixture.actorSession || !fixture.targetSession || !Number.isSafeInteger(Number(fixture.threadId))) {
+    throw new Error("profile_content_fixture_invalid_context");
+  }
+  if (fixture.prepared) return fixture;
+  const marker = fixture.marker;
+  const content = `profile content attachment ${marker}\n`;
+  fixture.storagePath = `${fixture.actorSession.profileId}/profile-content/${marker}.txt`;
+  await storageRequest(config, fixture.actorSession, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(fixture.storagePath)}`, {
+    method: "POST",
+    headers: { "content-type": "text/plain; charset=utf-8", "x-upsert": "false" },
+    body: content,
+  }, "profile_content_storage_upload_failed");
+  fixture.storageObjectCreated = true;
+  const publicUrl = `${config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(fixture.storagePath)}`;
+  fixture.attachmentId = attachmentId(await rpc(config, fixture.actorSession, "quata_chat_register_attachment", {
+    p_actor_profile_id: fixture.actorSession.profileId,
+    p_thread_id: fixture.threadId,
+    p_file_url: publicUrl,
+    p_storage_bucket: chatAttachmentsBucket,
+    p_storage_path: fixture.storagePath,
+    p_mime_type: "text/plain",
+    p_name: "qadata-profile-content.txt",
+    p_size_bytes: Buffer.byteLength(content),
+    p_ext: "txt",
+    p_thumb: null,
+  }));
+  fixture.attachmentMessageId = messageId(await rpc(config, fixture.actorSession, "quata_chat_send_message", {
+    p_actor_profile_id: fixture.actorSession.profileId,
+    p_thread_id: fixture.threadId,
+    p_message: "",
+    p_file_ids: [fixture.attachmentId],
+    p_reply_to_message_id: null,
+    p_client_message_id: `profile-content-attachment-${marker}`,
+  }));
+  await withPoolerClient(async (client) => {
+    await client.query("begin");
+    try {
+      const post = await client.query(
+        `with selected_wall as (
+           select wall_id as id
+           from public.community_members
+           where profile_id = $1
+           order by created_at desc
+           limit 1
+         ), fallback_wall as (
+           select id
+           from public.community_walls_stats
+           where is_active = true
+           order by sort_order asc
+           limit 1
+         ), wall as (
+           select id from selected_wall
+           union all
+           select id from fallback_wall
+           limit 1
+         )
+         insert into public.community_posts(id, wall_id, profile_id, body)
+         select gen_random_uuid(), wall.id, $1, $2
+         from wall
+         returning id`,
+        [fixture.targetSession.profileId, `${marker} post body`],
+      );
+      fixture.postId = post.rows[0]?.id;
+      if (!uuid.test(fixture.postId ?? "")) throw new Error("profile_content_fixture_wall_unavailable");
+      const comment = await client.query(
+        `insert into public.community_comments(id, post_id, profile_id, body)
+         values (gen_random_uuid(), $1, $2, $3)
+         returning id`,
+        [fixture.postId, fixture.actorSession.profileId, `${marker} seed comment`],
+      );
+      fixture.seedCommentId = comment.rows[0]?.id;
+      await client.query(
+        `insert into public.community_post_likes(post_id, profile_id)
+         values ($1, $2)
+         on conflict do nothing`,
+        [fixture.postId, fixture.actorSession.profileId],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  fixture.prepared = true;
+  return fixture;
 }
 
 async function cleanupProfileContentFixture(fixture) {
   if (!fixture) return null;
+  if (fixture.storageObjectCreated && config && fixture.actorSession && fixture.storagePath) {
+    await storageRequest(config, fixture.actorSession, `/storage/v1/object/${chatAttachmentsBucket}`, {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prefixes: [fixture.storagePath] }),
+    }, "profile_content_storage_delete_failed");
+    fixture.storageObjectCreated = false;
+  }
   return await withPoolerClient(async (client) => {
+    await client.query("begin");
+    try {
+      if (fixture.postId) {
+        await client.query(
+          `delete from public.community_post_likes
+           where post_id = $1 and profile_id in ($2, $3)`,
+          [fixture.postId, fixture.actorSession?.profileId ?? "00000000-0000-0000-0000-000000000000", fixture.targetSession?.profileId ?? "00000000-0000-0000-0000-000000000000"],
+        );
+        await client.query(
+          `delete from public.community_comments
+           where post_id = $1 and (body like $2 or id = $3)`,
+          [fixture.postId, `%${fixture.marker}%`, fixture.seedCommentId ?? "00000000-0000-0000-0000-000000000000"],
+        );
+        await client.query(
+          `delete from public.community_posts
+           where id = $1 and body like $2`,
+          [fixture.postId, `%${fixture.marker}%`],
+        );
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
     const residue = await client.query(
       `select
         (select count(*)::int from public.community_posts where id = $1 or body like $2) as community_posts,
         (select count(*)::int from public.community_comments where post_id = $1 or body like $2) as community_comments,
         (select count(*)::int from public.community_post_likes where post_id = $1) as community_post_likes,
-        (select count(*)::int from public.chat_attachments where thread_id = $3) as chat_attachments`,
-      [fixture.postId ?? "00000000-0000-0000-0000-000000000000", `%${fixture.marker}%`, fixture.threadId ?? -1],
+        (select count(*)::int from public.chat_attachments where id = $3 and storage_path = $4) as chat_attachments`,
+      [fixture.postId ?? "00000000-0000-0000-0000-000000000000", `%${fixture.marker}%`, fixture.attachmentId ?? -1, fixture.storagePath ?? ""],
     );
+    const counts = residue.rows[0] ?? {};
+    if (Object.values(counts).some((count) => Number(count) !== 0)) throw new Error("cleanup_residue_detected:profile_content");
     return {
-      residueCounts: residue.rows[0] ?? {},
+      postId: fixture.postId ?? null,
+      seedCommentId: fixture.seedCommentId ?? null,
+      attachmentId: fixture.attachmentId ?? null,
+      residueCounts: counts,
       status: "cleanup_verified_profile_content_residue_absent",
     };
   });
@@ -1550,7 +1700,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -1666,15 +1816,17 @@ try {
       await assertProfileFollowLists(page, server.origin, `sb:${state.thread}`, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_public_profile_followers_and_following_lists_opened_and_returned");
     } else if (options.profileContentOnly) {
-      state.profileContent = await prepareProfileContentFixture({
+      state.profileContent = {
         marker: `qadata-profile-content-${runId}`,
-        actorProfileId: state.a.profileId,
-        peerProfileId: state.b.profileId,
+        actorSession: state.a,
+        targetSession: state.b,
         threadId: state.thread,
-      });
-      report.steps.push("profile_content_fixture_prepared_reversibly");
+      };
+      await prepareProfileContentFixture(state.profileContent);
+      report.steps.push("profile_content_fixture_prepared");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-content-open");
-      await verifyProfileContentFromOpenProfile(page, state.profileContent, options.evidenceDir, report);
+      await verifyProfileContentFromOpenProfile(page, state.b, state.profileContent, options.evidenceDir, report);
+      report.steps.push("profile_content_comment_created_and_cleaned");
     } else if (options.profileFollowOnly) {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
       await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
@@ -1702,13 +1854,18 @@ try {
         peerMarkerSha256: sha256(peerMarker),
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
         profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
-        profileContentPostIdSha256: state.profileContent?.postId ? sha256(state.profileContent.postId) : null,
-        profileContentCommentIdSha256: state.profileContent?.commentId ? sha256(state.profileContent.commentId) : null,
-        profileContentAttachmentIdSha256: state.profileContent?.attachmentId ? sha256(state.profileContent.attachmentId) : null,
+        profileContent: state.profileContent ? {
+          markerSha256: sha256(state.profileContent.marker),
+          postId: state.profileContent.postId,
+          seedCommentId: state.profileContent.seedCommentId,
+          attachmentId: state.profileContent.attachmentId,
+          attachmentMessageId: state.profileContent.attachmentMessageId,
+        } : null,
       };
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       throw new ProfileOnlyCompleted();
     }
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly) {
   } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
@@ -1875,6 +2032,16 @@ try {
       try {
         await restoreProfileFollowEdge(state.a.profileId, state.b.profileId, state.profileFollow.initiallyFollowing);
         cleanup.actions.push("profile_follow_edge_restored_to_initial_state");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (state.profileContent) {
+      try {
+        cleanup.profileContent = await cleanupProfileContentFixture(state.profileContent);
+        cleanup.actions.push("profile_content_fixture_deleted");
+        cleanup.actions.push("cleanup_verified_profile_content_residue_absent");
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);

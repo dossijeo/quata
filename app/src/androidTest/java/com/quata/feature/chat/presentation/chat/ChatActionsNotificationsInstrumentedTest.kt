@@ -65,12 +65,17 @@ class ChatActionsNotificationsInstrumentedTest {
         val replyMarker = optionalArgument("quataChatActionsReplyMarker")
         val editMarker = optionalArgument("quataChatActionsEditMarker")
         val forwardQuery = optionalArgument("quataChatActionsForwardQuery")
+        val postId = optionalArgument("quataChatActionsPostId")
+        val commentId = optionalArgument("quataChatActionsCommentId")
+        val attachmentId = optionalArgument("quataChatActionsAttachmentId")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
     val hasRequiredStageArguments = when (stage) {
-        "profile", "profile-follow", "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
-            else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
-        }
+        "profile", "profile-follow" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+        "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+        "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId).all { !it.isNullOrBlank() }
+        else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
+    }
         assumeTrue(
             "CHAT-ACTIONS-NOTIFICATIONS Android evidence is opt-in.",
             credentials != null && hasRequiredStageArguments,
@@ -93,7 +98,13 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
             "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
             "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
-                "full" -> {
+            "profile-content" -> {
+                openPeerProfile(peerProbe.orEmpty(), profileId.orEmpty())
+                assertProfileContentStage(profileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty())
+                closePublicProfile(peerProbe.orEmpty())
+                saveScreenshot("android-chat-profile-return")
+            }
+            "full" -> {
                     runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                     runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
                     runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())

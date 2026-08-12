@@ -247,6 +247,44 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-lists-return")
     }
 
+    func testProfileContentFromChatUsesSharedPublicProfileSurface() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat profile content UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
+              let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]),
+              let postId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID"]),
+              let commentId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID"]),
+              let attachmentId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID"]) else {
+            throw XCTSkip("Disposable Chat profile content fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "profile content conversation")
+        assertChatRoute(conversationId, in: app, context: "profile content conversation")
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-profile-content-thread-initial")
+
+        let profile = openPeerPublicProfile(peerProfileId: peerProfileId, in: app)
+        assertProfileContentStage(profileId: peerProfileId, postId: postId, commentId: commentId, attachmentId: attachmentId, in: app)
+
+        closePublicProfile(in: app)
+        XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after checking content.")
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 20), "Closing the profile content view must return to the same Chat conversation.")
+        attachScreenshot(app, name: "ios-chat-profile-content-return")
+    }
+
     private func assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String, in app: XCUIApplication) {
         let posts = app.descendants(matching: .any)
             .matching(identifier: "public-profile.kpi.posts.\(profileId)")

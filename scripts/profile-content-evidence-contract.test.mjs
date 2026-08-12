@@ -21,6 +21,7 @@ test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
     assert.match(runner, /chat_attachments/);
     assert.match(runner, /cleanup_verified_profile_content_residue_absent/);
     assert.match(runner, /profile_content_comment_created_and_cleaned/);
+    assert.doesNotMatch(runner, /profile_content_fixture_not_implemented/);
     assert.doesNotMatch(runner, /680242607|680242608|21085800|SERVICE_ROLE\s*=/);
   }
 });
