@@ -46,7 +46,8 @@ test("public profile follower and following lists expose stable common evidence 
 
 test("Android profile list evidence runs as an isolated profile stage", () => {
   assert.match(androidTest, /"profile-lists" -> runProfileListsStage/);
-  assert.match(androidTest, /public-profile\.list\.row\.\$listKind\./);
+  assert.match(androidTest, /Public profile \$listKind list must expose at least one visible test-profile row/);
+  assert.match(androidTest, /waitForObject\(By\.textContains\("Gabriel"\), "public profile \$listKind row"/);
   assert.match(androidTest, /android-chat-profile-list-\$listKind/);
   assert.match(androidRunner, /process\.argv\.includes\("--profile-lists-only"\)/);
   assert.match(androidRunner, /runInstrumentationStage\("profile-lists"\)/);
