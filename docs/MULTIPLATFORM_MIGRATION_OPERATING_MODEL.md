@@ -168,7 +168,11 @@ candidato.
 Regla persistente: CI nunca debe mantener al orquestador en espera pasiva. Tras lanzar la
 certificacion remota, se consulta GitHub Actions por polling asincrono y se cambia a trabajo local
 independiente hasta que haya una transicion de estado que exija clasificar fallo, revalidar o
-promover el candidato.
+promover el candidato. En concreto, no se bloquea un turno ni una lane esperando jobs de varios
+minutos: se anota el PR, SHA y checks esperados, se revisa Actions de forma periodica y se avanza
+otra unidad aislada que no toque el candidato congelado. Si no hay trabajo de implementacion seguro,
+se preparan contratos, evidencias, inventario, limpieza de ramas o analisis de la siguiente unidad;
+mirar CI sin hacer nada no cuenta como avance operativo.
 
 Todo defecto descubierto tras publicar se clasifica antes de corregirlo: **DEFECTO ESCAPADO DEL
 PREFLIGHT LOCAL** si era reproducible con comandos/artefactos locales disponibles; defecto de
