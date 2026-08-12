@@ -1290,16 +1290,6 @@ try {
           cleanup.error = safeFailure(error);
         }
       }
-      if (state.profileContent) {
-        try {
-          cleanup.profileContent = await cleanupProfileContentFixture(state.profileContent);
-          cleanup.actions.push("profile_content_fixture_deleted");
-          cleanup.actions.push("cleanup_verified_profile_content_residue_absent");
-        } catch (error) {
-          cleanupFailed = true;
-          cleanup.error = safeFailure(error);
-        }
-      }
     }
     if (state.uniqueKey) {
       try {
@@ -1307,6 +1297,16 @@ try {
         cleanup.actions.push("hard_deleted_temporary_thread");
         cleanup.actions.push("cleanup_verified_physical_residue_absent");
         cleanup.hardCleanup = hardCleanup;
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (config && state.profileContent) {
+      try {
+        cleanup.profileContent = await cleanupProfileContentFixture(state.profileContent);
+        cleanup.actions.push("profile_content_fixture_deleted");
+        cleanup.actions.push("cleanup_verified_profile_content_residue_absent");
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);
