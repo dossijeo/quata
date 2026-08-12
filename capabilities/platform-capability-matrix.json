@@ -706,7 +706,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
-              "sha256": "a8f838b1c173692d61184a233bd461fca43b74fe51ed00ce16f419b85d0a3d99",
+              "sha256": "2e9ffc3c2e4dcb316e69038021fdfc5501789a8167fc61bc6441139373453d67",
               "role": "composition"
             },
             {
@@ -769,7 +769,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
-              "sha256": "a8f838b1c173692d61184a233bd461fca43b74fe51ed00ce16f419b85d0a3d99",
+              "sha256": "2e9ffc3c2e4dcb316e69038021fdfc5501789a8167fc61bc6441139373453d67",
               "role": "runtime-bootstrap"
             },
             {
