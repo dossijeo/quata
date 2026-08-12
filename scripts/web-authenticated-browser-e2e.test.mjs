@@ -59,10 +59,11 @@ test("the hermetic browser journey proves the permanent public shell, participat
   assert.match(runner, /await invokeAuthGateAction\(page, "dismiss"\)/);
   assert.match(runner, /await invokeAuthGateAction\(page, "chooseRegister"\)/);
   assert.match(runner, /await assertFullScreenAuthDestination\(page, "register"\)/);
-  assert.match(runner, /await assertRegisterLegalDocumentDownloads\(page\)/);
-  assert.match(runner, /register_shared_legal_documents_downloaded_from_local_assets/);
-  assert.match(runner, /clickAndCaptureDownload\(page, \/privacidad\|Privacy policy\/i, "privacy_es\.docx", 0\)/);
-  assert.match(runner, /clickAndCaptureDownload\(page, \/Seguridad infantil\|Seguridad de menores\|Child safety\/i, "child_safety_es\.docx", 1\)/);
+  assert.match(runner, /await assertRegisterLegalDocumentViewer\(page\)/);
+  assert.match(runner, /register_shared_legal_documents_opened_from_local_assets/);
+  assert.match(runner, /clickAndCaptureDocumentViewer\(page, \/privacidad\|Privacy policy\/i, "privacy_es\.docx", 0\)/);
+  assert.match(runner, /clickAndCaptureDocumentViewer\(page, \/Seguridad infantil\|Seguridad de menores\|Child safety\/i, "child_safety_es\.docx", 1\)/);
+  assert.match(runner, /data-quata-docmentis-render-ready/);
   assert.match(runner, /findVisibleTextBounds\(page, pattern\)/);
   assert.match(runner, /element\.innerText \|\| element\.textContent/);
   assert.match(runner, /\[scope, \.\.\.scope\.querySelectorAll\("\*"\)\]\.filter\(Boolean\)/);

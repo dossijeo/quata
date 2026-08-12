@@ -185,8 +185,8 @@ try {
   await invokeAuthGateAction(page, "chooseRegister");
   await assertFullScreenAuthDestination(page, "register");
   report.steps.push("participation_gate_create_account_opens_fullscreen_register");
-  report.legalDocuments = await assertRegisterLegalDocumentDownloads(page);
-  report.steps.push("register_shared_legal_documents_downloaded_from_local_assets");
+  report.legalDocuments = await assertRegisterLegalDocumentViewer(page);
+  report.steps.push("register_shared_legal_documents_opened_from_local_assets");
   stage = "anonymous_public_shell";
   await assertAnonymousPublicShell(page);
   await assertPrivateAuthenticationGate(page);
@@ -578,11 +578,11 @@ async function assertFullScreenAuthDestination(page, destination) {
   destination);
 }
 
-async function assertRegisterLegalDocumentDownloads(page) {
+async function assertRegisterLegalDocumentViewer(page) {
   await scrollRegisterLegalLinksIntoView(page);
   return [
-    await clickAndCaptureDownload(page, /privacidad|Privacy policy/i, "privacy_es.docx", 0),
-    await clickAndCaptureDownload(page, /Seguridad infantil|Seguridad de menores|Child safety/i, "child_safety_es.docx", 1),
+    await clickAndCaptureDocumentViewer(page, /privacidad|Privacy policy/i, "privacy_es.docx", 0),
+    await clickAndCaptureDocumentViewer(page, /Seguridad infantil|Seguridad de menores|Child safety/i, "child_safety_es.docx", 1),
   ];
 }
 
@@ -595,17 +595,20 @@ async function scrollRegisterLegalLinksIntoView(page) {
   }
 }
 
-async function clickAndCaptureDownload(page, pattern, expectedName, fallbackIndex) {
+async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallbackIndex) {
   const box = await waitForTextBounds(page, pattern, 2_000).catch(() => registerLegalFallbackBounds(page, fallbackIndex));
-  const [download] = await Promise.all([
-    page.waitForEvent("download", { timeout: 30_000 }),
-    page.mouse.click(box.x + box.width / 2, box.y + box.height / 2),
-  ]);
-  const suggestedName = download.suggestedFilename();
-  if (suggestedName !== expectedName) throw new Error(`register_legal_download_name_mismatch:${suggestedName}`);
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForFunction((name) => {
+    const viewer = document.querySelector("[data-quata-docmentis-viewer='true']");
+    return viewer?.getAttribute("aria-label") === name &&
+      viewer?.getAttribute("data-quata-docmentis-render-ready") === "true";
+  }, expectedName, { timeout: 30_000 });
+  await page.getByRole("button", { name: "Close document viewer" }).click();
+  await page.waitForFunction(() => document.querySelector("[data-quata-docmentis-viewer='true']") === null);
   return {
-    displayName: suggestedName,
-    localAsset: `legal/${suggestedName}`,
+    displayName: expectedName,
+    localAsset: `legal/${expectedName}`,
+    viewer: "docmentis",
   };
 }
 
