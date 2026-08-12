@@ -163,8 +163,13 @@ test("common chat headers and selected-message menu use one opaque surface color
   assert.match(selectedActionBar, /val surfaceColor = chatHeaderSurfaceColor\(\)/);
   assert.match(selectedActionBar, /\.background\(surfaceColor\)/);
   assert.match(selectedActionBar, /color = surfaceColor/);
+  assert.match(groupManagement, /private fun ChatOpaqueOptionsMenuContent\(/);
+  assert.match(groupManagement, /containerColor = chatHeaderSurfaceColor\(\)/);
+  assert.equal((groupManagement.match(/DropdownMenu\(/g) ?? []).length, 1);
+  assert.equal((groupManagement.match(/ChatOpaqueOptionsMenuContent\(/g) ?? []).length, 3);
+  assert.equal((groupManagement.match(/<ChatOpaqueOptionsMenuContent\(/g) ?? []).length, 0);
   assert.match(favoriteHeader, /color = chatHeaderSurfaceColor\(\)/);
-  for (const sourceText of [selectedActionBar, favoriteHeader]) assert.doesNotMatch(sourceText, /colors\.surface\.copy\(alpha\s*=/);
+  for (const sourceText of [selectedActionBar, groupManagement, favoriteHeader]) assert.doesNotMatch(sourceText, /colors\.surface\.copy\(alpha\s*=/);
   assert.doesNotMatch(androidHost, /colors\.surface\.copy\(alpha\s*=/);
   assert.doesNotMatch(titleBar, /colors\.surface\.copy\(alpha\s*=/);
 });

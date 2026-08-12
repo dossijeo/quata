@@ -36,6 +36,7 @@ function parseArgs(argv) {
     profileListsOnly: false,
     profileContentOnly: false,
     profilePrivateChatOnly: false,
+    menuSurfaceOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -61,6 +62,10 @@ function parseArgs(argv) {
     }
     if (key === "--profile-private-chat-only") {
       result.profilePrivateChatOnly = true;
+      continue;
+    }
+    if (key === "--menu-surface-only") {
+      result.menuSurfaceOnly = true;
       continue;
     }
     const value = argv[++index];
@@ -703,6 +708,7 @@ async function waitMessageVisible(page, marker, error, timeout = 45_000) {
       if (await text.waitFor({ timeout: 500 }).then(() => true).catch(() => false)) return;
       if (await visibleTextIncludes(page, probe)) return;
       if (await visibleTextBox(page, probe)) return;
+      if (await visibleTextContentIncludes(page, probe)) return;
     }
     await delay(250);
   }
@@ -712,6 +718,7 @@ async function waitMessageVisible(page, marker, error, timeout = 45_000) {
 async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenceDir, report) {
   await openPeerProfileFromMessageWithoutReturn(page, peerMarker, peerProfile, evidenceDir, report, "web-chat-profile");
   if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
+  await closeProfileSheetIfVisible(page);
   await delay(1_000);
   if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
   report.evidence.profileReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-return");
@@ -1172,7 +1179,8 @@ async function waitForChatProfileReturn(page) {
   while (Date.now() < deadline) {
     const controls = await visibleNativeControls(page);
     const composerVisible = controls.some((control) => /Mensaje|Message/i.test(control.label));
-    if (composerVisible) return true;
+    const profileSheetVisible = controls.some((control) => /Cerrar hoja|Close sheet|Controlador de arrastre|Drag handle/i.test(control.label));
+    if (composerVisible && !profileSheetVisible) return true;
     await delay(500);
   }
   return false;
@@ -1186,6 +1194,19 @@ async function waitForExactChatRoute(page, conversationId) {
       "";
     return current === route;
   }, expected, { timeout: 20_000 });
+}
+
+async function closeProfileSheetIfVisible(page) {
+  const closeSheet = await visibleAriaLocator(page, [/Cerrar hoja|Close sheet/i], 1_000);
+  if (!closeSheet) return false;
+  const box = await closeSheet.boundingBox().catch(() => null);
+  if (box) {
+    await page.mouse.click(Math.max(1, box.x + 18), Math.max(1, box.y + 18));
+  } else {
+    await page.keyboard.press("Escape").catch(() => {});
+  }
+  await delay(700);
+  return true;
 }
 
 async function clickProfileBack(page) {
@@ -1305,6 +1326,21 @@ async function verifyChatTranslation(page, evidenceDir, marker) {
   await clickLabel(page, [/Salir|Exit|Quitter/i], "translator_exit_not_visible");
   await waitMessageVisible(page, marker, "translator_return_message_not_visible", 15_000);
   await attachScreenshot(page, evidenceDir, "web-chat-translation-return");
+}
+
+async function verifyChatOptionsMenuSurface(page, config, state, evidenceDir, report) {
+  await clickOptionsMenu(page);
+  report.evidence.optionsMenu = await attachScreenshot(page, evidenceDir, "web-chat-options-menu-surface");
+  await page.getByText(/Silenciar conversaci[oó]n|Mute conversation/i).click({ timeout: 10_000, force: true });
+  await delay(1_000);
+  if (!isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:true");
+  report.evidence.muted = await attachScreenshot(page, evidenceDir, "web-chat-actions-muted");
+  report.steps.push("options_menu_surface_visible_and_mute_enabled_by_rpc");
+  await clickOptionsMenu(page);
+  await page.getByText(/Reactivar notificaciones|Unmute|Reactivate notifications/i).click({ timeout: 10_000, force: true });
+  await delay(1_000);
+  if (isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:false");
+  report.steps.push("options_menu_unmute_verified_by_rpc");
 }
 
 async function clickTranslatorOverlayMessage(page, marker) {
@@ -1452,6 +1488,23 @@ async function clickNativeButtonByLabel(page, patterns) {
 
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function visibleTextContentIncludes(page, probe) {
+  return await page.evaluate((needle) => {
+    const compact = (value) => String(value ?? "").replace(/\s+/g, "");
+    const expected = compact(needle);
+    const containsNeedle = (value) => compact(value).includes(expected);
+    const visit = (root) => {
+      for (const element of root.querySelectorAll("*")) {
+        const rect = element.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0 && containsNeedle(element.textContent)) return true;
+        if (element.shadowRoot && visit(element.shadowRoot)) return true;
+      }
+      return false;
+    };
+    return visit(document);
+  }, probe);
 }
 
 async function visibleAriaLocator(page, patterns, timeout) {
@@ -2032,7 +2085,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
-  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly && !options.profileContentOnly && !options.profilePrivateChatOnly) {
+  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly && !options.profileContentOnly && !options.profilePrivateChatOnly && !options.menuSurfaceOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -2088,7 +2141,7 @@ try {
   report.steps.push(state.peerMessage ? "thread_rendered_with_own_and_peer_messages" : "thread_rendered_with_own_message");
 
   const translationMarker = state.peerMessage ? peerMarker : ownMarker;
-  if (options.translationOnly || state.peerMessage) {
+  if (options.translationOnly || (!options.menuSurfaceOnly && state.peerMessage)) {
     await verifyChatTranslation(page, options.evidenceDir, translationMarker);
     report.evidence.translationOverlay = join(options.evidenceDir, "web-chat-translation-overlay.png");
     report.evidence.translationResult = join(options.evidenceDir, "web-chat-translation-result.png");
@@ -2104,6 +2157,22 @@ try {
       conversationId: `sb:${state.thread}`,
       translatedMessageId: state.ownMessage,
       translatedMarkerSha256: sha256(ownMarker),
+    };
+    throw new EvidenceCompleted();
+  }
+
+  if (options.menuSurfaceOnly) {
+    await verifyChatOptionsMenuSurface(page, config, state, options.evidenceDir, report);
+    if (faults.length) throw new Error("browser_runtime_fault");
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      ownMessageId: state.ownMessage,
+      peerMessageId: state.peerMessage,
+      uniqueKeySha256: sha256(state.uniqueKey),
+      ownMarkerSha256: sha256(ownMarker),
+      peerMarkerSha256: sha256(peerMarker),
     };
     throw new EvidenceCompleted();
   }
@@ -2142,6 +2211,7 @@ try {
       await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
       report.steps.push("profile_follow_toggled_and_verified_by_db");
       if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
+      await closeProfileSheetIfVisible(page);
       await delay(1_000);
       if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
       report.evidence.profileReturn = await attachScreenshot(page, options.evidenceDir, "web-chat-profile-return");

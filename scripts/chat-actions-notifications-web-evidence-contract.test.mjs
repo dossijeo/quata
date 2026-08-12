@@ -163,6 +163,11 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /message_forwarded_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /const ownMarker = options\.translationOnly \? "Mbolo" : `chat-actions-own-\$\{runId\}`/);
   assert.match(runner, /--translation-only/);
+  assert.match(runner, /--menu-surface-only/);
+  assert.match(runner, /async function verifyChatOptionsMenuSurface\(page, config, state, evidenceDir, report\)/);
+  assert.match(runner, /web-chat-options-menu-surface/);
+  assert.match(runner, /options_menu_surface_visible_and_mute_enabled_by_rpc/);
+  assert.match(runner, /if \(options\.menuSurfaceOnly\) \{/);
   assert.match(runner, /--profile-follow-only/);
   assert.match(runner, /--profile-private-chat-only/);
   assert.match(runner, /toggleFollowFromOpenProfile/);
@@ -205,6 +210,14 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /if \(marker\.startsWith\("chat-edit-ui-"\)\) \{/);
   assert.match(runner, /async function longPressMessage\(page, marker\)/);
   assert.match(runner, /async function waitMessageVisible\(page, marker, error, timeout = 45_000\)/);
+  assert.match(runner, /async function visibleTextContentIncludes\(page, probe\)/);
+  assert.match(runner, /String\(value \?\? ""\)\.replace\(\/\\s\+\/g, ""\)/);
+  assert.match(runner, /if \(await visibleTextContentIncludes\(page, probe\)\) return/);
+  assert.match(runner, /const profileSheetVisible = controls\.some\(\(control\) => \/Cerrar hoja\|Close sheet\|Controlador de arrastre\|Drag handle\/i\.test\(control\.label\)\)/);
+  assert.match(runner, /if \(composerVisible && !profileSheetVisible\) return true/);
+  assert.match(runner, /async function closeProfileSheetIfVisible\(page\)/);
+  assert.match(runner, /visibleAriaLocator\(page, \[\/Cerrar hoja\|Close sheet\/i\], 1_000\)/);
+  assert.match(runner, /await closeProfileSheetIfVisible\(page\)/);
   assert.match(runner, /async function assertProfileHeaderVisible\(page, profile\)/);
   assert.match(runner, /profile_header_name_missing/);
   assert.match(runner, /profile_header_neighborhood_missing/);

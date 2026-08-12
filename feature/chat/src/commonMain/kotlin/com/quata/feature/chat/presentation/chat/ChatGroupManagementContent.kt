@@ -2,6 +2,7 @@ package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -116,7 +117,7 @@ fun ChatGroupManagementContent(
             ) {
                 CompactIcon(Icons.Filled.MoreVert, strings.options)
             }
-            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            ChatOpaqueOptionsMenuContent(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                 DropdownMenuItem(
                     text = { Text(if (conversation?.isMuted == true) strings.reactivateNotifications else strings.muteConversation) },
                     leadingIcon = {
@@ -193,7 +194,7 @@ fun ChatGroupManagementContent(
                         CompactIconButton(onClick = { memberMenuExpanded = true }) {
                             CompactIcon(Icons.Filled.MoreVert, strings.manageMember(member.name))
                         }
-                        DropdownMenu(
+                        ChatOpaqueOptionsMenuContent(
                             expanded = memberMenuExpanded,
                             onDismissRequest = { memberMenuExpanded = false },
                         ) {
@@ -256,6 +257,20 @@ fun ChatGroupManagementContent(
             onDismiss = { confirmation = null },
         )
     }
+}
+
+@Composable
+private fun ChatOpaqueOptionsMenuContent(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        containerColor = chatHeaderSurfaceColor(),
+        content = content,
+    )
 }
 
 private fun ChatManagementConfirmation.confirmationCopy(strings: ChatChromeStrings): Pair<String, String> = when (this) {
