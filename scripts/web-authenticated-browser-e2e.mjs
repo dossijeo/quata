@@ -185,6 +185,7 @@ try {
   await invokeAuthGateAction(page, "chooseRegister");
   await assertFullScreenAuthDestination(page, "register");
   report.steps.push("participation_gate_create_account_opens_fullscreen_register");
+  stage = "register_legal_documents";
   report.legalDocuments = await assertRegisterLegalDocumentViewer(page);
   report.steps.push("register_shared_legal_documents_opened_from_local_assets");
   stage = "anonymous_public_shell";
@@ -620,9 +621,9 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
     document.querySelector("[data-quata-docmentis-viewer='true']")
       ?.getAttribute("data-quata-docmentis-render-ready") === "true",
   );
-  const overlayVisible = await page.evaluate(() =>
-    document.querySelector("[data-quata-docmentis-viewer='true']")?.getAttribute("aria-label") === expectedName,
-  );
+  const overlayVisible = await page.evaluate((name) =>
+    document.querySelector("[data-quata-docmentis-viewer='true']")?.getAttribute("aria-label") === name,
+  expectedName);
   if (overlayVisible) {
     await page.getByRole("button", { name: "Close document viewer" }).click();
     await page.waitForFunction(() => document.querySelector("[data-quata-docmentis-viewer='true']") === null);
