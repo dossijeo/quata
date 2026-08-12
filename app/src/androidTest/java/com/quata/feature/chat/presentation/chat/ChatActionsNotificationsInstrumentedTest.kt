@@ -423,7 +423,7 @@ class ChatActionsNotificationsInstrumentedTest {
             ?: error("profile_message_probe_not_visible:$probe")
         val bounds = message.visibleBounds
         val x = (bounds.left - 72).coerceAtLeast(20)
-        val y = bounds.centerY().coerceAtLeast(20)
+        val y = (bounds.top + 34).coerceAtLeast(20)
         assertTrue("UIAutomator must dispatch a real tap on the visible message avatar.", device.click(x, y))
         SystemClock.sleep(1_000)
     }
