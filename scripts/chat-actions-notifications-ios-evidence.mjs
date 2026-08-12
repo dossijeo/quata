@@ -23,7 +23,8 @@ const translationOnly = options.translationOnly;
 const profileOnly = options.profileOnly;
 const profileFollowOnly = options.profileFollowOnly;
 const profileListsOnly = options.profileListsOnly;
-const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly;
+const profileContentOnly = options.profileContentOnly;
+const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly;
 const report = {
   check,
   status: "failed",
@@ -208,6 +209,15 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_list_edges_prepared_reversibly");
     }
+    if (profileContentOnly) {
+      state.profileContent = await prepareProfileContentFixture({
+        marker: `qadata-profile-content-${runId}`,
+        actorProfileId: state.a.profileId,
+        peerProfileId: state.b.profileId,
+        threadId: state.thread,
+      });
+      report.steps.push("profile_content_fixture_prepared_reversibly");
+    }
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
@@ -222,6 +232,10 @@ export QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID=${shellQuote(state.b.profileId)}
 export QUATA_IOS_CHAT_PROFILE_ONLY=${profileEvidenceOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E=${profileListsOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E=${profileContentOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID=${shellQuote(state.profileContent?.postId ?? "profile-only")}
+export QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID=${shellQuote(state.profileContent?.commentId ?? "profile-only")}
+export QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID=${shellQuote(state.profileContent?.attachmentId ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_COMPOSER_MARKER=${shellQuote(state.composerMarker ?? "profile-only")}
@@ -234,7 +248,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 `, 30 * 60 * 1000);
     report.steps.push(profileListsOnly
       ? "ios_xctest_profile_followers_and_following_lists_verified"
-      : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
+      : profileContentOnly
+        ? "ios_xctest_profile_content_gallery_comments_and_attachments_verified"
+        : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
 
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
@@ -270,6 +286,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         peerMarkerSha256: sha256(state.peerMarker),
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
         profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
+        profileContentPostIdSha256: state.profileContent?.postId ? sha256(state.profileContent.postId) : null,
+        profileContentCommentIdSha256: state.profileContent?.commentId ? sha256(state.profileContent.commentId) : null,
+        profileContentAttachmentIdSha256: state.profileContent?.attachmentId ? sha256(state.profileContent.attachmentId) : null,
       }
       : {
         threadId: state.thread,
@@ -388,6 +407,7 @@ function parseArgs(argv) {
     profileOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ONLY === "1",
     profileFollowOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_FOLLOW_ONLY === "1",
     profileListsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_LISTS_ONLY === "1",
+    profileContentOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -414,6 +434,10 @@ function parseArgs(argv) {
     }
     if (key === "--profile-lists-only") {
       result.profileListsOnly = true;
+      continue;
+    }
+    if (key === "--profile-content-only") {
+      result.profileContentOnly = true;
       continue;
     }
     if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
@@ -949,6 +973,30 @@ async function pollProfileFollowEdge(actorProfileId, targetProfileId, expected, 
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 750));
   }
   throw new Error(`profile_follow_backend_poll_timeout:${expected ? "created" : "removed"}`);
+}
+
+async function prepareProfileContentFixture(fixture) {
+  if (!fixture?.marker?.startsWith("qadata-profile-content-")) throw new Error("profile_content_fixture_marker_invalid");
+  fixture.expectedStep = "profile_content_comment_created_and_cleaned";
+  throw new Error("profile_content_fixture_not_implemented");
+}
+
+async function cleanupProfileContentFixture(fixture) {
+  if (!fixture) return null;
+  return await withDatabase(async (client) => {
+    const residue = await client.query(
+      `select
+        (select count(*)::int from public.community_posts where id = $1 or body like $2) as community_posts,
+        (select count(*)::int from public.community_comments where post_id = $1 or body like $2) as community_comments,
+        (select count(*)::int from public.community_post_likes where post_id = $1) as community_post_likes,
+        (select count(*)::int from public.chat_attachments where thread_id = $3) as chat_attachments`,
+      [fixture.postId ?? "00000000-0000-0000-0000-000000000000", `%${fixture.marker}%`, fixture.threadId ?? -1],
+    );
+    return {
+      residueCounts: residue.rows[0] ?? {},
+      status: "cleanup_verified_profile_content_residue_absent",
+    };
+  });
 }
 
 async function hardDeleteTemporaryForwardDestination(profile, threadId) {

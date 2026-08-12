@@ -48,6 +48,8 @@ const val PublicProfileNeighborhoodTestTagPrefix = "public-profile.neighborhood.
 const val PublicProfilePostsKpiTestTagPrefix = "public-profile.kpi.posts."
 const val PublicProfileFollowersKpiTestTagPrefix = "public-profile.kpi.followers."
 const val PublicProfileFollowingKpiTestTagPrefix = "public-profile.kpi.following."
+const val PublicProfileGalleryTestTagPrefix = "public-profile.gallery."
+const val PublicProfileGalleryHeaderTestTagPrefix = "public-profile.gallery.header."
 
 data class CommunityProfileStrings(
     val posts: String,
@@ -272,12 +274,18 @@ fun CommunityProfileScreenHost(
                             currentIndex = (pagerState.currentPage + 1).takeIf { profile.posts.isNotEmpty() },
                             total = profile.posts.size,
                             emptyLabel = strings.emptyGallery.takeIf { profile.posts.isEmpty() },
+                            modifier = Modifier.semantics {
+                                testTag = PublicProfileGalleryHeaderTestTagPrefix + profile.user.id
+                            },
                         )
                         if (profile.posts.isNotEmpty()) {
                             ProfilePostsPagerContent(
                                 posts = profile.posts,
                                 pagerState = pagerState,
                                 onAddComment = { post, comment -> onAddComment(post.id, comment) },
+                                modifier = Modifier.semantics {
+                                    testTag = PublicProfileGalleryTestTagPrefix + profile.user.id
+                                },
                                 postPreview = { post, commentsCount, openComments ->
                                     CommunityProfilePostPreviewContent(
                                         post = post,

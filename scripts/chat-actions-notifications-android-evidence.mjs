@@ -16,6 +16,7 @@ const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS
 const profileOnly = process.argv.includes("--profile-only");
 const profileFollowOnly = process.argv.includes("--profile-follow-only");
 const profileListsOnly = process.argv.includes("--profile-lists-only");
+const profileContentOnly = process.argv.includes("--profile-content-only");
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/chat-actions-notifications-credentials.json";
@@ -46,10 +47,35 @@ const evidenceFiles = [
   "android-chat-profile-list-followers.png",
   "android-chat-profile-list-following.png",
   "android-chat-profile-lists-return.png",
+  "android-chat-profile-content.png",
   "android-chat-actions-notifications-evidence.json",
 ];
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
 let lastThreadSnapshot = null;
+
+async function prepareProfileContentFixture(fixture) {
+  if (!fixture?.marker?.startsWith("qadata-profile-content-")) throw new Error("profile_content_fixture_marker_invalid");
+  fixture.expectedStep = "profile_content_comment_created_and_cleaned";
+  throw new Error("profile_content_fixture_not_implemented");
+}
+
+async function cleanupProfileContentFixture(fixture) {
+  if (!fixture) return null;
+  return await withDatabase(async (client) => {
+    const residue = await client.query(
+      `select
+        (select count(*)::int from public.community_posts where id = $1 or body like $2) as community_posts,
+        (select count(*)::int from public.community_comments where post_id = $1 or body like $2) as community_comments,
+        (select count(*)::int from public.community_post_likes where post_id = $1) as community_post_likes,
+        (select count(*)::int from public.chat_attachments where thread_id = $3) as chat_attachments`,
+      [fixture.postId ?? "00000000-0000-0000-0000-000000000000", `%${fixture.marker}%`, fixture.threadId ?? -1],
+    );
+    return {
+      residueCounts: residue.rows[0] ?? {},
+      status: "cleanup_verified_profile_content_residue_absent",
+    };
+  });
+}
 
 function env(name) {
   const value = process.env[name]?.trim();
@@ -805,7 +831,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -921,16 +947,29 @@ try {
       state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_list_edges_prepared_reversibly");
     }
-    const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : "profile";
+    if (profileContentOnly) {
+      state.profileContent = await prepareProfileContentFixture({
+        marker: `qadata-profile-content-${runId}`,
+        actorProfileId: state.a.profileId,
+        peerProfileId: state.b.profileId,
+        threadId: state.thread,
+      });
+      report.steps.push("profile_content_fixture_prepared_reversibly");
+    }
+    const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
       report.steps.push("profile_follow_toggled_and_verified_by_db");
     }
-    report.steps.push(profileListsOnly ? "peer_public_profile_followers_and_following_lists_opened_and_returned" : "peer_avatar_opened_public_profile_and_returned_to_chat");
+    report.steps.push(profileListsOnly
+      ? "peer_public_profile_followers_and_following_lists_opened_and_returned"
+      : profileContentOnly
+        ? "profile_content_gallery_comments_and_attachments_verified"
+        : "peer_avatar_opened_public_profile_and_returned_to_chat");
   }
 
-  if (profileOnly || profileFollowOnly || profileListsOnly) {
+  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly) {
     await rm(evidenceDir, { recursive: true, force: true });
     await mkdir(evidenceDir, { recursive: true });
     for (const file of evidenceFiles.filter((name) => name.includes("profile") || name.endsWith("evidence.json"))) {
@@ -948,8 +987,11 @@ try {
       peerMarkerSha256: sha256(peerMarker),
       profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
       profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
+      profileContentPostIdSha256: state.profileContent?.postId ? sha256(state.profileContent.postId) : null,
+      profileContentCommentIdSha256: state.profileContent?.commentId ? sha256(state.profileContent.commentId) : null,
+      profileContentAttachmentIdSha256: state.profileContent?.attachmentId ? sha256(state.profileContent.attachmentId) : null,
     };
-    throw new Error(profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
+    throw new Error(profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));

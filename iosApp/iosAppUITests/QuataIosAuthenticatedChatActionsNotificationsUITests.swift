@@ -247,6 +247,35 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-lists-return")
     }
 
+    private func assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String, in app: XCUIApplication) {
+        let posts = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.kpi.posts.\(profileId)")
+            .firstMatch
+        XCTAssertTrue(posts.waitForExistence(timeout: 10), "The shared profile posts KPI must be visible.")
+        posts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        for identifier in [
+            "public-profile.gallery.header.\(profileId)",
+            "public-profile.gallery.\(profileId)",
+            "public-profile.gallery.post.\(postId)",
+            "public-profile.post.preview.\(postId)",
+            "public-profile.post.action.comments.\(postId)",
+            "public-profile.comments.panel",
+            "public-profile.comments.list",
+            "public-profile.comments.row.\(commentId)",
+            "public-profile.comments.input",
+            "public-profile.comments.send",
+            "public-profile.attachments",
+            "public-profile.attachments.item.\(attachmentId)",
+        ] {
+            let element = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            XCTAssertTrue(element.waitForExistence(timeout: 10), "The shared public-profile content element \(identifier) must be visible.")
+        }
+        attachScreenshot(app, name: "ios-chat-profile-content")
+    }
+
     private func chatHost(in app: XCUIApplication, context: String) -> XCUIElement {
         let chat = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-chat-host")

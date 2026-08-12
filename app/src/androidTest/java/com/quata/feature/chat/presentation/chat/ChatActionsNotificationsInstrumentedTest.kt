@@ -294,6 +294,29 @@ class ChatActionsNotificationsInstrumentedTest {
         saveScreenshot("android-chat-profile-follow-return")
     }
 
+    private fun assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String) {
+        compose.onNodeWithTag("public-profile.kpi.posts.$profileId", useUnmergedTree = true)
+            .performClick()
+        listOf(
+            "public-profile.gallery.header.$profileId",
+            "public-profile.gallery.$profileId",
+            "public-profile.gallery.post.$postId",
+            "public-profile.post.preview.$postId",
+            "public-profile.post.action.comments.$postId",
+            "public-profile.comments.panel",
+            "public-profile.comments.list",
+            "public-profile.comments.row.$commentId",
+            "public-profile.comments.input",
+            "public-profile.comments.send",
+            "public-profile.attachments",
+            "public-profile.attachments.item.$attachmentId",
+        ).forEach { tag ->
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }
+        saveScreenshot("android-chat-profile-content")
+    }
+
     private fun openPeerProfile(peerProbe: String, profileId: String) {
         waitForMarker(peerProbe, "peer message for profile entry")
         dismissTranslatorOverlayIfActive()

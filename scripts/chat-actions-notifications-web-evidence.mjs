@@ -33,6 +33,7 @@ function parseArgs(argv) {
     profileOnly: false,
     profileFollowOnly: false,
     profileListsOnly: false,
+    profileContentOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -50,6 +51,10 @@ function parseArgs(argv) {
     }
     if (key === "--profile-lists-only") {
       result.profileListsOnly = true;
+      continue;
+    }
+    if (key === "--profile-content-only") {
+      result.profileContentOnly = true;
       continue;
     }
     const value = argv[++index];
@@ -749,6 +754,54 @@ async function toggleFollowFromOpenProfile(page, peerProfile, evidenceDir, repor
   }
   await pollProfileFollowEdge(peerProfile.actorProfileId, peerProfile.profileId, true);
   report.evidence.profileFollowAfter = await attachScreenshot(page, evidenceDir, "web-chat-profile-follow-after");
+}
+
+async function prepareProfileContentFixture(fixture) {
+  if (!fixture?.marker?.startsWith("qadata-profile-content-")) throw new Error("profile_content_fixture_marker_invalid");
+  throw new Error("profile_content_fixture_not_implemented");
+}
+
+async function cleanupProfileContentFixture(fixture) {
+  if (!fixture) return null;
+  return await withPoolerClient(async (client) => {
+    const residue = await client.query(
+      `select
+        (select count(*)::int from public.community_posts where id = $1 or body like $2) as community_posts,
+        (select count(*)::int from public.community_comments where post_id = $1 or body like $2) as community_comments,
+        (select count(*)::int from public.community_post_likes where post_id = $1) as community_post_likes,
+        (select count(*)::int from public.chat_attachments where thread_id = $3) as chat_attachments`,
+      [fixture.postId ?? "00000000-0000-0000-0000-000000000000", `%${fixture.marker}%`, fixture.threadId ?? -1],
+    );
+    return {
+      residueCounts: residue.rows[0] ?? {},
+      status: "cleanup_verified_profile_content_residue_absent",
+    };
+  });
+}
+
+async function verifyProfileContentFromOpenProfile(page, profile, fixture, evidenceDir, report) {
+  await prepareProfileContentFixture(fixture);
+  for (const tag of [
+    `public-profile.kpi.posts.${profile.profileId}`,
+    `public-profile.gallery.header.${profile.profileId}`,
+    `public-profile.gallery.${profile.profileId}`,
+    `public-profile.gallery.post.${fixture.postId}`,
+    `public-profile.post.preview.${fixture.postId}`,
+    `public-profile.post.action.comments.${fixture.postId}`,
+    "public-profile.comments.panel",
+    "public-profile.comments.list",
+    `public-profile.comments.row.${fixture.seedCommentId}`,
+    "public-profile.comments.input",
+    "public-profile.comments.send",
+    "public-profile.attachments",
+    `public-profile.attachments.item.${fixture.attachmentId}`,
+  ]) {
+    if (!tag) throw new Error("profile_content_tag_missing");
+    const visible = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 10_000);
+    if (!visible) throw new Error(`profile_content_tag_missing:${tag}`);
+  }
+  report.evidence.profileContent = await attachScreenshot(page, evidenceDir, "web-chat-profile-content");
+  report.steps.push("profile_content_comment_created_and_cleaned");
 }
 
 async function waitForChatProfileReturn(page) {
@@ -1525,7 +1578,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
-  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly) {
+  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly && !options.profileContentOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1612,6 +1665,16 @@ try {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-lists");
       await assertProfileFollowLists(page, server.origin, `sb:${state.thread}`, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_public_profile_followers_and_following_lists_opened_and_returned");
+    } else if (options.profileContentOnly) {
+      state.profileContent = await prepareProfileContentFixture({
+        marker: `qadata-profile-content-${runId}`,
+        actorProfileId: state.a.profileId,
+        peerProfileId: state.b.profileId,
+        threadId: state.thread,
+      });
+      report.steps.push("profile_content_fixture_prepared_reversibly");
+      await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-content-open");
+      await verifyProfileContentFromOpenProfile(page, state.profileContent, options.evidenceDir, report);
     } else if (options.profileFollowOnly) {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
       await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
@@ -1625,7 +1688,7 @@ try {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly) {
       if (faults.length) throw new Error("browser_runtime_fault");
       report.status = "passed";
       report.fixture = {
@@ -1639,11 +1702,14 @@ try {
         peerMarkerSha256: sha256(peerMarker),
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
         profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
+        profileContentPostIdSha256: state.profileContent?.postId ? sha256(state.profileContent.postId) : null,
+        profileContentCommentIdSha256: state.profileContent?.commentId ? sha256(state.profileContent.commentId) : null,
+        profileContentAttachmentIdSha256: state.profileContent?.attachmentId ? sha256(state.profileContent.attachmentId) : null,
       };
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
