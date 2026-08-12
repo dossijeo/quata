@@ -583,6 +583,7 @@ private fun QuataWebApp(
                         destination = destination,
                         repository = whatsNewRepository,
                         installedVersionCode = whatsNewInstalledVersionCode,
+                        documentOpener = platformServices.documentOpener,
                         onBack = {
                             val returnFragment = whatsNewReturnFragment ?: webWhatsNewReturnFragment(origin)
                             if (origin == WebWhatsNewOrigin.Startup) {

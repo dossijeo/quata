@@ -494,6 +494,7 @@ private final class IosAppCompositionRoot {
             router.installAboutFactory { [weak router] in
                 IosWhatsNewRuntimeBootstrapKt.QuataIosAboutViewController(
                     runtime: whatsNewRuntimeBootstrap,
+                    documentOpener: platformServices.services.documentOpener,
                     onClose: { router?.showFeed(postId: nil) },
                     onOpenReleaseHistory: { router?.showReleaseHistory() },
                 )
@@ -1115,6 +1116,7 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installAboutFactory { [weak self] in
             IosWhatsNewRuntimeBootstrapKt.QuataIosAboutViewController(
                 runtime: whatsNewRuntimeBootstrap,
+                documentOpener: platformServices.services.documentOpener,
                 onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
                 onOpenReleaseHistory: { [weak self] in self?.authenticatedHost.showReleaseHistory() },
             )

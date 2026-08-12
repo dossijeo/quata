@@ -4,9 +4,13 @@ package com.quata.web
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.quata.core.localization.QuataLanguage
-import com.quata.core.moderation.publicUrl
+import com.quata.core.moderation.LegalDocument
+import com.quata.core.moderation.assetName
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PreferenceStore
 import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.core.ui.components.QuataAboutDialogContent
@@ -21,6 +25,7 @@ import com.quata.feature.whatsnew.presentation.WhatsNewScreenHost
 import com.quata.feature.whatsnew.presentation.WhatsNewStartupAcknowledgementStore
 import com.quata.feature.whatsnew.presentation.WhatsNewStartupCoordinator
 import com.quata.feature.whatsnew.presentation.WhatsNewStrings
+import kotlinx.coroutines.launch
 
 enum class WebWhatsNewDestination { PendingReleases, About, ReleaseHistory }
 enum class WebWhatsNewOrigin { Startup, Settings, DeepLink }
@@ -67,6 +72,7 @@ fun WebWhatsNewHost(
     destination: WebWhatsNewDestination,
     repository: WhatsNewRepository,
     installedVersionCode: Long?,
+    documentOpener: DocumentOpenService,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -90,7 +96,7 @@ fun WebWhatsNewHost(
             closeLabel = webReleaseHistoryStrings(languageTags).close,
             onDismiss = onBack,
             onOpenReleaseHistory = { webSetBrowserFragment("release-history") },
-            legalLinks = { WebAboutLegalLinks(languageTags) },
+            legalLinks = { WebAboutLegalLinks(languageTags, documentOpener) },
         )
         WebWhatsNewDestination.ReleaseHistory -> ReleaseHistoryContent(
             repository = repository,
@@ -103,10 +109,23 @@ fun WebWhatsNewHost(
 }
 
 @Composable
-private fun WebAboutLegalLinks(languageTags: List<String>) {
+private fun WebAboutLegalLinks(languageTags: List<String>, documentOpener: DocumentOpenService) {
+    val language = languageTags.toQuataLanguage()
+    val scope = rememberCoroutineScope()
     QuataLegalDocumentLinksContent(
-        language = languageTags.toQuataLanguage(),
-        onOpenDocument = { document -> webOpenExternalUrl(document.publicUrl()) },
+        language = language,
+        onOpenDocument = { document ->
+            scope.launch { documentOpener.open(webLegalDocumentFile(document, language)) }
+        },
+    )
+}
+
+internal fun webLegalDocumentFile(document: LegalDocument, language: QuataLanguage): PlatformFile {
+    val assetName = document.assetName(language)
+    return PlatformFile(
+        reference = webLegalDocumentUrl(assetName),
+        displayName = assetName,
+        mimeType = LegalDocumentDocxMimeType,
     )
 }
 
@@ -179,8 +198,12 @@ private class WebWhatsNewStartupAcknowledgementStore(
 
 private fun Long?.orEmpty(): String = this?.toString().orEmpty()
 private fun webDocumentMeta(name: String): String? = js("globalThis.document?.querySelector('meta[name=\"' + name + '\"]')?.content || null")
-private fun webOpenExternalUrl(url: String): Unit = js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
+private fun webLegalDocumentUrl(assetName: String): String = js(
+    "new URL('legal/' + assetName, globalThis.location?.href || 'https://egquata.com/').href",
+)
 private fun webSetBrowserFragment(fragment: String): Unit = js("globalThis.location.hash = fragment")
+private const val LegalDocumentDocxMimeType =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 private const val WebSeenKey = "quata.whatsnew.web.state.v1"
 private const val WebStartupAcknowledgementKey = "quata.whatsnew.web.startup_ack.v1"
 private fun webLocalStorageGet(key: String): String? = js("globalThis.localStorage?.getItem(key) ?? null")

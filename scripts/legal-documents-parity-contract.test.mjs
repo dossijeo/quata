@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 
 const legalDocument = await source('../core/src/commonMain/kotlin/com/quata/core/moderation/LegalDocument.kt');
 const legalLinksContent = await source('../designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataLegalDocumentLinksContent.kt');
@@ -8,6 +8,8 @@ const androidNav = await source('../app/src/main/java/com/quata/core/navigation/
 const androidLegal = await source('../app/src/main/java/com/quata/core/moderation/LegalDocuments.kt');
 const web = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt');
 const iosRuntime = await source('../feature/whatsnew/src/iosMain/kotlin/com/quata/feature/whatsnew/presentation/IosWhatsNewRuntimeBootstrap.kt');
+const iosProject = await source('../iosApp/project.yml');
+const iosSwift = await source('../iosApp/iosApp/QuataIosApp.swift');
 
 test('legal documents have one shared catalog for labels, URLs and assets', () => {
   assert.match(legalDocument, /enum class LegalDocument \{\s*Privacy,\s*ChildSafety,?\s*\}/);
@@ -39,14 +41,34 @@ test('Android, Web and iOS About links use common legal document content', () =>
   assert.doesNotMatch(androidLegal, /QuataDocumentReader\.open/);
 
   assert.match(web, /QuataLegalDocumentLinksContent\(/);
-  assert.match(web, /onOpenDocument = \{ document -> webOpenExternalUrl\(document\.publicUrl\(\)\) \}/);
+  assert.match(web, /documentOpener\.open\(webLegalDocumentFile\(document, language\)\)/);
+  assert.match(web, /reference = webLegalDocumentUrl\(assetName\)/);
   assert.doesNotMatch(web, /TextButton\(onClick = \{ webOpenExternalUrl\(LegalLinks\./);
+  assert.doesNotMatch(web, /webOpenExternalUrl\(document\.publicUrl\(\)\)/);
   assert.doesNotMatch(web, /WebAboutLegalLabels/);
 
   assert.match(iosRuntime, /QuataLegalDocumentLinksContent\(/);
-  assert.match(iosRuntime, /onOpenDocument = \{ document -> openIosExternalUrl\(document\.publicUrl\(\)\) \}/);
+  assert.match(iosRuntime, /iosLegalDocumentFile\(document, language\)\?\.let \{ documentOpener\.open\(it\) \}/);
+  assert.match(iosRuntime, /NSBundle\.mainBundle\.pathForResource/);
+  assert.match(iosSwift, /documentOpener: platformServices\.services\.documentOpener/);
   assert.doesNotMatch(iosRuntime, /TextButton\(onClick = \{ openIosExternalUrl\(LegalLinks\./);
+  assert.doesNotMatch(iosRuntime, /openIosExternalUrl\(document\.publicUrl\(\)\)/);
   assert.doesNotMatch(iosRuntime, /IosAboutLegalLabels/);
+});
+
+test('Web packages the same legal document assets as Android', async () => {
+  for (const language of ['en', 'es', 'fr']) {
+    await access(new URL(`../web/src/wasmJsMain/resources/legal/privacy_${language}.docx`, import.meta.url));
+    await access(new URL(`../web/src/wasmJsMain/resources/legal/child_safety_${language}.docx`, import.meta.url));
+  }
+});
+
+test('iOS packages the same legal document bundle directory as Android', async () => {
+  assert.match(iosProject, /\.\.\/app\/src\/main\/assets\/legal[\s\S]*buildPhase: resources/);
+  for (const language of ['en', 'es', 'fr']) {
+    await access(new URL(`../app/src/main/assets/legal/privacy_${language}.docx`, import.meta.url));
+    await access(new URL(`../app/src/main/assets/legal/child_safety_${language}.docx`, import.meta.url));
+  }
 });
 
 async function source(path) {
