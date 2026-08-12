@@ -70,6 +70,7 @@ test("the hermetic browser journey proves the permanent public shell, participat
   assert.match(runner, /findVisibleTextBounds\(page, pattern\)/);
   assert.match(runner, /element\.innerText \|\| element\.textContent/);
   assert.match(runner, /\[scope, \.\.\.scope\.querySelectorAll\("\*"\)\]\.filter\(Boolean\)/);
+  assert.match(runner, /matches\.sort\(\(left, right\) => left\.area - right\.area\)/);
   assert.match(runner, /registerLegalFallbackBounds\(page, fallbackIndex\)/);
   assert.match(runner, /rect\.width >= 720/);
   assert.match(runner, /await invokeAuthGateAction\(page, "chooseLogin"\)/);

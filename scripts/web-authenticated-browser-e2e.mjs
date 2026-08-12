@@ -628,7 +628,7 @@ async function registerLegalFallbackBounds(page, index) {
     if (!rect || rect.width <= 0 || rect.height <= 0) throw new Error("register_legal_root_missing");
     const isWide = rect.width >= 720;
     return isWide
-      ? { x: rect.x + rect.width * 0.47, y: rect.y + rect.height * (0.79 + fallbackIndex * 0.07), width: rect.width * 0.24, height: 34 }
+      ? { x: rect.x + rect.width * 0.47, y: rect.y + rect.height * (0.79 + fallbackIndex * 0.07), width: rect.width * 0.12, height: 34 }
       : { x: rect.x + rect.width * 0.08, y: rect.y + rect.height * (0.82 + fallbackIndex * 0.07), width: rect.width * 0.84, height: 34 };
   }, index);
 }
@@ -649,16 +649,19 @@ async function findVisibleTextBounds(page, pattern) {
     const root = document.querySelector("#quata-root");
     const scope = root?.shadowRoot ?? root ?? document;
     const candidates = [scope, ...scope.querySelectorAll("*")].filter(Boolean);
+    const matches = [];
     for (const element of candidates) {
       const text = element.innerText || element.textContent || "";
       if (!expression.test(text)) continue;
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
       if (rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none") {
-        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        matches.push({ x: rect.x, y: rect.y, width: rect.width, height: rect.height, area: rect.width * rect.height });
       }
     }
-    return null;
+    matches.sort((left, right) => left.area - right.area);
+    const match = matches[0];
+    return match ? { x: match.x, y: match.y, width: match.width, height: match.height } : null;
   }, { source: pattern.source, flags: pattern.flags });
 }
 
