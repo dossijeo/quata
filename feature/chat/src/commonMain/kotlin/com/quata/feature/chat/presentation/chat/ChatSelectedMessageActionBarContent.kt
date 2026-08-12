@@ -1,5 +1,6 @@
 package com.quata.feature.chat.presentation.chat
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -26,13 +27,17 @@ fun ChatSelectedMessageActionBarContent(
     actions: @Composable RowScope.() -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val surfaceColor = chatHeaderSurfaceColor()
     Surface(
-        color = chatHeaderSurfaceColor(),
-        modifier = modifier.fillMaxWidth(),
+        color = surfaceColor,
+        modifier = modifier
+            .fillMaxWidth()
+            .background(surfaceColor),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(surfaceColor)
                 .padding(horizontal = 8.dp, vertical = if (compact) 6.dp else 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),

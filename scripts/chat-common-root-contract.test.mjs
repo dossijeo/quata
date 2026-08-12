@@ -160,10 +160,12 @@ test("common chat headers and selected-message menu use one opaque surface color
   assert.match(titleBar, /internal fun chatHeaderSurfaceColor\(\) = quataTheme\(\)\.colors\.surface/);
   assert.match(titleBar, /val headerSurfaceColor = chatHeaderSurfaceColor\(\)/);
   assert.match(titleBar, /color = headerSurfaceColor/);
-  for (const sourceText of [selectedActionBar, favoriteHeader]) {
-    assert.match(sourceText, /color = chatHeaderSurfaceColor\(\)/);
-    assert.doesNotMatch(sourceText, /colors\.surface\.copy\(alpha\s*=/);
-  }
+  assert.match(selectedActionBar, /val surfaceColor = chatHeaderSurfaceColor\(\)/);
+  assert.match(selectedActionBar, /\.background\(surfaceColor\)/);
+  assert.match(selectedActionBar, /color = surfaceColor/);
+  assert.match(favoriteHeader, /color = chatHeaderSurfaceColor\(\)/);
+  for (const sourceText of [selectedActionBar, favoriteHeader]) assert.doesNotMatch(sourceText, /colors\.surface\.copy\(alpha\s*=/);
+  assert.doesNotMatch(androidHost, /colors\.surface\.copy\(alpha\s*=/);
   assert.doesNotMatch(titleBar, /colors\.surface\.copy\(alpha\s*=/);
 });
 
