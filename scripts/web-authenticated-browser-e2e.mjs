@@ -644,7 +644,7 @@ async function returnToProfileOverview(page) {
 
 async function returnToProfileOverviewRobust(page) {
   if (await isProfileOverviewVisible(page)) return;
-  const managementVisible = await findVisibleTextBounds(page, /Gesti..n de cuenta|Account management/i);
+  const managementVisible = await findVisibleTextBounds(page, /Gesti.n de cuenta|Account management/i);
   if (!managementVisible) return;
   const y = managementVisible.y + managementVisible.height / 2;
   const clickTargets = [
