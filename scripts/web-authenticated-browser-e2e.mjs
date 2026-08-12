@@ -751,7 +751,7 @@ async function legalFallbackBounds(page, index) {
     if (!rect || rect.width <= 0 || rect.height <= 0) throw new Error("legal_root_missing");
     const isWide = rect.width >= 720;
     return isWide
-      ? { x: rect.x + rect.width * 0.47, y: rect.y + rect.height * (0.79 + fallbackIndex * 0.07), width: rect.width * 0.12, height: 34 }
+      ? { x: rect.x + rect.width * 0.02, y: rect.y + rect.height * (0.77 + fallbackIndex * 0.08), width: rect.width * 0.96, height: 48 }
       : { x: rect.x + rect.width * 0.08, y: rect.y + rect.height * (0.82 + fallbackIndex * 0.07), width: rect.width * 0.84, height: 34 };
   }, index);
 }
