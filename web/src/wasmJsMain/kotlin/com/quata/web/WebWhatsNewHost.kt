@@ -5,10 +5,10 @@ package com.quata.web
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import com.quata.core.moderation.LegalLinks
+import com.quata.core.localization.QuataLanguage
+import com.quata.core.moderation.publicUrl
 import com.quata.core.platform.PreferenceStore
+import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.core.ui.components.QuataAboutDialogContent
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
 import com.quata.feature.whatsnew.data.QuataLocalWhatsNewCatalog
@@ -104,9 +104,10 @@ fun WebWhatsNewHost(
 
 @Composable
 private fun WebAboutLegalLinks(languageTags: List<String>) {
-    val labels = webAboutLegalLabels(languageTags)
-    TextButton(onClick = { webOpenExternalUrl(LegalLinks.Privacy) }) { Text(labels.privacy) }
-    TextButton(onClick = { webOpenExternalUrl(LegalLinks.ChildSafety) }) { Text(labels.childSafety) }
+    QuataLegalDocumentLinksContent(
+        language = languageTags.toQuataLanguage(),
+        onOpenDocument = { document -> webOpenExternalUrl(document.publicUrl()) },
+    )
 }
 
 internal fun webWhatsNewStrings(languageTags: List<String>): WhatsNewStrings = when {
@@ -126,8 +127,6 @@ internal fun webReleaseHistoryStrings(languageTags: List<String>): ReleaseHistor
     languageTags.isFrench() -> ReleaseHistoryStrings("Fermer", "Aucune nouveauté publiée.", "Impossible de charger l'historique des versions.", "Historique des versions", "Consultez les nouveautés de toutes les versions suivies.", "Précédent", "Suivant", { "Version $it" }, { "Nouveautés de $it" })
     else -> ReleaseHistoryStrings("Close", "No releases have been published yet.", "Release history could not be loaded.", "Version history", "Browse the notes for every tracked release.", "Previous", "Next", { "Version $it" }, { "What's new in $it" })
 }
-
-private data class WebAboutLegalLabels(val privacy: String, val childSafety: String)
 
 private fun webAboutVersion(): String = "Version ${webDocumentMeta("quata-version-name") ?: "Web"}"
 
@@ -150,12 +149,6 @@ private fun webAboutBody(languageTags: List<String>): String = when {
     languageTags.isSpanish() -> "Feed comunitario, barrios, chats, favoritos, perfiles y contactos SOS en una experiencia integrada."
     languageTags.isFrench() -> "Feed communautaire, quartiers, chats, favoris, profils et contacts SOS dans une experience integree."
     else -> "Community feed, districts, chats, favorites, profiles and SOS contacts in one integrated experience."
-}
-
-private fun webAboutLegalLabels(languageTags: List<String>): WebAboutLegalLabels = when {
-    languageTags.isSpanish() -> WebAboutLegalLabels("Politica de privacidad", "Seguridad infantil y normas de la comunidad")
-    languageTags.isFrench() -> WebAboutLegalLabels("Politique de confidentialite", "Securite des enfants et regles de la communaute")
-    else -> WebAboutLegalLabels("Privacy policy", "Child safety and community standards")
 }
 
 private class WebWhatsNewSeenStateStore : WhatsNewSeenStateStore {
@@ -196,3 +189,8 @@ internal fun browserWhatsNewLanguageTags(): List<String> = browserLanguageTag().
 private fun browserLanguageTag(): String = js("(globalThis.navigator?.languages && globalThis.navigator.languages.length ? Array.from(globalThis.navigator.languages).join(',') : (globalThis.navigator?.language || 'en'))")
 private fun List<String>.isSpanish(): Boolean = any { it.substringBefore('-').substringBefore('_').equals("es", true) }
 private fun List<String>.isFrench(): Boolean = any { it.substringBefore('-').substringBefore('_').equals("fr", true) }
+private fun List<String>.toQuataLanguage(): QuataLanguage = when {
+    isSpanish() -> QuataLanguage.Spanish
+    isFrench() -> QuataLanguage.French
+    else -> QuataLanguage.English
+}

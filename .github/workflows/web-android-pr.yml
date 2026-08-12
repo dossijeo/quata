@@ -93,6 +93,7 @@ jobs:
           node --test scripts/ios-build-workflow-contract.test.mjs
           node --test scripts/classify-ci-impact.test.mjs
           node --test scripts/whats-new-release-history-contract.test.mjs
+          node --test scripts/legal-documents-parity-contract.test.mjs
 
       - name: Install Android SDK 36.1 for KMP configuration
         shell: bash
@@ -232,6 +233,7 @@ jobs:
           set -euo pipefail
           node --test scripts/capability-matrix-contract.test.mjs
           node --test scripts/whats-new-release-history-contract.test.mjs
+          node --test scripts/legal-documents-parity-contract.test.mjs
           npm run test:web-wave2-contracts \
             2>&1 | tee build/reports/web-ci/node-contracts.log
 

@@ -125,6 +125,7 @@ import com.quata.core.device.QuataProximityState
 import com.quata.core.di.AppContainer
 import com.quata.core.location.quataLastLocation
 import com.quata.core.location.SosLocationRecoveryService
+import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.moderation.LegalDocuments
 import com.quata.core.moderation.ModerationTarget
@@ -141,6 +142,8 @@ import com.quata.core.ui.components.QuataAuthenticatedChromeStrings
 import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
 import com.quata.core.ui.components.QuataConfirmationDialogContent
+import com.quata.core.ui.components.QuataLegalDocumentLinksColumnContent
+import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.core.ui.components.QuataTermsAcceptanceDialogContent
 import com.quata.core.ui.components.QuataNavigationRail
 import com.quata.core.ui.components.QuataNavigationRailWidth
@@ -1418,8 +1421,7 @@ private fun AboutQuataDialog(
         onDismiss = onDismiss,
         onOpenReleaseHistory = onOpenReleaseHistory,
         legalLinks = {
-            LegalDocumentLinkButton(R.string.legal_privacy, LegalDocument.Privacy, context)
-            LegalDocumentLinkButton(R.string.legal_child_safety, LegalDocument.ChildSafety, context)
+            LegalDocumentLinks(context)
         },
     )
 }
@@ -1459,6 +1461,7 @@ private fun UgcTermsDialog(
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
+    val isDarkMode = quataTheme().resolvedTheme != QuataResolvedTheme.Light
     QuataTermsAcceptanceDialogContent(
         title = stringResource(R.string.ugc_terms_title),
         body = stringResource(R.string.ugc_terms_body),
@@ -1469,8 +1472,11 @@ private fun UgcTermsDialog(
         onAccept = onAccept,
         onLogout = onLogout,
         legalLinks = {
-            LegalDocumentLinkButton(R.string.legal_child_safety, LegalDocument.ChildSafety, context)
-            LegalDocumentLinkButton(R.string.legal_privacy, LegalDocument.Privacy, context)
+            QuataLegalDocumentLinksColumnContent(
+                language = QuataLanguageManager.currentLanguage,
+                documents = listOf(LegalDocument.ChildSafety, LegalDocument.Privacy),
+                onOpenDocument = { document -> LegalDocuments.open(context, document, isDarkMode) },
+            )
         },
     )
 }
@@ -1488,14 +1494,12 @@ private fun LegalLinkButton(label: Int, url: String, context: Context) {
 }
 
 @Composable
-private fun LegalDocumentLinkButton(label: Int, document: LegalDocument, context: Context) {
+private fun LegalDocumentLinks(context: Context) {
     val isDarkMode = quataTheme().resolvedTheme != QuataResolvedTheme.Light
-    TextButton(
-        onClick = { LegalDocuments.open(context, document, isDarkMode) },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(stringResource(label), modifier = Modifier.fillMaxWidth())
-    }
+    QuataLegalDocumentLinksContent(
+        language = QuataLanguageManager.currentLanguage,
+        onOpenDocument = { document -> LegalDocuments.open(context, document, isDarkMode) },
+    )
 }
 
 @Composable

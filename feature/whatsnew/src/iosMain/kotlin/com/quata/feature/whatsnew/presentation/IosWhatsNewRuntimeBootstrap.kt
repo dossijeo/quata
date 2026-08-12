@@ -5,8 +5,10 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import com.quata.core.moderation.LegalLinks
+import com.quata.core.localization.QuataLanguage
+import com.quata.core.moderation.publicUrl
 import com.quata.core.platform.PlatformResult
+import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.feature.whatsnew.data.IosWhatsNewSeenStateStore
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
 import com.quata.feature.whatsnew.data.QuataLocalWhatsNewCatalog
@@ -201,12 +203,11 @@ private fun iosReleaseHistoryStrings(tags: List<String>): ReleaseHistoryStrings 
 
 @Composable
 private fun IosAboutLegalLinks(tags: List<String>) {
-    val labels = iosAboutLegalLabels(tags)
-    TextButton(onClick = { openIosExternalUrl(LegalLinks.Privacy) }) { Text(labels.privacy) }
-    TextButton(onClick = { openIosExternalUrl(LegalLinks.ChildSafety) }) { Text(labels.childSafety) }
+    QuataLegalDocumentLinksContent(
+        language = tags.toQuataLanguage(),
+        onOpenDocument = { document -> openIosExternalUrl(document.publicUrl()) },
+    )
 }
-
-private data class IosAboutLegalLabels(val privacy: String, val childSafety: String)
 
 private fun iosAboutVersion(runtime: IosWhatsNewRuntimeBootstrap): String = when {
     runtime.languageTags.isSpanish() -> "Version ${runtime.installedVersionName}"
@@ -238,18 +239,17 @@ private fun iosAboutBody(tags: List<String>): String = when {
     else -> "Community feed, districts, chats, favorites, profiles and SOS contacts in one integrated experience."
 }
 
-private fun iosAboutLegalLabels(tags: List<String>): IosAboutLegalLabels = when {
-    tags.isSpanish() -> IosAboutLegalLabels("Politica de privacidad", "Seguridad infantil y normas de la comunidad")
-    tags.isFrench() -> IosAboutLegalLabels("Politique de confidentialite", "Securite des enfants et regles de la communaute")
-    else -> IosAboutLegalLabels("Privacy policy", "Child safety and community standards")
-}
-
 private fun openIosExternalUrl(url: String) {
     NSURL.URLWithString(url)?.let { UIApplication.sharedApplication.openURL(it) }
 }
 
 private fun List<String>.isSpanish(): Boolean = any { it.substringBefore('-').equals("es", ignoreCase = true) }
 private fun List<String>.isFrench(): Boolean = any { it.substringBefore('-').equals("fr", ignoreCase = true) }
+private fun List<String>.toQuataLanguage(): QuataLanguage = when {
+    isSpanish() -> QuataLanguage.Spanish
+    isFrench() -> QuataLanguage.French
+    else -> QuataLanguage.English
+}
 
 private fun NSBundle.configuredString(key: String): String? =
     objectForInfoDictionaryKey(key)?.toString()?.trim()?.takeIf { it.isNotEmpty() && "$(" !in it }
