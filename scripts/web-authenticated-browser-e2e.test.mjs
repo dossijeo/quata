@@ -64,6 +64,7 @@ test("the hermetic browser journey proves the permanent public shell, participat
   assert.match(runner, /clickAndCaptureDownload\(page, \/privacidad\|Privacy policy\/i, "privacy_es\.docx"\)/);
   assert.match(runner, /clickAndCaptureDownload\(page, \/Seguridad infantil\|Seguridad de menores\|Child safety\/i, "child_safety_es\.docx"\)/);
   assert.match(runner, /findVisibleTextBounds\(page, pattern\)/);
+  assert.match(runner, /element\.innerText \|\| element\.textContent/);
   assert.match(runner, /scope\.querySelectorAll\("button, a, \[role='button'\], div, span"\)/);
   assert.match(runner, /await invokeAuthGateAction\(page, "chooseLogin"\)/);
   assert.match(runner, /await assertFullScreenAuthDestination\(page, "login"\)/);
