@@ -439,7 +439,9 @@ private final class IosAppCompositionRoot {
                                 marker.accessibilityIdentifier = "legal-document-opened-\(name)"
                                 marker.accessibilityLabel = name
                                 marker.isAccessibilityElement = true
-                                marker.isHidden = true
+                                marker.text = name
+                                marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                                marker.alpha = 0.01
                                 view.addSubview(marker)
                             }
                         },
@@ -515,7 +517,9 @@ private final class IosAppCompositionRoot {
                             marker.accessibilityIdentifier = "legal-document-opened-\(name)"
                             marker.accessibilityLabel = name
                             marker.isAccessibilityElement = true
-                            marker.isHidden = true
+                            marker.text = name
+                            marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                            marker.alpha = 0.01
                             view.addSubview(marker)
                         }
                     },

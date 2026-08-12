@@ -61,6 +61,8 @@ test("auth-launch uses real Compose Auth inside a complete UIKit containment she
   assert.match(launcher, /IosAuthLaunchFixtureHostKt\.QuataAuthLaunchFixtureViewController\(\)/);
   assert.match(launcher, /QuataAuthLaunchLegalEvidenceViewControllerForDestination/);
   assert.match(launcher, /legal-document-opened-\\\(name\)/);
+  assert.match(launcher, /marker\.alpha = 0\.01/);
+  assert.doesNotMatch(launcher, /marker\.isHidden = true/);
   assert.match(launcher, /guard let fixtureIndex = arguments\.firstIndex\(of: "-quata-ui-test-fixture"\) else \{ return nil \}/);
   assert.match(launcher, /guard arguments\.indices\.contains\(fixtureIndex \+ 1\) else \{/);
   assert.match(launcher, /"quata-ios-test-invalid-fixture"/);
