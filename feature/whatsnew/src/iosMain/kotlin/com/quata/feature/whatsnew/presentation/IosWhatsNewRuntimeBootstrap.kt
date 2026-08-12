@@ -128,11 +128,11 @@ fun QuataIosAboutViewController(
     onOpenReleaseHistory: () -> Unit,
 ): UIViewController = QuataAboutViewController(
     IosAboutHostDependencies(
-        title = runtime.releaseHistoryStrings().title,
+        title = iosAboutTitle(runtime.languageTags),
         version = iosAboutVersion(runtime),
         versionDate = iosAboutVersionDate(runtime),
         body = iosAboutBody(runtime.languageTags),
-        releaseHistoryLabel = runtime.releaseHistoryStrings().subtitle,
+        releaseHistoryLabel = iosAboutReleaseHistoryLabel(runtime.languageTags),
         closeLabel = runtime.releaseHistoryStrings().close,
         onDismiss = onClose,
         onOpenReleaseHistory = onOpenReleaseHistory,
@@ -194,9 +194,9 @@ private fun iosWhatsNewStrings(tags: List<String>): WhatsNewStrings = when {
 }
 
 private fun iosReleaseHistoryStrings(tags: List<String>): ReleaseHistoryStrings = when {
-    tags.isSpanish() -> ReleaseHistoryStrings("Cerrar", "No hay versiones disponibles.", "No se pudo cargar el historial.", "Acerca de Quata", "Historial de versiones", "Anterior", "Siguiente", { "Version $it" }, { "Novedades de $it" })
-    tags.isFrench() -> ReleaseHistoryStrings("Fermer", "Aucune nouveauté publiée.", "Impossible de charger l'historique des versions.", "À propos de Quata", "Historique des versions", "Précédent", "Suivant", { "Version $it" }, { "Nouveautés de $it" })
-    else -> ReleaseHistoryStrings("Close", "No releases are available.", "Release history could not be loaded.", "About Quata", "Release history", "Previous", "Next", { "Version $it" }, { "What's new in $it" })
+    tags.isSpanish() -> ReleaseHistoryStrings("Cerrar", "No hay versiones disponibles.", "No se pudo cargar el historial.", "Historial de versiones", "Consulta las novedades de todas las versiones registradas.", "Anterior", "Siguiente", { "Version $it" }, { "Novedades de $it" })
+    tags.isFrench() -> ReleaseHistoryStrings("Fermer", "Aucune nouveauté publiée.", "Impossible de charger l'historique des versions.", "Historique des versions", "Consultez les nouveautés de toutes les versions suivies.", "Précédent", "Suivant", { "Version $it" }, { "Nouveautés de $it" })
+    else -> ReleaseHistoryStrings("Close", "No releases are available.", "Release history could not be loaded.", "Version history", "Browse the notes for every tracked release.", "Previous", "Next", { "Version $it" }, { "What's new in $it" })
 }
 
 @Composable
@@ -218,6 +218,18 @@ private fun iosAboutVersionDate(runtime: IosWhatsNewRuntimeBootstrap): String = 
     runtime.languageTags.isSpanish() -> "Codigo de version: ${runtime.installedVersionCode}"
     runtime.languageTags.isFrench() -> "Code de version : ${runtime.installedVersionCode}"
     else -> "Version code: ${runtime.installedVersionCode}"
+}
+
+private fun iosAboutTitle(tags: List<String>): String = when {
+    tags.isSpanish() -> "Acerca de Quata"
+    tags.isFrench() -> "À propos de Quata"
+    else -> "About Quata"
+}
+
+private fun iosAboutReleaseHistoryLabel(tags: List<String>): String = when {
+    tags.isSpanish() -> "Historial de versiones"
+    tags.isFrench() -> "Historique des versions"
+    else -> "Release history"
 }
 
 private fun iosAboutBody(tags: List<String>): String = when {
