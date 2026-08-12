@@ -678,21 +678,7 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
   const previousOpenCount = await page.evaluate(() =>
     Array.isArray(globalThis.__quataDocumentOpenEvidence) ? globalThis.__quataDocumentOpenEvidence.length : 0,
   );
-  const nativeButton = page.getByRole("button", { name: pattern }).first();
-  if (await nativeButton.count()) {
-    await nativeButton.click({ timeout: 3_000 }).catch(async () => {
-      const box = await waitForTextBounds(page, pattern, 2_000).catch(() => legalFallbackBounds(page, fallbackIndex));
-      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    });
-  } else {
-    const box = await waitForTextBounds(page, pattern, 2_000).catch(() => legalFallbackBounds(page, fallbackIndex));
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  }
-  const openedHandle = await page.waitForFunction(({ name, previousCount }) =>
-    (Array.isArray(globalThis.__quataDocumentOpenEvidence) ? globalThis.__quataDocumentOpenEvidence : [])
-      .slice(previousCount)
-      .find(event => event?.displayName === name && event?.reference?.endsWith(`legal/${name}`)),
-  { name: expectedName, previousCount: previousOpenCount }, { timeout: 30_000 });
+  const openedHandle = await clickLegalDocumentAndWait(page, pattern, expectedName, fallbackIndex, previousOpenCount);
   const opened = await openedHandle.jsonValue();
   await page.waitForFunction((name) => {
     const viewer = document.querySelector("[data-quata-docmentis-viewer='true']");
@@ -716,6 +702,41 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
     overlayVisible,
     renderReady,
   };
+}
+
+async function clickLegalDocumentAndWait(page, pattern, expectedName, fallbackIndex, previousOpenCount) {
+  const nativeButton = page.getByRole("button", { name: pattern }).first();
+  if (await nativeButton.count()) {
+    await nativeButton.click({ timeout: 1_000 }).catch(() => null);
+    const opened = await waitForOpenedDocument(page, expectedName, previousOpenCount, 1_000);
+    if (opened) return opened;
+  }
+  const box = await waitForTextBounds(page, pattern, 2_000).catch(() => legalFallbackBounds(page, fallbackIndex));
+  const points = [
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    { x: Math.max(8, box.x + 8), y: box.y + box.height / 2 },
+    { x: Math.max(8, box.x + 8), y: box.y + box.height + 10 },
+    { x: Math.max(8, box.x + 24), y: box.y + box.height + 18 },
+    { x: box.x + Math.max(32, box.width / 2), y: box.y + box.height + 18 },
+  ];
+  for (const point of points) {
+    await page.mouse.click(point.x, point.y);
+    const opened = await waitForOpenedDocument(page, expectedName, previousOpenCount, 1_000);
+    if (opened) return opened;
+  }
+  return await page.waitForFunction(({ name, previousCount }) =>
+    (Array.isArray(globalThis.__quataDocumentOpenEvidence) ? globalThis.__quataDocumentOpenEvidence : [])
+      .slice(previousCount)
+      .find(event => event?.displayName === name && event?.reference?.endsWith(`legal/${name}`)),
+  { name: expectedName, previousCount: previousOpenCount }, { timeout: 10_000 });
+}
+
+async function waitForOpenedDocument(page, expectedName, previousOpenCount, timeoutMs) {
+  return await page.waitForFunction(({ name, previousCount }) =>
+    (Array.isArray(globalThis.__quataDocumentOpenEvidence) ? globalThis.__quataDocumentOpenEvidence : [])
+      .slice(previousCount)
+      .find(event => event?.displayName === name && event?.reference?.endsWith(`legal/${name}`)),
+  { name: expectedName, previousCount: previousOpenCount }, { timeout: timeoutMs }).catch(() => null);
 }
 
 async function clickVisibleText(page, pattern) {
