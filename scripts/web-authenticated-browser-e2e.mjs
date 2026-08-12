@@ -235,7 +235,7 @@ try {
   assertNoBlockedBackendMutations(blockedBackendMutations);
 
   stage = "authenticated_account_settings_legal_documents";
-  report.accountSettingsLegalDocuments = await assertAccountSettingsLegalDocumentViewer(page, options.output);
+  report.accountSettingsLegalDocuments = await assertAccountSettingsLegalDocumentViewer(page, options.output, report.steps);
   report.steps.push("account_settings_shared_legal_documents_opened_from_local_assets");
 
   stage = "authenticated_settings_push_consent";
@@ -596,21 +596,24 @@ async function assertRegisterLegalDocumentViewer(page) {
   ];
 }
 
-async function assertAccountSettingsLegalDocumentViewer(page, reportOutput) {
+async function assertAccountSettingsLegalDocumentViewer(page, reportOutput, steps = []) {
   const evidence = {};
   for (const route of ["profile", "settings"]) {
+    steps.push(`account_settings_legal_route_${route}_start`);
     await page.evaluate(fragment => { globalThis.location.hash = fragment; }, route);
     await waitForShellRoute(page, route);
     if (route === "profile") await returnToProfileOverviewRobust(page);
     await scrollLegalLinksIntoView(page);
     const screenshot = reportOutput.replace(/\.json$/i, `.legal-${route}.png`);
     await page.screenshot({ path: screenshot, fullPage: true });
+    steps.push(`account_settings_legal_route_${route}_screenshot`);
+    const privacy = await clickAndCaptureDocumentViewer(page, /privacidad|Privacy policy/i, "privacy_es.docx", 0);
+    steps.push(`account_settings_legal_route_${route}_privacy_opened`);
+    const childSafety = await clickAndCaptureDocumentViewer(page, /Seguridad infantil|Seguridad de menores|Child safety/i, "child_safety_es.docx", 1);
+    steps.push(`account_settings_legal_route_${route}_child_safety_opened`);
     evidence[route] = {
       screenshot,
-      documents: [
-        await clickAndCaptureDocumentViewer(page, /privacidad|Privacy policy/i, "privacy_es.docx", 0),
-        await clickAndCaptureDocumentViewer(page, /Seguridad infantil|Seguridad de menores|Child safety/i, "child_safety_es.docx", 1),
-      ],
+      documents: [privacy, childSafety],
     };
   }
   return evidence;

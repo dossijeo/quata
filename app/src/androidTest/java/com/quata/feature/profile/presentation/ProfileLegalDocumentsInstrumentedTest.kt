@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -47,10 +46,8 @@ class ProfileLegalDocumentsInstrumentedTest {
         }
 
         compose.onNodeWithTag("${QuataLegalDocumentLinkTestTagPrefix}privacy", useUnmergedTree = true)
-            .performScrollTo()
             .performTouchInput { click(center) }
         compose.onNodeWithTag("${QuataLegalDocumentLinkTestTagPrefix}childsafety", useUnmergedTree = true)
-            .performScrollTo()
             .performTouchInput { click(center) }
 
         check(openedLegalDocuments == listOf("privacy_es.docx", "child_safety_es.docx")) {
