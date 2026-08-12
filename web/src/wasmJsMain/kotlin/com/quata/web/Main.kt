@@ -559,6 +559,7 @@ private fun QuataWebApp(
                         themeMode = themeMode,
                         webPushOptedIn = webPushOptedIn,
                         accountLifecycleActions = remember(authRepository) { WebAuthAccountLifecycleActions(authRepository) },
+                        documentOpener = platformServices.documentOpener,
                         onTouchFlowEnabledChange = ::changeTouchFlowEnabled,
                         onThemeModeChange = ::changeThemeMode,
                         onWebPushOptInChange = { enabled ->

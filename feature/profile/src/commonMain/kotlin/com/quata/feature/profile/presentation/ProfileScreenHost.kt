@@ -218,6 +218,7 @@ private fun ProfileOverviewContent(
         },
     )
     EmergencyContactsSettingsActionContent(strings.configureEmergency, profile.emergencyContactIds.size, onClick = onSos)
+    slots.legalDocuments?.invoke()
     QuataSavingButton(state.isSaving, strings.saving, strings.saveChanges, onClick = onSave)
     OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text(strings.logout, fontWeight = FontWeight.ExtraBold) }
 }
@@ -291,6 +292,7 @@ data class ProfileScreenSlots(
     val avatarActions: @Composable ((String?) -> Unit) -> Unit = {},
     val emergencyContactRow: @Composable (EmergencyContactCandidate, Boolean, () -> Unit) -> Unit,
     val emergencyContactActions: @Composable (() -> Unit)? = null,
+    val legalDocuments: (@Composable () -> Unit)? = null,
     val onProfileSaved: () -> Unit = {},
     val onBackFromOverview: () -> Unit = {},
     val backDispatcher: ProfileBackDispatcher? = null,

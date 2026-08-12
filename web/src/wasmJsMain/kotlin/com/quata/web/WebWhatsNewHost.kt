@@ -212,7 +212,7 @@ internal fun browserWhatsNewLanguageTags(): List<String> = browserLanguageTag().
 private fun browserLanguageTag(): String = js("(globalThis.navigator?.languages && globalThis.navigator.languages.length ? Array.from(globalThis.navigator.languages).join(',') : (globalThis.navigator?.language || 'en'))")
 private fun List<String>.isSpanish(): Boolean = any { it.substringBefore('-').substringBefore('_').equals("es", true) }
 private fun List<String>.isFrench(): Boolean = any { it.substringBefore('-').substringBefore('_').equals("fr", true) }
-private fun List<String>.toQuataLanguage(): QuataLanguage = when {
+internal fun List<String>.toQuataLanguage(): QuataLanguage = when {
     isSpanish() -> QuataLanguage.Spanish
     isFrench() -> QuataLanguage.French
     else -> QuataLanguage.English

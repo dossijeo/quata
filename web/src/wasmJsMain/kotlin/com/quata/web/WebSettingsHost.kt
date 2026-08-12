@@ -15,11 +15,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataThemeMode
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.ui.components.QuataAccountLifecycleConfirmationDialogContent
 import com.quata.feature.profile.presentation.ProfileAccountManagementContent
 import com.quata.feature.profile.presentation.ProfileManagementAction
 import com.quata.feature.settings.presentation.AppearanceSettingsSectionContent
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
+import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
+import com.quata.feature.settings.presentation.SettingsLegalDocumentsStrings
 import kotlinx.coroutines.launch
 
 interface WebAccountLifecycleActions {
@@ -46,10 +49,12 @@ fun WebSettingsHost(
     onThemeModeChange: (QuataThemeMode) -> Unit,
     onWebPushOptInChange: (Boolean) -> Unit,
     accountLifecycleActions: WebAccountLifecycleActions? = null,
+    documentOpener: DocumentOpenService,
     onAccountLifecycleSuccess: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
+    val language = remember { browserWhatsNewLanguageTags().toQuataLanguage() }
     var pendingAction by remember { mutableStateOf<WebAccountLifecycleAction?>(null) }
     var isWorking by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -82,6 +87,13 @@ fun WebSettingsHost(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
             )
         }
+        SettingsLegalDocumentsSectionContent(
+            language = language,
+            strings = SettingsLegalDocumentsStrings(title = "Documentos legales"),
+            onOpenDocument = { document ->
+                scope.launch { documentOpener.open(webLegalDocumentFile(document, language)) }
+            },
+        )
         accountLifecycleActions?.let { actions ->
             ProfileAccountManagementContent(
                 title = "Gestión de cuenta",

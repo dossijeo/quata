@@ -251,6 +251,17 @@ internal fun iosLegalDocumentFile(document: LegalDocument, language: QuataLangua
     )
 }
 
+fun openIosLegalDocumentForSettings(
+    runtime: IosWhatsNewRuntimeBootstrap,
+    document: LegalDocument,
+    documentOpener: DocumentOpenService,
+): PlatformResult<Unit> {
+    val language = runtime.languageTags.toQuataLanguage()
+    val file = iosLegalDocumentFile(document, language) ?: return PlatformResult.Unsupported
+    MainScope().launch { documentOpener.open(file) }
+    return PlatformResult.Success(Unit)
+}
+
 private fun iosAboutVersion(runtime: IosWhatsNewRuntimeBootstrap): String = when {
     runtime.languageTags.isSpanish() -> "Version ${runtime.installedVersionName}"
     runtime.languageTags.isFrench() -> "Version ${runtime.installedVersionName}"

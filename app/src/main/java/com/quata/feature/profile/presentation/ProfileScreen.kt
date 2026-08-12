@@ -43,6 +43,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataThemeMode
+import com.quata.core.localization.QuataLanguageManager
+import com.quata.core.moderation.LegalDocuments
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
@@ -53,8 +57,11 @@ import com.quata.feature.postcomposer.imageeditor.QuataImageEditorMode
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
+import com.quata.feature.settings.presentation.SettingsLegalDocumentsStrings
+import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
 import com.quata.core.ui.components.QuataCameraDialog
 import com.quata.core.ui.components.QuataCameraMode
+import kotlinx.coroutines.launch
 
 /** Android owns only native media/resources. Account UI and state live in commonMain. */
 @Composable
@@ -71,10 +78,12 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     onDeactivateAccount: () -> Unit,
     onDeleteAccountData: () -> Unit,
+    documentOpenService: DocumentOpenService,
     onProfileSaved: () -> Unit,
     @Suppress("UNUSED_PARAMETER") viewModel: ProfileAndroidViewModel? = null,
 ) {
     val context = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val cameraPermissionMessage = stringResource(R.string.profile_camera_permission_photo)
     val changePhotoLabel = stringResource(R.string.profile_change_photo)
     val pickGalleryLabel = stringResource(R.string.profile_pick_gallery)
@@ -98,7 +107,7 @@ fun ProfileScreen(
     DisposableEffect(Unit) { onDispose { onFullscreenEditorVisibilityChange(false) } }
 
     Box(Modifier.fillMaxSize()) {
-        ProfileScreenHost(
+            ProfileScreenHost(
             repository = repository,
             strings = androidProfileStrings(context),
             touchFlowEnabled = touchFlowEnabled,
@@ -110,7 +119,7 @@ fun ProfileScreen(
             onDeleteAccountData = onDeleteAccountData,
             refreshKey = networkReconnectToken,
             contentPadding = padding,
-            slots = ProfileScreenSlots(
+                slots = ProfileScreenSlots(
                 isLandscapeLayout = { isLandscape },
                 avatar = { name, uri -> AvatarImage(
                     name, uri, profileId = profileId,
@@ -138,6 +147,20 @@ fun ProfileScreen(
                     avatar = { AvatarImage(user.displayName, user.avatarUrl, profileId = user.id, modifier = Modifier.size(46.dp)) }, onToggle = toggle,
                 ) },
                 onProfileSaved = onProfileSaved,
+                legalDocuments = {
+                    SettingsLegalDocumentsSectionContent(
+                        language = QuataLanguageManager.currentLanguage,
+                        strings = SettingsLegalDocumentsStrings(title = context.getString(R.string.legal_documents_title)),
+                        onOpenDocument = { document ->
+                            scope.launch {
+                                val file = LegalDocuments.platformFile(context, document)
+                                if (file is PlatformResult.Success) {
+                                    documentOpenService.open(file.value)
+                                }
+                            }
+                        },
+                    )
+                },
                 backDispatcher = backDispatcher,
             ),
         )

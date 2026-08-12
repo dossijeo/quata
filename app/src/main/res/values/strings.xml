@@ -565,6 +565,7 @@
     <string name="splash_mark">Q&#776;</string>
     <string name="legal_privacy">Privacy policy</string>
     <string name="legal_child_safety">Child safety and community standards</string>
+    <string name="legal_documents_title">Legal documents</string>
     <string name="legal_account_deletion">Delete account</string>
     <string name="legal_data_deletion">Request data deletion</string>
     <string name="account_action_login_required">Sign in to manage your account.</string>
