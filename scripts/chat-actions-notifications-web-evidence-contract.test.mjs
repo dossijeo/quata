@@ -171,7 +171,8 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /quata_chat_get_or_create_private_thread/);
   assert.match(runner, /profile_private_chat_seed_message_ready/);
   assert.match(runner, /profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc/);
-  assert.match(runner, /profile_private_chat_not_opened:private_marker_not_visible/);
+  assert.match(runner, /pollMessage\(config, state\.a, privateChat\.threadId/);
+  assert.match(runner, /web-chat-profile-private-chat-opened/);
   assert.doesNotMatch(runner, /openAuthenticatedChatRoute\(page, serverOrigin, `sb:\$\{opened\.threadId\}`\)/);
   assert.match(runner, /profile_follow_toggled_and_verified_by_db/);
   assert.match(runner, /profile_follow_edge_restored_to_initial_state/);

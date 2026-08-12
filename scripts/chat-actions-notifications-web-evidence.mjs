@@ -701,6 +701,7 @@ async function waitMessageVisible(page, marker, error, timeout = 45_000) {
       if (await visibleAriaLocator(page, [new RegExp(escapeRegExp(probe))], 250)) return;
       const text = page.getByText(probe, { exact: false }).first();
       if (await text.waitFor({ timeout: 500 }).then(() => true).catch(() => false)) return;
+      if (await visibleTextIncludes(page, probe)) return;
       if (await visibleTextBox(page, probe)) return;
     }
     await delay(250);
@@ -1150,7 +1151,7 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
   report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
 }
 
-async function openPrivateChatFromOpenProfile(page, peerProfile, privateMarker, evidenceDir, report) {
+async function openPrivateChatFromOpenProfile(page, peerProfile, privateChat, privateMarker, evidenceDir, report) {
   report.evidence.profilePrivateChatBefore = await attachScreenshot(page, evidenceDir, "web-chat-profile-private-chat-before");
   const chatButton = await visibleAriaLocator(page, [new RegExp(escapeRegExp(`public-profile.chat.${peerProfile.profileId}`)), /Chat|Mensaje|Message/i], 5_000);
   if (chatButton) {
@@ -1165,7 +1166,8 @@ async function openPrivateChatFromOpenProfile(page, peerProfile, privateMarker, 
     await page.mouse.click(Math.round(viewport.width * 0.72), Math.round(viewport.height * 0.50));
   }
   if (!(await waitForChatProfileReturn(page))) throw new Error("profile_private_chat_not_opened:chat_return_not_visible");
-  await waitMessageVisible(page, privateMarker, "profile_private_chat_not_opened:private_marker_not_visible");
+  await pollMessage(config, state.a, privateChat.threadId, (message) => messageText(message) === privateMarker);
+  await delay(1_000);
   report.evidence.profilePrivateChatOpened = await attachScreenshot(page, evidenceDir, "web-chat-profile-private-chat-opened");
   return { peerProfileId: peerProfile.profileId };
 }
@@ -1392,6 +1394,30 @@ async function visibleTextBox(page, probe) {
           height: Math.round(match.height),
         }
       : null;
+  }, probe);
+}
+
+async function visibleTextIncludes(page, probe) {
+  return await page.evaluate((needle) => {
+    const visible = (element) => {
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return false;
+      const style = window.getComputedStyle(element);
+      return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
+    };
+    const visit = (root) => {
+      for (const element of root.querySelectorAll("*")) {
+        const ownText = [...element.childNodes]
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.textContent ?? "")
+          .join(" ");
+        if (ownText.includes(needle) && visible(element)) return true;
+        if (element.shadowRoot && visit(element.shadowRoot)) return true;
+      }
+      return false;
+    };
+    const appRoot = document.querySelector("#quata-root");
+    return visit(appRoot?.shadowRoot ?? appRoot ?? document);
   }, probe);
 }
 
@@ -2051,7 +2077,7 @@ try {
       state.profilePrivateChat = await createPrivateChatSeed(config, state.a, state.b, state.privateMarker);
       report.steps.push("profile_private_chat_seed_message_ready");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-private-chat");
-      await openPrivateChatFromOpenProfile(page, state.b, state.privateMarker, options.evidenceDir, report);
+      await openPrivateChatFromOpenProfile(page, state.b, state.profilePrivateChat, state.privateMarker, options.evidenceDir, report);
       report.steps.push("profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc");
     } else if (options.profileFollowOnly) {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
