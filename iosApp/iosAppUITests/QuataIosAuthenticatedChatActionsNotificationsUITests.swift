@@ -154,6 +154,65 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-return")
     }
 
+    func testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat options menu surface gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let seedMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]),
+              let seedMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]) else {
+            throw XCTSkip("Disposable Chat options menu fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(seedMessageId))", in: app)
+        _ = chatHost(in: app, context: "options menu surface conversation")
+        assertChatRoute(conversationId, messageId: seedMessageId, in: app, context: "options menu surface conversation")
+        XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        assertAuthenticatedChrome(in: app, context: "options menu surface conversation")
+        assertPrimaryNavigationHidden(in: app, context: "options menu surface conversation")
+
+        openOptionsMenu(in: app, expectedIdentifier: "chat.menu.mute", expectedText: "Silenciar conversación", context: "open options menu")
+        attachScreenshot(app, name: "ios-chat-options-menu-surface")
+    }
+
+    func testOptionsMenuSurfaceUnmutesFromSharedOpaqueHeaderSurface() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat options menu surface gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let seedMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]),
+              let seedMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]) else {
+            throw XCTSkip("Disposable Chat options menu fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(seedMessageId))", in: app)
+        _ = chatHost(in: app, context: "options menu muted surface conversation")
+        assertChatRoute(conversationId, messageId: seedMessageId, in: app, context: "options menu muted surface conversation")
+        XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        openOptionsMenu(in: app, expectedIdentifier: "chat.menu.unmute", expectedText: "Reactivar notificaciones", context: "open muted options menu")
+        attachScreenshot(app, name: "ios-chat-actions-muted")
+    }
+
     func testProfileFollowFromChatTogglesSharedPublicProfileAction() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E"] == "1" else {
@@ -589,6 +648,43 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(button.exists, "Expected \(identifier) for \(context).")
         button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func openOptionsMenu(in app: XCUIApplication, expectedIdentifier: String, expectedText: String, context: String) {
+        let options = app.descendants(matching: .any).matching(identifier: "chat.menu.options").firstMatch
+        for _ in 0..<5 {
+            if hittableMenuAction(identifier: expectedIdentifier, text: expectedText, in: app) != nil {
+                return
+            }
+            if options.waitForExistence(timeout: 1) {
+                options.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            } else {
+                tapTaggedButton("chat.menu.options", in: app, context: context)
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.7))
+        }
+        XCTAssertNotNil(hittableMenuAction(identifier: expectedIdentifier, text: expectedText, in: app), app.debugDescription)
+    }
+
+    private func hittableMenuAction(identifier: String, text: String, in app: XCUIApplication) -> XCUIElement? {
+        let tagged = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        if tagged.exists && tagged.isHittable {
+            return tagged
+        }
+        let fallback = menuText(text, in: app)
+        return fallback.exists && fallback.isHittable ? fallback : nil
+    }
+
+    private func menuText(_ text: String, in app: XCUIApplication) -> XCUIElement {
+        let exact = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@ OR value == %@", text, text))
+            .firstMatch
+        if exact.exists {
+            return exact
+        }
+        return app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS[c] %@ OR value CONTAINS[c] %@", text, text))
+            .firstMatch
     }
 
     private func selectForwardDestination(_ query: String, in app: XCUIApplication) {

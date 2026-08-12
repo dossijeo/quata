@@ -144,6 +144,8 @@ test("common chat action chrome owns mute and tombstone action guards", () => {
   assert.match(groupManagement, /testTag = "chat\.menu\.options"/);
   assert.match(groupManagement, /ChatUiEvent\.ConversationMutedChanged\(conversation\?\.isMuted != true\)/);
   assert.match(groupManagement, /conversation\?\.isMuted == true\) strings\.reactivateNotifications else strings\.muteConversation/);
+  assert.match(groupManagement, /chat\.menu\.mute/);
+  assert.match(groupManagement, /chat\.menu\.unmute/);
 
   for (const tag of ["copy", "reply", "forward", "edit", "report", "favorite", "delete"]) {
     assert.match(selectedActions, new RegExp(`testTag = "chat\\.action\\.${tag}"`));
@@ -163,8 +165,13 @@ test("common chat headers and selected-message menu use one opaque surface color
   assert.match(selectedActionBar, /val surfaceColor = chatHeaderSurfaceColor\(\)/);
   assert.match(selectedActionBar, /\.background\(surfaceColor\)/);
   assert.match(selectedActionBar, /color = surfaceColor/);
+  assert.match(groupManagement, /private fun ChatOpaqueOptionsMenuContent\(/);
+  assert.match(groupManagement, /containerColor = chatHeaderSurfaceColor\(\)/);
+  assert.equal((groupManagement.match(/DropdownMenu\(/g) ?? []).length, 1);
+  assert.equal((groupManagement.match(/ChatOpaqueOptionsMenuContent\(/g) ?? []).length, 3);
+  assert.equal((groupManagement.match(/<ChatOpaqueOptionsMenuContent\(/g) ?? []).length, 0);
   assert.match(favoriteHeader, /color = chatHeaderSurfaceColor\(\)/);
-  for (const sourceText of [selectedActionBar, favoriteHeader]) assert.doesNotMatch(sourceText, /colors\.surface\.copy\(alpha\s*=/);
+  for (const sourceText of [selectedActionBar, groupManagement, favoriteHeader]) assert.doesNotMatch(sourceText, /colors\.surface\.copy\(alpha\s*=/);
   assert.doesNotMatch(androidHost, /colors\.surface\.copy\(alpha\s*=/);
   assert.doesNotMatch(titleBar, /colors\.surface\.copy\(alpha\s*=/);
 });

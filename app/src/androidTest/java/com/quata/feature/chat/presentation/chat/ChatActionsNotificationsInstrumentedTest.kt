@@ -74,6 +74,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
         val hasRequiredStageArguments = when (stage) {
+            "menu-surface" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             "profile", "profile-follow" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
@@ -99,9 +100,10 @@ class ChatActionsNotificationsInstrumentedTest {
                 "edit-favorite" -> runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
                 "forward" -> runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
                 "translation" -> runTranslationStage(ownProbe.orEmpty())
-            "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
-            "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
-            "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
+                "menu-surface" -> runMenuSurfaceStage(ownProbe.orEmpty())
+                "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
+                "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
+                "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-content" -> {
                     openPeerProfile(peerProbe.orEmpty(), profileId.orEmpty())
                     assertProfileContentStage(profileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty())
@@ -228,6 +230,51 @@ class ChatActionsNotificationsInstrumentedTest {
         waitForAction("chat.action.favorite", "Favorito")
         waitForAction("chat.action.delete", "Eliminar")
         saveScreenshot("android-chat-actions-own-selected")
+    }
+
+    private suspend fun runMenuSurfaceStage(ownProbe: String) {
+        waitForMarker(ownProbe, "initial chat thread")
+        openOptionsMenu()
+        waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 10_000)
+        saveScreenshot("android-chat-options-menu-surface")
+        waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 2_000)?.click()
+            ?: error("chat_options_mute_action_not_found")
+        compose.waitForIdle()
+        SystemClock.sleep(800)
+    }
+
+    private fun openOptionsMenu() {
+        repeat(3) { attempt ->
+            runCatching {
+                compose.onNodeWithTag("chat.menu.options", useUnmergedTree = true)
+                    .performClick()
+            }
+            compose.waitForIdle()
+            if (waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 1_000) != null ||
+                waitForText("Reactivar notificaciones", "Unmute", timeoutMillis = 1_000) != null
+            ) {
+                return
+            }
+            val nativeOptions = waitForObject(By.descContains("Opciones"), "Opciones", 750)
+                ?: waitForObject(By.descContains("Options"), "Options", 750)
+            if (nativeOptions != null) {
+                nativeOptions.click()
+                if (waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 1_500) != null ||
+                    waitForText("Reactivar notificaciones", "Unmute", timeoutMillis = 1_500) != null
+                ) {
+                    return
+                }
+            }
+            if (attempt == 2) {
+                device.click(device.displayWidth - 72, (device.displayHeight * 0.17f).toInt())
+                compose.waitForIdle()
+            }
+        }
+        if (waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 2_000) == null &&
+            waitForText("Reactivar notificaciones", "Unmute", timeoutMillis = 2_000) == null
+        ) {
+            error("chat_options_menu_not_visible")
+        }
     }
 
     private suspend fun runForwardStage(editMarker: String, forwardQuery: String) {
@@ -629,6 +676,20 @@ class ChatActionsNotificationsInstrumentedTest {
             SystemClock.sleep(250)
         }
         return false
+    }
+
+    private fun waitForText(primary: String, fallback: String, timeoutMillis: Long = 10_000): androidx.test.uiautomator.UiObject2? {
+        val deadline = SystemClock.uptimeMillis() + timeoutMillis
+        while (SystemClock.uptimeMillis() < deadline) {
+            val primaryObject = waitForObject(By.textContains(primary), primary, 250)
+                ?: waitForObject(By.descContains(primary), primary, 250)
+            if (primaryObject != null) return primaryObject
+            val fallbackObject = waitForObject(By.textContains(fallback), fallback, 250)
+                ?: waitForObject(By.descContains(fallback), fallback, 250)
+            if (fallbackObject != null) return fallbackObject
+            SystemClock.sleep(250)
+        }
+        return null
     }
 
     private fun waitForMarker(markerProbe: String, context: String, timeoutMillis: Long = 45_000) {

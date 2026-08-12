@@ -18,6 +18,7 @@ const profileFollowOnly = process.argv.includes("--profile-follow-only");
 const profileListsOnly = process.argv.includes("--profile-lists-only");
 const profileContentOnly = process.argv.includes("--profile-content-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
+const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const chatAttachmentsBucket = "chat-attachments";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
@@ -36,6 +37,8 @@ const evidenceFiles = [
   "android-chat-composer-edit-submitted.png",
   "android-chat-composer-edit-sent.png",
   "android-chat-actions-own-selected.png",
+  "android-chat-options-menu-surface.png",
+  "android-chat-actions-muted.png",
   "android-chat-forward-picker-selected.png",
   "android-chat-forward-submitted.png",
   "android-chat-profile-thread-initial.png",
@@ -403,6 +406,10 @@ function messageText(row) {
   return String(row?.body ?? row?.text ?? row?.message ?? "");
 }
 
+function isMuted(row) {
+  return row?.muted === true || row?.is_muted === true || row?.isMuted === true;
+}
+
 function messageReplyToId(row) {
   const raw = row?.reply_to_message_id ?? row?.replyToMessageId ?? row?.reply?.id;
   const value = Number(raw);
@@ -456,6 +463,23 @@ async function favorites(config, session) {
     p_actor_profile_id: session.profileId,
     p_limit: 100,
   }), "messages");
+}
+
+async function inboxThread(config, session, thread) {
+  const payload = await rpc(config, session, "quata_chat_get_inbox", {
+    p_actor_profile_id: session.profileId,
+    p_limit: 100,
+  });
+  const allRows = [
+    payload?.thread,
+    payload?.conversation,
+    ...(Array.isArray(payload?.threads) ? payload.threads : []),
+    ...(Array.isArray(payload?.conversations) ? payload.conversations : []),
+    ...(Array.isArray(payload?.update?.threads) ? payload.update.threads : []),
+    ...(Array.isArray(payload?.update?.conversations) ? payload.update.conversations : []),
+  ].filter(Boolean);
+  const numericThread = Number(thread);
+  return allRows.find((row) => Number(row?.thread_id ?? row?.threadId ?? row?.id) === numericThread) ?? null;
 }
 
 async function pollForwardDestinationThread(config, session, profileId, timeout = 45_000) {
@@ -1062,7 +1086,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profilePrivateChatOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profilePrivateChatOnly && !menuSurfaceOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1207,6 +1231,33 @@ try {
     throw new EvidenceCompleted();
   }
 
+  if (menuSurfaceOnly) {
+    assertInstrumentationPassed("menu-surface", await runInstrumentationStage("menu-surface"));
+    if (!isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:true");
+    report.steps.push("options_menu_surface_visible_and_mute_toggled_by_shared_ui");
+    await rpc(config, state.a, "quata_chat_set_muted", {
+      p_actor_profile_id: state.a.profileId,
+      p_thread_id: state.thread,
+      p_muted: false,
+    });
+    if (isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:false");
+    report.steps.push("options_menu_unmute_verified_by_rpc");
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((name) => name.includes("options-menu") || name.endsWith("evidence.json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file));
+    }
+    report.status = "passed";
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      seedMessageId: state.message,
+      markerSha256: sha256(marker),
+    };
+    throw new Error("menu_surface_only_completed");
+  }
+
   if (state.b.accessToken) {
     if (profileFollowOnly) {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
@@ -1341,6 +1392,7 @@ try {
 } catch (error) {
   if (
     error instanceof EvidenceCompleted ||
+    error?.message === "menu_surface_only_completed" ||
     error?.message === "profile_only_completed" ||
     error?.message === "profile_follow_only_completed" ||
     error?.message === "profile_lists_only_completed" ||

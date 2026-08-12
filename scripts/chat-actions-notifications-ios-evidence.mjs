@@ -26,6 +26,7 @@ const profileFollowOnly = options.profileFollowOnly;
 const profileListsOnly = options.profileListsOnly;
 const profileContentOnly = options.profileContentOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
+const menuSurfaceOnly = options.menuSurfaceOnly;
 const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profilePrivateChatOnly;
 const report = {
   check,
@@ -93,7 +94,7 @@ try {
     p_community_id: null,
   }));
   report.steps.push("isolated_group_thread_ready");
-  if (!translationOnly && !profileEvidenceOnly) {
+  if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -101,10 +102,10 @@ try {
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
   state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
-  state.editableMarker = translationOnly || profileEvidenceOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = translationOnly || profileEvidenceOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
-  state.replyMarker = translationOnly || profileEvidenceOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = translationOnly || profileEvidenceOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
+  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
+  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -141,7 +142,7 @@ try {
       state.profilePrivateChatMarkerMessage = messageId(privateMessage);
       report.steps.push("profile_private_chat_seed_message_ready");
     }
-    if (!profileEvidenceOnly) {
+    if (!profileEvidenceOnly && !menuSurfaceOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
         p_thread_id: state.thread,
@@ -265,6 +266,8 @@ export QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID=${shellQuote(state.profileCo
 export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT=${shellQuote(state.profileContent?.uiCommentMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E=${profilePrivateChatOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE=${shellQuote(state.privateMarker?.slice(0, 28) ?? "profile-only")}
+export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E=${menuSurfaceOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_INCLUDE_UNMUTE=${menuSurfaceOnly ? "0" : "1"}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_COMPOSER_MARKER=${shellQuote(state.composerMarker ?? "profile-only")}
@@ -275,7 +278,9 @@ export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR=${shellQuote(options.remoteL
 export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_RESULT_BUNDLE_DIR=${shellQuote(options.remoteResultBundleDir)}
 bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 `, 30 * 60 * 1000);
-    report.steps.push(profileListsOnly
+    report.steps.push(menuSurfaceOnly
+      ? "ios_xctest_options_menu_surface_visible_and_mute_toggled"
+      : profileListsOnly
       ? "ios_xctest_profile_followers_and_following_lists_verified"
       : profileContentOnly
         ? "ios_xctest_profile_content_gallery_comments_and_attachments_verified"
@@ -292,7 +297,13 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
     }
 
-    if (!profileEvidenceOnly) {
+    if (menuSurfaceOnly) {
+      report.steps.push("options_menu_surface_visible_from_shared_ui");
+      if (isMuted(await inboxThread(config, state.a, state.thread))) throw new Error("mute_state_not_persisted:false");
+      report.steps.push("options_menu_unmute_verified_by_rpc");
+    }
+
+    if (!profileEvidenceOnly && !menuSurfaceOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -310,7 +321,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     await copyRemoteEvidence(options);
     report.status = "passed";
-    report.fixture = profileEvidenceOnly
+    report.fixture = (profileEvidenceOnly || menuSurfaceOnly)
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -319,6 +330,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         peerProfileIdSha256: sha256(state.b.profileId),
         seedMarkerSha256: sha256(state.seedMarker),
         peerMarkerSha256: sha256(state.peerMarker),
+        menuSurfaceOnly,
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
         profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
         profileContent: state.profileContent ? {
@@ -461,6 +473,7 @@ function parseArgs(argv) {
     profileListsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_LISTS_ONLY === "1",
     profileContentOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
+    menuSurfaceOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MENU_SURFACE_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -495,6 +508,10 @@ function parseArgs(argv) {
     }
     if (key === "--profile-private-chat-only") {
       result.profilePrivateChatOnly = true;
+      continue;
+    }
+    if (key === "--menu-surface-only") {
+      result.menuSurfaceOnly = true;
       continue;
     }
     if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
@@ -717,6 +734,10 @@ function messageText(row) {
   return String(row?.body ?? row?.text ?? row?.message ?? "");
 }
 
+function isMuted(row) {
+  return row?.muted === true || row?.is_muted === true || row?.isMuted === true;
+}
+
 function messageNumericId(row) {
   const raw = row?.id ?? row?.message_id ?? row?.messageId ?? row?.message?.id;
   const value = Number(raw);
@@ -849,6 +870,23 @@ async function inboxContainsThread(config, session, thread) {
     ...(Array.isArray(inbox?.update?.conversations) ? inbox.update.conversations : []),
   ];
   return threads.some((row) => Number(row?.thread_id ?? row?.id) === thread);
+}
+
+async function inboxThread(config, session, thread) {
+  const inbox = await rpc(config, session, "quata_chat_get_inbox", {
+    p_actor_profile_id: session.profileId,
+    p_limit: 100,
+  });
+  const threads = [
+    inbox?.thread,
+    inbox?.conversation,
+    ...(Array.isArray(inbox?.threads) ? inbox.threads : []),
+    ...(Array.isArray(inbox?.conversations) ? inbox.conversations : []),
+    ...(Array.isArray(inbox?.update?.threads) ? inbox.update.threads : []),
+    ...(Array.isArray(inbox?.update?.conversations) ? inbox.update.conversations : []),
+  ].filter(Boolean);
+  const numericThread = Number(thread);
+  return threads.find((row) => Number(row?.thread_id ?? row?.threadId ?? row?.id) === numericThread) ?? null;
 }
 
 async function logicalCleanup(config, state) {
