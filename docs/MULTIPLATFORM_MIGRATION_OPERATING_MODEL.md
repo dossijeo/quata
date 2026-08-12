@@ -160,6 +160,11 @@ candidato cuando cambia el estado remoto, aparece un fallo que clasificar, o tod
 requeridos están verdes para proceder al merge. En ningún caso este trabajo paralelo puede modificar
 el SHA congelado ni crear una segunda candidata final.
 
+La comprobación periódica de GitHub Actions se planifica como seguimiento asíncrono, no como espera
+activa del turno: si la certificación remota no ha cambiado, la siguiente acción debe ser trabajo
+local preparatorio, aislado y seguro, con evidencia propia y sin mezclarlo con el SHA congelado del
+candidato.
+
 Todo defecto descubierto tras publicar se clasifica antes de corregirlo: **DEFECTO ESCAPADO DEL
 PREFLIGHT LOCAL** si era reproducible con comandos/artefactos locales disponibles; defecto de
 runner, caché, toolchain o servicio exclusivo remoto si no lo era. En el primer caso no basta con
