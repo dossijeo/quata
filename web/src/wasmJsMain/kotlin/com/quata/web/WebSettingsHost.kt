@@ -1,6 +1,7 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataThemeMode
+import com.quata.core.moderation.LegalDocument
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.ui.components.QuataAccountLifecycleConfirmationDialogContent
 import com.quata.feature.profile.presentation.ProfileAccountManagementContent
@@ -59,6 +61,18 @@ fun WebSettingsHost(
     var isWorking by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successMessage by remember { mutableStateOf<String?>(null) }
+    val openLegalDocument: (LegalDocument) -> Unit = { document ->
+        scope.launch { documentOpener.open(webLegalDocumentFile(document, language)) }
+        Unit
+    }
+    DisposableEffect(language, documentOpener) {
+        val uninstall = installWebLegalDocumentsE2eBridge(
+            surface = "settings",
+            openPrivacy = { openLegalDocument(LegalDocument.Privacy) },
+            openChildSafety = { openLegalDocument(LegalDocument.ChildSafety) },
+        )
+        onDispose { uninstall() }
+    }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(18.dp)) {
         AppearanceSettingsSectionContent(
             touchFlowEnabled = touchFlowEnabled,
@@ -90,9 +104,7 @@ fun WebSettingsHost(
         SettingsLegalDocumentsSectionContent(
             language = language,
             strings = SettingsLegalDocumentsStrings(title = "Documentos legales"),
-            onOpenDocument = { document ->
-                scope.launch { documentOpener.open(webLegalDocumentFile(document, language)) }
-            },
+            onOpenDocument = openLegalDocument,
         )
         accountLifecycleActions?.let { actions ->
             ProfileAccountManagementContent(

@@ -69,6 +69,7 @@ import com.quata.feature.profile.presentation.ProfileScreenStrings
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
 import com.quata.feature.settings.presentation.SettingsLegalDocumentsStrings
+import com.quata.core.moderation.LegalDocument
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -110,12 +111,22 @@ internal fun WebProfileHost(
             avatarActions = { change -> WebProfileAvatarActions(platformServices, avatarReferences, change) },
             legalDocuments = {
                 val language = listOfNotNull(webProfileLanguageTag()).toQuataLanguage()
+                val openLegalDocument: (LegalDocument) -> Unit = { document ->
+                    scope.launch { platformServices.documentOpener.open(webLegalDocumentFile(document, language)) }
+                    Unit
+                }
+                DisposableEffect(language, platformServices.documentOpener) {
+                    val uninstall = installWebLegalDocumentsE2eBridge(
+                        surface = "profile",
+                        openPrivacy = { openLegalDocument(LegalDocument.Privacy) },
+                        openChildSafety = { openLegalDocument(LegalDocument.ChildSafety) },
+                    )
+                    onDispose { uninstall() }
+                }
                 SettingsLegalDocumentsSectionContent(
                     language = language,
                     strings = SettingsLegalDocumentsStrings(title = "Documentos legales"),
-                    onOpenDocument = { document ->
-                        scope.launch { platformServices.documentOpener.open(webLegalDocumentFile(document, language)) }
-                    },
+                    onOpenDocument = openLegalDocument,
                 )
             },
             emergencyContactRow = { contact, selected, toggle -> EmergencyUserRowContent(contact, selected, "Añadir", "Quitar", avatar = { BrowserRemoteAvatar(contact.displayName, contact.id, contact.avatarUrl, false, null, Modifier.size(46.dp)) }, onToggle = toggle) },

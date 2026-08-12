@@ -707,6 +707,20 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
 }
 
 async function clickLegalDocumentAndWait(page, pattern, expectedName, fallbackIndex, previousOpenCount) {
+  const bridgeSurface = await page.evaluate(() => document.documentElement.getAttribute("data-quata-shell-route"));
+  if (bridgeSurface === "profile" || bridgeSurface === "settings") {
+    const documentKey = expectedName.startsWith("privacy") ? "privacy" : "childsafety";
+    const invoked = await page.evaluate(({ surface, key }) => {
+      const bridge = globalThis.__quataLegalDocumentsE2eProduct?.[surface];
+      if (bridge?.version !== 1 || typeof bridge.open !== "function") return false;
+      bridge.open(key);
+      return true;
+    }, { surface: bridgeSurface, key: documentKey });
+    if (invoked) {
+      const opened = await waitForOpenedDocument(page, expectedName, previousOpenCount, 5_000);
+      if (opened) return opened;
+    }
+  }
   const nativeButton = page.getByRole("button", { name: pattern }).first();
   if (await nativeButton.count()) {
     await nativeButton.click({ timeout: 1_000 }).catch(() => null);
