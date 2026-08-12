@@ -38,6 +38,7 @@ fun RegisterForm(
     isLandscape: Boolean,
     onEvent: (RegisterUiEvent) -> Unit,
     onBack: () -> Unit,
+    legalLinks: @Composable (() -> Unit)? = null,
 ) {
     val space = if (isLandscape) 6.dp else 8.dp
     val selectedQuestionLabel = secretQuestions.firstOrNull { it.value == state.secretQuestion }?.label
@@ -58,4 +59,8 @@ fun RegisterForm(
     QuataPrimaryButton(if (state.isLoading) strings.creating else strings.createAccount, enabled = !state.isLoading) { onEvent(RegisterUiEvent.Submit) }
     Spacer(Modifier.height(space))
     QuataSecondaryButton(strings.back, onClick = onBack)
+    legalLinks?.let {
+        Spacer(Modifier.height(if (isLandscape) 10.dp else 14.dp))
+        it()
+    }
 }

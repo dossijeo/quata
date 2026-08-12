@@ -1,6 +1,9 @@
 package com.quata.feature.auth.presentation
 
 import com.quata.core.model.AuthSession
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
@@ -31,9 +34,14 @@ private fun fixtureViewController(initialDestination: AuthProductDestination): U
         repository = IosAuthLaunchFixtureRepository(),
         locale = AuthCatalogLocale.English,
         initialDestination = initialDestination,
+        documentOpener = IosAuthLaunchFixtureDocumentOpener,
         onLoginSuccess = {},
     ),
 )
+
+private object IosAuthLaunchFixtureDocumentOpener : DocumentOpenService {
+    override suspend fun open(file: PlatformFile): PlatformResult<Unit> = PlatformResult.Success(Unit)
+}
 
 private class IosAuthLaunchFixtureRepository : AuthRepository {
     private fun <T> unavailable(): Result<T> = Result.failure(IllegalStateException("fixture_auth_unavailable"))

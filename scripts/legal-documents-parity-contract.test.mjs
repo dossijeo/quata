@@ -6,15 +6,22 @@ const legalDocument = await source('../core/src/commonMain/kotlin/com/quata/core
 const legalLinksContent = await source('../designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataLegalDocumentLinksContent.kt');
 const androidNav = await source('../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt');
 const androidLegal = await source('../app/src/main/java/com/quata/core/moderation/LegalDocuments.kt');
+const iosLegal = await source('../core/src/iosMain/kotlin/com/quata/core/moderation/IosLegalDocuments.kt');
+const androidRegister = await source('../app/src/main/java/com/quata/feature/auth/presentation/register/RegisterScreen.kt');
 const androidEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/whatsnew/presentation/AboutReleaseHistoryInstrumentedTest.kt');
 const web = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt');
 const webSettings = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebSettingsHost.kt');
+const webLogin = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebLoginHost.kt');
 const webMain = await source('../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt');
 const webEvidenceRunner = await source('../scripts/about-release-history-web-evidence.mjs');
+const authProductHost = await source('../feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/AuthProductHostContent.kt');
+const registerHost = await source('../feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/register/RegisterScreenHost.kt');
+const registerForm = await source('../feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/register/RegisterForm.kt');
 const settingsCommon = await source('../feature/settings/src/commonMain/kotlin/com/quata/feature/settings/presentation/SettingsAppearanceControls.kt');
 const profileHost = await source('../feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/ProfileScreenHost.kt');
 const androidProfile = await source('../app/src/main/java/com/quata/feature/profile/presentation/ProfileScreen.kt');
 const iosRuntime = await source('../feature/whatsnew/src/iosMain/kotlin/com/quata/feature/whatsnew/presentation/IosWhatsNewRuntimeBootstrap.kt');
+const iosAuth = await source('../feature/auth/src/iosMain/kotlin/com/quata/feature/auth/presentation/IosAuthHost.kt');
 const iosSettings = await source('../feature/settings/src/iosMain/kotlin/com/quata/feature/settings/presentation/IosSettingsHost.kt');
 const iosProject = await source('../iosApp/project.yml');
 const iosSwift = await source('../iosApp/iosApp/QuataIosApp.swift');
@@ -58,7 +65,7 @@ test('Android, Web and iOS About links use common legal document content', () =>
 
   assert.match(iosRuntime, /QuataLegalDocumentLinksContent\(/);
   assert.match(iosRuntime, /iosLegalDocumentFile\(document, language\)\?\.let \{ documentOpener\.open\(it\) \}/);
-  assert.match(iosRuntime, /NSBundle\.mainBundle\.pathForResource/);
+  assert.match(iosLegal, /NSBundle\.mainBundle\.pathForResource/);
   assert.match(iosSwift, /documentOpener: platformServices\.services\.documentOpener/);
   assert.doesNotMatch(iosRuntime, /TextButton\(onClick = \{ openIosExternalUrl\(LegalLinks\./);
   assert.doesNotMatch(iosRuntime, /openIosExternalUrl\(document\.publicUrl\(\)\)/);
@@ -113,6 +120,27 @@ test('Account and Settings surfaces expose the shared legal document section', (
   assert.match(iosSettings, /openLegalDocument\(document, opener\)/);
   assert.match(iosRuntime, /fun openIosLegalDocumentForSettings\(/);
   assert.match(iosSwift, /openIosLegalDocumentForSettings\(/);
+});
+
+test('Auth registration exposes legal documents through the shared common slot', () => {
+  assert.match(authProductHost, /registerLegalLinks: @Composable \(\(\) -> Unit\)\? = null/);
+  assert.match(authProductHost, /legalLinks = registerLegalLinks/);
+  assert.match(registerHost, /legalLinks: @Composable \(\(\) -> Unit\)\? = null/);
+  assert.match(registerForm, /legalLinks\?\.let/);
+
+  assert.match(androidRegister, /QuataLegalDocumentLinksContent\(/);
+  assert.match(androidRegister, /scope\.launch \{ openLegalDocument\(document\) \}/);
+  assert.match(androidNav, /openLegalDocument = \{ document -> openLegalDocument\(appContext, container, document\) \}/);
+
+  assert.match(webLogin, /registerLegalLinks = \{/);
+  assert.match(webLogin, /QuataLegalDocumentLinksContent\(/);
+  assert.match(webLogin, /documentOpener\.open\(webLegalDocumentFile\(document, QuataLanguage\.Spanish\)\)/);
+  assert.match(webMain, /documentOpener = platformServices\.documentOpener/);
+
+  assert.match(iosAuth, /registerLegalLinks = \{ IosAuthRegisterLegalLinks\(dependencies\.locale, dependencies\.documentOpener\) \}/);
+  assert.match(iosAuth, /fun openIosAuthLegalDocument\(/);
+  assert.match(iosAuth, /iosLegalDocumentFile\(document, language\)\?\.let \{ documentOpener\.open\(it\) \}/);
+  assert.match(iosSwift, /createIosAuthHostDependencies[\s\S]*documentOpener: platformServices\.services\.documentOpener/);
 });
 
 async function source(path) {

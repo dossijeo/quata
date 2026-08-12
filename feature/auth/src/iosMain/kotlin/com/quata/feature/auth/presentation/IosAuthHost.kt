@@ -2,7 +2,14 @@ package com.quata.feature.auth.presentation
 
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeUIViewController
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.localization.QuataLanguage
+import com.quata.core.moderation.LegalDocument
+import com.quata.core.moderation.iosLegalDocumentFile
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.LogoutUseCase
@@ -23,6 +30,7 @@ class IosAuthHostDependencies(
     val repository: AuthRepository,
     val locale: AuthCatalogLocale,
     val initialDestination: AuthProductDestination,
+    val documentOpener: DocumentOpenService,
     val onLoginSuccess: () -> Unit,
 )
 
@@ -30,11 +38,13 @@ class IosAuthHostDependencies(
 fun createIosAuthHostDependencies(
     repository: AuthRepository,
     languageCode: String,
+    documentOpener: DocumentOpenService,
     onLoginSuccess: () -> Unit,
 ): IosAuthHostDependencies = IosAuthHostDependencies(
     repository = repository,
     locale = AuthCatalogLocale.fromLanguage(languageCode),
     initialDestination = AuthProductDestination.Login,
+    documentOpener = documentOpener,
     onLoginSuccess = onLoginSuccess,
 )
 
@@ -43,6 +53,7 @@ fun createIosAuthHostDependenciesForDestination(
     repository: AuthRepository,
     languageCode: String,
     destination: String,
+    documentOpener: DocumentOpenService,
     onLoginSuccess: () -> Unit,
 ): IosAuthHostDependencies = IosAuthHostDependencies(
     repository = repository,
@@ -52,6 +63,7 @@ fun createIosAuthHostDependenciesForDestination(
         "recovery" -> AuthProductDestination.Recovery
         else -> AuthProductDestination.Login
     },
+    documentOpener = documentOpener,
     onLoginSuccess = onLoginSuccess,
 )
 
@@ -119,6 +131,7 @@ fun QuataAuthViewController(dependencies: IosAuthHostDependencies): UIViewContro
             catalog = catalog,
             prefixes = AuthCatalog.countryPrefixes(dependencies.locale),
             initialDestination = dependencies.initialDestination,
+            registerLegalLinks = { IosAuthRegisterLegalLinks(dependencies.locale, dependencies.documentOpener) },
             onAuthenticated = dependencies.onLoginSuccess,
         )
     }
@@ -133,9 +146,36 @@ fun QuataRegistrationViewController(dependencies: IosAuthHostDependencies): UIVi
             catalog = catalog,
             prefixes = AuthCatalog.countryPrefixes(dependencies.locale),
             initialDestination = AuthProductDestination.Register,
+            registerLegalLinks = { IosAuthRegisterLegalLinks(dependencies.locale, dependencies.documentOpener) },
             onAuthenticated = dependencies.onLoginSuccess,
         )
     }
+}
+
+@Composable
+private fun IosAuthRegisterLegalLinks(locale: AuthCatalogLocale, documentOpener: DocumentOpenService) {
+    val scope = rememberCoroutineScope()
+    val language = locale.quataLanguage()
+    QuataLegalDocumentLinksContent(
+        language = language,
+        onOpenDocument = { document ->
+            scope.launch { openIosAuthLegalDocument(document, language, documentOpener) }
+        },
+    )
+}
+
+suspend fun openIosAuthLegalDocument(
+    document: LegalDocument,
+    language: QuataLanguage,
+    documentOpener: DocumentOpenService,
+) {
+    iosLegalDocumentFile(document, language)?.let { documentOpener.open(it) }
+}
+
+private fun AuthCatalogLocale.quataLanguage(): QuataLanguage = when (this) {
+    AuthCatalogLocale.Spanish -> QuataLanguage.Spanish
+    AuthCatalogLocale.French -> QuataLanguage.French
+    AuthCatalogLocale.English -> QuataLanguage.English
 }
 
 /**

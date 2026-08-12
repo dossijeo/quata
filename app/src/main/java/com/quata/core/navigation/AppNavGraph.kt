@@ -678,6 +678,7 @@ fun AppNavGraph(
                     RegisterScreen(
                         padding = padding,
                         authRepository = container.authRepository,
+                        openLegalDocument = { document -> openLegalDocument(appContext, container, document) },
                         onBack = { navController.popBackStack() },
                         onRegisterSuccess = {
                             navController.navigate(AppDestinations.Feed.route) {

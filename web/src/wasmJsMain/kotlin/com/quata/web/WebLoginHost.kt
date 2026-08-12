@@ -2,7 +2,10 @@ package com.quata.web
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import com.quata.core.localization.QuataLanguage
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PreferenceStore
+import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.feature.auth.presentation.AuthCatalog
 import com.quata.feature.auth.presentation.AuthCatalogLocale
 import com.quata.feature.auth.presentation.AuthProductDestination
@@ -17,6 +20,7 @@ import kotlinx.coroutines.launch
 fun WebLoginHost(
     repository: WebAuthRepository,
     preferences: PreferenceStore,
+    documentOpener: DocumentOpenService,
     initialDestination: AuthProductDestination = AuthProductDestination.Login,
     onLoginSuccess: () -> Unit,
 ) {
@@ -27,6 +31,14 @@ fun WebLoginHost(
         catalog = catalog,
         prefixes = AuthCatalog.countryPrefixes(AuthCatalogLocale.Spanish),
         initialDestination = initialDestination,
+        registerLegalLinks = {
+            QuataLegalDocumentLinksContent(
+                language = QuataLanguage.Spanish,
+                onOpenDocument = { document ->
+                    scope.launch { documentOpener.open(webLegalDocumentFile(document, QuataLanguage.Spanish)) }
+                },
+            )
+        },
         onAuthenticated = {
             scope.launch {
                 preferences.putString(WebSessionReadyKey, "true")

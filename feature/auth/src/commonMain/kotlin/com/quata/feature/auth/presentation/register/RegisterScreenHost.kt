@@ -20,6 +20,7 @@ fun RegisterScreenHost(
     repository: RegisterRepository,
     catalog: AuthCatalogCopy,
     prefixes: List<CountryPrefix>,
+    legalLinks: @Composable (() -> Unit)? = null,
     onBack: () -> Unit,
     onRegisterSuccess: () -> Unit,
 ) {
@@ -56,6 +57,7 @@ fun RegisterScreenHost(
             isLandscape = isLandscape,
             onEvent = viewModel::onEvent,
             onBack = onBack,
+            legalLinks = legalLinks,
         )
     }
 }

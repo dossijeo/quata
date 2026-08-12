@@ -454,6 +454,7 @@ private final class IosAppCompositionRoot {
                 repository: repository,
                 languageCode: languageArgument ?? Locale.current.languageCode ?? "en",
                 destination: "recovery",
+                documentOpener: platformServices.services.documentOpener,
                 onLoginSuccess: {},
             )
             return IosAuthLaunchFixtureContainerViewController {
@@ -1267,6 +1268,7 @@ private final class IosAppCompositionRoot {
         let dependencies = IosAuthHostKt.createIosAuthHostDependencies(
             repository: repository,
             languageCode: Locale.current.languageCode ?? "en",
+            documentOpener: platformServices.services.documentOpener,
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
                     self?.authenticatedHost.finishAuthentication {

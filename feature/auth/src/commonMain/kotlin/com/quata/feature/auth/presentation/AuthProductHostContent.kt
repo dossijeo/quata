@@ -24,6 +24,7 @@ fun AuthProductHostContent(
     catalog: AuthCatalogCopy,
     prefixes: List<CountryPrefix>,
     initialDestination: AuthProductDestination = AuthProductDestination.Login,
+    registerLegalLinks: @Composable (() -> Unit)? = null,
     onAuthenticated: () -> Unit,
 ) {
     var destination by remember(initialDestination) { mutableStateOf(initialDestination) }
@@ -44,6 +45,7 @@ fun AuthProductHostContent(
             repository = repository,
             catalog = catalog,
             prefixes = prefixes,
+            legalLinks = registerLegalLinks,
             onBack = { destination = AuthProductDestination.Login },
             onRegisterSuccess = onAuthenticated,
         )

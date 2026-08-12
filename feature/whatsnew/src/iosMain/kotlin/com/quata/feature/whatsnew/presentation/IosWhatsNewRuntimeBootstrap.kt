@@ -6,7 +6,7 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.LegalDocument
-import com.quata.core.moderation.assetName
+import com.quata.core.moderation.iosLegalDocumentFile
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
@@ -238,19 +238,6 @@ private fun IosAboutLegalLinks(tags: List<String>, documentOpener: DocumentOpenS
     )
 }
 
-internal fun iosLegalDocumentFile(document: LegalDocument, language: QuataLanguage): PlatformFile? {
-    val assetName = document.assetName(language)
-    val path = NSBundle.mainBundle.pathForResource(
-        name = assetName.substringBeforeLast('.'),
-        ofType = assetName.substringAfterLast('.'),
-    ) ?: return null
-    return PlatformFile(
-        reference = path,
-        displayName = assetName,
-        mimeType = LegalDocumentDocxMimeType,
-    )
-}
-
 fun openIosLegalDocumentForSettings(
     runtime: IosWhatsNewRuntimeBootstrap,
     document: LegalDocument,
@@ -291,9 +278,6 @@ private fun iosAboutBody(tags: List<String>): String = when {
     tags.isFrench() -> "Feed communautaire, quartiers, chats, favoris, profils et contacts SOS dans une experience integree."
     else -> "Community feed, districts, chats, favorites, profiles and SOS contacts in one integrated experience."
 }
-
-private const val LegalDocumentDocxMimeType =
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 private fun List<String>.isSpanish(): Boolean = any { it.substringBefore('-').equals("es", ignoreCase = true) }
 private fun List<String>.isFrench(): Boolean = any { it.substringBefore('-').equals("fr", ignoreCase = true) }

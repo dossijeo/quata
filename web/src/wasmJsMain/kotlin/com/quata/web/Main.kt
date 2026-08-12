@@ -478,6 +478,7 @@ private fun QuataWebApp(
                         WebLoginHost(
                             repository = authRepository,
                             preferences = platformServices.preferences,
+                            documentOpener = platformServices.documentOpener,
                             initialDestination = authInitialDestination,
                             onLoginSuccess = ::completeLogin,
                         )
