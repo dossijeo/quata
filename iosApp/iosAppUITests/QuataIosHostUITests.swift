@@ -109,6 +109,29 @@ final class QuataIosHostUITests: XCTestCase {
             )
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-launch-register-legal")
+
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-privacy")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-opened-privacy_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared register Privacy link must resolve to the packaged Spanish DOCX.",
+        )
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-childsafety")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-opened-child_safety_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared register Child Safety link must resolve to the packaged Spanish DOCX.",
+        )
     }
 
     func testRealAuthRecoveryFixtureRoundTripsPasswordAndKeepsEvidence() throws {

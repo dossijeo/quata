@@ -82,6 +82,8 @@ test("auth-launch UI contract proves two cold launches with real Compose readine
   assert.match(uiTests, /authDestination: "register"/);
   assert.match(uiTests, /"legal-document-link-privacy"/);
   assert.match(uiTests, /"legal-document-link-childsafety"/);
+  assert.match(uiTests, /"legal-document-opened-privacy_es\.docx"/);
+  assert.match(uiTests, /"legal-document-opened-child_safety_es\.docx"/);
   assert.match(uiTests, /auth-launch-register-legal/);
   assert.doesNotMatch(
     uiTests,
