@@ -1135,7 +1135,7 @@ private final class IosAppCompositionRoot {
         }
         authenticatedHost.installAboutFactory { [weak self] in
             guard let self else { return UIViewController() }
-            IosWhatsNewRuntimeBootstrapKt.QuataIosAboutViewController(
+            return IosWhatsNewRuntimeBootstrapKt.QuataIosAboutViewController(
                 runtime: whatsNewRuntimeBootstrap,
                 documentOpener: self.platformServices.services.documentOpener,
                 onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
