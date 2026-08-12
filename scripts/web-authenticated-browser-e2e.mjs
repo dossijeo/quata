@@ -634,7 +634,10 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
   );
   const nativeButton = page.getByRole("button", { name: pattern }).first();
   if (await nativeButton.count()) {
-    await nativeButton.click();
+    await nativeButton.click({ timeout: 3_000 }).catch(async () => {
+      const box = await waitForTextBounds(page, pattern, 2_000).catch(() => registerLegalFallbackBounds(page, fallbackIndex));
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    });
   } else {
     const box = await waitForTextBounds(page, pattern, 2_000).catch(() => registerLegalFallbackBounds(page, fallbackIndex));
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
