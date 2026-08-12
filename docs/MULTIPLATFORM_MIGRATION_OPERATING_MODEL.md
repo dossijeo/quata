@@ -165,6 +165,11 @@ activa del turno: si la certificación remota no ha cambiado, la siguiente acci�
 local preparatorio, aislado y seguro, con evidencia propia y sin mezclarlo con el SHA congelado del
 candidato.
 
+Regla persistente: CI nunca debe mantener al orquestador en espera pasiva. Tras lanzar la
+certificacion remota, se consulta GitHub Actions por polling asincrono y se cambia a trabajo local
+independiente hasta que haya una transicion de estado que exija clasificar fallo, revalidar o
+promover el candidato.
+
 Todo defecto descubierto tras publicar se clasifica antes de corregirlo: **DEFECTO ESCAPADO DEL
 PREFLIGHT LOCAL** si era reproducible con comandos/artefactos locales disponibles; defecto de
 runner, caché, toolchain o servicio exclusivo remoto si no lo era. En el primer caso no basta con

@@ -344,7 +344,12 @@ private fun ChatCommonConversationHost(
             memberAvatar = { member ->
                 QuataAvatarLoadingHaloContent(
                     isLoading = openingProfileUserId == member.id,
-                    modifier = Modifier.size(38.dp),
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clickable(
+                            enabled = member.canOpenProfile && openingProfileUserId != member.id,
+                        ) { onOpenUserProfile(member.id) }
+                        .semantics { testTag = ChatProfileMemberAvatarTestTagPrefix + member.id },
                 ) {
                     remoteConversationAvatar(
                         ConversationAvatarPresentation(
@@ -357,11 +362,7 @@ private fun ChatCommonConversationHost(
                             isLoading = openingProfileUserId == member.id,
                         ),
                         Modifier
-                            .size(34.dp)
-                            .clickable(
-                                enabled = member.canOpenProfile && openingProfileUserId != member.id,
-                            ) { onOpenUserProfile(member.id) }
-                            .semantics { testTag = ChatProfileMemberAvatarTestTagPrefix + member.id },
+                            .size(34.dp),
                     )
                 }
             },
@@ -370,7 +371,12 @@ private fun ChatCommonConversationHost(
             messageAvatar = { message ->
                 QuataAvatarLoadingHaloContent(
                     isLoading = openingProfileUserId == message.senderId,
-                    modifier = Modifier.size(38.dp),
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clickable(
+                            enabled = openingProfileUserId != message.senderId,
+                        ) { onOpenUserProfile(message.senderId) }
+                        .semantics { testTag = ChatProfileMessageAvatarTestTagPrefix + message.senderId },
                 ) {
                     remoteConversationAvatar(
                         resolveMessageAvatarPresentation(
@@ -380,11 +386,7 @@ private fun ChatCommonConversationHost(
                         ),
                         Modifier
                             .size(34.dp)
-                            .border(1.dp, template.colors.divider, CircleShape)
-                            .clickable(
-                                enabled = openingProfileUserId != message.senderId,
-                            ) { onOpenUserProfile(message.senderId) }
-                            .semantics { testTag = ChatProfileMessageAvatarTestTagPrefix + message.senderId },
+                            .border(1.dp, template.colors.divider, CircleShape),
                     )
                 }
             },

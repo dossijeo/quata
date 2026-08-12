@@ -24,6 +24,9 @@ class SessionPreferences private constructor(
     )
 
     private val prefs = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
+    private val cacheLock = Any()
+    private var cachedSnapshot: SessionSnapshot? = null
+    private var cachedSession: AuthSession? = null
 
     override fun saveSession(session: AuthSession) {
         prefs.edit().apply {
@@ -38,30 +41,42 @@ class SessionPreferences private constructor(
             putBoolean(KEY_IS_OFFICIAL, session.isOfficial)
             apply()
         }
+        synchronized(cacheLock) {
+            cachedSnapshot = snapshot()
+            cachedSession = session
+        }
     }
 
     override fun getSession(): AuthSession? {
-        val storedToken = prefs.getString(KEY_TOKEN, null) ?: return null
-        val storedUserId = prefs.getString(KEY_USER_ID, null) ?: return null
+        val currentSnapshot = snapshot()
+        synchronized(cacheLock) {
+            if (currentSnapshot == cachedSnapshot) return cachedSession
+        }
+        val storedToken = currentSnapshot.token ?: return cache(null, currentSnapshot)
+        val storedUserId = currentSnapshot.userId ?: return cache(null, currentSnapshot)
         return try {
             val rawValues = listOfNotNull(
-                storedToken, storedUserId, prefs.getString(KEY_EMAIL, null),
-                prefs.getString(KEY_DISPLAY_NAME, null), prefs.getString(KEY_AUTH_USER_ID, null),
-                prefs.getString(KEY_ACCESS_TOKEN, null), prefs.getString(KEY_REFRESH_TOKEN, null)
+                storedToken, storedUserId, currentSnapshot.email,
+                currentSnapshot.displayName, currentSnapshot.authUserId,
+                currentSnapshot.accessToken, currentSnapshot.refreshToken
             )
             val session = AuthSession(
                 token = decryptOrLegacy(storedToken),
                 userId = decryptOrLegacy(storedUserId),
-                email = prefs.getString(KEY_EMAIL, null)?.let(::decryptOrLegacy).orEmpty(),
-                displayName = prefs.getString(KEY_DISPLAY_NAME, null)?.let(::decryptOrLegacy) ?: DEFAULT_DISPLAY_NAME,
-                authUserId = prefs.getString(KEY_AUTH_USER_ID, null)?.let(::decryptOrLegacy),
-                accessToken = prefs.getString(KEY_ACCESS_TOKEN, null)?.let(::decryptOrLegacy),
-                refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null)?.let(::decryptOrLegacy),
-                expiresAt = prefs.getLong(KEY_EXPIRES_AT, 0L).takeIf { it > 0L },
-                isOfficial = prefs.getBoolean(KEY_IS_OFFICIAL, false),
+                email = currentSnapshot.email?.let(::decryptOrLegacy).orEmpty(),
+                displayName = currentSnapshot.displayName?.let(::decryptOrLegacy) ?: DEFAULT_DISPLAY_NAME,
+                authUserId = currentSnapshot.authUserId?.let(::decryptOrLegacy),
+                accessToken = currentSnapshot.accessToken?.let(::decryptOrLegacy),
+                refreshToken = currentSnapshot.refreshToken?.let(::decryptOrLegacy),
+                expiresAt = currentSnapshot.expiresAt.takeIf { it > 0L },
+                isOfficial = currentSnapshot.isOfficial,
             )
-            if (rawValues.any { !cipher.isEncrypted(it) }) saveSession(session)
-            session
+            if (rawValues.any { !cipher.isEncrypted(it) }) {
+                saveSession(session)
+                session
+            } else {
+                cache(session, currentSnapshot)
+            }
         } catch (error: Exception) {
             Log.w(TAG, "Discarding unreadable Android session", error)
             clear()
@@ -71,10 +86,46 @@ class SessionPreferences private constructor(
 
     override fun clear() {
         prefs.edit().clear().apply()
+        synchronized(cacheLock) {
+            cachedSnapshot = snapshot()
+            cachedSession = null
+        }
     }
 
     private fun decryptOrLegacy(value: String): String =
         if (cipher.isEncrypted(value)) cipher.decrypt(value) else value
+
+    private fun cache(session: AuthSession?, snapshot: SessionSnapshot): AuthSession? {
+        synchronized(cacheLock) {
+            cachedSnapshot = snapshot
+            cachedSession = session
+        }
+        return session
+    }
+
+    private fun snapshot() = SessionSnapshot(
+        token = prefs.getString(KEY_TOKEN, null),
+        userId = prefs.getString(KEY_USER_ID, null),
+        email = prefs.getString(KEY_EMAIL, null),
+        displayName = prefs.getString(KEY_DISPLAY_NAME, null),
+        authUserId = prefs.getString(KEY_AUTH_USER_ID, null),
+        accessToken = prefs.getString(KEY_ACCESS_TOKEN, null),
+        refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null),
+        expiresAt = prefs.getLong(KEY_EXPIRES_AT, 0L),
+        isOfficial = prefs.getBoolean(KEY_IS_OFFICIAL, false),
+    )
+
+    private data class SessionSnapshot(
+        val token: String?,
+        val userId: String?,
+        val email: String?,
+        val displayName: String?,
+        val authUserId: String?,
+        val accessToken: String?,
+        val refreshToken: String?,
+        val expiresAt: Long,
+        val isOfficial: Boolean,
+    )
 
     companion object {
         private const val TAG = "SessionPreferences"

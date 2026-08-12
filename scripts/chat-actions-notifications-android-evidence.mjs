@@ -38,6 +38,8 @@ const evidenceFiles = [
   "android-chat-forward-picker-selected.png",
   "android-chat-forward-submitted.png",
   "android-chat-profile-thread-initial.png",
+  "android-chat-profile-message-avatar-open-failed.png",
+  "android-chat-profile-open-failed.png",
   "android-chat-profile-open.png",
   "android-chat-profile-return.png",
   "android-chat-profile-follow-before.png",
@@ -1247,7 +1249,13 @@ try {
     editMarkerSha256: sha256(editMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted || error?.message === "profile_only_completed" || error?.message === "profile_lists_only_completed") {
+  if (
+    error instanceof EvidenceCompleted ||
+    error?.message === "profile_only_completed" ||
+    error?.message === "profile_follow_only_completed" ||
+    error?.message === "profile_lists_only_completed" ||
+    error?.message === "profile_content_only_completed"
+  ) {
     // Focal modes finished successfully; cleanup and report writing still happen in finally.
   } else {
     report.error = safeFailure(error);
@@ -1338,6 +1346,7 @@ try {
     }
   }
   report.cleanup = cleanup;
+  if (report.status === "passed") delete report.error;
   report.finishedAt = new Date().toISOString();
   const output = join("build-reports", "android", "chat-actions-notifications-evidence.json");
   await mkdir(dirname(output), { recursive: true });
