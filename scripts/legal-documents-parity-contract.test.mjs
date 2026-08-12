@@ -15,6 +15,7 @@ const webSettings = await source('../web/src/wasmJsMain/kotlin/com/quata/web/Web
 const webLogin = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebLoginHost.kt');
 const webMain = await source('../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt');
 const webEvidenceRunner = await source('../scripts/about-release-history-web-evidence.mjs');
+const webAuthEvidenceRunner = await source('../scripts/web-authenticated-browser-e2e.mjs');
 const authProductHost = await source('../feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/AuthProductHostContent.kt');
 const registerHost = await source('../feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/register/RegisterScreenHost.kt');
 const registerForm = await source('../feature/auth/src/commonMain/kotlin/com/quata/feature/auth/presentation/register/RegisterForm.kt');
@@ -138,6 +139,9 @@ test('Auth registration exposes legal documents through the shared common slot',
   assert.match(webLogin, /QuataLegalDocumentLinksContent\(/);
   assert.match(webLogin, /documentOpener\.open\(webLegalDocumentFile\(document, QuataLanguage\.Spanish\)\)/);
   assert.match(webMain, /documentOpener = platformServices\.documentOpener/);
+  assert.match(webAuthEvidenceRunner, /register_shared_legal_documents_downloaded_from_local_assets/);
+  assert.match(webAuthEvidenceRunner, /clickAndCaptureDownload\(page, \/PolÃ­tica de privacidad\|Privacy policy\/, "privacy_es\.docx"\)/);
+  assert.match(webAuthEvidenceRunner, /clickAndCaptureDownload\(page, \/Seguridad de menores\|Child safety\/, "child_safety_es\.docx"\)/);
 
   assert.match(iosAuth, /registerLegalLinks = \{ IosAuthRegisterLegalLinks\(dependencies\.locale, dependencies\.documentOpener\) \}/);
   assert.match(iosAuth, /fun openIosAuthLegalDocument\(/);

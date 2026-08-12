@@ -59,6 +59,10 @@ test("the hermetic browser journey proves the permanent public shell, participat
   assert.match(runner, /await invokeAuthGateAction\(page, "dismiss"\)/);
   assert.match(runner, /await invokeAuthGateAction\(page, "chooseRegister"\)/);
   assert.match(runner, /await assertFullScreenAuthDestination\(page, "register"\)/);
+  assert.match(runner, /await assertRegisterLegalDocumentDownloads\(page\)/);
+  assert.match(runner, /register_shared_legal_documents_downloaded_from_local_assets/);
+  assert.match(runner, /clickAndCaptureDownload\(page, \/PolÃ­tica de privacidad\|Privacy policy\/, "privacy_es\.docx"\)/);
+  assert.match(runner, /clickAndCaptureDownload\(page, \/Seguridad de menores\|Child safety\/, "child_safety_es\.docx"\)/);
   assert.match(runner, /await invokeAuthGateAction\(page, "chooseLogin"\)/);
   assert.match(runner, /await assertFullScreenAuthDestination\(page, "login"\)/);
   assert.match(runner, /data-quata-auth-required-prompt/);

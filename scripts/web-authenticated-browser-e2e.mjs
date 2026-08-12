@@ -100,7 +100,7 @@ try {
       ]),
     ],
   });
-  context = await browser.newContext({ locale: "es-ES" });
+  context = await browser.newContext({ locale: "es-ES", acceptDownloads: true });
   await context.route("**/*", async route => {
     const request = route.request();
     const url = request.url();
@@ -185,6 +185,8 @@ try {
   await invokeAuthGateAction(page, "chooseRegister");
   await assertFullScreenAuthDestination(page, "register");
   report.steps.push("participation_gate_create_account_opens_fullscreen_register");
+  report.legalDocuments = await assertRegisterLegalDocumentDownloads(page);
+  report.steps.push("register_shared_legal_documents_downloaded_from_local_assets");
   stage = "anonymous_public_shell";
   await assertAnonymousPublicShell(page);
   await assertPrivateAuthenticationGate(page);
@@ -571,6 +573,34 @@ async function assertFullScreenAuthDestination(page, destination) {
     !document.documentElement.hasAttribute("data-quata-auth-required-prompt") &&
     document.documentElement.getAttribute("data-quata-auth-destination") === expected,
   destination);
+}
+
+async function assertRegisterLegalDocumentDownloads(page) {
+  return [
+    await clickAndCaptureDownload(page, /PolÃ­tica de privacidad|Privacy policy/, "privacy_es.docx"),
+    await clickAndCaptureDownload(page, /Seguridad de menores|Child safety/, "child_safety_es.docx"),
+  ];
+}
+
+async function clickAndCaptureDownload(page, pattern, expectedName) {
+  const locator = page.getByText(pattern).first();
+  await locator.waitFor({ state: "visible", timeout: 30_000 });
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 30_000 }),
+    clickLocatorCenter(page, locator),
+  ]);
+  const suggestedName = download.suggestedFilename();
+  if (suggestedName !== expectedName) throw new Error(`register_legal_download_name_mismatch:${suggestedName}`);
+  return {
+    displayName: suggestedName,
+    localAsset: `legal/${suggestedName}`,
+  };
+}
+
+async function clickLocatorCenter(page, locator) {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error("register_legal_click_target_missing_bounding_box");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }
 
 async function assertAutomaticLoginReturn(page) {
