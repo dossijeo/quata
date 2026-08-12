@@ -60,6 +60,7 @@ test("auth-launch uses real Compose Auth inside a complete UIKit containment she
   assert.match(launcher, /case "auth-launch"/);
   assert.match(launcher, /IosAuthLaunchFixtureHostKt\.QuataAuthLaunchFixtureViewController\(\)/);
   assert.match(launcher, /QuataAuthLaunchLegalEvidenceViewControllerForDestination/);
+  assert.match(launcher, /languageCode: Locale\.preferredLanguages\.first/);
   assert.match(launcher, /legal-document-opened-\\\(name\)/);
   assert.match(launcher, /marker\.alpha = 0\.01/);
   assert.doesNotMatch(launcher, /marker\.isHidden = true/);
@@ -104,6 +105,8 @@ test("auth-launch recovery fixture resolves the same common Recovery surface and
   assert.match(fixtureKotlin, /"recovery" -> AuthProductDestination\.Recovery/);
   assert.match(fixtureKotlin, /QuataAuthLaunchFixtureViewControllerForDestination\(destination: String\)/);
   assert.match(fixtureKotlin, /QuataAuthLaunchLegalEvidenceViewControllerForDestination/);
+  assert.match(fixtureKotlin, /languageCode: String\?/);
+  assert.match(fixtureKotlin, /locale = AuthCatalogLocale\.fromLanguage\(languageCode\)/);
   assert.match(fixtureKotlin, /RecordingIosAuthLaunchFixtureDocumentOpener/);
   assert.match(launcher, /QuataAuthLaunchLegalEvidenceViewControllerForDestination\(/);
   assert.match(launcher, /QuataAuthLaunchFixtureViewController\(\)/);

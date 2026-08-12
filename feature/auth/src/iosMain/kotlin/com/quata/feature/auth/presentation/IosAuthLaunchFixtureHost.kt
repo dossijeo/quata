@@ -31,6 +31,7 @@ fun QuataAuthLaunchFixtureViewControllerForDestination(destination: String): UIV
 
 fun QuataAuthLaunchLegalEvidenceViewControllerForDestination(
     destination: String,
+    languageCode: String?,
     onOpened: (String) -> Unit,
 ): UIViewController = fixtureViewController(
     initialDestination = when (destination.lowercase()) {
@@ -38,16 +39,18 @@ fun QuataAuthLaunchLegalEvidenceViewControllerForDestination(
         "recovery" -> AuthProductDestination.Recovery
         else -> AuthProductDestination.Login
     },
+    locale = AuthCatalogLocale.fromLanguage(languageCode),
     documentOpener = RecordingIosAuthLaunchFixtureDocumentOpener(onOpened),
 )
 
 private fun fixtureViewController(
     initialDestination: AuthProductDestination,
+    locale: AuthCatalogLocale = AuthCatalogLocale.English,
     documentOpener: DocumentOpenService = IosAuthLaunchFixtureDocumentOpener,
 ): UIViewController = QuataAuthViewController(
     dependencies = IosAuthHostDependencies(
         repository = IosAuthLaunchFixtureRepository(),
-        locale = AuthCatalogLocale.English,
+        locale = locale,
         initialDestination = initialDestination,
         documentOpener = documentOpener,
         onLoginSuccess = {},

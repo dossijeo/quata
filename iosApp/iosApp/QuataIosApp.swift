@@ -432,6 +432,7 @@ private final class IosAppCompositionRoot {
                 if let destinationArgument {
                     return IosAuthLaunchFixtureHostKt.QuataAuthLaunchLegalEvidenceViewControllerForDestination(
                         destination: destinationArgument,
+                        languageCode: Locale.preferredLanguages.first,
                         onOpened: { name in
                             DispatchQueue.main.async {
                                 guard let view = container?.view else { return }
