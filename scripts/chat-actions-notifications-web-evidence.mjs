@@ -21,6 +21,7 @@ const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATION
 let lastThreadSnapshot = null;
 
 class ProfileOnlyCompleted extends Error {}
+class ProfileListsOnlyCompleted extends Error {}
 
 function parseArgs(argv) {
   const result = {
@@ -31,6 +32,7 @@ function parseArgs(argv) {
     translationOnly: false,
     profileOnly: false,
     profileFollowOnly: false,
+    profileListsOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -44,6 +46,10 @@ function parseArgs(argv) {
     }
     if (key === "--profile-follow-only") {
       result.profileFollowOnly = true;
+      continue;
+    }
+    if (key === "--profile-lists-only") {
+      result.profileListsOnly = true;
       continue;
     }
     const value = argv[++index];
@@ -645,20 +651,92 @@ async function waitMessageVisible(page, marker, error, timeout = 45_000) {
   throw new Error(error);
 }
 
-async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenceDir, report, afterOpen = null) {
+async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenceDir, report) {
+  await openPeerProfileFromMessageWithoutReturn(page, peerMarker, peerProfile, evidenceDir, report, "web-chat-profile");
+  if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
+  await delay(1_000);
+  if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
+  report.evidence.profileReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-return");
+}
+
+async function openPeerProfileFromMessageWithoutReturn(page, peerMarker, peerProfile, evidenceDir, report, screenshotPrefix) {
   await waitMessageVisible(page, peerMarker, "message_not_visible:peer_profile_source");
-  report.evidence.profileThreadInitial = await attachScreenshot(page, evidenceDir, "web-chat-profile-thread-initial");
+  report.evidence.profileThreadInitial = await attachScreenshot(page, evidenceDir, `${screenshotPrefix}-thread-initial`);
   const opened = await clickMessageAvatar(page, peerMarker);
   if (!opened) throw new Error("profile_state_not_opened:avatar_not_clickable");
   const visible = await waitForProfileVisible(page, peerProfile);
   if (!visible) throw new Error("profile_state_not_opened:profile_not_visible");
   await assertProfileHeaderVisible(page, peerProfile);
-  report.evidence.profileOpen = await attachScreenshot(page, evidenceDir, "web-chat-profile-open");
-  if (afterOpen) await afterOpen();
-  if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
+  report.evidence.profileOpen = await attachScreenshot(page, evidenceDir, `${screenshotPrefix}-open`);
+}
+
+async function assertProfileFollowLists(page, serverOrigin, conversationId, peerMarker, peerProfile, evidenceDir, report) {
+  let onProfile = await openProfileList(page, /Seguidores|Followers/i, "followers", peerProfile, evidenceDir, report);
+  if (!onProfile) {
+    await reopenPeerProfileFromChat(page, serverOrigin, conversationId, peerMarker, peerProfile);
+  }
+  onProfile = await openProfileList(page, /Siguiendo|Following/i, "following", peerProfile, evidenceDir, report);
+  if (onProfile && !(await clickProfileBack(page))) throw new Error("profile_lists_state_not_returned:profile_back_not_clickable");
   await delay(1_000);
-  if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
-  report.evidence.profileReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-return");
+  if (!(await waitForChatProfileReturn(page))) throw new Error("profile_lists_state_not_returned:chat_return_not_visible");
+  report.evidence.profileListsReturn = await attachScreenshot(page, evidenceDir, "web-chat-profile-lists-return");
+}
+
+async function openProfileList(page, labelPattern, listKind, peerProfile, evidenceDir, report) {
+  const kpi = page.getByText(labelPattern).first();
+  await kpi.click({ timeout: 10_000, force: true });
+  await waitProfileListVisible(page, listKind, peerProfile);
+  report.evidence[`profileList${listKind[0].toUpperCase()}${listKind.slice(1)}`] =
+    await attachScreenshot(page, evidenceDir, `web-chat-profile-list-${listKind}`);
+  if (!(await clickProfileBack(page))) throw new Error(`profile_lists_state_not_returned:${listKind}_back_not_clickable`);
+  await delay(700);
+  if (await waitForProfileHeaderVisible(page, peerProfile)) return true;
+  await clickProfileBack(page).catch(() => false);
+  await delay(700);
+  return await waitForProfileHeaderVisible(page, peerProfile);
+}
+
+async function reopenPeerProfileFromChat(page, serverOrigin, conversationId, peerMarker, peerProfile) {
+  await page.goto(`${serverOrigin}/?profileListReset=${Date.now()}#feed`, { waitUntil: "domcontentloaded" });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await delay(1_000);
+  await openAuthenticatedChatRoute(page, serverOrigin, conversationId);
+  await waitMessageVisible(page, peerMarker, "profile_lists_state_not_returned:peer_message_not_visible_for_reopen");
+  if (!(await waitForChatProfileReturn(page))) throw new Error("profile_lists_state_not_returned:chat_return_not_visible_before_reopen");
+  const opened = await clickMessageAvatar(page, peerMarker);
+  if (!opened) throw new Error("profile_lists_state_not_returned:avatar_not_clickable_for_reopen");
+  if (!(await waitForProfileVisible(page, peerProfile))) throw new Error("profile_lists_state_not_returned:profile_not_visible_after_reopen");
+}
+
+async function waitForProfileHeaderVisible(page, profile) {
+  const displayName = profile.displayName?.trim();
+  const deadline = Date.now() + 8_000;
+  while (Date.now() < deadline) {
+    const hasProfileText = displayName
+      ? await page.getByText(new RegExp(escapeRegExp(displayName))).first().isVisible({ timeout: 300 }).catch(() => false)
+      : false;
+    const hasPostsKpi = await page.getByText(/Publicaciones|Posts/i).first().isVisible({ timeout: 300 }).catch(() => false);
+    if (hasProfileText && hasPostsKpi) return true;
+    await delay(300);
+  }
+  return false;
+}
+
+async function waitProfileListVisible(page, listKind, profile) {
+  const titlePattern = listKind === "followers"
+    ? /Usuarios siguiendo a|Users following|Seguidores|Followers/i
+    : /Usuarios que sigue|Users followed by|Siguiendo|Following/i;
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    const titleVisible = await page.getByText(titlePattern).first().isVisible({ timeout: 500 }).catch(() => false);
+    const profileNameStillVisible = profile.displayName
+      ? await page.getByText(new RegExp(escapeRegExp(profile.displayName))).first().isVisible({ timeout: 500 }).catch(() => false)
+      : true;
+    const hasAction = await page.getByText(/Chat|Seguir|Siguiendo|Follow|Following/i).first().isVisible({ timeout: 500 }).catch(() => false);
+    if (titleVisible && profileNameStillVisible && hasAction) return;
+    await delay(500);
+  }
+  throw new Error(`profile_lists_state_not_opened:${listKind}`);
 }
 
 async function toggleFollowFromOpenProfile(page, peerProfile, evidenceDir, report) {
@@ -1254,6 +1332,73 @@ async function resolveAdjacentRecipientProfile(phoneKeys) {
   });
 }
 
+async function prepareProfileListEdges(followerId, followedId) {
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const pairs = [
+        { label: "a_follows_b", followerId, followedId },
+        { label: "b_follows_a", followerId: followedId, followedId: followerId },
+      ];
+      const initial = [];
+      for (const pair of pairs) {
+        const existing = await client.query(
+          `select id
+             from public.community_profile_follows
+            where follower_profile_id = $1 and followed_profile_id = $2
+            limit 1
+            for update`,
+          [pair.followerId, pair.followedId],
+        );
+        const existed = existing.rowCount > 0;
+        initial.push({ ...pair, existed });
+        if (!existed) {
+          await client.query(
+            `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+             values ($1, $2)
+             on conflict do nothing`,
+            [pair.followerId, pair.followedId],
+          );
+        }
+      }
+      await client.query("commit");
+      return initial;
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+async function restoreProfileListEdges(edges) {
+  if (!Array.isArray(edges) || edges.length === 0) return [];
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      for (const edge of edges) {
+        if (edge.existed) {
+          await client.query(
+            `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+             values ($1, $2)
+             on conflict do nothing`,
+            [edge.followerId, edge.followedId],
+          );
+        } else {
+          await client.query(
+            "delete from public.community_profile_follows where follower_profile_id = $1 and followed_profile_id = $2",
+            [edge.followerId, edge.followedId],
+          );
+        }
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  return ["profile_follow_list_edges_restored_to_initial_state"];
+}
+
 async function openTemporaryProfileHashWindow(users) {
   if (process.env[tempProfileHashAuthorizationEnvironment]?.trim() !== tempProfileHashAuthorizationValue) {
     return { state: "not_requested", restored: true, restore: async () => {} };
@@ -1331,7 +1476,7 @@ function safeFailure(error) {
     "chat_backend_poll_timeout", "distribution_missing", "runtime_configuration_injection_failed",
     "static_server_start_failed", "message_not_visible", "options_menu_not_visible", "action_bar_not_visible",
     "message_action_target_not_clickable",
-    "mute_state_not_persisted", "favorite_state_not_persisted", "forward_state_not_persisted", "profile_state_not_opened", "browser_runtime_fault",
+    "mute_state_not_persisted", "favorite_state_not_persisted", "forward_state_not_persisted", "profile_state_not_opened", "profile_lists_state_not_opened", "profile_lists_state_not_returned", "browser_runtime_fault",
         "composer_message_not_visible", "composer_reply_not_visible", "composer_edit_not_visible",
         "composer_input_not_visible", "composer_send_not_visible", "composer_send_not_dispatched",
     "cleanup_residue_detected", "missing_hard_cleanup_authorization",
@@ -1352,7 +1497,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -1380,7 +1525,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
-  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly) {
+  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1461,14 +1606,26 @@ try {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
     }
-    await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report, options.profileFollowOnly
-      ? async () => {
-        await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
-        report.steps.push("profile_follow_toggled_and_verified_by_db");
-      }
-      : null);
-    report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
-    if (options.profileOnly || options.profileFollowOnly) {
+    if (options.profileListsOnly) {
+      state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
+      report.steps.push("profile_follow_list_edges_prepared_reversibly");
+      await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-lists");
+      await assertProfileFollowLists(page, server.origin, `sb:${state.thread}`, peerMarker, state.b, options.evidenceDir, report);
+      report.steps.push("peer_public_profile_followers_and_following_lists_opened_and_returned");
+    } else if (options.profileFollowOnly) {
+      await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
+      await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
+      report.steps.push("profile_follow_toggled_and_verified_by_db");
+      if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
+      await delay(1_000);
+      if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
+      report.evidence.profileReturn = await attachScreenshot(page, options.evidenceDir, "web-chat-profile-return");
+      report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
+    } else {
+      await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
+      report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
+    }
+    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly) {
       if (faults.length) throw new Error("browser_runtime_fault");
       report.status = "passed";
       report.fixture = {
@@ -1481,10 +1638,12 @@ try {
         ownMarkerSha256: sha256(ownMarker),
         peerMarkerSha256: sha256(peerMarker),
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
+        profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
       };
+      if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
@@ -1600,7 +1759,7 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted) {
+  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted) {
     // Focal modes already set report.status and fixture; cleanup still runs in finally.
   } else {
     if (pageContext?.page) {
@@ -1638,6 +1797,10 @@ try {
     cleanupFailed = true;
     cleanup.error = safeFailure(error);
     report.profileHashWindow = { state: "restore_failed" };
+  }
+  if (state.profileListEdges && config) {
+    try { cleanup.actions.push(...await restoreProfileListEdges(state.profileListEdges)); }
+    catch (error) { cleanupFailed = true; cleanup.error = safeFailure(error); }
   }
   if (state.thread && config) {
     try { cleanup.actions.push(...await logicalCleanup(config, state)); }

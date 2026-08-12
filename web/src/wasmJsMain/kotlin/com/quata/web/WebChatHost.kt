@@ -81,6 +81,12 @@ fun WebChatHost(
     val translationGateway = remember {
         FangChatTranslationGateway(FangTranslationService(transport = BrowserTranslationHttpTransport()))
     }
+    val openUserProfile = remember(onOpenUserProfile) {
+        { userId: String ->
+            blurWebChatActiveElement()
+            onOpenUserProfile(userId)
+        }
+    }
     DisposableEffect(conversationsModel) { onDispose(conversationsModel::close) }
     DisposableEffect(repository) {
         repository.setAppForeground(chatBrowserDocumentIsVisible())
@@ -118,7 +124,7 @@ fun WebChatHost(
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
         onOpenExternalLink = ::openWebExternalLink,
-        onOpenUserProfile = onOpenUserProfile,
+        onOpenUserProfile = openUserProfile,
         openingProfileUserId = openingProfileUserId,
         onCopyMessage = { value -> scope.launch { clipboard.writeText(value) } },
         remoteConversationAvatar = { presentation, avatarModifier ->
@@ -145,7 +151,7 @@ fun WebChatHost(
                 strings = conversationsHostStringsForLanguage(languageTag),
                 onOpenConversation = onOpenConversation,
                 onOpenFavorites = { onOpenConversation(AppDestinations.FavoriteMessagesConversationId) },
-                onOpenUserProfile = onOpenUserProfile,
+                onOpenUserProfile = openUserProfile,
                 openingProfileUserId = openingProfileUserId,
                 remoteConversationAvatar = { presentation, avatarModifier ->
                     WebConversationAvatar(presentation, avatarModifier)
@@ -177,15 +183,19 @@ fun WebChatHost(
             )
         },
         messageInputOverride = { value, onChange, modifier, leadingIcon, trailingIcon ->
-            WebNativeInput(
-                value = value,
-                onValueChange = onChange,
-                name = "Mensaje",
-                modifier = modifier.height(62.dp),
-                inputType = "text",
-                leadingIcon = leadingIcon,
-                trailingIcon = trailingIcon,
-            )
+            if (openingProfileUserId == null) {
+                WebNativeInput(
+                    value = value,
+                    onValueChange = onChange,
+                    name = "Mensaje",
+                    modifier = modifier.height(62.dp),
+                    inputType = "text",
+                    leadingIcon = leadingIcon,
+                    trailingIcon = trailingIcon,
+                )
+            } else {
+                Box(modifier.height(62.dp))
+            }
         },
         sendButtonOverride = { enabled, onClick, modifier ->
             WebNativeButton("Enviar", enabled, onClick, modifier.width(56.dp).height(48.dp))
@@ -220,6 +230,9 @@ private external fun setWebChatFocusedMessageSelected(messageId: String)
 
 @JsFun("() => { globalThis.document?.documentElement?.removeAttribute('data-quata-chat-focused-message-selected'); }")
 private external fun clearWebChatFocusedMessageSelected()
+
+@JsFun("() => { const active = globalThis.document?.activeElement; if (active && typeof active.blur === 'function') active.blur(); }")
+private external fun blurWebChatActiveElement()
 
 internal fun chatBrowserDocumentIsVisible(): Boolean = js(
     "globalThis.document?.visibilityState !== 'hidden'",

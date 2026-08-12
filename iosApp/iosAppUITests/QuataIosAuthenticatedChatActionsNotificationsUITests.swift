@@ -201,12 +201,101 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-follow-return")
     }
 
+    func testProfileFollowListsFromChatOpenAndReturn() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat profile follow-lists UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
+              let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]) else {
+            throw XCTSkip("Disposable Chat profile follow-lists fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "profile follow-lists conversation")
+        assertChatRoute(conversationId, in: app, context: "profile follow-lists conversation")
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-profile-lists-thread-initial")
+
+        let avatar = app.descendants(matching: .any)
+            .matching(identifier: "chat.profile.message.\(peerProfileId)")
+            .firstMatch
+        XCTAssertTrue(avatar.waitForExistence(timeout: 20), "The peer message avatar must expose the shared profile-entry tag.")
+        avatar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        let profile = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.user.\(peerProfileId)")
+            .firstMatch
+        XCTAssertTrue(profile.waitForExistence(timeout: 30), "Opening the peer avatar must mount the shared public profile.")
+        attachScreenshot(app, name: "ios-chat-profile-lists-open")
+
+        openAndAssertProfileList("followers", profileId: peerProfileId, in: app)
+        openAndAssertProfileList("following", profileId: peerProfileId, in: app)
+
+        closePublicProfile(profile, in: app)
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 20), "Closing the profile must return to the same Chat conversation.")
+        attachScreenshot(app, name: "ios-chat-profile-lists-return")
+    }
+
     private func chatHost(in app: XCUIApplication, context: String) -> XCUIElement {
         let chat = app.descendants(matching: .any)
             .matching(identifier: "quata-ios-chat-host")
             .firstMatch
         XCTAssertTrue(chat.waitForExistence(timeout: 20), "Chat host did not mount for \(context).")
         return chat
+    }
+
+    private func openAndAssertProfileList(_ listKind: String, profileId: String, in app: XCUIApplication) {
+        let kpi = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.kpi.\(listKind).\(profileId)")
+            .firstMatch
+        XCTAssertTrue(kpi.waitForExistence(timeout: 10), "The public profile \(listKind) KPI must expose a shared tag.")
+        kpi.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        let list = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.list.\(listKind)")
+            .firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 20), "The shared public-profile \(listKind) list must open.")
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "public-profile.list.row.\(listKind)."))
+            .firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "The shared public-profile \(listKind) list must expose at least one user row.")
+        attachScreenshot(app, name: "ios-chat-profile-list-\(listKind)")
+
+        let back = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.list.back.\(listKind)")
+            .firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 10), "The shared public-profile \(listKind) list must expose a back action.")
+        back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        let profile = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.user.\(profileId)")
+            .firstMatch
+        XCTAssertTrue(profile.waitForExistence(timeout: 10), "Returning from \(listKind) must restore the parent public profile.")
+    }
+
+    private func closePublicProfile(_ profile: XCUIElement, in app: XCUIApplication) {
+        let back = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.back")
+            .firstMatch
+        if back.waitForExistence(timeout: 5), back.isHittable {
+            back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        } else {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.88))
+            start.press(forDuration: 0.1, thenDragTo: end)
+        }
+        XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after the dismiss gesture.")
     }
 
     private func assertChatRoute(_ conversationId: String, messageId: String? = nil, in app: XCUIApplication, context: String) {

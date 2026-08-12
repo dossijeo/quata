@@ -67,8 +67,8 @@ class ChatActionsNotificationsInstrumentedTest {
         val forwardQuery = optionalArgument("quataChatActionsForwardQuery")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
-        val hasRequiredStageArguments = when (stage) {
-            "profile", "profile-follow" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+    val hasRequiredStageArguments = when (stage) {
+        "profile", "profile-follow", "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
         }
         assumeTrue(
@@ -90,8 +90,9 @@ class ChatActionsNotificationsInstrumentedTest {
                 "edit-favorite" -> runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
                 "forward" -> runForwardStage(editMarker.orEmpty(), forwardQuery.orEmpty())
                 "translation" -> runTranslationStage(ownProbe.orEmpty())
-                "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
-                "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
+            "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
+            "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
+            "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "full" -> {
                     runSendReplyStage(ownProbe.orEmpty(), composerMarker.orEmpty(), replyMarker.orEmpty())
                     runEditFavoriteStage(ownProbe.orEmpty(), composerMarker.orEmpty(), editMarker.orEmpty())
@@ -343,19 +344,86 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.waitUntil(20_000) { messageNodeVisible(peerProbe) }
     }
 
+    private fun runProfileListsStage(peerProbe: String, profileId: String) {
+        openProfileFromPeerMessage(peerProbe, profileId)
+        openAndAssertProfileList(profileId, "followers")
+        openAndAssertProfileList(profileId, "following")
+        val closedByCommonBack = runCatching {
+            compose.onNodeWithTag("public-profile.back", useUnmergedTree = true)
+                .performTouchInput { click(center) }
+            true
+        }.getOrDefault(false)
+        if (!closedByCommonBack) device.pressBack()
+        compose.waitUntil(20_000) { messageNodeVisible(peerProbe) }
+        saveScreenshot("android-chat-profile-lists-return")
+    }
+
+    private fun openProfileFromPeerMessage(peerProbe: String, profileId: String) {
+        waitForMarker(peerProbe, "peer message for profile entry")
+        dismissTranslatorOverlayIfActive()
+        dismissSystemAnrDialogIfVisible()
+        saveScreenshot("android-chat-profile-lists-thread-initial")
+        val avatarTag = "chat.profile.message.$profileId"
+        compose.waitUntil(20_000) {
+            dismissSystemAnrDialogIfVisible()
+            runCatching {
+                compose.onNodeWithTag(avatarTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        compose.onNodeWithTag(avatarTag, useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        val openedFromMessage = runCatching {
+            compose.waitUntil(12_000) { publicProfileVisible(profileId) }
+            true
+        }.getOrDefault(false)
+        if (!openedFromMessage) {
+            val memberTag = "chat.profile.member.$profileId"
+            val clickedMemberAvatar = runCatching {
+                compose.onNodeWithTag(memberTag, useUnmergedTree = true)
+                    .performTouchInput { click(center) }
+                true
+            }.getOrDefault(false)
+            if (!clickedMemberAvatar) clickVisibleMessageAvatarWithUiAutomator(peerProbe)
+            compose.waitUntil(30_000) { publicProfileVisible(profileId) }
+        }
+        saveScreenshot("android-chat-profile-lists-open")
+    }
+
+    private fun openAndAssertProfileList(profileId: String, listKind: String) {
+        compose.onNodeWithTag("public-profile.kpi.$listKind.$profileId", useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        compose.waitUntil(20_000) { profileListVisible(listKind) }
+        saveScreenshot("android-chat-profile-list-$listKind")
+        assertTrue(
+            "Public profile $listKind list must expose at least one visible test-profile row.",
+            waitForObject(By.textContains("Gabriel"), "public profile $listKind row", 5_000) != null,
+        )
+        compose.onNodeWithTag("public-profile.list.back.$listKind", useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        compose.waitUntil(20_000) { publicProfileVisible(profileId) }
+    }
+
     private fun publicProfileVisible(profileId: String): Boolean =
         runCatching {
             compose.onNodeWithTag("public-profile.user.$profileId", useUnmergedTree = true)
                 .fetchSemanticsNode()
         }.isSuccess
 
+    private fun profileListVisible(listKind: String): Boolean =
+        runCatching {
+            compose.onNodeWithTag("public-profile.list.$listKind", useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }.isSuccess
+
     private fun clickVisibleMessageAvatarWithUiAutomator(peerProbe: String) {
         val probe = peerProbe.take(28)
+        dismissSystemAnrDialogIfVisible()
         val message = device.wait(Until.findObject(By.textContains(probe)), 10_000)
             ?: error("profile_message_probe_not_visible:$probe")
         val bounds = message.visibleBounds
         val x = (bounds.left - 72).coerceAtLeast(20)
-        val y = bounds.centerY().coerceAtLeast(20)
+        val y = (bounds.top + 34).coerceAtLeast(20)
         assertTrue("UIAutomator must dispatch a real tap on the visible message avatar.", device.click(x, y))
         SystemClock.sleep(1_000)
     }
@@ -373,6 +441,16 @@ class ChatActionsNotificationsInstrumentedTest {
                         .fetchSemanticsNode()
                 }.isFailure
             }
+        }
+    }
+
+    private fun dismissSystemAnrDialogIfVisible() {
+        val waitButton = device.findObject(By.text("Wait"))
+            ?: device.findObject(By.text("Esperar"))
+        if (waitButton != null) {
+            waitButton.click()
+            device.waitForIdle()
+            SystemClock.sleep(1_000)
         }
     }
 

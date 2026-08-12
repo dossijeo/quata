@@ -22,6 +22,8 @@ const options = parseArgs(process.argv.slice(2));
 const translationOnly = options.translationOnly;
 const profileOnly = options.profileOnly;
 const profileFollowOnly = options.profileFollowOnly;
+const profileListsOnly = options.profileListsOnly;
+const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly;
 const report = {
   check,
   status: "failed",
@@ -56,6 +58,7 @@ const state = {
   forwardThread: null,
   forwardedMessage: null,
   profileFollow: null,
+  profileListEdges: null,
 };
 
 try {
@@ -84,17 +87,17 @@ try {
     p_community_id: null,
   }));
   report.steps.push("isolated_group_thread_ready");
-  if (!translationOnly && !profileOnly && !profileFollowOnly) {
+  if (!translationOnly && !profileEvidenceOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
 
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
-  state.editableMarker = translationOnly || profileOnly || profileFollowOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = translationOnly || profileOnly || profileFollowOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
-  state.replyMarker = translationOnly || profileOnly || profileFollowOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = translationOnly || profileOnly || profileFollowOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
+  state.editableMarker = translationOnly || profileEvidenceOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.composerMarker = translationOnly || profileEvidenceOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
+  state.replyMarker = translationOnly || profileEvidenceOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly || profileEvidenceOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -114,7 +117,7 @@ try {
       p_client_message_id: `chat-profile-ios-peer-${randomUUID()}`,
     }));
     await pollMessage(config, state.a, state.thread, (message) => Number(message?.id) === state.peerMessage && messageText(message) === state.peerMarker);
-    if (!profileOnly && !profileFollowOnly) {
+    if (!profileEvidenceOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
         p_thread_id: state.thread,
@@ -201,6 +204,10 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
     }
+    if (profileListsOnly) {
+      state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
+      report.steps.push("profile_follow_list_edges_prepared_reversibly");
+    }
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
@@ -212,8 +219,9 @@ export QUATA_IOS_CHAT_E2E_MESSAGE_ID=${shellQuote(String(state.seedMessage))}
 export QUATA_IOS_CHAT_E2E_MARKER_PROBE=${shellQuote(markerProbe)}
 export QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE=${shellQuote(peerMarkerProbe)}
 export QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID=${shellQuote(state.b.profileId)}
-export QUATA_IOS_CHAT_PROFILE_ONLY=${profileOnly || profileFollowOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_ONLY=${profileEvidenceOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E=${profileListsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_E2E_COMPOSER_MARKER=${shellQuote(state.composerMarker ?? "profile-only")}
@@ -224,14 +232,16 @@ export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR=${shellQuote(options.remoteL
 export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_RESULT_BUNDLE_DIR=${shellQuote(options.remoteResultBundleDir)}
 bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 `, 30 * 60 * 1000);
-    report.steps.push("ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
+    report.steps.push(profileListsOnly
+      ? "ios_xctest_profile_followers_and_following_lists_verified"
+      : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
 
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
       report.steps.push("profile_follow_toggled_and_verified_by_db");
     }
 
-    if (!profileOnly && !profileFollowOnly) {
+    if (!profileEvidenceOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -249,7 +259,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     await copyRemoteEvidence(options);
     report.status = "passed";
-    report.fixture = profileOnly || profileFollowOnly
+    report.fixture = profileEvidenceOnly
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -259,6 +269,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         seedMarkerSha256: sha256(state.seedMarker),
         peerMarkerSha256: sha256(state.peerMarker),
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
+        profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
       }
       : {
         threadId: state.thread,
@@ -297,6 +308,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     const cleanup = { state: "completed", actions: [] };
     let cleanupFailed = false;
     try {
+      if (state.profileListEdges) {
+        cleanup.actions.push(...await restoreProfileListEdges(state.profileListEdges));
+      }
       cleanup.actions.push(...await logicalCleanup(config, state));
     } catch (error) {
       cleanupFailed = true;
@@ -373,6 +387,7 @@ function parseArgs(argv) {
     translationOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_TRANSLATION_ONLY === "1",
     profileOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ONLY === "1",
     profileFollowOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_FOLLOW_ONLY === "1",
+    profileListsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_LISTS_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -395,6 +410,10 @@ function parseArgs(argv) {
     }
     if (key === "--profile-follow-only") {
       result.profileFollowOnly = true;
+      continue;
+    }
+    if (key === "--profile-lists-only") {
+      result.profileListsOnly = true;
       continue;
     }
     if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
@@ -990,6 +1009,73 @@ async function withDatabase(callback) {
   } finally {
     await client.end().catch(() => {});
   }
+}
+
+async function prepareProfileListEdges(followerId, followedId) {
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const pairs = [
+        { label: "a_follows_b", followerId, followedId },
+        { label: "b_follows_a", followerId: followedId, followedId: followerId },
+      ];
+      const initial = [];
+      for (const pair of pairs) {
+        const existing = await client.query(
+          `select id
+             from public.community_profile_follows
+            where follower_profile_id = $1 and followed_profile_id = $2
+            limit 1
+            for update`,
+          [pair.followerId, pair.followedId],
+        );
+        const existed = existing.rowCount > 0;
+        initial.push({ ...pair, existed });
+        if (!existed) {
+          await client.query(
+            `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+             values ($1, $2)
+             on conflict do nothing`,
+            [pair.followerId, pair.followedId],
+          );
+        }
+      }
+      await client.query("commit");
+      return initial;
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
+async function restoreProfileListEdges(edges) {
+  if (!Array.isArray(edges) || edges.length === 0) return [];
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      for (const edge of edges) {
+        if (edge.existed) {
+          await client.query(
+            `insert into public.community_profile_follows (follower_profile_id, followed_profile_id)
+             values ($1, $2)
+             on conflict do nothing`,
+            [edge.followerId, edge.followedId],
+          );
+        } else {
+          await client.query(
+            "delete from public.community_profile_follows where follower_profile_id = $1 and followed_profile_id = $2",
+            [edge.followerId, edge.followedId],
+          );
+        }
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  return ["profile_follow_list_edges_restored_to_initial_state"];
 }
 
 async function openTemporaryProfileHashWindow(users) {

@@ -162,6 +162,7 @@ fun CommunityProfileScreenHost(
         if (selectedList != null) {
             val users = if (selectedList == ProfileUserList.Followers) profile.followers else profile.following
             ProfileUsersListCommon(
+                listKind = selectedList.testTagSuffix,
                 title = if (selectedList == ProfileUserList.Followers) strings.followersOf(profile.user.displayName) else strings.followingOf(profile.user.displayName),
                 users = users,
                 currentUserId = currentUserId,
@@ -170,7 +171,7 @@ fun CommunityProfileScreenHost(
                 followingUserId = followingUserId,
                 strings = strings.userRow,
                 back = strings.back,
-                avatar = { user, loading, click -> slots.avatar(user, Modifier.size(48.dp), loading, click) },
+                avatar = { user, loading, modifier, click -> slots.avatar(user, Modifier.size(48.dp).then(modifier), loading, click) },
                 onBack = { userList = null },
                 onFollow = { user -> if (currentUserId == null) onAuthRequired() else onFollowUser(user.id) },
                 onProfile = { user -> onOpenUserProfile(user.id) },
@@ -315,7 +316,7 @@ fun CommunityProfileScreenHost(
     }
 }
 
-private enum class ProfileUserList { Followers, Following }
+private enum class ProfileUserList(val testTagSuffix: String) { Followers("followers"), Following("following") }
 
 private fun NeighborhoodUser.toAvatarAttachment(): ProfileAttachment = ProfileAttachment(
     id = "avatar-$id",

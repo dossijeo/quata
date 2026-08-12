@@ -12,20 +12,22 @@
 incompleto: #226 reduce límites de `SCR-CHAT` sin declarar GO global. Candidato `31f20f31`
 cierra `CHAT-FORWARD` con evidencia local Android, Web/Wasm e iOS sobre el mismo SHA, sin declarar
 GO global de Chat. #231 cierra `CHAT-TRANSLATION` en `main`; #232 cierra `CHAT-PROFILE`.
-Candidato `f6bc0b7d` cierra `PROF-HEADER` con evidencia local Android, Web/Wasm e iOS. Android, Web/Wasm e iOS
+Candidato `f6bc0b7d` cierra `PROF-HEADER` con evidencia local Android, Web/Wasm e iOS. Candidato
+`fdb5cf30` cierra `PROF-FOLLOW-LISTS` con followers/following comunes desde perfil abierto en Chat.
+Android, Web/Wasm e iOS
 acreditan envío, respuesta, edición, selección/copiar, favorito, reportar, borrar y mute/unmute en
 una conversación reversible con limpieza física de residuo cero; la barra de acciones seleccionadas
 usa superficie común coherente con el encabezado. Persisten `CHAT-ATTACHMENTS`, `CHAT-AUDIO`,
 `CHAT-GROUP`, `CHAT-LOCATION-SOS` y `FLOW-TRANSLATOR` fuera de Chat.
 
-**Candidato actual:** `f6bc0b7dbea366d1325dc5ece1240c2b78fa7f51` cierra `PROF-HEADER` dentro de
-`OVR-PUBLIC-PROFILE`: cabecera común con avatar, nombre, barrio y KPIs visible en Android, Web/Wasm
-e iOS desde la entrada Chat→perfil. Evidencias finales: Android
+**Candidato actual:** `fdb5cf30c7d6e610905055d7f060fc72c936786f` cierra
+`PROF-FOLLOW-LISTS` dentro de `OVR-PUBLIC-PROFILE`: seguidores y seguidos comunes abiertos desde
+Chat→perfil en Android, Web/Wasm e iOS, con retorno al mismo Chat. Evidencias finales: Android
 `build-reports/android/chat-actions-notifications-evidence.json`, Web/Wasm
-`build-reports/web/profile-header-evidence.json` e iOS `build-reports/ios/profile-header-evidence.json`
-con attachment exportado `build-reports/ios/profile-header-evidence/ios-chat-profile-open.png`; las tres
-usan datos temporales reversibles y limpieza física de residuo cero. La biografía queda fuera de este GO
-porque el modelo común actual no expone ese campo.
+`build-reports/web/profile-follow-lists-evidence-fdb5cf30.json` e iOS
+`build-reports/ios/profile-follow-lists-evidence-fdb5cf30.json`; las tres preparan/restauran aristas
+de follow reversibles y verifican limpieza física de residuo cero. Paginación profunda, perfiles
+anidados de segundo nivel y errores/rollback forzados quedan fuera de este GO focal.
 
 #217 queda integrado en `main` `a52fb67fe508d9d8f70bb9fa727832c560eac551` y cierra
 `SCR-OFFICIAL-EDITOR` tras invalidar y corregir el falso positivo Web anterior: Android, Web/Wasm e
@@ -50,7 +52,7 @@ La comparativa final queda en `build-reports/official-editor/final-visual-compar
 | iOS simulador | GO funcional suplementario | El postflight de `main` `5d2a52d1` pasó Feed y perfil remoto públicos; auth real ejecutada mediante `.xctestrun` con `QUATA_IOS_AUTH_E2E_FILE`; relanzamiento normal sin reinstalar conserva/restaura sesión; Cuenta/Perfil visual PASS. En #215, `IOS_AUTH_RECOVERY_REAL_UI_GATE_PASSED` ejecutó recovery real con `IosAuthRepository` sobre `9810c142` tras añadir `imePadding()` común a Auth y fijar el idioma de evidencia a español; las capturas muestran copy común y submit visible con teclado. | SOS es parcial: acceso/estado y 1/5 contactos visibles; el puntero remoto no automatizó la navegación de forma fiable. CPU-raster no es SLA ni reemplaza CI ARM. |
 | Crear publicación (#154) | COMÚN con límites | `CreatePostRoot` común está integrado en Android, Wasm e iOS. | La evidencia de #154 no debe presentarse como GO visual/funcional final: validar publicación, adaptadores de medios y paridad autenticada sin modificar RLS. |
 | Cuenta/Perfil/SOS (#156) | COMÚN con límites | `ProfileScreenHost` común integrado; postflight iOS de Feed/perfil público, auth, relanzamiento y Cuenta/Perfil visual PASS. | Completar el subflujo SOS sin ocultar que sólo se verificaron 1/5 contactos; avatar Web continúa contractual sin mutación E2E acreditada. |
-| Comunidades/perfil público (#175) | COMÚN con límites | `NeighborhoodsScreenHost` y `CommunityProfileScreenHost` integrados en Android, Wasm e iOS; repositorios reales, entradas globales y gate de sesión conectados. `PROF-HEADER` cerrado en candidato `f6bc0b7dbea366d1325dc5ece1240c2b78fa7f51`; `PROF-FOLLOW` cerrado en candidato local `a3709de156f44cd7f8b2669c6b0066d7233e9cb4` con anclas comunes follow/chat, tests comunes de contadores/listas, gate aislado de follows y E2E reversible Android/Web/iOS con residuo cero. | P2 vigentes: entradas visuales desde Oficial/Conversaciones/Chat, listas anidadas, contenido/overlays, Chat↔Perfil privado, back Android de miembros y estados de error/retorno. |
+| Comunidades/perfil público (#175) | COMÚN con límites | `NeighborhoodsScreenHost` y `CommunityProfileScreenHost` integrados en Android, Wasm e iOS; repositorios reales, entradas globales y gate de sesión conectados. `PROF-HEADER` cerrado en candidato `f6bc0b7dbea366d1325dc5ece1240c2b78fa7f51`; `PROF-FOLLOW` cerrado en candidato local `a3709de156f44cd7f8b2669c6b0066d7233e9cb4`; `PROF-FOLLOW-LISTS` cerrado en candidato `fdb5cf30c7d6e610905055d7f060fc72c936786f` con listas followers/following comunes y E2E reversible Android/Web/iOS con residuo cero. | P2 vigentes: entradas visuales desde Oficial/Conversaciones, paginación/listas anidadas de segundo nivel, contenido/overlays, Chat↔Perfil privado, back Android de miembros y estados de error/retorno. |
 | Feed iOS medios (#175, #206) | COMÚN con límites | Gradiente URL/hash detrás de vídeo, superficies UIKit/AVPlayer transparentes, controles Compose play/pause y mute global conectado a `AVPlayer`; #206 publica duración/posición reales desde `AVPlayerItem`/asset/rangos seekable y acredita `seekTo` mediante XCTest local con MP4 generado. | El límite específico de duración/seek iOS de Feed queda cerrado al integrar #206; no atribuye GO a los demás visores, entradas ni retornos de `OVR-MEDIA`. |
 | Pipeline CI (#169) | Integrado, fail-closed | Preflight rápido local exacto, gates finales requeridos y concurrencia por PR sin cancelar evidencia de `main`/manual. | Aún no acredita producto; certifica candidatos ya validados localmente. |
 | RLS/DB | Official backend corregido; GO local UI medido | El bypass remoto de `official_posts` quedo corregido con RLS explicita y trigger `SECURITY INVOKER`. `OFFICIAL-EDITOR-REAL-BACKEND-001` paso: cuenta no oficial denegada, cuenta oficial publicada/leida y fila temporal limpiada por hard delete exacto. El candidato local de Official Editor ya acredita errores UI y comparativa Android-Wasm-iOS. | La migracion se aplico como SQL exacto versionado, sin registrar `supabase_migrations` ni usar `migration repair`; conservar esta condicion en proximos rollouts y ejecutar el postflight RLS antes de integrar el cierre en `main`. |
