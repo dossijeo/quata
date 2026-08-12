@@ -64,6 +64,8 @@ test("Web profile list evidence opens both common lists and returns to Chat", ()
   assert.match(webRunner, /ProfileListsOnlyCompleted/);
   assert.match(webChatHost, /blurWebChatActiveElement\(\)/);
   assert.match(webChatHost, /document\?\.activeElement/);
+  assert.match(webChatHost, /if \(openingProfileUserId == null\)/);
+  assert.match(webChatHost, /Box\(modifier\.height\(62\.dp\)\)/);
 });
 
 test("iOS profile list evidence selects the opt-in follow-list XCTest", () => {
