@@ -59,6 +59,7 @@ test("the hermetic browser journey proves the permanent public shell, participat
   assert.match(runner, /await invokeAuthGateAction\(page, "dismiss"\)/);
   assert.match(runner, /await invokeAuthGateAction\(page, "chooseRegister"\)/);
   assert.match(runner, /await assertFullScreenAuthDestination\(page, "register"\)/);
+  assert.match(runner, /visibleText: "Crea tu cuenta"/);
   assert.match(runner, /await assertRegisterLegalDocumentViewer\(page\)/);
   assert.match(runner, /register_shared_legal_documents_opened_from_local_assets/);
   assert.match(runner, /clickAndCaptureDocumentViewer\(page, \/privacidad\|Privacy policy\/i, "privacy_es\.docx", 0\)/);

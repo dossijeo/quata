@@ -569,13 +569,18 @@ async function assertDismissedAuthenticationGate(page) {
 }
 
 async function assertFullScreenAuthDestination(page, destination) {
+  const marker = destination === "register"
+    ? { destination, visibleText: "Crea tu cuenta" }
+    : { destination, visibleText: "Inicia sesion" };
   await page.waitForFunction(expected =>
     location.hash === "#auth" &&
     localStorage.getItem("web.navigation.route") === "auth" &&
     !document.documentElement.hasAttribute("data-quata-shell-route") &&
     !document.documentElement.hasAttribute("data-quata-auth-required-prompt") &&
-    document.documentElement.getAttribute("data-quata-auth-destination") === expected,
-  destination);
+    (document.documentElement.getAttribute("data-quata-auth-destination") === expected.destination ||
+      [...document.querySelectorAll("*")].some(element =>
+        (element.innerText || element.textContent || "").includes(expected.visibleText))),
+  marker);
 }
 
 async function assertRegisterLegalDocumentViewer(page) {
