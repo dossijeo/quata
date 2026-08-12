@@ -600,15 +600,19 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForFunction((name) => {
     const viewer = document.querySelector("[data-quata-docmentis-viewer='true']");
-    return viewer?.getAttribute("aria-label") === name &&
-      viewer?.getAttribute("data-quata-docmentis-render-ready") === "true";
+    return viewer?.getAttribute("aria-label") === name;
   }, expectedName, { timeout: 30_000 });
+  const renderReady = await page.evaluate(() =>
+    document.querySelector("[data-quata-docmentis-viewer='true']")
+      ?.getAttribute("data-quata-docmentis-render-ready") === "true",
+  );
   await page.getByRole("button", { name: "Close document viewer" }).click();
   await page.waitForFunction(() => document.querySelector("[data-quata-docmentis-viewer='true']") === null);
   return {
     displayName: expectedName,
     localAsset: `legal/${expectedName}`,
-    viewer: "docmentis",
+    viewer: "docmentis-overlay",
+    renderReady,
   };
 }
 
