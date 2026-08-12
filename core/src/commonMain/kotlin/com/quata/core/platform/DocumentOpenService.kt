@@ -41,9 +41,15 @@ data class DocumentViewerOpenResult(
     val completed: DocumentViewerState,
 )
 
+fun documentViewerOpeningState(file: PlatformFile): DocumentViewerState.Opening =
+    DocumentViewerState.Opening(
+        file = file,
+        descriptor = DocumentSupport.describe(file.reference, file.displayName, file.mimeType),
+    )
+
 suspend fun DocumentOpenService.openWithViewerState(file: PlatformFile): DocumentViewerOpenResult {
-    val descriptor = DocumentSupport.describe(file.reference, file.displayName, file.mimeType)
-    val started = DocumentViewerState.Opening(file = file, descriptor = descriptor)
+    val started = documentViewerOpeningState(file)
+    val descriptor = started.descriptor
     if (!descriptor.isPreviewable) {
         return DocumentViewerOpenResult(
             started = started,

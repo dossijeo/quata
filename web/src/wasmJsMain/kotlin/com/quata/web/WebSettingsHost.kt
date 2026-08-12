@@ -18,7 +18,11 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
 import com.quata.core.ui.components.QuataAccountLifecycleConfirmationDialogContent
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
 import com.quata.feature.profile.presentation.ProfileAccountManagementContent
 import com.quata.feature.profile.presentation.ProfileManagementAction
 import com.quata.feature.settings.presentation.AppearanceSettingsSectionContent
@@ -61,8 +65,13 @@ fun WebSettingsHost(
     var isWorking by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successMessage by remember { mutableStateOf<String?>(null) }
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     val openLegalDocument: (LegalDocument) -> Unit = { document ->
-        scope.launch { documentOpener.open(webLegalDocumentFile(document, language)) }
+        scope.launch {
+            val file = webLegalDocumentFile(document, language)
+            documentViewerState = documentViewerOpeningState(file)
+            documentViewerState = documentOpener.openWithViewerState(file).completed
+        }
         Unit
     }
     DisposableEffect(language, documentOpener) {
@@ -165,4 +174,9 @@ fun WebSettingsHost(
             requiredConfirmation = if (isDeletion) "ELIMINAR" else null,
         )
     } }
+    QuataDocumentViewerStatusContent(
+        state = documentViewerState,
+        strings = webDocumentViewerStatusStrings(browserWhatsNewLanguageTags()),
+        onDismiss = { documentViewerState = null },
+    )
 }

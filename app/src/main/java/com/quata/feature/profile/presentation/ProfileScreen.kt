@@ -46,11 +46,16 @@ import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.moderation.LegalDocuments
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
+import com.quata.core.ui.components.QuataDocumentViewerStatusStrings
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorMode
@@ -96,6 +101,7 @@ fun ProfileScreen(
     var editorUri by remember { mutableStateOf<Uri?>(null) }
     var preview by remember { mutableStateOf<AttachmentPreview?>(null) }
     var avatarChanged by remember { mutableStateOf<((String?) -> Unit)?>(null) }
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     val backDispatcher = remember { ProfileBackDispatcher() }
     BackHandler(enabled = backDispatcher.canConsume) { backDispatcher.dispatch() }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { editorUri = it }
@@ -153,9 +159,16 @@ fun ProfileScreen(
                         strings = SettingsLegalDocumentsStrings(title = context.getString(R.string.legal_documents_title)),
                         onOpenDocument = { document ->
                             scope.launch {
-                                val file = LegalDocuments.platformFile(context, document)
-                                if (file is PlatformResult.Success) {
-                                    documentOpenService.open(file.value)
+                                when (val file = LegalDocuments.platformFile(context, document)) {
+                                    is PlatformResult.Success -> {
+                                        documentViewerState = documentViewerOpeningState(file.value)
+                                        documentViewerState = documentOpenService.openWithViewerState(file.value).completed
+                                    }
+                                    is PlatformResult.Failure,
+                                    PlatformResult.Cancelled,
+                                    PlatformResult.Unsupported -> {
+                                        Toast.makeText(context, R.string.error_generic, Toast.LENGTH_LONG).show()
+                                    }
                                 }
                             }
                         },
@@ -169,6 +182,11 @@ fun ProfileScreen(
             editorUri = null; avatarChanged?.invoke(it.toString())
         }, mode = QuataImageEditorMode.Avatar) }
         if (cameraOpen) QuataCameraDialog(QuataCameraMode.Photo, onDismiss = { cameraOpen = false }, onPhotoCaptured = { uri, _, _ -> cameraOpen = false; editorUri = uri })
+        QuataDocumentViewerStatusContent(
+            state = documentViewerState,
+            strings = androidDocumentViewerStatusStrings(context),
+            onDismiss = { documentViewerState = null },
+        )
     }
 }
 
@@ -215,4 +233,17 @@ private fun androidProfileStrings(context: Context) = ProfileScreenStrings(
     context.getString(R.string.profile_password_update_unavailable),
     context.getString(R.string.profile_loading_error),
     context.getString(R.string.profile_retry),
+)
+
+private fun androidDocumentViewerStatusStrings(context: Context) = QuataDocumentViewerStatusStrings(
+    openingTitle = context.getString(R.string.document_viewer_opening_title),
+    openedTitle = context.getString(R.string.document_viewer_opened_title),
+    failedTitle = context.getString(R.string.document_viewer_failed_title),
+    openingMessage = context.getString(R.string.document_viewer_opening_message),
+    openedMessage = context.getString(R.string.document_viewer_opened_message),
+    cancelledMessage = context.getString(R.string.document_viewer_cancelled_message),
+    unsupportedFormatMessage = context.getString(R.string.document_viewer_unsupported_format_message),
+    platformUnsupportedMessage = context.getString(R.string.document_viewer_platform_unsupported_message),
+    openFailedMessage = context.getString(R.string.document_viewer_open_failed_message),
+    closeLabel = context.getString(R.string.common_close),
 )

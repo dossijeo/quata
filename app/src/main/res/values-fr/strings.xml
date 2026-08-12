@@ -560,6 +560,15 @@
     <string name="splash_mark">Q&#776;</string>
     <string name="legal_privacy">Politique de confidentialit&#233;</string>
     <string name="legal_child_safety">S&#233;curit&#233; des enfants et r&#232;gles de la communaut&#233;</string>
+    <string name="document_viewer_opening_title">Ouverture du document</string>
+    <string name="document_viewer_opened_title">Document ouvert</string>
+    <string name="document_viewer_failed_title">Document indisponible</string>
+    <string name="document_viewer_opening_message">Ouverture de la visionneuse de documents.</string>
+    <string name="document_viewer_opened_message">La visionneuse de documents est ouverte.</string>
+    <string name="document_viewer_cancelled_message">L'ouverture a &#233;t&#233; annul&#233;e.</string>
+    <string name="document_viewer_unsupported_format_message">Ce format de document n'est pas encore pris en charge.</string>
+    <string name="document_viewer_platform_unsupported_message">La visionneuse de documents n'est pas disponible sur cet appareil.</string>
+    <string name="document_viewer_open_failed_message">Le document n'a pas pu &#234;tre ouvert.</string>
     <string name="legal_account_deletion">Supprimer le compte</string>
     <string name="legal_data_deletion">Demander la suppression des donn&#233;es</string>
     <string name="account_action_login_required">Connecte-toi pour g&#233;rer ton compte.</string>

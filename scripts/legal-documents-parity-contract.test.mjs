@@ -4,6 +4,8 @@ import { access, readFile } from 'node:fs/promises';
 
 const legalDocument = await source('../core/src/commonMain/kotlin/com/quata/core/moderation/LegalDocument.kt');
 const legalLinksContent = await source('../designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataLegalDocumentLinksContent.kt');
+const documentOpenService = await source('../core/src/commonMain/kotlin/com/quata/core/platform/DocumentOpenService.kt');
+const documentViewerStatusContent = await source('../designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataDocumentViewerStatusContent.kt');
 const androidNav = await source('../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt');
 const androidLegal = await source('../app/src/main/java/com/quata/core/moderation/LegalDocuments.kt');
 const iosLegal = await source('../core/src/iosMain/kotlin/com/quata/core/moderation/IosLegalDocuments.kt');
@@ -118,7 +120,9 @@ test('Account and Settings surfaces expose the shared legal document section', (
   assert.match(profileHost, /slots\.legalDocuments\?\.invoke\(\)/);
   assert.match(androidProfile, /SettingsLegalDocumentsSectionContent\(/);
   assert.match(androidProfile, /LegalDocuments\.platformFile\(context, document\)/);
-  assert.match(androidProfile, /documentOpenService\.open\(file\.value\)/);
+  assert.match(androidProfile, /documentViewerState = documentViewerOpeningState\(file\.value\)/);
+  assert.match(androidProfile, /documentOpenService\.openWithViewerState\(file\.value\)\.completed/);
+  assert.match(androidProfile, /QuataDocumentViewerStatusContent\(/);
   assert.match(androidProfileLegalEvidenceTest, /ACCOUNT-LEGAL-DOCUMENTS-ANDROID-COMMON-001/);
   assert.match(androidProfileLegalEvidenceTest, /SettingsLegalDocumentsSectionContent\(/);
   assert.match(androidProfileLegalEvidenceTest, /privacy_es\.docx/);
@@ -127,9 +131,13 @@ test('Account and Settings surfaces expose the shared legal document section', (
   assert.match(webProfile, /legalDocuments = \{/);
   assert.match(webProfile, /listOfNotNull\(webProfileLanguageTag\(\)\)\.toQuataLanguage\(\)/);
   assert.match(webProfile, /SettingsLegalDocumentsSectionContent\(/);
-  assert.match(webProfile, /platformServices\.documentOpener\.open\(webLegalDocumentFile\(document, language\)\)/);
+  assert.match(webProfile, /documentViewerState = documentViewerOpeningState\(file\)/);
+  assert.match(webProfile, /platformServices\.documentOpener\.openWithViewerState\(file\)\.completed/);
+  assert.match(webProfile, /QuataDocumentViewerStatusContent\(/);
   assert.match(webSettings, /SettingsLegalDocumentsSectionContent\(/);
-  assert.match(webSettings, /documentOpener\.open\(webLegalDocumentFile\(document, language\)\)/);
+  assert.match(webSettings, /documentViewerState = documentViewerOpeningState\(file\)/);
+  assert.match(webSettings, /documentOpener\.openWithViewerState\(file\)\.completed/);
+  assert.match(webSettings, /QuataDocumentViewerStatusContent\(/);
   assert.match(webMain, /documentOpener = platformServices\.documentOpener/);
   assert.match(webAuthEvidenceRunner, /account_settings_shared_legal_documents_opened_from_local_assets/);
   assert.match(webAuthEvidenceRunner, /assertAccountSettingsLegalDocumentViewer\(page/);
@@ -146,6 +154,19 @@ test('Account and Settings surfaces expose the shared legal document section', (
   assert.match(iosSwift, /openIosLegalDocumentForSettings\(/);
   assert.match(iosSwift, /IosProfileLegalEvidenceFixtureKt\.QuataIosProfileLegalEvidenceViewController\(/);
   assert.match(iosHostUiTests, /testProfileLegalFixtureRendersSharedAccountLegalLinks/);
+});
+
+test('legal document openings expose common viewer state and chrome', () => {
+  assert.match(documentOpenService, /sealed interface DocumentViewerState/);
+  assert.match(documentOpenService, /data class Opening/);
+  assert.match(documentOpenService, /data class Opened/);
+  assert.match(documentOpenService, /data class Failed/);
+  assert.match(documentOpenService, /fun documentViewerOpeningState\(file: PlatformFile\)/);
+  assert.match(documentOpenService, /suspend fun DocumentOpenService\.openWithViewerState/);
+  assert.match(documentViewerStatusContent, /fun QuataDocumentViewerStatusContent\(/);
+  assert.match(documentViewerStatusContent, /QuataDocumentViewerStatusRootTestTag/);
+  assert.match(documentViewerStatusContent, /DocumentViewerFailureReason\.UnsupportedFormat/);
+  assert.match(documentViewerStatusContent, /DocumentViewerFailureReason\.PlatformUnsupported/);
 });
 
 test('Auth registration exposes legal documents through the shared common slot', () => {
