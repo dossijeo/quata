@@ -144,6 +144,8 @@ test("common chat action chrome owns mute and tombstone action guards", () => {
   assert.match(groupManagement, /testTag = "chat\.menu\.options"/);
   assert.match(groupManagement, /ChatUiEvent\.ConversationMutedChanged\(conversation\?\.isMuted != true\)/);
   assert.match(groupManagement, /conversation\?\.isMuted == true\) strings\.reactivateNotifications else strings\.muteConversation/);
+  assert.match(groupManagement, /chat\.menu\.mute/);
+  assert.match(groupManagement, /chat\.menu\.unmute/);
 
   for (const tag of ["copy", "reply", "forward", "edit", "report", "favorite", "delete"]) {
     assert.match(selectedActions, new RegExp(`testTag = "chat\\.action\\.${tag}"`));

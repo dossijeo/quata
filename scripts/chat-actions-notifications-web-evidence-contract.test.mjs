@@ -50,6 +50,10 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(runner, /forward_destination_cleanup_verified_physical_residue_absent/);
   assert.match(runner, /ChatActionsNotificationsInstrumentedTest/);
   assert.match(runner, /--profile-follow-only/);
+  assert.match(runner, /--menu-surface-only/);
+  assert.match(runner, /assertInstrumentationPassed\("menu-surface", await runInstrumentationStage\("menu-surface"\)\)/);
+  assert.match(runner, /android-chat-options-menu-surface/);
+  assert.match(runner, /options_menu_surface_visible_and_mute_toggled_by_shared_ui/);
   assert.match(runner, /prepareProfileFollowAbsent/);
   assert.match(runner, /pollProfileFollowEdge/);
   assert.match(runner, /restoreProfileFollowEdge/);
@@ -75,6 +79,9 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(testSource, /chat\.action\.edit/);
   assert.match(testSource, /chat\.action\.favorite/);
   assert.match(testSource, /chat\.action\.forward/);
+  assert.match(testSource, /chat\.menu\.options/);
+  assert.match(testSource, /runMenuSurfaceStage/);
+  assert.match(testSource, /android-chat-options-menu-surface/);
   assert.match(testSource, /ChatForwardPickerSearchTestTag/);
   assert.match(testSource, /ChatForwardPickerSendTestTag/);
   assert.match(testSource, /android-chat-actions-own-selected/);
@@ -106,6 +113,10 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(runner, /forward_destination_cleanup_verified_physical_residue_absent/);
   assert.match(runner, /--profile-follow-only/);
   assert.match(runner, /--profile-private-chat-only/);
+  assert.match(runner, /--menu-surface-only/);
+  assert.match(runner, /QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E/);
+  assert.match(runner, /options_menu_surface_visible_from_shared_ui/);
+  assert.match(wrapper, /testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface/);
   assert.match(runner, /QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E/);
   assert.match(runner, /QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E/);
   assert.match(runner, /prepareProfileFollowAbsent/);
@@ -136,6 +147,8 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(testSource, /public-profile\.chat\.\\\(peerProfileId\)/);
   assert.match(testSource, /ios-chat-profile-follow-after/);
   assert.match(testSource, /ios-chat-profile-private-chat-opened/);
+  assert.match(testSource, /chat\.menu\.options/);
+  assert.match(testSource, /ios-chat-options-menu-surface/);
 });
 
 test("chat actions/notifications iOS evidence can run translation-only against the shared overlay", async () => {
@@ -190,6 +203,8 @@ test("chat actions/notifications web evidence exercises real shared chat control
     assert.match(platformRunner, /profile_private_chat_marker_deleted/);
     assert.match(platformRunner, /cleanup_verified_profile_private_chat_marker_absent/);
     assert.match(platformRunner, /profilePrivateChatMarkerMessage/);
+    assert.match(platformRunner, /options_menu_(surface_visible_and_mute_enabled_by_rpc|surface_visible_and_mute_toggled_by_shared_ui|surface_visible_from_shared_ui)/);
+    assert.match(platformRunner, /options_menu_unmute_verified_by_rpc/);
   }
   assert.match(runner, /profile_follow_toggled_and_verified_by_db/);
   assert.match(runner, /profile_follow_edge_restored_to_initial_state/);

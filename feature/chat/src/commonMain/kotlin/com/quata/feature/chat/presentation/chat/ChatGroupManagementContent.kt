@@ -119,6 +119,9 @@ fun ChatGroupManagementContent(
             }
             ChatOpaqueOptionsMenuContent(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                 DropdownMenuItem(
+                    modifier = Modifier.semantics {
+                        testTag = if (conversation?.isMuted == true) "chat.menu.unmute" else "chat.menu.mute"
+                    },
                     text = { Text(if (conversation?.isMuted == true) strings.reactivateNotifications else strings.muteConversation) },
                     leadingIcon = {
                         CompactIcon(
