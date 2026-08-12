@@ -234,6 +234,10 @@ try {
   if (productReadEvidence.authenticatedGets < 1) throw new Error("authenticated_product_get_not_observed");
   assertNoBlockedBackendMutations(blockedBackendMutations);
 
+  stage = "authenticated_account_settings_legal_documents";
+  report.accountSettingsLegalDocuments = await assertAccountSettingsLegalDocumentViewer(page, options.output);
+  report.steps.push("account_settings_shared_legal_documents_opened_from_local_assets");
+
   stage = "authenticated_settings_push_consent";
   await assertAuthenticatedSettingsPushConsent(page, options.output);
   report.steps.push("authenticated_settings_push_consent_uses_trusted_native_click");
@@ -592,7 +596,30 @@ async function assertRegisterLegalDocumentViewer(page) {
   ];
 }
 
+async function assertAccountSettingsLegalDocumentViewer(page, reportOutput) {
+  const evidence = {};
+  for (const route of ["profile", "settings"]) {
+    await page.evaluate(fragment => { globalThis.location.hash = fragment; }, route);
+    await waitForShellRoute(page, route);
+    await scrollLegalLinksIntoView(page);
+    const screenshot = reportOutput.replace(/\.json$/i, `.legal-${route}.png`);
+    await page.screenshot({ path: screenshot, fullPage: true });
+    evidence[route] = {
+      screenshot,
+      documents: [
+        await clickAndCaptureDocumentViewer(page, /privacidad|Privacy policy/i, "privacy_es.docx", 0),
+        await clickAndCaptureDocumentViewer(page, /Seguridad infantil|Seguridad de menores|Child safety/i, "child_safety_es.docx", 1),
+      ],
+    };
+  }
+  return evidence;
+}
+
 async function scrollRegisterLegalLinksIntoView(page) {
+  await scrollLegalLinksIntoView(page);
+}
+
+async function scrollLegalLinksIntoView(page) {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     if (await findVisibleTextBounds(page, /privacidad|Privacy policy/i)) return;
     await page.mouse.wheel(0, 720);

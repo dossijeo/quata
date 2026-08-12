@@ -386,6 +386,48 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "about-release-history-real-release-history")
     }
 
+    func testProfileLegalFixtureRendersSharedAccountLegalLinks() {
+        let app = fixtureApp("profile-legal", spanishLocale: true)
+        app.launch()
+
+        for identifier in [
+            "legal-document-link-privacy",
+            "legal-document-link-childsafety",
+        ] {
+            XCTAssertTrue(
+                app.descendants(matching: .any)
+                    .matching(identifier: identifier)
+                    .firstMatch
+                    .waitForExistence(timeout: 15),
+                "The shared Cuenta legal semantic \(identifier) must be available in the iOS profile fixture.",
+            )
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "profile-legal-account")
+
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-privacy")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-opened-privacy_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS Cuenta fixture must resolve Privacy to the packaged Spanish DOCX.",
+        )
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-childsafety")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-opened-child_safety_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS Cuenta fixture must resolve Child Safety to the packaged Spanish DOCX.",
+        )
+    }
+
     func testWhatsNewFixtureRendersMarksSeenAndDoesNotRepeat() {
         let app = fixtureApp("whats-new-real", spanishLocale: true, resetWhatsNew: true)
         app.launch()

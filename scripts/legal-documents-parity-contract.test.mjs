@@ -10,6 +10,7 @@ const iosLegal = await source('../core/src/iosMain/kotlin/com/quata/core/moderat
 const androidRegister = await source('../app/src/main/java/com/quata/feature/auth/presentation/register/RegisterScreen.kt');
 const androidAuthEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/auth/presentation/AuthRecoveryProductBridgeInstrumentedTest.kt');
 const androidEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/whatsnew/presentation/AboutReleaseHistoryInstrumentedTest.kt');
+const androidProfileLegalEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/profile/presentation/ProfileLegalDocumentsInstrumentedTest.kt');
 const web = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebWhatsNewHost.kt');
 const webSettings = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebSettingsHost.kt');
 const webProfile = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt');
@@ -29,6 +30,7 @@ const iosAuth = await source('../feature/auth/src/iosMain/kotlin/com/quata/featu
 const iosSettings = await source('../feature/settings/src/iosMain/kotlin/com/quata/feature/settings/presentation/IosSettingsHost.kt');
 const iosProfile = await source('../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileHost.kt');
 const iosProfileBootstrap = await source('../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileSosRuntimeBootstrap.kt');
+const iosProfileLegalFixture = await source('../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileLegalEvidenceFixture.kt');
 const iosProject = await source('../iosApp/project.yml');
 const iosSwift = await source('../iosApp/iosApp/QuataIosApp.swift');
 const iosHostUiTests = await source('../iosApp/iosAppUITests/QuataIosHostUITests.swift');
@@ -117,6 +119,10 @@ test('Account and Settings surfaces expose the shared legal document section', (
   assert.match(androidProfile, /SettingsLegalDocumentsSectionContent\(/);
   assert.match(androidProfile, /LegalDocuments\.platformFile\(context, document\)/);
   assert.match(androidProfile, /documentOpenService\.open\(file\.value\)/);
+  assert.match(androidProfileLegalEvidenceTest, /ACCOUNT-LEGAL-DOCUMENTS-ANDROID-COMMON-001/);
+  assert.match(androidProfileLegalEvidenceTest, /SettingsLegalDocumentsSectionContent\(/);
+  assert.match(androidProfileLegalEvidenceTest, /privacy_es\.docx/);
+  assert.match(androidProfileLegalEvidenceTest, /child_safety_es\.docx/);
 
   assert.match(webProfile, /legalDocuments = \{/);
   assert.match(webProfile, /listOfNotNull\(webProfileLanguageTag\(\)\)\.toQuataLanguage\(\)/);
@@ -125,15 +131,21 @@ test('Account and Settings surfaces expose the shared legal document section', (
   assert.match(webSettings, /SettingsLegalDocumentsSectionContent\(/);
   assert.match(webSettings, /documentOpener\.open\(webLegalDocumentFile\(document, language\)\)/);
   assert.match(webMain, /documentOpener = platformServices\.documentOpener/);
+  assert.match(webAuthEvidenceRunner, /account_settings_shared_legal_documents_opened_from_local_assets/);
+  assert.match(webAuthEvidenceRunner, /assertAccountSettingsLegalDocumentViewer\(page/);
 
   assert.match(iosProfile, /legalDocuments = \{/);
   assert.match(iosProfile, /SettingsLegalDocumentsSectionContent\(/);
   assert.match(iosProfile, /dependencies\.openLegalDocument\(document, opener\)/);
   assert.match(iosProfileBootstrap, /openLegalDocument: \(LegalDocument, DocumentOpenService\) -> Unit/);
+  assert.match(iosProfileLegalFixture, /fun QuataIosProfileLegalEvidenceViewController\(/);
+  assert.match(iosProfileLegalFixture, /RecordingIosProfileLegalDocumentOpenService/);
   assert.match(iosSettings, /SettingsLegalDocumentsSectionContent\(/);
   assert.match(iosSettings, /openLegalDocument\(document, opener\)/);
   assert.match(iosRuntime, /fun openIosLegalDocumentForSettings\(/);
   assert.match(iosSwift, /openIosLegalDocumentForSettings\(/);
+  assert.match(iosSwift, /IosProfileLegalEvidenceFixtureKt\.QuataIosProfileLegalEvidenceViewController\(/);
+  assert.match(iosHostUiTests, /testProfileLegalFixtureRendersSharedAccountLegalLinks/);
 });
 
 test('Auth registration exposes legal documents through the shared common slot', () => {

@@ -555,6 +555,27 @@ private final class IosAppCompositionRoot {
                 )
             }
             return container
+        case "profile-legal":
+            var container: IosAuthLaunchFixtureContainerViewController!
+            container = IosAuthLaunchFixtureContainerViewController {
+                IosProfileLegalEvidenceFixtureKt.QuataIosProfileLegalEvidenceViewController(
+                    languageCode: Locale.preferredLanguages.first,
+                    onOpened: { name in
+                        DispatchQueue.main.async {
+                            guard let view = container?.view else { return }
+                            let marker = UILabel()
+                            marker.accessibilityIdentifier = "legal-document-opened-\(name)"
+                            marker.accessibilityLabel = name
+                            marker.isAccessibilityElement = true
+                            marker.text = name
+                            marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                            marker.alpha = 0.01
+                            view.addSubview(marker)
+                        }
+                    },
+                )
+            }
+            return container
         case "authenticated":
             // This deliberately runs the production Kotlin deep-link parser and the same
             // UIKit route adapter as the authenticated launcher. The destination controllers
