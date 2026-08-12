@@ -287,6 +287,8 @@ try {
   if (navigationStressFailure) report.navigationStressFailure = navigationStressFailure;
   report.failureStage = stage;
   if (page) {
+    const failureCapture = options.output.replace(/\.json$/i, "-failure.png");
+    await page.screenshot({ path: failureCapture, fullPage: true }).catch(() => null);
     report.browserState = await page.evaluate(() => ({
       productBridge: globalThis.__quataAuthE2eProduct?.version === 1,
       rootPresent: document.querySelector("#quata-root") !== null,
@@ -302,6 +304,7 @@ try {
       shellRoute: document.documentElement.getAttribute("data-quata-shell-route"),
       primarySelectedRoute: document.documentElement.getAttribute("data-quata-primary-selected-route"),
     })).catch(() => ({ unavailable: true }));
+    report.browserState.failureScreenshot = failureCapture;
     report.browserState.diagnostics = browserDiagnostics.slice(-20);
   }
 } finally {

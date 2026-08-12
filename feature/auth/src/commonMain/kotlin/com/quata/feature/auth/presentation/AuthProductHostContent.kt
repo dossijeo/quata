@@ -2,6 +2,7 @@ package com.quata.feature.auth.presentation
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,6 +29,9 @@ fun AuthProductHostContent(
     onAuthenticated: () -> Unit,
 ) {
     var destination by remember(initialDestination) { mutableStateOf(initialDestination) }
+    LaunchedEffect(initialDestination) {
+        destination = initialDestination
+    }
 
     when (destination) {
         AuthProductDestination.Login -> LoginScreenHost(

@@ -127,6 +127,7 @@ test('Account and Settings surfaces expose the shared legal document section', (
 test('Auth registration exposes legal documents through the shared common slot', () => {
   assert.match(authProductHost, /registerLegalLinks: @Composable \(\(\) -> Unit\)\? = null/);
   assert.match(authProductHost, /legalLinks = registerLegalLinks/);
+  assert.match(authProductHost, /LaunchedEffect\(initialDestination\)[\s\S]*destination = initialDestination/);
   assert.match(registerHost, /legalLinks: @Composable \(\(\) -> Unit\)\? = null/);
   assert.match(registerForm, /legalLinks\?\.let/);
 
