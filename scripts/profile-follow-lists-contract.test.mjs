@@ -8,13 +8,14 @@ async function source(path) {
   return readFile(new URL(path, root), "utf8");
 }
 
-const [profileHost, profileList, userRow, androidTest, androidRunner, webRunner, iosTest, iosWrapper, iosRunner] = await Promise.all([
+const [profileHost, profileList, userRow, androidTest, androidRunner, webRunner, webChatHost, iosTest, iosWrapper, iosRunner] = await Promise.all([
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileUsersListCommon.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/NeighborhoodUserRowContent.kt"),
   source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
   source("scripts/chat-actions-notifications-android-evidence.mjs"),
   source("scripts/chat-actions-notifications-web-evidence.mjs"),
+  source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
   source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
   source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
   source("scripts/chat-actions-notifications-ios-evidence.mjs"),
@@ -61,6 +62,8 @@ test("Web profile list evidence opens both common lists and returns to Chat", ()
   assert.match(webRunner, /web-chat-profile-list-\$\{listKind\}/);
   assert.match(webRunner, /peer_public_profile_followers_and_following_lists_opened_and_returned/);
   assert.match(webRunner, /ProfileListsOnlyCompleted/);
+  assert.match(webChatHost, /blurWebChatActiveElement\(\)/);
+  assert.match(webChatHost, /document\?\.activeElement/);
 });
 
 test("iOS profile list evidence selects the opt-in follow-list XCTest", () => {
