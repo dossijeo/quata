@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
-import androidx.compose.material3.Text
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.moderation.assetName

@@ -124,7 +124,7 @@ test('About opens the common dialog and links to Release History on Android, Web
   assert.match(iosRuntime, /title = iosAboutTitle\(runtime\.languageTags\)/);
   assert.match(iosRuntime, /releaseHistoryLabel = iosAboutReleaseHistoryLabel\(runtime\.languageTags\)/);
   assert.match(iosRuntime, /onOpenReleaseHistory = onOpenReleaseHistory/);
-  assert.match(iosRuntime, /legalLinks = \{ IosAboutLegalLinks\(runtime\.languageTags\) \}/);
+  assert.match(iosRuntime, /legalLinks = \{ IosAboutLegalLinks\(runtime\.languageTags, documentOpener\) \}/);
   assert.doesNotMatch(iosRuntime, /title = runtime\.releaseHistoryStrings\(\)\.title/);
   assert.doesNotMatch(iosRuntime, /releaseHistoryLabel = runtime\.releaseHistoryStrings\(\)\.subtitle/);
   assert.match(iosSwift, /private var aboutFactory: \(\(\) -> UIViewController\)\?/);
