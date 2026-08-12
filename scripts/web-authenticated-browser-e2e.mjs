@@ -576,10 +576,20 @@ async function assertFullScreenAuthDestination(page, destination) {
 }
 
 async function assertRegisterLegalDocumentDownloads(page) {
+  await scrollRegisterLegalLinksIntoView(page);
   return [
     await clickAndCaptureDownload(page, /PolÃ­tica de privacidad|Privacy policy/, "privacy_es.docx"),
     await clickAndCaptureDownload(page, /Seguridad de menores|Child safety/, "child_safety_es.docx"),
   ];
+}
+
+async function scrollRegisterLegalLinksIntoView(page) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (await page.getByText(/PolÃ­tica de privacidad|Privacy policy/).first().isVisible().catch(() => false)) return;
+    await page.mouse.wheel(0, 720);
+    await page.keyboard.press("PageDown").catch(() => {});
+    await page.waitForTimeout(150);
+  }
 }
 
 async function clickAndCaptureDownload(page, pattern, expectedName) {
