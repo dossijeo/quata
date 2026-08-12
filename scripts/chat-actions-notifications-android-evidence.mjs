@@ -576,7 +576,59 @@ async function logicalCleanup(config, state) {
     });
     actions.push("test_messages_deleted");
   }
+  if (state.profilePrivateChat && state.profilePrivateChatMarkerMessage && state.b) {
+    await rpc(config, state.b, "quata_chat_delete_messages", {
+      p_actor_profile_id: state.b.profileId,
+      p_thread_id: state.profilePrivateChat,
+      p_message_ids: [state.profilePrivateChatMarkerMessage],
+    });
+    actions.push("profile_private_chat_marker_deleted");
+  }
+  const deletedStalePrivateMarkers = await deletePrivateChatTestMarkers(config, state);
+  if (deletedStalePrivateMarkers > 0) actions.push(`stale_profile_private_chat_markers_deleted:${deletedStalePrivateMarkers}`);
+  const privateMarkers = [state.privateMarker].filter(Boolean);
+  if (state.profilePrivateChat && state.a && await threadContainsAnyMarker(config, state.a, state.profilePrivateChat, privateMarkers)) {
+    throw new Error("cleanup_residue_detected:profile_private_chat_marker_a");
+  }
+  if (state.profilePrivateChat && state.b && await threadContainsAnyMarker(config, state.b, state.profilePrivateChat, privateMarkers)) {
+    throw new Error("cleanup_residue_detected:profile_private_chat_marker_b");
+  }
+  if (state.profilePrivateChat) actions.push("cleanup_verified_profile_private_chat_marker_absent");
   return actions;
+}
+
+async function threadContainsAnyMarker(config, session, thread, markers) {
+  const markerSet = new Set(markers.filter(Boolean));
+  if (markerSet.size === 0) return false;
+  const detail = await rpc(config, session, "quata_chat_get_thread", {
+    p_actor_profile_id: session.profileId,
+    p_thread_id: thread,
+    p_known_message_ids: [],
+    p_limit: 250,
+  });
+  return rows(detail, "messages").some((message) => markerSet.has(messageText(message)));
+}
+
+async function deletePrivateChatTestMarkers(config, state) {
+  if (!state.profilePrivateChat || !state.a) return 0;
+  const detail = await rpc(config, state.a, "quata_chat_get_thread", {
+    p_actor_profile_id: state.a.profileId,
+    p_thread_id: state.profilePrivateChat,
+    p_known_message_ids: [],
+    p_limit: 250,
+  });
+  const messageIds = rows(detail, "messages")
+    .filter((message) => /^chat-profile-private-(web|android|ios)-/.test(messageText(message)))
+    .map(messageId)
+    .filter((id) => Number.isSafeInteger(Number(id)));
+  const uniqueIds = [...new Set(messageIds)];
+  if (!uniqueIds.length) return 0;
+  await rpc(config, state.a, "quata_chat_delete_messages", {
+    p_actor_profile_id: state.a.profileId,
+    p_thread_id: state.profilePrivateChat,
+    p_message_ids: uniqueIds,
+  });
+  return uniqueIds.length;
 }
 
 async function hardDeleteTemporaryThread(thread, uniqueKey) {
@@ -983,7 +1035,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profilePrivateChat: null };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, profilePrivateChatMarkerMessage: null, privateMarker: null };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
@@ -1028,6 +1080,7 @@ try {
   const peerMarker = `chat-profile-peer-android-${randomUUID()}`;
   const peerProbe = peerMarker.slice(0, 24);
   const privateMarker = `chat-profile-private-android-${randomUUID()}`;
+  state.privateMarker = privateMarker;
   const privateProbe = privateMarker.slice(0, 28);
   const composerMarker = `chat-compose-ui-android-${randomUUID()}`;
   const replyMarker = `chat-reply-ui-android-${randomUUID()}`;
@@ -1065,7 +1118,8 @@ try {
         p_reply_to_message_id: null,
         p_client_message_id: `chat-profile-private-android-${randomUUID()}`,
       });
-      await pollMessage(config, state.a, state.profilePrivateChat, (message) => messageText(message) === privateMarker);
+      const privateMessage = await pollMessage(config, state.a, state.profilePrivateChat, (message) => messageText(message) === privateMarker);
+      state.profilePrivateChatMarkerMessage = messageId(privateMessage);
       report.steps.push("profile_private_chat_seed_message_ready");
     }
   } else {
@@ -1118,8 +1172,18 @@ try {
     ].map(adbShellQuote).join(" "),
   ]);
   const assertInstrumentationPassed = (stage, instrumentationOutput) => {
-    if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) throw new Error(`android_instrumentation_not_ok:${stage}`);
+    if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) {
+      report.diagnostics = {
+        ...(report.diagnostics ?? {}),
+        [`androidInstrumentationTail:${stage}`]: instrumentationOutput.split(/\r?\n/).slice(-80).join("\n"),
+      };
+      throw new Error(`android_instrumentation_not_ok:${stage}`);
+    }
     if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentationOutput)) {
+      report.diagnostics = {
+        ...(report.diagnostics ?? {}),
+        [`androidInstrumentationTail:${stage}`]: instrumentationOutput.split(/\r?\n/).slice(-80).join("\n"),
+      };
       throw new Error(`android_instrumentation_semantic_failure:${stage}`);
     }
   }

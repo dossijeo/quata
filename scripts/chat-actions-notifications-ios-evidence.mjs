@@ -64,6 +64,7 @@ const state = {
   profileListEdges: null,
   profileContent: null,
   profilePrivateChat: null,
+  profilePrivateChatMarkerMessage: null,
 };
 
 try {
@@ -136,7 +137,8 @@ try {
         p_reply_to_message_id: null,
         p_client_message_id: `chat-profile-private-ios-${randomUUID()}`,
       });
-      await pollMessage(config, state.a, state.profilePrivateChat, (message) => messageText(message) === state.privateMarker);
+      const privateMessage = await pollMessage(config, state.a, state.profilePrivateChat, (message) => messageText(message) === state.privateMarker);
+      state.profilePrivateChatMarkerMessage = messageId(privateMessage);
       report.steps.push("profile_private_chat_seed_message_ready");
     }
     if (!profileEvidenceOnly) {
@@ -869,6 +871,16 @@ async function logicalCleanup(config, state) {
     });
     actions.push("test_messages_deleted");
   }
+  if (state.profilePrivateChat && state.profilePrivateChatMarkerMessage && state.b) {
+    await rpc(config, state.b, "quata_chat_delete_messages", {
+      p_actor_profile_id: state.b.profileId,
+      p_thread_id: state.profilePrivateChat,
+      p_message_ids: [state.profilePrivateChatMarkerMessage],
+    });
+    actions.push("profile_private_chat_marker_deleted");
+  }
+  const deletedStalePrivateMarkers = await deletePrivateChatTestMarkers(config, state);
+  if (deletedStalePrivateMarkers > 0) actions.push(`stale_profile_private_chat_markers_deleted:${deletedStalePrivateMarkers}`);
   const markers = [state.seedMarker, state.peerMarker, state.editableMarker, state.composerMarker, state.replyMarker, state.editMarker];
   if (state.thread && state.a && await threadContainsAnyMarker(config, state.a, state.thread, markers)) {
     throw new Error("cleanup_residue_detected:message_a");
@@ -878,6 +890,14 @@ async function logicalCleanup(config, state) {
     throw new Error("cleanup_residue_detected:message_b");
   }
   actions.push("cleanup_verified_messages_absent_for_b");
+  const privateMarkers = [state.privateMarker].filter(Boolean);
+  if (state.profilePrivateChat && state.a && await threadContainsAnyMarker(config, state.a, state.profilePrivateChat, privateMarkers)) {
+    throw new Error("cleanup_residue_detected:profile_private_chat_marker_a");
+  }
+  if (state.profilePrivateChat && state.b && await threadContainsAnyMarker(config, state.b, state.profilePrivateChat, privateMarkers)) {
+    throw new Error("cleanup_residue_detected:profile_private_chat_marker_b");
+  }
+  if (state.profilePrivateChat) actions.push("cleanup_verified_profile_private_chat_marker_absent");
   if (state.thread && state.a) {
     await rpc(config, state.a, "quata_chat_delete_thread", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread });
     actions.push("thread_removed_from_a_inbox");
@@ -896,6 +916,28 @@ async function logicalCleanup(config, state) {
   if (state.thread && state.b && await inboxContainsThread(config, state.b, state.thread)) throw new Error("cleanup_residue_detected:thread_b");
   actions.push("cleanup_verified_thread_absent_for_b");
   return actions;
+}
+
+async function deletePrivateChatTestMarkers(config, state) {
+  if (!state.profilePrivateChat || !state.a) return 0;
+  const detail = await rpc(config, state.a, "quata_chat_get_thread", {
+    p_actor_profile_id: state.a.profileId,
+    p_thread_id: state.profilePrivateChat,
+    p_known_message_ids: [],
+    p_limit: 250,
+  });
+  const messageIds = rows(detail, "messages")
+    .filter((message) => /^chat-profile-private-(web|android|ios)-/.test(messageText(message)))
+    .map(messageId)
+    .filter((id) => Number.isSafeInteger(Number(id)));
+  const uniqueIds = [...new Set(messageIds)];
+  if (!uniqueIds.length) return 0;
+  await rpc(config, state.a, "quata_chat_delete_messages", {
+    p_actor_profile_id: state.a.profileId,
+    p_thread_id: state.profilePrivateChat,
+    p_message_ids: uniqueIds,
+  });
+  return uniqueIds.length;
 }
 
 async function hardDeleteTemporaryThread(thread, uniqueKey) {

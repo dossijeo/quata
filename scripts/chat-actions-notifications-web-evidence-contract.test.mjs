@@ -172,8 +172,20 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /profile_private_chat_seed_message_ready/);
   assert.match(runner, /profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc/);
   assert.match(runner, /pollMessage\(config, state\.a, privateChat\.threadId/);
+  assert.match(runner, /waitForExactChatRoute\(page, `sb:\$\{privateChat\.threadId\}`\)/);
+  assert.match(runner, /profile_private_chat_marker_deleted/);
+  assert.match(runner, /cleanup_verified_profile_private_chat_marker_absent/);
   assert.match(runner, /web-chat-profile-private-chat-opened/);
+  assert.doesNotMatch(runner, /viewport\.width \* 0\.72/);
   assert.doesNotMatch(runner, /openAuthenticatedChatRoute\(page, serverOrigin, `sb:\$\{opened\.threadId\}`\)/);
+  for (const platformRunner of [
+    await source("scripts/chat-actions-notifications-android-evidence.mjs"),
+    await source("scripts/chat-actions-notifications-ios-evidence.mjs"),
+  ]) {
+    assert.match(platformRunner, /profile_private_chat_marker_deleted/);
+    assert.match(platformRunner, /cleanup_verified_profile_private_chat_marker_absent/);
+    assert.match(platformRunner, /profilePrivateChatMarkerMessage/);
+  }
   assert.match(runner, /profile_follow_toggled_and_verified_by_db/);
   assert.match(runner, /profile_follow_edge_restored_to_initial_state/);
   assert.match(runner, /class EvidenceCompleted extends Error/);
