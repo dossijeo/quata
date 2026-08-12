@@ -624,7 +624,7 @@ async function findVisibleTextBounds(page, pattern) {
     const expression = new RegExp(source, flags);
     const root = document.querySelector("#quata-root");
     const scope = root?.shadowRoot ?? root ?? document;
-    const candidates = [...scope.querySelectorAll("button, a, [role='button'], div, span")];
+    const candidates = [scope, ...scope.querySelectorAll("*")].filter(Boolean);
     for (const element of candidates) {
       const text = element.innerText || element.textContent || "";
       if (!expression.test(text)) continue;
