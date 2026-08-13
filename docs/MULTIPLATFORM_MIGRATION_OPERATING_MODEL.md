@@ -181,8 +181,8 @@ o attestation valida, se promociona con:
 `node scripts/promote-candidate-final.mjs --pr <numero> --sha <head-sha-congelado>`
 
 La promocion verifica que la PR no es draft, que el head actual coincide exactamente con el SHA
-congelado, que existen los gates estables requeridos, que GitHub native auto-merge esta habilitado
-en el repositorio, aplica `candidate-final` si falta y solicita auto-merge nativo con metodo
+congelado, que GitHub native auto-merge esta habilitado en el repositorio, aplica `candidate-final`
+si falta y solicita auto-merge nativo con metodo
 `SQUASH`. Auto-merge no sustituye branch protection, reviews requeridas, conversaciones resueltas,
 checks requeridos, estado actualizado ni conflicto de merge; solo autoriza a GitHub a fusionar el
 SHA congelado cuando GitHub ya lo considera apto.

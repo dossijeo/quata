@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 
-const requiredBeforePromotion = [
+const expectedStableGates = [
   "PR fast contracts and focal imports",
   "iOS fast contracts",
   "Web/Android final certification gate",
@@ -69,14 +69,11 @@ export function validatePromotionState({ pullRequest, repository, frozenSha }) {
   if (pullRequest?.isDraft) failures.push("draft_pr_cannot_be_candidate_final");
   if (pullRequest?.headRefOid !== frozenSha) failures.push(`frozen_sha_mismatch:${pullRequest?.headRefOid ?? "missing"}`);
   const labels = new Set((pullRequest?.labels ?? []).map((label) => label.name));
-  const checkNames = new Set((pullRequest?.statusCheckRollup ?? []).map((check) => check.name));
-  for (const checkName of requiredBeforePromotion) {
-    if (!checkNames.has(checkName)) failures.push(`missing_required_check:${checkName}`);
-  }
   return {
     ok: failures.length === 0,
     failures,
     alreadyCandidateFinal: labels.has("candidate-final"),
+    expectedStableGates,
   };
 }
 

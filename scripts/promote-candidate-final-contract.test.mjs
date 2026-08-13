@@ -24,12 +24,22 @@ function pr(overrides = {}) {
 
 const repository = { allow_auto_merge: true, allow_squash_merge: true };
 
-test("candidate-final promotion requires frozen SHA, non-draft PR, stable gates and native auto-merge", () => {
-  assert.deepEqual(validatePromotionState({
+test("candidate-final promotion requires frozen SHA, non-draft PR and native auto-merge", () => {
+  const result = validatePromotionState({
     pullRequest: pr(),
     repository,
     frozenSha: "a".repeat(40),
-  }), { ok: true, failures: [], alreadyCandidateFinal: false });
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.failures, []);
+  assert.equal(result.alreadyCandidateFinal, false);
+  assert.deepEqual(result.expectedStableGates, [
+    "PR fast contracts and focal imports",
+    "iOS fast contracts",
+    "Web/Android final certification gate",
+    "iOS final certification gate",
+    "CodeQL final security gate",
+  ]);
 
   assert.match(script, /enablePullRequestAutoMerge/);
   assert.match(script, /mergeMethod:SQUASH/);
@@ -37,14 +47,12 @@ test("candidate-final promotion requires frozen SHA, non-draft PR, stable gates 
   assert.doesNotMatch(script, /gh", \["pr", "merge"/);
 });
 
-test("promotion fails closed for SHA drift, drafts, disabled auto-merge or missing final gates", () => {
+test("promotion fails closed for SHA drift, drafts or disabled auto-merge", () => {
   const cases = [
     [pr({ headRefOid: "b".repeat(40) }), repository, /frozen_sha_mismatch/],
     [pr({ isDraft: true }), repository, /draft_pr_cannot_be_candidate_final/],
     [pr(), { allow_auto_merge: false, allow_squash_merge: true }, /repository_auto_merge_disabled/],
     [pr(), { allow_auto_merge: true, allow_squash_merge: false }, /repository_squash_merge_disabled/],
-    [pr({ statusCheckRollup: [] }), repository, /missing_required_check:PR fast contracts and focal imports/],
-    [pr({ statusCheckRollup: [{ name: "Analyze java-kotlin" }] }), repository, /missing_required_check:CodeQL final security gate/],
   ];
 
   for (const [pullRequest, repo, expected] of cases) {

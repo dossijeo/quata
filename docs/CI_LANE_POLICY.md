@@ -44,8 +44,8 @@ Promotion to `candidate-final` is also the authorization for GitHub native
 auto-merge on the frozen head SHA. Use
 `node scripts/promote-candidate-final.mjs --pr <number> --sha <head-sha>` after
 local preflight and evidence/attestation are complete. The script verifies that
-the PR is not a draft, the current head still equals the frozen SHA, the stable
-required gates exist, repository auto-merge is enabled, applies
+the PR is not a draft, the current head still equals the frozen SHA, repository
+auto-merge is enabled, applies
 `candidate-final` if needed, and requests native auto-merge with the repository's
 operational merge method. It does not merge manually and it never bypasses branch
 protection.
