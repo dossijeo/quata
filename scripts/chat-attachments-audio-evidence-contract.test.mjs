@@ -88,6 +88,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
     assert.match(commonAudioPlayer, new RegExp(`testTag = ${constant}`));
   }
   assert.match(commonAudioPlayer, /playPauseDescription/);
+  assert.match(commonAudioPlayer, /val toggleDescription = "\$playPauseDescription \$displayText"/);
+  assert.match(commonAudioPlayer, /contentDescription = toggleDescription/);
   assert.match(commonAudioPlayer, /errorText/);
   assert.match(commonAudioPlayer, /if \(hasError\) errorText else displayText/);
   assert.match(commonAudioPlayer, /onTogglePlayback/);
@@ -201,7 +203,7 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
     assert.doesNotMatch(runner, /attachmentStoragePaths:\s*\[\]/);
     assert.doesNotMatch(runner, /state\.attachmentStoragePaths\.push/);
     assert.doesNotMatch(runner, /function attachmentStorageFixtures\(state\)/);
-    assert.match(runner, /document_and_audio_attachment_messages_seeded/);
+    assert.match(runner, /document_and_(audio|consecutive_audio)_attachment_messages_seeded/);
     assert.match(runner, /document_and_audio_shared_attachment_chrome_verified|ios_xctest_document_and_audio_attachment_chrome_verified/);
     assert.match(runner, /chatAttachmentsBucket/);
   }
@@ -237,6 +239,13 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /if \(playback\.state !== "playing"\) throw new Error\(`audio_playback_not_playing:\$\{playback\.state\}`\)/);
   assert.match(webRunner, /audio_playback_state_not_observed/);
   assert.match(webRunner, /web-chat-audio-toggle-attempted/);
+  assert.match(webRunner, /nextAudio: await createChatAttachmentMessage/);
+  assert.match(webRunner, /"audio", "-next"/);
+  assert.match(webRunner, /next_audio_attachment_message/);
+  assert.match(webRunner, /waitConsecutiveAudioPlaybackObserved/);
+  assert.match(webRunner, /consecutive_audio_playback_state_not_observed/);
+  assert.match(webRunner, /web-chat-audio-consecutive-playing/);
+  assert.match(webRunner, /nextAudioMessageId/);
   assert.match(androidMediaViewer, /ChatAudioAttachmentPlayerContent\(/);
   assert.match(androidMediaViewer, /errorText = attachment\.name/);
 });

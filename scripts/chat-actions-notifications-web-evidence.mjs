@@ -272,9 +272,16 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
   if (playback.state !== "playing") throw new Error(`audio_playback_not_playing:${playback.state}`);
   report.evidence.audioPlaybackObserved = playback;
   report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
+  if (fixtures.nextAudio) {
+    await waitMessageVisible(page, fixtures.nextAudio.marker, "next_audio_attachment_message_not_visible");
+    await page.getByText(fixtures.nextAudio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
+    const consecutive = await waitConsecutiveAudioPlaybackObserved(page, fixtures.audio.name, fixtures.nextAudio.name, 15_000, true);
+    report.evidence.consecutiveAudioPlaybackObserved = consecutive;
+    report.evidence.consecutiveAudio = await attachScreenshot(page, evidenceDir, "web-chat-audio-consecutive-playing");
+  }
 }
 
-function createChatAttachmentMessage(config, session, thread, runId, kind) {
+function createChatAttachmentMessage(config, session, thread, runId, kind, nameSuffix = "") {
   return seedChatAttachmentFixture({
     config,
     session,
@@ -282,6 +289,7 @@ function createChatAttachmentMessage(config, session, thread, runId, kind) {
     runId,
     kind,
     platformLabel: "web",
+    nameSuffix,
     rpc,
     storageRequest,
     pollMessage,
@@ -1672,6 +1680,51 @@ async function waitAudioPlaybackObserved(page, timeout = 10_000) {
   throw new Error("audio_playback_state_not_observed");
 }
 
+async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName, timeout = 15_000, initialSawFirstPlaying = false) {
+  const deadline = Date.now() + timeout;
+  let sawFirstPlaying = initialSawFirstPlaying;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(({ firstName, secondName }) => {
+      const store = globalThis.__quataAudioPlayers;
+      const players = store instanceof Map
+        ? [...store.entries()].map(([id, element]) => ({
+          id,
+          src: String(element.currentSrc || element.src || ""),
+          playing: !element.paused && !element.ended,
+          ended: Boolean(element.ended),
+          positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)),
+          durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0,
+        }))
+        : [];
+      const labels = [...document.querySelectorAll("[aria-label]")]
+        .map((element) => element.getAttribute("aria-label") || "")
+        .filter(Boolean);
+      return { players, labels, firstName, secondName };
+    }, { firstName, secondName });
+    const firstLabelPlaying = state.labels.some((label) => /Pausar audio|Pause audio/i.test(label) && label.includes(firstName));
+    const secondLabelPlaying = state.labels.some((label) => /Pausar audio|Pause audio/i.test(label) && label.includes(secondName));
+    const secondLoaded = state.players.some((player) => player.playing);
+    if (firstLabelPlaying) sawFirstPlaying = true;
+    if (sawFirstPlaying && secondLabelPlaying && secondLoaded) {
+      return {
+        state: "consecutive_playing",
+        selector: `aria:pause_audio:${secondName}`,
+        firstNameSha256: sha256(firstName),
+        secondNameSha256: sha256(secondName),
+        players: state.players.map((player) => ({
+          id: player.id,
+          playing: player.playing,
+          ended: player.ended,
+          positionMillis: player.positionMillis,
+          durationMillis: player.durationMillis,
+        })),
+      };
+    }
+    await delay(250);
+  }
+  throw new Error("consecutive_audio_playback_state_not_observed");
+}
+
 async function fillComposerAndSend(page, value) {
   const input = await visibleAriaLocator(page, [/Mensaje|Message|Composer/i], 10_000);
   if (!input) throw new Error("composer_input_not_visible");
@@ -1727,6 +1780,7 @@ async function logicalCleanup(config, state) {
     ["peer_message", state.b, state.peerMessage],
     ["document_attachment_message", state.a, state.attachmentsAudio?.document?.messageId],
     ["audio_attachment_message", state.a, state.attachmentsAudio?.audio?.messageId],
+    ["next_audio_attachment_message", state.a, state.attachmentsAudio?.nextAudio?.messageId],
     ["profile_content_attachment_message", state.a, state.profileContent?.attachmentMessageId],
     ...state.uiMessages.map((message) => ["ui_message", state.a, message]),
   ];
@@ -2424,8 +2478,9 @@ try {
     state.attachmentsAudio = {
       document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
       audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
+      nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next"),
     };
-    report.steps.push("document_and_audio_attachment_messages_seeded");
+    report.steps.push("document_and_consecutive_audio_attachment_messages_seeded");
     faults.length = 0;
     await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
     await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report);
@@ -2440,11 +2495,14 @@ try {
       conversationId: `sb:${state.thread}`,
       documentMessageId: state.attachmentsAudio.document.messageId,
       audioMessageId: state.attachmentsAudio.audio.messageId,
+      nextAudioMessageId: state.attachmentsAudio.nextAudio.messageId,
       documentAttachmentId: state.attachmentsAudio.document.id,
       audioAttachmentId: state.attachmentsAudio.audio.id,
+      nextAudioAttachmentId: state.attachmentsAudio.nextAudio.id,
       uniqueKeySha256: sha256(state.uniqueKey),
       documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
       audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
+      nextAudioMarkerSha256: sha256(state.attachmentsAudio.nextAudio.marker),
     };
     throw new EvidenceCompleted();
   }

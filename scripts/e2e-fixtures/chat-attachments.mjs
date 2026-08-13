@@ -103,12 +103,14 @@ export async function seedChatAttachmentFixture({
   attachmentId,
   messageId,
   cleanup,
+  nameSuffix = "",
 }) {
   const isAudio = kind === "audio";
   const extension = isAudio ? "wav" : "txt";
   const mimeType = isAudio ? "audio/wav" : "text/plain";
   const marker = `chat-${kind}-attachment-${platformLabel}-${runId}`;
-  const name = `qadata-${kind}-${runId.slice(0, 8)}.${extension}`;
+  const safeNameSuffix = String(nameSuffix).replace(/[^a-z0-9_-]/gi, "").slice(0, 24);
+  const name = `qadata-${kind}-${runId.slice(0, 8)}${safeNameSuffix}.${extension}`;
   const content = isAudio
     ? validWavFixture()
     : Buffer.from(`QADATA ${platformLabel} document fixture ${marker}\n`, "utf8");

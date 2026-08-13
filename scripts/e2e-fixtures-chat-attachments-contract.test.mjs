@@ -104,3 +104,23 @@ test("shared fixture seeds document/audio with expected metadata", async () => {
   assert.match(calls[0].path, new RegExp(`/storage/v1/object/${chatAttachmentsBucket}/`));
   assert.equal(cleanup.summary().trackedStorageObjects, 1);
 });
+
+test("shared fixture supports stable visible name suffixes for repeated attachments", async () => {
+  const fixture = await seedChatAttachmentFixture({
+    config: { baseUrl: "https://example.supabase.co" },
+    session: { profileId: "profile-a" },
+    thread: 123,
+    runId: "12345678-1234-1234-1234-123456789abc-next",
+    kind: "audio",
+    platformLabel: "web",
+    nameSuffix: "-next",
+    cleanup: createCleanupRegistry(),
+    storageRequest: async () => {},
+    rpc: async (_config, _session, name) => name === "quata_chat_register_attachment" ? { id: 91 } : { message_id: 92 },
+    pollMessage: async () => {},
+    messageText: (message) => message.message,
+    attachmentId: (payload) => payload.id,
+    messageId: (payload) => payload.message_id,
+  });
+  assert.equal(fixture.name, "qadata-audio-12345678-next.wav");
+});
