@@ -2,8 +2,10 @@ package com.quata.feature.profile.data
 
 import com.quata.core.data.toFoundationData
 import com.quata.core.designsystem.theme.QuataThemeMode
+import com.quata.core.moderation.LegalDocument
 import com.quata.core.model.AuthSession
 import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.model.currentEpochSeconds
@@ -84,6 +86,9 @@ class IosProfileGatewayContractTest {
             filePicker = UnsupportedFilePicker,
             touchFlowEnabled = true,
             themeModeStorageValue = "dark-mode",
+            languageCode = "en",
+            documentOpener = null,
+            openLegalDocument = failingLegalDocumentOpen,
             onTouchFlowEnabledChange = { persistedTouchFlow = it },
             onThemeModeStorageValueChange = { persistedTheme = it },
         )
@@ -302,6 +307,10 @@ class IosProfileGatewayContractTest {
             acceptedMimeTypes: List<String>,
             allowMultiple: Boolean,
         ): PlatformResult<List<PlatformFile>> = PlatformResult.Unsupported
+    }
+
+    private val failingLegalDocumentOpen: (LegalDocument, DocumentOpenService) -> Unit = { _, _ ->
+        error("unexpected_legal_document_open")
     }
 
     private fun expiredSession() = AuthSession(
