@@ -49,6 +49,8 @@ jobs:
 
   ios-fast-contracts:
     name: iOS fast contracts
+    needs: [classify-impact]
+    if: ${{ github.event_name != 'pull_request' || needs.classify-impact.outputs.docs_only != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 8
 
@@ -70,7 +72,10 @@ jobs:
             git diff --check HEAD^ HEAD
           fi
           node --test scripts/ios-build-workflow-contract.test.mjs
+          node --test scripts/codeql-workflow-contract.test.mjs
           node --test scripts/classify-ci-impact.test.mjs
+          node --test scripts/candidate-attestation-contract.test.mjs
+          node --test scripts/e2e-fixtures-chat-attachments-contract.test.mjs
           node --test scripts/ios-compose-resources-contract.test.mjs
           node --test scripts/ios-auth-launch-fixture-contract.test.mjs
           node --test scripts/ios-public-runtime-contract.test.mjs

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-ATTACHMENTS",
+    "CHAT-AUDIO"
+  ],
+  "productSha": "6b0694d8da2ea7c77f4eea1f47fa5b9143ac0400",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "6b0694d8da2ea7c77f4eea1f47fa5b9143ac0400",
+      "report": "build-reports/web/chat-attachments-audio-evidence-r7/web-chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "6b0694d8da2ea7c77f4eea1f47fa5b9143ac0400",
+      "report": "build-reports/android/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "6b0694d8da2ea7c77f4eea1f47fa5b9143ac0400",
+      "report": "build-reports/ios/chat-attachments-audio-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated."
+  ]
+}

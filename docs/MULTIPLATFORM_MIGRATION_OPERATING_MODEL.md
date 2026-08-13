@@ -149,6 +149,19 @@ Los checks requeridos de certificación son exactamente **Web/Android final cert
 **iOS final certification gate**, **Analyze java-kotlin** y **Analyze javascript-typescript**;
 los dos primeros sólo son GO cuando todos sus jobs finales exactos concluyen correctamente.
 
+
+### Product/Evidence SHA y attestation documental
+
+La evidencia de producto se acredita sobre un **Product/Evidence SHA**: el commit exacto que se compilo, ejecuto y recorrio visual/operativamente. Las actualizaciones posteriores que solo registran evidencia, inventario, tablero, manifest de candidato o informes son **Attestation/Documentation SHA** y no obligan por si mismas a repetir evidencia.
+
+Esta reutilizacion solo es valida si `scripts/validate-candidate-attestation.mjs` demuestra con el diff real `productSha..HEAD` que todos los cambios pertenecen a la allowlist documental de attestation. El gate falla cerrado si aparece cualquier cambio ejecutable, workflow, runner, test, fuente Kotlin/Swift/JS/MJS, recurso de producto, Gradle/configuracion/dependencia, estado Git no confiable o evidencia incompleta. Los mensajes de commit no cuentan como prueba.
+
+Cada candidata que quiera reutilizar evidencia debe mantener un manifest versionado en `docs/candidate-attestations/`. El manifest declara unidades, `productSha`, reportes por plataforma, estado `passed`, SHA exacto de cada evidencia y limpieza verificada. Actualizar ese manifest es metadata de attestation; no crea un bucle de recertificacion mientras el diff siga siendo attestation-only. Si el validador imprime el archivo que invalida la evidencia, se repite la evidencia afectada antes de promocionar la candidata.
+
+Para PRs realmente `docs_only`, CI ejecuta solo el camino barato: checkout, `diff --check`, contratos documentales/attestation y gates agregados. No se instala Java, Gradle, Android SDK, Wasm, Xcode ni CodeQL en PRs de documentacion pura. `push`, `schedule` y `workflow_dispatch` conservan certificacion completa o diagnostica segun corresponda; si hay duda, se ejecuta CI caro.
+
+Los runners E2E de plataforma no deben copiar helpers backend comunes. La plataforma lanza la app, navega, interactua y captura evidencia; los fixtures backend reutilizables viven en `scripts/e2e-fixtures/` y registran cleanup antes de mutaciones remotas cuando sea posible. Si un runner necesita documento/audio/chat/storage, primero extiende la libreria comun y sus contratos.
+
 GitHub Actions es la **certificación final en runners limpios**, no el primer lugar donde descubrir
 que una implementación no compila ni funciona. Si CI revela un defecto reproducible localmente, el
 informe lo clasifica como **DEFECTO ESCAPADO DEL PREFLIGHT LOCAL** e incorpora obligatoriamente el

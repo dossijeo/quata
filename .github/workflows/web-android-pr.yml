@@ -47,6 +47,7 @@ jobs:
   fast-contracts:
     name: PR fast contracts and focal imports
     needs: [classify-impact]
+    if: ${{ github.event_name != 'pull_request' || needs.classify-impact.outputs.docs_only != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -91,7 +92,10 @@ jobs:
           fi
           node --test scripts/web-android-pr-workflow-contract.test.mjs
           node --test scripts/ios-build-workflow-contract.test.mjs
+          node --test scripts/codeql-workflow-contract.test.mjs
           node --test scripts/classify-ci-impact.test.mjs
+          node --test scripts/candidate-attestation-contract.test.mjs
+          node --test scripts/e2e-fixtures-chat-attachments-contract.test.mjs
           node --test scripts/whats-new-release-history-contract.test.mjs
           node --test scripts/legal-documents-parity-contract.test.mjs
 

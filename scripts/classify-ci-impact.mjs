@@ -50,6 +50,11 @@ export function classifyPaths(paths) {
             continue;
         }
 
+        if (/^docs\/candidate-attestations\/[\s\S]+\.json$/i.test(path)) {
+            result.reasons.push(`attestation:${path}`);
+            continue;
+        }
+
         if (/^docs\//i.test(path)) {
             const documentedPlatforms = [];
             if (/(?:web|wasm)/i.test(path)) documentedPlatforms.push('web');

@@ -24,6 +24,12 @@ test('documentation-only changes do not select an expensive platform lane', () =
     });
 });
 
+test('candidate attestation manifests are documentation-only even when their names mention platforms', () => {
+    assert.deepEqual(platforms(['docs/candidate-attestations/chat-ios-web-audio.json']), {
+        web: false, android: false, ios: false, unknown: false, docs_only: true,
+    });
+});
+
 test('platform source sets select only their actual platform', () => {
     assert.deepEqual(platforms(['web/src/wasmJsMain/kotlin/com/quata/web/Main.kt']), {
         web: true, android: false, ios: false, unknown: false, docs_only: false,

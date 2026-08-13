@@ -182,31 +182,34 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.doesNotMatch(attachmentsMode, /:\s*"\$\{QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE:\?/);
 });
 
-test("real Chat evidence runners seed reversible document/audio attachments", () => {
+test("real Chat evidence runners seed reversible document/audio attachments", async () => {
   for (const runner of [androidRunner, webRunner, iosRunner]) {
     assert.match(runner, /attachmentsAudioOnly/);
     assert.match(runner, /--attachments-audio-only/);
     assert.match(runner, /createChatAttachmentMessage/);
-    assert.match(runner, /quata_chat_register_attachment/);
-    assert.match(runner, /quata_chat_send_message/);
-    assert.match(runner, /const extension = isAudio \? "wav" : "txt"/);
-    assert.match(runner, /const mimeType = isAudio \? "audio\/wav" : "text\/plain"/);
-    assert.match(runner, /function validWavFixture\(\)/);
-    assert.match(runner, /attachmentStoragePaths:\s*\[\]/);
-    assert.match(runner, /state\.attachmentStoragePaths\.push\(\{ name, storagePath \}\);\s*await storageRequest/);
-    assert.match(runner, /for \(const fixture of attachmentStorageFixtures\(state\)\)/);
-    assert.match(runner, /function attachmentStorageFixtures\(state\)/);
-    assert.match(runner, /verifyStorageObjectAbsent\(chatAttachmentsBucket, fixture\.storagePath\)/);
+    assert.match(runner, /seedChatAttachmentFixture/);
+    assert.match(runner, /cleanupRegistry: createCleanupRegistry\(\)/);
+    assert.match(runner, /cleanup: state\.cleanupRegistry/);
+    assert.match(runner, /cleanupRegistry\.cleanupStorageObjects/);
+    assert.doesNotMatch(runner, /function validWavFixture\(\)/);
+    assert.doesNotMatch(runner, /attachmentStoragePaths:\s*\[\]/);
+    assert.doesNotMatch(runner, /state\.attachmentStoragePaths\.push/);
+    assert.doesNotMatch(runner, /function attachmentStorageFixtures\(state\)/);
     assert.match(runner, /document_and_audio_attachment_messages_seeded/);
     assert.match(runner, /document_and_audio_shared_attachment_chrome_verified|ios_xctest_document_and_audio_attachment_chrome_verified/);
     assert.match(runner, /chatAttachmentsBucket/);
-    assert.match(runner, /storage_delete_verified_absent/);
   }
+  const sharedFixtures = await source("scripts/e2e-fixtures/chat-attachments.mjs");
+  assert.match(sharedFixtures, /storage_delete_verified_absent/);
+  assert.match(sharedFixtures, /quata_chat_register_attachment/);
+  assert.match(sharedFixtures, /quata_chat_send_message/);
+  assert.match(sharedFixtures, /const extension = isAudio \? "wav" : "txt"/);
+  assert.match(sharedFixtures, /const mimeType = isAudio \? "audio\/wav" : "text\/plain"/);
   assert.match(androidRunner, /runInstrumentationStage\("attachments-audio"\)/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=\$\{attachmentsAudioOnly \? "1" : "0"\}/);
   assert.match(webRunner, /verifyAttachmentsAudioWeb/);
   assert.match(webRunner, /function sentMessageId\(payload\)/);
-  assert.match(webRunner, /const msg = sentMessageId\(await rpc\(config, session, "quata_chat_send_message"/);
+  assert.match(webRunner, /messageId: sentMessageId/);
   assert.doesNotMatch(webRunner, /consumeBrowserRuntimeFaultsForSyntheticAudio/);
   const attachmentsBranch = webRunner.slice(
     webRunner.indexOf("if (options.attachmentsAudioOnly)"),

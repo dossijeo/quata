@@ -6,6 +6,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import pg from "pg";
+import {
+  chatAttachmentsBucket,
+  createCleanupRegistry,
+  seedChatAttachmentFixture,
+} from "./e2e-fixtures/chat-attachments.mjs";
 
 const check = "CHAT-ACTIONS-NOTIFICATIONS-IOS-001";
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
@@ -17,7 +22,6 @@ const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const chatAttachmentsBucket = "chat-attachments";
 
 const options = parseArgs(process.argv.slice(2));
 const translationOnly = options.translationOnly;
@@ -69,7 +73,7 @@ const state = {
   profilePrivateChat: null,
   profilePrivateChatMarkerMessage: null,
   attachmentsAudio: null,
-  attachmentStoragePaths: [],
+  cleanupRegistry: createCleanupRegistry(),
 };
 
 try {
@@ -747,69 +751,21 @@ async function storageRequest(config, session, path, options, prefix) {
 }
 
 async function createChatAttachmentMessage(config, session, thread, runId, kind) {
-  const isAudio = kind === "audio";
-  const extension = isAudio ? "wav" : "txt";
-  const mimeType = isAudio ? "audio/wav" : "text/plain";
-  const marker = `chat-${kind}-attachment-ios-${runId}`;
-  const name = `qadata-${kind}-${runId.slice(0, 8)}.${extension}`;
-  const content = isAudio
-    ? validWavFixture()
-    : Buffer.from(`QADATA iOS document fixture ${marker}\n`, "utf8");
-  const storagePath = `${session.profileId}/evidence/${runId}/${name}`;
-  state.attachmentStoragePaths.push({ name, storagePath });
-  await storageRequest(config, session, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(storagePath)}`, {
-    method: "POST",
-    headers: { "content-type": mimeType, "x-upsert": "false" },
-    body: content,
-  }, `chat_${kind}_storage_upload_failed`);
-  const publicUrl = `${config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(storagePath)}`;
-  const id = attachmentId(await rpc(config, session, "quata_chat_register_attachment", {
-    p_actor_profile_id: session.profileId,
-    p_thread_id: thread,
-    p_file_url: publicUrl,
-    p_storage_bucket: chatAttachmentsBucket,
-    p_storage_path: storagePath,
-    p_mime_type: mimeType,
-    p_name: name,
-    p_size_bytes: content.length,
-    p_ext: extension,
-    p_thumb: null,
-  }));
-  const msg = messageId(await rpc(config, session, "quata_chat_send_message", {
-    p_actor_profile_id: session.profileId,
-    p_thread_id: thread,
-    p_message: marker,
-    p_file_ids: [id],
-    p_reply_to_message_id: null,
-    p_client_message_id: `chat-${kind}-attachment-ios-${runId}`,
-  }));
-  await pollMessage(config, session, thread, (message) => Number(message?.id) === msg && messageText(message) === marker);
-  return { id, messageId: msg, marker, markerProbe: marker.slice(0, 28), name, mimeType, storagePath };
-}
-
-function validWavFixture() {
-  const sampleRate = 8_000;
-  const durationSeconds = 1;
-  const samples = sampleRate * durationSeconds;
-  const dataSize = samples * 2;
-  const buffer = Buffer.alloc(44 + dataSize);
-  buffer.write("RIFF", 0);
-  buffer.writeUInt32LE(36 + dataSize, 4);
-  buffer.write("WAVEfmt ", 8);
-  buffer.writeUInt32LE(16, 16);
-  buffer.writeUInt16LE(1, 20);
-  buffer.writeUInt16LE(1, 22);
-  buffer.writeUInt32LE(sampleRate, 24);
-  buffer.writeUInt32LE(sampleRate * 2, 28);
-  buffer.writeUInt16LE(2, 32);
-  buffer.writeUInt16LE(16, 34);
-  buffer.write("data", 36);
-  buffer.writeUInt32LE(dataSize, 40);
-  for (let index = 0; index < samples; index += 1) {
-    const value = Math.round(Math.sin((index / sampleRate) * Math.PI * 2 * 440) * 12_000);
-    buffer.writeInt16LE(value, 44 + (index * 2));
-  }
-  return buffer;
+  return seedChatAttachmentFixture({
+    config,
+    session,
+    thread,
+    runId,
+    kind,
+    platformLabel: "ios",
+    rpc,
+    storageRequest,
+    pollMessage,
+    messageText,
+    attachmentId,
+    messageId,
+    cleanup: state.cleanupRegistry,
+  });
 }
 
 function rows(payload, key) {
@@ -1054,15 +1010,7 @@ async function logicalCleanup(config, state) {
     throw new Error("cleanup_residue_detected:profile_private_chat_marker_b");
   }
   if (state.profilePrivateChat) actions.push("cleanup_verified_profile_private_chat_marker_absent");
-  for (const fixture of attachmentStorageFixtures(state)) {
-    await storageRequest(config, state.a, `/storage/v1/object/${chatAttachmentsBucket}`, {
-      method: "DELETE",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prefixes: [fixture.storagePath] }),
-    }, "chat_attachments_audio_storage_delete_failed");
-    await verifyStorageObjectAbsent(chatAttachmentsBucket, fixture.storagePath);
-    actions.push(`${fixture.name}_storage_delete_verified_absent`);
-  }
+  await state.cleanupRegistry.cleanupStorageObjects({ config, session: state.a, storageRequest, verifyStorageObjectAbsent, actions });
   if (state.thread && state.a) {
     await rpc(config, state.a, "quata_chat_delete_thread", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread });
     actions.push("thread_removed_from_a_inbox");
@@ -1081,20 +1029,6 @@ async function logicalCleanup(config, state) {
   if (state.thread && state.b && await inboxContainsThread(config, state.b, state.thread)) throw new Error("cleanup_residue_detected:thread_b");
   actions.push("cleanup_verified_thread_absent_for_b");
   return actions;
-}
-
-function attachmentStorageFixtures(state) {
-  const seen = new Set();
-  const fixtures = [
-    ...(state.attachmentStoragePaths ?? []),
-    state.attachmentsAudio?.document,
-    state.attachmentsAudio?.audio,
-  ].filter((fixture) => fixture?.storagePath);
-  return fixtures.filter((fixture) => {
-    if (seen.has(fixture.storagePath)) return false;
-    seen.add(fixture.storagePath);
-    return true;
-  });
 }
 
 async function deletePrivateChatTestMarkers(config, state) {
