@@ -540,19 +540,20 @@ async function openAuthenticatedChatPage(browser, origin, session, conversationI
     },
   });
   const page = await context.newPage();
-  page.on("pageerror", (error) => {
-    faults.push({ type: "pageerror", message: String(error?.message ?? "pageerror").slice(0, 500) });
-  });
+  page.on("pageerror", (error) => faults.push(redactBrowserRuntimeFault({
+    type: "pageerror",
+    message: String(error?.message ?? "pageerror"),
+  })));
   page.on("console", (entry) => {
     if (entry.type() !== "error") return;
     const location = entry.location?.() ?? {};
-    faults.push({
+    faults.push(redactBrowserRuntimeFault({
       type: "console_error",
-      text: entry.text().slice(0, 500),
+      text: entry.text(),
       url: typeof location.url === "string" ? location.url : undefined,
       lineNumber: typeof location.lineNumber === "number" ? location.lineNumber : undefined,
       columnNumber: typeof location.columnNumber === "number" ? location.columnNumber : undefined,
-    });
+    }));
   });
   await page.goto(`${origin}/#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
   await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
@@ -2143,6 +2144,34 @@ function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
+function redactBrowserRuntimeFault(fault) {
+  const text = [fault.message, fault.text].filter(Boolean).join(" ");
+  return {
+    type: fault.type === "pageerror" ? "pageerror" : "console_error",
+    messageSha256: text ? sha256(text) : undefined,
+    messagePrefix: redactFaultText(text).slice(0, 180) || undefined,
+    urlOrigin: fault.url ? safeUrlOrigin(fault.url) : undefined,
+    lineNumber: Number.isFinite(fault.lineNumber) ? fault.lineNumber : undefined,
+    columnNumber: Number.isFinite(fault.columnNumber) ? fault.columnNumber : undefined,
+  };
+}
+
+function redactFaultText(text) {
+  return String(text ?? "")
+    .replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, "Bearer [redacted]")
+    .replace(/(access_token|refresh_token|session|password|apikey|api_key)=([^&\s]+)/gi, "$1=[redacted]")
+    .replace(/eyJ[A-Za-z0-9._-]+/g, "[jwt-redacted]");
+}
+
+function safeUrlOrigin(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.origin;
+  } catch {
+    return undefined;
+  }
+}
+
 function safeFailure(error) {
   const message = typeof error?.message === "string" ? error.message : "";
   return [
@@ -2304,8 +2333,8 @@ try {
       audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
     };
     report.steps.push("document_and_audio_attachment_messages_seeded");
-    await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
     faults.length = 0;
+    await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
     await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report);
     if (faults.length) {
       report.diagnostics.browserRuntimeFaults = faults.slice();
@@ -2520,7 +2549,10 @@ try {
     if (pageContext?.page) {
       try {
         report.evidence.failure = await attachScreenshot(pageContext.page, options.evidenceDir, "web-chat-actions-failure");
-        report.diagnostics = { visibleNativeControls: await visibleNativeControls(pageContext.page) };
+        report.diagnostics = {
+          ...(report.diagnostics ?? {}),
+          visibleNativeControls: await visibleNativeControls(pageContext.page),
+        };
       } catch {}
     }
     report.error = safeFailure(error);

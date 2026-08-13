@@ -192,7 +192,18 @@ test("real Chat evidence runners seed reversible document/audio attachments", ()
   assert.match(webRunner, /function sentMessageId\(payload\)/);
   assert.match(webRunner, /const msg = sentMessageId\(await rpc\(config, session, "quata_chat_send_message"/);
   assert.doesNotMatch(webRunner, /consumeBrowserRuntimeFaultsForSyntheticAudio/);
-  assert.match(webRunner, /if \(faults\.length\) throw new Error\("browser_runtime_fault"\)/);
+  const attachmentsBranch = webRunner.slice(
+    webRunner.indexOf("if (options.attachmentsAudioOnly)"),
+    webRunner.indexOf("if (state.peerMessage && state.b.accessToken)"),
+  );
+  assert.match(attachmentsBranch, /faults\.length = 0;\s*await openAuthenticatedChatRoute/);
+  assert.match(attachmentsBranch, /report\.diagnostics\.browserRuntimeFaults = faults\.slice\(\);\s*throw new Error\("browser_runtime_fault"\)/);
+  assert.doesNotMatch(attachmentsBranch, /await openAuthenticatedChatRoute[\s\S]*faults\.length = 0;\s*await verifyAttachmentsAudioWeb/);
+  assert.match(webRunner, /function redactBrowserRuntimeFault\(fault\)/);
+  assert.match(webRunner, /messageSha256/);
+  assert.match(webRunner, /urlOrigin/);
+  assert.doesNotMatch(webRunner, /text: entry\.text\(\)\.slice/);
+  assert.match(webRunner, /\.\.\.\(report\.diagnostics \?\? \{\}\),\s*visibleNativeControls/);
   assert.match(webRunner, /!options\.attachmentsAudioOnly && state\.peerMessage/);
   assert.match(webRunner, /web-chat-audio-toggle-attempted/);
 });
