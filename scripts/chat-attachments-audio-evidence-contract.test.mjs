@@ -212,9 +212,9 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
     assert.doesNotMatch(runner, /function attachmentStorageFixtures\(state\)/);
     assert.match(runner, /document_and_(audio|consecutive_audio)_attachment_messages_seeded/);
     assert.match(runner, /document_and_audio_shared_attachment_chrome_verified|ios_xctest_document_and_audio_attachment_chrome_verified/);
-    assert.match(runner, /chatAttachmentsBucket/);
   }
   const sharedFixtures = await source("scripts/e2e-fixtures/chat-attachments.mjs");
+  assert.match(sharedFixtures, /chatAttachmentsBucket/);
   assert.match(sharedFixtures, /storage_delete_verified_absent/);
   assert.match(sharedFixtures, /quata_chat_register_attachment/);
   assert.match(sharedFixtures, /quata_chat_send_message/);

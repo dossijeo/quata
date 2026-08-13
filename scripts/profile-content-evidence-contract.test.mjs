@@ -5,6 +5,7 @@ import test from "node:test";
 const webRunner = await readFile(new URL("./chat-actions-notifications-web-evidence.mjs", import.meta.url), "utf8");
 const androidRunner = await readFile(new URL("./chat-actions-notifications-android-evidence.mjs", import.meta.url), "utf8");
 const iosRunner = await readFile(new URL("./chat-actions-notifications-ios-evidence.mjs", import.meta.url), "utf8");
+const sharedFixtures = await readFile(new URL("./e2e-fixtures/chat-attachments.mjs", import.meta.url), "utf8");
 const androidUiTest = await readFile(new URL("../app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt", import.meta.url), "utf8");
 const iosUiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
@@ -15,18 +16,29 @@ test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
     assert.match(runner, /prepareProfileContentFixture/);
     assert.match(runner, /cleanupProfileContentFixture/);
     assert.match(runner, /qadata-profile-content-/);
-    assert.match(runner, /community_posts/);
-    assert.match(runner, /community_comments/);
-    assert.match(runner, /community_post_likes/);
-    assert.match(runner, /chat_attachments/);
     assert.match(runner, /cleanup_verified_profile_content_residue_absent/);
     assert.match(runner, /pollProfileContentComment/);
     assert.match(runner, /profile_content_comment_created_from_ui_and_verified_by_db/);
     assert.match(runner, /attachmentMessageId/);
+    assert.match(runner, /seedProfileContentFixture/);
+    assert.match(runner, /cleanupSharedProfileContentFixture/);
+    assert.match(runner, /pollSharedProfileContentComment/);
+    assert.doesNotMatch(runner, /profile content attachment \$\{marker\}/);
+    assert.doesNotMatch(runner, /quata_chat_register_attachment"[\s\S]*profile-content-attachment-\$\{marker\}/);
+    assert.doesNotMatch(runner, /insert into public\.community_posts/);
     assert.doesNotMatch(runner, /else if \(options\.profileOnly \|\| options\.profileFollowOnly \|\| options\.profileListsOnly \|\| options\.profileContentOnly\) \{\s*\}\s*else if/);
     assert.doesNotMatch(runner, /profile_content_fixture_not_implemented/);
     assert.doesNotMatch(runner, /680242607|680242608|21085800|SERVICE_ROLE\s*=/);
   }
+  assert.match(sharedFixtures, /export async function seedProfileContentFixture/);
+  assert.match(sharedFixtures, /export async function cleanupProfileContentFixture/);
+  assert.match(sharedFixtures, /export async function pollProfileContentComment/);
+  assert.match(sharedFixtures, /cleanup\?\.trackStorageObject/);
+  assert.match(sharedFixtures, /community_posts/);
+  assert.match(sharedFixtures, /community_comments/);
+  assert.match(sharedFixtures, /community_post_likes/);
+  assert.match(sharedFixtures, /chat_attachments/);
+  assert.match(sharedFixtures, /cleanup_verified_profile_content_residue_absent/);
 });
 
 test("PROF-CONTENT evidence uses common public-profile content anchors on every platform", () => {
