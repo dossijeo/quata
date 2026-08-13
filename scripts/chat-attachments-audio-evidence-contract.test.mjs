@@ -22,6 +22,7 @@ const [
   androidRunner,
   webRunner,
   iosRunner,
+  browserAudioPlayer,
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
@@ -40,6 +41,7 @@ const [
   source("scripts/chat-actions-notifications-android-evidence.mjs"),
   source("scripts/chat-actions-notifications-web-evidence.mjs"),
   source("scripts/chat-actions-notifications-ios-evidence.mjs"),
+  source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserAudioPlayerService.wasm.kt"),
 ]);
 
 test("CHAT-ATTACHMENTS/AUDIO has a dedicated fast contract in CI", () => {
@@ -80,6 +82,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
     assert.match(commonAudioPlayer, new RegExp(`testTag = ${constant}`));
   }
   assert.match(commonAudioPlayer, /playPauseDescription/);
+  assert.match(commonAudioPlayer, /errorText/);
+  assert.match(commonAudioPlayer, /if \(hasError\) errorText else displayText/);
   assert.match(commonAudioPlayer, /onTogglePlayback/);
   assert.match(commonAudioPlayer, /onSeekToFraction/);
 });
@@ -197,7 +201,7 @@ test("real Chat evidence runners seed reversible document/audio attachments", ()
     webRunner.indexOf("if (state.peerMessage && state.b.accessToken)"),
   );
   assert.match(attachmentsBranch, /faults\.length = 0;\s*await openAuthenticatedChatRoute/);
-  assert.match(attachmentsBranch, /report\.diagnostics\.browserRuntimeFaults = faults\.slice\(\);\s*throw new Error\("browser_runtime_fault"\)/);
+  assert.match(attachmentsBranch, /report\.diagnostics = \{ \.\.\.\(report\.diagnostics \?\? \{\}\), browserRuntimeFaults: faults\.slice\(\) \};\s*throw new Error\("browser_runtime_fault"\)/);
   assert.doesNotMatch(attachmentsBranch, /await openAuthenticatedChatRoute[\s\S]*faults\.length = 0;\s*await verifyAttachmentsAudioWeb/);
   assert.match(webRunner, /function redactBrowserRuntimeFault\(fault\)/);
   assert.match(webRunner, /messageSha256/);
@@ -205,5 +209,20 @@ test("real Chat evidence runners seed reversible document/audio attachments", ()
   assert.doesNotMatch(webRunner, /text: entry\.text\(\)\.slice/);
   assert.match(webRunner, /\.\.\.\(report\.diagnostics \?\? \{\}\),\s*visibleNativeControls/);
   assert.match(webRunner, /!options\.attachmentsAudioOnly && state\.peerMessage/);
+  assert.match(webRunner, /async function waitAudioPlaybackObserved\(page, timeout = 10_000\)/);
+  assert.match(webRunner, /async function clickLocatorCenter\(page, locator, error\)/);
+  assert.match(webRunner, /clickLocatorCenter\(page, play, "audio_attachment_toggle_not_clickable"\)/);
+  assert.match(webRunner, /report\.evidence\.audioPlaybackObserved = playback/);
+  assert.match(webRunner, /audio_playback_state_not_observed/);
   assert.match(webRunner, /web-chat-audio-toggle-attempted/);
+});
+
+test("Web audio player loads remote attachments through local Blob URLs under COEP", () => {
+  assert.match(browserAudioPlayer, /globalThis\.fetch\(source, \{ credentials: 'omit', cache: 'no-store' \}\)/);
+  assert.match(browserAudioPlayer, /globalThis\.URL\.createObjectURL\(blob\)/);
+  assert.match(browserAudioPlayer, /web_audio_load_timeout/);
+  assert.match(browserAudioPlayer, /completed = true/);
+  assert.match(browserAudioPlayer, /element\.src = playableSource/);
+  assert.match(browserAudioPlayer, /revokeObjectURL/);
+  assert.doesNotMatch(browserAudioPlayer, /element\.src = source/);
 });

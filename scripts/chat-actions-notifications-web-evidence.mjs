@@ -323,8 +323,9 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
   const play = await visibleAriaLocator(page, [/Play audio|Reproducir audio/i], 10_000);
   if (!play) throw new Error("audio_attachment_toggle_not_visible");
   report.evidence.audioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-player-visible");
-  await play.click({ timeout: 10_000, force: true });
-  await delay(750);
+  await clickLocatorCenter(page, play, "audio_attachment_toggle_not_clickable");
+  const playback = await waitAudioPlaybackObserved(page);
+  report.evidence.audioPlaybackObserved = playback;
   report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
 }
 
@@ -1625,6 +1626,27 @@ async function visibleAriaLocator(page, patterns, timeout) {
   return null;
 }
 
+async function clickLocatorCenter(page, locator, error) {
+  const box = await locator.boundingBox().catch(() => null);
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error(error);
+  await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+  await delay(250);
+}
+
+async function waitAudioPlaybackObserved(page, timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const pause = await visibleAriaLocator(page, [/Pause audio|Pausar audio/i], 500);
+    if (pause) return { state: "playing", selector: "aria:pause_audio" };
+    const failed = await page.getByText(/No se pudo|could not|not available|no est[aÃ¡] disponible|unsupported/i).first()
+      .isVisible({ timeout: 250 })
+      .catch(() => false);
+    if (failed) return { state: "failed_visible", selector: "text:audio_error" };
+    await delay(250);
+  }
+  throw new Error("audio_playback_state_not_observed");
+}
+
 async function fillComposerAndSend(page, value) {
   const input = await visibleAriaLocator(page, [/Mensaje|Message|Composer/i], 10_000);
   if (!input) throw new Error("composer_input_not_visible");
@@ -2337,7 +2359,7 @@ try {
     await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
     await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report);
     if (faults.length) {
-      report.diagnostics.browserRuntimeFaults = faults.slice();
+      report.diagnostics = { ...(report.diagnostics ?? {}), browserRuntimeFaults: faults.slice() };
       throw new Error("browser_runtime_fault");
     }
     report.status = "passed";

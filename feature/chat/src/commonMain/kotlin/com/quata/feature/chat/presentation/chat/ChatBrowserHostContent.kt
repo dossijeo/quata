@@ -550,6 +550,7 @@ private fun ChatCommonConversationHost(
                     attachmentLabel = chromeStrings.attachment,
                     playAudioLabel = chromeStrings.playAudio,
                     pauseAudioLabel = chromeStrings.pauseAudio,
+                    audioErrorText = chromeStrings.audioUnsupported,
                     textColor = textColor,
                     launch = audioLifecycle::launch,
                     modifier = attachmentModifier,
@@ -646,6 +647,7 @@ private fun ChatBrowserAttachmentContent(
     attachmentLabel: String = "Attachment",
     playAudioLabel: String = "Play audio",
     pauseAudioLabel: String = "Pause audio",
+    audioErrorText: String = "Audio not available",
     textColor: androidx.compose.ui.graphics.Color,
     launch: ((suspend () -> Unit) -> Unit),
     modifier: Modifier,
@@ -692,6 +694,7 @@ private fun ChatBrowserAttachmentContent(
             visiblePlayback.positionMillis.toFloat() / visiblePlayback.durationMillis.toFloat()
         } else 0f,
         displayText = displayName,
+        errorText = audioErrorText,
         textColor = textColor,
         playPauseDescription = if (visiblePlayback.isPlaying) pauseAudioLabel else playAudioLabel,
         onTogglePlayback = {

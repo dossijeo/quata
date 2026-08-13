@@ -57,6 +57,7 @@ fun ChatAudioAttachmentPlayerContent(
     hasError: Boolean,
     progress: Float,
     displayText: String,
+    errorText: String,
     textColor: Color,
     playPauseDescription: String,
     onTogglePlayback: () -> Unit,
@@ -131,7 +132,13 @@ fun ChatAudioAttachmentPlayerContent(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CompactIcon(Icons.Filled.Mic, contentDescription = null, tint = textColor.copy(alpha = 0.68f), modifier = Modifier.size(15.dp))
                     Spacer(Modifier.width(5.dp))
-                    Text(displayText, color = textColor.copy(alpha = 0.68f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        if (hasError) errorText else displayText,
+                        color = if (hasError) QuataOrange else textColor.copy(alpha = 0.68f),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
