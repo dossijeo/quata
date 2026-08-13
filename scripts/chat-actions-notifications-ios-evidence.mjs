@@ -329,7 +329,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     await copyRemoteEvidence(options);
     report.status = "passed";
-    report.fixture = (profileEvidenceOnly || menuSurfaceOnly)
+    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly)
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -339,6 +339,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         seedMarkerSha256: sha256(state.seedMarker),
         peerMarkerSha256: sha256(state.peerMarker),
         menuSurfaceOnly,
+        keyboardMenuOnly,
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
         profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
         profileContent: state.profileContent ? {
@@ -373,6 +374,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       };
   }
 } catch (error) {
+  report.status = "failed";
   report.error = safeFailure(error);
 } finally {
   let profileHashRestoreFailed = false;

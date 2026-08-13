@@ -120,6 +120,8 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(runner, /--keyboard-menu-only/);
   assert.match(runner, /QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E/);
   assert.match(runner, /keyboard_header_and_selected_action_bar_captured/);
+  assert.match(runner, /report\.status = "failed";/);
+  assert.match(runner, /keyboardMenuOnly,/);
   assert.match(wrapper, /testKeyboardAndSelectedActionBarUseSharedChatChrome/);
   assert.match(wrapper, /keyboard-menu\.log/);
   assert.match(runner, /QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E/);
