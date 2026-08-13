@@ -4,7 +4,7 @@ import { access, readFile, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { compileMacro, createMacro, readMacro, renderReplayArtifact, selectorForAndroid, selectorForIos, selectorForWeb, summarizeMacro, writeMacro } from "../tools/e2e-recorder/lib/macro-core.mjs";
-import { androidTargetFromPoint, iosTargetFromPoint } from "../tools/e2e-recorder/lib/platform-probes.mjs";
+import { androidTargetFromPoint, iosTargetFromPoint, uiAutomatorXmlToTree } from "../tools/e2e-recorder/lib/platform-probes.mjs";
 
 test("macro compiler prefers stable anchors over coordinates", () => {
   const web = selectorForWeb({
@@ -111,6 +111,20 @@ test("platform probes resolve Android Compose semantics under a point", () => {
   assert.equal(target.stable, true);
 });
 
+test("platform probes convert UIAutomator XML into probe trees", () => {
+  const tree = uiAutomatorXmlToTree(`
+    <hierarchy>
+      <node index="0" text="Privacy policy" resource-id="com.quata:id/privacy" class="android.widget.TextView" package="com.quata" content-desc="privacy_policy" bounds="[24,500][366,556]" />
+    </hierarchy>
+  `);
+  const target = androidTargetFromPoint(tree, 100, 520);
+
+  assert.equal(tree.children.length, 1);
+  assert.equal(target.preferred.kind, "resourceId");
+  assert.equal(target.preferred.value, "com.quata:id/privacy");
+  assert.equal(target.stable, true);
+});
+
 test("platform probes reject Android nodes owned by another package", () => {
   const target = androidTargetFromPoint({
     packageName: "com.google.android.apps.nexuslauncher",
@@ -144,6 +158,8 @@ test("recorder tooling and persistent operating docs describe the workflow", asy
   for (const file of [
     "tools/e2e-recorder/web-recorder.mjs",
     "tools/e2e-recorder/android-recorder.mjs",
+    "tools/e2e-recorder/android-dump-tree.mjs",
+    "tools/e2e-recorder/ios-ax-probe.swift",
     "tools/e2e-recorder/ios-compile.mjs",
     "tools/e2e-recorder/README.md",
   ]) {

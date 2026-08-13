@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { createMacro, normalizeTarget, writeMacro } from "./lib/macro-core.mjs";
+import { uiAutomatorXmlToTree } from "./lib/platform-probes.mjs";
 
 const execFileAsync = promisify(execFile);
 const options = parseArgs(process.argv.slice(2));
@@ -63,34 +64,16 @@ async function dumpUi(adb) {
   if (!/<hierarchy\b/.test(xml)) {
     throw new Error("android_uiautomator_dump_failed: missing hierarchy");
   }
-  return [...xml.matchAll(/<node\b[^>]*>/g)].map((match) => parseNode(match[0])).filter(Boolean);
-}
-
-function parseNode(raw) {
-  const attrs = Object.fromEntries([...raw.matchAll(/([\w-]+)="([^"]*)"/g)].map(([, key, value]) => [key, decodeXml(value)]));
-  const bounds = parseBounds(attrs.bounds);
-  if (!bounds) return null;
-  return {
-    text: attrs.text || null,
-    resourceId: attrs["resource-id"] || null,
-    contentDescription: attrs["content-desc"] || null,
-    className: attrs.class || null,
-    packageName: attrs.package || null,
-    bounds,
-  };
+  return uiAutomatorXmlToTree(xml).children.map((node) => ({
+    ...node,
+    className: node.roleName,
+  }));
 }
 
 function deepestNodeAt(nodes, x, y) {
   return nodes
     .filter((node) => x >= node.bounds.x && x <= node.bounds.x + node.bounds.width && y >= node.bounds.y && y <= node.bounds.y + node.bounds.height)
     .sort((a, b) => (a.bounds.width * a.bounds.height) - (b.bounds.width * b.bounds.height))[0] ?? null;
-}
-
-function parseBounds(value) {
-  const match = /^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$/.exec(value ?? "");
-  if (!match) return null;
-  const [, left, top, right, bottom] = match.map(Number);
-  return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 function relativeBounds(bounds) {
@@ -105,10 +88,6 @@ async function screencap(adb, out) {
 async function adbText(adb, args) {
   const { stdout } = await execFileAsync(adb, args, { encoding: "utf8", maxBuffer: 10_000_000 });
   return stdout.trim();
-}
-
-function decodeXml(value) {
-  return value.replaceAll("&quot;", '"').replaceAll("&amp;", "&").replaceAll("&lt;", "<").replaceAll("&gt;", ">");
 }
 
 function parseArgs(args) {

@@ -29,11 +29,13 @@ node tools/e2e-recorder/web-replay.mjs --macro build-reports/e2e-recorder/legal-
 
 ```powershell
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+node tools/e2e-recorder/android-dump-tree.mjs --out build-reports/e2e-recorder/android-ui.json --adb $adb
 node tools/e2e-recorder/android-recorder.mjs --flow legal-android --out build-reports/e2e-recorder/legal-android.macro.json --tap 120,760 --adb $adb
 node tools/e2e-recorder/android-replay.mjs --macro build-reports/e2e-recorder/legal-android.macro.json --adb $adb
 ```
 
 ```powershell
+ssh quata-mac 'cd ~/quata && swift tools/e2e-recorder/ios-ax-probe.swift --point 120,760' > build-reports/e2e-recorder/ios-ax.json
 node tools/e2e-recorder/ios-compile.mjs build-reports/e2e-recorder/legal-ios.macro.json
 ```
 
@@ -51,6 +53,8 @@ Artifact rules:
 - Raw macro sessions and screenshots belong under `build-reports/e2e-recorder/` unless a deterministic sample is useful.
 - Generated XCTest/Playwright code is reviewed before promotion to CI.
 - `compile.mjs --emit` writes a reviewable runner snippet only when every actionable step has a stable product anchor.
-- `probe-target.mjs` converts Android Compose semantics or iOS AX trees into the same macro target shape and exits non-zero when the point cannot be resolved to a stable product anchor.
+- `android-dump-tree.mjs` captures UIAutomator XML through ADB and stores the normalized tree outside source control.
+- `ios-ax-probe.swift` queries the macOS Accessibility element under a point for the simulator/window session and prints the same tree shape.
+- `probe-target.mjs` converts Android Compose/UIAutomator or iOS AX trees into the same macro target shape and exits non-zero when the point cannot be resolved to a stable product anchor.
 - Coordinates are allowed only as diagnostics or temporary discovery data.
 - A replay failure must name the step, selector, URL/screen and visible state where possible.

@@ -28,3 +28,5 @@ This unit builds on the MVP in PR #243. It must not be promoted before #243 is i
 - `tools/e2e-recorder/lib/platform-probes.mjs` normalizes Android semantics JSON and iOS AX JSON into macro targets.
 - `tools/e2e-recorder/probe-target.mjs` probes a point and exits with `missing_stable_anchor` behavior when the target is not stable.
 - Contract tests cover Android stable semantics, Android external app rejection and iOS AX identifier resolution.
+- `tools/e2e-recorder/android-dump-tree.mjs` captures a real UIAutomator tree through ADB so a visual tap can be resolved after the fact.
+- `tools/e2e-recorder/ios-ax-probe.swift` is the minimal macOS-side AX element-under-point probe to validate whether Compose/iOS exposes stable identifiers before writing XCTest selectors.

@@ -31,6 +31,13 @@ export function androidTargetFromPoint(tree, x, y, packageName = "com.quata") {
   });
 }
 
+export function uiAutomatorXmlToTree(xml) {
+  const nodes = [...String(xml).matchAll(/<node\b[^>]*>/g)]
+    .map((match) => parseUiAutomatorNode(match[0]))
+    .filter(Boolean);
+  return { source: "uiautomator", children: nodes };
+}
+
 export function iosTargetFromPoint(tree, x, y) {
   const nodes = flattenNodes(tree).map(normalizeIosNode);
   const node = smallestContaining(nodes, x, y);
@@ -69,6 +76,21 @@ function normalizeAndroidNode(node) {
     packageName: node.packageName || node.package || null,
     bounds: normalizeBounds(node.bounds || node.frame),
     contextual: node.screen || node.context || null,
+  };
+}
+
+function parseUiAutomatorNode(raw) {
+  const attrs = Object.fromEntries([...raw.matchAll(/([\w-]+)="([^"]*)"/g)].map(([, key, value]) => [key, decodeXml(value)]));
+  const bounds = normalizeBounds(attrs.bounds);
+  if (!bounds) return null;
+  return {
+    text: attrs.text || null,
+    resourceId: attrs["resource-id"] || null,
+    contentDescription: attrs["content-desc"] || null,
+    roleName: attrs.class || null,
+    packageName: attrs.package || null,
+    bounds,
+    contextual: attrs["display-id"] ? `display:${attrs["display-id"]}` : null,
   };
 }
 
@@ -114,4 +136,8 @@ function firstText(value) {
   if (Array.isArray(value)) return value.map((entry) => typeof entry === "string" ? entry : entry?.text).find(Boolean) ?? null;
   if (value && typeof value === "object") return value.text ?? null;
   return value ?? null;
+}
+
+function decodeXml(value) {
+  return value.replaceAll("&quot;", '"').replaceAll("&amp;", "&").replaceAll("&lt;", "<").replaceAll("&gt;", ">");
 }
