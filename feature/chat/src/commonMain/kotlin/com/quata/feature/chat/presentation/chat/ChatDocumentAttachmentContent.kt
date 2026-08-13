@@ -12,8 +12,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+
+const val ChatDocumentAttachmentTestTag = "chat.attachment.document"
 
 /** Shared non-media attachment card; hosts provide the file action and icon implementation. */
 @Composable
@@ -27,7 +31,7 @@ fun ChatDocumentAttachmentContent(
     Surface(
         color = Color.Black.copy(alpha = 0.12f),
         shape = RoundedCornerShape(14.dp),
-        modifier = modifier.clickable(onClick = onOpen),
+        modifier = modifier.clickable(onClick = onOpen).semantics { testTag = ChatDocumentAttachmentTestTag },
     ) {
         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             icon()
