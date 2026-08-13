@@ -37,6 +37,15 @@ for (const tap of String(options.tap).split(";")) {
     coordinates: { x, y },
     relativeBounds: node?.bounds ? relativeBounds(node.bounds) : null,
   });
+  if (!target.stable) {
+    console.error(JSON.stringify({
+      code: "missing_stable_anchor",
+      point: { x, y },
+      fallback: target.preferred,
+      screenshotBefore: before,
+    }, null, 2));
+    process.exit(2);
+  }
   await adbText(adb, ["shell", "input", "tap", String(x), String(y)]);
   await new Promise((resolve) => setTimeout(resolve, 500));
   await screencap(adb, after).catch(() => {});

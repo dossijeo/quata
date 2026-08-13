@@ -41,6 +41,16 @@ const target = targetFromProbePoint({
   packageName: options.package ?? "com.quata",
 });
 
+if (!target.stable) {
+  console.error(JSON.stringify({
+    code: "missing_stable_anchor",
+    point: { x, y },
+    fallback: target.preferred,
+    probe: options.probe,
+  }, null, 2));
+  process.exit(2);
+}
+
 macro.steps.push({
   timestamp: new Date().toISOString(),
   platform: options.platform,
@@ -60,7 +70,6 @@ macro.steps.push({
 await mkdir(path.dirname(options.macro), { recursive: true });
 await writeMacro(options.macro, macro);
 console.log(JSON.stringify({ macro: options.macro, steps: macro.steps.length, stable: target.stable, preferred: target.preferred }, null, 2));
-if (!target.stable) process.exit(2);
 
 function parseArgs(args) {
   const parsed = {};

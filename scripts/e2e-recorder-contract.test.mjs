@@ -287,3 +287,66 @@ test("Android recorder pipeline documents Compose semantics before UIAutomator f
   assert.match(instrumented, /SemanticsProperties\.Text/);
   assert.match(instrumented, /WhatsNewContent/);
 });
+
+test("Android recorder tools fail closed before persisting missing stable anchors", async () => {
+  const recorder = await readFile(new URL("../tools/e2e-recorder/android-recorder.mjs", import.meta.url), "utf8");
+  const appendStep = await readFile(new URL("../tools/e2e-recorder/append-step.mjs", import.meta.url), "utf8");
+
+  assert.match(recorder, /code: "missing_stable_anchor"/);
+  assert.match(recorder, /if \(!target\.stable\)[\s\S]*process\.exit\(2\)[\s\S]*adbText\(adb, \["shell", "input", "tap"/);
+  assert.match(appendStep, /code: "missing_stable_anchor"/);
+  assert.match(appendStep, /if \(!target\.stable\)[\s\S]*process\.exit\(2\)[\s\S]*macro\.steps\.push/);
+});
+
+test("append-step does not write a macro when the probe only resolves geometry", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "quata-e2e-append-fragile-"));
+  try {
+    const probe = path.join(dir, "android-tree.json");
+    const macro = path.join(dir, "fragile.macro.json");
+    await writeFile(probe, JSON.stringify({
+      children: [
+        {
+          packageName: "com.quata",
+          bounds: "[24,500][366,556]",
+        },
+      ],
+    }), "utf8");
+
+    await assert.rejects(
+      execFileAsync(process.execPath, [
+        "tools/e2e-recorder/append-step.mjs",
+        "--macro", macro,
+        "--flow", "fragile-android",
+        "--platform", "android",
+        "--action", "tap",
+        "--probe", probe,
+        "--point", "100,520",
+      ], { cwd: path.resolve("."), encoding: "utf8" }),
+      /missing_stable_anchor/,
+    );
+    await assert.rejects(readMacro(macro), /ENOENT/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("Android replay implements composeTestTag and real assertVisible steps", async () => {
+  const replay = await readFile(new URL("../tools/e2e-recorder/android-replay.mjs", import.meta.url), "utf8");
+  const artifact = renderReplayArtifact(compileMacro({
+    format: "quata-e2e-macro",
+    version: 1,
+    flow: "android-compose",
+    platform: "android",
+    startUrl: null,
+    device: null,
+    createdAt: new Date().toISOString(),
+    steps: [
+      { action: "assertVisible", target: { testTag: "whats-new-next" } },
+    ],
+  }));
+
+  assert.match(replay, /else if \(step\.action === "assertVisible"\) await assertVisible\(adb, step\)/);
+  assert.match(replay, /selector\.kind === "composeTestTag"/);
+  assert.match(replay, /unsupported_android_action/);
+  assert.match(artifact, /composeTestTag exported through Compose semantics/);
+});

@@ -242,7 +242,7 @@ function androidSelectorExpression(selector) {
   if (selector.kind === "uiautomatorResourceId") return `By.res(${kotlinString(selector.value)})`;
   if (selector.kind === "uiautomatorDescription") return `By.desc(${kotlinString(selector.value)})`;
   if (selector.kind === "uiautomatorText") return `By.text(${kotlinString(selector.value)})`;
-  if (selector.kind === "composeTestTag") return `By.desc(${kotlinString(selector.value)})`;
+  if (selector.kind === "composeTestTag") return `By.desc(${kotlinString(selector.value)}) /* composeTestTag exported through Compose semantics */`;
   throw new Error(`Unsupported Android selector ${JSON.stringify(selector)}`);
 }
 
