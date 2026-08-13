@@ -19,26 +19,36 @@ request the selected jobs additionally require the `candidate-final` label;
 `pull_request` listens to both `labeled` and `synchronize`, so a new commit on
 a labelled candidate restarts the final lane.
 
-Final checks are deliberately named separately:
+Final jobs and gates are deliberately named separately:
 
 - **Web/Wasm final distribution and Chrome smoke** covers the full Wasm test
   matrix, production distribution and browser smoke.
 - **Kotlin iOS final host, simulator and archive** covers Kotlin iOS targets,
   XCFramework, Swift host, simulator contracts and the unsigned archive.
-- **Analyze java-kotlin** and **Analyze javascript-typescript** are the
-  required code-scanning checks.
+- **Analyze java-kotlin** and **Analyze javascript-typescript** perform the
+  real CodeQL scans when the diff is not documentation-only.
+- **CodeQL final security gate** is the required security check. It always
+  appears, passes documentation-only PRs explicitly, and otherwise fails closed
+  unless the CodeQL matrix completed successfully.
 
 The required status checks are **PR fast contracts and focal imports**,
 **iOS fast contracts**, **Web/Android final certification gate**,
-**iOS final certification gate**, **Analyze java-kotlin**, and **Analyze
-javascript-typescript**. The fast checks expose classifier or workflow-contract
-mistakes without waiting for expensive runners. Each final gate always runs and fails
-closed unless its `candidate-final` PR has completed every affected final job
-successfully and every unaffected job was actually skipped. Thus a classifier
-mistake, cancellation or failure is never green evidence. The merge manager
-applies `candidate-final` only once the diff
-is frozen, waits for both gates on that exact head SHA, then merges or removes
-the label after a material change.
+**iOS final certification gate**, and **CodeQL final security gate**. The fast
+checks expose classifier or workflow-contract mistakes without waiting for
+expensive runners. Each final gate always runs and fails closed unless its
+`candidate-final` PR has completed every affected final job successfully and
+every unaffected job was actually skipped. Thus a classifier mistake,
+cancellation or failure is never green evidence.
+
+Promotion to `candidate-final` is also the authorization for GitHub native
+auto-merge on the frozen head SHA. Use
+`node scripts/promote-candidate-final.mjs --pr <number> --sha <head-sha>` after
+local preflight and evidence/attestation are complete. The script verifies that
+the PR is not a draft, the current head still equals the frozen SHA, the stable
+required gates exist, repository auto-merge is enabled, applies
+`candidate-final` if needed, and requests native auto-merge with the repository's
+operational merge method. It does not merge manually and it never bypasses branch
+protection.
 
 Both workflows deliberately have no `paths` filter: every pull request reaches
 the classifier, fast contracts and fail-closed gate, while selected platform

@@ -32,6 +32,15 @@ function assertCodeQlWorkflow(yaml) {
   assert.match(analyze, /language: java-kotlin[\s\S]*?language: javascript-typescript/);
   assert.match(analyze, /Install Android SDK used by the app[\s\S]*?if: matrix\.language == 'java-kotlin'/);
   assert.match(analyze, /Build Android sources for CodeQL[\s\S]*?if: matrix\.language == 'java-kotlin'/);
+
+  const gate = jobBlock(yaml, "final-security-gate");
+  assert.match(gate, /name: CodeQL final security gate/);
+  assert.match(gate, /needs: \[classify-impact, analyze\]/);
+  assert.match(gate, /if: \$\{\{ always\(\) \}\}/);
+  assert.match(gate, /DOCS_ONLY: \$\{\{ needs\.classify-impact\.outputs\.docs_only \}\}/);
+  assert.match(gate, /CODEQL_RESULT: \$\{\{ needs\.analyze\.result \}\}/);
+  assert.match(gate, /"\$EVENT_NAME" == "pull_request" && "\$DOCS_ONLY" == "true"/);
+  assert.match(gate, /\[\[ "\$CODEQL_RESULT" != "success" \]\]/);
 }
 
 test("CodeQL classifies docs-only PRs before expensive setup and cancels only superseded PR runs", async () => {
@@ -46,9 +55,12 @@ test("CodeQL workflow contract fails closed if docs-only or concurrency guards a
     yaml.replace("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", "cancel-in-progress: true"),
     yaml.replace("format('pr-{0}', github.event.pull_request.number)", "github.ref"),
     yaml.replace(/  classify-impact:[\s\S]*?(?=\n  analyze:)/, ""),
+    yaml.replace(/  final-security-gate:[\s\S]*$/, ""),
+    yaml.replace("CODEQL_RESULT: ${{ needs.analyze.result }}", "CODEQL_RESULT: success"),
+    yaml.replace("if: ${{ always() }}", "if: ${{ needs.analyze.result == 'success' }}"),
     yaml.replace(/elif \[\[ "\$\{\{ github\.event_name \}\}" == "schedule" \]\]; then[\s\S]*?--all --github-output "\$GITHUB_OUTPUT"\n\s+else/, "else"),
   ].filter((mutation) => mutation !== yaml);
-  assert.ok(mutations.length >= 6);
+  assert.ok(mutations.length >= 9);
   for (const mutation of mutations) {
     assert.throws(() => assertCodeQlWorkflow(mutation));
   }

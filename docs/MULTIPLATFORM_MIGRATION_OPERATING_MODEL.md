@@ -145,9 +145,14 @@ El preflight rápido exacto de CI es obligatorio antes de congelar/publicar: eje
 rápidos que replica la automatización remota, imports Wasm focales y `diff --check`. Un candidato
 no se publica si esa réplica falla. Los workflows y sus gates finales son *fail-closed*: un job
 final omitido, cancelado o fallido nunca puede convertir el gate requerido en verde.
-Los checks requeridos de certificación son exactamente **Web/Android final certification gate**,
-**iOS final certification gate**, **Analyze java-kotlin** y **Analyze javascript-typescript**;
-los dos primeros sólo son GO cuando todos sus jobs finales exactos concluyen correctamente.
+Los checks requeridos de certificacion son exactamente **PR fast contracts and focal imports**,
+**iOS fast contracts**, **Web/Android final certification gate**, **iOS final certification gate**
+y **CodeQL final security gate**. Los gates finales solo son GO cuando todos sus jobs finales
+exactos concluyen correctamente o cuando la clasificacion `docs_only` permite omitirlos de forma
+explicita y fail-closed. CodeQL usa un gate estable: **Analyze java-kotlin** y
+**Analyze javascript-typescript** ejecutan el analisis real cuando el diff no es documental, pero
+branch protection exige **CodeQL final security gate** para que PRs docs-only no queden bloqueadas
+por jobs matriciales omitidos.
 
 
 ### Product/Evidence SHA y attestation documental
@@ -167,40 +172,65 @@ que una implementación no compila ni funciona. Si CI revela un defecto reproduc
 informe lo clasifica como **DEFECTO ESCAPADO DEL PREFLIGHT LOCAL** e incorpora obligatoriamente el
 comando, test o contrato preventivo al preflight antes de publicar el siguiente candidato.
 
-### Two-lane migration pipeline
+### Two-lane migration pipeline + native auto-merge
 
 La certificacion CI larga nunca forma parte del camino critico activo del orquestador. Cuando una
-rama candidata termina desarrollo, supera el preflight local suficiente, queda congelada con
-`candidate-final`, pasa los checks rapidos iniciales relevantes y se observa que los jobs pesados ya
-entraron en builds, simuladores, distribuciones o pruebas largas, esa rama pasa a estado
-**CANDIDATE FROZEN / CERTIFICATION IN PROGRESS** y queda concluida a efectos del trabajo activo.
+rama candidata termina desarrollo, supera el preflight local suficiente y tiene Product/Evidence SHA
+o attestation valida, se promociona con:
+
+`node scripts/promote-candidate-final.mjs --pr <numero> --sha <head-sha-congelado>`
+
+La promocion verifica que la PR no es draft, que el head actual coincide exactamente con el SHA
+congelado, que existen los gates estables requeridos, que GitHub native auto-merge esta habilitado
+en el repositorio, aplica `candidate-final` si falta y solicita auto-merge nativo con metodo
+`SQUASH`. Auto-merge no sustituye branch protection, reviews requeridas, conversaciones resueltas,
+checks requeridos, estado actualizado ni conflicto de merge; solo autoriza a GitHub a fusionar el
+SHA congelado cuando GitHub ya lo considera apto.
+
+Cuando la PR candidata queda con `candidate-final` y auto-merge nativo, pasa los checks rapidos
+iniciales relevantes y se observa que los jobs pesados ya entraron en builds, simuladores,
+distribuciones o pruebas largas, esa rama pasa a estado **CANDIDATE FROZEN / CERTIFICATION IN
+PROGRESS / AUTO-MERGE ARMED** y queda concluida a efectos del trabajo activo.
 
 El handoff no ocurre inmediatamente despues de hacer push. Primero se observan los fallos rapidos:
-clasificacion de impacto, contratos baratos, sintaxis/imports, configuracion, gates preliminares y
-rechazo de `candidate-final`. Si alguno falla, se corrige en la rama candidata. Si esos gates estan
-verdes y el tramo largo ya empezo, el orquestador deja de vigilar activamente esa PR.
+clasificacion de impacto, contratos baratos, sintaxis/imports, configuracion, gates preliminares,
+rechazo de `candidate-final` y errores al solicitar auto-merge. Si alguno falla, se corrige en la
+rama candidata. Si esos gates estan verdes y el tramo largo ya empezo, el orquestador deja de
+vigilar activamente esa PR.
 
 El pipeline normal tiene dos carriles:
 
-- **Lane A: candidate frozen / certification in progress.** La rama publicada queda inmutable salvo
-  correccion de un fallo real. No se fusiona hasta que todos los checks requeridos de certificacion
-  final pasen sobre el SHA exacto.
+- **Lane A: candidate frozen / certification in progress / auto-merge armed.** La rama publicada
+  queda inmutable salvo correccion de un fallo real. GitHub la fusiona automaticamente cuando todos
+  los checks requeridos de certificacion final pasen sobre el SHA exacto y branch protection quede
+  satisfecha.
 - **Lane B: next surface under active development.** El orquestador empieza inmediatamente la
   siguiente superficie elegible. Si B depende de A, se crea como rama apilada desde el SHA candidato
   de A; si es independiente, puede salir de `main`.
 
 La profundidad normal maxima es dos: una candidata certificandose y una superficie activa por
-delante. No se abre una cadena A/B/C/D salvo decision explicita por una dependencia real. Si A pasa
-CI, se fusiona en `main`, se actualiza `main`, se rebasa B sobre el nuevo `main`, se resuelven
-conflictos y se continua. Si A falla mientras B avanza, se clasifica primero: un fallo de API comun,
-arquitectura compartida, compilacion comun, fixtures, pipeline o contrato que B usa interrumpe B; un
-fallo focal de evidencia, screenshot, selector o test localizado se corrige aislado en A sin
-destruir B.
+delante. No se abre una cadena A/B/C/D salvo decision explicita por una dependencia real. Cuando
+GitHub auto-mergea A, el orquestador no tiene que reaccionar al segundo exacto: en el siguiente
+checkpoint natural hace `git fetch origin`, detecta que `main` avanzo, rebasa B sobre el nuevo
+`origin/main`, resuelve conflictos y continua. Los checkpoints naturales son antes de un push
+significativo de B, antes de promocionar B a `candidate-final`, al cerrar un bloque focal de
+trabajo o cuando un watcher avise de una anomalia.
 
-La vigilancia de la lane A puede delegarse a un subagente Spark en modo watch/notify: observar
-GitHub Actions, detectar PASS final o FAIL, clasificar de forma basica y avisar. Si Spark no esta
+Si A falla mientras B avanza, se clasifica primero: un fallo de API comun, arquitectura compartida,
+compilacion comun, fixtures, pipeline o contrato que B usa interrumpe B; un fallo focal de evidencia,
+screenshot, selector o test localizado se corrige aislado en A sin destruir B.
+
+La vigilancia de la lane A puede delegarse a un subagente Spark solo en modo anomalias: detectar CI
+FAIL, auto-merge bloqueado durante tiempo anormal, required check ausente, rama desactualizada,
+review/conversacion requerida, conflicto, merge queue/ruleset, auto-merge desactivado o SHA cambiado.
+Spark ya no vigila el camino feliz para avisar PASS; GitHub hace el merge. Si Spark no esta
 disponible, el orquestador revisa Actions solo en puntos naturales posteriores, antes de operaciones
 que dependan del merge o cuando necesite clasificar un cambio de estado.
+
+Si una candidata con `candidate-final` y auto-merge habilitado no tiene checks fallidos pero no se
+fusiona durante un tiempo anormal, no se hace polling infinito. Se diagnostica concretamente:
+reviews, conversaciones pendientes, conflicto, branch behind por proteccion estricta, required check
+faltante, skip incorrecto de gate, ruleset/merge queue, auto-merge desactivado o SHA drift.
 
 Queda prohibido el polling ocioso durante el tramo largo: `check CI -> sigue running -> esperar ->
 check CI`. Si existe una superficie siguiente elegible, se trabaja en ella. Si una dependencia real
@@ -210,20 +240,20 @@ ramas. Mirar CI sin producir trabajo no cuenta como avance operativo.
 
 Cuando se aplique este modelo a una candidata, el informe registra PR, momento del handoff, checks
 rapidos ya verdes, job largo en ejecucion, siguiente superficie iniciada, si hubo rama apilada o
-worktree, si Spark vigilo CI, trabajo avanzado mientras CI seguia ejecutandose, resultado final,
-merge, rebase y conflictos.
+worktree, si Spark vigilo anomalias, trabajo avanzado mientras CI seguia ejecutandose, resultado
+final, auto-merge de GitHub, rebase y conflictos.
 
 Todo defecto descubierto tras publicar se clasifica antes de corregirlo: **DEFECTO ESCAPADO DEL
 PREFLIGHT LOCAL** si era reproducible con comandos/artefactos locales disponibles; defecto de
-runner, caché, toolchain o servicio exclusivo remoto si no lo era. En el primer caso no basta con
-arreglar el código: se añade el gate preventivo, se ejecuta y se registra antes de la siguiente
-promoción. El head previo queda invalidado y cualquier CI cancelado se conserva sólo como
-diagnóstico, nunca como evidencia GO.
+runner, cache, toolchain o servicio exclusivo remoto si no lo era. En el primer caso no basta con
+arreglar el codigo: se anade el gate preventivo, se ejecuta y se registra antes de la siguiente
+promocion. El head previo queda invalidado y cualquier CI cancelado se conserva solo como
+diagnostico, nunca como evidencia GO.
 
-Los runners de autenticación iOS que invocan `xcodebuild` mediante un `.xctestrun` y
-`QUATA_IOS_AUTH_E2E_FILE` explícito deben verificar el resultado semántico del test: un proceso con
-salida `0` no es PASS si el test figura como `SKIPPED` o no llegó a ejecutarse. El runner falla en
-esos casos y conserva el diagnóstico redactado.
+Los runners de autenticacion iOS que invocan `xcodebuild` mediante un `.xctestrun` y
+`QUATA_IOS_AUTH_E2E_FILE` explicito deben verificar el resultado semantico del test: un proceso con
+salida `0` no es PASS si el test figura como `SKIPPED` o no llego a ejecutarse. El runner falla en
+esos casos y conserva el diagnostico redactado.
 
 ### Identidad obligatoria del candidato integrado
 
