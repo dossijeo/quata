@@ -747,8 +747,8 @@ async function storageRequest(config, session, path, options, prefix) {
 
 async function createChatAttachmentMessage(config, session, thread, runId, kind) {
   const isAudio = kind === "audio";
-  const extension = isAudio ? "mp3" : "txt";
-  const mimeType = isAudio ? "audio/mpeg" : "text/plain";
+  const extension = isAudio ? "m4a" : "txt";
+  const mimeType = isAudio ? "audio/mp4" : "text/plain";
   const marker = `chat-${kind}-attachment-ios-${runId}`;
   const name = `qadata-${kind}-${runId.slice(0, 8)}.${extension}`;
   const content = isAudio

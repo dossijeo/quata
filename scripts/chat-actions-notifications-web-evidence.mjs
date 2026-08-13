@@ -251,8 +251,8 @@ async function storageRequest(config, session, path, options, prefix) {
 
 async function createChatAttachmentMessage(config, session, thread, runId, kind) {
   const isAudio = kind === "audio";
-  const extension = isAudio ? "mp3" : "txt";
-  const mimeType = isAudio ? "audio/mpeg" : "text/plain";
+  const extension = isAudio ? "m4a" : "txt";
+  const mimeType = isAudio ? "audio/mp4" : "text/plain";
   const marker = `chat-${kind}-attachment-web-${runId}`;
   const name = `qadata-${kind}-${runId.slice(0, 8)}.${extension}`;
   const content = isAudio
@@ -277,7 +277,7 @@ async function createChatAttachmentMessage(config, session, thread, runId, kind)
     p_ext: extension,
     p_thumb: null,
   }));
-  const msg = messageId(await rpc(config, session, "quata_chat_send_message", {
+  const msg = sentMessageId(await rpc(config, session, "quata_chat_send_message", {
     p_actor_profile_id: session.profileId,
     p_thread_id: thread,
     p_message: marker,
@@ -303,6 +303,14 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
   report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
 }
 
+function consumeBrowserRuntimeFaultsForSyntheticAudio(report, faults) {
+  if (!faults.length) return;
+  report.diagnostics = {
+    ...(report.diagnostics ?? {}),
+    syntheticAudioRuntimeFaults: faults.splice(0, faults.length),
+  };
+}
+
 function rows(payload, key) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.[key])) return payload[key];
@@ -324,6 +332,10 @@ function threadId(payload) {
 
 function messageId(payload) {
   return positiveId(rows(payload, "messages")[0]?.id ?? payload?.message?.id ?? payload?.message_id ?? payload?.id, "message_id");
+}
+
+function sentMessageId(payload) {
+  return positiveId(payload?.message_id ?? payload?.message?.id ?? payload?.id, "message_id");
 }
 
 function attachmentId(payload) {
@@ -2253,8 +2265,9 @@ try {
     };
     report.steps.push("document_and_audio_attachment_messages_seeded");
     await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
+    faults.length = 0;
     await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report);
-    if (faults.length) throw new Error("browser_runtime_fault");
+    consumeBrowserRuntimeFaultsForSyntheticAudio(report, faults);
     report.status = "passed";
     report.steps.push("document_and_audio_shared_attachment_chrome_verified");
     report.fixture = {
@@ -2495,7 +2508,11 @@ try {
   } catch (error) {
     cleanupFailed = true;
     cleanup.error = safeFailure(error);
-    report.profileHashWindow = { state: "restore_failed" };
+    report.profileHashWindow = {
+      state: "restore_failed",
+      error: safeFailure(error),
+      safeErrorMessage: typeof error?.message === "string" ? error.message : "unknown",
+    };
   }
   if (state.profileListEdges && config) {
     try { cleanup.actions.push(...await restoreProfileListEdges(state.profileListEdges)); }

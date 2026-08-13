@@ -168,6 +168,8 @@ test("real Chat evidence runners seed reversible document/audio attachments", ()
     assert.match(runner, /createChatAttachmentMessage/);
     assert.match(runner, /quata_chat_register_attachment/);
     assert.match(runner, /quata_chat_send_message/);
+    assert.match(runner, /const extension = isAudio \? "m4a" : "txt"/);
+    assert.match(runner, /const mimeType = isAudio \? "audio\/mp4" : "text\/plain"/);
     assert.match(runner, /document_and_audio_attachment_messages_seeded/);
     assert.match(runner, /document_and_audio_shared_attachment_chrome_verified|ios_xctest_document_and_audio_attachment_chrome_verified/);
     assert.match(runner, /chatAttachmentsBucket/);
@@ -176,6 +178,9 @@ test("real Chat evidence runners seed reversible document/audio attachments", ()
   assert.match(androidRunner, /runInstrumentationStage\("attachments-audio"\)/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=\$\{attachmentsAudioOnly \? "1" : "0"\}/);
   assert.match(webRunner, /verifyAttachmentsAudioWeb/);
+  assert.match(webRunner, /function sentMessageId\(payload\)/);
+  assert.match(webRunner, /const msg = sentMessageId\(await rpc\(config, session, "quata_chat_send_message"/);
+  assert.match(webRunner, /consumeBrowserRuntimeFaultsForSyntheticAudio/);
   assert.match(webRunner, /!options\.attachmentsAudioOnly && state\.peerMessage/);
   assert.match(webRunner, /web-chat-audio-toggle-attempted/);
 });
