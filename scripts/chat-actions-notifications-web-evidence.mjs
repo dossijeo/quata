@@ -259,6 +259,7 @@ async function createChatAttachmentMessage(config, session, thread, runId, kind)
     ? validWavFixture()
     : Buffer.from(`QADATA document fixture ${marker}\n`, "utf8");
   const storagePath = `${session.profileId}/evidence/${runId}/${name}`;
+  state.attachmentStoragePaths.push({ name, storagePath });
   await storageRequest(config, session, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(storagePath)}`, {
     method: "POST",
     headers: { "content-type": mimeType, "x-upsert": "false" },
@@ -325,6 +326,7 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
   report.evidence.audioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-player-visible");
   await clickLocatorCenter(page, play, "audio_attachment_toggle_not_clickable");
   const playback = await waitAudioPlaybackObserved(page);
+  if (playback.state !== "playing") throw new Error(`audio_playback_not_playing:${playback.state}`);
   report.evidence.audioPlaybackObserved = playback;
   report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
 }
@@ -1733,7 +1735,7 @@ async function logicalCleanup(config, state) {
     throw new Error("cleanup_residue_detected:profile_private_chat_marker_b");
   }
   if (state.profilePrivateChat?.threadId) actions.push("cleanup_verified_profile_private_chat_marker_absent");
-  for (const fixture of [state.attachmentsAudio?.document, state.attachmentsAudio?.audio].filter(Boolean)) {
+  for (const fixture of attachmentStorageFixtures(state)) {
     await storageRequest(config, state.a, `/storage/v1/object/${chatAttachmentsBucket}`, {
       method: "DELETE",
       headers: { "content-type": "application/json" },
@@ -1751,6 +1753,20 @@ async function logicalCleanup(config, state) {
     actions.push("thread_removed_from_b_inbox");
   }
   return actions;
+}
+
+function attachmentStorageFixtures(state) {
+  const seen = new Set();
+  const fixtures = [
+    ...(state.attachmentStoragePaths ?? []),
+    state.attachmentsAudio?.document,
+    state.attachmentsAudio?.audio,
+  ].filter((fixture) => fixture?.storagePath);
+  return fixtures.filter((fixture) => {
+    if (seen.has(fixture.storagePath)) return false;
+    seen.add(fixture.storagePath);
+    return true;
+  });
 }
 
 async function threadContainsAnyMarker(config, session, thread, markers) {
@@ -2229,7 +2245,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, privateMarker: null, attachmentsAudio: null };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, privateMarker: null, attachmentsAudio: null, attachmentStoragePaths: [] };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];

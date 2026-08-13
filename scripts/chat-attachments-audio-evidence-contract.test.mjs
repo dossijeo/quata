@@ -23,6 +23,7 @@ const [
   webRunner,
   iosRunner,
   browserAudioPlayer,
+  androidMediaViewer,
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
@@ -42,6 +43,7 @@ const [
   source("scripts/chat-actions-notifications-web-evidence.mjs"),
   source("scripts/chat-actions-notifications-ios-evidence.mjs"),
   source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserAudioPlayerService.wasm.kt"),
+  source("app/src/main/java/com/quata/core/ui/components/AttachmentMediaViewer.kt"),
 ]);
 
 test("CHAT-ATTACHMENTS/AUDIO has a dedicated fast contract in CI", () => {
@@ -184,6 +186,10 @@ test("real Chat evidence runners seed reversible document/audio attachments", ()
     assert.match(runner, /const extension = isAudio \? "wav" : "txt"/);
     assert.match(runner, /const mimeType = isAudio \? "audio\/wav" : "text\/plain"/);
     assert.match(runner, /function validWavFixture\(\)/);
+    assert.match(runner, /attachmentStoragePaths:\s*\[\]/);
+    assert.match(runner, /state\.attachmentStoragePaths\.push\(\{ name, storagePath \}\);\s*await storageRequest/);
+    assert.match(runner, /for \(const fixture of attachmentStorageFixtures\(state\)\)/);
+    assert.match(runner, /function attachmentStorageFixtures\(state\)/);
     assert.match(runner, /verifyStorageObjectAbsent\(chatAttachmentsBucket, fixture\.storagePath\)/);
     assert.match(runner, /document_and_audio_attachment_messages_seeded/);
     assert.match(runner, /document_and_audio_shared_attachment_chrome_verified|ios_xctest_document_and_audio_attachment_chrome_verified/);
@@ -213,15 +219,23 @@ test("real Chat evidence runners seed reversible document/audio attachments", ()
   assert.match(webRunner, /async function clickLocatorCenter\(page, locator, error\)/);
   assert.match(webRunner, /clickLocatorCenter\(page, play, "audio_attachment_toggle_not_clickable"\)/);
   assert.match(webRunner, /report\.evidence\.audioPlaybackObserved = playback/);
+  assert.match(webRunner, /if \(playback\.state !== "playing"\) throw new Error\(`audio_playback_not_playing:\$\{playback\.state\}`\)/);
   assert.match(webRunner, /audio_playback_state_not_observed/);
   assert.match(webRunner, /web-chat-audio-toggle-attempted/);
+  assert.match(androidMediaViewer, /ChatAudioAttachmentPlayerContent\(/);
+  assert.match(androidMediaViewer, /errorText = attachment\.name/);
 });
 
 test("Web audio player loads remote attachments through local Blob URLs under COEP", () => {
-  assert.match(browserAudioPlayer, /globalThis\.fetch\(source, \{ credentials: 'omit', cache: 'no-store' \}\)/);
+  assert.match(browserAudioPlayer, /AbortController/);
+  assert.match(browserAudioPlayer, /controller\.abort\(\)/);
+  assert.match(browserAudioPlayer, /globalThis\.fetch\(source, \{ credentials: 'omit', cache: 'no-store', \.\.\.\(controller \? \{ signal: controller\.signal \} : \{\}\) \}\)/);
   assert.match(browserAudioPlayer, /globalThis\.URL\.createObjectURL\(blob\)/);
   assert.match(browserAudioPlayer, /web_audio_load_timeout/);
   assert.match(browserAudioPlayer, /completed = true/);
+  assert.match(browserAudioPlayer, /if \(completed\) return null/);
+  assert.match(browserAudioPlayer, /if \(completed \|\| !playableSource\) return/);
+  assert.match(browserAudioPlayer, /if \(completed\) return;\s*cleanup\(\)/);
   assert.match(browserAudioPlayer, /element\.src = playableSource/);
   assert.match(browserAudioPlayer, /revokeObjectURL/);
   assert.doesNotMatch(browserAudioPlayer, /element\.src = source/);

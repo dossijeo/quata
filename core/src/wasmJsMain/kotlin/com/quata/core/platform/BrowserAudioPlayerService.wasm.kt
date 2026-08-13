@@ -100,6 +100,7 @@ private fun browserAudioLoad(id: String, source: String, onResult: (String) -> U
         store.set(id, element);
         let completed = false;
         let loadTimer = null;
+        const controller = typeof globalThis.AbortController === 'function' ? new globalThis.AbortController() : null;
         const complete = (value) => {
           if (completed) return;
           completed = true;
@@ -107,6 +108,7 @@ private fun browserAudioLoad(id: String, source: String, onResult: (String) -> U
           onResult(value);
         };
         const cleanup = () => {
+          if (controller) controller.abort();
           element.onloadedmetadata = null;
           element.oncanplay = null;
           element.onerror = null;
@@ -132,16 +134,23 @@ private fun browserAudioLoad(id: String, source: String, onResult: (String) -> U
           if (!/^https?:/i.test(source) || typeof globalThis.fetch !== 'function' || !globalThis.URL?.createObjectURL) {
             return Promise.reject(new Error('web_audio_reference_unsupported'));
           }
-          return globalThis.fetch(source, { credentials: 'omit', cache: 'no-store' })
+          return globalThis.fetch(source, { credentials: 'omit', cache: 'no-store', ...(controller ? { signal: controller.signal } : {}) })
             .then(async (response) => {
               if (!response.ok) throw new Error(`web_audio_http_${'$'}{response.status}`);
               const blob = await response.blob();
+              if (completed) return null;
               if (!blob || !Number.isFinite(blob.size) || blob.size <= 0) throw new Error('web_audio_blob_empty');
-              objectUrl = globalThis.URL.createObjectURL(blob);
-              return objectUrl;
+              const nextObjectUrl = globalThis.URL.createObjectURL(blob);
+              if (completed) {
+                if (globalThis.URL?.revokeObjectURL) globalThis.URL.revokeObjectURL(nextObjectUrl);
+                return null;
+              }
+              objectUrl = nextObjectUrl;
+              return nextObjectUrl;
             });
         };
         resolveSource().then((playableSource) => {
+          if (completed || !playableSource) return;
           element.preload = 'metadata';
           element.onloadedmetadata = () => complete(state());
           element.oncanplay = () => complete(state());
@@ -152,6 +161,7 @@ private fun browserAudioLoad(id: String, source: String, onResult: (String) -> U
           element.src = playableSource;
           element.load();
         }).catch((error) => {
+          if (completed) return;
           cleanup();
           complete('failure:' + (error?.message || 'web_audio_load_failed'));
         });

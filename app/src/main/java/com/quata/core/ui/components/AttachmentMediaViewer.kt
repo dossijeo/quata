@@ -364,6 +364,7 @@ fun AudioAttachmentPlayer(
         displayText = if (hasError) attachment.name else formatAudioAttachmentMillis(
             if (isPlaying) positionMillis else durationMillis
         ),
+        errorText = attachment.name,
         textColor = textColor,
         playPauseDescription = stringResource(R.string.video_editor_play_pause),
         onTogglePlayback = {
