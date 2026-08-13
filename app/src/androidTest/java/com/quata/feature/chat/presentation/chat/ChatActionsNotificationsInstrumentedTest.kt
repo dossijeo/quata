@@ -315,18 +315,14 @@ class ChatActionsNotificationsInstrumentedTest {
         repeat(5) { attempt ->
             clickOptionsButtonFallback(attempt)
             compose.waitForIdle()
-            if (waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 1_000) != null ||
-                waitForText("Reactivar notificaciones", "Unmute", timeoutMillis = 1_000) != null
-            ) {
+            if (optionsMenuVisible(timeoutMillis = 1_500)) {
                 return
             }
             val nativeOptions = waitForObject(By.descContains("Opciones"), "Opciones", 750)
                 ?: waitForObject(By.descContains("Options"), "Options", 750)
             if (nativeOptions != null) {
                 nativeOptions.click()
-                if (waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 1_500) != null ||
-                    waitForText("Reactivar notificaciones", "Unmute", timeoutMillis = 1_500) != null
-                ) {
+                if (optionsMenuVisible(timeoutMillis = 1_500)) {
                     return
                 }
             }
@@ -335,12 +331,30 @@ class ChatActionsNotificationsInstrumentedTest {
                 compose.waitForIdle()
             }
         }
-        if (waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 2_000) == null &&
-            waitForText("Reactivar notificaciones", "Unmute", timeoutMillis = 2_000) == null
-        ) {
+        if (!optionsMenuVisible(timeoutMillis = 2_000)) {
             error("chat_options_menu_not_visible")
         }
     }
+
+    private fun optionsMenuVisible(timeoutMillis: Long): Boolean =
+        runCatching {
+            compose.waitUntil(timeoutMillis) {
+                listOf(
+                    ChatGroupMenuMuteTestTag,
+                    ChatGroupMenuUnmuteTestTag,
+                    ChatGroupMenuAllowInvitesTestTag,
+                    ChatGroupMenuAddParticipantsTestTag,
+                ).any { tag ->
+                    runCatching {
+                        compose.onNodeWithTag(tag, useUnmergedTree = true)
+                            .fetchSemanticsNode()
+                    }.isSuccess
+                }
+            }
+            true
+        }.getOrDefault(false) ||
+            waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 250) != null ||
+            waitForText("Reactivar notificaciones", "Unmute", timeoutMillis = 250) != null
 
     private fun clickOptionsButtonFallback(attempt: Int) {
         if (runCatching {
