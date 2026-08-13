@@ -132,6 +132,16 @@ export function compileMacro(macro) {
   return compiled;
 }
 
+export function renderReplayArtifact(compiled) {
+  if (!compiled.runnable) {
+    throw new Error(`Cannot render replay artifact for ${compiled.flow}: unresolved stable anchors`);
+  }
+  if (compiled.platform === "web") return renderWebReplayArtifact(compiled);
+  if (compiled.platform === "android") return renderAndroidReplayArtifact(compiled);
+  if (compiled.platform === "ios") return renderIosReplayArtifact(compiled);
+  throw new Error(`Unsupported platform ${compiled.platform}`);
+}
+
 export function selectorFor(platform, target) {
   if (!target.preferred) return null;
   if (platform === "web") return selectorForWeb(target);
@@ -171,6 +181,77 @@ export function screenshotPath(evidenceDir, flow, platform, index, phase) {
   return path.join(evidenceDir, `${flow}-${platform}-${String(index).padStart(2, "0")}-${phase}.png`);
 }
 
+function renderWebReplayArtifact(compiled) {
+  const lines = [
+    `// Generated from ${compiled.flow}. Review before promoting to CI.`,
+    `test("${compiled.flow}", async ({ page }) => {`,
+  ];
+  if (compiled.startUrl) lines.push(`  await page.goto(${jsString(compiled.startUrl)}, { waitUntil: "domcontentloaded" });`);
+  for (const step of compiled.steps) {
+    const locator = webLocatorExpression(step.replay);
+    if (step.action === "click" || step.action === "tap") lines.push(`  await ${locator}.click({ timeout: 30_000 });`);
+    if (step.action === "input" || step.action === "fill") lines.push(`  await ${locator}.fill(${jsString(step.value ?? step.valuePreview ?? "")}, { timeout: 30_000 });`);
+    if (step.action === "assertVisible") lines.push(`  await ${locator}.waitFor({ state: "visible", timeout: 30_000 });`);
+  }
+  lines.push("});");
+  return `${lines.join("\n")}\n`;
+}
+
+function renderAndroidReplayArtifact(compiled) {
+  const lines = [
+    `// Generated from ${compiled.flow}. Review before promoting to instrumentation/CI.`,
+    "val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())",
+  ];
+  for (const step of compiled.steps) {
+    const selector = androidSelectorExpression(step.replay);
+    if (step.action === "tap" || step.action === "click") {
+      lines.push(`device.findObject(${selector}).click()`);
+    } else if (step.action === "assertVisible") {
+      lines.push(`check(device.hasObject(${selector}))`);
+    }
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function renderIosReplayArtifact(compiled) {
+  const lines = [
+    `// Generated from ${compiled.flow}. Review before promoting to XCTest/CI.`,
+    "let app = XCUIApplication()",
+  ];
+  for (const step of compiled.steps) {
+    const selector = iosSelectorExpression(step.replay);
+    if (step.action === "tap" || step.action === "click") lines.push(`${selector}.tap()`);
+    if (step.action === "assertVisible") lines.push(`XCTAssertTrue(${selector}.waitForExistence(timeout: 30))`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function webLocatorExpression(selector) {
+  if (selector.kind === "locator") return `page.locator(${jsString(selector.value)}).first()`;
+  if (selector.kind === "text") return `page.getByText(${jsString(selector.value)}, { exact: false }).first()`;
+  if (selector.kind === "role") {
+    return selector.name
+      ? `page.getByRole(${jsString(selector.role)}, { name: ${jsString(selector.name)} }).first()`
+      : `page.getByRole(${jsString(selector.role)}).first()`;
+  }
+  if (selector.kind === "aria") return `page.locator(${jsString(`[aria-label="${String(selector.value).replaceAll('"', '\\"')}"]`)}).first()`;
+  throw new Error(`Unsupported web selector ${JSON.stringify(selector)}`);
+}
+
+function androidSelectorExpression(selector) {
+  if (selector.kind === "uiautomatorResourceId") return `By.res(${kotlinString(selector.value)})`;
+  if (selector.kind === "uiautomatorDescription") return `By.desc(${kotlinString(selector.value)})`;
+  if (selector.kind === "uiautomatorText") return `By.text(${kotlinString(selector.value)})`;
+  if (selector.kind === "composeTestTag") return `By.desc(${kotlinString(selector.value)})`;
+  throw new Error(`Unsupported Android selector ${JSON.stringify(selector)}`);
+}
+
+function iosSelectorExpression(selector) {
+  if (selector.kind === "xcuiIdentifier") return `app.descendants(matching: .any).matching(identifier: "${swiftString(selector.value)}").firstMatch`;
+  if (selector.kind === "xcuiLabel") return `app.staticTexts["${swiftString(selector.value)}"]`;
+  throw new Error(`Unsupported iOS selector ${JSON.stringify(selector)}`);
+}
+
 function hasValue(value) {
   if (value == null) return false;
   if (typeof value === "string") return value.trim().length > 0;
@@ -185,4 +266,16 @@ function cssIdent(value) {
   const text = String(value);
   if (globalThis.CSS?.escape) return globalThis.CSS.escape(text);
   return text.replace(/[^a-zA-Z0-9_-]/g, (char) => `\\${char.codePointAt(0).toString(16)} `);
+}
+
+function jsString(value) {
+  return JSON.stringify(String(value));
+}
+
+function kotlinString(value) {
+  return `"${String(value).replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+}
+
+function swiftString(value) {
+  return String(value).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }

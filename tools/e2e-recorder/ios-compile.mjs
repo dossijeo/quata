@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { compileMacro, readMacro } from "./lib/macro-core.mjs";
+import { compileMacro, readMacro, renderReplayArtifact } from "./lib/macro-core.mjs";
 
 const file = process.argv[2];
 if (!file) {
@@ -14,31 +14,4 @@ if (!compiled.runnable) {
   process.exit(2);
 }
 
-console.log(renderSwift(compiled));
-
-function renderSwift(compiled) {
-  const lines = [
-    `// Generated from ${compiled.flow}. Review before committing to XCTest.`,
-    "let app = XCUIApplication()",
-  ];
-  for (const step of compiled.steps) {
-    const selector = step.replay;
-    if (step.action === "tap" || step.action === "click") {
-      lines.push(`${xcuiExpression(selector)}.tap()`);
-    } else if (step.action === "assertVisible") {
-      lines.push(`XCTAssertTrue(${xcuiExpression(selector)}.waitForExistence(timeout: 30))`);
-    }
-  }
-  return `${lines.join("\n")}\n`;
-}
-
-function xcuiExpression(selector) {
-  if (selector.kind === "xcuiIdentifier") return `app.descendants(matching: .any).matching(identifier: "${swift(selector.value)}").firstMatch`;
-  if (selector.kind === "xcuiLabel") return `app.staticTexts["${swift(selector.value)}"]`;
-  if (selector.kind === "xcuiType") return `app.descendants(matching: .any).matching(NSPredicate(format: "elementType == %@", "${swift(selector.value)}")).firstMatch`;
-  throw new Error(`unsupported_ios_selector ${JSON.stringify(selector)}`);
-}
-
-function swift(value) {
-  return String(value).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
-}
+console.log(renderReplayArtifact(compiled));

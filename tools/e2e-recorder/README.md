@@ -23,6 +23,7 @@ Commands:
 ```powershell
 node tools/e2e-recorder/web-recorder.mjs --flow legal-web --url http://127.0.0.1:4174/ --out build-reports/e2e-recorder/legal-web.macro.json --demo legal
 node tools/e2e-recorder/compile.mjs build-reports/e2e-recorder/legal-web.macro.json
+node tools/e2e-recorder/compile.mjs build-reports/e2e-recorder/legal-web.macro.json --emit build-reports/e2e-recorder/legal-web.spec.generated.mjs
 node tools/e2e-recorder/web-replay.mjs --macro build-reports/e2e-recorder/legal-web.macro.json
 ```
 
@@ -42,5 +43,6 @@ Artifact rules:
 
 - Raw macro sessions and screenshots belong under `build-reports/e2e-recorder/` unless a deterministic sample is useful.
 - Generated XCTest/Playwright code is reviewed before promotion to CI.
+- `compile.mjs --emit` writes a reviewable runner snippet only when every actionable step has a stable product anchor.
 - Coordinates are allowed only as diagnostics or temporary discovery data.
 - A replay failure must name the step, selector, URL/screen and visible state where possible.

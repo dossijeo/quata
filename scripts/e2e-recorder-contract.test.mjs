@@ -3,7 +3,7 @@ import test from "node:test";
 import { access, readFile, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { compileMacro, createMacro, readMacro, selectorForAndroid, selectorForIos, selectorForWeb, summarizeMacro, writeMacro } from "../tools/e2e-recorder/lib/macro-core.mjs";
+import { compileMacro, createMacro, readMacro, renderReplayArtifact, selectorForAndroid, selectorForIos, selectorForWeb, summarizeMacro, writeMacro } from "../tools/e2e-recorder/lib/macro-core.mjs";
 
 test("macro compiler prefers stable anchors over coordinates", () => {
   const web = selectorForWeb({
@@ -70,6 +70,26 @@ test("macro files round-trip with the common format", async () => {
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("compiler renders reviewed replay snippets for CI promotion", () => {
+  const macro = createMacro({ flow: "legal-web", platform: "web", startUrl: "http://localhost/#about" });
+  macro.steps.push(
+    { action: "click", target: { testTag: "legal-document-link-privacy" } },
+    { action: "assertVisible", target: { testTag: "document-viewer-status-root" } },
+  );
+
+  const artifact = renderReplayArtifact(compileMacro(macro));
+  assert.match(artifact, /Generated from legal-web/);
+  assert.match(artifact, /page\.locator\("\[data-testid=\\\"legal-document-link-privacy\\\"\], #legal-document-link-privacy"\)\.first\(\)\.click/);
+  assert.match(artifact, /document-viewer-status-root/);
+});
+
+test("compiler refuses to emit runner artifacts with missing stable anchors", () => {
+  const macro = createMacro({ flow: "fragile-runner", platform: "ios" });
+  macro.steps.push({ action: "tap", target: { coordinates: { x: 5, y: 10 } } });
+
+  assert.throws(() => renderReplayArtifact(compileMacro(macro)), /unresolved stable anchors/);
 });
 
 test("recorder tooling and persistent operating docs describe the workflow", async () => {
