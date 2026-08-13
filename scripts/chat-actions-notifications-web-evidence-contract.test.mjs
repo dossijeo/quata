@@ -131,6 +131,8 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(wrapper, /testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface/);
   assert.match(wrapper, /testGroupMenuAndSosMessagesExposeSharedAnchors/);
   assert.match(wrapper, /group-sos\.log/);
+  assert.match(testSource, /dismissOptionsMenu/);
+  assert.match(testSource, /The group options menu must be dismissed before validating SOS anchors/);
   assert.match(runner, /--keyboard-menu-only/);
   assert.match(runner, /QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E/);
   assert.match(runner, /keyboard_header_and_selected_action_bar_captured/);

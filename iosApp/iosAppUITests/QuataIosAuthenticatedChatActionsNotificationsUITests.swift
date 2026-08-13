@@ -42,7 +42,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             )
         }
         attachScreenshot(app, name: "ios-chat-group-menu-shared-anchors")
-        app.typeKey(.escape, modifierFlags: [])
+        dismissOptionsMenu(in: app)
 
         XCTAssertTrue(menuText("Actualizacion de ubicacion SOS", in: app).waitForExistence(timeout: 45), app.debugDescription)
         for identifier in [
@@ -815,6 +815,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         let fallback = menuText(text, in: app)
         return fallback.exists && fallback.isHittable ? fallback : nil
+    }
+
+    private func dismissOptionsMenu(in app: XCUIApplication) {
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.85)).tap()
+        let menuAction = app.descendants(matching: .any)
+            .matching(identifier: "chat.group.menu.addParticipants")
+            .firstMatch
+        let deadline = Date().addingTimeInterval(5)
+        while menuAction.exists && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        XCTAssertFalse(menuAction.exists, "The group options menu must be dismissed before validating SOS anchors.")
     }
 
     private func menuText(_ text: String, in app: XCUIApplication) -> XCUIElement {
