@@ -14,7 +14,7 @@ if (!options.out || !options.flow) {
 const evidenceDir = options.evidenceDir ?? path.join(path.dirname(options.out), `${options.flow}-evidence`);
 await mkdir(evidenceDir, { recursive: true });
 const server = options.url ? null : await serveDist(options.dist);
-const startUrl = options.url ?? server.url;
+const startUrl = appendFragment(options.url ?? server.url, options.fragment);
 
 const browser = await chromium.launch({ headless: options.headed !== "true" });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
@@ -191,4 +191,10 @@ function parseArgs(args) {
     parsed[args[i].slice(2)] = args[i + 1]?.startsWith("--") ? "true" : args[++i] ?? "true";
   }
   return parsed;
+}
+
+function appendFragment(url, fragment) {
+  if (!fragment) return url;
+  const clean = String(fragment).replace(/^#/, "");
+  return `${url.replace(/#.*$/, "")}#${clean}`;
 }

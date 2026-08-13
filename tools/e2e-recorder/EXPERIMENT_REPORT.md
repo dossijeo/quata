@@ -36,6 +36,13 @@ Web fixture replay:
 - Replayed locally 3/3 times.
 - Screenshots and observable state were saved under `build-reports/e2e-recorder/`.
 
+Web/Wasm product probe:
+
+- `:web:wasmJsBrowserDistribution` emitted a production distribution, but the shell command hit the 10 minute timeout while finishing Gradle cleanup/logging.
+- The recorder then served `web/build/dist/wasmJs/productionExecutable` and opened `#about`.
+- The legal link was not discoverable by `[data-testid="legal-document-link-privacy"]`, DOM id or Playwright text within 30 seconds, so no product macro was produced.
+- This matches the existing `WEB_TEST_AX_DOM_CONTRACT.md` boundary: Web recorder works best on controls exposed through real DOM/WebElementView or explicit data attributes; canvas-only Compose text may still need product anchors or an inspection bridge before the recorder can derive stable selectors.
+
 iOS compile:
 
 - Macro compiled to:
@@ -63,7 +70,7 @@ Coordinates were captured as diagnostics in the Web macro, but replay used `data
 
 ## Limitations
 
-- Web was validated on a deterministic fixture carrying the same legal anchors, not on a fresh Wasm distribution. A full app run should be the next iteration after the current active candidate lane is clear.
+- Web replay was validated on a deterministic fixture carrying the same legal anchors. A fresh Wasm distribution was built and served, but the `#about` legal link was not discoverable through DOM/text selectors, so a product-level Web macro still requires either DOM/WebElementView anchors for that control or a Compose semantics inspection bridge.
 - iOS needs a small macOS-side AX probe to convert a visual click into an AX element-under-point automatically. The compiler side is useful now.
 - Android Compose screens may require instrumentation-side semantics export, because UIAutomator can return no root for the current app state.
 
