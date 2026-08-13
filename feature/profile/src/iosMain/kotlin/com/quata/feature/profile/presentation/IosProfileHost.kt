@@ -35,8 +35,8 @@ import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
-import com.quata.feature.settings.presentation.settingsDocumentViewerStatusStrings
 import com.quata.feature.settings.presentation.settingsLegalDocumentsStrings
+import com.quata.core.ui.components.quataDocumentViewerStatusStrings
 import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
@@ -136,7 +136,7 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
         )
         QuataDocumentViewerStatusContent(
             state = documentViewerState,
-            strings = settingsDocumentViewerStatusStrings(language),
+            strings = quataDocumentViewerStatusStrings(language),
             onDismiss = { documentViewerState = null },
         )
     }

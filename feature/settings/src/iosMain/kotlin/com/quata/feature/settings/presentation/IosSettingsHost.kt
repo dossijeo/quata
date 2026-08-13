@@ -19,6 +19,7 @@ import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.documentViewerOpeningState
 import com.quata.core.platform.openWithViewerState
 import com.quata.core.ui.components.QuataDocumentViewerStatusContent
+import com.quata.core.ui.components.quataDocumentViewerStatusStrings
 import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
@@ -108,7 +109,7 @@ fun QuataSettingsViewController(dependencies: IosSettingsHostDependencies): UIVi
         }
         QuataDocumentViewerStatusContent(
             state = documentViewerState,
-            strings = settingsDocumentViewerStatusStrings(dependencies.language),
+            strings = quataDocumentViewerStatusStrings(dependencies.language),
             onDismiss = { documentViewerState = null },
         )
     }

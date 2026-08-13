@@ -1,16 +1,27 @@
 package com.quata.feature.whatsnew.presentation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.moderation.iosLegalDocumentFile
+import com.quata.core.moderation.iosLegalDocumentPlaceholderFile
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentViewerFailureReason
+import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
 import com.quata.core.ui.components.QuataLegalDocumentLinksContent
+import com.quata.core.ui.components.quataDocumentViewerStatusStrings
 import com.quata.feature.whatsnew.data.IosWhatsNewSeenStateStore
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
 import com.quata.feature.whatsnew.data.QuataLocalWhatsNewCatalog
@@ -228,14 +239,37 @@ private fun iosReleaseHistoryStrings(tags: List<String>): ReleaseHistoryStrings 
 private fun IosAboutLegalLinks(tags: List<String>, documentOpener: DocumentOpenService) {
     val language = tags.toQuataLanguage()
     val scope = rememberCoroutineScope()
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     QuataLegalDocumentLinksContent(
         language = language,
         onOpenDocument = { document ->
             scope.launch {
-                iosLegalDocumentFile(document, language)?.let { documentOpener.open(it) }
+                documentViewerState = openIosLegalDocumentWithViewerState(document, language, documentOpener)
             }
         },
     )
+    QuataDocumentViewerStatusContent(
+        state = documentViewerState,
+        strings = quataDocumentViewerStatusStrings(language),
+        onDismiss = { documentViewerState = null },
+    )
+}
+
+private suspend fun openIosLegalDocumentWithViewerState(
+    document: LegalDocument,
+    language: QuataLanguage,
+    documentOpener: DocumentOpenService,
+): DocumentViewerState {
+    val file = iosLegalDocumentFile(document, language)
+    if (file == null) {
+        val placeholder = iosLegalDocumentPlaceholderFile(document, language)
+        return DocumentViewerState.Failed(
+            file = placeholder,
+            descriptor = documentViewerOpeningState(placeholder).descriptor,
+            reason = DocumentViewerFailureReason.PlatformUnsupported,
+        )
+    }
+    return documentOpener.openWithViewerState(file).completed
 }
 
 fun openIosLegalDocumentForSettings(

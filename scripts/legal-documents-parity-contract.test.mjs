@@ -67,14 +67,17 @@ test('Android, Web and iOS About links use common legal document content', () =>
   assert.doesNotMatch(androidLegal, /QuataDocumentReader\.open/);
 
   assert.match(web, /QuataLegalDocumentLinksContent\(/);
-  assert.match(web, /documentOpener\.open\(webLegalDocumentFile\(document, language\)\)/);
+  assert.match(web, /documentOpener\.openWithViewerState\(file\)\.completed/);
+  assert.match(web, /QuataDocumentViewerStatusContent\(/);
   assert.match(web, /reference = webLegalDocumentUrl\(assetName\)/);
   assert.doesNotMatch(web, /TextButton\(onClick = \{ webOpenExternalUrl\(LegalLinks\./);
   assert.doesNotMatch(web, /webOpenExternalUrl\(document\.publicUrl\(\)\)/);
   assert.doesNotMatch(web, /WebAboutLegalLabels/);
 
   assert.match(iosRuntime, /QuataLegalDocumentLinksContent\(/);
-  assert.match(iosRuntime, /iosLegalDocumentFile\(document, language\)\?\.let \{ documentOpener\.open\(it\) \}/);
+  assert.match(iosRuntime, /openIosLegalDocumentWithViewerState\(document, language, documentOpener\)/);
+  assert.match(iosRuntime, /documentOpener\.openWithViewerState\(file\)\.completed/);
+  assert.match(iosRuntime, /QuataDocumentViewerStatusContent\(/);
   assert.match(iosLegal, /NSBundle\.mainBundle\.pathForResource/);
   assert.match(iosSwift, /documentOpener: platformServices\.services\.documentOpener/);
   assert.doesNotMatch(iosRuntime, /TextButton\(onClick = \{ openIosExternalUrl\(LegalLinks\./);
@@ -111,12 +114,13 @@ test('About evidence runners exercise both shared legal document actions', () =>
   assert.match(iosHostUiTests, /"legal-document-link-childsafety"/);
   assert.match(iosHostUiTests, /"legal-document-opened-privacy_es\.docx"/);
   assert.match(iosHostUiTests, /"legal-document-opened-child_safety_es\.docx"/);
+  assert.match(iosHostUiTests, /about-legal-document-viewer-status/);
 });
 
 test('Account and Settings surfaces expose the shared legal document section', () => {
   assert.match(settingsCommon, /fun SettingsLegalDocumentsSectionContent\(/);
   assert.match(settingsCommon, /fun settingsLegalDocumentsStrings\(language: QuataLanguage\)/);
-  assert.match(settingsCommon, /fun settingsDocumentViewerStatusStrings\(language: QuataLanguage\)/);
+  assert.match(documentViewerStatusContent, /fun quataDocumentViewerStatusStrings\(language: QuataLanguage\)/);
   assert.match(settingsCommon, /QuataLegalDocumentLinksContent\(/);
 
   assert.match(profileHost, /slots\.legalDocuments\?\.invoke\(\)/);
@@ -151,7 +155,7 @@ test('Account and Settings surfaces expose the shared legal document section', (
   assert.match(iosProfile, /documentViewerState = documentViewerOpeningState\(file\)/);
   assert.match(iosProfile, /opener\.openWithViewerState\(file\)\.completed/);
   assert.match(iosProfile, /QuataDocumentViewerStatusContent\(/);
-  assert.match(iosProfile, /settingsDocumentViewerStatusStrings\(language\)/);
+  assert.match(iosProfile, /quataDocumentViewerStatusStrings\(language\)/);
   assert.match(iosProfileBootstrap, /openLegalDocument: \(LegalDocument, DocumentOpenService\) -> Unit/);
   assert.match(iosProfileLegalFixture, /fun QuataIosProfileLegalEvidenceViewController\(/);
   assert.match(iosProfileLegalFixture, /RecordingIosProfileLegalDocumentOpenService/);
@@ -161,7 +165,7 @@ test('Account and Settings surfaces expose the shared legal document section', (
   assert.match(iosSettings, /documentViewerState = documentViewerOpeningState\(file\)/);
   assert.match(iosSettings, /opener\.openWithViewerState\(file\)\.completed/);
   assert.match(iosSettings, /QuataDocumentViewerStatusContent\(/);
-  assert.match(iosSettings, /settingsDocumentViewerStatusStrings\(dependencies\.language\)/);
+  assert.match(iosSettings, /quataDocumentViewerStatusStrings\(dependencies\.language\)/);
   assert.match(iosRuntime, /fun openIosLegalDocumentForSettings\(/);
   assert.match(iosSwift, /openIosLegalDocumentForSettings\(/);
   assert.match(iosSwift, /IosProfileLegalEvidenceFixtureKt\.QuataIosProfileLegalEvidenceViewController\(/);
@@ -198,7 +202,8 @@ test('Auth registration exposes legal documents through the shared common slot',
 
   assert.match(webLogin, /registerLegalLinks = \{/);
   assert.match(webLogin, /WebNativeLegalDocumentLinksContent\(/);
-  assert.match(webLogin, /documentOpener\.open\(webLegalDocumentFile\(document, QuataLanguage\.Spanish\)\)/);
+  assert.match(webLogin, /documentOpener\.openWithViewerState\(file\)\.completed/);
+  assert.match(webLogin, /QuataDocumentViewerStatusContent\(/);
   assert.match(webNativeLegalLinks, /legalDocumentLabels\(language\)/);
   assert.match(webNativeLegalLinks, /legalDocument\.label\(labels\)/);
   assert.match(webNativeLegalLinks, /HTMLButtonElement/);
@@ -213,10 +218,13 @@ test('Auth registration exposes legal documents through the shared common slot',
 
   assert.match(iosAuth, /registerLegalLinks = \{ IosAuthRegisterLegalLinks\(dependencies\.locale, dependencies\.documentOpener\) \}/);
   assert.match(iosAuth, /fun openIosAuthLegalDocument\(/);
-  assert.match(iosAuth, /iosLegalDocumentFile\(document, language\)\?\.let \{ documentOpener\.open\(it\) \}/);
+  assert.match(iosAuth, /openIosLegalDocumentWithViewerState\(document, language, documentOpener\)/);
+  assert.match(iosAuth, /documentOpener\.openWithViewerState\(file\)\.completed/);
+  assert.match(iosAuth, /QuataDocumentViewerStatusContent\(/);
   assert.match(iosSwift, /createIosAuthHostDependencies[\s\S]*documentOpener: platformServices\.services\.documentOpener/);
   assert.match(iosHostUiTests, /testAuthLaunchFixtureCanColdStartSharedRegisterLegalLinks/);
   assert.match(iosHostUiTests, /auth-launch-register-legal/);
+  assert.match(iosHostUiTests, /auth-launch-register-document-viewer-status/);
 });
 
 async function source(path) {

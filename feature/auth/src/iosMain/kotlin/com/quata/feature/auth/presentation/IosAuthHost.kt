@@ -3,14 +3,25 @@ package com.quata.feature.auth.presentation
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.moderation.iosLegalDocumentFile
+import com.quata.core.moderation.iosLegalDocumentPlaceholderFile
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentViewerFailureReason
+import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
 import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
+import com.quata.core.ui.components.quataDocumentViewerStatusStrings
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.LogoutUseCase
 import kotlinx.coroutines.CoroutineScope
@@ -156,11 +167,19 @@ fun QuataRegistrationViewController(dependencies: IosAuthHostDependencies): UIVi
 private fun IosAuthRegisterLegalLinks(locale: AuthCatalogLocale, documentOpener: DocumentOpenService) {
     val scope = rememberCoroutineScope()
     val language = locale.quataLanguage()
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     QuataLegalDocumentLinksContent(
         language = language,
         onOpenDocument = { document ->
-            scope.launch { openIosAuthLegalDocument(document, language, documentOpener) }
+            scope.launch {
+                documentViewerState = openIosLegalDocumentWithViewerState(document, language, documentOpener)
+            }
         },
+    )
+    QuataDocumentViewerStatusContent(
+        state = documentViewerState,
+        strings = quataDocumentViewerStatusStrings(language),
+        onDismiss = { documentViewerState = null },
     )
 }
 
@@ -170,6 +189,23 @@ suspend fun openIosAuthLegalDocument(
     documentOpener: DocumentOpenService,
 ) {
     iosLegalDocumentFile(document, language)?.let { documentOpener.open(it) }
+}
+
+private suspend fun openIosLegalDocumentWithViewerState(
+    document: LegalDocument,
+    language: QuataLanguage,
+    documentOpener: DocumentOpenService,
+): DocumentViewerState {
+    val file = iosLegalDocumentFile(document, language)
+    if (file == null) {
+        val placeholder = iosLegalDocumentPlaceholderFile(document, language)
+        return DocumentViewerState.Failed(
+            file = placeholder,
+            descriptor = documentViewerOpeningState(placeholder).descriptor,
+            reason = DocumentViewerFailureReason.PlatformUnsupported,
+        )
+    }
+    return documentOpener.openWithViewerState(file).completed
 }
 
 private fun AuthCatalogLocale.quataLanguage(): QuataLanguage = when (this) {

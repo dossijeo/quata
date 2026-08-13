@@ -3,15 +3,22 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.moderation.assetName
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PreferenceStore
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
 import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.core.ui.components.QuataAboutDialogContent
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
@@ -112,11 +119,21 @@ fun WebWhatsNewHost(
 private fun WebAboutLegalLinks(languageTags: List<String>, documentOpener: DocumentOpenService) {
     val language = languageTags.toQuataLanguage()
     val scope = rememberCoroutineScope()
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     QuataLegalDocumentLinksContent(
         language = language,
         onOpenDocument = { document ->
-            scope.launch { documentOpener.open(webLegalDocumentFile(document, language)) }
+            scope.launch {
+                val file = webLegalDocumentFile(document, language)
+                documentViewerState = documentViewerOpeningState(file)
+                documentViewerState = documentOpener.openWithViewerState(file).completed
+            }
         },
+    )
+    QuataDocumentViewerStatusContent(
+        state = documentViewerState,
+        strings = webDocumentViewerStatusStrings(languageTags),
+        onDismiss = { documentViewerState = null },
     )
 }
 

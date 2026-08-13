@@ -121,6 +121,18 @@ final class QuataIosHostUITests: XCTestCase {
                 .waitForExistence(timeout: 10),
             "The shared register Privacy link must resolve to the packaged Spanish DOCX.",
         )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "document-viewer-status-root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared register legal links must render the common document viewer status chrome.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-launch-register-document-viewer-status")
+        app.descendants(matching: .any)
+            .matching(identifier: "document-viewer-status-close")
+            .firstMatch
+            .tap()
         app.descendants(matching: .any)
             .matching(identifier: "legal-document-link-childsafety")
             .firstMatch
@@ -353,6 +365,18 @@ final class QuataIosHostUITests: XCTestCase {
                 .waitForExistence(timeout: 10),
             "The iOS About fixture must resolve Privacy to the packaged Spanish DOCX.",
         )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "document-viewer-status-root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS About legal fixture must render the common document viewer status chrome.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "about-legal-document-viewer-status")
+        app.descendants(matching: .any)
+            .matching(identifier: "document-viewer-status-close")
+            .firstMatch
+            .tap()
         app.descendants(matching: .any)
             .matching(identifier: "legal-document-link-childsafety")
             .firstMatch
