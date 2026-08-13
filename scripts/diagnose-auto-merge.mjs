@@ -5,9 +5,10 @@ export function diagnoseAutoMergeState({ pullRequest, requiredChecks = [] }) {
   const checks = pullRequest?.statusCheckRollup ?? [];
   const byName = new Map();
   for (const check of checks) {
-    if (!byName.has(check.name) || check.status !== "COMPLETED") byName.set(check.name, check);
+    const previous = byName.get(check.name);
+    if (!previous || checkTimestamp(check) >= checkTimestamp(previous)) byName.set(check.name, check);
   }
-  const failures = checks
+  const failures = [...byName.values()]
     .filter((check) => check.status === "COMPLETED" && ["FAILURE", "TIMED_OUT", "ACTION_REQUIRED"].includes(check.conclusion))
     .map((check) => check.name);
   const missingRequired = requiredChecks.filter((name) => !byName.has(name));
@@ -47,6 +48,11 @@ export function diagnoseAutoMergeState({ pullRequest, requiredChecks = [] }) {
     failedRequired,
     reasons,
   };
+}
+
+function checkTimestamp(check) {
+  const stamp = Date.parse(check?.completedAt || check?.startedAt || "");
+  return Number.isFinite(stamp) ? stamp : 0;
 }
 
 if (import.meta.url === `file:///${process.argv[1].replaceAll("\\", "/")}`) {
