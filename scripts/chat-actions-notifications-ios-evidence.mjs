@@ -87,9 +87,11 @@ try {
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
 
   const users = await authorizedUsers();
-  profileHashWindow = await openTemporaryProfileHashWindow(users);
-  if (profileHashWindow.state === "opened") {
-    report.steps.push("temporary_profile_hash_window_opened");
+  if (profileEvidenceOnly) {
+    profileHashWindow = await openTemporaryProfileHashWindow(users);
+    if (profileHashWindow.state === "opened") {
+      report.steps.push("temporary_profile_hash_window_opened");
+    }
   }
   state.a = await login(config, users[0]);
   state.b = await login(config, users[1]);
