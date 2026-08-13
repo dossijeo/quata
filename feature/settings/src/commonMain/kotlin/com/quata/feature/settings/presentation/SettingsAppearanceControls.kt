@@ -26,9 +26,58 @@ import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.core.ui.components.QuataPanel
+import com.quata.core.ui.components.QuataDocumentViewerStatusStrings
 
 data class AppearanceSettingsStrings(val touchFlow: String, val theme: String, val system: String, val dark: String, val light: String)
 data class SettingsLegalDocumentsStrings(val title: String)
+
+fun settingsLegalDocumentsStrings(language: QuataLanguage): SettingsLegalDocumentsStrings =
+    SettingsLegalDocumentsStrings(
+        title = when (language) {
+            QuataLanguage.Spanish -> "Documentos legales"
+            QuataLanguage.French -> "Documents juridiques"
+            QuataLanguage.English -> "Legal documents"
+        },
+    )
+
+fun settingsDocumentViewerStatusStrings(language: QuataLanguage): QuataDocumentViewerStatusStrings = when (language) {
+    QuataLanguage.Spanish -> QuataDocumentViewerStatusStrings(
+        openingTitle = "Abriendo documento",
+        openedTitle = "Documento abierto",
+        failedTitle = "No se pudo abrir",
+        openingMessage = "Preparando el visor de documentos.",
+        openedMessage = "El documento se abrio en el visor del sistema.",
+        cancelledMessage = "La apertura se cancelo antes de mostrar el documento.",
+        unsupportedFormatMessage = "Este formato no se puede previsualizar.",
+        platformUnsupportedMessage = "Este dispositivo no puede abrir documentos desde aqui.",
+        openFailedMessage = "No se pudo abrir el documento.",
+        closeLabel = "Cerrar",
+    )
+    QuataLanguage.French -> QuataDocumentViewerStatusStrings(
+        openingTitle = "Ouverture du document",
+        openedTitle = "Document ouvert",
+        failedTitle = "Impossible d'ouvrir",
+        openingMessage = "Preparation de l'apercu du document.",
+        openedMessage = "Le document s'est ouvert dans le lecteur du systeme.",
+        cancelledMessage = "L'ouverture a ete annulee avant l'affichage.",
+        unsupportedFormatMessage = "Ce format ne peut pas etre previsualise.",
+        platformUnsupportedMessage = "Cet appareil ne peut pas ouvrir les documents ici.",
+        openFailedMessage = "Impossible d'ouvrir le document.",
+        closeLabel = "Fermer",
+    )
+    QuataLanguage.English -> QuataDocumentViewerStatusStrings(
+        openingTitle = "Opening document",
+        openedTitle = "Document opened",
+        failedTitle = "Could not open",
+        openingMessage = "Preparing the document viewer.",
+        openedMessage = "The document opened in the system viewer.",
+        cancelledMessage = "Opening was cancelled before the document was shown.",
+        unsupportedFormatMessage = "This format cannot be previewed.",
+        platformUnsupportedMessage = "This device cannot open documents here.",
+        openFailedMessage = "The document could not be opened.",
+        closeLabel = "Close",
+    )
+}
 
 /** Shared settings-card shell; the host supplies only localized strings and persisted values. */
 @Composable

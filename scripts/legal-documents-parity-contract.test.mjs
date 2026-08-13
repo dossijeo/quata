@@ -115,6 +115,8 @@ test('About evidence runners exercise both shared legal document actions', () =>
 
 test('Account and Settings surfaces expose the shared legal document section', () => {
   assert.match(settingsCommon, /fun SettingsLegalDocumentsSectionContent\(/);
+  assert.match(settingsCommon, /fun settingsLegalDocumentsStrings\(language: QuataLanguage\)/);
+  assert.match(settingsCommon, /fun settingsDocumentViewerStatusStrings\(language: QuataLanguage\)/);
   assert.match(settingsCommon, /QuataLegalDocumentLinksContent\(/);
 
   assert.match(profileHost, /slots\.legalDocuments\?\.invoke\(\)/);
@@ -144,12 +146,22 @@ test('Account and Settings surfaces expose the shared legal document section', (
 
   assert.match(iosProfile, /legalDocuments = \{/);
   assert.match(iosProfile, /SettingsLegalDocumentsSectionContent\(/);
-  assert.match(iosProfile, /dependencies\.openLegalDocument\(document, opener\)/);
+  assert.match(iosProfile, /settingsLegalDocumentsStrings\(language\)/);
+  assert.match(iosProfile, /iosLegalDocumentFile\(document, language\)/);
+  assert.match(iosProfile, /documentViewerState = documentViewerOpeningState\(file\)/);
+  assert.match(iosProfile, /opener\.openWithViewerState\(file\)\.completed/);
+  assert.match(iosProfile, /QuataDocumentViewerStatusContent\(/);
+  assert.match(iosProfile, /settingsDocumentViewerStatusStrings\(language\)/);
   assert.match(iosProfileBootstrap, /openLegalDocument: \(LegalDocument, DocumentOpenService\) -> Unit/);
   assert.match(iosProfileLegalFixture, /fun QuataIosProfileLegalEvidenceViewController\(/);
   assert.match(iosProfileLegalFixture, /RecordingIosProfileLegalDocumentOpenService/);
   assert.match(iosSettings, /SettingsLegalDocumentsSectionContent\(/);
-  assert.match(iosSettings, /openLegalDocument\(document, opener\)/);
+  assert.match(iosSettings, /settingsLegalDocumentsStrings\(dependencies\.language\)/);
+  assert.match(iosSettings, /iosLegalDocumentFile\(document, dependencies\.language\)/);
+  assert.match(iosSettings, /documentViewerState = documentViewerOpeningState\(file\)/);
+  assert.match(iosSettings, /opener\.openWithViewerState\(file\)\.completed/);
+  assert.match(iosSettings, /QuataDocumentViewerStatusContent\(/);
+  assert.match(iosSettings, /settingsDocumentViewerStatusStrings\(dependencies\.language\)/);
   assert.match(iosRuntime, /fun openIosLegalDocumentForSettings\(/);
   assert.match(iosSwift, /openIosLegalDocumentForSettings\(/);
   assert.match(iosSwift, /IosProfileLegalEvidenceFixtureKt\.QuataIosProfileLegalEvidenceViewController\(/);

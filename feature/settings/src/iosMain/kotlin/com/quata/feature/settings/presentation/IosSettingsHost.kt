@@ -4,13 +4,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.LegalDocument
+import com.quata.core.moderation.iosLegalDocumentFile
+import com.quata.core.moderation.iosLegalDocumentPlaceholderFile
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentViewerFailureReason
+import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
+import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
 /** Swift supplies persisted appearance state and all navigation/platform actions. */
@@ -57,6 +66,8 @@ fun createIosSettingsHostDependencies(
 fun QuataSettingsViewController(dependencies: IosSettingsHostDependencies): UIViewController = ComposeUIViewController {
     var touchFlowEnabled by remember { mutableStateOf(dependencies.touchFlowEnabled) }
     var themeMode by remember { mutableStateOf(dependencies.themeMode) }
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
+    val scope = rememberCoroutineScope()
     QuataTheme(mode = themeMode) {
         Column {
             AppearanceSettingsSectionContent(
@@ -75,13 +86,31 @@ fun QuataSettingsViewController(dependencies: IosSettingsHostDependencies): UIVi
             dependencies.documentOpener?.let { opener ->
                 SettingsLegalDocumentsSectionContent(
                     language = dependencies.language,
-                    strings = SettingsLegalDocumentsStrings(title = "Legal documents"),
+                    strings = settingsLegalDocumentsStrings(dependencies.language),
                     onOpenDocument = { document ->
-                        dependencies.openLegalDocument(document, opener)
+                        scope.launch {
+                            val file = iosLegalDocumentFile(document, dependencies.language)
+                            if (file == null) {
+                                val placeholder = iosLegalDocumentPlaceholderFile(document, dependencies.language)
+                                documentViewerState = DocumentViewerState.Failed(
+                                    file = placeholder,
+                                    descriptor = documentViewerOpeningState(placeholder).descriptor,
+                                    reason = DocumentViewerFailureReason.PlatformUnsupported,
+                                )
+                            } else {
+                                documentViewerState = documentViewerOpeningState(file)
+                                documentViewerState = opener.openWithViewerState(file).completed
+                            }
+                        }
                     },
                 )
             }
         }
+        QuataDocumentViewerStatusContent(
+            state = documentViewerState,
+            strings = settingsDocumentViewerStatusStrings(dependencies.language),
+            onDismiss = { documentViewerState = null },
+        )
     }
 }
 

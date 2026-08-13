@@ -16,19 +16,27 @@ import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.LegalDocument
+import com.quata.core.moderation.iosLegalDocumentFile
+import com.quata.core.moderation.iosLegalDocumentPlaceholderFile
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentViewerFailureReason
+import com.quata.core.platform.DocumentViewerState
 import com.quata.core.ui.components.IosRemoteAvatar
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
-import com.quata.feature.settings.presentation.SettingsLegalDocumentsStrings
+import com.quata.feature.settings.presentation.settingsDocumentViewerStatusStrings
+import com.quata.feature.settings.presentation.settingsLegalDocumentsStrings
 import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
@@ -54,6 +62,8 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
     QuataTheme(mode = themeMode) {
         val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
         val scope = rememberCoroutineScope()
+        val language = dependencies.languageCode.toQuataLanguage()
+        var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
         ProfileScreenHost(
             repository = dependencies.repository,
             strings = IosProfileScreenStrings,
@@ -101,15 +111,33 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
                 legalDocuments = {
                     dependencies.documentOpener?.let { opener ->
                         SettingsLegalDocumentsSectionContent(
-                            language = dependencies.languageCode.toQuataLanguage(),
-                            strings = SettingsLegalDocumentsStrings(title = "Legal documents"),
+                            language = language,
+                            strings = settingsLegalDocumentsStrings(language),
                             onOpenDocument = { document ->
-                                dependencies.openLegalDocument(document, opener)
+                                scope.launch {
+                                    val file = iosLegalDocumentFile(document, language)
+                                    if (file == null) {
+                                        val placeholder = iosLegalDocumentPlaceholderFile(document, language)
+                                        documentViewerState = DocumentViewerState.Failed(
+                                            file = placeholder,
+                                            descriptor = documentViewerOpeningState(placeholder).descriptor,
+                                            reason = DocumentViewerFailureReason.PlatformUnsupported,
+                                        )
+                                    } else {
+                                        documentViewerState = documentViewerOpeningState(file)
+                                        documentViewerState = opener.openWithViewerState(file).completed
+                                    }
+                                }
                             },
                         )
                     }
                 },
             ),
+        )
+        QuataDocumentViewerStatusContent(
+            state = documentViewerState,
+            strings = settingsDocumentViewerStatusStrings(language),
+            onDismiss = { documentViewerState = null },
         )
     }
 }

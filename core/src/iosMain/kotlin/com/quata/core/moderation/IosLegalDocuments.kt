@@ -17,5 +17,14 @@ fun iosLegalDocumentFile(document: LegalDocument, language: QuataLanguage): Plat
     )
 }
 
+fun iosLegalDocumentPlaceholderFile(document: LegalDocument, language: QuataLanguage): PlatformFile {
+    val assetName = document.assetName(language)
+    return PlatformFile(
+        reference = assetName,
+        displayName = assetName,
+        mimeType = LegalDocumentDocxMimeType,
+    )
+}
+
 private const val LegalDocumentDocxMimeType =
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"

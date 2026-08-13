@@ -72,7 +72,7 @@ import com.quata.feature.profile.presentation.ProfileScreenSlots
 import com.quata.feature.profile.presentation.ProfileScreenStrings
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
-import com.quata.feature.settings.presentation.SettingsLegalDocumentsStrings
+import com.quata.feature.settings.presentation.settingsLegalDocumentsStrings
 import com.quata.core.moderation.LegalDocument
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
@@ -134,7 +134,7 @@ internal fun WebProfileHost(
                 }
                 SettingsLegalDocumentsSectionContent(
                     language = language,
-                    strings = SettingsLegalDocumentsStrings(title = "Documentos legales"),
+                    strings = settingsLegalDocumentsStrings(language),
                     onOpenDocument = openLegalDocument,
                 )
             },
