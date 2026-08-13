@@ -62,8 +62,8 @@ import com.quata.feature.postcomposer.imageeditor.QuataImageEditorMode
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
-import com.quata.feature.settings.presentation.SettingsLegalDocumentsStrings
 import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
+import com.quata.feature.settings.presentation.settingsLegalDocumentsStrings
 import com.quata.core.ui.components.QuataCameraDialog
 import com.quata.core.ui.components.QuataCameraMode
 import kotlinx.coroutines.launch
@@ -156,7 +156,7 @@ fun ProfileScreen(
                 legalDocuments = {
                     SettingsLegalDocumentsSectionContent(
                         language = QuataLanguageManager.currentLanguage,
-                        strings = SettingsLegalDocumentsStrings(title = context.getString(R.string.legal_documents_title)),
+                        strings = settingsLegalDocumentsStrings(QuataLanguageManager.currentLanguage),
                         onOpenDocument = { document ->
                             scope.launch {
                                 when (val file = LegalDocuments.platformFile(context, document)) {

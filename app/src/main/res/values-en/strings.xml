@@ -556,8 +556,6 @@
     <string name="official_language_french">French</string>
     <string name="splash_brand_letters">Q &#220; A T A</string>
     <string name="splash_mark">Q&#776;</string>
-    <string name="legal_privacy">Privacy policy</string>
-    <string name="legal_child_safety">Child safety and community standards</string>
     <string name="document_viewer_opening_title">Opening document</string>
     <string name="document_viewer_opened_title">Document opened</string>
     <string name="document_viewer_failed_title">Document unavailable</string>

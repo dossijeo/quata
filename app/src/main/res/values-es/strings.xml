@@ -558,8 +558,6 @@
     <string name="vosk_model_fr_title">Modelo de subtítulos en francés</string>
     <string name="splash_brand_letters">Q &#220; A T A</string>
     <string name="splash_mark">Q&#776;</string>
-    <string name="legal_privacy">Pol&#237;tica de privacidad</string>
-    <string name="legal_child_safety">Seguridad infantil y normas de la comunidad</string>
     <string name="document_viewer_opening_title">Abriendo documento</string>
     <string name="document_viewer_opened_title">Documento abierto</string>
     <string name="document_viewer_failed_title">Documento no disponible</string>
