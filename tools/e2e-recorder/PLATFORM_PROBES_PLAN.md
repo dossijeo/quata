@@ -30,3 +30,4 @@ This unit builds on the MVP in PR #243. It must not be promoted before #243 is i
 - Contract tests cover Android stable semantics, Android external app rejection and iOS AX identifier resolution.
 - `tools/e2e-recorder/android-dump-tree.mjs` captures a real UIAutomator tree through ADB so a visual tap can be resolved after the fact.
 - `tools/e2e-recorder/ios-ax-probe.swift` is the minimal macOS-side AX element-under-point probe to validate whether Compose/iOS exposes stable identifiers before writing XCTest selectors.
+- `tools/e2e-recorder/append-step.mjs` turns a probe point into a macro step, completing the minimal capture -> normalize -> compile path for non-Web platforms.

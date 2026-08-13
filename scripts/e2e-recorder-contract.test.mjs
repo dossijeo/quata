@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { access, readFile, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { compileMacro, createMacro, readMacro, renderReplayArtifact, selectorForAndroid, selectorForIos, selectorForWeb, summarizeMacro, writeMacro } from "../tools/e2e-recorder/lib/macro-core.mjs";
 import { androidTargetFromPoint, iosTargetFromPoint, uiAutomatorXmlToTree } from "../tools/e2e-recorder/lib/platform-probes.mjs";
+
+const execFileAsync = promisify(execFile);
 
 test("macro compiler prefers stable anchors over coordinates", () => {
   const web = selectorForWeb({
@@ -154,11 +158,46 @@ test("platform probes resolve iOS AX identifiers under a point", () => {
   assert.equal(target.stable, true);
 });
 
+test("append-step builds a macro from a platform probe", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "quata-e2e-append-"));
+  try {
+    const probe = path.join(dir, "android-tree.json");
+    const macro = path.join(dir, "android.macro.json");
+    await writeFile(probe, JSON.stringify({
+      children: [
+        {
+          packageName: "com.quata",
+          resourceId: "com.quata:id/privacy",
+          bounds: "[24,500][366,556]",
+        },
+      ],
+    }), "utf8");
+
+    await execFileAsync(process.execPath, [
+      "tools/e2e-recorder/append-step.mjs",
+      "--macro", macro,
+      "--flow", "append-android",
+      "--platform", "android",
+      "--action", "tap",
+      "--probe", probe,
+      "--point", "100,520",
+    ], { cwd: path.resolve("."), encoding: "utf8" });
+
+    const saved = await readMacro(macro);
+    assert.equal(saved.steps.length, 1);
+    assert.equal(saved.steps[0].target.preferred.kind, "resourceId");
+    assert.equal(compileMacro(saved).runnable, true);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("recorder tooling and persistent operating docs describe the workflow", async () => {
   for (const file of [
     "tools/e2e-recorder/web-recorder.mjs",
     "tools/e2e-recorder/android-recorder.mjs",
     "tools/e2e-recorder/android-dump-tree.mjs",
+    "tools/e2e-recorder/append-step.mjs",
     "tools/e2e-recorder/ios-ax-probe.swift",
     "tools/e2e-recorder/ios-compile.mjs",
     "tools/e2e-recorder/README.md",
