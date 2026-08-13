@@ -388,6 +388,17 @@ final class QuataIosHostUITests: XCTestCase {
                 .waitForExistence(timeout: 10),
             "The iOS About fixture must resolve Child Safety to the packaged Spanish DOCX.",
         )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "document-viewer-status-root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS About child-safety document must keep the common viewer status chrome visible.",
+        )
+        app.descendants(matching: .any)
+            .matching(identifier: "document-viewer-status-close")
+            .firstMatch
+            .tap()
 
         app.descendants(matching: .any)
             .matching(identifier: "about-release-history")

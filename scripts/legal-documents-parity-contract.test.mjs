@@ -115,6 +115,7 @@ test('About evidence runners exercise both shared legal document actions', () =>
   assert.match(iosHostUiTests, /"legal-document-opened-privacy_es\.docx"/);
   assert.match(iosHostUiTests, /"legal-document-opened-child_safety_es\.docx"/);
   assert.match(iosHostUiTests, /about-legal-document-viewer-status/);
+  assert.match(iosHostUiTests, /child-safety document must keep the common viewer status chrome visible/);
 });
 
 test('Account and Settings surfaces expose the shared legal document section', () => {
