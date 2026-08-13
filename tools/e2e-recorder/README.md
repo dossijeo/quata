@@ -31,6 +31,8 @@ node tools/e2e-recorder/web-replay.mjs --macro build-reports/e2e-recorder/legal-
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 node tools/e2e-recorder/android-compose-semantics.mjs --out build-reports/e2e-recorder/android-compose-semantics.json --adb $adb
 node tools/e2e-recorder/probe-target.mjs --platform android --input build-reports/e2e-recorder/android-compose-semantics.json --point 120,760
+node tools/e2e-recorder/append-step.mjs --macro build-reports/e2e-recorder/android-whats-new.macro.json --flow android-whats-new --platform android --action tap --probe build-reports/e2e-recorder/android-compose-semantics.json --point 120,760
+node tools/e2e-recorder/compile.mjs build-reports/e2e-recorder/android-whats-new.macro.json --emit build-reports/e2e-recorder/android-whats-new.generated.kt
 node tools/e2e-recorder/android-dump-tree.mjs --out build-reports/e2e-recorder/android-ui.json --adb $adb
 node tools/e2e-recorder/android-recorder.mjs --flow legal-android --out build-reports/e2e-recorder/legal-android.macro.json --tap 120,760 --adb $adb
 node tools/e2e-recorder/android-replay.mjs --macro build-reports/e2e-recorder/legal-android.macro.json --adb $adb
@@ -61,4 +63,4 @@ Artifact rules:
 - `probe-target.mjs` converts Android Compose/UIAutomator or iOS AX trees into the same macro target shape and exits non-zero when the point cannot be resolved to a stable product anchor.
 - `append-step.mjs` appends a resolved probe point to the common macro file so Android/iOS captures can move directly into `compile.mjs`.
 - Coordinates are allowed only as diagnostics or temporary discovery data.
-- A replay failure must name the step, selector, URL/screen and visible state where possible.
+- A replay failure must name the step and selector, and should include URL/screen and visible state when that platform surface exposes them.

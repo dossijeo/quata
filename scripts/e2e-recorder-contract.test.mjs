@@ -350,3 +350,72 @@ test("Android replay implements composeTestTag and real assertVisible steps", as
   assert.match(replay, /unsupported_android_action/);
   assert.match(artifact, /composeTestTag exported through Compose semantics/);
 });
+
+test("Android replay resolves Compose testTags from UIAutomator view-id-resource-name", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "quata-e2e-replay-compose-"));
+  try {
+    const adb = path.join(dir, process.platform === "win32" ? "adb.cmd" : "adb");
+    const macro = path.join(dir, "compose.macro.json");
+    await writeFile(macro, JSON.stringify({
+      format: "quata-e2e-macro",
+      version: 1,
+      flow: "compose",
+      platform: "android",
+      createdAt: new Date().toISOString(),
+      steps: [{ action: "assertVisible", target: { testTag: "whats-new-next" } }],
+    }), "utf8");
+    await writeFakeAdb(adb, `<hierarchy><node package="com.quata" view-id-resource-name="whats-new-next" content-desc="next_whats_new" visible-to-user="true" bounds="[714,1764][1014,1874]" /></hierarchy>`);
+
+    const { stdout } = await execFileAsync(process.execPath, [
+      "tools/e2e-recorder/android-replay.mjs",
+      "--macro", macro,
+      "--adb", adb,
+    ], { cwd: path.resolve("."), encoding: "utf8" });
+    assert.match(stdout, /"ok": true/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("Android replay fails assertVisible for invisible nodes", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "quata-e2e-replay-invisible-"));
+  try {
+    const adb = path.join(dir, process.platform === "win32" ? "adb.cmd" : "adb");
+    const macro = path.join(dir, "compose.macro.json");
+    await writeFile(macro, JSON.stringify({
+      format: "quata-e2e-macro",
+      version: 1,
+      flow: "compose",
+      platform: "android",
+      createdAt: new Date().toISOString(),
+      steps: [{ action: "assertVisible", target: { testTag: "whats-new-next" } }],
+    }), "utf8");
+    await writeFakeAdb(adb, `<hierarchy><node package="com.quata" view-id-resource-name="whats-new-next" visible-to-user="false" bounds="[714,1764][1014,1874]" /></hierarchy>`);
+
+    await assert.rejects(
+      async () => {
+        try {
+          await execFileAsync(process.execPath, [
+        "tools/e2e-recorder/android-replay.mjs",
+        "--macro", macro,
+        "--adb", adb,
+          ], { cwd: path.resolve("."), encoding: "utf8" });
+        } catch (error) {
+          assert.match(error.stdout, /selector_not_visible/);
+          throw error;
+        }
+      },
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+async function writeFakeAdb(file, xml) {
+  if (process.platform === "win32") {
+    const escaped = xml.replaceAll("^", "^^").replaceAll("&", "^&").replaceAll("<", "^<").replaceAll(">", "^>");
+    await writeFile(file, `@echo off\r\nif "%1"=="shell" echo UI hierchary dumped to: /sdcard/quata-window.xml\r\nif "%1"=="exec-out" echo ${escaped}\r\n`, "utf8");
+  } else {
+    await writeFile(file, `#!/usr/bin/env sh\nif [ "$1" = "shell" ]; then echo "UI hierchary dumped to: /sdcard/quata-window.xml"; fi\nif [ "$1" = "exec-out" ]; then echo '${xml}'; fi\n`, { mode: 0o755 });
+  }
+}
