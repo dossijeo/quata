@@ -166,6 +166,9 @@ test('Account and Settings surfaces expose the shared legal document section', (
   assert.match(iosSwift, /openIosLegalDocumentForSettings\(/);
   assert.match(iosSwift, /IosProfileLegalEvidenceFixtureKt\.QuataIosProfileLegalEvidenceViewController\(/);
   assert.match(iosHostUiTests, /testProfileLegalFixtureRendersSharedAccountLegalLinks/);
+  assert.match(iosHostUiTests, /"document-viewer-status-root"/);
+  assert.match(iosHostUiTests, /"document-viewer-status-close"/);
+  assert.match(iosHostUiTests, /profile-legal-document-viewer-status/);
 });
 
 test('legal document openings expose common viewer state and chrome', () => {

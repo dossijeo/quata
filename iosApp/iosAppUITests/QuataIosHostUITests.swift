@@ -415,6 +415,18 @@ final class QuataIosHostUITests: XCTestCase {
                 .waitForExistence(timeout: 10),
             "The iOS Cuenta fixture must resolve Privacy to the packaged Spanish DOCX.",
         )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "document-viewer-status-root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS Cuenta legal fixture must render the shared document viewer status chrome.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "profile-legal-document-viewer-status")
+        app.descendants(matching: .any)
+            .matching(identifier: "document-viewer-status-close")
+            .firstMatch
+            .tap()
         app.descendants(matching: .any)
             .matching(identifier: "legal-document-link-childsafety")
             .firstMatch
