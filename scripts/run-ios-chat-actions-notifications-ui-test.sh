@@ -120,9 +120,9 @@ elif [[ "$bootstatus_status" -ne 0 ]]; then
   exit "$bootstatus_status"
 fi
 
-/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID" "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E:-0}" "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E:-0}" "${QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E:-0}" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" "$QUATA_IOS_CHAT_E2E_FORWARD_QUERY" <<'PY'
+/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID" "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E:-0}" "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E:-0}" "${QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E:-0}" "${QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E:-0}" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" "$QUATA_IOS_CHAT_E2E_FORWARD_QUERY" "$QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE" <<'PY'
 import plistlib, sys
-path, credentials, conversation, message, marker, profile_marker, profile_id, profile_follow, profile_lists, menu_surface, keyboard_menu, editable_message, editable_marker, composer, reply, edit, forward_query = sys.argv[1:]
+path, credentials, conversation, message, marker, profile_marker, profile_id, profile_follow, profile_lists, menu_surface, keyboard_menu, attachments_audio, editable_message, editable_marker, composer, reply, edit, forward_query, attachment_document, attachment_audio = sys.argv[1:]
 with open(path, 'rb') as f:
     data = plistlib.load(f)
 matched = set()
@@ -139,6 +139,7 @@ def patch_target(target, hint=''):
         env['QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E'] = profile_lists
         env['QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E'] = menu_surface
         env['QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E'] = keyboard_menu
+        env['QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E'] = attachments_audio
         env['QUATA_IOS_CHAT_E2E_CONVERSATION_ID'] = conversation
         env['QUATA_IOS_CHAT_E2E_MESSAGE_ID'] = message
         env['QUATA_IOS_CHAT_E2E_MARKER_PROBE'] = marker
@@ -150,6 +151,8 @@ def patch_target(target, hint=''):
         env['QUATA_IOS_CHAT_E2E_REPLY_MARKER'] = reply
         env['QUATA_IOS_CHAT_E2E_EDIT_MARKER'] = edit
         env['QUATA_IOS_CHAT_E2E_FORWARD_QUERY'] = forward_query
+        env['QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE'] = attachment_document
+        env['QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE'] = attachment_audio
         matched.add('ui')
 for configuration in data.get('TestConfigurations', []):
     for target in configuration.get('TestTargets', []):
