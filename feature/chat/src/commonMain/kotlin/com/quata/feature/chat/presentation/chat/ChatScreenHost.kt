@@ -172,62 +172,68 @@ fun ChatScreenHost(
                 )
             }
             CompositionLocalProvider(LocalQuataTranslatableTextRegistry provides translatorRegistry) {
-                ChatConversationDetailContent(
-                messages = state.messages,
-                selectedMessageId = state.selectedMessageId,
-                strings = slots.messageStrings,
-                showSenderAvatar = { message -> shouldShowMessageSenderAvatar(state.conversation, message) },
-                avatar = slots.messageAvatar,
-                onOpenLink = slots.onOpenLink,
-                messageTimestamp = slots.messageTimestamp,
-                onMessageClick = { message ->
-                    if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
-                        slots.onOpenMessageConversation(message.conversationId, message.id)
-                    } else if (message.isLocalEcho) {
-                        if (message.deliveryState == com.quata.core.model.MessageDeliveryState.Failed) {
-                            message.clientMessageId?.let(model::retryPendingMessage)
-                        }
-                    } else {
-                        model.onEvent(ChatUiEvent.MessageSelected(message.id.takeUnless { it == state.selectedMessageId }))
-                    }
-                },
-                translatableTextModifier = { message, value ->
-                    if (message.isDeleted || message.text.isBlank()) value else value.quataTranslatableText(
-                        id = "chat-message:${message.composeKey()}",
-                        text = message.text,
-                        displayText = buildString {
-                            append(if (message.isMine) "mine" else "other")
-                            append(" | ")
-                            append(message.senderName)
-                            append(" | ")
-                            appendLine(slots.messageTimestamp(message))
-                            append(message.text)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .imePadding(),
+                ) {
+                    ChatConversationDetailContent(
+                        messages = state.messages,
+                        selectedMessageId = state.selectedMessageId,
+                        strings = slots.messageStrings,
+                        showSenderAvatar = { message -> shouldShowMessageSenderAvatar(state.conversation, message) },
+                        avatar = slots.messageAvatar,
+                        onOpenLink = slots.onOpenLink,
+                        messageTimestamp = slots.messageTimestamp,
+                        onMessageClick = { message ->
+                            if (conversationId == AppDestinations.FavoriteMessagesConversationId) {
+                                slots.onOpenMessageConversation(message.conversationId, message.id)
+                            } else if (message.isLocalEcho) {
+                                if (message.deliveryState == com.quata.core.model.MessageDeliveryState.Failed) {
+                                    message.clientMessageId?.let(model::retryPendingMessage)
+                                }
+                            } else {
+                                model.onEvent(ChatUiEvent.MessageSelected(message.id.takeUnless { it == state.selectedMessageId }))
+                            }
                         },
+                        translatableTextModifier = { message, value ->
+                            if (message.isDeleted || message.text.isBlank()) value else value.quataTranslatableText(
+                                id = "chat-message:${message.composeKey()}",
+                                text = message.text,
+                                displayText = buildString {
+                                    append(if (message.isMine) "mine" else "other")
+                                    append(" | ")
+                                    append(message.senderName)
+                                    append(" | ")
+                                    appendLine(slots.messageTimestamp(message))
+                                    append(message.text)
+                                },
+                            )
+                        },
+                        composer = if (isFavoritesConversation) ({}) else slots.composer,
+                        attachment = slots.attachment,
+                        deliveryIndicator = slots.deliveryIndicator,
+                        favoriteMarker = slots.favoriteMarker,
+                        specialMessageBody = slots.specialMessageBody,
+                        messageActions = slots.messageActions,
+                        typingIndicator = slots.typingIndicator(state.typingProfileIds),
+                        initialContent = if (state.isLoading && state.messages.isEmpty()) slots.loadingContent else null,
+                        emptyContent = if (isFavoritesConversation) {
+                            { FavoriteMessagesEmptyContent(slots.chromeStrings.favoriteMessagesEmpty) }
+                        } else {
+                            null
+                        },
+                        onLoadOlderMessages = model::loadOlderMessages,
+                        isLoadingOlderMessages = state.isLoadingOlderMessages,
+                        focusedMessageId = focusedMessage?.id,
+                        onFocusedMessageVisible = onFocusedMessageVisible,
+                        onFocusedMessageHandled = {
+                            deepLinkRequest = ChatMessageDeepLinkRequest.NoTarget
+                            onFocusedMessageHandled()
+                        },
+                        modifier = Modifier.fillMaxSize(),
                     )
-                },
-                composer = if (isFavoritesConversation) ({}) else slots.composer,
-                attachment = slots.attachment,
-                deliveryIndicator = slots.deliveryIndicator,
-                favoriteMarker = slots.favoriteMarker,
-                specialMessageBody = slots.specialMessageBody,
-                messageActions = slots.messageActions,
-                typingIndicator = slots.typingIndicator(state.typingProfileIds),
-                initialContent = if (state.isLoading && state.messages.isEmpty()) slots.loadingContent else null,
-                emptyContent = if (isFavoritesConversation) {
-                    { FavoriteMessagesEmptyContent(slots.chromeStrings.favoriteMessagesEmpty) }
-                } else {
-                    null
-                },
-                onLoadOlderMessages = model::loadOlderMessages,
-                isLoadingOlderMessages = state.isLoadingOlderMessages,
-                focusedMessageId = focusedMessage?.id,
-                onFocusedMessageVisible = onFocusedMessageVisible,
-                onFocusedMessageHandled = {
-                    deepLinkRequest = ChatMessageDeepLinkRequest.NoTarget
-                    onFocusedMessageHandled()
-                },
-                modifier = Modifier.weight(1f).imePadding(),
-            )
+                }
             }
         }
         if (state.isForwardDialogOpen) {

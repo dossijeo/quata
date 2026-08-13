@@ -162,7 +162,12 @@ test("common chat headers and selected-message menu use one opaque surface color
   assert.match(titleBar, /internal fun chatHeaderSurfaceColor\(\) = quataTheme\(\)\.colors\.surface/);
   assert.match(titleBar, /val headerSurfaceColor = chatHeaderSurfaceColor\(\)/);
   assert.match(titleBar, /color = headerSurfaceColor/);
+  assert.match(chatScreenHost, /CompositionLocalProvider\(LocalQuataTranslatableTextRegistry provides translatorRegistry\) \{\s*Box\(\s*modifier = Modifier\s*\.weight\(1f\)\s*\.imePadding\(\)/);
+  assert.match(chatScreenHost, /ChatConversationDetailContent\([\s\S]*?modifier = Modifier\.fillMaxSize\(\)/);
+  assert.doesNotMatch(chatScreenHost, /ChatConversationDetailContent\([\s\S]*?modifier = Modifier\.weight\(1f\)\.imePadding\(\)/);
   assert.match(selectedActionBar, /val surfaceColor = chatHeaderSurfaceColor\(\)/);
+  assert.match(selectedActionBar, /Surface\([\s\S]*?color = surfaceColor/);
+  assert.match(selectedActionBar, /Box\(Modifier\.fillMaxWidth\(\)\.background\(surfaceColor\)\)/);
   assert.match(selectedActionBar, /\.background\(surfaceColor\)/);
   assert.match(selectedActionBar, /color = surfaceColor/);
   assert.match(groupManagement, /private fun ChatOpaqueOptionsMenuContent\(/);
