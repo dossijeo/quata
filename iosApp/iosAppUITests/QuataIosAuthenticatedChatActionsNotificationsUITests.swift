@@ -5,6 +5,46 @@ import UIKit
 /// The companion runner seeds the Keychain session and disposable backend conversation first.
 @available(iOS 16.4, *)
 final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
+    func testKeyboardAndSelectedActionBarUseSharedChatChrome() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat keyboard/menu UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let seedMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]),
+              let seedMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]),
+              let composerMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_COMPOSER_MARKER"]) else {
+            throw XCTSkip("Disposable Chat keyboard/menu fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(seedMessageId))", in: app)
+        _ = chatHost(in: app, context: "keyboard/menu conversation")
+        assertChatRoute(conversationId, messageId: seedMessageId, in: app, context: "keyboard/menu conversation")
+        XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-keyboard-menu-thread")
+
+        typeText(composerMarker, into: "chat.composer.input", in: app)
+        assertConversationHeaderVisibleWithKeyboard(in: app)
+        attachScreenshot(app, name: "ios-chat-keyboard-header-visible")
+        dismissKeyboardIfPresent(in: app)
+
+        selectMessage(seedMarkerProbe, expectedMessageId: seedMessageId, in: app, context: "keyboard/menu selected action bar")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "chat.action.copy").firstMatch.waitForExistence(timeout: 10),
+            "The selected message action bar must expose shared actions.",
+        )
+        attachScreenshot(app, name: "ios-chat-selected-action-bar-opaque")
+    }
+
     func testComposerReplyEditAndSelectedActionsUseSharedChatSurface() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_UI_E2E"] == "1" else {

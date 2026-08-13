@@ -192,7 +192,7 @@ no una nueva evidencia de producto.
 2. Cerrar los límites de #175: `PROF-*`, `FLOW-COMMUNITY-CHAT`, entradas/retornos globales y los visores/retornos pendientes de `OVR-MEDIA`, mediante datos reales y mutaciones reversibles con limpieza.
 3. Completar los postflights de `SCR-NOTIFICATIONS`, `SCR-CONVERSATIONS`, `SCR-RELEASE-HISTORY`, `SCR-ACCOUNT`, `SCR-SOS` y `SCR-CREATE-POST`; una raiz integrada no equivale a GO.
 4. Cerrar la evidencia Auth #168: sesión restaurada caducada en el mismo data-container, seeder realmente ejecutado y relanzamiento sin reinstalar.
-5. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado.
+5. Mantener integración secuencial y ejecución local paralela: una sola candidata final activa; GitHub Actions certifica un SHA ya congelado y se revisa de forma asíncrona, sin dejar lanes ni turnos esperando pasivamente a que terminen jobs largos.
 6. Configurar firma Apple y completar APNs/dispositivo físico en carriles independientes. Mantener RLS-001..005 documentados; no cambiar políticas fuera de release autorizado.
 
 ## Decisiones vigentes

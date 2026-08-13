@@ -117,6 +117,11 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(runner, /QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E/);
   assert.match(runner, /options_menu_surface_visible_from_shared_ui/);
   assert.match(wrapper, /testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface/);
+  assert.match(runner, /--keyboard-menu-only/);
+  assert.match(runner, /QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E/);
+  assert.match(runner, /keyboard_header_and_selected_action_bar_captured/);
+  assert.match(wrapper, /testKeyboardAndSelectedActionBarUseSharedChatChrome/);
+  assert.match(wrapper, /keyboard-menu\.log/);
   assert.match(runner, /QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E/);
   assert.match(runner, /QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E/);
   assert.match(runner, /prepareProfileFollowAbsent/);
@@ -149,6 +154,10 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(testSource, /ios-chat-profile-private-chat-opened/);
   assert.match(testSource, /chat\.menu\.options/);
   assert.match(testSource, /ios-chat-options-menu-surface/);
+  assert.match(testSource, /testKeyboardAndSelectedActionBarUseSharedChatChrome/);
+  assert.match(testSource, /assertConversationHeaderVisibleWithKeyboard\(in: app\)/);
+  assert.match(testSource, /ios-chat-keyboard-header-visible/);
+  assert.match(testSource, /ios-chat-selected-action-bar-opaque/);
 });
 
 test("chat actions/notifications iOS evidence can run translation-only against the shared overlay", async () => {
