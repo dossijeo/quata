@@ -411,6 +411,40 @@ test("Android replay fails assertVisible for invisible nodes", async () => {
   }
 });
 
+test("Android replay fails assertVisible when visibility is unknown", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "quata-e2e-replay-unknown-visible-"));
+  try {
+    const adb = path.join(dir, process.platform === "win32" ? "adb.cmd" : "adb");
+    const macro = path.join(dir, "compose.macro.json");
+    await writeFile(macro, JSON.stringify({
+      format: "quata-e2e-macro",
+      version: 1,
+      flow: "compose",
+      platform: "android",
+      createdAt: new Date().toISOString(),
+      steps: [{ action: "assertVisible", target: { testTag: "whats-new-next" } }],
+    }), "utf8");
+    await writeFakeAdb(adb, `<hierarchy><node package="com.quata" view-id-resource-name="whats-new-next" bounds="[714,1764][1014,1874]" /></hierarchy>`);
+
+    await assert.rejects(
+      async () => {
+        try {
+          await execFileAsync(process.execPath, [
+        "tools/e2e-recorder/android-replay.mjs",
+        "--macro", macro,
+        "--adb", adb,
+          ], { cwd: path.resolve("."), encoding: "utf8" });
+        } catch (error) {
+          assert.match(error.stdout, /selector_not_visible/);
+          throw error;
+        }
+      },
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 async function writeFakeAdb(file, xml) {
   if (process.platform === "win32") {
     const escaped = xml.replaceAll("^", "^^").replaceAll("&", "^&").replaceAll("<", "^<").replaceAll(">", "^>");

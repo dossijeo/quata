@@ -41,7 +41,7 @@ if (!result.ok) process.exit(1);
 async function assertVisible(adb, step) {
   const nodes = await dumpUi(adb);
   const node = findNode(nodes, step.replay);
-  if (!node || node.visible === false) throw new Error(`selector_not_visible ${JSON.stringify(step.replay)}`);
+  if (!node || node.visible !== true) throw new Error(`selector_not_visible ${JSON.stringify(step.replay)}`);
 }
 
 async function replayTap(adb, step) {
@@ -89,7 +89,7 @@ function parseNode(raw) {
     contentDescription: attrs["content-desc"] || null,
     className: attrs.class || null,
     packageName: attrs.package || null,
-    visible: attrs["visible-to-user"] !== "false",
+    visible: attrs["visible-to-user"] === "true" ? true : attrs["visible-to-user"] === "false" ? false : null,
     bounds,
   };
 }
