@@ -23,6 +23,7 @@ import {
 } from "./web-authenticated-browser-policy.mjs";
 
 const TURNSTILE_BOOTSTRAP = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+const DOCMENTIS_LICENSE_ORIGIN = "https://www.docmentis.com";
 const STORAGE_KEYS = [
   "quata_web_access_token", "quata_web_refresh_token", "quata_web_session_token",
   "quata_web_user_id", "quata_web_expires_at", "web.auth.session_ready",
@@ -123,9 +124,12 @@ try {
       }
       observeProductRead(request, url, backend, cleanupSession, productReadEvidence, stage);
     }
-    if (url.startsWith(`${server.origin}/`)) return route.continue();
+    if (isFixtureOriginUrl(url, server.origin)) return route.continue();
     if (url === TURNSTILE_BOOTSTRAP) {
       return route.fulfill({ status: 200, contentType: "text/javascript", body: "globalThis.turnstile={};" });
+    }
+    if (isDocmentisLicenseProbe(url)) {
+      return route.abort("blockedbyclient");
     }
     if (options.real && url === `${backend}/functions/v1/quata-auth-bridge` &&
         route.request().method() === "POST") {
@@ -143,7 +147,8 @@ try {
   });
   context.on("request", request => {
     const url = request.url();
-    if (!url.startsWith(`${server.origin}/`) && url !== TURNSTILE_BOOTSTRAP &&
+    if (!isFixtureOriginUrl(url, server.origin) && url !== TURNSTILE_BOOTSTRAP &&
+        !isDocmentisLicenseProbe(url) &&
         !(options.real && url.startsWith(`${backend}/`))) {
       unexpectedNetwork.push(safeOrigin(url));
     }
@@ -272,7 +277,9 @@ try {
         fixtureState.webLogout !== 1 || fixtureState.globalLogout !== 1) {
       throw new Error("fixture_journey_incomplete");
     }
-    if (unexpectedNetwork.length !== 0) throw new Error("unexpected_external_network");
+    if (unexpectedNetwork.length !== 0) {
+      throw new Error(`unexpected_external_network:${[...new Set(unexpectedNetwork)].join(",")}`);
+    }
   }
   await page.waitForTimeout(100);
   assertNoBlockedBackendMutations(blockedBackendMutations);
@@ -332,7 +339,10 @@ try {
     blockedBackendMutations: blockedBackendMutations.map(({ method, path, stage, reason }) => ({ method, path, stage, reason })),
     notificationInboxReads: productReadEvidence.notificationInboxReads,
   };
-  report.network = options.real ? { policy: "local_and_exact_configured_backend" } : { policy: "local_only", unexpectedOrigins: [...new Set(unexpectedNetwork)].length };
+  report.network = options.real ? { policy: "local_and_exact_configured_backend" } : {
+    policy: "local_only",
+    unexpectedOrigins: [...new Set(unexpectedNetwork)],
+  };
   await writeSafeReport(options.output, report);
 }
 
@@ -1256,6 +1266,24 @@ function escapeHtml(value) {
 }
 function safeOrigin(url) {
   try { return new URL(url).origin; } catch { return "invalid-origin"; }
+}
+function isFixtureOriginUrl(url, origin) {
+  try {
+    const requestUrl = new URL(url);
+    const originUrl = new URL(origin);
+    return requestUrl.hostname === originUrl.hostname &&
+      requestUrl.port === originUrl.port &&
+      ["http:", "https:", "ws:", "wss:"].includes(requestUrl.protocol);
+  } catch {
+    return false;
+  }
+}
+function isDocmentisLicenseProbe(url) {
+  try {
+    return new URL(url).origin === DOCMENTIS_LICENSE_ORIGIN;
+  } catch {
+    return false;
+  }
 }
 function safeError(error) {
   const value = typeof error?.message === "string" ? error.message : "";

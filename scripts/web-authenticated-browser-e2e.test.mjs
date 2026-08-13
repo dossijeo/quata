@@ -138,7 +138,13 @@ test("Wasm file-cache interop expressions remain valid object-property expressio
 test("fixture fails closed on external network while proving the notification inbox read", () => {
   assert.match(runner, /context\.route\("\*\*\/\*"/);
   assert.match(runner, /proxy-server=http:\/\/127\.0\.0\.1:9/);
+  assert.match(runner, /isFixtureOriginUrl\(url, server\.origin\)/);
+  assert.match(runner, /\["http:", "https:", "ws:", "wss:"\]\.includes\(requestUrl\.protocol\)/);
+  assert.match(runner, /const DOCMENTIS_LICENSE_ORIGIN = "https:\/\/www\.docmentis\.com"/);
+  assert.match(runner, /isDocmentisLicenseProbe\(url\)/);
   assert.match(runner, /unexpected_external_network/);
+  assert.match(runner, /unexpected_external_network:\$\{\[\.\.\.new Set\(unexpectedNetwork\)\]\.join\(","\)\}/);
+  assert.match(runner, /unexpectedOrigins: \[\.\.\.new Set\(unexpectedNetwork\)\]/);
   assert.match(runner, /fixtureState\.login !== 1/);
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);
