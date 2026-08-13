@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-GROUP",
+    "CHAT-LOCATION-SOS"
+  ],
+  "productSha": "566a97e9416b75012c14fbbaf07193a3c52b6bea",
+  "evidence": {
+    "backend": {
+      "status": "passed",
+      "sha": "566a97e9416b75012c14fbbaf07193a3c52b6bea",
+      "report": "build-reports/chat-group/chat-group-backend-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "566a97e9416b75012c14fbbaf07193a3c52b6bea",
+      "report": "build-reports/web/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "566a97e9416b75012c14fbbaf07193a3c52b6bea",
+      "report": "build-reports/android/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "566a97e9416b75012c14fbbaf07193a3c52b6bea",
+      "report": "build-reports/ios/chat-group-sos-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "Compose/Wasm does not expose non-interactive SOS body testTags as DOM or aria nodes in this host; Web evidence records this diagnostic while Android/iOS retain semantic-anchor coverage and commonMain remains the product reference."
+  ]
+}

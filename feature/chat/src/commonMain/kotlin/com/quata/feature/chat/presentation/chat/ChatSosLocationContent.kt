@@ -20,9 +20,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+const val ChatSosLocationRootTestTag = "chat.sos.location.root"
+const val ChatSosLocationMapPreviewTestTag = "chat.sos.location.mapPreview"
+const val ChatSosLocationUnavailableTestTag = "chat.sos.location.unavailable"
+const val ChatSosLocationOpenMapsTestTag = "chat.sos.location.openMaps"
 
 /** Portable SOS location-message body. Hosts localize labels and provide the map affordance icon. */
 @Composable
@@ -44,7 +54,13 @@ fun ChatSosLocationContent(
     mapPreviewIcon: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        modifier = modifier.semantics {
+            testTag = ChatSosLocationRootTestTag
+            contentDescription = title
+        },
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         Text(title, color = textColor, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
         body?.let { Text(it, color = textColor, fontSize = 14.sp) }
         locationLabel?.let { Text(it, color = textColor, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
@@ -70,7 +86,10 @@ fun ChatSosLocationContent(
             Surface(
                 color = Color.White.copy(alpha = 0.24f),
                 shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().semantics {
+                    testTag = ChatSosLocationUnavailableTestTag
+                    contentDescription = unavailableLabel
+                },
             ) {
                 Text(
                     unavailableLabel,
@@ -85,7 +104,11 @@ fun ChatSosLocationContent(
                 openMapsLabel,
                 color = accentColor,
                 fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.clickable { onOpenMaps(url) },
+                modifier = Modifier.clickable { onOpenMaps(url) }.semantics {
+                    testTag = ChatSosLocationOpenMapsTestTag
+                    contentDescription = openMapsLabel
+                    role = Role.Button
+                },
             )
         }
     }
@@ -99,6 +122,10 @@ fun ChatSosLocationMapPreviewContent(
         modifier = Modifier
             .fillMaxWidth()
             .height(92.dp)
+            .semantics {
+                testTag = ChatSosLocationMapPreviewTestTag
+                contentDescription = "SOS map preview"
+            }
             .clip(RoundedCornerShape(14.dp))
             .background(Brush.linearGradient(listOf(Color(0xFFE8F0EA), Color(0xFFF6EFE5), Color(0xFFDDECF7)))),
         contentAlignment = Alignment.Center,

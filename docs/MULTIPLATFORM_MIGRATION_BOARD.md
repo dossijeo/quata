@@ -17,8 +17,15 @@ Candidato `f6bc0b7d` cierra `PROF-HEADER` con evidencia local Android, Web/Wasm 
 Android, Web/Wasm e iOS
 acreditan envío, respuesta, edición, selección/copiar, favorito, reportar, borrar y mute/unmute en
 una conversación reversible con limpieza física de residuo cero; la barra de acciones seleccionadas
-usa superficie común coherente con el encabezado. Persisten `CHAT-ATTACHMENTS`, `CHAT-AUDIO`,
-`CHAT-GROUP`, `CHAT-LOCATION-SOS` y `FLOW-TRANSLATOR` fuera de Chat.
+usa superficie común coherente con el encabezado. #245 reduce `CHAT-ATTACHMENTS` y `CHAT-AUDIO` con
+fixtures compartidos y limpieza física cero. PR #247 reduce `CHAT-GROUP` y
+`CHAT-LOCATION-SOS` sobre Product/Evidence SHA `566a97e9`: añade anclas comunes de grupo/SOS,
+`contentDescription`/roles accesibles, contratos focales, compilación Chat Android/Wasm/iOS,
+evidencia backend real `CHAT-GROUP-BACKEND-001` con mutaciones reversibles y evidencia visual/
+operativa Web, Android e iOS `--group-sos-only`, todo con residuo físico cero. No eleva esos
+subflujos a GO completo: faltan administración UI profunda de grupo y retorno/errores/permisos de
+mapa SOS.
+`FLOW-TRANSLATOR` sigue fuera de Chat.
 
 **Candidato actual:** `fdb5cf30c7d6e610905055d7f060fc72c936786f` cierra
 `PROF-FOLLOW-LISTS` dentro de `OVR-PUBLIC-PROFILE`: seguidores y seguidos comunes abiertos desde
@@ -45,6 +52,7 @@ La comparativa final queda en `build-reports/official-editor/final-visual-compar
 | Chat reenvío (candidato `31f20f31`) | GO focal pendiente de PR/merge | `CHAT-FORWARD` usa picker común `chat.forward.*`; Web `build-reports/web/chat-actions-notifications-evidence.json`, Android `build-reports/android/chat-actions-notifications-evidence.json` e iOS `build-reports/ios/chat-actions-notifications-evidence.json` pasan sobre `31f20f3112c25b75b7b43e3cca64cadb14c49b41`, con reenvío real verificado por RPC, hilo/perfil temporal reversible y residuo físico cero. | No cierra errores/rollback forzados ni el GO global de `SCR-CHAT`; faltan adjuntos/audio, grupo, mapa/SOS, traducción y perfil/retorno. |
 | Chat traducción (candidato `d7d23564`) | GO focal pendiente de PR/merge | `CHAT-TRANSLATION` usa `ChatTranslatorOverlayContent` común en Android, Web/Wasm e iOS; Android conserva sólo el transporte/caché nativo y Web/iOS usan transportes HTTP reales. Evidencias finales en `d7d235640514c4f5585b30e3a9e7320ef5982695`: Web `build-reports/web/chat-translation-evidence.json`, Android `build-reports/android/chat-actions-notifications-evidence.json`, iOS `build-reports/ios/chat-translation-evidence.json`; las tres traducen `Mbolo` a `pan de trigo`, muestran `FAN->ES`, retornan a Chat y limpian hilos temporales con residuo físico cero. | No declara GO global de `SCR-CHAT`: faltan adjuntos/audio, grupo, mapa/SOS, perfiles/retorno y límites de `FLOW-TRANSLATOR` fuera de Chat. |
 | Chat favoritos/foco (#219) | GO limitado | `CHAT-FAVORITES` y `CHAT-FOCUSED-MESSAGE` quedan cerrados en `main` con evidencia Web/Android/iOS sobre la misma conversación temporal reversible, capturas reales, estado vacío tras desfavoritar y limpieza física con residuo cero. | No cierra los demás `CHAT-*`. |
+| Chat grupo/SOS (PR #247, Product/Evidence SHA `566a97e9`) | COMÚN con límites reducidos | `ChatGroupManagementContent` y `ChatSosLocationContent` exponen anclas comunes `chat.group.*` y `chat.sos.location.*`, `contentDescription` y roles accesibles desde `commonMain`; contratos focales y compilación Chat Android/Wasm/iOS pasan. `CHAT-GROUP-BACKEND-001` ejecuta RPC reales de grupo con Gabrielo/Gabrielu, perfil temporal, toggle invites, alta, rol, expulsión, bloqueo, salida, borrado y cleanup físico cero en `build-reports/chat-group/chat-group-backend-evidence.json`. Evidencias visuales/operativas `--group-sos-only`: Web `build-reports/web/chat-actions-notifications-evidence.json`, Android `build-reports/android/chat-actions-notifications-evidence.json`, iOS `build-reports/ios/chat-group-sos-evidence.json`; las tres pasan sobre el mismo SHA y terminan con residuo físico cero. Android abre/verifica el menú por anclas semánticas comunes antes que por texto nativo; el backfill de auto-merge candidate-final queda cubierto por `scripts/backfill-candidate-auto-merge.mjs`. | No declara GO global de `SCR-CHAT`: faltan administración UI profunda de grupo, retorno/errores/permisos de mapa SOS y estados de error/rollback forzados. Web registra el límite actual de Compose/Wasm: los `testTag` no interactivos del cuerpo SOS no aparecen como DOM/aria, por lo que Android/iOS + contratos retienen esa cobertura semántica. |
 
 | Web/Wasm | GO limitado | Shell público, rutas principales y varias raíces Compose comunes están integrados; #154 incorpora `CreatePostRoot` y #156 `ProfileScreenHost`. | Faltan postflights autenticados por flujo y paridad visual exacta. Avatar Web se acredita por contratos, no por una mutación E2E real guardada y limpiada. |
 | Presupuesto Wasm | Integrado | Watchdog sin ventanas visibles, baseline Linux aprobado y captura canónica reproducible. | Windows sigue siendo diagnóstico: el artefacto Wasm/JS depende del host. El presupuesto es un gate técnico, no un SLO de producto. |

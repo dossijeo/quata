@@ -5,6 +5,61 @@ import UIKit
 /// The companion runner seeds the Keychain session and disposable backend conversation first.
 @available(iOS 16.4, *)
 final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
+    func testGroupMenuAndSosMessagesExposeSharedAnchors() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_GROUP_SOS_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat group/SOS UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let seedMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]) else {
+            throw XCTSkip("Disposable Chat group/SOS fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "group/SOS conversation")
+        assertChatRoute(conversationId, in: app, context: "group/SOS conversation")
+        XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+
+        openOptionsMenu(in: app, expectedIdentifier: "chat.group.menu.addParticipants", expectedText: "Añadir participantes", context: "group menu")
+        for identifier in [
+            "chat.group.menu.allowInvites",
+            "chat.group.menu.addParticipants",
+            "chat.group.menu.leave",
+            "chat.group.menu.delete",
+        ] {
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: identifier).firstMatch.waitForExistence(timeout: 10),
+                "The shared group menu anchor \(identifier) must be visible.",
+            )
+        }
+        attachScreenshot(app, name: "ios-chat-group-menu-shared-anchors")
+        dismissOptionsMenu(in: app)
+
+        XCTAssertTrue(menuText("Actualizacion de ubicacion SOS", in: app).waitForExistence(timeout: 45), app.debugDescription)
+        for identifier in [
+            "chat.sos.location.root",
+            "chat.sos.location.mapPreview",
+            "chat.sos.location.openMaps",
+            "chat.sos.location.unavailable",
+        ] {
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: identifier).firstMatch.waitForExistence(timeout: 10),
+                "The shared SOS anchor \(identifier) must be visible.",
+            )
+        }
+        XCTAssertTrue(menuText("Ubicación no disponible", in: app).waitForExistence(timeout: 10), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-sos-location-shared-anchors")
+    }
+
     func testAttachmentsAndAudioExposeSharedAnchors() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E"] == "1" else {
@@ -760,6 +815,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         let fallback = menuText(text, in: app)
         return fallback.exists && fallback.isHittable ? fallback : nil
+    }
+
+    private func dismissOptionsMenu(in app: XCUIApplication) {
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.85)).tap()
+        let menuAction = app.descendants(matching: .any)
+            .matching(identifier: "chat.group.menu.addParticipants")
+            .firstMatch
+        let deadline = Date().addingTimeInterval(5)
+        while menuAction.exists && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        XCTAssertFalse(menuAction.exists, "The group options menu must be dismissed before validating SOS anchors.")
     }
 
     private func menuText(_ text: String, in app: XCUIApplication) -> XCUIElement {

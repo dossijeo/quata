@@ -38,6 +38,7 @@ const [
   favoriteHeader,
   chatTranslatorOverlay,
   groupManagement,
+  sosLocation,
   attachmentQuickPanel,
   pendingAttachmentOverlay,
   documentAttachment,
@@ -66,6 +67,7 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/FavoriteMessagesHeaderContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatTranslatorOverlayContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatGroupManagementContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatSosLocationContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAttachmentQuickPanelContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatPendingAttachmentOverlayContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatDocumentAttachmentContent.kt"),
@@ -149,7 +151,8 @@ test("common chat root owns read states, retry, history paging and one-shot focu
 });
 
 test("common chat action chrome owns mute and tombstone action guards", () => {
-  assert.match(groupManagement, /testTag = "chat\.menu\.options"/);
+  assert.match(groupManagement, /ChatGroupMenuOptionsTestTag = "chat\.menu\.options"/);
+  assert.match(groupManagement, /testTag = ChatGroupMenuOptionsTestTag/);
   assert.match(groupManagement, /ChatUiEvent\.ConversationMutedChanged\(conversation\?\.isMuted != true\)/);
   assert.match(groupManagement, /conversation\?\.isMuted == true\) strings\.reactivateNotifications else strings\.muteConversation/);
   assert.match(groupManagement, /chat\.menu\.mute/);
@@ -164,6 +167,84 @@ test("common chat action chrome owns mute and tombstone action guards", () => {
   assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ !it\.isLocalEcho && !it\.isDeleted \}/);
   assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ it\.isMine && !it\.isDeleted && !it\.isLocalEcho \}/);
   assert.match(viewModel, /selectedMessage\(\)\?\.takeIf \{ !it\.isMine && !it\.isDeleted && !it\.isLocalEcho \}/);
+});
+
+test("common chat group management exposes stable cross-platform evidence anchors", () => {
+  const menuAnchors = {
+    Options: "chat.menu.options",
+    Mute: "chat.menu.mute",
+    Unmute: "chat.menu.unmute",
+    AllowInvites: "chat.group.menu.allowInvites",
+    AddParticipants: "chat.group.menu.addParticipants",
+    Leave: "chat.group.menu.leave",
+    Delete: "chat.group.menu.delete",
+  };
+  for (const [constant, tag] of Object.entries(menuAnchors)) {
+    assert.match(groupManagement, new RegExp(`ChatGroupMenu${constant}TestTag = "${tag.replaceAll(".", "\\.")}"`));
+  }
+  assert.match(groupManagement, /testTag = ChatGroupMenuOptionsTestTag/);
+  assert.match(groupManagement, /testTag = if \(conversation\?\.isMuted == true\) ChatGroupMenuUnmuteTestTag else ChatGroupMenuMuteTestTag/);
+  for (const constant of ["AllowInvites", "AddParticipants", "Leave", "Delete"]) {
+    assert.match(groupManagement, new RegExp(`testTag = ChatGroupMenu${constant}TestTag`));
+  }
+
+  for (const [constant, tag] of Object.entries({
+    MemberRow: "chat.group.member.",
+    MemberManage: "chat.group.member.manage.",
+    MemberPromoteDemote: "chat.group.member.role.",
+    MemberBlock: "chat.group.member.block.",
+    MemberRemove: "chat.group.member.remove.",
+  })) {
+    assert.match(groupManagement, new RegExp(`ChatGroup${constant}TestTagPrefix = "${tag.replaceAll(".", "\\.")}"`));
+    assert.match(groupManagement, new RegExp(`testTag = ChatGroup${constant}TestTagPrefix \\+ member\\.id`));
+  }
+
+  const pickerAnchors = {
+    Root: "chat.group.participants.root",
+    Search: "chat.group.participants.search",
+    LoadMore: "chat.group.participants.loadMore",
+    Confirm: "chat.group.participants.confirm",
+    Cancel: "chat.group.participants.cancel",
+  };
+  for (const [constant, tag] of Object.entries(pickerAnchors)) {
+    assert.match(groupManagement, new RegExp(`ChatGroupParticipantPicker${constant}TestTag = "${tag.replaceAll(".", "\\.")}"`));
+    assert.match(groupManagement, new RegExp(`testTag = ChatGroupParticipantPicker${constant}TestTag`));
+  }
+  assert.match(groupManagement, /ChatGroupParticipantPickerCandidateTestTagPrefix = "chat\.group\.participants\.candidate\."/);
+  assert.match(groupManagement, /testTag = ChatGroupParticipantPickerCandidateTestTagPrefix \+ candidate\.profileId/);
+
+  for (const event of [
+    "MemberInvitesChanged",
+    "OpenAddParticipants",
+    "LeaveConversation",
+    "DeleteConversation",
+    "PromoteModerator",
+    "DemoteModerator",
+    "BlockParticipant",
+    "RemoveParticipant",
+    "ParticipantSearchChanged",
+    "ParticipantSelectionToggled",
+    "AddSelectedParticipants",
+  ]) {
+    assert.match(groupManagement, new RegExp(`ChatUiEvent\\.${event}`));
+  }
+});
+
+test("common SOS location messages expose map/open evidence anchors", () => {
+  for (const [constant, tag] of Object.entries({
+    Root: "chat.sos.location.root",
+    MapPreview: "chat.sos.location.mapPreview",
+    Unavailable: "chat.sos.location.unavailable",
+    OpenMaps: "chat.sos.location.openMaps",
+  })) {
+    assert.match(sosLocation, new RegExp(`ChatSosLocation${constant}TestTag = "${tag.replaceAll(".", "\\.")}"`));
+    assert.match(sosLocation, new RegExp(`testTag = ChatSosLocation${constant}TestTag`));
+  }
+  assert.match(sosLocation, /onOpenMaps: \(String\) -> Unit/);
+  assert.match(sosLocation, /modifier = Modifier\.clickable \{ onOpenMaps\(url\) \}\.semantics \{[\s\S]*?testTag = ChatSosLocationOpenMapsTestTag[\s\S]*?contentDescription = openMapsLabel[\s\S]*?role = Role\.Button/);
+  assert.match(chatBrowserHostContent, /ChatSosLocationContent\(/);
+  assert.match(chatBrowserHostContent, /onOpenMaps = onOpenExternalLink/);
+  assert.match(chatBrowserHostContent, /resolveChatSosPresentation/);
 });
 
 test("common chat headers and selected-message menu use one opaque surface color", () => {
