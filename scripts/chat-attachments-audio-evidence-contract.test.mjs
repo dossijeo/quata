@@ -124,13 +124,15 @@ test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evid
   assert.ok(attachments, "CHAT-ATTACHMENTS row must exist");
   assert.ok(audio, "CHAT-AUDIO row must exist");
   assert.match(attachments, /Web\/Wasm/);
-  assert.match(attachments, /build-reports\/web\/chat-attachments-audio-evidence-r6/);
+  assert.match(attachments, /08505eaf/);
+  assert.match(attachments, /build-reports\/web\/chat-attachments-audio-evidence-r7/);
   assert.match(attachments, /Android e iOS mantienen evidencia focal previa/);
   assert.match(attachments, /debe repetirse sobre el merge sint/);
   assert.match(attachments, /selecci/);
   assert.match(attachments, /limpieza/);
   assert.match(audio, /Web\/Wasm/);
-  assert.match(audio, /build-reports\/web\/chat-attachments-audio-evidence-r6/);
+  assert.match(audio, /08505eaf/);
+  assert.match(audio, /build-reports\/web\/chat-attachments-audio-evidence-r7/);
   assert.match(audio, /audioPlaybackObserved\.state=playing/);
   assert.match(audio, /Android e iOS mantienen evidencia focal previa/);
   assert.match(audio, /grabaci/);
