@@ -130,7 +130,7 @@ test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evid
   assert.ok(audio, "CHAT-AUDIO row must exist");
   assert.match(attachments, /Web\/Wasm/);
   assert.match(attachments, new RegExp(productShaPrefix));
-  assert.match(attachments, /build-reports\/web\/chat-attachments-audio-evidence-r9/);
+  assert.match(attachments, new RegExp(attestation.evidence.web.report.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(attachments, /build-reports\/android\/chat-actions-notifications-evidence/);
   assert.match(attachments, /build-reports\/ios\/chat-attachments-audio-evidence/);
   assert.match(attachments, /scripts\/e2e-fixtures\/chat-attachments\.mjs/);
@@ -138,7 +138,7 @@ test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evid
   assert.match(attachments, /limpieza/);
   assert.match(audio, /Web\/Wasm/);
   assert.match(audio, new RegExp(productShaPrefix));
-  assert.match(audio, /build-reports\/web\/chat-attachments-audio-evidence-r9/);
+  assert.match(audio, new RegExp(attestation.evidence.web.report.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(audio, /audioPlaybackObserved\.state=playing/);
   assert.match(audio, /build-reports\/android\/chat-actions-notifications-evidence/);
   assert.match(audio, /build-reports\/ios\/chat-attachments-audio-evidence/);
