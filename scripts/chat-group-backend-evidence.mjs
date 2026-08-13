@@ -24,6 +24,12 @@ function sha256(value) {
   return createHash("sha256").update(String(value)).digest("hex");
 }
 
+function safeFailure(error) {
+  return String(error?.message ?? error)
+    .replace(/(bearer\s+|authorization\s*[:=]\s*|token\s*[:=]\s*|password\s*[:=]\s*|apikey\s*[:=]\s*)[^\s,;]+/gi, "$1[REDACTED]")
+    .slice(0, 500);
+}
+
 async function publicBackendConfig() {
   const configuredUrl = process.env.QUATA_SUPABASE_URL?.trim();
   const configuredKey = process.env.QUATA_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -164,6 +170,7 @@ function assertParticipant(snapshot, profileId, role, left = false) {
 
 async function hardCleanup(state) {
   if (process.env[hardCleanupAuthorizationEnvironment]?.trim() !== hardCleanupAuthorizationValue) throw new Error("missing_hard_cleanup_authorization");
+  if (!state.thread || !state.tempProfile?.id) throw new Error("cleanup_residue_detected:incomplete_state");
   if (!state.uniqueKey.startsWith("qadata-chat-group-")) throw new Error("cleanup_residue_detected:unsafe_unique_key");
   return await withDatabase(async (client) => {
     await client.query("begin");
@@ -223,6 +230,7 @@ async function main() {
   const startedAt = new Date().toISOString();
   const steps = [];
   const state = {};
+  let cleanup;
   let config;
   try {
     config = await publicBackendConfig();
@@ -272,7 +280,7 @@ async function main() {
     await rpc(config, state.b, "quata_chat_leave_thread", { p_actor_profile_id: state.b.profileId, p_thread_id: state.thread });
     await rpc(config, state.a, "quata_chat_delete_thread", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread });
     steps.push("peer_left_and_actor_deleted_thread_from_inbox");
-    const cleanup = await hardCleanup(state);
+    cleanup = await hardCleanup(state);
     steps.push("cleanup_verified_physical_residue_absent");
     await report(output, {
       check: "CHAT-GROUP-BACKEND-001",
@@ -285,7 +293,26 @@ async function main() {
       mutationPolicy: "Public authenticated Chat RPCs for product mutations; pooler SQL only for uniquely-owned qadata-chat-group hard cleanup and residue verification.",
     });
   } catch (error) {
-    console.error(JSON.stringify({ check: "CHAT-GROUP-BACKEND-001", status: "failed", error: String(error?.message ?? error), steps, startedAt, finishedAt: new Date().toISOString() }));
+    const failure = safeFailure(error);
+    let cleanupFailure = null;
+    if (state.uniqueKey && state.tempProfile?.id && state.thread && !cleanup) {
+      try {
+        cleanup = await hardCleanup(state);
+        steps.push("cleanup_verified_after_failure");
+      } catch (cleanupError) {
+        cleanupFailure = safeFailure(cleanupError);
+      }
+    }
+    console.error(JSON.stringify({
+      check: "CHAT-GROUP-BACKEND-001",
+      status: "failed",
+      error: failure,
+      cleanup: cleanup ?? null,
+      cleanupFailure,
+      steps,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+    }));
     process.exitCode = 1;
   }
 }

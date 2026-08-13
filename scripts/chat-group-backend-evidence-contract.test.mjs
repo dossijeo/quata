@@ -43,9 +43,13 @@ test("CHAT-GROUP backend runner exercises real group RPC mutations", () => {
 test("CHAT-GROUP backend runner hard-cleans only owned temporary rows", () => {
   assert.match(runner, /begin/);
   assert.match(runner, /for update/);
+  assert.match(runner, /cleanup_residue_detected:incomplete_state/);
   assert.match(runner, /delete from public\.chat_threads where id = \$1 and unique_key = \$2 returning id/);
   assert.match(runner, /delete from public\.community_profiles where id = \$1 and display_name = \$2 and phone_local = \$3 returning id/);
   assert.match(runner, /cleanup_verified_physical_residue_absent/);
+  assert.match(runner, /cleanup_verified_after_failure/);
+  assert.match(runner, /safeFailure\(error\)/);
+  assert.match(runner, /cleanupFailure = safeFailure\(cleanupError\)/);
   assert.match(runner, /chat_profile_blocks/);
   assert.match(runner, /conversation_user_state/);
   assert.match(runner, /rejectUnauthorized: true/);
