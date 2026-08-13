@@ -134,10 +134,47 @@ test("platform probes reject Android nodes owned by another package", () => {
     packageName: "com.google.android.apps.nexuslauncher",
     bounds: { x: 0, y: 0, width: 1080, height: 2028 },
     resourceId: "com.google.android.apps.nexuslauncher:id/workspace",
+    contentDescription: "Launcher workspace",
+    text: "QÜATA",
   }, 500, 1000);
 
   assert.equal(target.stable, false);
   assert.equal(target.externalApp, true);
+  assert.equal(target.preferred.kind, "geometry");
+  assert.equal(target.contentDescription, undefined);
+  assert.equal(target.visibleText, undefined);
+});
+
+test("append-step fails closed on unknown actions", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "quata-e2e-append-action-"));
+  try {
+    const probe = path.join(dir, "android-tree.json");
+    const macro = path.join(dir, "android.macro.json");
+    await writeFile(probe, JSON.stringify({
+      children: [
+        {
+          packageName: "com.quata",
+          resourceId: "com.quata:id/privacy",
+          bounds: "[24,500][366,556]",
+        },
+      ],
+    }), "utf8");
+
+    await assert.rejects(
+      execFileAsync(process.execPath, [
+        "tools/e2e-recorder/append-step.mjs",
+        "--macro", macro,
+        "--flow", "append-android",
+        "--platform", "android",
+        "--action", "assert-visible",
+        "--probe", probe,
+        "--point", "100,520",
+      ], { cwd: path.resolve("."), encoding: "utf8" }),
+      /--action must be tap or assertVisible/,
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test("platform probes resolve iOS AX identifiers under a point", () => {

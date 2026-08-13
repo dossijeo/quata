@@ -17,7 +17,11 @@ let xml;
 if (options["raw-xml"]) {
   xml = await import("node:fs/promises").then((fs) => fs.readFile(options["raw-xml"], "utf8"));
 } else {
-  await adbText(adb, ["shell", "uiautomator", "dump", "/sdcard/quata-window.xml"]);
+  await adbText(adb, ["shell", "rm", "-f", "/sdcard/quata-window.xml"]).catch(() => {});
+  const dumpOutput = await adbText(adb, ["shell", "uiautomator", "dump", "/sdcard/quata-window.xml"]);
+  if (/ERROR|null root node|exception|failed/i.test(dumpOutput)) {
+    throw new Error(`android_uiautomator_dump_failed:${dumpOutput.slice(0, 200)}`);
+  }
   xml = await adbText(adb, ["exec-out", "cat", "/sdcard/quata-window.xml"]);
 }
 

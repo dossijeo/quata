@@ -15,6 +15,10 @@ if (!Number.isFinite(x) || !Number.isFinite(y)) {
   console.error("--point must be x,y");
   process.exit(64);
 }
+if (!["tap", "assertVisible"].includes(options.action)) {
+  console.error("--action must be tap or assertVisible");
+  process.exit(64);
+}
 
 let macro;
 try {

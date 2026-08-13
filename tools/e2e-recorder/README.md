@@ -42,7 +42,7 @@ node tools/e2e-recorder/ios-compile.mjs build-reports/e2e-recorder/legal-ios.mac
 Probe a captured platform tree at a visual point:
 
 ```powershell
-node tools/e2e-recorder/probe-target.mjs --platform android --input build-reports/e2e-recorder/android-semantics.json --point 120,760
+node tools/e2e-recorder/probe-target.mjs --platform android --input build-reports/e2e-recorder/android-ui.json --point 120,760
 node tools/e2e-recorder/probe-target.mjs --platform ios --input build-reports/e2e-recorder/ios-ax.json --point 120,760
 node tools/e2e-recorder/append-step.mjs --macro build-reports/e2e-recorder/legal-android.macro.json --flow legal-android --platform android --action tap --probe build-reports/e2e-recorder/android-ui.json --point 120,760
 ```
@@ -54,7 +54,7 @@ Artifact rules:
 - Raw macro sessions and screenshots belong under `build-reports/e2e-recorder/` unless a deterministic sample is useful.
 - Generated XCTest/Playwright code is reviewed before promotion to CI.
 - `compile.mjs --emit` writes a reviewable runner snippet only when every actionable step has a stable product anchor.
-- `android-dump-tree.mjs` captures UIAutomator XML through ADB and stores the normalized tree outside source control.
+- `android-dump-tree.mjs` captures UIAutomator XML through ADB, deletes stale dumps before capture, fails closed on UIAutomator errors, and stores the normalized tree outside source control. A future product-side Compose semantics exporter can feed the same `probe-target.mjs` JSON shape, but this tool does not claim to produce that exporter.
 - `ios-ax-probe.swift` queries the macOS Accessibility element under a point for the simulator/window session and prints the same tree shape.
 - `probe-target.mjs` converts Android Compose/UIAutomator or iOS AX trees into the same macro target shape and exits non-zero when the point cannot be resolved to a stable product anchor.
 - `append-step.mjs` appends a resolved probe point to the common macro file so Android/iOS captures can move directly into `compile.mjs`.

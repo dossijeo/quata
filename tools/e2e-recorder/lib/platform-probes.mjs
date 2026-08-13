@@ -17,6 +17,16 @@ export function androidTargetFromPoint(tree, x, y, packageName = "com.quata") {
   const nodes = flattenNodes(tree).map(normalizeAndroidNode);
   const node = smallestContaining(nodes, x, y);
   if (!node) return missingTarget(x, y);
+  const externalApp = Boolean(node.packageName && node.packageName !== packageName);
+  if (externalApp) {
+    return normalizeTarget({
+      packageName: node.packageName,
+      externalApp,
+      bounds: node.bounds,
+      coordinates: { x, y },
+      contextual: node.contextual,
+    });
+  }
   return normalizeTarget({
     testTag: node.testTag,
     resourceId: node.resourceId,
@@ -24,7 +34,7 @@ export function androidTargetFromPoint(tree, x, y, packageName = "com.quata") {
     visibleText: firstText(node.text),
     roleName: node.roleName,
     packageName: node.packageName,
-    externalApp: Boolean(node.packageName && node.packageName !== packageName),
+    externalApp,
     bounds: node.bounds,
     coordinates: { x, y },
     contextual: node.contextual,
