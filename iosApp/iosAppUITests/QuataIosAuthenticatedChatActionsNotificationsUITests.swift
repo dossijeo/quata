@@ -5,6 +5,53 @@ import UIKit
 /// The companion runner seeds the Keychain session and disposable backend conversation first.
 @available(iOS 16.4, *)
 final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
+    func testAttachmentsAndAudioExposeSharedAnchors() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat attachments/audio UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let documentProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE"]),
+              let audioProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE"]) else {
+            throw XCTSkip("Disposable Chat attachments/audio fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "attachments/audio conversation")
+        assertChatRoute(conversationId, in: app, context: "attachments/audio conversation")
+
+        XCTAssertTrue(messageText(documentProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        let document = app.descendants(matching: .any)
+            .matching(identifier: "chat.attachment.document")
+            .firstMatch
+        XCTAssertTrue(document.waitForExistence(timeout: 10), "The shared document attachment anchor must be visible.")
+        attachScreenshot(app, name: "ios-chat-attachment-document-visible")
+
+        XCTAssertTrue(messageText(audioProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        for identifier in ["chat.attachment.audio.player", "chat.attachment.audio.toggle", "chat.attachment.audio.progress"] {
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: identifier).firstMatch.waitForExistence(timeout: 10),
+                "The shared audio attachment anchor \(identifier) must be visible.",
+            )
+        }
+        attachScreenshot(app, name: "ios-chat-audio-player-visible")
+        app.descendants(matching: .any)
+            .matching(identifier: "chat.attachment.audio.toggle")
+            .firstMatch
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        attachScreenshot(app, name: "ios-chat-audio-toggle-attempted")
+    }
+
     func testKeyboardAndSelectedActionBarUseSharedChatChrome() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E"] == "1" else {

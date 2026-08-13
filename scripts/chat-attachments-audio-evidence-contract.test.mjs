@@ -16,6 +16,9 @@ const [
   androidHost,
   webHost,
   iosHost,
+  androidUiTest,
+  iosUiTest,
+  iosWrapper,
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
@@ -28,6 +31,9 @@ const [
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
+  source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
+  source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+  source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
 ]);
 
 test("CHAT-ATTACHMENTS/AUDIO has a dedicated fast contract in CI", () => {
@@ -113,4 +119,38 @@ test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until real three-plat
   assert.match(audio, /reproducci/);
   assert.doesNotMatch(attachments, /\*\*GO/);
   assert.doesNotMatch(audio, /\*\*GO/);
+});
+
+test("Android and iOS runners expose an opt-in attachments/audio evidence stage", () => {
+  assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, audioProbe\)/);
+  assert.match(androidUiTest, /"attachments-audio" -> runAttachmentsAudioStage\(documentProbe\.orEmpty\(\), audioProbe\.orEmpty\(\)\)/);
+  assert.match(androidUiTest, /ChatDocumentAttachmentTestTag/);
+  assert.match(androidUiTest, /ChatAudioAttachmentPlayerTestTag/);
+  assert.match(androidUiTest, /ChatAudioAttachmentToggleTestTag/);
+  assert.match(androidUiTest, /ChatAudioAttachmentProgressTestTag/);
+  assert.match(androidUiTest, /android-chat-attachment-document-visible/);
+  assert.match(androidUiTest, /android-chat-audio-toggle-attempted/);
+
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE/);
+  assert.match(iosUiTest, /chat\.attachment\.document/);
+  assert.match(iosUiTest, /chat\.attachment\.audio\.player/);
+  assert.match(iosUiTest, /chat\.attachment\.audio\.toggle/);
+  assert.match(iosUiTest, /chat\.attachment\.audio\.progress/);
+  assert.match(iosUiTest, /ios-chat-attachment-document-visible/);
+  assert.match(iosUiTest, /ios-chat-audio-toggle-attempted/);
+  assert.match(iosUiTest, /messageText\(documentProbe, in: app\)/);
+  assert.match(iosUiTest, /messageText\(audioProbe, in: app\)/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE/);
+  assert.match(iosWrapper, /testAttachmentsAndAudioExposeSharedAnchors/);
+  assert.match(iosWrapper, /attachments-audio\.log/);
+  const attachmentsMode = iosWrapper.slice(
+    iosWrapper.indexOf('if [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]'),
+    iosWrapper.indexOf('elif [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" == "1"'),
+  );
+  assert.doesNotMatch(attachmentsMode, /:\s*"\$\{QUATA_IOS_CHAT_E2E_MESSAGE_ID:\?/);
+  assert.doesNotMatch(attachmentsMode, /:\s*"\$\{QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE:\?/);
 });
