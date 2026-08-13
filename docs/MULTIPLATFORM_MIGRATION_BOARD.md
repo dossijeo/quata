@@ -17,8 +17,10 @@ Candidato `f6bc0b7d` cierra `PROF-HEADER` con evidencia local Android, Web/Wasm 
 Android, Web/Wasm e iOS
 acreditan envío, respuesta, edición, selección/copiar, favorito, reportar, borrar y mute/unmute en
 una conversación reversible con limpieza física de residuo cero; la barra de acciones seleccionadas
-usa superficie común coherente con el encabezado. Persisten `CHAT-ATTACHMENTS`, `CHAT-AUDIO`,
-`CHAT-GROUP`, `CHAT-LOCATION-SOS` y `FLOW-TRANSLATOR` fuera de Chat.
+usa superficie común coherente con el encabezado. La preparación local `codex/chat-attachments-audio-prep`
+añade anclas comunes para `CHAT-ATTACHMENTS`, `CHAT-AUDIO`, `CHAT-GROUP` y `CHAT-LOCATION-SOS`,
+pero no eleva esos subflujos a GO hasta ejecutar evidencia real reversible Android/Web/iOS, limpieza
+física exacta y, para SOS, callback/validación de mapa homogéneos. `FLOW-TRANSLATOR` sigue fuera de Chat.
 
 **Candidato actual:** `fdb5cf30c7d6e610905055d7f060fc72c936786f` cierra
 `PROF-FOLLOW-LISTS` dentro de `OVR-PUBLIC-PROFILE`: seguidores y seguidos comunes abiertos desde

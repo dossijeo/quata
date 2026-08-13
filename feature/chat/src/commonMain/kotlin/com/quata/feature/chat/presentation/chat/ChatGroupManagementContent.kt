@@ -40,6 +40,25 @@ import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.QuataConfirmationDialogContent
 import com.quata.feature.chat.presentation.chatDisplayTitle
 
+const val ChatGroupMenuOptionsTestTag = "chat.menu.options"
+const val ChatGroupMenuMuteTestTag = "chat.menu.mute"
+const val ChatGroupMenuUnmuteTestTag = "chat.menu.unmute"
+const val ChatGroupMenuAllowInvitesTestTag = "chat.group.menu.allowInvites"
+const val ChatGroupMenuAddParticipantsTestTag = "chat.group.menu.addParticipants"
+const val ChatGroupMenuLeaveTestTag = "chat.group.menu.leave"
+const val ChatGroupMenuDeleteTestTag = "chat.group.menu.delete"
+const val ChatGroupMemberRowTestTagPrefix = "chat.group.member."
+const val ChatGroupMemberManageTestTagPrefix = "chat.group.member.manage."
+const val ChatGroupMemberPromoteDemoteTestTagPrefix = "chat.group.member.role."
+const val ChatGroupMemberBlockTestTagPrefix = "chat.group.member.block."
+const val ChatGroupMemberRemoveTestTagPrefix = "chat.group.member.remove."
+const val ChatGroupParticipantPickerRootTestTag = "chat.group.participants.root"
+const val ChatGroupParticipantPickerSearchTestTag = "chat.group.participants.search"
+const val ChatGroupParticipantPickerCandidateTestTagPrefix = "chat.group.participants.candidate."
+const val ChatGroupParticipantPickerLoadMoreTestTag = "chat.group.participants.loadMore"
+const val ChatGroupParticipantPickerConfirmTestTag = "chat.group.participants.confirm"
+const val ChatGroupParticipantPickerCancelTestTag = "chat.group.participants.cancel"
+
 data class ChatMemberPresentation(
     val id: String,
     val name: String,
@@ -113,14 +132,14 @@ fun ChatGroupManagementContent(
             trailing()
             CompactIconButton(
                 onClick = { menuExpanded = true },
-                modifier = Modifier.semantics { testTag = "chat.menu.options" },
+                modifier = Modifier.semantics { testTag = ChatGroupMenuOptionsTestTag },
             ) {
                 CompactIcon(Icons.Filled.MoreVert, strings.options)
             }
             ChatOpaqueOptionsMenuContent(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                 DropdownMenuItem(
                     modifier = Modifier.semantics {
-                        testTag = if (conversation?.isMuted == true) "chat.menu.unmute" else "chat.menu.mute"
+                        testTag = if (conversation?.isMuted == true) ChatGroupMenuUnmuteTestTag else ChatGroupMenuMuteTestTag
                     },
                     text = { Text(if (conversation?.isMuted == true) strings.reactivateNotifications else strings.muteConversation) },
                     leadingIcon = {
@@ -135,6 +154,7 @@ fun ChatGroupManagementContent(
                     },
                 )
                 DropdownMenuItem(
+                    modifier = Modifier.semantics { testTag = ChatGroupMenuAllowInvitesTestTag },
                     text = { Text(strings.allowMemberInvites) },
                     leadingIcon = { Checkbox(checked = conversation?.canMembersInvite == true, onCheckedChange = null) },
                     enabled = isModerator,
@@ -144,6 +164,7 @@ fun ChatGroupManagementContent(
                     },
                 )
                 DropdownMenuItem(
+                    modifier = Modifier.semantics { testTag = ChatGroupMenuAddParticipantsTestTag },
                     text = { Text(strings.addParticipants) },
                     leadingIcon = { CompactIcon(Icons.Filled.PersonAdd, null) },
                     enabled = canInvite,
@@ -153,6 +174,7 @@ fun ChatGroupManagementContent(
                     },
                 )
                 DropdownMenuItem(
+                    modifier = Modifier.semantics { testTag = ChatGroupMenuLeaveTestTag },
                     text = { Text(strings.leaveConversation) },
                     leadingIcon = { CompactIcon(Icons.Filled.PersonRemove, null) },
                     onClick = {
@@ -161,6 +183,7 @@ fun ChatGroupManagementContent(
                     },
                 )
                 DropdownMenuItem(
+                    modifier = Modifier.semantics { testTag = ChatGroupMenuDeleteTestTag },
                     text = { Text(strings.deleteConversation) },
                     leadingIcon = { CompactIcon(Icons.Filled.Delete, null) },
                     onClick = {
@@ -179,7 +202,10 @@ fun ChatGroupManagementContent(
             chatMemberPresentations(conversation, state.currentUser).forEach { member ->
                 var memberMenuExpanded by remember(member.id) { mutableStateOf(false) }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .semantics { testTag = ChatGroupMemberRowTestTagPrefix + member.id },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     memberAvatar(member)
@@ -194,7 +220,10 @@ fun ChatGroupManagementContent(
                         ).padding(8.dp),
                     )
                     if (isModerator && !member.isSelf) {
-                        CompactIconButton(onClick = { memberMenuExpanded = true }) {
+                        CompactIconButton(
+                            onClick = { memberMenuExpanded = true },
+                            modifier = Modifier.semantics { testTag = ChatGroupMemberManageTestTagPrefix + member.id },
+                        ) {
                             CompactIcon(Icons.Filled.MoreVert, strings.manageMember(member.name))
                         }
                         ChatOpaqueOptionsMenuContent(
@@ -202,6 +231,7 @@ fun ChatGroupManagementContent(
                             onDismissRequest = { memberMenuExpanded = false },
                         ) {
                             DropdownMenuItem(
+                                modifier = Modifier.semantics { testTag = ChatGroupMemberPromoteDemoteTestTagPrefix + member.id },
                                 text = { Text(if (member.isModerator) strings.removeModerator else strings.promoteModerator) },
                                 leadingIcon = { CompactIcon(Icons.Filled.Security, null) },
                                 onClick = {
@@ -214,6 +244,7 @@ fun ChatGroupManagementContent(
                                 },
                             )
                             DropdownMenuItem(
+                                modifier = Modifier.semantics { testTag = ChatGroupMemberBlockTestTagPrefix + member.id },
                                 text = { Text(strings.blockUser) },
                                 leadingIcon = { CompactIcon(Icons.Filled.Block, null) },
                                 onClick = {
@@ -222,6 +253,7 @@ fun ChatGroupManagementContent(
                                 },
                             )
                             DropdownMenuItem(
+                                modifier = Modifier.semantics { testTag = ChatGroupMemberRemoveTestTagPrefix + member.id },
                                 text = { Text(strings.removeParticipant) },
                                 leadingIcon = { CompactIcon(Icons.Filled.PersonRemove, null) },
                                 onClick = {
@@ -294,11 +326,13 @@ private fun ChatParticipantsPickerContent(
     strings: ChatChromeStrings,
 ) {
     AlertDialog(
+        modifier = Modifier.semantics { testTag = ChatGroupParticipantPickerRootTestTag },
         onDismissRequest = { onEvent(ChatUiEvent.CloseAddParticipants) },
         title = { Text(strings.addParticipants) },
         text = {
             Column {
                 OutlinedTextField(
+                    modifier = Modifier.semantics { testTag = ChatGroupParticipantPickerSearchTestTag },
                     value = state.participantCandidateQuery,
                     onValueChange = { onEvent(ChatUiEvent.ParticipantSearchChanged(it)) },
                     label = { Text(strings.search) },
@@ -310,7 +344,10 @@ private fun ChatParticipantsPickerContent(
                 }
                 state.participantConversationCandidates.forEach { candidate ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .semantics { testTag = ChatGroupParticipantPickerCandidateTestTagPrefix + candidate.profileId },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(
@@ -324,7 +361,11 @@ private fun ChatParticipantsPickerContent(
                     }
                 }
                 if (state.participantCandidateHasMore && !state.isParticipantCandidateInitialLoading) {
-                    Button(onClick = onLoadMore, enabled = !state.isParticipantCandidatePageLoading) {
+                    Button(
+                        onClick = onLoadMore,
+                        enabled = !state.isParticipantCandidatePageLoading,
+                        modifier = Modifier.semantics { testTag = ChatGroupParticipantPickerLoadMoreTestTag },
+                    ) {
                         Text(if (state.isParticipantCandidatePageLoading) strings.loading else strings.loadMore)
                     }
                 }
@@ -334,10 +375,14 @@ private fun ChatParticipantsPickerContent(
             Button(
                 onClick = { onEvent(ChatUiEvent.AddSelectedParticipants) },
                 enabled = state.selectedParticipantIds.isNotEmpty() && !state.isConversationActionInProgress,
+                modifier = Modifier.semantics { testTag = ChatGroupParticipantPickerConfirmTestTag },
             ) { Text(strings.add) }
         },
         dismissButton = {
-            Button(onClick = { onEvent(ChatUiEvent.CloseAddParticipants) }) { Text(strings.cancel) }
+            Button(
+                onClick = { onEvent(ChatUiEvent.CloseAddParticipants) },
+                modifier = Modifier.semantics { testTag = ChatGroupParticipantPickerCancelTestTag },
+            ) { Text(strings.cancel) }
         },
     )
 }
