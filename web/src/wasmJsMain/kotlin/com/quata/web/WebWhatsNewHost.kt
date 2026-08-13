@@ -3,12 +3,23 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import com.quata.core.moderation.LegalLinks
+import com.quata.core.localization.QuataLanguage
+import com.quata.core.moderation.LegalDocument
+import com.quata.core.moderation.assetName
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PreferenceStore
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
+import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.core.ui.components.QuataAboutDialogContent
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
 import com.quata.feature.whatsnew.data.QuataLocalWhatsNewCatalog
@@ -21,6 +32,7 @@ import com.quata.feature.whatsnew.presentation.WhatsNewScreenHost
 import com.quata.feature.whatsnew.presentation.WhatsNewStartupAcknowledgementStore
 import com.quata.feature.whatsnew.presentation.WhatsNewStartupCoordinator
 import com.quata.feature.whatsnew.presentation.WhatsNewStrings
+import kotlinx.coroutines.launch
 
 enum class WebWhatsNewDestination { PendingReleases, About, ReleaseHistory }
 enum class WebWhatsNewOrigin { Startup, Settings, DeepLink }
@@ -67,6 +79,7 @@ fun WebWhatsNewHost(
     destination: WebWhatsNewDestination,
     repository: WhatsNewRepository,
     installedVersionCode: Long?,
+    documentOpener: DocumentOpenService,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -90,7 +103,7 @@ fun WebWhatsNewHost(
             closeLabel = webReleaseHistoryStrings(languageTags).close,
             onDismiss = onBack,
             onOpenReleaseHistory = { webSetBrowserFragment("release-history") },
-            legalLinks = { WebAboutLegalLinks(languageTags) },
+            legalLinks = { WebAboutLegalLinks(languageTags, documentOpener) },
         )
         WebWhatsNewDestination.ReleaseHistory -> ReleaseHistoryContent(
             repository = repository,
@@ -103,10 +116,34 @@ fun WebWhatsNewHost(
 }
 
 @Composable
-private fun WebAboutLegalLinks(languageTags: List<String>) {
-    val labels = webAboutLegalLabels(languageTags)
-    TextButton(onClick = { webOpenExternalUrl(LegalLinks.Privacy) }) { Text(labels.privacy) }
-    TextButton(onClick = { webOpenExternalUrl(LegalLinks.ChildSafety) }) { Text(labels.childSafety) }
+private fun WebAboutLegalLinks(languageTags: List<String>, documentOpener: DocumentOpenService) {
+    val language = languageTags.toQuataLanguage()
+    val scope = rememberCoroutineScope()
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
+    QuataLegalDocumentLinksContent(
+        language = language,
+        onOpenDocument = { document ->
+            scope.launch {
+                val file = webLegalDocumentFile(document, language)
+                documentViewerState = documentViewerOpeningState(file)
+                documentViewerState = documentOpener.openWithViewerState(file).completed
+            }
+        },
+    )
+    QuataDocumentViewerStatusContent(
+        state = documentViewerState,
+        strings = webDocumentViewerStatusStrings(languageTags),
+        onDismiss = { documentViewerState = null },
+    )
+}
+
+internal fun webLegalDocumentFile(document: LegalDocument, language: QuataLanguage): PlatformFile {
+    val assetName = document.assetName(language)
+    return PlatformFile(
+        reference = webLegalDocumentUrl(assetName),
+        displayName = assetName,
+        mimeType = LegalDocumentDocxMimeType,
+    )
 }
 
 internal fun webWhatsNewStrings(languageTags: List<String>): WhatsNewStrings = when {
@@ -126,8 +163,6 @@ internal fun webReleaseHistoryStrings(languageTags: List<String>): ReleaseHistor
     languageTags.isFrench() -> ReleaseHistoryStrings("Fermer", "Aucune nouveauté publiée.", "Impossible de charger l'historique des versions.", "Historique des versions", "Consultez les nouveautés de toutes les versions suivies.", "Précédent", "Suivant", { "Version $it" }, { "Nouveautés de $it" })
     else -> ReleaseHistoryStrings("Close", "No releases have been published yet.", "Release history could not be loaded.", "Version history", "Browse the notes for every tracked release.", "Previous", "Next", { "Version $it" }, { "What's new in $it" })
 }
-
-private data class WebAboutLegalLabels(val privacy: String, val childSafety: String)
 
 private fun webAboutVersion(): String = "Version ${webDocumentMeta("quata-version-name") ?: "Web"}"
 
@@ -150,12 +185,6 @@ private fun webAboutBody(languageTags: List<String>): String = when {
     languageTags.isSpanish() -> "Feed comunitario, barrios, chats, favoritos, perfiles y contactos SOS en una experiencia integrada."
     languageTags.isFrench() -> "Feed communautaire, quartiers, chats, favoris, profils et contacts SOS dans une experience integree."
     else -> "Community feed, districts, chats, favorites, profiles and SOS contacts in one integrated experience."
-}
-
-private fun webAboutLegalLabels(languageTags: List<String>): WebAboutLegalLabels = when {
-    languageTags.isSpanish() -> WebAboutLegalLabels("Politica de privacidad", "Seguridad infantil y normas de la comunidad")
-    languageTags.isFrench() -> WebAboutLegalLabels("Politique de confidentialite", "Securite des enfants et regles de la communaute")
-    else -> WebAboutLegalLabels("Privacy policy", "Child safety and community standards")
 }
 
 private class WebWhatsNewSeenStateStore : WhatsNewSeenStateStore {
@@ -186,8 +215,12 @@ private class WebWhatsNewStartupAcknowledgementStore(
 
 private fun Long?.orEmpty(): String = this?.toString().orEmpty()
 private fun webDocumentMeta(name: String): String? = js("globalThis.document?.querySelector('meta[name=\"' + name + '\"]')?.content || null")
-private fun webOpenExternalUrl(url: String): Unit = js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
+private fun webLegalDocumentUrl(assetName: String): String = js(
+    "new URL('legal/' + assetName, globalThis.location?.href || 'https://egquata.com/').href",
+)
 private fun webSetBrowserFragment(fragment: String): Unit = js("globalThis.location.hash = fragment")
+private const val LegalDocumentDocxMimeType =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 private const val WebSeenKey = "quata.whatsnew.web.state.v1"
 private const val WebStartupAcknowledgementKey = "quata.whatsnew.web.startup_ack.v1"
 private fun webLocalStorageGet(key: String): String? = js("globalThis.localStorage?.getItem(key) ?? null")
@@ -196,3 +229,8 @@ internal fun browserWhatsNewLanguageTags(): List<String> = browserLanguageTag().
 private fun browserLanguageTag(): String = js("(globalThis.navigator?.languages && globalThis.navigator.languages.length ? Array.from(globalThis.navigator.languages).join(',') : (globalThis.navigator?.language || 'en'))")
 private fun List<String>.isSpanish(): Boolean = any { it.substringBefore('-').substringBefore('_').equals("es", true) }
 private fun List<String>.isFrench(): Boolean = any { it.substringBefore('-').substringBefore('_').equals("fr", true) }
+internal fun List<String>.toQuataLanguage(): QuataLanguage = when {
+    isSpanish() -> QuataLanguage.Spanish
+    isFrench() -> QuataLanguage.French
+    else -> QuataLanguage.English
+}

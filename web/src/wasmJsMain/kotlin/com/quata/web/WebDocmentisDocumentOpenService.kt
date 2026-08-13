@@ -25,6 +25,7 @@ class WebDocmentisDocumentOpenService(
     private val fallback: DocumentOpenService = BrowserDocumentOpenService(),
 ) : DocumentOpenService {
     override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
+        recordDocumentOpenEvidence(file.reference, file.displayName, file.mimeType)
         if (!DocmentisDocumentPolicy.supports(file)) return fallback.open(file)
 
         return when (val result = openWithDocmentis(file.reference, file.displayName)) {
@@ -36,6 +37,25 @@ class WebDocmentisDocumentOpenService(
         }
     }
 }
+
+private fun recordDocumentOpenEvidence(reference: String, displayName: String?, mimeType: String?): Unit = js(
+    """
+    (() => {
+      const query = new URLSearchParams(globalThis.location?.search ?? '');
+      const local = ['127.0.0.1', 'localhost', '::1'].includes(globalThis.location?.hostname);
+      if (!local || !query.has('quata-auth-e2e')) return;
+      const events = Array.isArray(globalThis.__quataDocumentOpenEvidence)
+        ? globalThis.__quataDocumentOpenEvidence
+        : [];
+      events.push({
+        reference: typeof reference === 'string' ? reference : '',
+        displayName: typeof displayName === 'string' ? displayName : '',
+        mimeType: typeof mimeType === 'string' ? mimeType : '',
+      });
+      globalThis.__quataDocumentOpenEvidence = events;
+    })()
+    """,
+)
 
 /** Formats explicitly advertised by the pinned `@docmentis/udoc-viewer` 0.7.9 package. */
 internal object DocmentisDocumentPolicy {

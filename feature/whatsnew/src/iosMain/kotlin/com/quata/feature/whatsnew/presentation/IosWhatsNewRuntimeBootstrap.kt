@@ -1,12 +1,27 @@
 package com.quata.feature.whatsnew.presentation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import com.quata.core.moderation.LegalLinks
+import com.quata.core.localization.QuataLanguage
+import com.quata.core.moderation.LegalDocument
+import com.quata.core.moderation.iosLegalDocumentFile
+import com.quata.core.moderation.iosLegalDocumentPlaceholderFile
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentViewerFailureReason
+import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
+import com.quata.core.ui.components.QuataLegalDocumentLinksContent
+import com.quata.core.ui.components.quataDocumentViewerStatusStrings
 import com.quata.feature.whatsnew.data.IosWhatsNewSeenStateStore
 import com.quata.feature.whatsnew.data.LocalWhatsNewRepository
 import com.quata.feature.whatsnew.data.QuataLocalWhatsNewCatalog
@@ -15,9 +30,7 @@ import kotlin.concurrent.Volatile
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import platform.Foundation.NSBundle
-import platform.Foundation.NSURL
 import platform.Foundation.NSUserDefaults
-import platform.UIKit.UIApplication
 import platform.UIKit.UIViewController
 
 class IosWhatsNewRuntimeBootstrap internal constructor(
@@ -124,6 +137,7 @@ fun QuataIosReleaseHistoryViewController(
 /** Menu/About destination: shared About dialog with a real path to release history. */
 fun QuataIosAboutViewController(
     runtime: IosWhatsNewRuntimeBootstrap,
+    documentOpener: DocumentOpenService,
     onClose: () -> Unit,
     onOpenReleaseHistory: () -> Unit,
 ): UIViewController = QuataAboutViewController(
@@ -136,9 +150,31 @@ fun QuataIosAboutViewController(
         closeLabel = runtime.releaseHistoryStrings().close,
         onDismiss = onClose,
         onOpenReleaseHistory = onOpenReleaseHistory,
-        legalLinks = { IosAboutLegalLinks(runtime.languageTags) },
+        legalLinks = { IosAboutLegalLinks(runtime.languageTags, documentOpener) },
     ),
 )
+
+/** iOS UI evidence fixture: real shared About content with a recording document opener. */
+fun QuataIosAboutLegalEvidenceViewController(
+    runtime: IosWhatsNewRuntimeBootstrap,
+    onOpened: (String) -> Unit,
+    onClose: () -> Unit,
+    onOpenReleaseHistory: () -> Unit,
+): UIViewController = QuataIosAboutViewController(
+    runtime = runtime,
+    documentOpener = RecordingIosLegalDocumentOpenService(onOpened),
+    onClose = onClose,
+    onOpenReleaseHistory = onOpenReleaseHistory,
+)
+
+private class RecordingIosLegalDocumentOpenService(
+    private val onOpened: (String) -> Unit,
+) : DocumentOpenService {
+    override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
+        onOpened(file.displayName.orEmpty())
+        return PlatformResult.Success(Unit)
+    }
+}
 
 enum class IosWhatsNewRoute { PendingReleases, ReleaseHistory }
 
@@ -200,13 +236,52 @@ private fun iosReleaseHistoryStrings(tags: List<String>): ReleaseHistoryStrings 
 }
 
 @Composable
-private fun IosAboutLegalLinks(tags: List<String>) {
-    val labels = iosAboutLegalLabels(tags)
-    TextButton(onClick = { openIosExternalUrl(LegalLinks.Privacy) }) { Text(labels.privacy) }
-    TextButton(onClick = { openIosExternalUrl(LegalLinks.ChildSafety) }) { Text(labels.childSafety) }
+private fun IosAboutLegalLinks(tags: List<String>, documentOpener: DocumentOpenService) {
+    val language = tags.toQuataLanguage()
+    val scope = rememberCoroutineScope()
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
+    QuataLegalDocumentLinksContent(
+        language = language,
+        onOpenDocument = { document ->
+            scope.launch {
+                documentViewerState = openIosLegalDocumentWithViewerState(document, language, documentOpener)
+            }
+        },
+    )
+    QuataDocumentViewerStatusContent(
+        state = documentViewerState,
+        strings = quataDocumentViewerStatusStrings(language),
+        onDismiss = { documentViewerState = null },
+    )
 }
 
-private data class IosAboutLegalLabels(val privacy: String, val childSafety: String)
+private suspend fun openIosLegalDocumentWithViewerState(
+    document: LegalDocument,
+    language: QuataLanguage,
+    documentOpener: DocumentOpenService,
+): DocumentViewerState {
+    val file = iosLegalDocumentFile(document, language)
+    if (file == null) {
+        val placeholder = iosLegalDocumentPlaceholderFile(document, language)
+        return DocumentViewerState.Failed(
+            file = placeholder,
+            descriptor = documentViewerOpeningState(placeholder).descriptor,
+            reason = DocumentViewerFailureReason.PlatformUnsupported,
+        )
+    }
+    return documentOpener.openWithViewerState(file).completed
+}
+
+fun openIosLegalDocumentForSettings(
+    runtime: IosWhatsNewRuntimeBootstrap,
+    document: LegalDocument,
+    documentOpener: DocumentOpenService,
+): PlatformResult<Unit> {
+    val language = runtime.languageTags.toQuataLanguage()
+    val file = iosLegalDocumentFile(document, language) ?: return PlatformResult.Unsupported
+    MainScope().launch { documentOpener.open(file) }
+    return PlatformResult.Success(Unit)
+}
 
 private fun iosAboutVersion(runtime: IosWhatsNewRuntimeBootstrap): String = when {
     runtime.languageTags.isSpanish() -> "Version ${runtime.installedVersionName}"
@@ -238,18 +313,13 @@ private fun iosAboutBody(tags: List<String>): String = when {
     else -> "Community feed, districts, chats, favorites, profiles and SOS contacts in one integrated experience."
 }
 
-private fun iosAboutLegalLabels(tags: List<String>): IosAboutLegalLabels = when {
-    tags.isSpanish() -> IosAboutLegalLabels("Politica de privacidad", "Seguridad infantil y normas de la comunidad")
-    tags.isFrench() -> IosAboutLegalLabels("Politique de confidentialite", "Securite des enfants et regles de la communaute")
-    else -> IosAboutLegalLabels("Privacy policy", "Child safety and community standards")
-}
-
-private fun openIosExternalUrl(url: String) {
-    NSURL.URLWithString(url)?.let { UIApplication.sharedApplication.openURL(it) }
-}
-
 private fun List<String>.isSpanish(): Boolean = any { it.substringBefore('-').equals("es", ignoreCase = true) }
 private fun List<String>.isFrench(): Boolean = any { it.substringBefore('-').equals("fr", ignoreCase = true) }
+private fun List<String>.toQuataLanguage(): QuataLanguage = when {
+    isSpanish() -> QuataLanguage.Spanish
+    isFrench() -> QuataLanguage.French
+    else -> QuataLanguage.English
+}
 
 private fun NSBundle.configuredString(key: String): String? =
     objectForInfoDictionaryKey(key)?.toString()?.trim()?.takeIf { it.isNotEmpty() && "$(" !in it }

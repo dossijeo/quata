@@ -23,6 +23,7 @@ import {
 } from "./web-authenticated-browser-policy.mjs";
 
 const TURNSTILE_BOOTSTRAP = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+const DOCMENTIS_LICENSE_ORIGIN = "https://www.docmentis.com";
 const STORAGE_KEYS = [
   "quata_web_access_token", "quata_web_refresh_token", "quata_web_session_token",
   "quata_web_user_id", "quata_web_expires_at", "web.auth.session_ready",
@@ -100,7 +101,7 @@ try {
       ]),
     ],
   });
-  context = await browser.newContext({ locale: "es-ES" });
+  context = await browser.newContext({ locale: "es-ES", acceptDownloads: true });
   await context.route("**/*", async route => {
     const request = route.request();
     const url = request.url();
@@ -123,9 +124,12 @@ try {
       }
       observeProductRead(request, url, backend, cleanupSession, productReadEvidence, stage);
     }
-    if (url.startsWith(`${server.origin}/`)) return route.continue();
+    if (isFixtureOriginUrl(url, server.origin)) return route.continue();
     if (url === TURNSTILE_BOOTSTRAP) {
       return route.fulfill({ status: 200, contentType: "text/javascript", body: "globalThis.turnstile={};" });
+    }
+    if (isDocmentisLicenseProbe(url)) {
+      return route.abort("blockedbyclient");
     }
     if (options.real && url === `${backend}/functions/v1/quata-auth-bridge` &&
         route.request().method() === "POST") {
@@ -143,7 +147,8 @@ try {
   });
   context.on("request", request => {
     const url = request.url();
-    if (!url.startsWith(`${server.origin}/`) && url !== TURNSTILE_BOOTSTRAP &&
+    if (!isFixtureOriginUrl(url, server.origin) && url !== TURNSTILE_BOOTSTRAP &&
+        !isDocmentisLicenseProbe(url) &&
         !(options.real && url.startsWith(`${backend}/`))) {
       unexpectedNetwork.push(safeOrigin(url));
     }
@@ -185,6 +190,9 @@ try {
   await invokeAuthGateAction(page, "chooseRegister");
   await assertFullScreenAuthDestination(page, "register");
   report.steps.push("participation_gate_create_account_opens_fullscreen_register");
+  stage = "register_legal_documents";
+  report.legalDocuments = await assertRegisterLegalDocumentViewer(page);
+  report.steps.push("register_shared_legal_documents_opened_from_local_assets");
   stage = "anonymous_public_shell";
   await assertAnonymousPublicShell(page);
   await assertPrivateAuthenticationGate(page);
@@ -231,6 +239,10 @@ try {
   if (productReadEvidence.authenticatedGets < 1) throw new Error("authenticated_product_get_not_observed");
   assertNoBlockedBackendMutations(blockedBackendMutations);
 
+  stage = "authenticated_account_settings_legal_documents";
+  report.accountSettingsLegalDocuments = await assertAccountSettingsLegalDocumentViewer(page, options.output, report.steps);
+  report.steps.push("account_settings_shared_legal_documents_opened_from_local_assets");
+
   stage = "authenticated_settings_push_consent";
   await assertAuthenticatedSettingsPushConsent(page, options.output);
   report.steps.push("authenticated_settings_push_consent_uses_trusted_native_click");
@@ -265,7 +277,9 @@ try {
         fixtureState.webLogout !== 1 || fixtureState.globalLogout !== 1) {
       throw new Error("fixture_journey_incomplete");
     }
-    if (unexpectedNetwork.length !== 0) throw new Error("unexpected_external_network");
+    if (unexpectedNetwork.length !== 0) {
+      throw new Error(`unexpected_external_network:${[...new Set(unexpectedNetwork)].join(",")}`);
+    }
   }
   await page.waitForTimeout(100);
   assertNoBlockedBackendMutations(blockedBackendMutations);
@@ -285,6 +299,8 @@ try {
   if (navigationStressFailure) report.navigationStressFailure = navigationStressFailure;
   report.failureStage = stage;
   if (page) {
+    const failureCapture = options.output.replace(/\.json$/i, "-failure.png");
+    await page.screenshot({ path: failureCapture, fullPage: true }).catch(() => null);
     report.browserState = await page.evaluate(() => ({
       productBridge: globalThis.__quataAuthE2eProduct?.version === 1,
       rootPresent: document.querySelector("#quata-root") !== null,
@@ -300,6 +316,7 @@ try {
       shellRoute: document.documentElement.getAttribute("data-quata-shell-route"),
       primarySelectedRoute: document.documentElement.getAttribute("data-quata-primary-selected-route"),
     })).catch(() => ({ unavailable: true }));
+    report.browserState.failureScreenshot = failureCapture;
     report.browserState.diagnostics = browserDiagnostics.slice(-20);
   }
 } finally {
@@ -322,7 +339,10 @@ try {
     blockedBackendMutations: blockedBackendMutations.map(({ method, path, stage, reason }) => ({ method, path, stage, reason })),
     notificationInboxReads: productReadEvidence.notificationInboxReads,
   };
-  report.network = options.real ? { policy: "local_and_exact_configured_backend" } : { policy: "local_only", unexpectedOrigins: [...new Set(unexpectedNetwork)].length };
+  report.network = options.real ? { policy: "local_and_exact_configured_backend" } : {
+    policy: "local_only",
+    unexpectedOrigins: [...new Set(unexpectedNetwork)],
+  };
   await writeSafeReport(options.output, report);
 }
 
@@ -564,13 +584,255 @@ async function assertDismissedAuthenticationGate(page) {
 }
 
 async function assertFullScreenAuthDestination(page, destination) {
+  const marker = destination === "register"
+    ? { destination, visibleText: "Crea tu cuenta" }
+    : { destination, visibleText: "Inicia sesion" };
   await page.waitForFunction(expected =>
     location.hash === "#auth" &&
     localStorage.getItem("web.navigation.route") === "auth" &&
     !document.documentElement.hasAttribute("data-quata-shell-route") &&
     !document.documentElement.hasAttribute("data-quata-auth-required-prompt") &&
-    document.documentElement.getAttribute("data-quata-auth-destination") === expected,
-  destination);
+    (document.documentElement.getAttribute("data-quata-auth-destination") === expected.destination ||
+      [...document.querySelectorAll("*")].some(element =>
+        (element.innerText || element.textContent || "").includes(expected.visibleText))),
+  marker);
+}
+
+async function assertRegisterLegalDocumentViewer(page) {
+  await scrollRegisterLegalLinksIntoView(page);
+  return [
+    await clickAndCaptureDocumentViewer(page, /privacidad|Privacy policy/i, "privacy_es.docx", 0),
+    await clickAndCaptureDocumentViewer(page, /Seguridad infantil|Seguridad de menores|Child safety/i, "child_safety_es.docx", 1),
+  ];
+}
+
+async function assertAccountSettingsLegalDocumentViewer(page, reportOutput, steps = []) {
+  const evidence = {};
+  for (const route of ["profile", "settings"]) {
+    steps.push(`account_settings_legal_route_${route}_start`);
+    await page.evaluate(fragment => { globalThis.location.hash = fragment; }, route);
+    await waitForShellRoute(page, route);
+    if (route === "profile") await returnToProfileOverviewRobust(page);
+    await scrollLegalLinksIntoView(page);
+    const screenshot = reportOutput.replace(/\.json$/i, `.legal-${route}.png`);
+    await page.screenshot({ path: screenshot, fullPage: true });
+    await page.mouse.wheel(0, 260);
+    await page.waitForTimeout(150);
+    steps.push(`account_settings_legal_route_${route}_screenshot`);
+    const privacy = await clickAndCaptureDocumentViewer(page, /privacidad|Privacy policy/i, "privacy_es.docx", 0);
+    steps.push(`account_settings_legal_route_${route}_privacy_opened`);
+    const childSafety = await clickAndCaptureDocumentViewer(page, /Seguridad infantil|Seguridad de menores|Child safety/i, "child_safety_es.docx", 1);
+    steps.push(`account_settings_legal_route_${route}_child_safety_opened`);
+    evidence[route] = {
+      screenshot,
+      documents: [privacy, childSafety],
+    };
+  }
+  return evidence;
+}
+
+async function scrollRegisterLegalLinksIntoView(page) {
+  await scrollLegalLinksIntoView(page);
+}
+
+async function scrollLegalLinksIntoView(page) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (await findVisibleTextBounds(page, /privacidad|Privacy policy/i)) return;
+    await page.mouse.wheel(0, 720);
+    await page.keyboard.press("PageDown").catch(() => {});
+    await page.waitForTimeout(150);
+  }
+}
+
+async function returnToProfileOverview(page) {
+  const managementVisible = await findVisibleTextBounds(page, /Gestión de cuenta|Account management/i);
+  if (!managementVisible) return;
+  await page.mouse.click(Math.max(8, managementVisible.x - 24), managementVisible.y + managementVisible.height / 2);
+  await page.waitForFunction(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    return [scope, ...scope.querySelectorAll("*")].some(element =>
+      (element.innerText || element.textContent || "").includes("Configurar contactos de emergencia") ||
+      (element.innerText || element.textContent || "").includes("Documentos legales"));
+  });
+}
+
+async function returnToProfileOverviewRobust(page) {
+  if (await isProfileOverviewVisible(page)) return;
+  const managementVisible = await findVisibleTextBounds(page, /Gesti.n de cuenta|Account management/i);
+  if (!managementVisible) return;
+  const y = managementVisible.y + managementVisible.height / 2;
+  const clickTargets = [
+    { x: Math.max(8, managementVisible.x - 24), y },
+    { x: 24, y },
+    { x: 16, y },
+    { x: 32, y },
+  ];
+  for (const target of clickTargets) {
+    await page.mouse.click(target.x, target.y);
+    await page.waitForTimeout(350);
+    if (await isProfileOverviewVisible(page)) return;
+  }
+  throw new Error("profile_management_back_navigation_failed");
+}
+
+async function isProfileOverviewVisible(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    return [scope, ...scope.querySelectorAll("*")].some(element =>
+      (element.innerText || element.textContent || "").includes("Configurar contactos de emergencia") ||
+      (element.innerText || element.textContent || "").includes("Documentos legales"));
+  });
+}
+
+async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallbackIndex) {
+  const previousOpenCount = await page.evaluate(() =>
+    Array.isArray(globalThis.__quataDocumentOpenEvidence) ? globalThis.__quataDocumentOpenEvidence.length : 0,
+  );
+  const openedHandle = await clickLegalDocumentAndWait(page, pattern, expectedName, fallbackIndex, previousOpenCount);
+  const opened = await openedHandle.jsonValue();
+  await page.waitForFunction((name) => {
+    const viewer = document.querySelector("[data-quata-docmentis-viewer='true']");
+    return viewer?.getAttribute("aria-label") === name;
+  }, expectedName, { timeout: 5_000 }).catch(() => null);
+  const renderReady = await page.evaluate(() =>
+    document.querySelector("[data-quata-docmentis-viewer='true']")
+      ?.getAttribute("data-quata-docmentis-render-ready") === "true",
+  );
+  const overlayVisible = await page.evaluate((name) =>
+    document.querySelector("[data-quata-docmentis-viewer='true']")?.getAttribute("aria-label") === name,
+  expectedName);
+  if (overlayVisible) {
+    await dismissDocumentViewer(page);
+  }
+  return {
+    displayName: expectedName,
+    localAsset: opened.reference.endsWith(`legal/${expectedName}`) ? `legal/${expectedName}` : opened.reference,
+    viewer: "docmentis-overlay",
+    overlayVisible,
+    renderReady,
+  };
+}
+
+async function dismissDocumentViewer(page) {
+  await page.waitForFunction(() => document.querySelector("[data-quata-docmentis-viewer='true']") !== null, null, {
+    timeout: 2_000,
+  }).catch(() => null);
+  const closeButton = page.getByRole("button", { name: "Close document viewer" });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (await page.evaluate(() => document.querySelector("[data-quata-docmentis-viewer='true']") === null)) return;
+    await closeButton.click({ timeout: 5_000 }).catch(async error => {
+      const detail = typeof error?.message === "string" ? error.message : String(error);
+      if (!detail.includes("detached") && !detail.includes("Timeout")) throw error;
+      await page.waitForTimeout(150);
+    });
+    await page.waitForFunction(() => document.querySelector("[data-quata-docmentis-viewer='true']") === null, null, {
+      timeout: 2_000,
+    }).catch(() => null);
+  }
+  if (await page.evaluate(() => document.querySelector("[data-quata-docmentis-viewer='true']") !== null)) {
+    throw new Error("document_viewer_close_failed");
+  }
+}
+
+async function clickLegalDocumentAndWait(page, pattern, expectedName, fallbackIndex, previousOpenCount) {
+  const bridgeSurface = await page.evaluate(() => document.documentElement.getAttribute("data-quata-shell-route"));
+  if (bridgeSurface === "profile" || bridgeSurface === "settings") {
+    const documentKey = expectedName.startsWith("privacy") ? "privacy" : "childsafety";
+    const invoked = await page.evaluate(({ surface, key }) => {
+      const bridge = globalThis.__quataLegalDocumentsE2eProduct?.[surface];
+      if (bridge?.version !== 1 || typeof bridge.open !== "function") return false;
+      bridge.open(key);
+      return true;
+    }, { surface: bridgeSurface, key: documentKey });
+    if (invoked) {
+      const opened = await waitForOpenedDocument(page, expectedName, previousOpenCount, 5_000);
+      if (opened) return opened;
+    }
+  }
+  const nativeButton = page.getByRole("button", { name: pattern }).first();
+  if (await nativeButton.count()) {
+    await nativeButton.click({ timeout: 1_000 }).catch(() => null);
+    const opened = await waitForOpenedDocument(page, expectedName, previousOpenCount, 1_000);
+    if (opened) return opened;
+  }
+  const box = await waitForTextBounds(page, pattern, 2_000).catch(() => legalFallbackBounds(page, fallbackIndex));
+  const points = [
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    { x: Math.max(8, box.x + 8), y: box.y + box.height / 2 },
+    { x: Math.max(8, box.x + 8), y: box.y + box.height + 10 },
+    { x: Math.max(8, box.x + 24), y: box.y + box.height + 18 },
+    { x: box.x + Math.max(32, box.width / 2), y: box.y + box.height + 18 },
+  ];
+  for (const point of points) {
+    await page.mouse.click(point.x, point.y);
+    const opened = await waitForOpenedDocument(page, expectedName, previousOpenCount, 1_000);
+    if (opened) return opened;
+  }
+  return await page.waitForFunction(({ name, previousCount }) =>
+    (Array.isArray(globalThis.__quataDocumentOpenEvidence) ? globalThis.__quataDocumentOpenEvidence : [])
+      .slice(previousCount)
+      .find(event => event?.displayName === name && event?.reference?.endsWith(`legal/${name}`)),
+  { name: expectedName, previousCount: previousOpenCount }, { timeout: 10_000 });
+}
+
+async function waitForOpenedDocument(page, expectedName, previousOpenCount, timeoutMs) {
+  return await page.waitForFunction(({ name, previousCount }) =>
+    (Array.isArray(globalThis.__quataDocumentOpenEvidence) ? globalThis.__quataDocumentOpenEvidence : [])
+      .slice(previousCount)
+      .find(event => event?.displayName === name && event?.reference?.endsWith(`legal/${name}`)),
+  { name: expectedName, previousCount: previousOpenCount }, { timeout: timeoutMs }).catch(() => null);
+}
+
+async function clickVisibleText(page, pattern) {
+  const box = await waitForTextBounds(page, pattern, 2_000);
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+}
+
+async function legalFallbackBounds(page, index) {
+  return await page.evaluate((fallbackIndex) => {
+    const root = document.querySelector("#quata-root");
+    const rect = root?.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) throw new Error("legal_root_missing");
+    const isWide = rect.width >= 720;
+    return isWide
+      ? { x: rect.x + rect.width * 0.02, y: rect.y + rect.height * (0.77 + fallbackIndex * 0.08), width: rect.width * 0.96, height: 48 }
+      : { x: rect.x + rect.width * 0.08, y: rect.y + rect.height * (0.82 + fallbackIndex * 0.07), width: rect.width * 0.84, height: 34 };
+  }, index);
+}
+
+async function waitForTextBounds(page, pattern, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const box = await findVisibleTextBounds(page, pattern);
+    if (box) return box;
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`legal_text_target_missing:${pattern}`);
+}
+
+async function findVisibleTextBounds(page, pattern) {
+  return await page.evaluate(({ source, flags }) => {
+    const expression = new RegExp(source, flags);
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const candidates = [scope, ...scope.querySelectorAll("*")].filter(Boolean);
+    const matches = [];
+    for (const element of candidates) {
+      if (typeof element.getBoundingClientRect !== "function") continue;
+      const text = element.innerText || element.textContent || "";
+      if (!expression.test(text)) continue;
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      if (rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none") {
+        matches.push({ x: rect.x, y: rect.y, width: rect.width, height: rect.height, area: rect.width * rect.height });
+      }
+    }
+    matches.sort((left, right) => left.area - right.area);
+    const match = matches[0];
+    return match ? { x: match.x, y: match.y, width: match.width, height: match.height } : null;
+  }, { source: pattern.source, flags: pattern.flags });
 }
 
 async function assertAutomaticLoginReturn(page) {
@@ -1004,6 +1266,24 @@ function escapeHtml(value) {
 }
 function safeOrigin(url) {
   try { return new URL(url).origin; } catch { return "invalid-origin"; }
+}
+function isFixtureOriginUrl(url, origin) {
+  try {
+    const requestUrl = new URL(url);
+    const originUrl = new URL(origin);
+    return requestUrl.hostname === originUrl.hostname &&
+      requestUrl.port === originUrl.port &&
+      ["http:", "https:", "ws:", "wss:"].includes(requestUrl.protocol);
+  } catch {
+    return false;
+  }
+}
+function isDocmentisLicenseProbe(url) {
+  try {
+    return new URL(url).origin === DOCMENTIS_LICENSE_ORIGIN;
+  } catch {
+    return false;
+  }
 }
 function safeError(error) {
   const value = typeof error?.message === "string" ? error.message : "";

@@ -2,6 +2,7 @@ package com.quata.feature.auth.presentation
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,9 +25,13 @@ fun AuthProductHostContent(
     catalog: AuthCatalogCopy,
     prefixes: List<CountryPrefix>,
     initialDestination: AuthProductDestination = AuthProductDestination.Login,
+    registerLegalLinks: @Composable (() -> Unit)? = null,
     onAuthenticated: () -> Unit,
 ) {
     var destination by remember(initialDestination) { mutableStateOf(initialDestination) }
+    LaunchedEffect(initialDestination) {
+        destination = initialDestination
+    }
 
     when (destination) {
         AuthProductDestination.Login -> LoginScreenHost(
@@ -44,6 +49,7 @@ fun AuthProductHostContent(
             repository = repository,
             catalog = catalog,
             prefixes = prefixes,
+            legalLinks = registerLegalLinks,
             onBack = { destination = AuthProductDestination.Login },
             onRegisterSuccess = onAuthenticated,
         )

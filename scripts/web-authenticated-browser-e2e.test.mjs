@@ -59,6 +59,24 @@ test("the hermetic browser journey proves the permanent public shell, participat
   assert.match(runner, /await invokeAuthGateAction\(page, "dismiss"\)/);
   assert.match(runner, /await invokeAuthGateAction\(page, "chooseRegister"\)/);
   assert.match(runner, /await assertFullScreenAuthDestination\(page, "register"\)/);
+  assert.match(runner, /visibleText: "Crea tu cuenta"/);
+  assert.match(runner, /await assertRegisterLegalDocumentViewer\(page\)/);
+  assert.match(runner, /register_shared_legal_documents_opened_from_local_assets/);
+  assert.match(runner, /clickAndCaptureDocumentViewer\(page, \/privacidad\|Privacy policy\/i, "privacy_es\.docx", 0\)/);
+  assert.match(runner, /clickAndCaptureDocumentViewer\(page, \/Seguridad infantil\|Seguridad de menores\|Child safety\/i, "child_safety_es\.docx", 1\)/);
+  assert.match(runner, /__quataDocumentOpenEvidence/);
+  assert.match(runner, /data-quata-docmentis-viewer/);
+  assert.match(runner, /viewer: "docmentis-overlay"/);
+  assert.match(runner, /renderReady/);
+  assert.match(runner, /async function dismissDocumentViewer\(page\)/);
+  assert.match(runner, /document_viewer_close_failed/);
+  assert.match(runner, /getByRole\("button", \{ name: pattern \}\)/);
+  assert.match(runner, /findVisibleTextBounds\(page, pattern\)/);
+  assert.match(runner, /element\.innerText \|\| element\.textContent/);
+  assert.match(runner, /\[scope, \.\.\.scope\.querySelectorAll\("\*"\)\]\.filter\(Boolean\)/);
+  assert.match(runner, /matches\.sort\(\(left, right\) => left\.area - right\.area\)/);
+  assert.match(runner, /legalFallbackBounds\(page, fallbackIndex\)/);
+  assert.match(runner, /rect\.width >= 720/);
   assert.match(runner, /await invokeAuthGateAction\(page, "chooseLogin"\)/);
   assert.match(runner, /await assertFullScreenAuthDestination\(page, "login"\)/);
   assert.match(runner, /data-quata-auth-required-prompt/);
@@ -120,7 +138,13 @@ test("Wasm file-cache interop expressions remain valid object-property expressio
 test("fixture fails closed on external network while proving the notification inbox read", () => {
   assert.match(runner, /context\.route\("\*\*\/\*"/);
   assert.match(runner, /proxy-server=http:\/\/127\.0\.0\.1:9/);
+  assert.match(runner, /isFixtureOriginUrl\(url, server\.origin\)/);
+  assert.match(runner, /\["http:", "https:", "ws:", "wss:"\]\.includes\(requestUrl\.protocol\)/);
+  assert.match(runner, /const DOCMENTIS_LICENSE_ORIGIN = "https:\/\/www\.docmentis\.com"/);
+  assert.match(runner, /isDocmentisLicenseProbe\(url\)/);
   assert.match(runner, /unexpected_external_network/);
+  assert.match(runner, /unexpected_external_network:\$\{\[\.\.\.new Set\(unexpectedNetwork\)\]\.join\(","\)\}/);
+  assert.match(runner, /unexpectedOrigins: \[\.\.\.new Set\(unexpectedNetwork\)\]/);
   assert.match(runner, /fixtureState\.login !== 1/);
   assert.match(runner, /fixtureState\.webLogout !== 1/);
   assert.match(runner, /fixtureState\.globalLogout !== 1/);

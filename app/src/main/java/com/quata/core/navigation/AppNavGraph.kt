@@ -67,7 +67,6 @@ import com.quata.core.ui.components.QuataAccountLifecycleConfirmationDialogConte
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -125,6 +124,7 @@ import com.quata.core.device.QuataProximityState
 import com.quata.core.di.AppContainer
 import com.quata.core.location.quataLastLocation
 import com.quata.core.location.SosLocationRecoveryService
+import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.moderation.LegalDocuments
 import com.quata.core.moderation.ModerationTarget
@@ -132,6 +132,7 @@ import com.quata.core.network.ForegroundConnectivityReconciler
 import com.quata.core.presence.LocalUserPresence
 import com.quata.core.platform.PermissionStatus
 import com.quata.core.platform.PlatformPermission
+import com.quata.core.platform.PlatformResult
 import com.quata.core.session.AuthState
 import com.quata.core.text.SosShortcodeKind
 import com.quata.core.text.buildSosShortcode
@@ -141,6 +142,8 @@ import com.quata.core.ui.components.QuataAuthenticatedChromeStrings
 import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
 import com.quata.core.ui.components.QuataConfirmationDialogContent
+import com.quata.core.ui.components.QuataLegalDocumentLinksColumnContent
+import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.core.ui.components.QuataTermsAcceptanceDialogContent
 import com.quata.core.ui.components.QuataNavigationRail
 import com.quata.core.ui.components.QuataNavigationRailWidth
@@ -675,6 +678,7 @@ fun AppNavGraph(
                     RegisterScreen(
                         padding = padding,
                         authRepository = container.authRepository,
+                        openLegalDocument = { document -> openLegalDocument(appContext, container, document) },
                         onBack = { navController.popBackStack() },
                         onRegisterSuccess = {
                             navController.navigate(AppDestinations.Feed.route) {
@@ -954,6 +958,7 @@ fun AppNavGraph(
                                 accountOperationError = null
                                 pendingAccountAction = AccountLifecycleAction.DeleteData
                             },
+                            documentOpenService = container.documentOpenService,
                             onProfileSaved = {
                                 navController.navigate(AppDestinations.Feed.route) {
                                     popUpTo(AppDestinations.Feed.route) { inclusive = false }
@@ -1118,6 +1123,7 @@ fun AppNavGraph(
 
         if (isAboutDialogOpen) {
             AboutQuataDialog(
+                container = container,
                 onDismiss = { isAboutDialogOpen = false },
                 onOpenReleaseHistory = {
                     isAboutDialogOpen = false
@@ -1169,6 +1175,7 @@ fun AppNavGraph(
 
         if (currentUserId != null && ugcTermsAccepted == false) {
             UgcTermsDialog(
+                container = container,
                 isAccepting = isAcceptingUgcTerms,
                 onAccept = {
                     if (!isAcceptingUgcTerms) {
@@ -1404,6 +1411,7 @@ private fun ConfigureTranslatorDialogWindow() {
 
 @Composable
 private fun AboutQuataDialog(
+    container: AppContainer,
     onDismiss: () -> Unit,
     onOpenReleaseHistory: () -> Unit
 ) {
@@ -1418,8 +1426,7 @@ private fun AboutQuataDialog(
         onDismiss = onDismiss,
         onOpenReleaseHistory = onOpenReleaseHistory,
         legalLinks = {
-            LegalDocumentLinkButton(R.string.legal_privacy, LegalDocument.Privacy, context)
-            LegalDocumentLinkButton(R.string.legal_child_safety, LegalDocument.ChildSafety, context)
+            LegalDocumentLinks(context, container)
         },
     )
 }
@@ -1454,11 +1461,13 @@ private fun AccountLifecycleConfirmationDialog(
 
 @Composable
 private fun UgcTermsDialog(
+    container: AppContainer,
     isAccepting: Boolean,
     onAccept: () -> Unit,
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     QuataTermsAcceptanceDialogContent(
         title = stringResource(R.string.ugc_terms_title),
         body = stringResource(R.string.ugc_terms_body),
@@ -1469,32 +1478,43 @@ private fun UgcTermsDialog(
         onAccept = onAccept,
         onLogout = onLogout,
         legalLinks = {
-            LegalDocumentLinkButton(R.string.legal_child_safety, LegalDocument.ChildSafety, context)
-            LegalDocumentLinkButton(R.string.legal_privacy, LegalDocument.Privacy, context)
+            QuataLegalDocumentLinksColumnContent(
+                language = QuataLanguageManager.currentLanguage,
+                documents = listOf(LegalDocument.ChildSafety, LegalDocument.Privacy),
+                onOpenDocument = { document ->
+                    scope.launch { openLegalDocument(context, container, document) }
+                },
+            )
         },
     )
 }
 
 @Composable
-private fun LegalLinkButton(label: Int, url: String, context: Context) {
-    TextButton(
-        onClick = {
-            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+private fun LegalDocumentLinks(context: Context, container: AppContainer) {
+    val scope = rememberCoroutineScope()
+    QuataLegalDocumentLinksContent(
+        language = QuataLanguageManager.currentLanguage,
+        onOpenDocument = { document ->
+            scope.launch { openLegalDocument(context, container, document) }
         },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(stringResource(label), modifier = Modifier.fillMaxWidth())
-    }
+    )
 }
 
-@Composable
-private fun LegalDocumentLinkButton(label: Int, document: LegalDocument, context: Context) {
-    val isDarkMode = quataTheme().resolvedTheme != QuataResolvedTheme.Light
-    TextButton(
-        onClick = { LegalDocuments.open(context, document, isDarkMode) },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(stringResource(label), modifier = Modifier.fillMaxWidth())
+private suspend fun openLegalDocument(
+    context: Context,
+    container: AppContainer,
+    document: LegalDocument,
+) {
+    when (val file = LegalDocuments.platformFile(context, document)) {
+        is PlatformResult.Success -> when (container.documentOpenService.open(file.value)) {
+            is PlatformResult.Success -> Unit
+            PlatformResult.Cancelled -> Unit
+            is PlatformResult.Failure,
+            PlatformResult.Unsupported -> Toast.makeText(context, R.string.error_generic, Toast.LENGTH_LONG).show()
+        }
+        is PlatformResult.Failure,
+        PlatformResult.Cancelled,
+        PlatformResult.Unsupported -> Toast.makeText(context, R.string.error_generic, Toast.LENGTH_LONG).show()
     }
 }
 

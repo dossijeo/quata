@@ -78,6 +78,7 @@ jobs:
           node --test scripts/ios-public-simulator-matrix-contract.test.mjs
           node --test scripts/capability-matrix-contract.test.mjs
           node --test scripts/whats-new-release-history-contract.test.mjs
+          node --test scripts/legal-documents-parity-contract.test.mjs
 
   compile-ios:
     name: Kotlin iOS final host, simulator and archive
@@ -120,6 +121,9 @@ jobs:
 
       - name: Validate Release History parity contract
         run: node --test scripts/whats-new-release-history-contract.test.mjs
+
+      - name: Validate legal documents parity contract
+        run: node --test scripts/legal-documents-parity-contract.test.mjs
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5

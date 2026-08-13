@@ -427,14 +427,30 @@ private final class IosAppCompositionRoot {
             // provides stable containment/readiness for CI without an account or runtime setup.
             let destinationArgument = arguments.firstIndex(of: "-quata-auth-destination")
                 .flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
-            return IosAuthLaunchFixtureContainerViewController {
+            var container: IosAuthLaunchFixtureContainerViewController!
+            container = IosAuthLaunchFixtureContainerViewController {
                 if let destinationArgument {
-                    return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewControllerForDestination(
+                    return IosAuthLaunchFixtureHostKt.QuataAuthLaunchLegalEvidenceViewControllerForDestination(
                         destination: destinationArgument,
+                        languageCode: Locale.preferredLanguages.first,
+                        onOpened: { name in
+                            DispatchQueue.main.async {
+                                guard let view = container?.view else { return }
+                                let marker = UILabel()
+                                marker.accessibilityIdentifier = "legal-document-opened-\(name)"
+                                marker.accessibilityLabel = name
+                                marker.isAccessibilityElement = true
+                                marker.text = name
+                                marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                                marker.alpha = 0.01
+                                view.addSubview(marker)
+                            }
+                        },
                     )
                 }
                 return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewController()
             }
+            return container
         case "auth-recovery-real":
             guard
                 let runtimeConfiguration,
@@ -454,6 +470,7 @@ private final class IosAppCompositionRoot {
                 repository: repository,
                 languageCode: languageArgument ?? Locale.current.languageCode ?? "en",
                 destination: "recovery",
+                documentOpener: platformServices.services.documentOpener,
                 onLoginSuccess: {},
             )
             return IosAuthLaunchFixtureContainerViewController {
@@ -492,8 +509,21 @@ private final class IosAppCompositionRoot {
             }
             let router = IosAuthenticatedHostRouter(platformServices: platformServices)
             router.installAboutFactory { [weak router] in
-                IosWhatsNewRuntimeBootstrapKt.QuataIosAboutViewController(
+                IosWhatsNewRuntimeBootstrapKt.QuataIosAboutLegalEvidenceViewController(
                     runtime: whatsNewRuntimeBootstrap,
+                    onOpened: { name in
+                        DispatchQueue.main.async {
+                            guard let view = router?.view else { return }
+                            let marker = UILabel()
+                            marker.accessibilityIdentifier = "legal-document-opened-\(name)"
+                            marker.accessibilityLabel = name
+                            marker.isAccessibilityElement = true
+                            marker.text = name
+                            marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                            marker.alpha = 0.01
+                            view.addSubview(marker)
+                        }
+                    },
                     onClose: { router?.showFeed(postId: nil) },
                     onOpenReleaseHistory: { router?.showReleaseHistory() },
                 )
@@ -521,6 +551,27 @@ private final class IosAppCompositionRoot {
                         container.replaceComposeSurface(
                             with: makeNotificationsOpenedFixtureViewController(conversationId: conversationId),
                         )
+                    },
+                )
+            }
+            return container
+        case "profile-legal":
+            var container: IosAuthLaunchFixtureContainerViewController!
+            container = IosAuthLaunchFixtureContainerViewController {
+                IosProfileLegalEvidenceFixtureKt.QuataIosProfileLegalEvidenceViewController(
+                    languageCode: Locale.preferredLanguages.first,
+                    onOpened: { name in
+                        DispatchQueue.main.async {
+                            guard let view = container?.view else { return }
+                            let marker = UILabel()
+                            marker.accessibilityIdentifier = "legal-document-opened-\(name)"
+                            marker.accessibilityLabel = name
+                            marker.isAccessibilityElement = true
+                            marker.text = name
+                            marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                            marker.alpha = 0.01
+                            view.addSubview(marker)
+                        }
                     },
                 )
             }
@@ -916,6 +967,16 @@ private final class IosAppCompositionRoot {
                 filePicker: filePicker,
                 touchFlowEnabled: appearancePreferences.touchFlowEnabled,
                 themeModeStorageValue: appearancePreferences.themeModeStorageValue,
+                languageCode: Locale.current.languageCode ?? "en",
+                documentOpener: self?.platformServices.services.documentOpener,
+                openLegalDocument: { [weak self] document, opener in
+                    guard let bootstrap = self?.whatsNewRuntimeBootstrap else { return }
+                    IosWhatsNewRuntimeBootstrapKt.openIosLegalDocumentForSettings(
+                        runtime: bootstrap,
+                        document: document,
+                        documentOpener: opener,
+                    )
+                },
                 onTouchFlowEnabledChange: { enabled in
                     appearancePreferences.setTouchFlowEnabled(enabled.boolValue)
                 },
@@ -1085,6 +1146,16 @@ private final class IosAppCompositionRoot {
                 dependencies: IosSettingsHostKt.createIosSettingsHostDependencies(
                     touchFlowEnabled: appearancePreferences.touchFlowEnabled,
                     themeModeStorageValue: appearancePreferences.themeModeStorageValue,
+                    languageCode: Locale.current.languageCode ?? "en",
+                    documentOpener: self?.platformServices.services.documentOpener,
+                    openLegalDocument: { document, opener in
+                        guard let bootstrap = self?.whatsNewRuntimeBootstrap else { return }
+                        IosWhatsNewRuntimeBootstrapKt.openIosLegalDocumentForSettings(
+                            runtime: bootstrap,
+                            document: document,
+                            documentOpener: opener,
+                        )
+                    },
                     onTouchFlowEnabledChange: { enabled in
                         appearancePreferences.setTouchFlowEnabled(enabled.boolValue)
                     },
@@ -1113,8 +1184,10 @@ private final class IosAppCompositionRoot {
             )
         }
         authenticatedHost.installAboutFactory { [weak self] in
-            IosWhatsNewRuntimeBootstrapKt.QuataIosAboutViewController(
+            guard let self else { return UIViewController() }
+            return IosWhatsNewRuntimeBootstrapKt.QuataIosAboutViewController(
                 runtime: whatsNewRuntimeBootstrap,
+                documentOpener: self.platformServices.services.documentOpener,
                 onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
                 onOpenReleaseHistory: { [weak self] in self?.authenticatedHost.showReleaseHistory() },
             )
@@ -1244,6 +1317,7 @@ private final class IosAppCompositionRoot {
         let dependencies = IosAuthHostKt.createIosAuthHostDependencies(
             repository: repository,
             languageCode: Locale.current.languageCode ?? "en",
+            documentOpener: platformServices.services.documentOpener,
             onLoginSuccess: { [weak self] in
                 DispatchQueue.main.async {
                     self?.authenticatedHost.finishAuthentication {

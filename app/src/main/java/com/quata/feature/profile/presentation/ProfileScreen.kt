@@ -43,18 +43,30 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.quata.R
 import com.quata.core.designsystem.theme.QuataThemeMode
+import com.quata.core.localization.QuataLanguageManager
+import com.quata.core.moderation.LegalDocuments
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
+import com.quata.core.ui.components.QuataDocumentViewerStatusStrings
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorDialog
 import com.quata.feature.postcomposer.imageeditor.QuataImageEditorMode
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
+import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
+import com.quata.feature.settings.presentation.settingsLegalDocumentsStrings
 import com.quata.core.ui.components.QuataCameraDialog
 import com.quata.core.ui.components.QuataCameraMode
+import kotlinx.coroutines.launch
 
 /** Android owns only native media/resources. Account UI and state live in commonMain. */
 @Composable
@@ -71,10 +83,12 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     onDeactivateAccount: () -> Unit,
     onDeleteAccountData: () -> Unit,
+    documentOpenService: DocumentOpenService,
     onProfileSaved: () -> Unit,
     @Suppress("UNUSED_PARAMETER") viewModel: ProfileAndroidViewModel? = null,
 ) {
     val context = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val cameraPermissionMessage = stringResource(R.string.profile_camera_permission_photo)
     val changePhotoLabel = stringResource(R.string.profile_change_photo)
     val pickGalleryLabel = stringResource(R.string.profile_pick_gallery)
@@ -87,6 +101,7 @@ fun ProfileScreen(
     var editorUri by remember { mutableStateOf<Uri?>(null) }
     var preview by remember { mutableStateOf<AttachmentPreview?>(null) }
     var avatarChanged by remember { mutableStateOf<((String?) -> Unit)?>(null) }
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     val backDispatcher = remember { ProfileBackDispatcher() }
     BackHandler(enabled = backDispatcher.canConsume) { backDispatcher.dispatch() }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { editorUri = it }
@@ -98,7 +113,7 @@ fun ProfileScreen(
     DisposableEffect(Unit) { onDispose { onFullscreenEditorVisibilityChange(false) } }
 
     Box(Modifier.fillMaxSize()) {
-        ProfileScreenHost(
+            ProfileScreenHost(
             repository = repository,
             strings = androidProfileStrings(context),
             touchFlowEnabled = touchFlowEnabled,
@@ -110,7 +125,7 @@ fun ProfileScreen(
             onDeleteAccountData = onDeleteAccountData,
             refreshKey = networkReconnectToken,
             contentPadding = padding,
-            slots = ProfileScreenSlots(
+                slots = ProfileScreenSlots(
                 isLandscapeLayout = { isLandscape },
                 avatar = { name, uri -> AvatarImage(
                     name, uri, profileId = profileId,
@@ -138,6 +153,27 @@ fun ProfileScreen(
                     avatar = { AvatarImage(user.displayName, user.avatarUrl, profileId = user.id, modifier = Modifier.size(46.dp)) }, onToggle = toggle,
                 ) },
                 onProfileSaved = onProfileSaved,
+                legalDocuments = {
+                    SettingsLegalDocumentsSectionContent(
+                        language = QuataLanguageManager.currentLanguage,
+                        strings = settingsLegalDocumentsStrings(QuataLanguageManager.currentLanguage),
+                        onOpenDocument = { document ->
+                            scope.launch {
+                                when (val file = LegalDocuments.platformFile(context, document)) {
+                                    is PlatformResult.Success -> {
+                                        documentViewerState = documentViewerOpeningState(file.value)
+                                        documentViewerState = documentOpenService.openWithViewerState(file.value).completed
+                                    }
+                                    is PlatformResult.Failure,
+                                    PlatformResult.Cancelled,
+                                    PlatformResult.Unsupported -> {
+                                        Toast.makeText(context, R.string.error_generic, Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        },
+                    )
+                },
                 backDispatcher = backDispatcher,
             ),
         )
@@ -146,6 +182,11 @@ fun ProfileScreen(
             editorUri = null; avatarChanged?.invoke(it.toString())
         }, mode = QuataImageEditorMode.Avatar) }
         if (cameraOpen) QuataCameraDialog(QuataCameraMode.Photo, onDismiss = { cameraOpen = false }, onPhotoCaptured = { uri, _, _ -> cameraOpen = false; editorUri = uri })
+        QuataDocumentViewerStatusContent(
+            state = documentViewerState,
+            strings = androidDocumentViewerStatusStrings(context),
+            onDismiss = { documentViewerState = null },
+        )
     }
 }
 
@@ -192,4 +233,17 @@ private fun androidProfileStrings(context: Context) = ProfileScreenStrings(
     context.getString(R.string.profile_password_update_unavailable),
     context.getString(R.string.profile_loading_error),
     context.getString(R.string.profile_retry),
+)
+
+private fun androidDocumentViewerStatusStrings(context: Context) = QuataDocumentViewerStatusStrings(
+    openingTitle = context.getString(R.string.document_viewer_opening_title),
+    openedTitle = context.getString(R.string.document_viewer_opened_title),
+    failedTitle = context.getString(R.string.document_viewer_failed_title),
+    openingMessage = context.getString(R.string.document_viewer_opening_message),
+    openedMessage = context.getString(R.string.document_viewer_opened_message),
+    cancelledMessage = context.getString(R.string.document_viewer_cancelled_message),
+    unsupportedFormatMessage = context.getString(R.string.document_viewer_unsupported_format_message),
+    platformUnsupportedMessage = context.getString(R.string.document_viewer_platform_unsupported_message),
+    openFailedMessage = context.getString(R.string.document_viewer_open_failed_message),
+    closeLabel = context.getString(R.string.common_close),
 )

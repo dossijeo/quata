@@ -14,6 +14,8 @@ targets:
       - path: iosApp
       - path: ../app/src/main/assets/lang_id_fasttext.bin
         buildPhase: resources
+      - path: ../app/src/main/assets/legal
+        buildPhase: resources
     configFiles:
       Debug: Configuration/QuataPublicRuntime.debug.xcconfig
       SimulatorSigned: Configuration/QuataPublicRuntime.debug.xcconfig

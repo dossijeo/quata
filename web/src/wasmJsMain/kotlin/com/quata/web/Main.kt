@@ -478,6 +478,7 @@ private fun QuataWebApp(
                         WebLoginHost(
                             repository = authRepository,
                             preferences = platformServices.preferences,
+                            documentOpener = platformServices.documentOpener,
                             initialDestination = authInitialDestination,
                             onLoginSuccess = ::completeLogin,
                         )
@@ -559,6 +560,7 @@ private fun QuataWebApp(
                         themeMode = themeMode,
                         webPushOptedIn = webPushOptedIn,
                         accountLifecycleActions = remember(authRepository) { WebAuthAccountLifecycleActions(authRepository) },
+                        documentOpener = platformServices.documentOpener,
                         onTouchFlowEnabledChange = ::changeTouchFlowEnabled,
                         onThemeModeChange = ::changeThemeMode,
                         onWebPushOptInChange = { enabled ->
@@ -583,6 +585,7 @@ private fun QuataWebApp(
                         destination = destination,
                         repository = whatsNewRepository,
                         installedVersionCode = whatsNewInstalledVersionCode,
+                        documentOpener = platformServices.documentOpener,
                         onBack = {
                             val returnFragment = whatsNewReturnFragment ?: webWhatsNewReturnFragment(origin)
                             if (origin == WebWhatsNewOrigin.Startup) {

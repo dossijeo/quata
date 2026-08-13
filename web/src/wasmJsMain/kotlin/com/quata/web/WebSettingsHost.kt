@@ -1,6 +1,7 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,11 +16,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataThemeMode
+import com.quata.core.moderation.LegalDocument
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
 import com.quata.core.ui.components.QuataAccountLifecycleConfirmationDialogContent
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
 import com.quata.feature.profile.presentation.ProfileAccountManagementContent
 import com.quata.feature.profile.presentation.ProfileManagementAction
 import com.quata.feature.settings.presentation.AppearanceSettingsSectionContent
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
+import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
+import com.quata.feature.settings.presentation.settingsLegalDocumentsStrings
 import kotlinx.coroutines.launch
 
 interface WebAccountLifecycleActions {
@@ -46,14 +55,33 @@ fun WebSettingsHost(
     onThemeModeChange: (QuataThemeMode) -> Unit,
     onWebPushOptInChange: (Boolean) -> Unit,
     accountLifecycleActions: WebAccountLifecycleActions? = null,
+    documentOpener: DocumentOpenService,
     onAccountLifecycleSuccess: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
+    val language = remember { browserWhatsNewLanguageTags().toQuataLanguage() }
     var pendingAction by remember { mutableStateOf<WebAccountLifecycleAction?>(null) }
     var isWorking by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successMessage by remember { mutableStateOf<String?>(null) }
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
+    val openLegalDocument: (LegalDocument) -> Unit = { document ->
+        scope.launch {
+            val file = webLegalDocumentFile(document, language)
+            documentViewerState = documentViewerOpeningState(file)
+            documentViewerState = documentOpener.openWithViewerState(file).completed
+        }
+        Unit
+    }
+    DisposableEffect(language, documentOpener) {
+        val uninstall = installWebLegalDocumentsE2eBridge(
+            surface = "settings",
+            openPrivacy = { openLegalDocument(LegalDocument.Privacy) },
+            openChildSafety = { openLegalDocument(LegalDocument.ChildSafety) },
+        )
+        onDispose { uninstall() }
+    }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(18.dp)) {
         AppearanceSettingsSectionContent(
             touchFlowEnabled = touchFlowEnabled,
@@ -82,6 +110,11 @@ fun WebSettingsHost(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
             )
         }
+        SettingsLegalDocumentsSectionContent(
+            language = language,
+            strings = settingsLegalDocumentsStrings(language),
+            onOpenDocument = openLegalDocument,
+        )
         accountLifecycleActions?.let { actions ->
             ProfileAccountManagementContent(
                 title = "Gestión de cuenta",
@@ -141,4 +174,9 @@ fun WebSettingsHost(
             requiredConfirmation = if (isDeletion) "ELIMINAR" else null,
         )
     } }
+    QuataDocumentViewerStatusContent(
+        state = documentViewerState,
+        strings = webDocumentViewerStatusStrings(browserWhatsNewLanguageTags()),
+        onDismiss = { documentViewerState = null },
+    )
 }

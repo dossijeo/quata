@@ -86,3 +86,45 @@ private external fun installAuthGateBridgeWhenAllowed(
     chooseLogin: () -> Unit,
     chooseRegister: () -> Unit,
 ): () -> Unit
+
+/**
+ * Localhost-only legal-document bridge for Compose surfaces rendered to canvas. It invokes the
+ * same callbacks bound to the shared legal document buttons, so evidence still traverses the
+ * product DocumentOpenService and platform file resolver.
+ */
+internal fun installWebLegalDocumentsE2eBridge(
+    surface: String,
+    openPrivacy: () -> Unit,
+    openChildSafety: () -> Unit,
+): () -> Unit = installLegalDocumentsBridgeWhenAllowed(surface, openPrivacy, openChildSafety)
+
+@JsFun(
+    """(surface, openPrivacy, openChildSafety) => {
+      const location = globalThis.location;
+      const localHost = location?.hostname === '127.0.0.1' || location?.hostname === 'localhost';
+      const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1';
+      if (!localHost || !optedIn) return () => {};
+      const previous = globalThis.__quataLegalDocumentsE2eProduct || {};
+      const bridge = Object.freeze({
+        version: 1,
+        open: (document) => {
+          if (document === 'privacy') return openPrivacy();
+          if (document === 'childsafety') return openChildSafety();
+          throw new Error('unknown_legal_document');
+        },
+      });
+      globalThis.__quataLegalDocumentsE2eProduct = { ...previous, [surface]: bridge };
+      return () => {
+        const current = globalThis.__quataLegalDocumentsE2eProduct || {};
+        if (current[surface] === bridge) {
+          delete current[surface];
+          globalThis.__quataLegalDocumentsE2eProduct = current;
+        }
+      };
+    }""",
+)
+private external fun installLegalDocumentsBridgeWhenAllowed(
+    surface: String,
+    openPrivacy: () -> Unit,
+    openChildSafety: () -> Unit,
+): () -> Unit

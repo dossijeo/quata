@@ -7,6 +7,36 @@ enum class LegalDocument {
     ChildSafety,
 }
 
+data class LegalDocumentLabelSet(
+    val privacy: String,
+    val childSafety: String,
+)
+
+fun legalDocumentLabels(language: QuataLanguage): LegalDocumentLabelSet = when (language) {
+    QuataLanguage.Spanish -> LegalDocumentLabelSet(
+        privacy = "Política de privacidad",
+        childSafety = "Seguridad infantil y normas de la comunidad",
+    )
+    QuataLanguage.French -> LegalDocumentLabelSet(
+        privacy = "Politique de confidentialité",
+        childSafety = "Sécurité des enfants et règles de la communauté",
+    )
+    QuataLanguage.English -> LegalDocumentLabelSet(
+        privacy = "Privacy policy",
+        childSafety = "Child safety and community standards",
+    )
+}
+
+fun LegalDocument.label(labels: LegalDocumentLabelSet): String = when (this) {
+    LegalDocument.Privacy -> labels.privacy
+    LegalDocument.ChildSafety -> labels.childSafety
+}
+
+fun LegalDocument.publicUrl(): String = when (this) {
+    LegalDocument.Privacy -> LegalLinks.Privacy
+    LegalDocument.ChildSafety -> LegalLinks.ChildSafety
+}
+
 fun LegalDocument.assetName(language: QuataLanguage): String {
     val languageCode = when (language) {
         QuataLanguage.Spanish -> "es"

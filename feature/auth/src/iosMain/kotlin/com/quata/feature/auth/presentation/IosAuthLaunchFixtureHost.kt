@@ -1,6 +1,9 @@
 package com.quata.feature.auth.presentation
 
 import com.quata.core.model.AuthSession
+import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
@@ -26,14 +29,46 @@ fun QuataAuthLaunchFixtureViewControllerForDestination(destination: String): UIV
     },
 )
 
-private fun fixtureViewController(initialDestination: AuthProductDestination): UIViewController = QuataAuthViewController(
+fun QuataAuthLaunchLegalEvidenceViewControllerForDestination(
+    destination: String,
+    languageCode: String?,
+    onOpened: (String) -> Unit,
+): UIViewController = fixtureViewController(
+    initialDestination = when (destination.lowercase()) {
+        "register" -> AuthProductDestination.Register
+        "recovery" -> AuthProductDestination.Recovery
+        else -> AuthProductDestination.Login
+    },
+    locale = AuthCatalogLocale.fromLanguage(languageCode),
+    documentOpener = RecordingIosAuthLaunchFixtureDocumentOpener(onOpened),
+)
+
+private fun fixtureViewController(
+    initialDestination: AuthProductDestination,
+    locale: AuthCatalogLocale = AuthCatalogLocale.English,
+    documentOpener: DocumentOpenService = IosAuthLaunchFixtureDocumentOpener,
+): UIViewController = QuataAuthViewController(
     dependencies = IosAuthHostDependencies(
         repository = IosAuthLaunchFixtureRepository(),
-        locale = AuthCatalogLocale.English,
+        locale = locale,
         initialDestination = initialDestination,
+        documentOpener = documentOpener,
         onLoginSuccess = {},
     ),
 )
+
+private object IosAuthLaunchFixtureDocumentOpener : DocumentOpenService {
+    override suspend fun open(file: PlatformFile): PlatformResult<Unit> = PlatformResult.Success(Unit)
+}
+
+private class RecordingIosAuthLaunchFixtureDocumentOpener(
+    private val onOpened: (String) -> Unit,
+) : DocumentOpenService {
+    override suspend fun open(file: PlatformFile): PlatformResult<Unit> {
+        onOpened(file.displayName.orEmpty())
+        return PlatformResult.Success(Unit)
+    }
+}
 
 private class IosAuthLaunchFixtureRepository : AuthRepository {
     private fun <T> unavailable(): Result<T> = Result.failure(IllegalStateException("fixture_auth_unavailable"))

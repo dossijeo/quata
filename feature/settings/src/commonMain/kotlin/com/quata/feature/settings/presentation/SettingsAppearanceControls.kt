@@ -22,9 +22,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.designsystem.theme.quataTheme
+import com.quata.core.localization.QuataLanguage
+import com.quata.core.moderation.LegalDocument
+import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.core.ui.components.QuataPanel
 
 data class AppearanceSettingsStrings(val touchFlow: String, val theme: String, val system: String, val dark: String, val light: String)
+data class SettingsLegalDocumentsStrings(val title: String)
+
+fun settingsLegalDocumentsStrings(language: QuataLanguage): SettingsLegalDocumentsStrings =
+    SettingsLegalDocumentsStrings(
+        title = when (language) {
+            QuataLanguage.Spanish -> "Documentos legales"
+            QuataLanguage.French -> "Documents juridiques"
+            QuataLanguage.English -> "Legal documents"
+        },
+    )
 
 /** Shared settings-card shell; the host supplies only localized strings and persisted values. */
 @Composable
@@ -68,6 +81,28 @@ fun AppearanceSettingsControls(
             ThemeModeOption(strings.system, themeMode == QuataThemeMode.System, { onThemeModeChange(QuataThemeMode.System) }, Modifier.weight(1f))
             ThemeModeOption(strings.dark, themeMode == QuataThemeMode.Dark, { onThemeModeChange(QuataThemeMode.Dark) }, Modifier.weight(1f))
             ThemeModeOption(strings.light, themeMode == QuataThemeMode.Light, { onThemeModeChange(QuataThemeMode.Light) }, Modifier.weight(1f))
+        }
+    }
+}
+
+/** Shared legal-documents settings section; platform hosts only resolve the selected document. */
+@Composable
+fun SettingsLegalDocumentsSectionContent(
+    language: QuataLanguage,
+    strings: SettingsLegalDocumentsStrings,
+    onOpenDocument: (LegalDocument) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    QuataPanel(
+        modifier = modifier,
+        contentPadding = PaddingValues(14.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(strings.title, fontWeight = FontWeight.ExtraBold)
+            QuataLegalDocumentLinksContent(
+                language = language,
+                onOpenDocument = onOpenDocument,
+            )
         }
     }
 }

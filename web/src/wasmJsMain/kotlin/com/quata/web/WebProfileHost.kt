@@ -37,11 +37,15 @@ import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.model.CountryPrefix
 import com.quata.core.platform.CameraCaptureRequest
 import com.quata.core.platform.ContactPickerService
+import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PreferenceStore
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
 import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.feature.auth.presentation.AuthCatalog
 import com.quata.feature.auth.presentation.AuthCatalogLocale
@@ -67,6 +71,9 @@ import com.quata.feature.profile.presentation.ProfileScreenHost
 import com.quata.feature.profile.presentation.ProfileScreenSlots
 import com.quata.feature.profile.presentation.ProfileScreenStrings
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
+import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
+import com.quata.feature.settings.presentation.settingsLegalDocumentsStrings
+import com.quata.core.moderation.LegalDocument
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -90,6 +97,8 @@ internal fun WebProfileHost(
     modifier: Modifier = Modifier,
 ) {
     val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
+    val scope = rememberCoroutineScope()
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     ProfileScreenHost(
         repository = repository,
         strings = WebProfileScreenStrings,
@@ -105,8 +114,37 @@ internal fun WebProfileHost(
             isLandscapeLayout = { isLandscape },
             avatar = { name, avatarUrl -> BrowserRemoteAvatar(name, name, avatarUrl, false, null, Modifier.size(56.dp), allowOwnedBlobReference = true) },
             avatarActions = { change -> WebProfileAvatarActions(platformServices, avatarReferences, change) },
+            legalDocuments = {
+                val language = listOfNotNull(webProfileLanguageTag()).toQuataLanguage()
+                val openLegalDocument: (LegalDocument) -> Unit = { document ->
+                    scope.launch {
+                        val file = webLegalDocumentFile(document, language)
+                        documentViewerState = documentViewerOpeningState(file)
+                        documentViewerState = platformServices.documentOpener.openWithViewerState(file).completed
+                    }
+                    Unit
+                }
+                DisposableEffect(language, platformServices.documentOpener) {
+                    val uninstall = installWebLegalDocumentsE2eBridge(
+                        surface = "profile",
+                        openPrivacy = { openLegalDocument(LegalDocument.Privacy) },
+                        openChildSafety = { openLegalDocument(LegalDocument.ChildSafety) },
+                    )
+                    onDispose { uninstall() }
+                }
+                SettingsLegalDocumentsSectionContent(
+                    language = language,
+                    strings = settingsLegalDocumentsStrings(language),
+                    onOpenDocument = openLegalDocument,
+                )
+            },
             emergencyContactRow = { contact, selected, toggle -> EmergencyUserRowContent(contact, selected, "Añadir", "Quitar", avatar = { BrowserRemoteAvatar(contact.displayName, contact.id, contact.avatarUrl, false, null, Modifier.size(46.dp)) }, onToggle = toggle) },
         ),
+    )
+    QuataDocumentViewerStatusContent(
+        state = documentViewerState,
+        strings = webDocumentViewerStatusStrings(listOfNotNull(webProfileLanguageTag())),
+        onDismiss = { documentViewerState = null },
     )
 }
 

@@ -86,6 +86,66 @@ final class QuataIosHostUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-launch-recovery")
     }
 
+    func testAuthLaunchFixtureCanColdStartSharedRegisterLegalLinks() {
+        let app = fixtureApp("auth-launch", authDestination: "register", spanishLocale: true)
+        app.launch()
+
+        let host = QuataIosHostUITestSupport.fixtureRoot(
+            in: app,
+            identifier: "quata-ios-auth-launch-host",
+        )
+        XCTAssertEqual(host.label, "Quata iOS Auth launch fixture")
+
+        for identifier in [
+            "legal-document-link-privacy",
+            "legal-document-link-childsafety",
+        ] {
+            XCTAssertTrue(
+                app.descendants(matching: .any)
+                    .matching(identifier: identifier)
+                    .firstMatch
+                    .waitForExistence(timeout: 10),
+                "The shared register legal semantic \(identifier) must be available in the iOS fixture.",
+            )
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-launch-register-legal")
+
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-privacy")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-opened-privacy_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared register Privacy link must resolve to the packaged Spanish DOCX.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "document-viewer-status-root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared register legal links must render the common document viewer status chrome.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "auth-launch-register-document-viewer-status")
+        app.descendants(matching: .any)
+            .matching(identifier: "document-viewer-status-close")
+            .firstMatch
+            .tap()
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-childsafety")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-opened-child_safety_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared register Child Safety link must resolve to the packaged Spanish DOCX.",
+        )
+    }
+
     func testRealAuthRecoveryFixtureRoundTripsPasswordAndKeepsEvidence() throws {
         guard ProcessInfo.processInfo.environment["QUATA_IOS_AUTH_RECOVERY_REAL_OPT_IN"] == Self.realRecoveryOptIn else {
             throw XCTSkip("Real iOS recovery is opt-in because it mutates an authorized account password.")
@@ -278,7 +338,67 @@ final class QuataIosHostUITests: XCTestCase {
                 .waitForExistence(timeout: 10),
             "The shared About action must be exposed before opening Release History.",
         )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-link-privacy")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared privacy legal document action must be exposed on iOS.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-link-childsafety")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared child safety legal document action must be exposed on iOS.",
+        )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "about-release-history-real-about")
+
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-privacy")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-opened-privacy_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS About fixture must resolve Privacy to the packaged Spanish DOCX.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "document-viewer-status-root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS About legal fixture must render the common document viewer status chrome.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "about-legal-document-viewer-status")
+        app.descendants(matching: .any)
+            .matching(identifier: "document-viewer-status-close")
+            .firstMatch
+            .tap()
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-childsafety")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-opened-child_safety_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS About fixture must resolve Child Safety to the packaged Spanish DOCX.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "document-viewer-status-root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS About child-safety document must keep the common viewer status chrome visible.",
+        )
+        app.descendants(matching: .any)
+            .matching(identifier: "document-viewer-status-close")
+            .firstMatch
+            .tap()
 
         app.descendants(matching: .any)
             .matching(identifier: "about-release-history")
@@ -299,6 +419,60 @@ final class QuataIosHostUITests: XCTestCase {
             "Release History must expose a real common page for visual evidence.",
         )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "about-release-history-real-release-history")
+    }
+
+    func testProfileLegalFixtureRendersSharedAccountLegalLinks() {
+        let app = fixtureApp("profile-legal", spanishLocale: true)
+        app.launch()
+
+        for identifier in [
+            "legal-document-link-privacy",
+            "legal-document-link-childsafety",
+        ] {
+            XCTAssertTrue(
+                app.descendants(matching: .any)
+                    .matching(identifier: identifier)
+                    .firstMatch
+                    .waitForExistence(timeout: 15),
+                "The shared Cuenta legal semantic \(identifier) must be available in the iOS profile fixture.",
+            )
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "profile-legal-account")
+
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-privacy")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-opened-privacy_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS Cuenta fixture must resolve Privacy to the packaged Spanish DOCX.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "document-viewer-status-root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS Cuenta legal fixture must render the shared document viewer status chrome.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "profile-legal-document-viewer-status")
+        app.descendants(matching: .any)
+            .matching(identifier: "document-viewer-status-close")
+            .firstMatch
+            .tap()
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-childsafety")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "legal-document-opened-child_safety_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS Cuenta fixture must resolve Child Safety to the packaged Spanish DOCX.",
+        )
     }
 
     func testWhatsNewFixtureRendersMarksSeenAndDoesNotRepeat() {
