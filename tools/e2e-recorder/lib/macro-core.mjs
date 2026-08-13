@@ -242,7 +242,9 @@ function androidSelectorExpression(selector) {
   if (selector.kind === "uiautomatorResourceId") return `By.res(${kotlinString(selector.value)})`;
   if (selector.kind === "uiautomatorDescription") return `By.desc(${kotlinString(selector.value)})`;
   if (selector.kind === "uiautomatorText") return `By.text(${kotlinString(selector.value)})`;
-  if (selector.kind === "composeTestTag") return `By.desc(${kotlinString(selector.value)})`;
+  if (selector.kind === "composeTestTag") {
+    return `By.res(java.util.regex.Pattern.compile(${kotlinString(`(^|.*/|:id/)${escapeRegex(selector.value)}$`)})) /* composeTestTag exported as view-id-resource-name/resource-id */`;
+  }
   throw new Error(`Unsupported Android selector ${JSON.stringify(selector)}`);
 }
 
@@ -274,6 +276,10 @@ function jsString(value) {
 
 function kotlinString(value) {
   return `"${String(value).replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
 }
 
 function swiftString(value) {

@@ -24,6 +24,8 @@ for (const [index, step] of compiled.steps.entries()) {
   const entry = { index, action: step.action, selector: step.replay, ok: false };
   try {
     if (step.action === "tap" || step.action === "click") await replayTap(adb, step);
+    else if (step.action === "assertVisible") await assertVisible(adb, step);
+    else throw new Error(`unsupported_android_action ${step.action}`);
     entry.ok = true;
   } catch (error) {
     entry.error = String(error);
@@ -35,6 +37,12 @@ for (const [index, step] of compiled.steps.entries()) {
 }
 console.log(JSON.stringify(result, null, 2));
 if (!result.ok) process.exit(1);
+
+async function assertVisible(adb, step) {
+  const nodes = await dumpUi(adb);
+  const node = findNode(nodes, step.replay);
+  if (!node || node.visible !== true) throw new Error(`selector_not_visible ${JSON.stringify(step.replay)}`);
+}
 
 async function replayTap(adb, step) {
   const nodes = await dumpUi(adb);
@@ -62,6 +70,7 @@ function findNode(nodes, selector) {
   if (selector.kind === "uiautomatorResourceId") return appNodes.find((node) => node.resourceId === selector.value);
   if (selector.kind === "uiautomatorDescription") return appNodes.find((node) => node.contentDescription === selector.value);
   if (selector.kind === "uiautomatorText") return appNodes.find((node) => node.text === selector.value);
+  if (selector.kind === "composeTestTag") return appNodes.find((node) => node.viewIdResourceName === selector.value || node.resourceId === selector.value || node.resourceId?.endsWith(`:id/${selector.value}`) || node.contentDescription === selector.value);
   if (selector.kind === "geometry") {
     const { x, y } = selector.value?.coordinates ?? selector.value ?? {};
     return nodes.find((node) => x >= node.bounds.x && x <= node.bounds.x + node.bounds.width && y >= node.bounds.y && y <= node.bounds.y + node.bounds.height);
@@ -76,9 +85,11 @@ function parseNode(raw) {
   return {
     text: attrs.text || null,
     resourceId: attrs["resource-id"] || null,
+    viewIdResourceName: attrs["view-id-resource-name"] || null,
     contentDescription: attrs["content-desc"] || null,
     className: attrs.class || null,
     packageName: attrs.package || null,
+    visible: attrs["visible-to-user"] === "true" ? true : attrs["visible-to-user"] === "false" ? false : null,
     bounds,
   };
 }
