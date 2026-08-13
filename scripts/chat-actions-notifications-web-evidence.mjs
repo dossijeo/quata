@@ -8,6 +8,11 @@ import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
+import {
+  chatAttachmentsBucket,
+  createCleanupRegistry,
+  seedChatAttachmentFixture,
+} from "./e2e-fixtures/chat-attachments.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
@@ -18,7 +23,6 @@ const hardCleanupAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTI
 const tempProfileHashAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH_AUTHORIZATION";
 const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_NOTIFICATIONS_TEMP_PROFILE_HASH";
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
-const chatAttachmentsBucket = "chat-attachments";
 let lastThreadSnapshot = null;
 
 class ProfileOnlyCompleted extends Error {}
@@ -37,6 +41,7 @@ function parseArgs(argv) {
     profileContentOnly: false,
     profilePrivateChatOnly: false,
     menuSurfaceOnly: false,
+    attachmentsAudioOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -66,6 +71,10 @@ function parseArgs(argv) {
     }
     if (key === "--menu-surface-only") {
       result.menuSurfaceOnly = true;
+      continue;
+    }
+    if (key === "--attachments-audio-only") {
+      result.attachmentsAudioOnly = true;
       continue;
     }
     const value = argv[++index];
@@ -244,6 +253,40 @@ async function storageRequest(config, session, path, options, prefix) {
   return text;
 }
 
+async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
+  await waitMessageVisible(page, fixtures.document.marker, "document_attachment_message_not_visible");
+  await waitMessageVisible(page, fixtures.audio.marker, "audio_attachment_message_not_visible");
+  await page.getByText(fixtures.document.name, { exact: false }).first().waitFor({ timeout: 15_000 });
+  await page.getByText(fixtures.audio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
+  report.evidence.attachmentsDocument = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-visible");
+  const play = await visibleAriaLocator(page, [/Play audio|Reproducir audio/i], 10_000);
+  if (!play) throw new Error("audio_attachment_toggle_not_visible");
+  report.evidence.audioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-player-visible");
+  await clickLocatorCenter(page, play, "audio_attachment_toggle_not_clickable");
+  const playback = await waitAudioPlaybackObserved(page);
+  if (playback.state !== "playing") throw new Error(`audio_playback_not_playing:${playback.state}`);
+  report.evidence.audioPlaybackObserved = playback;
+  report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
+}
+
+function createChatAttachmentMessage(config, session, thread, runId, kind) {
+  return seedChatAttachmentFixture({
+    config,
+    session,
+    thread,
+    runId,
+    kind,
+    platformLabel: "web",
+    rpc,
+    storageRequest,
+    pollMessage,
+    messageText,
+    attachmentId,
+    messageId: sentMessageId,
+    cleanup: state.cleanupRegistry,
+  });
+}
+
 function rows(payload, key) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.[key])) return payload[key];
@@ -265,6 +308,10 @@ function threadId(payload) {
 
 function messageId(payload) {
   return positiveId(rows(payload, "messages")[0]?.id ?? payload?.message?.id ?? payload?.message_id ?? payload?.id, "message_id");
+}
+
+function sentMessageId(payload) {
+  return positiveId(payload?.message_id ?? payload?.message?.id ?? payload?.id, "message_id");
 }
 
 function attachmentId(payload) {
@@ -452,8 +499,21 @@ async function openAuthenticatedChatPage(browser, origin, session, conversationI
     },
   });
   const page = await context.newPage();
-  page.on("pageerror", () => faults.push("pageerror"));
-  page.on("console", (entry) => { if (entry.type() === "error") faults.push("console_error"); });
+  page.on("pageerror", (error) => faults.push(redactBrowserRuntimeFault({
+    type: "pageerror",
+    message: String(error?.message ?? "pageerror"),
+  })));
+  page.on("console", (entry) => {
+    if (entry.type() !== "error") return;
+    const location = entry.location?.() ?? {};
+    faults.push(redactBrowserRuntimeFault({
+      type: "console_error",
+      text: entry.text(),
+      url: typeof location.url === "string" ? location.url : undefined,
+      lineNumber: typeof location.lineNumber === "number" ? location.lineNumber : undefined,
+      columnNumber: typeof location.columnNumber === "number" ? location.columnNumber : undefined,
+    }));
+  });
   await page.goto(`${origin}/#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
   await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
   await page.waitForFunction(
@@ -1524,6 +1584,27 @@ async function visibleAriaLocator(page, patterns, timeout) {
   return null;
 }
 
+async function clickLocatorCenter(page, locator, error) {
+  const box = await locator.boundingBox().catch(() => null);
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error(error);
+  await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+  await delay(250);
+}
+
+async function waitAudioPlaybackObserved(page, timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const pause = await visibleAriaLocator(page, [/Pause audio|Pausar audio/i], 500);
+    if (pause) return { state: "playing", selector: "aria:pause_audio" };
+    const failed = await page.getByText(/No se pudo|could not|not available|no est[aÃ¡] disponible|unsupported/i).first()
+      .isVisible({ timeout: 250 })
+      .catch(() => false);
+    if (failed) return { state: "failed_visible", selector: "text:audio_error" };
+    await delay(250);
+  }
+  throw new Error("audio_playback_state_not_observed");
+}
+
 async function fillComposerAndSend(page, value) {
   const input = await visibleAriaLocator(page, [/Mensaje|Message|Composer/i], 10_000);
   if (!input) throw new Error("composer_input_not_visible");
@@ -1577,6 +1658,8 @@ async function logicalCleanup(config, state) {
   const messagesBySession = [
     ["own_message", state.a, state.ownMessage],
     ["peer_message", state.b, state.peerMessage],
+    ["document_attachment_message", state.a, state.attachmentsAudio?.document?.messageId],
+    ["audio_attachment_message", state.a, state.attachmentsAudio?.audio?.messageId],
     ["profile_content_attachment_message", state.a, state.profileContent?.attachmentMessageId],
     ...state.uiMessages.map((message) => ["ui_message", state.a, message]),
   ];
@@ -1608,6 +1691,7 @@ async function logicalCleanup(config, state) {
     throw new Error("cleanup_residue_detected:profile_private_chat_marker_b");
   }
   if (state.profilePrivateChat?.threadId) actions.push("cleanup_verified_profile_private_chat_marker_absent");
+  await state.cleanupRegistry.cleanupStorageObjects({ config, session: state.a, storageRequest, verifyStorageObjectAbsent, actions });
   if (state.thread && state.a) {
     await rpc(config, state.a, "quata_chat_delete_thread", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread }).catch(() => {});
     actions.push("thread_removed_from_a_inbox");
@@ -1876,6 +1960,16 @@ async function withDatabase(callback) {
   }
 }
 
+async function verifyStorageObjectAbsent(bucket, storagePath) {
+  await withDatabase(async (client) => {
+    const result = await client.query(
+      "select count(*)::int as count from storage.objects where bucket_id = $1 and name = $2",
+      [bucket, storagePath],
+    );
+    if (Number(result.rows[0]?.count ?? 0) !== 0) throw new Error("cleanup_residue_detected:storage_object");
+  });
+}
+
 async function resolveAdjacentRecipientProfile(phoneKeys) {
   return await withDatabase(async (client) => {
     const result = await client.query(
@@ -2022,6 +2116,34 @@ function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
+function redactBrowserRuntimeFault(fault) {
+  const text = [fault.message, fault.text].filter(Boolean).join(" ");
+  return {
+    type: fault.type === "pageerror" ? "pageerror" : "console_error",
+    messageSha256: text ? sha256(text) : undefined,
+    messagePrefix: redactFaultText(text).slice(0, 180) || undefined,
+    urlOrigin: fault.url ? safeUrlOrigin(fault.url) : undefined,
+    lineNumber: Number.isFinite(fault.lineNumber) ? fault.lineNumber : undefined,
+    columnNumber: Number.isFinite(fault.columnNumber) ? fault.columnNumber : undefined,
+  };
+}
+
+function redactFaultText(text) {
+  return String(text ?? "")
+    .replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, "Bearer [redacted]")
+    .replace(/(access_token|refresh_token|session|password|apikey|api_key)=([^&\s]+)/gi, "$1=[redacted]")
+    .replace(/eyJ[A-Za-z0-9._-]+/g, "[jwt-redacted]");
+}
+
+function safeUrlOrigin(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.origin;
+  } catch {
+    return undefined;
+  }
+}
+
 function safeFailure(error) {
   const message = typeof error?.message === "string" ? error.message : "";
   return [
@@ -2057,7 +2179,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, privateMarker: null };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, privateMarker: null, attachmentsAudio: null, cleanupRegistry: createCleanupRegistry() };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -2085,7 +2207,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
-  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly && !options.profileContentOnly && !options.profilePrivateChatOnly && !options.menuSurfaceOnly) {
+  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly && !options.profileContentOnly && !options.profilePrivateChatOnly && !options.menuSurfaceOnly && !options.attachmentsAudioOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -2141,7 +2263,7 @@ try {
   report.steps.push(state.peerMessage ? "thread_rendered_with_own_and_peer_messages" : "thread_rendered_with_own_message");
 
   const translationMarker = state.peerMessage ? peerMarker : ownMarker;
-  if (options.translationOnly || (!options.menuSurfaceOnly && state.peerMessage)) {
+  if (options.translationOnly || (!options.menuSurfaceOnly && !options.attachmentsAudioOnly && state.peerMessage)) {
     await verifyChatTranslation(page, options.evidenceDir, translationMarker);
     report.evidence.translationOverlay = join(options.evidenceDir, "web-chat-translation-overlay.png");
     report.evidence.translationResult = join(options.evidenceDir, "web-chat-translation-result.png");
@@ -2173,6 +2295,35 @@ try {
       uniqueKeySha256: sha256(state.uniqueKey),
       ownMarkerSha256: sha256(ownMarker),
       peerMarkerSha256: sha256(peerMarker),
+    };
+    throw new EvidenceCompleted();
+  }
+
+  if (options.attachmentsAudioOnly) {
+    state.attachmentsAudio = {
+      document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
+      audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
+    };
+    report.steps.push("document_and_audio_attachment_messages_seeded");
+    faults.length = 0;
+    await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
+    await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report);
+    if (faults.length) {
+      report.diagnostics = { ...(report.diagnostics ?? {}), browserRuntimeFaults: faults.slice() };
+      throw new Error("browser_runtime_fault");
+    }
+    report.status = "passed";
+    report.steps.push("document_and_audio_shared_attachment_chrome_verified");
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      documentMessageId: state.attachmentsAudio.document.messageId,
+      audioMessageId: state.attachmentsAudio.audio.messageId,
+      documentAttachmentId: state.attachmentsAudio.document.id,
+      audioAttachmentId: state.attachmentsAudio.audio.id,
+      uniqueKeySha256: sha256(state.uniqueKey),
+      documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
+      audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
     };
     throw new EvidenceCompleted();
   }
@@ -2370,7 +2521,10 @@ try {
     if (pageContext?.page) {
       try {
         report.evidence.failure = await attachScreenshot(pageContext.page, options.evidenceDir, "web-chat-actions-failure");
-        report.diagnostics = { visibleNativeControls: await visibleNativeControls(pageContext.page) };
+        report.diagnostics = {
+          ...(report.diagnostics ?? {}),
+          visibleNativeControls: await visibleNativeControls(pageContext.page),
+        };
       } catch {}
     }
     report.error = safeFailure(error);
@@ -2401,7 +2555,11 @@ try {
   } catch (error) {
     cleanupFailed = true;
     cleanup.error = safeFailure(error);
-    report.profileHashWindow = { state: "restore_failed" };
+    report.profileHashWindow = {
+      state: "restore_failed",
+      error: safeFailure(error),
+      safeErrorMessage: typeof error?.message === "string" ? error.message : "unknown",
+    };
   }
   if (state.profileListEdges && config) {
     try { cleanup.actions.push(...await restoreProfileListEdges(state.profileListEdges)); }

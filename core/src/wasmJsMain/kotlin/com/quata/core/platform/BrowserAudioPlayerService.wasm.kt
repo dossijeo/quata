@@ -96,29 +96,75 @@ private fun browserAudioLoad(id: String, source: String, onResult: (String) -> U
         const element = document.createElement('audio');
         if (typeof element.play !== 'function' || typeof element.pause !== 'function') return onResult('unsupported');
         const store = globalThis.__quataAudioPlayers || (globalThis.__quataAudioPlayers = new Map());
+        let objectUrl = null;
         store.set(id, element);
+        let completed = false;
+        let loadTimer = null;
+        const controller = typeof globalThis.AbortController === 'function' ? new globalThis.AbortController() : null;
+        const complete = (value) => {
+          if (completed) return;
+          completed = true;
+          if (loadTimer != null) globalThis.clearTimeout(loadTimer);
+          onResult(value);
+        };
         const cleanup = () => {
+          if (controller) controller.abort();
           element.onloadedmetadata = null;
+          element.oncanplay = null;
           element.onerror = null;
           element.pause();
           element.removeAttribute('src');
           element.load();
+          if (objectUrl && globalThis.URL?.revokeObjectURL) globalThis.URL.revokeObjectURL(objectUrl);
+          objectUrl = null;
           store.delete(id);
         };
+        loadTimer = globalThis.setTimeout(() => {
+          cleanup();
+          complete('failure:web_audio_load_timeout');
+        }, 5000);
         const state = () => JSON.stringify({
           isLoaded: element.readyState > 0,
           isPlaying: !element.paused && !element.ended,
           positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)),
           durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0,
         });
-        element.preload = 'metadata';
-        element.onloadedmetadata = () => onResult(state());
-        element.onerror = () => {
-          cleanup();
-          onResult('failure:web_audio_load_failed');
+        const resolveSource = () => {
+          if (/^blob:/i.test(source)) return Promise.resolve(source);
+          if (!/^https?:/i.test(source) || typeof globalThis.fetch !== 'function' || !globalThis.URL?.createObjectURL) {
+            return Promise.reject(new Error('web_audio_reference_unsupported'));
+          }
+          return globalThis.fetch(source, { credentials: 'omit', cache: 'no-store', ...(controller ? { signal: controller.signal } : {}) })
+            .then(async (response) => {
+              if (!response.ok) throw new Error(`web_audio_http_${'$'}{response.status}`);
+              const blob = await response.blob();
+              if (completed) return null;
+              if (!blob || !Number.isFinite(blob.size) || blob.size <= 0) throw new Error('web_audio_blob_empty');
+              const nextObjectUrl = globalThis.URL.createObjectURL(blob);
+              if (completed) {
+                if (globalThis.URL?.revokeObjectURL) globalThis.URL.revokeObjectURL(nextObjectUrl);
+                return null;
+              }
+              objectUrl = nextObjectUrl;
+              return nextObjectUrl;
+            });
         };
-        element.src = source;
-        element.load();
+        resolveSource().then((playableSource) => {
+          if (completed || !playableSource) return;
+          element.preload = 'metadata';
+          element.onloadedmetadata = () => complete(state());
+          element.oncanplay = () => complete(state());
+          element.onerror = () => {
+            cleanup();
+            complete('failure:web_audio_load_failed');
+          };
+          element.src = playableSource;
+          element.load();
+        }).catch((error) => {
+          if (completed) return;
+          cleanup();
+          complete('failure:' + (error?.message || 'web_audio_load_failed'));
+        });
       } catch (_) { onResult('unsupported'); }
     })()
     """,
@@ -146,7 +192,7 @@ private fun browserAudioState(id: String, onResult: (String) -> Unit): Unit = js
 )
 
 private fun browserAudioStop(id: String, onComplete: () -> Unit): Unit = js(
-    """(() => { const store = globalThis.__quataAudioPlayers; const element = store?.get(id); if (element) { element.pause(); element.removeAttribute('src'); element.load(); store.delete(id); } onComplete(); })()""",
+    """(() => { const store = globalThis.__quataAudioPlayers; const element = store?.get(id); if (element) { const source = element.currentSrc || element.src || ''; element.pause(); element.removeAttribute('src'); element.load(); if (/^blob:/i.test(source) && globalThis.URL?.revokeObjectURL) globalThis.URL.revokeObjectURL(source); store.delete(id); } onComplete(); })()""",
 )
 
 private const val BrowserAudioUnsupported = "unsupported"

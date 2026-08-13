@@ -14,9 +14,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+
+const val ChatPendingAttachmentOverlayTestTag = "chat.attachment.pending"
+const val ChatPendingAttachmentClearTestTag = "chat.attachment.pending.clear"
 
 /** Shared pending-attachment surface; URI/media rendering and icon resources are supplied by the host. */
 @Composable
@@ -33,7 +38,7 @@ fun ChatPendingAttachmentOverlayContent(
         color = surfaceColor,
         shape = RoundedCornerShape(22.dp),
         shadowElevation = 8.dp,
-        modifier = modifier,
+        modifier = modifier.semantics { testTag = ChatPendingAttachmentOverlayTestTag },
     ) {
         Box(Modifier.fillMaxSize()) {
             Column(
@@ -45,7 +50,7 @@ fun ChatPendingAttachmentOverlayContent(
                 Spacer(Modifier.height(14.dp))
                 Text(name, color = textColor, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            clearAction(Modifier.align(Alignment.TopEnd).padding(8.dp))
+            clearAction(Modifier.align(Alignment.TopEnd).padding(8.dp).semantics { testTag = ChatPendingAttachmentClearTestTag })
         }
     }
 }

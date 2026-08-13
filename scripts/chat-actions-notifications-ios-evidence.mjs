@@ -6,6 +6,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import pg from "pg";
+import {
+  chatAttachmentsBucket,
+  createCleanupRegistry,
+  seedChatAttachmentFixture,
+} from "./e2e-fixtures/chat-attachments.mjs";
 
 const check = "CHAT-ACTIONS-NOTIFICATIONS-IOS-001";
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
@@ -17,7 +22,6 @@ const tempProfileHashAuthorizationValue = "MANAGER_APPROVED_QADATA_CHAT_ACTIONS_
 const credentialsFileEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_CREDENTIALS_FILE";
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const chatAttachmentsBucket = "chat-attachments";
 
 const options = parseArgs(process.argv.slice(2));
 const translationOnly = options.translationOnly;
@@ -28,6 +32,7 @@ const profileContentOnly = options.profileContentOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const menuSurfaceOnly = options.menuSurfaceOnly;
 const keyboardMenuOnly = options.keyboardMenuOnly;
+const attachmentsAudioOnly = options.attachmentsAudioOnly;
 const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profilePrivateChatOnly;
 const report = {
   check,
@@ -67,6 +72,8 @@ const state = {
   profileContent: null,
   profilePrivateChat: null,
   profilePrivateChatMarkerMessage: null,
+  attachmentsAudio: null,
+  cleanupRegistry: createCleanupRegistry(),
 };
 
 try {
@@ -95,7 +102,7 @@ try {
     p_community_id: null,
   }));
   report.steps.push("isolated_group_thread_ready");
-  if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly) {
+  if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -103,10 +110,10 @@ try {
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
   state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
-  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
-  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
+  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
+  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -143,7 +150,7 @@ try {
       state.profilePrivateChatMarkerMessage = messageId(privateMessage);
       report.steps.push("profile_private_chat_seed_message_ready");
     }
-    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly) {
+    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
         p_thread_id: state.thread,
@@ -246,6 +253,13 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
     }
+    if (attachmentsAudioOnly) {
+      state.attachmentsAudio = {
+        document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
+        audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
+      };
+      report.steps.push("document_and_audio_attachment_messages_seeded");
+    }
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
@@ -269,6 +283,9 @@ export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E=${profilePrivateChatOnly ? "1"
 export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE=${shellQuote(state.privateMarker?.slice(0, 28) ?? "profile-only")}
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E=${menuSurfaceOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E=${keyboardMenuOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=${attachmentsAudioOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE=${shellQuote(state.attachmentsAudio?.document?.markerProbe ?? "attachments-audio")}
+export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE=${shellQuote(state.attachmentsAudio?.audio?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_INCLUDE_UNMUTE=${menuSurfaceOnly ? "0" : "1"}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "profile-only")}
@@ -284,6 +301,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? "ios_xctest_options_menu_surface_visible_and_mute_toggled"
       : keyboardMenuOnly
       ? "ios_xctest_keyboard_header_and_selected_action_bar_verified"
+      : attachmentsAudioOnly
+      ? "ios_xctest_document_and_audio_attachment_chrome_verified"
       : profileListsOnly
       ? "ios_xctest_profile_followers_and_following_lists_verified"
       : profileContentOnly
@@ -311,7 +330,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("keyboard_header_and_selected_action_bar_captured");
     }
 
-    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly) {
+    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -329,7 +348,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     await copyRemoteEvidence(options);
     report.status = "passed";
-    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly)
+    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly)
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -340,6 +359,15 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         peerMarkerSha256: sha256(state.peerMarker),
         menuSurfaceOnly,
         keyboardMenuOnly,
+        attachmentsAudioOnly,
+        attachmentsAudio: state.attachmentsAudio ? {
+          documentMessageId: state.attachmentsAudio.document.messageId,
+          audioMessageId: state.attachmentsAudio.audio.messageId,
+          documentAttachmentId: state.attachmentsAudio.document.id,
+          audioAttachmentId: state.attachmentsAudio.audio.id,
+          documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
+          audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
+        } : null,
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
         profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
         profileContent: state.profileContent ? {
@@ -485,6 +513,7 @@ function parseArgs(argv) {
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
     menuSurfaceOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MENU_SURFACE_ONLY === "1",
     keyboardMenuOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_KEYBOARD_MENU_ONLY === "1",
+    attachmentsAudioOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENTS_AUDIO_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -531,6 +560,14 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/chat-keyboard-menu-evidence");
       result.remoteLogDir = "build/reports/ios/chat-keyboard-menu";
       result.remoteResultBundleDir = "build/reports/ios/chat-keyboard-menu/xcresults";
+      continue;
+    }
+    if (key === "--attachments-audio-only") {
+      result.attachmentsAudioOnly = true;
+      result.output = resolve("build-reports/ios/chat-attachments-audio-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/chat-attachments-audio-evidence");
+      result.remoteLogDir = "build/reports/ios/chat-attachments-audio";
+      result.remoteResultBundleDir = "build/reports/ios/chat-attachments-audio/xcresults";
       continue;
     }
     if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
@@ -711,6 +748,24 @@ async function storageRequest(config, session, path, options, prefix) {
   const text = await response.text();
   if (!response.ok) throw new Error(`${prefix}:http_${response.status}`);
   return text;
+}
+
+async function createChatAttachmentMessage(config, session, thread, runId, kind) {
+  return seedChatAttachmentFixture({
+    config,
+    session,
+    thread,
+    runId,
+    kind,
+    platformLabel: "ios",
+    rpc,
+    storageRequest,
+    pollMessage,
+    messageText,
+    attachmentId,
+    messageId,
+    cleanup: state.cleanupRegistry,
+  });
 }
 
 function rows(payload, key) {
@@ -919,7 +974,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("seed_favorite_removed");
   }
-  const messageIds = [state.seedMessage, state.peerMessage, state.editableMessage, state.composerMessage, state.replyMessage, state.profileContent?.attachmentMessageId].filter((value) => Number.isSafeInteger(value));
+  const messageIds = [state.seedMessage, state.peerMessage, state.editableMessage, state.composerMessage, state.replyMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId].filter((value) => Number.isSafeInteger(value));
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
       p_actor_profile_id: state.a.profileId,
@@ -955,6 +1010,7 @@ async function logicalCleanup(config, state) {
     throw new Error("cleanup_residue_detected:profile_private_chat_marker_b");
   }
   if (state.profilePrivateChat) actions.push("cleanup_verified_profile_private_chat_marker_absent");
+  await state.cleanupRegistry.cleanupStorageObjects({ config, session: state.a, storageRequest, verifyStorageObjectAbsent, actions });
   if (state.thread && state.a) {
     await rpc(config, state.a, "quata_chat_delete_thread", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread });
     actions.push("thread_removed_from_a_inbox");
@@ -1380,6 +1436,16 @@ async function withDatabase(callback) {
   } finally {
     await client.end().catch(() => {});
   }
+}
+
+async function verifyStorageObjectAbsent(bucket, storagePath) {
+  await withDatabase(async (client) => {
+    const result = await client.query(
+      "select count(*)::int as count from storage.objects where bucket_id = $1 and name = $2",
+      [bucket, storagePath],
+    );
+    if (Number(result.rows[0]?.count ?? 0) !== 0) throw new Error("cleanup_residue_detected:storage_object");
+  });
 }
 
 async function prepareProfileListEdges(followerId, followedId) {

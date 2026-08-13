@@ -38,6 +38,10 @@ const [
   favoriteHeader,
   chatTranslatorOverlay,
   groupManagement,
+  attachmentQuickPanel,
+  pendingAttachmentOverlay,
+  documentAttachment,
+  audioAttachmentPlayer,
   chatBrowserHostContent,
   communityProfileHost,
   communityProfileHeader,
@@ -62,6 +66,10 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/FavoriteMessagesHeaderContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatTranslatorOverlayContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatGroupManagementContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAttachmentQuickPanelContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatPendingAttachmentOverlayContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatDocumentAttachmentContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentPlayerContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatBrowserHostContent.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileHeaderContent.kt"),
@@ -220,6 +228,48 @@ test("common chat forward picker exposes stable cross-platform evidence anchors"
   assert.match(selectedActions, /testTag = ChatForwardPickerCandidateTestTagPrefix \+ candidate\.profileId/);
   assert.match(selectedActions, /ChatUiEvent\.OpenForwardDialog/);
   assert.match(selectedActions, /ChatUiEvent\.SendForward/);
+});
+
+test("common chat attachments and audio expose stable cross-platform evidence anchors", () => {
+  const quickPanelAnchors = {
+    QuickPanel: "chat.attachment.quickPanel",
+    PickFile: "chat.attachment.pick.file",
+    PickGallery: "chat.attachment.pick.gallery",
+  };
+  for (const [constant, tag] of Object.entries(quickPanelAnchors)) {
+    assert.match(attachmentQuickPanel, new RegExp(`ChatAttachment${constant}TestTag = "${tag.replaceAll(".", "\\.")}"`));
+    assert.match(attachmentQuickPanel, new RegExp(`testTag = ChatAttachment${constant}TestTag`));
+  }
+
+  const pendingAnchors = {
+    Overlay: "chat.attachment.pending",
+    Clear: "chat.attachment.pending.clear",
+  };
+  for (const [constant, tag] of Object.entries(pendingAnchors)) {
+    assert.match(pendingAttachmentOverlay, new RegExp(`ChatPendingAttachment${constant}TestTag = "${tag.replaceAll(".", "\\.")}"`));
+    assert.match(pendingAttachmentOverlay, new RegExp(`testTag = ChatPendingAttachment${constant}TestTag`));
+  }
+
+  assert.match(documentAttachment, /ChatDocumentAttachmentTestTag = "chat\.attachment\.document"/);
+  assert.match(documentAttachment, /testTag = ChatDocumentAttachmentTestTag/);
+
+  const audioAnchors = {
+    Player: "chat.attachment.audio.player",
+    Toggle: "chat.attachment.audio.toggle",
+    Progress: "chat.attachment.audio.progress",
+  };
+  for (const [constant, tag] of Object.entries(audioAnchors)) {
+    assert.match(audioAttachmentPlayer, new RegExp(`ChatAudioAttachment${constant}TestTag = "${tag.replaceAll(".", "\\.")}"`));
+    assert.match(audioAttachmentPlayer, new RegExp(`testTag = ChatAudioAttachment${constant}TestTag`));
+  }
+
+  assert.match(chatBrowserHostContent, /ChatMediaAttachmentContent\(/);
+  assert.match(chatBrowserHostContent, /ChatDocumentAttachmentContent\(/);
+  assert.match(chatBrowserHostContent, /ChatAudioAttachmentPlayerContent\(/);
+  assert.match(chatBrowserHostContent, /ChatUiEvent\.AttachmentSelected/);
+  assert.match(chatBrowserHostContent, /FilePickerSource\.Documents/);
+  assert.match(chatBrowserHostContent, /FilePickerSource\.Gallery/);
+  assert.match(iosHost, /audioRecordingConfiguration = dependencies\.audioRecordingConfiguration/);
 });
 
 test("CHAT-TRANSLATION uses the common overlay and stable evidence anchors on every platform", () => {

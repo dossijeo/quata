@@ -35,7 +35,11 @@ function assertFastAndFinalLaneContract(yaml) {
   assert.ok(fastStart >= 0 && webStart > fastStart, 'the fast lane must precede final jobs');
   const fastBlock = yaml.slice(fastStart, webStart);
   assert.match(fastBlock, /name: PR fast contracts and focal imports/);
+  assert.match(fastBlock, /if: \$\{\{ github\.event_name != 'pull_request' \|\| needs\.classify-impact\.outputs\.docs_only != 'true' \}\}/);
   assert.match(fastBlock, /git diff --check/);
+  assert.match(fastBlock, /node --test scripts\/candidate-attestation-contract\.test\.mjs/);
+  assert.match(fastBlock, /node --test scripts\/e2e-fixtures-chat-attachments-contract\.test\.mjs/);
+  assert.match(fastBlock, /node --test scripts\/codeql-workflow-contract\.test\.mjs/);
   assert.match(fastBlock, /node --test scripts\/whats-new-release-history-contract\.test\.mjs/);
   assert.match(fastBlock, /:core:compileKotlinWasmJs/);
   assert.match(fastBlock, /:feature:profile:compileKotlinWasmJs/);
@@ -203,6 +207,7 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['JetBrains daemon runtime removed', yaml.replace(/      - name: Set up JetBrains Runtime 21 for Gradle daemon[\s\S]*?\n\n(?=      - name: Set up JDK 17)/, '')],
     ['candidate final label trigger removed', yaml.replace(', labeled, unlabeled', '')],
     ['full Web lane no longer gated', yaml.replace("contains(github.event.pull_request.labels.*.name, 'candidate-final')", "contains(github.event.pull_request.labels.*.name, 'candidate-review')")],
+    ['docs-only fast lane guard removed', yaml.replace("if: ${{ github.event_name != 'pull_request' || needs.classify-impact.outputs.docs_only != 'true' }}", "if: ${{ always() }}")],
     ['PR concurrency group weakened', yaml.replace("format('pr-{0}', github.event.pull_request.number)", 'github.ref')],
     ['PR concurrency cancellation weakened', yaml.replace("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", 'cancel-in-progress: true')],
     ['final gate needs removed', yaml.replace('needs: [classify-impact, web-wasm, web-unit-tests, android-unit-tests, android-debug]', 'needs: []')],
@@ -229,6 +234,9 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['core browser JUnit artifact removed', yaml.replace('            core/build/test-results/**/*.xml\n', '')],
     ['postcomposer browser HTML report removed', yaml.replace('            feature/postcomposer/build/reports/tests/\n', '')],
     ['direct capability command removed', yaml.replace('          node --test scripts/capability-matrix-contract.test.mjs\n', '')],
+    ['candidate attestation contract removed', yaml.replace('          node --test scripts/candidate-attestation-contract.test.mjs\n', '')],
+    ['shared fixture contract removed', yaml.replace('          node --test scripts/e2e-fixtures-chat-attachments-contract.test.mjs\n', '')],
+    ['CodeQL workflow contract removed', yaml.replace('          node --test scripts/codeql-workflow-contract.test.mjs\n', '')],
     ['Release History direct contract removed', yaml.replaceAll('          node --test scripts/whats-new-release-history-contract.test.mjs\n', '')],
     ['Official editor evidence step removed', yaml.replace(/      - name: Capture Official editor Web evidence[\s\S]*?(?=\n      - name: Collect five cold Chrome measurements and advisory baseline proposal)/, '')],
     ['Official editor PR identity removed', yaml.replace(' -- --require-pr-identity', '')],

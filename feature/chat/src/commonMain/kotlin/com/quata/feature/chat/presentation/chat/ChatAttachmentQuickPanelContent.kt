@@ -22,12 +22,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.ui.components.CompactIcon
+
+const val ChatAttachmentQuickPanelTestTag = "chat.attachment.quickPanel"
+const val ChatAttachmentPickFileTestTag = "chat.attachment.pick.file"
+const val ChatAttachmentPickGalleryTestTag = "chat.attachment.pick.gallery"
 
 data class ChatAttachmentQuickPanelStrings(val file: String, val gallery: String)
 
@@ -53,10 +59,15 @@ fun ChatAttachmentQuickPanelContent(
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
-    Surface(color = template.colors.surface.copy(alpha = .96f), shape = RoundedCornerShape(18.dp), shadowElevation = 4.dp, modifier = modifier.fillMaxWidth()) {
+    Surface(
+        color = template.colors.surface.copy(alpha = .96f),
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 4.dp,
+        modifier = modifier.fillMaxWidth().semantics { testTag = ChatAttachmentQuickPanelTestTag },
+    ) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ChatAttachmentQuickActionContent(Icons.AutoMirrored.Filled.InsertDriveFile, strings.file, onPickFile, Modifier.weight(1f))
-            ChatAttachmentQuickActionContent(Icons.Filled.PhotoLibrary, strings.gallery, onPickGallery, Modifier.weight(1f))
+            ChatAttachmentQuickActionContent(Icons.AutoMirrored.Filled.InsertDriveFile, strings.file, onPickFile, Modifier.weight(1f).semantics { testTag = ChatAttachmentPickFileTestTag })
+            ChatAttachmentQuickActionContent(Icons.Filled.PhotoLibrary, strings.gallery, onPickGallery, Modifier.weight(1f).semantics { testTag = ChatAttachmentPickGalleryTestTag })
         }
     }
 }

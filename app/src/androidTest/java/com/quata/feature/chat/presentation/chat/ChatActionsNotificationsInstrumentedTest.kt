@@ -70,6 +70,8 @@ class ChatActionsNotificationsInstrumentedTest {
         val postId = optionalArgument("quataChatActionsPostId")
         val commentId = optionalArgument("quataChatActionsCommentId")
         val attachmentId = optionalArgument("quataChatActionsAttachmentId")
+        val documentProbe = optionalArgument("quataChatActionsDocumentProbe")
+        val audioProbe = optionalArgument("quataChatActionsAudioProbe")
         val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
@@ -79,6 +81,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment).all { !it.isNullOrBlank() }
+            "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe).all { !it.isNullOrBlank() }
             else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
         }
         assumeTrue(
@@ -104,6 +107,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
+                "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty())
                 "profile-content" -> {
                     openPeerProfile(peerProbe.orEmpty(), profileId.orEmpty())
                     assertProfileContentStage(profileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty())
@@ -241,6 +245,36 @@ class ChatActionsNotificationsInstrumentedTest {
             ?: error("chat_options_mute_action_not_found")
         compose.waitForIdle()
         SystemClock.sleep(800)
+    }
+
+    private fun runAttachmentsAudioStage(documentProbe: String, audioProbe: String) {
+        waitForMarker(documentProbe.take(28), "document attachment message")
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNodeWithTag(ChatDocumentAttachmentTestTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        saveScreenshot("android-chat-attachment-document-visible")
+
+        waitForMarker(audioProbe.take(28), "audio attachment message")
+        compose.waitUntil(20_000) {
+            listOf(
+                ChatAudioAttachmentPlayerTestTag,
+                ChatAudioAttachmentToggleTestTag,
+                ChatAudioAttachmentProgressTestTag,
+            ).all { tag ->
+                runCatching {
+                    compose.onNodeWithTag(tag, useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                }.isSuccess
+            }
+        }
+        saveScreenshot("android-chat-audio-player-visible")
+        compose.onNodeWithTag(ChatAudioAttachmentToggleTestTag, useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        compose.waitForIdle()
+        saveScreenshot("android-chat-audio-toggle-attempted")
     }
 
     private fun openOptionsMenu() {

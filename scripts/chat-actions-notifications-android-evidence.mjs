@@ -4,6 +4,11 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import {
+  chatAttachmentsBucket,
+  createCleanupRegistry,
+  seedChatAttachmentFixture,
+} from "./e2e-fixtures/chat-attachments.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
@@ -19,8 +24,8 @@ const profileListsOnly = process.argv.includes("--profile-lists-only");
 const profileContentOnly = process.argv.includes("--profile-content-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
+const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
-const chatAttachmentsBucket = "chat-attachments";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/chat-actions-notifications-credentials.json";
 const deviceEvidencePath = "files/chat-actions-notifications-evidence";
@@ -57,6 +62,9 @@ const evidenceFiles = [
   "android-chat-profile-content.png",
   "android-chat-profile-private-chat-before.png",
   "android-chat-profile-private-chat-opened.png",
+  "android-chat-attachment-document-visible.png",
+  "android-chat-audio-player-visible.png",
+  "android-chat-audio-toggle-attempted.png",
   "android-chat-actions-notifications-evidence.json",
 ];
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
@@ -362,6 +370,24 @@ async function storageRequest(config, session, path, options, prefix) {
   return text;
 }
 
+async function createChatAttachmentMessage(config, session, thread, runId, kind) {
+  return seedChatAttachmentFixture({
+    config,
+    session,
+    thread,
+    runId,
+    kind,
+    platformLabel: "android",
+    rpc,
+    storageRequest,
+    pollMessage,
+    messageText,
+    attachmentId,
+    messageId,
+    cleanup: state.cleanupRegistry,
+  });
+}
+
 function rows(payload, key) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.[key])) return payload[key];
@@ -590,7 +616,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("favorite_removed");
   }
-  const messageIds = [state.message, state.peerMessage, state.editedMessage, state.profileContent?.attachmentMessageId, ...state.uiMessages]
+  const messageIds = [state.message, state.peerMessage, state.editedMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId, ...state.uiMessages]
     .filter((id, index, all) => Number.isInteger(Number(id)) && all.indexOf(id) === index);
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
@@ -618,6 +644,7 @@ async function logicalCleanup(config, state) {
     throw new Error("cleanup_residue_detected:profile_private_chat_marker_b");
   }
   if (state.profilePrivateChat) actions.push("cleanup_verified_profile_private_chat_marker_absent");
+  await state.cleanupRegistry.cleanupStorageObjects({ config, session: state.a, storageRequest, verifyStorageObjectAbsent, actions });
   return actions;
 }
 
@@ -878,6 +905,16 @@ async function withDatabase(callback) {
   }
 }
 
+async function verifyStorageObjectAbsent(bucket, storagePath) {
+  await withDatabase(async (client) => {
+    const result = await client.query(
+      "select count(*)::int as count from storage.objects where bucket_id = $1 and name = $2",
+      [bucket, storagePath],
+    );
+    if (Number(result.rows[0]?.count ?? 0) !== 0) throw new Error("cleanup_residue_detected:storage_object");
+  });
+}
+
 async function resolveAdjacentRecipientProfile(phoneKeys) {
   return await withDatabase(async (client) => {
     const result = await client.query(
@@ -1059,7 +1096,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, profilePrivateChatMarkerMessage: null, privateMarker: null };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
@@ -1086,7 +1123,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profilePrivateChatOnly && !menuSurfaceOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profilePrivateChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1192,6 +1229,8 @@ try {
       "-e", "quataChatActionsCommentId", state.profileContent?.seedCommentId ?? "",
       "-e", "quataChatActionsAttachmentId", String(state.profileContent?.attachmentId ?? ""),
       "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
+      "-e", "quataChatActionsDocumentProbe", state.attachmentsAudio?.document?.markerProbe ?? "",
+      "-e", "quataChatActionsAudioProbe", state.attachmentsAudio?.audio?.markerProbe ?? "",
       "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
     ].map(adbShellQuote).join(" "),
   ]);
@@ -1256,6 +1295,35 @@ try {
       markerSha256: sha256(marker),
     };
     throw new Error("menu_surface_only_completed");
+  }
+
+  if (attachmentsAudioOnly) {
+    state.attachmentsAudio = {
+      document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
+      audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
+    };
+    report.steps.push("document_and_audio_attachment_messages_seeded");
+    assertInstrumentationPassed("attachments-audio", await runInstrumentationStage("attachments-audio"));
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((name) => name.includes("attachment") || name.includes("audio") || name.endsWith("evidence.json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
+    }
+    report.status = "passed";
+    report.steps.push("document_and_audio_shared_attachment_chrome_verified");
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      documentMessageId: state.attachmentsAudio.document.messageId,
+      audioMessageId: state.attachmentsAudio.audio.messageId,
+      documentAttachmentId: state.attachmentsAudio.document.id,
+      audioAttachmentId: state.attachmentsAudio.audio.id,
+      markerSha256: sha256(marker),
+      documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
+      audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
+    };
+    throw new Error("attachments_audio_only_completed");
   }
 
   if (state.b.accessToken) {
@@ -1393,6 +1461,7 @@ try {
   if (
     error instanceof EvidenceCompleted ||
     error?.message === "menu_surface_only_completed" ||
+    error?.message === "attachments_audio_only_completed" ||
     error?.message === "profile_only_completed" ||
     error?.message === "profile_follow_only_completed" ||
     error?.message === "profile_lists_only_completed" ||

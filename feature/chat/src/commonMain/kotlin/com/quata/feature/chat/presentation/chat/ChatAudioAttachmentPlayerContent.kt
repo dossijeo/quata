@@ -33,6 +33,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -40,6 +42,10 @@ import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.QuataOrange
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+
+const val ChatAudioAttachmentPlayerTestTag = "chat.attachment.audio.player"
+const val ChatAudioAttachmentToggleTestTag = "chat.attachment.audio.toggle"
+const val ChatAudioAttachmentProgressTestTag = "chat.attachment.audio.progress"
 
 /**
  * Portable audio-attachment controls. The host owns Media3/AVFoundation state and supplies
@@ -51,6 +57,7 @@ fun ChatAudioAttachmentPlayerContent(
     hasError: Boolean,
     progress: Float,
     displayText: String,
+    errorText: String,
     textColor: Color,
     playPauseDescription: String,
     onTogglePlayback: () -> Unit,
@@ -66,7 +73,7 @@ fun ChatAudioAttachmentPlayerContent(
     Surface(
         color = Color.Black.copy(alpha = 0.12f),
         shape = RoundedCornerShape(18.dp),
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().semantics { testTag = ChatAudioAttachmentPlayerTestTag },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
@@ -76,7 +83,11 @@ fun ChatAudioAttachmentPlayerContent(
                 modifier = Modifier.size(42.dp).clip(CircleShape).background(QuataOrange),
                 contentAlignment = Alignment.Center,
             ) {
-                CompactIconButton(enabled = !hasError, onClick = onTogglePlayback) {
+                CompactIconButton(
+                    enabled = !hasError,
+                    onClick = onTogglePlayback,
+                    modifier = Modifier.semantics { testTag = ChatAudioAttachmentToggleTestTag },
+                ) {
                     CompactIcon(
                         imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                         contentDescription = playPauseDescription,
@@ -100,7 +111,7 @@ fun ChatAudioAttachmentPlayerContent(
                     }
                 }
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(14.dp).onSizeChanged { scrubberSize = it }
+                    modifier = Modifier.fillMaxWidth().height(14.dp).semantics { testTag = ChatAudioAttachmentProgressTestTag }.onSizeChanged { scrubberSize = it }
                         .pointerInput(scrubberSize) { detectTapGestures { offset -> seekToX(offset.x) } }
                         .pointerInput(scrubberSize) {
                             detectHorizontalDragGestures(
@@ -121,7 +132,13 @@ fun ChatAudioAttachmentPlayerContent(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CompactIcon(Icons.Filled.Mic, contentDescription = null, tint = textColor.copy(alpha = 0.68f), modifier = Modifier.size(15.dp))
                     Spacer(Modifier.width(5.dp))
-                    Text(displayText, color = textColor.copy(alpha = 0.68f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        if (hasError) errorText else displayText,
+                        color = if (hasError) QuataOrange else textColor.copy(alpha = 0.68f),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }

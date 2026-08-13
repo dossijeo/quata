@@ -52,8 +52,13 @@ function assertIosFastFinalLaneContract(yaml) {
   assert.ok(fastStart >= 0 && finalStart > fastStart, 'the iOS fast lane must remain separate from the final lane');
   const fastBlock = yaml.slice(fastStart, finalStart);
   assert.match(fastBlock, /name: iOS fast contracts/);
+  assert.match(fastBlock, /needs: \[classify-impact\]/);
+  assert.match(fastBlock, /if: \$\{\{ github\.event_name != 'pull_request' \|\| needs\.classify-impact\.outputs\.docs_only != 'true' \}\}/);
   assert.match(fastBlock, /git diff --check/);
   assert.match(fastBlock, /node --test scripts\/ios-build-workflow-contract\.test\.mjs/);
+  assert.match(fastBlock, /node --test scripts\/candidate-attestation-contract\.test\.mjs/);
+  assert.match(fastBlock, /node --test scripts\/e2e-fixtures-chat-attachments-contract\.test\.mjs/);
+  assert.match(fastBlock, /node --test scripts\/codeql-workflow-contract\.test\.mjs/);
   assert.match(fastBlock, /node --test scripts\/whats-new-release-history-contract\.test\.mjs/);
   assert.doesNotMatch(fastBlock, /xcodebuild|assembleQuataSharedDebugXCFramework|simctl/,
     'the PR fast lane must not start the expensive Apple build matrix');
