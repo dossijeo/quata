@@ -337,7 +337,8 @@ test('iOS workflow separates fast PR coverage from final certification and docum
   assertIosFastFinalLaneContract(yaml);
   assert.match(policy, /candidate-final/);
   assert.match(policy, /every affected final job[\s\S]*?successfully[\s\S]*?every unaffected job[\s\S]*?skipped[\s\S]*?never green evidence/i);
-  assert.match(policy, /required status checks[\s\S]*?Web\/Android final certification gate[\s\S]*?iOS final certification gate[\s\S]*?Analyze java-kotlin[\s\S]*?Analyze\s+javascript-typescript/i);
+  assert.match(policy, /required status checks[\s\S]*?Web\/Android final certification gate[\s\S]*?iOS final certification gate[\s\S]*?CodeQL final security gate/i);
+  assert.match(policy, /Analyze java-kotlin[\s\S]*?Analyze javascript-typescript[\s\S]*?real CodeQL scans/i);
   for (const [name, mutation] of [
     ['label event removed', yaml.replace(', labeled, unlabeled', '')],
     ['final label guard removed', yaml.replace(", 'candidate-final'", ", 'candidate-review'" )],
