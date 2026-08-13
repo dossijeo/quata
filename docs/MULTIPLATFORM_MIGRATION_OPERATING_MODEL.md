@@ -167,35 +167,51 @@ que una implementación no compila ni funciona. Si CI revela un defecto reproduc
 informe lo clasifica como **DEFECTO ESCAPADO DEL PREFLIGHT LOCAL** e incorpora obligatoriamente el
 comando, test o contrato preventivo al preflight antes de publicar el siguiente candidato.
 
-Durante esa certificación se permite preparar localmente la siguiente unidad, analizar conflictos,
-revisar contratos, preparar tests focales y documentación. Se prohíbe fusionar otra PR, publicar
-rondas repetidas de trabajo futuro o alterar el head congelado salvo defecto bloqueante demostrado.
-La cola de integración no convierte el equipo en una sola lane: cada lane local libre debe poder
-avanzar trabajo preparatorio aislado y reproducible. Ese trabajo se mantiene fuera de la promoción
-remota hasta que el candidato activo cierre; no puede reutilizar evidencia final ni competir por
-`main`.
+### Two-lane migration pipeline
 
-La certificación CI en GitHub se observa de forma asíncrona. Una vez lanzados los workflows del
-candidato congelado, el orquestador no debe quedarse esperando ociosamente a que terminen jobs de
-varios minutos: registra el PR, base/head/merge y checks esperados, deja una comprobación periódica
-no bloqueante, y usa las lanes locales libres para avanzar otra unidad segura. Sólo vuelve al
-candidato cuando cambia el estado remoto, aparece un fallo que clasificar, o todos los checks
-requeridos están verdes para proceder al merge. En ningún caso este trabajo paralelo puede modificar
-el SHA congelado ni crear una segunda candidata final.
+La certificacion CI larga nunca forma parte del camino critico activo del orquestador. Cuando una
+rama candidata termina desarrollo, supera el preflight local suficiente, queda congelada con
+`candidate-final`, pasa los checks rapidos iniciales relevantes y se observa que los jobs pesados ya
+entraron en builds, simuladores, distribuciones o pruebas largas, esa rama pasa a estado
+**CANDIDATE FROZEN / CERTIFICATION IN PROGRESS** y queda concluida a efectos del trabajo activo.
 
-La comprobación periódica de GitHub Actions se planifica como seguimiento asíncrono, no como espera
-activa del turno: si la certificación remota no ha cambiado, la siguiente acción debe ser trabajo
-local preparatorio, aislado y seguro, con evidencia propia y sin mezclarlo con el SHA congelado del
-candidato.
+El handoff no ocurre inmediatamente despues de hacer push. Primero se observan los fallos rapidos:
+clasificacion de impacto, contratos baratos, sintaxis/imports, configuracion, gates preliminares y
+rechazo de `candidate-final`. Si alguno falla, se corrige en la rama candidata. Si esos gates estan
+verdes y el tramo largo ya empezo, el orquestador deja de vigilar activamente esa PR.
 
-Regla persistente: CI nunca debe mantener al orquestador en espera pasiva. Tras lanzar la
-certificacion remota, se consulta GitHub Actions por polling asincrono y se cambia a trabajo local
-independiente hasta que haya una transicion de estado que exija clasificar fallo, revalidar o
-promover el candidato. En concreto, no se bloquea un turno ni una lane esperando jobs de varios
-minutos: se anota el PR, SHA y checks esperados, se revisa Actions de forma periodica y se avanza
-otra unidad aislada que no toque el candidato congelado. Si no hay trabajo de implementacion seguro,
-se preparan contratos, evidencias, inventario, limpieza de ramas o analisis de la siguiente unidad;
-mirar CI sin hacer nada no cuenta como avance operativo.
+El pipeline normal tiene dos carriles:
+
+- **Lane A: candidate frozen / certification in progress.** La rama publicada queda inmutable salvo
+  correccion de un fallo real. No se fusiona hasta que todos los checks requeridos de certificacion
+  final pasen sobre el SHA exacto.
+- **Lane B: next surface under active development.** El orquestador empieza inmediatamente la
+  siguiente superficie elegible. Si B depende de A, se crea como rama apilada desde el SHA candidato
+  de A; si es independiente, puede salir de `main`.
+
+La profundidad normal maxima es dos: una candidata certificandose y una superficie activa por
+delante. No se abre una cadena A/B/C/D salvo decision explicita por una dependencia real. Si A pasa
+CI, se fusiona en `main`, se actualiza `main`, se rebasa B sobre el nuevo `main`, se resuelven
+conflictos y se continua. Si A falla mientras B avanza, se clasifica primero: un fallo de API comun,
+arquitectura compartida, compilacion comun, fixtures, pipeline o contrato que B usa interrumpe B; un
+fallo focal de evidencia, screenshot, selector o test localizado se corrige aislado en A sin
+destruir B.
+
+La vigilancia de la lane A puede delegarse a un subagente Spark en modo watch/notify: observar
+GitHub Actions, detectar PASS final o FAIL, clasificar de forma basica y avisar. Si Spark no esta
+disponible, el orquestador revisa Actions solo en puntos naturales posteriores, antes de operaciones
+que dependan del merge o cuando necesite clasificar un cambio de estado.
+
+Queda prohibido el polling ocioso durante el tramo largo: `check CI -> sigue running -> esperar ->
+check CI`. Si existe una superficie siguiente elegible, se trabaja en ella. Si una dependencia real
+impide empezar B, se usa el tiempo en trabajo auxiliar util: preparar anclas semanticas, macros E2E,
+fixtures, analisis de la siguiente unidad, contratos rapidos, investigacion de deuda o limpieza de
+ramas. Mirar CI sin producir trabajo no cuenta como avance operativo.
+
+Cuando se aplique este modelo a una candidata, el informe registra PR, momento del handoff, checks
+rapidos ya verdes, job largo en ejecucion, siguiente superficie iniciada, si hubo rama apilada o
+worktree, si Spark vigilo CI, trabajo avanzado mientras CI seguia ejecutandose, resultado final,
+merge, rebase y conflictos.
 
 Todo defecto descubierto tras publicar se clasifica antes de corregirlo: **DEFECTO ESCAPADO DEL
 PREFLIGHT LOCAL** si era reproducible con comandos/artefactos locales disponibles; defecto de
@@ -258,9 +274,9 @@ conexión conceptual a `commonMain`, el backend real o la comparación visual 1:
 - Una reparación puede avanzar la rama de una PR solo mediante fast-forward verificado.
 - Los commits son pequeños y describen una unidad real de producto o validación.
 - Las PR permanecen draft hasta obtener GO independiente.
-- Durante la certificación CI de una PR publicada no se espera de forma ociosa: el candidato queda
-  congelado, GitHub Actions se revisa de manera asíncrona y las lanes locales libres avanzan trabajo
-  preparatorio aislado que no altere ese head ni cree una segunda candidata final.
+- Durante la certificación CI de una PR publicada se aplica el **Two-lane migration pipeline**:
+  tras fast gates verdes y tramo largo iniciado, la candidata queda congelada y el orquestador
+  empieza la siguiente superficie en una rama normal o apilada.
 - Una PR superseded se cierra solo cuando su sucesora contiene su ancestry necesaria y ha obtenido
   evidencia suficiente; después se eliminan ambas ramas obsoletas.
 - Tras completar la migración y limpiar lo integrado, el objetivo de repositorio es conservar solo
@@ -304,8 +320,8 @@ Reglas de aplicación:
 No se informa mediante polling del mismo job. Cada actualización útil indica: PR activa; base/head/
 merge; lane remota; lanes locales ocupadas; trabajo paralelo; último resultado; bloqueo concreto y
 siguiente decisión. Sólo se comunica de nuevo cuando cambia uno de esos elementos.
-La espera de CI no es trabajo activo: si no hay cambio de estado remoto, se continúa con tareas
-locales independientes y se revisa el resultado de GitHub Actions de manera asíncrona.
+La espera de CI no es trabajo activo: tras el handoff del **Two-lane migration pipeline**, si no hay
+cambio de estado remoto se continúa con la siguiente superficie o con trabajo auxiliar útil.
 
 ## 8. Runtimes estables
 
