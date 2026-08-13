@@ -2210,7 +2210,7 @@ try {
   report.steps.push(state.peerMessage ? "thread_rendered_with_own_and_peer_messages" : "thread_rendered_with_own_message");
 
   const translationMarker = state.peerMessage ? peerMarker : ownMarker;
-  if (options.translationOnly || (!options.menuSurfaceOnly && state.peerMessage)) {
+  if (options.translationOnly || (!options.menuSurfaceOnly && !options.attachmentsAudioOnly && state.peerMessage)) {
     await verifyChatTranslation(page, options.evidenceDir, translationMarker);
     report.evidence.translationOverlay = join(options.evidenceDir, "web-chat-translation-overlay.png");
     report.evidence.translationResult = join(options.evidenceDir, "web-chat-translation-result.png");

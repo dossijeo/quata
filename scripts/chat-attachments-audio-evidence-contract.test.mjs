@@ -176,5 +176,6 @@ test("real Chat evidence runners seed reversible document/audio attachments", ()
   assert.match(androidRunner, /runInstrumentationStage\("attachments-audio"\)/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=\$\{attachmentsAudioOnly \? "1" : "0"\}/);
   assert.match(webRunner, /verifyAttachmentsAudioWeb/);
+  assert.match(webRunner, /!options\.attachmentsAudioOnly && state\.peerMessage/);
   assert.match(webRunner, /web-chat-audio-toggle-attempted/);
 });
