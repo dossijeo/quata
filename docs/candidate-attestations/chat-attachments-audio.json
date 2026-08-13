@@ -4,12 +4,12 @@
     "CHAT-ATTACHMENTS",
     "CHAT-AUDIO"
   ],
-  "productSha": "6b0694d8da2ea7c77f4eea1f47fa5b9143ac0400",
+  "productSha": "e5462929dd6736437d76193b9b99679d2b33b7db",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "6b0694d8da2ea7c77f4eea1f47fa5b9143ac0400",
-      "report": "build-reports/web/chat-attachments-audio-evidence-r7/web-chat-actions-notifications-evidence.json",
+      "sha": "e5462929dd6736437d76193b9b99679d2b33b7db",
+      "report": "build-reports/web/chat-attachments-audio-evidence-r9/web-chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -17,7 +17,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "6b0694d8da2ea7c77f4eea1f47fa5b9143ac0400",
+      "sha": "e5462929dd6736437d76193b9b99679d2b33b7db",
       "report": "build-reports/android/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -26,7 +26,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "6b0694d8da2ea7c77f4eea1f47fa5b9143ac0400",
+      "sha": "e5462929dd6736437d76193b9b99679d2b33b7db",
       "report": "build-reports/ios/chat-attachments-audio-evidence.json",
       "cleanup": {
         "verified": true,
