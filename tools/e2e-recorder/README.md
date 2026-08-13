@@ -37,6 +37,13 @@ node tools/e2e-recorder/android-replay.mjs --macro build-reports/e2e-recorder/le
 node tools/e2e-recorder/ios-compile.mjs build-reports/e2e-recorder/legal-ios.macro.json
 ```
 
+Probe a captured platform tree at a visual point:
+
+```powershell
+node tools/e2e-recorder/probe-target.mjs --platform android --input build-reports/e2e-recorder/android-semantics.json --point 120,760
+node tools/e2e-recorder/probe-target.mjs --platform ios --input build-reports/e2e-recorder/ios-ax.json --point 120,760
+```
+
 iOS currently compiles macro files into XCUI snippets using `accessibilityIdentifier`/label anchors. The first MVP intentionally does not add a large remote AX recorder until the SSH/macOS helper exposes a reliable AX element-under-point API. If a recorded iOS step cannot resolve to an identifier or label, the compile step fails instead of producing blind coordinates.
 
 Artifact rules:
@@ -44,5 +51,6 @@ Artifact rules:
 - Raw macro sessions and screenshots belong under `build-reports/e2e-recorder/` unless a deterministic sample is useful.
 - Generated XCTest/Playwright code is reviewed before promotion to CI.
 - `compile.mjs --emit` writes a reviewable runner snippet only when every actionable step has a stable product anchor.
+- `probe-target.mjs` converts Android Compose semantics or iOS AX trees into the same macro target shape and exits non-zero when the point cannot be resolved to a stable product anchor.
 - Coordinates are allowed only as diagnostics or temporary discovery data.
 - A replay failure must name the step, selector, URL/screen and visible state where possible.

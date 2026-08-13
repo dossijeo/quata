@@ -4,6 +4,7 @@ import { access, readFile, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { compileMacro, createMacro, readMacro, renderReplayArtifact, selectorForAndroid, selectorForIos, selectorForWeb, summarizeMacro, writeMacro } from "../tools/e2e-recorder/lib/macro-core.mjs";
+import { androidTargetFromPoint, iosTargetFromPoint } from "../tools/e2e-recorder/lib/platform-probes.mjs";
 
 test("macro compiler prefers stable anchors over coordinates", () => {
   const web = selectorForWeb({
@@ -90,6 +91,53 @@ test("compiler refuses to emit runner artifacts with missing stable anchors", ()
   macro.steps.push({ action: "tap", target: { coordinates: { x: 5, y: 10 } } });
 
   assert.throws(() => renderReplayArtifact(compileMacro(macro)), /unresolved stable anchors/);
+});
+
+test("platform probes resolve Android Compose semantics under a point", () => {
+  const target = androidTargetFromPoint({
+    packageName: "com.quata",
+    bounds: { x: 0, y: 0, width: 390, height: 840 },
+    children: [
+      {
+        packageName: "com.quata",
+        bounds: { x: 24, y: 500, width: 342, height: 56 },
+        semantics: { testTag: "legal-document-link-privacy", ContentDescription: ["Política de privacidad"] },
+      },
+    ],
+  }, 100, 520);
+
+  assert.equal(target.preferred.kind, "testTag");
+  assert.equal(target.preferred.value, "legal-document-link-privacy");
+  assert.equal(target.stable, true);
+});
+
+test("platform probes reject Android nodes owned by another package", () => {
+  const target = androidTargetFromPoint({
+    packageName: "com.google.android.apps.nexuslauncher",
+    bounds: { x: 0, y: 0, width: 1080, height: 2028 },
+    resourceId: "com.google.android.apps.nexuslauncher:id/workspace",
+  }, 500, 1000);
+
+  assert.equal(target.stable, false);
+  assert.equal(target.externalApp, true);
+});
+
+test("platform probes resolve iOS AX identifiers under a point", () => {
+  const target = iosTargetFromPoint({
+    frame: { x: 0, y: 0, width: 390, height: 844 },
+    children: [
+      {
+        identifier: "document-viewer-status-root",
+        label: "Visor de documento",
+        role: "AXGroup",
+        frame: { x: 24, y: 512, width: 342, height: 284 },
+      },
+    ],
+  }, 100, 540);
+
+  assert.equal(target.preferred.kind, "accessibilityIdentifier");
+  assert.equal(target.preferred.value, "document-viewer-status-root");
+  assert.equal(target.stable, true);
 });
 
 test("recorder tooling and persistent operating docs describe the workflow", async () => {

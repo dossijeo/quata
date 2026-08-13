@@ -22,3 +22,9 @@ This unit builds on the MVP in PR #243. It must not be promoted before #243 is i
 - Both probes feed the existing `quata-e2e-macro` format.
 - Contract tests cover fail-closed behavior and at least one stable-anchor success path.
 - Local evidence includes one real probe run per implemented platform.
+
+## MVP Added In This Unit
+
+- `tools/e2e-recorder/lib/platform-probes.mjs` normalizes Android semantics JSON and iOS AX JSON into macro targets.
+- `tools/e2e-recorder/probe-target.mjs` probes a point and exits with `missing_stable_anchor` behavior when the target is not stable.
+- Contract tests cover Android stable semantics, Android external app rejection and iOS AX identifier resolution.
