@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-COMPOSER",
+    "CHAT-MESSAGE-ACTIONS"
+  ],
+  "productSha": "b7bc7914278ab3c386860b7fb556f3b6d73d61c8",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "b7bc7914278ab3c386860b7fb556f3b6d73d61c8",
+      "report": "build-reports/web/chat-keyboard-menu-web-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "b7bc7914278ab3c386860b7fb556f3b6d73d61c8",
+      "report": "build-reports/android/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "b7bc7914278ab3c386860b7fb556f3b6d73d61c8",
+      "report": "build-reports/ios/chat-keyboard-menu-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata for the stacked branch opened while PR #247 was in long certification.",
+    "The product code was already present in the stack: ChatScreenHost keeps the header outside the imePadding viewport, and ChatSelectedMessageActionBarContent paints chatHeaderSurfaceColor behind the selected-message action bar.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated."
+  ]
+}
