@@ -19,6 +19,7 @@ const profileListsOnly = process.argv.includes("--profile-lists-only");
 const profileContentOnly = process.argv.includes("--profile-content-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
+const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const chatAttachmentsBucket = "chat-attachments";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
@@ -57,6 +58,9 @@ const evidenceFiles = [
   "android-chat-profile-content.png",
   "android-chat-profile-private-chat-before.png",
   "android-chat-profile-private-chat-opened.png",
+  "android-chat-attachment-document-visible.png",
+  "android-chat-audio-player-visible.png",
+  "android-chat-audio-toggle-attempted.png",
   "android-chat-actions-notifications-evidence.json",
 ];
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
@@ -362,6 +366,46 @@ async function storageRequest(config, session, path, options, prefix) {
   return text;
 }
 
+async function createChatAttachmentMessage(config, session, thread, runId, kind) {
+  const isAudio = kind === "audio";
+  const extension = isAudio ? "mp3" : "txt";
+  const mimeType = isAudio ? "audio/mpeg" : "text/plain";
+  const marker = `chat-${kind}-attachment-android-${runId}`;
+  const name = `qadata-${kind}-${runId.slice(0, 8)}.${extension}`;
+  const content = isAudio
+    ? Buffer.from("ID3\u0004\u0000\u0000\u0000\u0000\u0000\u0019QADATA android audio\n", "binary")
+    : Buffer.from(`QADATA Android document fixture ${marker}\n`, "utf8");
+  const storagePath = `${session.profileId}/evidence/${runId}/${name}`;
+  await storageRequest(config, session, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(storagePath)}`, {
+    method: "POST",
+    headers: { "content-type": mimeType, "x-upsert": "false" },
+    body: content,
+  }, `chat_${kind}_storage_upload_failed`);
+  const publicUrl = `${config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(storagePath)}`;
+  const id = attachmentId(await rpc(config, session, "quata_chat_register_attachment", {
+    p_actor_profile_id: session.profileId,
+    p_thread_id: thread,
+    p_file_url: publicUrl,
+    p_storage_bucket: chatAttachmentsBucket,
+    p_storage_path: storagePath,
+    p_mime_type: mimeType,
+    p_name: name,
+    p_size_bytes: content.length,
+    p_ext: extension,
+    p_thumb: null,
+  }));
+  const msg = messageId(await rpc(config, session, "quata_chat_send_message", {
+    p_actor_profile_id: session.profileId,
+    p_thread_id: thread,
+    p_message: marker,
+    p_file_ids: [id],
+    p_reply_to_message_id: null,
+    p_client_message_id: `chat-${kind}-attachment-android-${runId}`,
+  }));
+  await pollMessage(config, session, thread, (message) => Number(message?.id) === msg && messageText(message) === marker);
+  return { id, messageId: msg, marker, markerProbe: marker.slice(0, 28), name, mimeType, storagePath };
+}
+
 function rows(payload, key) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.[key])) return payload[key];
@@ -590,7 +634,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("favorite_removed");
   }
-  const messageIds = [state.message, state.peerMessage, state.editedMessage, state.profileContent?.attachmentMessageId, ...state.uiMessages]
+  const messageIds = [state.message, state.peerMessage, state.editedMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId, ...state.uiMessages]
     .filter((id, index, all) => Number.isInteger(Number(id)) && all.indexOf(id) === index);
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
@@ -618,6 +662,14 @@ async function logicalCleanup(config, state) {
     throw new Error("cleanup_residue_detected:profile_private_chat_marker_b");
   }
   if (state.profilePrivateChat) actions.push("cleanup_verified_profile_private_chat_marker_absent");
+  for (const fixture of [state.attachmentsAudio?.document, state.attachmentsAudio?.audio].filter(Boolean)) {
+    await storageRequest(config, state.a, `/storage/v1/object/${chatAttachmentsBucket}`, {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prefixes: [fixture.storagePath] }),
+    }, "chat_attachments_audio_storage_delete_failed").catch(() => {});
+    actions.push(`${fixture.name}_storage_delete_requested`);
+  }
   return actions;
 }
 
@@ -1059,7 +1111,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, profilePrivateChatMarkerMessage: null, privateMarker: null };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
@@ -1086,7 +1138,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profilePrivateChatOnly && !menuSurfaceOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profilePrivateChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1192,6 +1244,8 @@ try {
       "-e", "quataChatActionsCommentId", state.profileContent?.seedCommentId ?? "",
       "-e", "quataChatActionsAttachmentId", String(state.profileContent?.attachmentId ?? ""),
       "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
+      "-e", "quataChatActionsDocumentProbe", state.attachmentsAudio?.document?.markerProbe ?? "",
+      "-e", "quataChatActionsAudioProbe", state.attachmentsAudio?.audio?.markerProbe ?? "",
       "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
     ].map(adbShellQuote).join(" "),
   ]);
@@ -1256,6 +1310,35 @@ try {
       markerSha256: sha256(marker),
     };
     throw new Error("menu_surface_only_completed");
+  }
+
+  if (attachmentsAudioOnly) {
+    state.attachmentsAudio = {
+      document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
+      audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
+    };
+    report.steps.push("document_and_audio_attachment_messages_seeded");
+    assertInstrumentationPassed("attachments-audio", await runInstrumentationStage("attachments-audio"));
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((name) => name.includes("attachment") || name.includes("audio") || name.endsWith("evidence.json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
+    }
+    report.status = "passed";
+    report.steps.push("document_and_audio_shared_attachment_chrome_verified");
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      documentMessageId: state.attachmentsAudio.document.messageId,
+      audioMessageId: state.attachmentsAudio.audio.messageId,
+      documentAttachmentId: state.attachmentsAudio.document.id,
+      audioAttachmentId: state.attachmentsAudio.audio.id,
+      markerSha256: sha256(marker),
+      documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
+      audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
+    };
+    throw new Error("attachments_audio_only_completed");
   }
 
   if (state.b.accessToken) {
@@ -1393,6 +1476,7 @@ try {
   if (
     error instanceof EvidenceCompleted ||
     error?.message === "menu_surface_only_completed" ||
+    error?.message === "attachments_audio_only_completed" ||
     error?.message === "profile_only_completed" ||
     error?.message === "profile_follow_only_completed" ||
     error?.message === "profile_lists_only_completed" ||

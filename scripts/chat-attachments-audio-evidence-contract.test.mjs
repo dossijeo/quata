@@ -19,6 +19,9 @@ const [
   androidUiTest,
   iosUiTest,
   iosWrapper,
+  androidRunner,
+  webRunner,
+  iosRunner,
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
@@ -34,6 +37,9 @@ const [
   source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
   source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
   source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
+  source("scripts/chat-actions-notifications-android-evidence.mjs"),
+  source("scripts/chat-actions-notifications-web-evidence.mjs"),
+  source("scripts/chat-actions-notifications-ios-evidence.mjs"),
 ]);
 
 test("CHAT-ATTACHMENTS/AUDIO has a dedicated fast contract in CI", () => {
@@ -153,4 +159,22 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   );
   assert.doesNotMatch(attachmentsMode, /:\s*"\$\{QUATA_IOS_CHAT_E2E_MESSAGE_ID:\?/);
   assert.doesNotMatch(attachmentsMode, /:\s*"\$\{QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE:\?/);
+});
+
+test("real Chat evidence runners seed reversible document/audio attachments", () => {
+  for (const runner of [androidRunner, webRunner, iosRunner]) {
+    assert.match(runner, /attachmentsAudioOnly/);
+    assert.match(runner, /--attachments-audio-only/);
+    assert.match(runner, /createChatAttachmentMessage/);
+    assert.match(runner, /quata_chat_register_attachment/);
+    assert.match(runner, /quata_chat_send_message/);
+    assert.match(runner, /document_and_audio_attachment_messages_seeded/);
+    assert.match(runner, /document_and_audio_shared_attachment_chrome_verified|ios_xctest_document_and_audio_attachment_chrome_verified/);
+    assert.match(runner, /chatAttachmentsBucket/);
+    assert.match(runner, /storage_delete_requested/);
+  }
+  assert.match(androidRunner, /runInstrumentationStage\("attachments-audio"\)/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=\$\{attachmentsAudioOnly \? "1" : "0"\}/);
+  assert.match(webRunner, /verifyAttachmentsAudioWeb/);
+  assert.match(webRunner, /web-chat-audio-toggle-attempted/);
 });
