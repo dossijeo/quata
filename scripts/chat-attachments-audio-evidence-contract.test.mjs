@@ -112,15 +112,21 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonHost, /audioPlayer\.seekTo/);
 });
 
-test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until real three-platform evidence exists", () => {
+test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evidence exists", () => {
   const attachments = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-ATTACHMENTS` |"));
   const audio = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-AUDIO` |"));
   assert.ok(attachments, "CHAT-ATTACHMENTS row must exist");
   assert.ok(audio, "CHAT-AUDIO row must exist");
-  assert.match(attachments, /Android-Web-iOS/);
+  assert.match(attachments, /Web\/Wasm, Android e iOS/);
+  assert.match(attachments, /build-reports\/web\/chat-attachments-audio-evidence\.json/);
+  assert.match(attachments, /build-reports\/android\/chat-actions-notifications-evidence\.json/);
+  assert.match(attachments, /build-reports\/ios\/chat-attachments-audio-evidence\.json/);
   assert.match(attachments, /selecci/);
   assert.match(attachments, /limpieza/);
-  assert.match(audio, /Android, Web e iOS|Android-Web-iOS/);
+  assert.match(audio, /Web\/Wasm, Android e iOS/);
+  assert.match(audio, /build-reports\/web\/chat-attachments-audio-evidence\.json/);
+  assert.match(audio, /build-reports\/android\/chat-actions-notifications-evidence\.json/);
+  assert.match(audio, /build-reports\/ios\/chat-attachments-audio-evidence\.json/);
   assert.match(audio, /grabaci/);
   assert.match(audio, /reproducci/);
   assert.doesNotMatch(attachments, /\*\*GO/);
