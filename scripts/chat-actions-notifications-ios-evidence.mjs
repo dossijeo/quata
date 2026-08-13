@@ -1573,6 +1573,9 @@ async function openTemporaryProfileHashWindow(users) {
     try {
       const rowsToRestore = [];
       for (const user of users) {
+        const countryCode = String(user.countryCode ?? "").replace(/\D/g, "");
+        const phone = String(user.phone ?? "").replace(/\D/g, "");
+        if (!countryCode || !phone) throw new Error("temporary_profile_hash_window:invalid_phone");
         const found = await client.query(
           `select id, pass_hash, pass_plain
              from public.community_profiles
@@ -1583,7 +1586,7 @@ async function openTemporaryProfileHashWindow(users) {
             order by created_at desc nulls last, id
             limit 1
             for update`,
-          [user.countryCode, user.phone, [`${user.countryCode}${user.phone}`, user.phone]],
+          [countryCode, phone, [`${countryCode}${phone}`, phone]],
         );
         if (found.rowCount !== 1) throw new Error("temporary_profile_hash_window:profile_not_found");
         const row = found.rows[0];
