@@ -255,14 +255,14 @@ private fun ChatCommonConversationHost(
             recordingElapsedSeconds += 1L
         }
     }
-    LaunchedEffect(activeAudioReference, audioPlayback.isPlaying) {
-        if (activeAudioReference == null || !audioPlayback.isPlaying) return@LaunchedEffect
-        while (audioPlayback.isPlaying) {
+    LaunchedEffect(activeAudioReference) {
+        if (activeAudioReference == null) return@LaunchedEffect
+        while (activeAudioReference != null) {
             delay(250L)
             val previousPlayback = audioPlayback
             val currentPlayback = audioPlayer.state()
-            audioPlayback = currentPlayback
-            if (didAudioPlaybackFinish(previousPlayback, currentPlayback)) {
+            val finished = didAudioPlaybackFinish(previousPlayback, currentPlayback)
+            if (finished) {
                 val next = activeAudioMessageKey?.let { key -> nextConsecutiveAudioMessage(state.messages, key) }
                 val nextReference = next?.attachmentUri
                 if (next != null && !nextReference.isNullOrBlank()) {
@@ -284,10 +284,16 @@ private fun ChatCommonConversationHost(
                         PlatformResult.Cancelled,
                         PlatformResult.Unsupported -> audioFailed = true
                     }
+                    break
                 } else {
+                    audioPlayback = currentPlayback
                     activeAudioReference = null
                     activeAudioMessageKey = null
+                    break
                 }
+            } else {
+                audioPlayback = currentPlayback
+                if (!currentPlayback.isPlaying) break
             }
         }
     }

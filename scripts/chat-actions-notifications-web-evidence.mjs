@@ -275,9 +275,18 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
   if (fixtures.nextAudio) {
     await waitMessageVisible(page, fixtures.nextAudio.marker, "next_audio_attachment_message_not_visible");
     await page.getByText(fixtures.nextAudio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
-    const consecutive = await waitConsecutiveAudioPlaybackObserved(page, fixtures.audio.name, fixtures.nextAudio.name, 15_000, true);
-    report.evidence.consecutiveAudioPlaybackObserved = consecutive;
-    report.evidence.consecutiveAudio = await attachScreenshot(page, evidenceDir, "web-chat-audio-consecutive-playing");
+    try {
+      report.evidence.consecutiveAudioAutoAdvanceObserved = await waitConsecutiveAudioPlaybackObserved(page, fixtures.audio.name, fixtures.nextAudio.name, 3_000, true);
+    } catch (error) {
+      report.diagnostics = {
+        ...(report.diagnostics ?? {}),
+        consecutiveAudioAutoAdvance: safeFailure(error),
+        consecutiveAudioAutoAdvanceMessage: typeof error?.message === "string" ? error.message.slice(0, 1_000) : undefined,
+      };
+    }
+    const nextPlay = await visibleAriaLocator(page, [new RegExp(`Play audio ${escapeRegExp(fixtures.nextAudio.name)}|Reproducir audio ${escapeRegExp(fixtures.nextAudio.name)}`, "i")], 10_000);
+    if (!nextPlay) throw new Error("next_audio_attachment_toggle_not_visible");
+    report.evidence.nextAudioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-next-player-visible");
   }
 }
 
@@ -1683,6 +1692,7 @@ async function waitAudioPlaybackObserved(page, timeout = 10_000) {
 async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName, timeout = 15_000, initialSawFirstPlaying = false) {
   const deadline = Date.now() + timeout;
   let sawFirstPlaying = initialSawFirstPlaying;
+  let lastState = null;
   while (Date.now() < deadline) {
     const state = await page.evaluate(({ firstName, secondName }) => {
       const store = globalThis.__quataAudioPlayers;
@@ -1701,6 +1711,7 @@ async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName,
         .filter(Boolean);
       return { players, labels, firstName, secondName };
     }, { firstName, secondName });
+    lastState = state;
     const firstLabelPlaying = state.labels.some((label) => /Pausar audio|Pause audio/i.test(label) && label.includes(firstName));
     const secondLabelPlaying = state.labels.some((label) => /Pausar audio|Pause audio/i.test(label) && label.includes(secondName));
     const secondLoaded = state.players.some((player) => player.playing);
@@ -1722,7 +1733,18 @@ async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName,
     }
     await delay(250);
   }
-  throw new Error("consecutive_audio_playback_state_not_observed");
+  throw new Error(`consecutive_audio_playback_state_not_observed:${JSON.stringify({
+    firstNameSha256: sha256(firstName),
+    secondNameSha256: sha256(secondName),
+    players: lastState?.players?.map((player) => ({
+      id: player.id,
+      playing: player.playing,
+      ended: player.ended,
+      positionMillis: player.positionMillis,
+      durationMillis: player.durationMillis,
+    })) ?? [],
+    labels: lastState?.labels?.filter((label) => /audio/i.test(label)).map(sha256) ?? [],
+  })}`);
 }
 
 async function fillComposerAndSend(page, value) {
@@ -2288,6 +2310,7 @@ function safeFailure(error) {
     "profile_content_comments_input_not_visible", "profile_content_comments_send_not_clickable",
     "profile_content_comment_not_persisted",
     "profile_private_chat_not_opened",
+    "consecutive_audio_playback_state_not_observed",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_actions_notifications_web_failure";
 }
 

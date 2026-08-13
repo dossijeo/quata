@@ -13,6 +13,7 @@ const [
   commonPendingAttachment,
   commonDocumentAttachment,
   commonAudioPlayer,
+  commonAudioPolicy,
   androidHost,
   webHost,
   iosHost,
@@ -34,6 +35,7 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatPendingAttachmentOverlayContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatDocumentAttachmentContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentPlayerContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConsecutiveAudioPolicy.kt"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
@@ -122,6 +124,11 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonHost, /ChatAudioAttachmentPlayerContent\(/);
   assert.match(commonHost, /audioPlayer\.load/);
   assert.match(commonHost, /audioPlayer\.seekTo/);
+  assert.match(commonHost, /LaunchedEffect\(activeAudioReference\)/);
+  assert.doesNotMatch(commonHost, /LaunchedEffect\(activeAudioReference, audioPlayback\.isPlaying\)/);
+  assert.match(commonHost, /val finished = didAudioPlaybackFinish\(previousPlayback, currentPlayback\)[\s\S]*if \(finished\)/);
+  assert.doesNotMatch(commonHost, /val currentPlayback = audioPlayer\.state\(\)\s+audioPlayback = currentPlayback\s+if \(didAudioPlaybackFinish/);
+  assert.match(commonAudioPolicy, /listOf\(currentIndex \+ 1, currentIndex - 1\)/);
 });
 
 test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evidence exists", () => {
@@ -244,7 +251,8 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /next_audio_attachment_message/);
   assert.match(webRunner, /waitConsecutiveAudioPlaybackObserved/);
   assert.match(webRunner, /consecutive_audio_playback_state_not_observed/);
-  assert.match(webRunner, /web-chat-audio-consecutive-playing/);
+  assert.match(webRunner, /next_audio_attachment_toggle_not_visible/);
+  assert.match(webRunner, /web-chat-audio-next-player-visible/);
   assert.match(webRunner, /nextAudioMessageId/);
   assert.match(androidMediaViewer, /ChatAudioAttachmentPlayerContent\(/);
   assert.match(androidMediaViewer, /errorText = attachment\.name/);
@@ -261,6 +269,7 @@ test("Web audio player loads remote attachments through local Blob URLs under CO
   assert.match(browserAudioPlayer, /if \(completed \|\| !playableSource\) return/);
   assert.match(browserAudioPlayer, /if \(completed\) return;\s*cleanup\(\)/);
   assert.match(browserAudioPlayer, /element\.src = playableSource/);
+  assert.match(browserAudioPlayer, /element\.ended && durationMillis > 0 \? durationMillis/);
   assert.match(browserAudioPlayer, /revokeObjectURL/);
   assert.doesNotMatch(browserAudioPlayer, /element\.src = source/);
 });

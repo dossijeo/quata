@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,6 +31,7 @@ const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATION
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/chat-actions-notifications-credentials.json";
 const deviceEvidencePath = "files/chat-actions-notifications-evidence";
+const adbCommand = resolveAdbCommand();
 const evidenceFiles = [
   "android-chat-translation-before.png",
   "android-chat-translation-overlay.png",
@@ -72,6 +74,17 @@ const evidenceFiles = [
 ];
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
 let lastThreadSnapshot = null;
+
+function resolveAdbCommand() {
+  const executable = process.platform === "win32" ? "adb.exe" : "adb";
+  const candidates = [
+    process.env.ADB,
+    process.env.ANDROID_HOME ? join(process.env.ANDROID_HOME, "platform-tools", executable) : null,
+    process.env.ANDROID_SDK_ROOT ? join(process.env.ANDROID_SDK_ROOT, "platform-tools", executable) : null,
+    process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Android", "Sdk", "platform-tools", executable) : null,
+  ].filter(Boolean);
+  return candidates.find((candidate) => existsSync(candidate)) ?? "adb";
+}
 
 async function prepareProfileContentFixture(fixture) {
   if (!fixture?.marker?.startsWith("qadata-profile-content-")) throw new Error("profile_content_fixture_marker_invalid");
@@ -584,7 +597,7 @@ async function gitMetadata() {
 async function adbRunAsCat(remotePath, localPath) {
   const chunks = [];
   await new Promise((resolve, reject) => {
-    const child = spawn("adb", ["exec-out", "run-as", "com.quata", "cat", remotePath], { stdio: ["ignore", "pipe", "pipe"], shell: false });
+    const child = spawn(adbCommand, ["exec-out", "run-as", "com.quata", "cat", remotePath], { stdio: ["ignore", "pipe", "pipe"], shell: false });
     let stderr = "";
     child.stdout.on("data", (chunk) => chunks.push(chunk));
     child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
@@ -1091,6 +1104,14 @@ function safeFailure(error) {
   return prefix ? message : "unexpected_chat_actions_notifications_android_failure";
 }
 
+function sanitizedDiagnosticError(error) {
+  const message = typeof error?.message === "string" ? error.message : String(error ?? "unknown");
+  return {
+    name: typeof error?.name === "string" ? error.name : "Error",
+    message: message.slice(0, 1_000),
+  };
+}
+
 class EvidenceCompleted extends Error {}
 
 const report = {
@@ -1232,16 +1253,16 @@ try {
       ANDROID_SDK_ROOT: process.env.ANDROID_SDK_ROOT || `${process.env.LOCALAPPDATA}\\Android\\Sdk`,
     },
   });
-  await run("adb", ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
-  await run("adb", ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
-  await run("adb", ["shell", "pm", "clear", "com.quata"]);
-  await run("adb", ["push", localCredentials, deviceTempCredentialsPath]);
-  await run("adb", ["shell", "chmod", "644", deviceTempCredentialsPath]);
-  await run("adb", ["shell", "run-as", "com.quata", "mkdir", "-p", "files"]);
-  await run("adb", ["shell", "run-as", "com.quata", "cp", deviceTempCredentialsPath, `files/${deviceCredentialsPath.replace("app-internal:", "")}`]);
-  await run("adb", ["shell", "rm", "-f", deviceTempCredentialsPath]);
-  await run("adb", ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
-  const runInstrumentationStage = async (stage) => await runCapture("adb", [
+  await run(adbCommand, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
+  await run(adbCommand, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
+  await run(adbCommand, ["shell", "pm", "clear", "com.quata"]);
+  await run(adbCommand, ["push", localCredentials, deviceTempCredentialsPath]);
+  await run(adbCommand, ["shell", "chmod", "644", deviceTempCredentialsPath]);
+  await run(adbCommand, ["shell", "run-as", "com.quata", "mkdir", "-p", "files"]);
+  await run(adbCommand, ["shell", "run-as", "com.quata", "cp", deviceTempCredentialsPath, `files/${deviceCredentialsPath.replace("app-internal:", "")}`]);
+  await run(adbCommand, ["shell", "rm", "-f", deviceTempCredentialsPath]);
+  await run(adbCommand, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
+  const runInstrumentationStage = async (stage) => await runCapture(adbCommand, [
     "shell",
     [
       "am", "instrument", "-w", "-r",
@@ -1529,7 +1550,16 @@ try {
     // Focal modes finished successfully; cleanup and report writing still happen in finally.
   } else {
     report.error = safeFailure(error);
-    if (lastThreadSnapshot) report.diagnostics = { lastThreadSnapshot };
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      failure: sanitizedDiagnosticError(error),
+    };
+    if (lastThreadSnapshot) {
+      report.diagnostics = {
+        ...(report.diagnostics ?? {}),
+        lastThreadSnapshot,
+      };
+    }
     try {
       const copied = await collectAvailableDeviceEvidence(evidenceDir);
       if (copied.length) {
@@ -1541,10 +1571,10 @@ try {
 } finally {
   const cleanup = { state: "completed", actions: [] };
   let cleanupFailed = false;
-  try { await run("adb", ["shell", "rm", "-f", deviceTempCredentialsPath]); } catch {}
-  try { await run("adb", ["shell", "run-as", "com.quata", "rm", "-f", `files/${deviceCredentialsPath.replace("app-internal:", "")}`]); } catch {}
-  try { await run("adb", ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]); } catch {}
-  try { await run("adb", ["uninstall", "com.quata.test"]); } catch {}
+  try { await run(adbCommand, ["shell", "rm", "-f", deviceTempCredentialsPath]); } catch {}
+  try { await run(adbCommand, ["shell", "run-as", "com.quata", "rm", "-f", `files/${deviceCredentialsPath.replace("app-internal:", "")}`]); } catch {}
+  try { await run(adbCommand, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]); } catch {}
+  try { await run(adbCommand, ["uninstall", "com.quata.test"]); } catch {}
   await rm(localCredentials, { force: true }).catch(() => {});
   try {
     await profileHashWindow.restore();

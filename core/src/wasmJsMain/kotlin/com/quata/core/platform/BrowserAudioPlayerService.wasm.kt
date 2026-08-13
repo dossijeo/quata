@@ -188,7 +188,7 @@ private fun browserAudioSeek(id: String, positionMillis: Long, onResult: (String
 )
 
 private fun browserAudioState(id: String, onResult: (String) -> Unit): Unit = js(
-    """(() => { const element = globalThis.__quataAudioPlayers?.get(id); if (!element) return onResult('failure:web_audio_not_loaded'); onResult(JSON.stringify({isLoaded: element.readyState > 0, isPlaying: !element.paused && !element.ended, positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)), durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0})); })()""",
+    """(() => { const element = globalThis.__quataAudioPlayers?.get(id); if (!element) return onResult('failure:web_audio_not_loaded'); const durationMillis = Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0; const positionMillis = element.ended && durationMillis > 0 ? durationMillis : Math.max(0, Math.floor((element.currentTime || 0) * 1000)); onResult(JSON.stringify({isLoaded: element.readyState > 0, isPlaying: !element.paused && !element.ended, positionMillis, durationMillis})); })()""",
 )
 
 private fun browserAudioStop(id: String, onComplete: () -> Unit): Unit = js(
