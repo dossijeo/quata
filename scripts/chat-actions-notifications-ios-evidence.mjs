@@ -27,6 +27,7 @@ const profileListsOnly = options.profileListsOnly;
 const profileContentOnly = options.profileContentOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const menuSurfaceOnly = options.menuSurfaceOnly;
+const keyboardMenuOnly = options.keyboardMenuOnly;
 const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profilePrivateChatOnly;
 const report = {
   check,
@@ -94,7 +95,7 @@ try {
     p_community_id: null,
   }));
   report.steps.push("isolated_group_thread_ready");
-  if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly) {
+  if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -102,10 +103,10 @@ try {
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
   state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
-  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
   state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
-  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
+  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -142,7 +143,7 @@ try {
       state.profilePrivateChatMarkerMessage = messageId(privateMessage);
       report.steps.push("profile_private_chat_seed_message_ready");
     }
-    if (!profileEvidenceOnly && !menuSurfaceOnly) {
+    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
         p_thread_id: state.thread,
@@ -267,6 +268,7 @@ export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT=${shellQuote(state.profileConte
 export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E=${profilePrivateChatOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE=${shellQuote(state.privateMarker?.slice(0, 28) ?? "profile-only")}
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E=${menuSurfaceOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E=${keyboardMenuOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_INCLUDE_UNMUTE=${menuSurfaceOnly ? "0" : "1"}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "profile-only")}
@@ -280,6 +282,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 `, 30 * 60 * 1000);
     report.steps.push(menuSurfaceOnly
       ? "ios_xctest_options_menu_surface_visible_and_mute_toggled"
+      : keyboardMenuOnly
+      ? "ios_xctest_keyboard_header_and_selected_action_bar_verified"
       : profileListsOnly
       ? "ios_xctest_profile_followers_and_following_lists_verified"
       : profileContentOnly
@@ -303,7 +307,11 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("options_menu_unmute_verified_by_rpc");
     }
 
-    if (!profileEvidenceOnly && !menuSurfaceOnly) {
+    if (keyboardMenuOnly) {
+      report.steps.push("keyboard_header_and_selected_action_bar_captured");
+    }
+
+    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -321,7 +329,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     await copyRemoteEvidence(options);
     report.status = "passed";
-    report.fixture = (profileEvidenceOnly || menuSurfaceOnly)
+    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly)
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -331,6 +339,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         seedMarkerSha256: sha256(state.seedMarker),
         peerMarkerSha256: sha256(state.peerMarker),
         menuSurfaceOnly,
+        keyboardMenuOnly,
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
         profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
         profileContent: state.profileContent ? {
@@ -365,6 +374,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       };
   }
 } catch (error) {
+  report.status = "failed";
   report.error = safeFailure(error);
 } finally {
   let profileHashRestoreFailed = false;
@@ -474,6 +484,7 @@ function parseArgs(argv) {
     profileContentOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
     menuSurfaceOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MENU_SURFACE_ONLY === "1",
+    keyboardMenuOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_KEYBOARD_MENU_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -512,6 +523,14 @@ function parseArgs(argv) {
     }
     if (key === "--menu-surface-only") {
       result.menuSurfaceOnly = true;
+      continue;
+    }
+    if (key === "--keyboard-menu-only") {
+      result.keyboardMenuOnly = true;
+      result.output = resolve("build-reports/ios/chat-keyboard-menu-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/chat-keyboard-menu-evidence");
+      result.remoteLogDir = "build/reports/ios/chat-keyboard-menu";
+      result.remoteResultBundleDir = "build/reports/ios/chat-keyboard-menu/xcresults";
       continue;
     }
     if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
