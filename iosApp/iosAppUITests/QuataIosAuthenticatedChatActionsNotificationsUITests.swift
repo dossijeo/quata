@@ -56,7 +56,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 "The shared SOS anchor \(identifier) must be visible.",
             )
         }
-        XCTAssertTrue(menuText("Ubicacion no disponible", in: app).waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(menuText("Ubicación no disponible", in: app).waitForExistence(timeout: 10), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-sos-location-shared-anchors")
     }
 
