@@ -4,11 +4,11 @@
     "CHAT-COMPOSER",
     "CHAT-MESSAGE-ACTIONS"
   ],
-  "productSha": "b7bc7914278ab3c386860b7fb556f3b6d73d61c8",
+  "productSha": "65c219440c443a1700bf617de8b2394cd2485502",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "b7bc7914278ab3c386860b7fb556f3b6d73d61c8",
+      "sha": "65c219440c443a1700bf617de8b2394cd2485502",
       "report": "build-reports/web/chat-keyboard-menu-web-evidence.json",
       "cleanup": {
         "verified": true,
@@ -17,7 +17,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "b7bc7914278ab3c386860b7fb556f3b6d73d61c8",
+      "sha": "65c219440c443a1700bf617de8b2394cd2485502",
       "report": "build-reports/android/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -26,7 +26,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "b7bc7914278ab3c386860b7fb556f3b6d73d61c8",
+      "sha": "65c219440c443a1700bf617de8b2394cd2485502",
       "report": "build-reports/ios/chat-keyboard-menu-evidence.json",
       "cleanup": {
         "verified": true,
