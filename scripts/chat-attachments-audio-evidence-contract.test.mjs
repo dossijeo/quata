@@ -24,6 +24,7 @@ const [
   iosRunner,
   browserAudioPlayer,
   androidMediaViewer,
+  attestationJson,
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
@@ -44,7 +45,10 @@ const [
   source("scripts/chat-actions-notifications-ios-evidence.mjs"),
   source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserAudioPlayerService.wasm.kt"),
   source("app/src/main/java/com/quata/core/ui/components/AttachmentMediaViewer.kt"),
+  source("docs/candidate-attestations/chat-attachments-audio.json"),
 ]);
+
+const attestation = JSON.parse(attestationJson);
 
 test("CHAT-ATTACHMENTS/AUDIO has a dedicated fast contract in CI", () => {
   const scripts = JSON.parse(packageJson).scripts;
@@ -121,26 +125,28 @@ test("common chat product routes attachments and audio without platform-specific
 test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evidence exists", () => {
   const attachments = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-ATTACHMENTS` |"));
   const audio = inventory.split(/\r?\n/).find((line) => line.startsWith("| `CHAT-AUDIO` |"));
+  const productShaPrefix = attestation.productSha.slice(0, 8);
   assert.ok(attachments, "CHAT-ATTACHMENTS row must exist");
   assert.ok(audio, "CHAT-AUDIO row must exist");
   assert.match(attachments, /Web\/Wasm/);
-  assert.match(attachments, /a6ab902e/);
-  assert.match(attachments, /build-reports\/web\/chat-attachments-audio-evidence-r7/);
-  assert.match(attachments, /a6ab902e/);
+  assert.match(attachments, new RegExp(productShaPrefix));
+  assert.match(attachments, /build-reports\/web\/chat-attachments-audio-evidence-r9/);
   assert.match(attachments, /build-reports\/android\/chat-actions-notifications-evidence/);
-  assert.match(attachments, /iOS mantiene evidencia focal previa/);
-  assert.match(attachments, /debe repetirse sobre el merge sint/);
+  assert.match(attachments, /build-reports\/ios\/chat-attachments-audio-evidence/);
+  assert.match(attachments, /scripts\/e2e-fixtures\/chat-attachments\.mjs/);
   assert.match(attachments, /selecci/);
   assert.match(attachments, /limpieza/);
   assert.match(audio, /Web\/Wasm/);
-  assert.match(audio, /a6ab902e/);
-  assert.match(audio, /build-reports\/web\/chat-attachments-audio-evidence-r7/);
+  assert.match(audio, new RegExp(productShaPrefix));
+  assert.match(audio, /build-reports\/web\/chat-attachments-audio-evidence-r9/);
   assert.match(audio, /audioPlaybackObserved\.state=playing/);
-  assert.match(audio, /a6ab902e/);
   assert.match(audio, /build-reports\/android\/chat-actions-notifications-evidence/);
-  assert.match(audio, /iOS mantiene evidencia focal previa/);
+  assert.match(audio, /build-reports\/ios\/chat-attachments-audio-evidence/);
   assert.match(audio, /grabaci/);
   assert.match(audio, /reproducci/);
+  assert.equal(attestation.evidence.web.sha, attestation.productSha);
+  assert.equal(attestation.evidence.android.sha, attestation.productSha);
+  assert.equal(attestation.evidence.ios.sha, attestation.productSha);
   assert.doesNotMatch(attachments, /\*\*GO/);
   assert.doesNotMatch(audio, /\*\*GO/);
 });
