@@ -251,12 +251,12 @@ async function storageRequest(config, session, path, options, prefix) {
 
 async function createChatAttachmentMessage(config, session, thread, runId, kind) {
   const isAudio = kind === "audio";
-  const extension = isAudio ? "m4a" : "txt";
-  const mimeType = isAudio ? "audio/mp4" : "text/plain";
+  const extension = isAudio ? "wav" : "txt";
+  const mimeType = isAudio ? "audio/wav" : "text/plain";
   const marker = `chat-${kind}-attachment-web-${runId}`;
   const name = `qadata-${kind}-${runId.slice(0, 8)}.${extension}`;
   const content = isAudio
-    ? Buffer.from("ID3\u0004\u0000\u0000\u0000\u0000\u0000\u0015QADATA audio fixture\n", "binary")
+    ? validWavFixture()
     : Buffer.from(`QADATA document fixture ${marker}\n`, "utf8");
   const storagePath = `${session.profileId}/evidence/${runId}/${name}`;
   await storageRequest(config, session, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(storagePath)}`, {
@@ -289,6 +289,31 @@ async function createChatAttachmentMessage(config, session, thread, runId, kind)
   return { id, messageId: msg, marker, markerProbe: marker.slice(0, 28), name, mimeType, storagePath };
 }
 
+function validWavFixture() {
+  const sampleRate = 8_000;
+  const durationSeconds = 1;
+  const samples = sampleRate * durationSeconds;
+  const dataSize = samples * 2;
+  const buffer = Buffer.alloc(44 + dataSize);
+  buffer.write("RIFF", 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write("WAVEfmt ", 8);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(1, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write("data", 36);
+  buffer.writeUInt32LE(dataSize, 40);
+  for (let index = 0; index < samples; index += 1) {
+    const value = Math.round(Math.sin((index / sampleRate) * Math.PI * 2 * 440) * 12_000);
+    buffer.writeInt16LE(value, 44 + (index * 2));
+  }
+  return buffer;
+}
+
 async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
   await waitMessageVisible(page, fixtures.document.marker, "document_attachment_message_not_visible");
   await waitMessageVisible(page, fixtures.audio.marker, "audio_attachment_message_not_visible");
@@ -301,14 +326,6 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
   await play.click({ timeout: 10_000, force: true });
   await delay(750);
   report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
-}
-
-function consumeBrowserRuntimeFaultsForSyntheticAudio(report, faults) {
-  if (!faults.length) return;
-  report.diagnostics = {
-    ...(report.diagnostics ?? {}),
-    syntheticAudioRuntimeFaults: faults.splice(0, faults.length),
-  };
 }
 
 function rows(payload, key) {
@@ -1686,8 +1703,9 @@ async function logicalCleanup(config, state) {
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ prefixes: [fixture.storagePath] }),
-    }, "chat_attachments_audio_storage_delete_failed").catch(() => {});
-    actions.push(`${fixture.name}_storage_delete_requested`);
+    }, "chat_attachments_audio_storage_delete_failed");
+    await verifyStorageObjectAbsent(chatAttachmentsBucket, fixture.storagePath);
+    actions.push(`${fixture.name}_storage_delete_verified_absent`);
   }
   if (state.thread && state.a) {
     await rpc(config, state.a, "quata_chat_delete_thread", { p_actor_profile_id: state.a.profileId, p_thread_id: state.thread }).catch(() => {});
@@ -1955,6 +1973,16 @@ async function withDatabase(callback) {
   } finally {
     await client.end().catch(() => {});
   }
+}
+
+async function verifyStorageObjectAbsent(bucket, storagePath) {
+  await withDatabase(async (client) => {
+    const result = await client.query(
+      "select count(*)::int as count from storage.objects where bucket_id = $1 and name = $2",
+      [bucket, storagePath],
+    );
+    if (Number(result.rows[0]?.count ?? 0) !== 0) throw new Error("cleanup_residue_detected:storage_object");
+  });
 }
 
 async function resolveAdjacentRecipientProfile(phoneKeys) {
@@ -2267,7 +2295,7 @@ try {
     await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
     faults.length = 0;
     await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report);
-    consumeBrowserRuntimeFaultsForSyntheticAudio(report, faults);
+    if (faults.length) throw new Error("browser_runtime_fault");
     report.status = "passed";
     report.steps.push("document_and_audio_shared_attachment_chrome_verified");
     report.fixture = {
