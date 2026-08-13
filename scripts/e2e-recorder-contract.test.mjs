@@ -115,6 +115,31 @@ test("platform probes resolve Android Compose semantics under a point", () => {
   assert.equal(target.stable, true);
 });
 
+test("platform probes prefer the strongest stable anchor under a visual point", () => {
+  const target = androidTargetFromPoint({
+    packageName: "com.quata",
+    bounds: { x: 0, y: 0, width: 1080, height: 1920 },
+    children: [
+      {
+        packageName: "com.quata",
+        testTag: "whats-new-next",
+        contentDescription: ["next_whats_new"],
+        roleName: "Button",
+        bounds: { x: 714, y: 1764, width: 300, height: 110 },
+      },
+      {
+        packageName: "com.quata",
+        text: ["Continuar"],
+        bounds: { x: 780, y: 1792, width: 168, height: 55 },
+      },
+    ],
+  }, 864, 1819);
+
+  assert.equal(target.preferred.kind, "testTag");
+  assert.equal(target.preferred.value, "whats-new-next");
+  assert.equal(target.stable, true);
+});
+
 test("platform probes convert UIAutomator XML into probe trees", () => {
   const tree = uiAutomatorXmlToTree(`
     <hierarchy>
@@ -233,6 +258,7 @@ test("recorder tooling and persistent operating docs describe the workflow", asy
   for (const file of [
     "tools/e2e-recorder/web-recorder.mjs",
     "tools/e2e-recorder/android-recorder.mjs",
+    "tools/e2e-recorder/android-compose-semantics.mjs",
     "tools/e2e-recorder/android-dump-tree.mjs",
     "tools/e2e-recorder/append-step.mjs",
     "tools/e2e-recorder/ios-ax-probe.swift",
@@ -246,4 +272,18 @@ test("recorder tooling and persistent operating docs describe the workflow", asy
   assert.match(docs, /grabaci[oó]n de macro visual/i);
   assert.match(docs, /missing stable anchor|missing_stable_anchor/i);
   assert.match(docs, /CI[\s\S]*certificaci[oó]n final/i);
+});
+test("Android recorder pipeline documents Compose semantics before UIAutomator fallback", async () => {
+  const readme = await readFile(new URL("../tools/e2e-recorder/README.md", import.meta.url), "utf8");
+  const exporter = await readFile(new URL("../tools/e2e-recorder/android-compose-semantics.mjs", import.meta.url), "utf8");
+  const instrumented = await readFile(new URL("../app/src/androidTest/java/com/quata/tools/e2erecorder/E2eRecorderSemanticsExportInstrumentedTest.kt", import.meta.url), "utf8");
+
+  assert.match(readme, /android-compose-semantics\.mjs/);
+  assert.ok(readme.indexOf("android-compose-semantics.mjs") < readme.indexOf("android-dump-tree.mjs"));
+  assert.match(exporter, /:app:assembleDebugAndroidTest/);
+  assert.match(exporter, /compose-semantics/);
+  assert.match(instrumented, /SemanticsProperties\.TestTag/);
+  assert.match(instrumented, /SemanticsProperties\.ContentDescription/);
+  assert.match(instrumented, /SemanticsProperties\.Text/);
+  assert.match(instrumented, /WhatsNewContent/);
 });

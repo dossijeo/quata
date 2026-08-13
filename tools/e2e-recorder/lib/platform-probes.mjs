@@ -15,30 +15,31 @@ export function targetFromProbePoint({ platform, tree, x, y, packageName = "com.
 
 export function androidTargetFromPoint(tree, x, y, packageName = "com.quata") {
   const nodes = flattenNodes(tree).map(normalizeAndroidNode);
-  const node = smallestContaining(nodes, x, y);
-  if (!node) return missingTarget(x, y);
-  const externalApp = Boolean(node.packageName && node.packageName !== packageName);
-  if (externalApp) {
+  const targets = containingNodes(nodes, x, y).map((node) => {
+    const externalApp = Boolean(node.packageName && node.packageName !== packageName);
+    if (externalApp) {
+      return normalizeTarget({
+        packageName: node.packageName,
+        externalApp,
+        bounds: node.bounds,
+        coordinates: { x, y },
+        contextual: node.contextual,
+      });
+    }
     return normalizeTarget({
+      testTag: node.testTag,
+      resourceId: node.resourceId,
+      contentDescription: firstText(node.contentDescription),
+      visibleText: firstText(node.text),
+      roleName: node.roleName,
       packageName: node.packageName,
       externalApp,
       bounds: node.bounds,
       coordinates: { x, y },
       contextual: node.contextual,
     });
-  }
-  return normalizeTarget({
-    testTag: node.testTag,
-    resourceId: node.resourceId,
-    contentDescription: firstText(node.contentDescription),
-    visibleText: firstText(node.text),
-    roleName: node.roleName,
-    packageName: node.packageName,
-    externalApp,
-    bounds: node.bounds,
-    coordinates: { x, y },
-    contextual: node.contextual,
   });
+  return strongestContainingTarget(targets) ?? missingTarget(x, y);
 }
 
 export function uiAutomatorXmlToTree(xml) {
@@ -50,9 +51,7 @@ export function uiAutomatorXmlToTree(xml) {
 
 export function iosTargetFromPoint(tree, x, y) {
   const nodes = flattenNodes(tree).map(normalizeIosNode);
-  const node = smallestContaining(nodes, x, y);
-  if (!node) return missingTarget(x, y);
-  return normalizeTarget({
+  const targets = containingNodes(nodes, x, y).map((node) => normalizeTarget({
     accessibilityIdentifier: node.accessibilityIdentifier,
     ariaLabel: node.label,
     visibleText: node.value || node.title,
@@ -60,7 +59,8 @@ export function iosTargetFromPoint(tree, x, y) {
     bounds: node.bounds,
     coordinates: { x, y },
     contextual: node.contextual,
-  });
+  }));
+  return strongestContainingTarget(targets) ?? missingTarget(x, y);
 }
 
 function flattenNodes(root) {
@@ -132,10 +132,23 @@ function normalizeBounds(bounds) {
   return { x, y, width, height };
 }
 
-function smallestContaining(nodes, x, y) {
+function containingNodes(nodes, x, y) {
   return nodes
-    .filter((node) => node.bounds && x >= node.bounds.x && x <= node.bounds.x + node.bounds.width && y >= node.bounds.y && y <= node.bounds.y + node.bounds.height)
-    .sort((a, b) => (a.bounds.width * a.bounds.height) - (b.bounds.width * b.bounds.height))[0] ?? null;
+    .filter((node) => node.bounds && x >= node.bounds.x && x <= node.bounds.x + node.bounds.width && y >= node.bounds.y && y <= node.bounds.y + node.bounds.height);
+}
+
+function strongestContainingTarget(targets) {
+  return targets
+    .filter((target) => target.preferred)
+    .sort((a, b) => {
+      const byScore = (b.preferred?.score ?? 0) - (a.preferred?.score ?? 0);
+      if (byScore !== 0) return byScore;
+      return area(a.bounds) - area(b.bounds);
+    })[0] ?? null;
+}
+
+function area(bounds) {
+  return bounds ? bounds.width * bounds.height : Number.POSITIVE_INFINITY;
 }
 
 function missingTarget(x, y) {

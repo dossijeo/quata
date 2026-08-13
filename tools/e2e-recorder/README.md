@@ -29,6 +29,8 @@ node tools/e2e-recorder/web-replay.mjs --macro build-reports/e2e-recorder/legal-
 
 ```powershell
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+node tools/e2e-recorder/android-compose-semantics.mjs --out build-reports/e2e-recorder/android-compose-semantics.json --adb $adb
+node tools/e2e-recorder/probe-target.mjs --platform android --input build-reports/e2e-recorder/android-compose-semantics.json --point 120,760
 node tools/e2e-recorder/android-dump-tree.mjs --out build-reports/e2e-recorder/android-ui.json --adb $adb
 node tools/e2e-recorder/android-recorder.mjs --flow legal-android --out build-reports/e2e-recorder/legal-android.macro.json --tap 120,760 --adb $adb
 node tools/e2e-recorder/android-replay.mjs --macro build-reports/e2e-recorder/legal-android.macro.json --adb $adb
@@ -54,7 +56,7 @@ Artifact rules:
 - Raw macro sessions and screenshots belong under `build-reports/e2e-recorder/` unless a deterministic sample is useful.
 - Generated XCTest/Playwright code is reviewed before promotion to CI.
 - `compile.mjs --emit` writes a reviewable runner snippet only when every actionable step has a stable product anchor.
-- `android-dump-tree.mjs` captures UIAutomator XML through ADB, deletes stale dumps before capture, fails closed on UIAutomator errors, and stores the normalized tree outside source control. A future product-side Compose semantics exporter can feed the same `probe-target.mjs` JSON shape, but this tool does not claim to produce that exporter.
+- Android prefers `android-compose-semantics.mjs` for Compose screens: it builds the debug AndroidTest APK, mounts a focused shared Compose surface, exports `testTag`, content description, text, role and bounds, and feeds the same `probe-target.mjs` JSON shape. `android-dump-tree.mjs` remains a UIAutomator fallback for native/system surfaces; it deletes stale dumps before capture, fails closed on UIAutomator errors, and stores the normalized tree outside source control.
 - `ios-ax-probe.swift` queries the macOS Accessibility element under a point for the simulator/window session and prints the same tree shape.
 - `probe-target.mjs` converts Android Compose/UIAutomator or iOS AX trees into the same macro target shape and exits non-zero when the point cannot be resolved to a stable product anchor.
 - `append-step.mjs` appends a resolved probe point to the common macro file so Android/iOS captures can move directly into `compile.mjs`.

@@ -14,7 +14,9 @@ CI is still valuable because it catches defects that local preflight can miss. T
 - Compiler: `tools/e2e-recorder/compile.mjs`.
 - Shared anchor ranking in `tools/e2e-recorder/lib/macro-core.mjs`.
 - Web recorder/replay using Playwright, DOM hit testing, `data-testid`, DOM id, aria label, role, visible text, bounds and screenshots.
-- Android recorder/replay using ADB + UIAutomator XML when accessibility exposes a hierarchy; it now fails closed if UIAutomator returns `null root node`.
+- Android recorder/replay using ADB + UIAutomator XML for native/system surfaces, plus a focused
+  AndroidTest Compose semantics exporter for shared Compose screens. It now fails closed if
+  UIAutomator returns `null root node` and prefers Compose `testTag`/semantics when available.
 - iOS compiler that turns macro steps with `accessibilityIdentifier` or label anchors into XCUI snippets.
 
 ## Real Flow Used
@@ -56,13 +58,21 @@ Android probe:
 - ADB device `emulator-5554` was available and `com.quata` launched.
 - The first UIAutomator probe returned `ERROR: null root node returned by UiTestAutomationBridge` while the app was starting.
 - A later probe exposed only launcher nodes (`com.google.android.apps.nexuslauncher`) after focus returned there. The recorder now marks nodes outside `com.quata` as external and does not promote their `resource-id` as a stable product anchor.
-- The recorder therefore cannot honestly derive a Quata Android selector from that screen in this environment. It fails closed instead of recording blind coordinates or external app IDs.
+- The follow-up Compose semantics exporter built `:app:assembleDebug` and
+  `:app:assembleDebugAndroidTest`, installed both APKs on `emulator-5554`, executed
+  `E2eRecorderSemanticsExportInstrumentedTest#exportsWhatsNewSemanticsForRecorder`, and wrote
+  `build-reports/e2e-recorder/android-compose-semantics.json`.
+- A visual point inside the shared `WhatsNewContent` button resolved to `testTag=whats-new-next`
+  with `contentDescription=next_whats_new`, `roleName=Button`, score `100` and `fragileSteps=0`.
+  The generated review artifact targets `composeTestTag("whats-new-next")` instead of absolute
+  coordinates.
 
 ## Stable Anchors Derived
 
 - Web: `legal-document-link-privacy`, `document-viewer-status-root`.
 - iOS: same identifiers compile to XCUI selectors.
-- Android: no real Quata selector derived from the live app because UIAutomator either had no root or exposed the launcher, not product nodes.
+- Android: `whats-new-next` from the real Compose semantics exporter. UIAutomator fallback still
+  failed closed on `null root node`/launcher ownership, which is the intended behavior.
 
 ## Coordinate Use
 
@@ -72,8 +82,16 @@ Coordinates were captured as diagnostics in the Web macro, but replay used `data
 
 - Web replay was validated on a deterministic fixture carrying the same legal anchors. A fresh Wasm distribution was built and served, but the `#about` legal link was not discoverable through DOM/text selectors, so a product-level Web macro still requires either DOM/WebElementView anchors for that control or a Compose semantics inspection bridge.
 - iOS needs a small macOS-side AX probe to convert a visual click into an AX element-under-point automatically. The compiler side is useful now.
-- Android Compose screens may require instrumentation-side semantics export, because UIAutomator can return no root for the current app state.
+- Android Compose screens now have a focused instrumentation-side semantics exporter for MVP
+  pipeline use. It currently mounts a representative shared `WhatsNewContent` surface; each new
+  complex product route should add a similarly focused exporter or reuse an existing instrumentation
+  fixture rather than falling back to coordinates.
 
 ## Recommendation
 
-The approach is promising for Web and iOS anchored flows and useful as a guardrail even where platform discovery is incomplete. It should reduce automation cost most when a human/agent can visually reach the route and the product has stable anchors. When it reports `missing_stable_anchor` or no AX hierarchy, the next action should be to add clean product anchors or a platform semantics exporter, not to iterate on coordinates.
+The approach is promising enough to integrate into the migration pipeline. It already covers the
+full record -> normalize -> compile path for Web fixture flows and Android Compose semantics, and it
+provides the iOS compile/AX-probe boundary for the next visual runner. It should reduce automation
+cost most when a human/agent can visually reach the route and the product has stable anchors. When
+it reports `missing_stable_anchor` or no AX hierarchy, the next action should be to add clean
+product anchors or a platform semantics exporter, not to iterate on coordinates.
