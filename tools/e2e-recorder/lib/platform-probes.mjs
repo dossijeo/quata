@@ -7,9 +7,9 @@ export async function readProbeTree(file) {
   return payload;
 }
 
-export function targetFromProbePoint({ platform, tree, x, y, packageName = "com.quata" }) {
+export function targetFromProbePoint({ platform, tree, x, y, packageName = "com.quata", bundleIdentifier = "com.quata.iosApp" }) {
   if (platform === "android") return androidTargetFromPoint(tree, x, y, packageName);
-  if (platform === "ios") return iosTargetFromPoint(tree, x, y);
+  if (platform === "ios") return iosTargetFromPoint(tree, x, y, bundleIdentifier);
   throw new Error(`Unsupported probe platform ${platform}`);
 }
 
@@ -49,9 +49,11 @@ export function uiAutomatorXmlToTree(xml) {
   return { source: "uiautomator", children: nodes };
 }
 
-export function iosTargetFromPoint(tree, x, y) {
+export function iosTargetFromPoint(tree, x, y, bundleIdentifier = "com.quata.iosApp") {
   const nodes = flattenNodes(tree).map(normalizeIosNode);
+  if (!nodes.some((node) => node.bundleIdentifier === bundleIdentifier)) return missingTarget(x, y, { reason: "ios_missing_app_owner", bundleIdentifier });
   const targets = containingNodes(nodes, x, y).map((node) => normalizeTarget({
+    bundleIdentifier: node.bundleIdentifier,
     accessibilityIdentifier: node.accessibilityIdentifier,
     ariaLabel: node.label,
     visibleText: node.value || node.title,
@@ -106,6 +108,8 @@ function parseUiAutomatorNode(raw) {
 
 function normalizeIosNode(node) {
   return {
+    pid: Number.isFinite(Number(node.pid)) ? Number(node.pid) : null,
+    bundleIdentifier: node.bundleIdentifier || node.bundleId || node.applicationBundleIdentifier || null,
     accessibilityIdentifier: node.accessibilityIdentifier || node.identifier || null,
     label: node.label || node.accessibilityLabel || null,
     value: node.value || null,
@@ -151,8 +155,8 @@ function area(bounds) {
   return bounds ? bounds.width * bounds.height : Number.POSITIVE_INFINITY;
 }
 
-function missingTarget(x, y) {
-  return normalizeTarget({ coordinates: { x, y } });
+function missingTarget(x, y, details = {}) {
+  return normalizeTarget({ ...details, coordinates: { x, y } });
 }
 
 function firstText(value) {

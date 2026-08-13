@@ -3,7 +3,7 @@ import { targetFromProbePoint, readProbeTree } from "./lib/platform-probes.mjs";
 
 const options = parseArgs(process.argv.slice(2));
 if (!options.platform || !options.input || !options.point) {
-  console.error("Usage: node tools/e2e-recorder/probe-target.mjs --platform android|ios --input <tree.json> --point x,y [--package com.quata]");
+  console.error("Usage: node tools/e2e-recorder/probe-target.mjs --platform android|ios --input <tree.json> --point x,y [--package com.quata] [--bundle com.quata.iosApp]");
   process.exit(64);
 }
 
@@ -20,6 +20,7 @@ const target = targetFromProbePoint({
   x,
   y,
   packageName: options.package ?? "com.quata",
+  bundleIdentifier: options.bundle ?? "com.quata.iosApp",
 });
 console.log(JSON.stringify(target, null, 2));
 if (!target.stable) process.exit(2);

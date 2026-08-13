@@ -18,7 +18,7 @@ This unit builds on the MVP in PR #243. It must not be promoted before #243 is i
 
 ## GO Criteria
 
-- iOS probe can take a point in simulator/window coordinates and return an AX element payload with identifier/label/frame when available.
+- iOS probe can take a point in simulator/window coordinates plus the Quata app PID and return an app-owned AX element payload with identifier/label/frame when available.
 - Android probe can return Quata-owned UIAutomator/semantics anchors or clearly report
   `missing_stable_anchor` without promoting launcher/system nodes.
 - Both probes feed the existing `quata-e2e-macro` format.
@@ -34,5 +34,5 @@ This unit builds on the MVP in PR #243. It must not be promoted before #243 is i
 - `tools/e2e-recorder/android-compose-semantics.mjs` builds and runs a focused AndroidTest exporter
   for Compose surfaces; the first real run on `emulator-5554` exported `WhatsNewContent` semantics
   and resolved a visual tap to `testTag=whats-new-next`.
-- `tools/e2e-recorder/ios-ax-probe.swift` is the minimal macOS-side AX element-under-point probe to validate whether Compose/iOS exposes stable identifiers before writing XCTest selectors.
+- `tools/e2e-recorder/ios-ax-probe.swift` is the minimal macOS-side AX element-under-point probe to validate whether Compose/iOS exposes stable identifiers before writing XCTest selectors; it requires a PID and downstream normalization verifies the expected bundle owner before accepting anchors.
 - `tools/e2e-recorder/append-step.mjs` turns a probe point into a macro step, completing the minimal capture -> normalize -> compile path for non-Web platforms.

@@ -39,7 +39,7 @@ node tools/e2e-recorder/android-replay.mjs --macro build-reports/e2e-recorder/le
 ```
 
 ```powershell
-ssh quata-mac 'cd ~/quata && swift tools/e2e-recorder/ios-ax-probe.swift --point 120,760' > build-reports/e2e-recorder/ios-ax.json
+ssh quata-mac 'cd ~/quata && swift tools/e2e-recorder/ios-ax-probe.swift --point 120,760 --pid <quata-ios-app-pid>' > build-reports/e2e-recorder/ios-ax.json
 node tools/e2e-recorder/ios-compile.mjs build-reports/e2e-recorder/legal-ios.macro.json
 ```
 
@@ -47,11 +47,11 @@ Probe a captured platform tree at a visual point:
 
 ```powershell
 node tools/e2e-recorder/probe-target.mjs --platform android --input build-reports/e2e-recorder/android-ui.json --point 120,760
-node tools/e2e-recorder/probe-target.mjs --platform ios --input build-reports/e2e-recorder/ios-ax.json --point 120,760
+node tools/e2e-recorder/probe-target.mjs --platform ios --input build-reports/e2e-recorder/ios-ax.json --point 120,760 --bundle com.quata.iosApp
 node tools/e2e-recorder/append-step.mjs --macro build-reports/e2e-recorder/legal-android.macro.json --flow legal-android --platform android --action tap --probe build-reports/e2e-recorder/android-ui.json --point 120,760
 ```
 
-iOS currently compiles macro files into XCUI snippets using `accessibilityIdentifier`/label anchors. The first MVP intentionally does not add a large remote AX recorder until the SSH/macOS helper exposes a reliable AX element-under-point API. If a recorded iOS step cannot resolve to an identifier or label, the compile step fails instead of producing blind coordinates.
+iOS compiles macro files into XCUI snippets using `accessibilityIdentifier`/label anchors. The AX probe requires the Quata app PID and `probe-target.mjs` requires the expected bundle identifier; if a captured step lacks app ownership or cannot resolve to an identifier or label, the compile step fails instead of producing blind coordinates.
 
 Artifact rules:
 
@@ -59,7 +59,7 @@ Artifact rules:
 - Generated XCTest/Playwright code is reviewed before promotion to CI.
 - `compile.mjs --emit` writes a reviewable runner snippet only when every actionable step has a stable product anchor.
 - Android prefers `android-compose-semantics.mjs` for Compose screens: it builds the debug AndroidTest APK, mounts a focused shared Compose surface, exports `testTag`, content description, text, role and bounds, and feeds the same `probe-target.mjs` JSON shape. `android-dump-tree.mjs` remains a UIAutomator fallback for native/system surfaces; it deletes stale dumps before capture, fails closed on UIAutomator errors, and stores the normalized tree outside source control.
-- `ios-ax-probe.swift` queries the macOS Accessibility element under a point for the simulator/window session and prints the same tree shape.
+- `ios-ax-probe.swift` queries the macOS Accessibility element under a point for the Quata simulator app PID and prints the same tree shape with PID/bundle ownership.
 - `probe-target.mjs` converts Android Compose/UIAutomator or iOS AX trees into the same macro target shape and exits non-zero when the point cannot be resolved to a stable product anchor.
 - `append-step.mjs` appends a resolved probe point to the common macro file so Android/iOS captures can move directly into `compile.mjs`.
 - Coordinates are allowed only as diagnostics or temporary discovery data.

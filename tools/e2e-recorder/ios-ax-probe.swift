@@ -10,6 +10,8 @@ struct Bounds: Codable {
 }
 
 struct Node: Codable {
+    let pid: Int32?
+    let bundleIdentifier: String?
     let accessibilityIdentifier: String?
     let label: String?
     let value: String?
@@ -57,10 +59,13 @@ guard parts.count == 2 else {
 
 let system = AXUIElementCreateSystemWide()
 let targetApp: AXUIElement
-if let rawPid = arg("--pid"), let parsedPid = Int32(rawPid) {
+let targetPid: Int32
+if let rawPid = arg("--pid"), let parsedPid = Int32(rawPid), parsedPid > 0 {
+    targetPid = parsedPid
     targetApp = AXUIElementCreateApplication(pid_t(parsedPid))
 } else {
-    targetApp = system
+    FileHandle.standardError.write(Data("ios_ax_probe_requires_pid\n".utf8))
+    exit(64)
 }
 
 var hit: AXUIElement?
@@ -71,6 +76,8 @@ guard error == .success, let element = hit else {
 }
 
 let node = Node(
+    pid: targetPid,
+    bundleIdentifier: stringAttribute(targetApp, kAXIdentifierAttribute as CFString),
     accessibilityIdentifier: stringAttribute(element, "AXIdentifier" as CFString),
     label: stringAttribute(element, kAXDescriptionAttribute as CFString),
     value: stringAttribute(element, kAXValueAttribute as CFString),

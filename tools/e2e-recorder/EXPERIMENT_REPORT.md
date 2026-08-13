@@ -17,7 +17,7 @@ CI is still valuable because it catches defects that local preflight can miss. T
 - Android recorder/replay using ADB + UIAutomator XML for native/system surfaces, plus a focused
   AndroidTest Compose semantics exporter for shared Compose screens. It now fails closed if
   UIAutomator returns `null root node` and prefers Compose `testTag`/semantics when available.
-- iOS compiler that turns macro steps with `accessibilityIdentifier` or label anchors into XCUI snippets.
+- iOS AX probe/compiler boundary that turns app-owned AX elements with `accessibilityIdentifier` or label anchors into XCUI snippets.
 
 ## Real Flow Used
 
@@ -51,7 +51,7 @@ iOS compile:
   - `app.descendants(matching: .any).matching(identifier: "legal-document-link-privacy").firstMatch.tap()`
   - `XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "document-viewer-status-root").firstMatch.waitForExistence(timeout: 30))`
 - SSH Mac helper was reachable and the booted simulator was `48950F56-C309-4AA7-921F-D76C6042AC2C`.
-- This proves the stable-anchor path, but the MVP does not yet capture AX element-under-point from macOS.
+- The macOS-side AX probe is present and must be invoked with the Quata app PID; probe normalization fails closed unless the payload carries the expected app bundle owner. A route-specific iOS visual run still needs to be captured before declaring iOS recorder coverage for that route.
 
 Android probe:
 
@@ -64,8 +64,8 @@ Android probe:
   `build-reports/e2e-recorder/android-compose-semantics.json`.
 - A visual point inside the shared `WhatsNewContent` button resolved to `testTag=whats-new-next`
   with `contentDescription=next_whats_new`, `roleName=Button`, score `100` and `fragileSteps=0`.
-  The generated review artifact targets `composeTestTag("whats-new-next")` instead of absolute
-  coordinates.
+  The generated review artifact targets the same `view-id-resource-name`/`resource-id` shape used
+  by the local replay for `composeTestTag("whats-new-next")`, instead of absolute coordinates.
 
 ## Stable Anchors Derived
 
@@ -81,7 +81,7 @@ Coordinates were captured as diagnostics in the Web macro, but replay used `data
 ## Limitations
 
 - Web replay was validated on a deterministic fixture carrying the same legal anchors. A fresh Wasm distribution was built and served, but the `#about` legal link was not discoverable through DOM/text selectors, so a product-level Web macro still requires either DOM/WebElementView anchors for that control or a Compose semantics inspection bridge.
-- iOS needs a small macOS-side AX probe to convert a visual click into an AX element-under-point automatically. The compiler side is useful now.
+- iOS has the minimal macOS-side AX element-under-point probe, but it is fail-closed by app PID/bundle owner. Each promoted route still needs a real iOS probe capture on the Quata app process.
 - Android Compose screens now have a focused instrumentation-side semantics exporter for MVP
   pipeline use. It currently mounts a representative shared `WhatsNewContent` surface; each new
   complex product route should add a similarly focused exporter or reuse an existing instrumentation
@@ -91,7 +91,7 @@ Coordinates were captured as diagnostics in the Web macro, but replay used `data
 
 The approach is promising enough to integrate into the migration pipeline. It already covers the
 full record -> normalize -> compile path for Web fixture flows and Android Compose semantics, and it
-provides the iOS compile/AX-probe boundary for the next visual runner. It should reduce automation
+provides the iOS compile/AX-probe boundary with ownership checks for the next visual runner. It should reduce automation
 cost most when a human/agent can visually reach the route and the product has stable anchors. When
 it reports `missing_stable_anchor` or no AX hierarchy, the next action should be to add clean
 product anchors or a platform semantics exporter, not to iterate on coordinates.

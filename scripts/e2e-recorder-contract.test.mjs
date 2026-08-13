@@ -90,6 +90,21 @@ test("compiler renders reviewed replay snippets for CI promotion", () => {
   assert.match(artifact, /document-viewer-status-root/);
 });
 
+test("Android replay artifacts use the same Compose testTag selector shape as local replay", () => {
+  const artifact = renderReplayArtifact(compileMacro({
+    format: "quata-e2e-macro",
+    version: 1,
+    flow: "android-compose",
+    platform: "android",
+    createdAt: new Date().toISOString(),
+    steps: [{ action: "tap", target: { testTag: "whats-new-next" } }],
+  }));
+
+  assert.match(artifact, /By\.res\(java\.util\.regex\.Pattern\.compile/);
+  assert.match(artifact, /\(\^\|\.\*\/\|:id\/\)whats-new-next\$/);
+  assert.doesNotMatch(artifact, /By\.desc\("whats-new-next"\)/);
+});
+
 test("compiler refuses to emit runner artifacts with missing stable anchors", () => {
   const macro = createMacro({ flow: "fragile-runner", platform: "ios" });
   macro.steps.push({ action: "tap", target: { coordinates: { x: 5, y: 10 } } });
@@ -204,9 +219,11 @@ test("append-step fails closed on unknown actions", async () => {
 
 test("platform probes resolve iOS AX identifiers under a point", () => {
   const target = iosTargetFromPoint({
+    bundleIdentifier: "com.quata.iosApp",
     frame: { x: 0, y: 0, width: 390, height: 844 },
     children: [
       {
+        bundleIdentifier: "com.quata.iosApp",
         identifier: "document-viewer-status-root",
         label: "Visor de documento",
         role: "AXGroup",
@@ -218,6 +235,24 @@ test("platform probes resolve iOS AX identifiers under a point", () => {
   assert.equal(target.preferred.kind, "accessibilityIdentifier");
   assert.equal(target.preferred.value, "document-viewer-status-root");
   assert.equal(target.stable, true);
+});
+
+test("platform probes reject iOS AX trees without expected app owner", () => {
+  const target = iosTargetFromPoint({
+    bundleIdentifier: "com.apple.iphonesimulator",
+    frame: { x: 0, y: 0, width: 390, height: 844 },
+    children: [
+      {
+        bundleIdentifier: "com.apple.iphonesimulator",
+        identifier: "Simulator toolbar",
+        frame: { x: 0, y: 0, width: 390, height: 80 },
+      },
+    ],
+  }, 100, 40);
+
+  assert.equal(target.stable, false);
+  assert.equal(target.reason, "ios_missing_app_owner");
+  assert.equal(target.preferred.kind, "geometry");
 });
 
 test("append-step builds a macro from a platform probe", async () => {
@@ -348,7 +383,8 @@ test("Android replay implements composeTestTag and real assertVisible steps", as
   assert.match(replay, /else if \(step\.action === "assertVisible"\) await assertVisible\(adb, step\)/);
   assert.match(replay, /selector\.kind === "composeTestTag"/);
   assert.match(replay, /unsupported_android_action/);
-  assert.match(artifact, /composeTestTag exported through Compose semantics/);
+  assert.match(artifact, /composeTestTag exported as view-id-resource-name\/resource-id/);
+  assert.match(artifact, /By\.res\(java\.util\.regex\.Pattern\.compile/);
 });
 
 test("Android replay resolves Compose testTags from UIAutomator view-id-resource-name", async () => {
