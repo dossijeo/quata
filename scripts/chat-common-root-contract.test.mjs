@@ -241,7 +241,7 @@ test("common SOS location messages expose map/open evidence anchors", () => {
     assert.match(sosLocation, new RegExp(`testTag = ChatSosLocation${constant}TestTag`));
   }
   assert.match(sosLocation, /onOpenMaps: \(String\) -> Unit/);
-  assert.match(sosLocation, /modifier = Modifier\.clickable \{ onOpenMaps\(url\) \}\.semantics \{ testTag = ChatSosLocationOpenMapsTestTag \}/);
+  assert.match(sosLocation, /modifier = Modifier\.clickable \{ onOpenMaps\(url\) \}\.semantics \{[\s\S]*?testTag = ChatSosLocationOpenMapsTestTag[\s\S]*?contentDescription = openMapsLabel[\s\S]*?role = Role\.Button/);
   assert.match(chatBrowserHostContent, /ChatSosLocationContent\(/);
   assert.match(chatBrowserHostContent, /onOpenMaps = onOpenExternalLink/);
   assert.match(chatBrowserHostContent, /resolveChatSosPresentation/);

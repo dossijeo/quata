@@ -30,6 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
@@ -140,6 +143,8 @@ fun ChatGroupManagementContent(
                 DropdownMenuItem(
                     modifier = Modifier.semantics {
                         testTag = if (conversation?.isMuted == true) ChatGroupMenuUnmuteTestTag else ChatGroupMenuMuteTestTag
+                        contentDescription = if (conversation?.isMuted == true) strings.reactivateNotifications else strings.muteConversation
+                        role = Role.Button
                     },
                     text = { Text(if (conversation?.isMuted == true) strings.reactivateNotifications else strings.muteConversation) },
                     leadingIcon = {
@@ -154,7 +159,11 @@ fun ChatGroupManagementContent(
                     },
                 )
                 DropdownMenuItem(
-                    modifier = Modifier.semantics { testTag = ChatGroupMenuAllowInvitesTestTag },
+                    modifier = Modifier.semantics {
+                        testTag = ChatGroupMenuAllowInvitesTestTag
+                        contentDescription = strings.allowMemberInvites
+                        role = Role.Checkbox
+                    },
                     text = { Text(strings.allowMemberInvites) },
                     leadingIcon = { Checkbox(checked = conversation?.canMembersInvite == true, onCheckedChange = null) },
                     enabled = isModerator,
@@ -164,7 +173,11 @@ fun ChatGroupManagementContent(
                     },
                 )
                 DropdownMenuItem(
-                    modifier = Modifier.semantics { testTag = ChatGroupMenuAddParticipantsTestTag },
+                    modifier = Modifier.semantics {
+                        testTag = ChatGroupMenuAddParticipantsTestTag
+                        contentDescription = strings.addParticipants
+                        role = Role.Button
+                    },
                     text = { Text(strings.addParticipants) },
                     leadingIcon = { CompactIcon(Icons.Filled.PersonAdd, null) },
                     enabled = canInvite,
@@ -174,7 +187,11 @@ fun ChatGroupManagementContent(
                     },
                 )
                 DropdownMenuItem(
-                    modifier = Modifier.semantics { testTag = ChatGroupMenuLeaveTestTag },
+                    modifier = Modifier.semantics {
+                        testTag = ChatGroupMenuLeaveTestTag
+                        contentDescription = strings.leaveConversation
+                        role = Role.Button
+                    },
                     text = { Text(strings.leaveConversation) },
                     leadingIcon = { CompactIcon(Icons.Filled.PersonRemove, null) },
                     onClick = {
@@ -183,7 +200,11 @@ fun ChatGroupManagementContent(
                     },
                 )
                 DropdownMenuItem(
-                    modifier = Modifier.semantics { testTag = ChatGroupMenuDeleteTestTag },
+                    modifier = Modifier.semantics {
+                        testTag = ChatGroupMenuDeleteTestTag
+                        contentDescription = strings.deleteConversation
+                        role = Role.Button
+                    },
                     text = { Text(strings.deleteConversation) },
                     leadingIcon = { CompactIcon(Icons.Filled.Delete, null) },
                     onClick = {

@@ -15,6 +15,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -82,6 +83,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe).all { !it.isNullOrBlank() }
+            "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
         }
         assumeTrue(
@@ -108,6 +110,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty())
+                "group-sos" -> runGroupSosStage(ownProbe.orEmpty())
                 "profile-content" -> {
                     openPeerProfile(peerProbe.orEmpty(), profileId.orEmpty())
                     assertProfileContentStage(profileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty())
@@ -277,12 +280,40 @@ class ChatActionsNotificationsInstrumentedTest {
         saveScreenshot("android-chat-audio-toggle-attempted")
     }
 
+    private fun runGroupSosStage(ownProbe: String) {
+        waitForMarker(ownProbe, "group/SOS initial chat thread")
+        openOptionsMenu()
+        for (tag in listOf(
+            ChatGroupMenuAllowInvitesTestTag,
+            ChatGroupMenuAddParticipantsTestTag,
+            ChatGroupMenuLeaveTestTag,
+            ChatGroupMenuDeleteTestTag,
+        )) {
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }
+        saveScreenshot("android-chat-group-menu-shared-anchors")
+        device.pressBack()
+        compose.waitForIdle()
+
+        waitForText("Actualizacion de ubicacion SOS", "SOS location update", timeoutMillis = 20_000)
+            ?: error("sos_location_title_not_visible")
+        for (tag in listOf(
+            ChatSosLocationRootTestTag,
+            ChatSosLocationMapPreviewTestTag,
+            ChatSosLocationOpenMapsTestTag,
+        )) {
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }
+        waitForTag(ChatSosLocationUnavailableTestTag, "SOS unavailable message")
+        waitForText("Ubicacion no disponible", "Location unavailable", timeoutMillis = 2_000)
+        saveScreenshot("android-chat-sos-location-shared-anchors")
+    }
+
     private fun openOptionsMenu() {
-        repeat(3) { attempt ->
-            runCatching {
-                compose.onNodeWithTag("chat.menu.options", useUnmergedTree = true)
-                    .performClick()
-            }
+        repeat(5) { attempt ->
+            clickOptionsButtonFallback(attempt)
             compose.waitForIdle()
             if (waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 1_000) != null ||
                 waitForText("Reactivar notificaciones", "Unmute", timeoutMillis = 1_000) != null
@@ -308,6 +339,23 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForText("Reactivar notificaciones", "Unmute", timeoutMillis = 2_000) == null
         ) {
             error("chat_options_menu_not_visible")
+        }
+    }
+
+    private fun clickOptionsButtonFallback(attempt: Int) {
+        if (runCatching {
+                compose.onNodeWithTag(ChatGroupMenuOptionsTestTag, useUnmergedTree = true)
+                    .performClick()
+            }.isSuccess
+        ) return
+        val nativeOptions = waitForObject(By.descContains("Opciones"), "Opciones", 500)
+            ?: waitForObject(By.descContains("Options"), "Options", 500)
+        if (nativeOptions != null) {
+            nativeOptions.click()
+            return
+        }
+        if (attempt >= 2) {
+            device.click(device.displayWidth - 72, (device.displayHeight * 0.13f).toInt())
         }
     }
 
@@ -741,6 +789,21 @@ class ChatActionsNotificationsInstrumentedTest {
         assertTrue("The marker must be visible in $context.", scrolled)
     }
 
+    private fun waitForTag(tag: String, context: String, timeoutMillis: Long = 45_000) {
+        val visible = runCatching {
+            compose.waitUntil(timeoutMillis) { nodeWithTagVisible(tag) }
+            true
+        }.getOrDefault(false)
+        if (visible) return
+        val scrolled = runCatching {
+            compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                .performScrollToNode(hasTestTag(tag))
+            compose.waitUntil(10_000) { nodeWithTagVisible(tag) }
+            true
+        }.getOrDefault(false)
+        assertTrue("The semantic tag must be visible in $context.", scrolled)
+    }
+
     private fun waitForMarkerOrProfileAvatar(markerProbe: String, profileId: String, context: String, timeoutMillis: Long = 45_000) {
         val avatarTag = ChatProfileMessageAvatarTestTagPrefix + profileId
         val visible = runCatching {
@@ -786,6 +849,12 @@ class ChatActionsNotificationsInstrumentedTest {
     private fun messageNodeVisible(markerProbe: String): Boolean =
         runCatching {
             compose.onNode(messageNodeMatcher(markerProbe), useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }.isSuccess
+
+    private fun nodeWithTagVisible(tag: String): Boolean =
+        runCatching {
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
                 .fetchSemanticsNode()
         }.isSuccess
 

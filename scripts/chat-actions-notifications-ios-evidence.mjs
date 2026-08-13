@@ -33,6 +33,7 @@ const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const menuSurfaceOnly = options.menuSurfaceOnly;
 const keyboardMenuOnly = options.keyboardMenuOnly;
 const attachmentsAudioOnly = options.attachmentsAudioOnly;
+const groupSosOnly = options.groupSosOnly;
 const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profilePrivateChatOnly;
 const report = {
   check,
@@ -73,6 +74,10 @@ const state = {
   profilePrivateChat: null,
   profilePrivateChatMarkerMessage: null,
   attachmentsAudio: null,
+  sosWithLocationMarker: null,
+  sosUnavailableMarker: null,
+  sosWithLocationMessage: null,
+  sosUnavailableMessage: null,
   cleanupRegistry: createCleanupRegistry(),
 };
 
@@ -102,7 +107,7 @@ try {
     p_community_id: null,
   }));
   report.steps.push("isolated_group_thread_ready");
-  if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly) {
+  if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -110,10 +115,10 @@ try {
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
   state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
-  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
-  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
+  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
+  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -150,7 +155,7 @@ try {
       state.profilePrivateChatMarkerMessage = messageId(privateMessage);
       report.steps.push("profile_private_chat_seed_message_ready");
     }
-    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly) {
+    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
         p_thread_id: state.thread,
@@ -260,6 +265,31 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       };
       report.steps.push("document_and_audio_attachment_messages_seeded");
     }
+    if (groupSosOnly) {
+      state.sosWithLocationMarker = "[SOS:kind=update;name=Gabrielo;lat=3.7523;lng=8.7741;age_ms=45000;accuracy_m=18;speed_kmh=0]";
+      state.sosUnavailableMarker = "[SOS:kind=alert;name=Gabrielo;custom=Necesito%20ayuda]";
+      await rpc(config, state.a, "quata_chat_send_message", {
+        p_actor_profile_id: state.a.profileId,
+        p_thread_id: state.thread,
+        p_message: state.sosWithLocationMarker,
+        p_file_ids: [],
+        p_reply_to_message_id: null,
+        p_client_message_id: `chat-group-sos-location-ios-${runId}`,
+      });
+      const sosWithLocationMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === state.sosWithLocationMarker, "sos location message");
+      state.sosWithLocationMessage = messageId(sosWithLocationMessage);
+      await rpc(config, state.a, "quata_chat_send_message", {
+        p_actor_profile_id: state.a.profileId,
+        p_thread_id: state.thread,
+        p_message: state.sosUnavailableMarker,
+        p_file_ids: [],
+        p_reply_to_message_id: null,
+        p_client_message_id: `chat-group-sos-unavailable-ios-${runId}`,
+      });
+      const sosUnavailableMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === state.sosUnavailableMarker, "sos unavailable message");
+      state.sosUnavailableMessage = messageId(sosUnavailableMessage);
+      report.steps.push("sos_location_and_unavailable_messages_seeded");
+    }
     await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
@@ -284,6 +314,7 @@ export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE=${shellQuote(state.priva
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E=${menuSurfaceOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E=${keyboardMenuOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=${attachmentsAudioOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_GROUP_SOS_UI_E2E=${groupSosOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE=${shellQuote(state.attachmentsAudio?.document?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE=${shellQuote(state.attachmentsAudio?.audio?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_INCLUDE_UNMUTE=${menuSurfaceOnly ? "0" : "1"}
@@ -303,6 +334,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? "ios_xctest_keyboard_header_and_selected_action_bar_verified"
       : attachmentsAudioOnly
       ? "ios_xctest_document_and_audio_attachment_chrome_verified"
+      : groupSosOnly
+      ? "ios_xctest_group_menu_and_sos_shared_anchors_verified"
       : profileListsOnly
       ? "ios_xctest_profile_followers_and_following_lists_verified"
       : profileContentOnly
@@ -330,7 +363,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("keyboard_header_and_selected_action_bar_captured");
     }
 
-    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly) {
+    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -348,7 +381,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     await copyRemoteEvidence(options);
     report.status = "passed";
-    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly)
+    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly)
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -360,6 +393,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         menuSurfaceOnly,
         keyboardMenuOnly,
         attachmentsAudioOnly,
+        groupSosOnly,
         attachmentsAudio: state.attachmentsAudio ? {
           documentMessageId: state.attachmentsAudio.document.messageId,
           audioMessageId: state.attachmentsAudio.audio.messageId,
@@ -380,6 +414,10 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         } : null,
         privateMarkerSha256: profilePrivateChatOnly ? sha256(state.privateMarker) : null,
         profilePrivateChatThreadId: state.profilePrivateChat ?? null,
+        sosWithLocationMessageId: state.sosWithLocationMessage,
+        sosUnavailableMessageId: state.sosUnavailableMessage,
+        sosWithLocationMarkerSha256: state.sosWithLocationMarker ? sha256(state.sosWithLocationMarker) : null,
+        sosUnavailableMarkerSha256: state.sosUnavailableMarker ? sha256(state.sosUnavailableMarker) : null,
       }
       : {
         threadId: state.thread,
@@ -514,6 +552,7 @@ function parseArgs(argv) {
     menuSurfaceOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MENU_SURFACE_ONLY === "1",
     keyboardMenuOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_KEYBOARD_MENU_ONLY === "1",
     attachmentsAudioOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENTS_AUDIO_ONLY === "1",
+    groupSosOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_GROUP_SOS_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -568,6 +607,14 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/chat-attachments-audio-evidence");
       result.remoteLogDir = "build/reports/ios/chat-attachments-audio";
       result.remoteResultBundleDir = "build/reports/ios/chat-attachments-audio/xcresults";
+      continue;
+    }
+    if (key === "--group-sos-only") {
+      result.groupSosOnly = true;
+      result.output = resolve("build-reports/ios/chat-group-sos-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/chat-group-sos-evidence");
+      result.remoteLogDir = "build/reports/ios/chat-group-sos";
+      result.remoteResultBundleDir = "build/reports/ios/chat-group-sos/xcresults";
       continue;
     }
     if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {

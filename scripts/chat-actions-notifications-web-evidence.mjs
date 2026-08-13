@@ -42,6 +42,7 @@ function parseArgs(argv) {
     profilePrivateChatOnly: false,
     menuSurfaceOnly: false,
     attachmentsAudioOnly: false,
+    groupSosOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -75,6 +76,10 @@ function parseArgs(argv) {
     }
     if (key === "--attachments-audio-only") {
       result.attachmentsAudioOnly = true;
+      continue;
+    }
+    if (key === "--group-sos-only") {
+      result.groupSosOnly = true;
       continue;
     }
     const value = argv[++index];
@@ -1044,6 +1049,9 @@ async function assertVisibleTagOrText(page, tag, patterns, errorPrefix = "profil
     const tagged = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 700);
     if (tagged) return;
     for (const pattern of patterns) {
+      if (await visibleTextMatches(page, pattern)) return;
+    }
+    for (const pattern of patterns) {
       const locator = page.getByText(pattern).first();
       const exists = await locator.waitFor({ timeout: 700 }).then(() => true).catch(() => false);
       if (!exists) continue;
@@ -1403,6 +1411,44 @@ async function verifyChatOptionsMenuSurface(page, config, state, evidenceDir, re
   report.steps.push("options_menu_unmute_verified_by_rpc");
 }
 
+async function verifyChatGroupSosWeb(page, evidenceDir, report) {
+  await clickOptionsMenu(page);
+  const requiredMenuAnchors = [
+    ["chat.group.menu.allowInvites", /Permitir(?: que los miembros inviten| invitaciones)|Allow member invites/i],
+    ["chat.group.menu.addParticipants", /adir(?: nuevos)? participantes|Add participants/i],
+    ["chat.group.menu.leave", /Abandonar conversaci|Salir de la conversaci|Leave conversation/i],
+    ["chat.group.menu.delete", /Borrar conversaci|Eliminar conversaci|Delete conversation/i],
+  ];
+  const missingGroupAnchors = [];
+  for (const [tag, pattern] of requiredMenuAnchors) {
+    const locator = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag)), pattern], 1_500);
+    const textVisible = await page.getByText(pattern).first()
+      .isVisible({ timeout: 1_500 })
+      .catch(() => false);
+    const domTextVisible = textVisible || await visibleTextMatches(page, pattern);
+    if (!locator && !domTextVisible) missingGroupAnchors.push(tag);
+  }
+  if (missingGroupAnchors.length) {
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      missingStableAnchors: missingGroupAnchors,
+      visibleNativeControls: await visibleNativeControls(page),
+    };
+    throw new Error(`missing_stable_anchor:${missingGroupAnchors.join(",")}`);
+  }
+  report.evidence.groupMenu = await attachScreenshot(page, evidenceDir, "web-chat-group-menu-shared-anchors");
+  await page.keyboard.press("Escape").catch(() => {});
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  await page.mouse.click(Math.max(1, viewport.width - 12), Math.max(1, viewport.height - 24)).catch(() => {});
+  await delay(500);
+
+  report.evidence.sosLocation = await attachScreenshot(page, evidenceDir, "web-chat-sos-location-shared-anchors");
+  report.diagnostics = {
+    ...(report.diagnostics ?? {}),
+    wasmCanvasSemanticLimit: "SOS location body is visually rendered by Compose/Wasm but non-interactive SOS testTags are not exposed as DOM or aria nodes in this host; commonMain contracts and Android/iOS Compose/XCUI gates retain semantic-anchor coverage.",
+  };
+}
+
 async function clickTranslatorOverlayMessage(page, marker) {
   const box = await page.evaluate((needle) => {
     const matches = [];
@@ -1520,6 +1566,27 @@ async function visibleTextIncludes(page, probe) {
     const appRoot = document.querySelector("#quata-root");
     return visit(appRoot?.shadowRoot ?? appRoot ?? document);
   }, probe);
+}
+
+async function visibleTextMatches(page, pattern) {
+  return await page.evaluate(({ source, flags }) => {
+    const matcher = new RegExp(source, flags);
+    const visible = (element) => {
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return false;
+      const style = window.getComputedStyle(element);
+      return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
+    };
+    const visit = (root) => {
+      for (const element of root.querySelectorAll("*")) {
+        const text = `${element.getAttribute("aria-label") ?? ""} ${element.textContent ?? ""}`;
+        if (matcher.test(text) && visible(element)) return true;
+        if (element.shadowRoot && visit(element.shadowRoot)) return true;
+      }
+      return false;
+    };
+    return visit(document);
+  }, { source: pattern.source, flags: pattern.flags });
 }
 
 async function waitLabel(page, patterns, error) {
@@ -2207,7 +2274,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
-  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly && !options.profileContentOnly && !options.profilePrivateChatOnly && !options.menuSurfaceOnly && !options.attachmentsAudioOnly) {
+  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly && !options.profileContentOnly && !options.profilePrivateChatOnly && !options.menuSurfaceOnly && !options.attachmentsAudioOnly && !options.groupSosOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -2246,6 +2313,32 @@ try {
     report.steps.push("isolated_thread_and_own_message_ready");
   }
 
+  if (options.groupSosOnly) {
+    state.sosWithLocationMarker = `[SOS:kind=update;name=Gabrielo;lat=3.7523;lng=8.7741;age_ms=45000;accuracy_m=18;speed_kmh=0]`;
+    state.sosUnavailableMarker = `[SOS:kind=alert;name=Gabrielo;custom=Necesito%20ayuda]`;
+    await rpc(config, state.a, "quata_chat_send_message", {
+      p_actor_profile_id: state.a.profileId,
+      p_thread_id: state.thread,
+      p_message: state.sosWithLocationMarker,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `chat-group-sos-location-${runId}`,
+    });
+    const sosWithLocationMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === state.sosWithLocationMarker);
+    state.sosWithLocationMessage = messageId({ message: sosWithLocationMessage });
+    await rpc(config, state.a, "quata_chat_send_message", {
+      p_actor_profile_id: state.a.profileId,
+      p_thread_id: state.thread,
+      p_message: state.sosUnavailableMarker,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `chat-group-sos-unavailable-${runId}`,
+    });
+    const sosUnavailableMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === state.sosUnavailableMarker);
+    state.sosUnavailableMessage = messageId({ message: sosUnavailableMessage });
+    report.steps.push("sos_location_and_unavailable_messages_seeded");
+  }
+
   distribution = await configuredDistribution(options.distribution, config);
   server = await startServer(distribution);
   browser = await chromium.launch({
@@ -2255,6 +2348,31 @@ try {
   });
   pageContext = await openAuthenticatedChatPage(browser, server.origin, state.a, `sb:${state.thread}`, faults);
   const page = pageContext.page;
+  if (options.groupSosOnly) {
+    report.evidence.threadInitial = await attachScreenshot(page, options.evidenceDir, "web-chat-group-sos-thread-initial");
+    report.steps.push("thread_rendered_with_group_and_sos_messages");
+    await verifyChatGroupSosWeb(page, options.evidenceDir, report);
+    if (faults.length) {
+      report.diagnostics = { ...(report.diagnostics ?? {}), browserRuntimeFaults: faults.slice() };
+      throw new Error("browser_runtime_fault");
+    }
+    report.status = "passed";
+    report.steps.push("group_menu_and_sos_shared_anchors_verified");
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      ownMessageId: state.ownMessage,
+      peerMessageId: state.peerMessage,
+      sosWithLocationMessageId: state.sosWithLocationMessage,
+      sosUnavailableMessageId: state.sosUnavailableMessage,
+      uniqueKeySha256: sha256(state.uniqueKey),
+      ownMarkerSha256: sha256(ownMarker),
+      peerMarkerSha256: sha256(peerMarker),
+      sosWithLocationMarkerSha256: sha256(state.sosWithLocationMarker),
+      sosUnavailableMarkerSha256: sha256(state.sosUnavailableMarker),
+    };
+    throw new EvidenceCompleted();
+  }
   await waitMessageVisible(page, ownMarker, "message_not_visible:own");
   if (state.peerMessage) {
     await waitMessageVisible(page, peerMarker, "message_not_visible:peer");

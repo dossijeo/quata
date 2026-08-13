@@ -25,6 +25,7 @@ const profileContentOnly = process.argv.includes("--profile-content-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
 const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
+const groupSosOnly = process.argv.includes("--group-sos-only");
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/chat-actions-notifications-credentials.json";
@@ -65,6 +66,8 @@ const evidenceFiles = [
   "android-chat-attachment-document-visible.png",
   "android-chat-audio-player-visible.png",
   "android-chat-audio-toggle-attempted.png",
+  "android-chat-group-menu-shared-anchors.png",
+  "android-chat-sos-location-shared-anchors.png",
   "android-chat-actions-notifications-evidence.json",
 ];
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
@@ -1096,7 +1099,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
@@ -1123,7 +1126,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profilePrivateChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profilePrivateChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !groupSosOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1188,6 +1191,32 @@ try {
     report.steps.push("adjacent_recipient_participant_verified");
   }
   report.steps.push("isolated_thread_and_own_message_ready");
+
+  if (groupSosOnly) {
+    state.sosWithLocationMarker = "[SOS:kind=update;name=Gabrielo;lat=3.7523;lng=8.7741;age_ms=45000;accuracy_m=18;speed_kmh=0]";
+    state.sosUnavailableMarker = "[SOS:kind=alert;name=Gabrielo;custom=Necesito%20ayuda]";
+    await rpc(config, state.a, "quata_chat_send_message", {
+      p_actor_profile_id: state.a.profileId,
+      p_thread_id: state.thread,
+      p_message: state.sosWithLocationMarker,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `chat-group-sos-location-android-${runId}`,
+    });
+    const sosWithLocationMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === state.sosWithLocationMarker);
+    state.sosWithLocationMessage = messageId(sosWithLocationMessage);
+    await rpc(config, state.a, "quata_chat_send_message", {
+      p_actor_profile_id: state.a.profileId,
+      p_thread_id: state.thread,
+      p_message: state.sosUnavailableMarker,
+      p_file_ids: [],
+      p_reply_to_message_id: null,
+      p_client_message_id: `chat-group-sos-unavailable-android-${runId}`,
+    });
+    const sosUnavailableMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === state.sosUnavailableMarker);
+    state.sosUnavailableMessage = messageId(sosUnavailableMessage);
+    report.steps.push("sos_location_and_unavailable_messages_seeded");
+  }
 
   await mkdir(dirname(localCredentials), { recursive: true });
   await writeFile(localCredentials, `${JSON.stringify({ country_code: userA.countryCode, phone: userA.phone, password: userA.password })}\n`, { mode: 0o600 });
@@ -1326,6 +1355,31 @@ try {
     throw new Error("attachments_audio_only_completed");
   }
 
+  if (groupSosOnly) {
+    assertInstrumentationPassed("group-sos", await runInstrumentationStage("group-sos"));
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((name) => name.includes("group") || name.includes("sos") || name.endsWith("evidence.json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
+    }
+    report.status = "passed";
+    report.steps.push("group_menu_and_sos_shared_anchors_verified");
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      seedMessageId: state.message,
+      peerMessageId: state.peerMessage,
+      sosWithLocationMessageId: state.sosWithLocationMessage,
+      sosUnavailableMessageId: state.sosUnavailableMessage,
+      markerSha256: sha256(marker),
+      peerMarkerSha256: sha256(peerMarker),
+      sosWithLocationMarkerSha256: sha256(state.sosWithLocationMarker),
+      sosUnavailableMarkerSha256: sha256(state.sosUnavailableMarker),
+    };
+    throw new Error("group_sos_only_completed");
+  }
+
   if (state.b.accessToken) {
     if (profileFollowOnly) {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
@@ -1462,6 +1516,7 @@ try {
     error instanceof EvidenceCompleted ||
     error?.message === "menu_surface_only_completed" ||
     error?.message === "attachments_audio_only_completed" ||
+    error?.message === "group_sos_only_completed" ||
     error?.message === "profile_only_completed" ||
     error?.message === "profile_follow_only_completed" ||
     error?.message === "profile_lists_only_completed" ||

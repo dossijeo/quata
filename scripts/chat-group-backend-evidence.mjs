@@ -318,6 +318,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(JSON.stringify({ check: "CHAT-GROUP-BACKEND-001", status: "failed", error: String(error?.message ?? error) }));
+  console.error(JSON.stringify({ check: "CHAT-GROUP-BACKEND-001", status: "failed", error: safeFailure(error) }));
   process.exitCode = 1;
 });
