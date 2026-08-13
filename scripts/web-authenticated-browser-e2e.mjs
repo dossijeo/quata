@@ -694,8 +694,7 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
     document.querySelector("[data-quata-docmentis-viewer='true']")?.getAttribute("aria-label") === name,
   expectedName);
   if (overlayVisible) {
-    await page.getByRole("button", { name: "Close document viewer" }).click();
-    await page.waitForFunction(() => document.querySelector("[data-quata-docmentis-viewer='true']") === null);
+    await dismissDocumentViewer(page);
   }
   return {
     displayName: expectedName,
@@ -704,6 +703,27 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
     overlayVisible,
     renderReady,
   };
+}
+
+async function dismissDocumentViewer(page) {
+  await page.waitForFunction(() => document.querySelector("[data-quata-docmentis-viewer='true']") !== null, null, {
+    timeout: 2_000,
+  }).catch(() => null);
+  const closeButton = page.getByRole("button", { name: "Close document viewer" });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (await page.evaluate(() => document.querySelector("[data-quata-docmentis-viewer='true']") === null)) return;
+    await closeButton.click({ timeout: 5_000 }).catch(async error => {
+      const detail = typeof error?.message === "string" ? error.message : String(error);
+      if (!detail.includes("detached") && !detail.includes("Timeout")) throw error;
+      await page.waitForTimeout(150);
+    });
+    await page.waitForFunction(() => document.querySelector("[data-quata-docmentis-viewer='true']") === null, null, {
+      timeout: 2_000,
+    }).catch(() => null);
+  }
+  if (await page.evaluate(() => document.querySelector("[data-quata-docmentis-viewer='true']") !== null)) {
+    throw new Error("document_viewer_close_failed");
+  }
 }
 
 async function clickLegalDocumentAndWait(page, pattern, expectedName, fallbackIndex, previousOpenCount) {

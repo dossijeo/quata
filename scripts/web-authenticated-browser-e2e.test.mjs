@@ -68,6 +68,8 @@ test("the hermetic browser journey proves the permanent public shell, participat
   assert.match(runner, /data-quata-docmentis-viewer/);
   assert.match(runner, /viewer: "docmentis-overlay"/);
   assert.match(runner, /renderReady/);
+  assert.match(runner, /async function dismissDocumentViewer\(page\)/);
+  assert.match(runner, /document_viewer_close_failed/);
   assert.match(runner, /getByRole\("button", \{ name: pattern \}\)/);
   assert.match(runner, /findVisibleTextBounds\(page, pattern\)/);
   assert.match(runner, /element\.innerText \|\| element\.textContent/);
