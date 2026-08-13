@@ -50,6 +50,14 @@ auto-merge is enabled, applies
 operational merge method. It does not merge manually and it never bypasses branch
 protection.
 
+If an auto-merge candidate remains open abnormally long, diagnose it at a
+natural checkpoint instead of polling for success. `scripts/diagnose-auto-merge.mjs`
+classifies exception states such as missing `candidate-final`, auto-merge not
+enabled, draft PR, strict-base drift, merge conflict, review requirement,
+missing/pending/failed required check, or unresolved branch protection. Spark
+watchers use that diagnosis only for exceptions; they do not notify the normal
+PASS path.
+
 Both workflows deliberately have no `paths` filter: every pull request reaches
 the classifier, fast contracts and fail-closed gate, while selected platform
 jobs are omitted inside the workflow. This also means a `labeled` or
