@@ -131,6 +131,16 @@ backend real, sesión pública o autenticada, mutaciones, errores recuperables, 
 limpieza de datos/procesos y revisión completa del diff. La evidencia local registra los comandos,
 SHA y resultado.
 
+Para rutas E2E visuales complejas, el orden preferido del preflight es la grabacion de macro visual
+con `tools/e2e-recorder`: primero se recorre la ruta una vez de forma visual, despues se resuelve
+cada evento a anclas semanticas estables, se anaden anclas de producto si aparece
+`missing_stable_anchor`, se compila/reproduce localmente la macro y solo entonces se promueve el
+runner al preflight/CI. Las coordenadas absolutas solo son diagnostico o fallback temporal de
+descubrimiento; no son mecanismo principal de replay ni justifican iteraciones ciegas de push/CI.
+Si una accion funciona visualmente pero no tiene `testTag`, `accessibilityIdentifier`,
+`resource-id`, etiqueta accesible, texto o contexto estable suficiente, el recorder debe fallar
+cerrado y senalar el paso antes de crear un test fragil.
+
 El preflight rápido exacto de CI es obligatorio antes de congelar/publicar: ejecuta los contratos
 rápidos que replica la automatización remota, imports Wasm focales y `diff --check`. Un candidato
 no se publica si esa réplica falla. Los workflows y sus gates finales son *fail-closed*: un job

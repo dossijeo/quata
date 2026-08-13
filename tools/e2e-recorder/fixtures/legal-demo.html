@@ -1,0 +1,57 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Quata legal macro fixture</title>
+<style>
+  body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: #f8f1ec;
+    color: #1e1b18;
+  }
+
+  main {
+    display: grid;
+    gap: 24px;
+    max-width: 420px;
+    min-height: 100vh;
+    padding: 48px 24px;
+    box-sizing: border-box;
+  }
+
+  button {
+    border: 1px solid #f27a2e;
+    background: #fff7f1;
+    color: #42240f;
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 16px;
+    text-align: left;
+  }
+
+  #document-viewer-status-root {
+    display: none;
+    border: 1px solid #d8c5b7;
+    border-radius: 8px;
+    padding: 16px;
+    background: white;
+  }
+
+  #document-viewer-status-root.visible {
+    display: block;
+  }
+</style>
+<main>
+  <h1>Cuenta</h1>
+  <button id="legal-document-link-privacy" data-testid="legal-document-link-privacy" aria-label="Política de privacidad">
+    Política de privacidad
+  </button>
+  <section id="document-viewer-status-root" data-testid="document-viewer-status-root" aria-label="Visor de documento">
+    <h2>Política de privacidad</h2>
+    <p>privacy_es.docx abierto</p>
+  </section>
+</main>
+<script>
+  document.querySelector("#legal-document-link-privacy").addEventListener("click", () => {
+    document.querySelector("#document-viewer-status-root").classList.add("visible");
+  });
+</script>
