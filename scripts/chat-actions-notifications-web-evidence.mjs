@@ -540,8 +540,20 @@ async function openAuthenticatedChatPage(browser, origin, session, conversationI
     },
   });
   const page = await context.newPage();
-  page.on("pageerror", () => faults.push("pageerror"));
-  page.on("console", (entry) => { if (entry.type() === "error") faults.push("console_error"); });
+  page.on("pageerror", (error) => {
+    faults.push({ type: "pageerror", message: String(error?.message ?? "pageerror").slice(0, 500) });
+  });
+  page.on("console", (entry) => {
+    if (entry.type() !== "error") return;
+    const location = entry.location?.() ?? {};
+    faults.push({
+      type: "console_error",
+      text: entry.text().slice(0, 500),
+      url: typeof location.url === "string" ? location.url : undefined,
+      lineNumber: typeof location.lineNumber === "number" ? location.lineNumber : undefined,
+      columnNumber: typeof location.columnNumber === "number" ? location.columnNumber : undefined,
+    });
+  });
   await page.goto(`${origin}/#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
   await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
   await page.waitForFunction(
@@ -2295,7 +2307,10 @@ try {
     await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
     faults.length = 0;
     await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report);
-    if (faults.length) throw new Error("browser_runtime_fault");
+    if (faults.length) {
+      report.diagnostics.browserRuntimeFaults = faults.slice();
+      throw new Error("browser_runtime_fault");
+    }
     report.status = "passed";
     report.steps.push("document_and_audio_shared_attachment_chrome_verified");
     report.fixture = {
