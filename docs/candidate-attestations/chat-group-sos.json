@@ -4,11 +4,11 @@
     "CHAT-GROUP",
     "CHAT-LOCATION-SOS"
   ],
-  "productSha": "8a2546a77e617bd3caa69c860e847498b1a4c82d",
+  "productSha": "566a97e9416b75012c14fbbaf07193a3c52b6bea",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "8a2546a77e617bd3caa69c860e847498b1a4c82d",
+      "sha": "566a97e9416b75012c14fbbaf07193a3c52b6bea",
       "report": "build-reports/chat-group/chat-group-backend-evidence.json",
       "cleanup": {
         "verified": true,
@@ -17,7 +17,7 @@
     },
     "web": {
       "status": "passed",
-      "sha": "8a2546a77e617bd3caa69c860e847498b1a4c82d",
+      "sha": "566a97e9416b75012c14fbbaf07193a3c52b6bea",
       "report": "build-reports/web/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -26,7 +26,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "8a2546a77e617bd3caa69c860e847498b1a4c82d",
+      "sha": "566a97e9416b75012c14fbbaf07193a3c52b6bea",
       "report": "build-reports/android/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -35,7 +35,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "8a2546a77e617bd3caa69c860e847498b1a4c82d",
+      "sha": "566a97e9416b75012c14fbbaf07193a3c52b6bea",
       "report": "build-reports/ios/chat-group-sos-evidence.json",
       "cleanup": {
         "verified": true,
