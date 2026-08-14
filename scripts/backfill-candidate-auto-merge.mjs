@@ -52,7 +52,7 @@ function candidatePrs(number) {
       "view",
       String(number),
       "--json",
-      "id,number,isDraft,headRefName,headRefOid,baseRefName,labels,statusCheckRollup,mergeStateStatus,mergeable,autoMergeRequest,reviewDecision",
+      "id,number,state,isDraft,headRefName,headRefOid,baseRefName,labels,statusCheckRollup,mergeStateStatus,mergeable,autoMergeRequest,reviewDecision",
     ]))];
   }
   return JSON.parse(gh([
@@ -63,7 +63,7 @@ function candidatePrs(number) {
     "--label",
     "candidate-final",
     "--json",
-    "id,number,isDraft,headRefName,headRefOid,baseRefName,labels,statusCheckRollup,mergeStateStatus,mergeable,autoMergeRequest,reviewDecision",
+    "id,number,state,isDraft,headRefName,headRefOid,baseRefName,labels,statusCheckRollup,mergeStateStatus,mergeable,autoMergeRequest,reviewDecision",
   ]));
 }
 
@@ -87,6 +87,7 @@ export function validateBackfillCandidate({ pullRequest, repository, requiredChe
   const failures = [];
   if (!repository?.allow_auto_merge) failures.push("repository_auto_merge_disabled");
   if (!repository?.allow_squash_merge) failures.push("repository_squash_merge_disabled");
+  if (pullRequest?.state && pullRequest.state !== "OPEN") failures.push(`pr_not_open:${pullRequest.state}`);
   if (!labels.has("candidate-final")) failures.push("missing_candidate_final");
   if (pullRequest?.isDraft) failures.push("draft_pr");
   if (pullRequest?.autoMergeRequest) failures.push("auto_merge_already_enabled");
@@ -138,12 +139,18 @@ export function backfillCandidateAutoMerge({ number, dryRun = false } = {}) {
   return results;
 }
 
+function benignSkip(result) {
+  return result.ok ||
+    result.failures.includes("auto_merge_already_enabled") ||
+    result.failures.some((failure) => failure.startsWith("pr_not_open:"));
+}
+
 if (import.meta.url === `file:///${process.argv[1].replaceAll("\\", "/")}`) {
   try {
     const args = parseArgs(process.argv.slice(2));
     const results = backfillCandidateAutoMerge({ number: args.pr ? Number(args.pr) : undefined, dryRun: args.dryRun });
     console.log(JSON.stringify(results, null, 2));
-    process.exit(results.every((result) => result.ok || result.failures.includes("auto_merge_already_enabled")) ? 0 : 1);
+    process.exit(results.every(benignSkip) ? 0 : 1);
   } catch (error) {
     console.error(error?.message ?? error);
     console.error(usage());

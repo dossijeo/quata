@@ -146,6 +146,12 @@ async function addShareInspectionBoundary(page) {
     globalThis.__quataIncomingShareEntries = async () => {
       const database = await new Promise((resolveDb, rejectDb) => {
         const request = indexedDB.open("quata-web", 2);
+        request.onupgradeneeded = () => {
+          const database = request.result;
+          if (!database.objectStoreNames.contains("incoming-shares")) {
+            database.createObjectStore("incoming-shares", { keyPath: "id" });
+          }
+        };
         request.onsuccess = () => resolveDb(request.result);
         request.onerror = () => rejectDb(request.error);
       });
@@ -158,6 +164,12 @@ async function addShareInspectionBoundary(page) {
     globalThis.__quataDiscardIncomingShare = async (id) => {
       const database = await new Promise((resolveDb, rejectDb) => {
         const request = indexedDB.open("quata-web", 2);
+        request.onupgradeneeded = () => {
+          const database = request.result;
+          if (!database.objectStoreNames.contains("incoming-shares")) {
+            database.createObjectStore("incoming-shares", { keyPath: "id" });
+          }
+        };
         request.onsuccess = () => resolveDb(request.result);
         request.onerror = () => rejectDb(request.error);
       });
