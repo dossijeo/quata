@@ -248,8 +248,7 @@ class ChatActionsNotificationsInstrumentedTest {
     private fun openProfileFromAuthorTag(tag: String, openScreenshot: String, returnScreenshot: String) {
         waitForTag(tag, "profile entry source $tag", 45_000)
         saveScreenshot("$openScreenshot-source")
-        compose.onNodeWithTag(tag, useUnmergedTree = true)
-            .performTouchInput { click(center) }
+        clickStableTag(tag)
         val profileId = tag.substringAfterLast('.')
         compose.waitUntil(30_000) { publicProfileVisible(profileId) }
         saveScreenshot(openScreenshot)
@@ -259,7 +258,7 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         if (!closedByCommonBack) device.pressBack()
-        compose.waitUntil(20_000) { nodeWithTagVisible(tag) }
+        waitForTag(tag, "profile entry return $tag", 20_000)
         saveScreenshot(returnScreenshot)
     }
 
@@ -902,6 +901,9 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         if (visible) return
+        val nativeVisible = waitForObject(By.res(targetContext.packageName, tag), tag, 1_000)
+            ?: waitForObject(By.descContains(tag), tag, 1_000)
+        if (nativeVisible != null) return
         val scrolled = runCatching {
             compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
                 .performScrollToNode(hasTestTag(tag))
@@ -909,6 +911,19 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         assertTrue("The semantic tag must be visible in $context.", scrolled)
+    }
+
+    private fun clickStableTag(tag: String) {
+        val clickedByCompose = runCatching {
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .performTouchInput { click(center) }
+            true
+        }.getOrDefault(false)
+        if (clickedByCompose) return
+        val nativeNode = waitForObject(By.res(targetContext.packageName, tag), tag, 1_000)
+            ?: waitForObject(By.descContains(tag), tag, 1_000)
+        check(nativeNode != null) { "stable_tag_not_clickable:$tag" }
+        nativeNode.click()
     }
 
     private fun waitForMarkerOrProfileAvatar(markerProbe: String, profileId: String, context: String, timeoutMillis: Long = 45_000) {

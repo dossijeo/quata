@@ -56,6 +56,8 @@ test("PROF-ENTRY Android and iOS evidence cover Feed, Official, Conversations an
   assert.match(androidUiTest, /quataOfficialPostUrl\(officialPostId\)/);
   assert.match(androidUiTest, /evidenceStartIntent\(AppDestinations\.Conversations\.route\)/);
   assert.match(androidUiTest, /conversation\.avatar\.\$profileId/);
+  assert.match(androidUiTest, /clickStableTag\(tag\)/);
+  assert.match(androidUiTest, /By\.descContains\(tag\)/);
   assert.match(mainActivity, /AppDestinations\.Conversations\.route/);
 
   assert.match(iosRunner, /--profile-entry-only/);
