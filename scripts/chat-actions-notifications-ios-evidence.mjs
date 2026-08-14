@@ -10,7 +10,12 @@ import pg from "pg";
 import {
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   createCleanupRegistry,
+  cleanupProfileRolesSafetyFixture as cleanupSharedProfileRolesSafetyFixture,
+  pollProfileGlobalBlock,
+  pollProfileReport,
   pollProfileContentComment as pollSharedProfileContentComment,
+  pollProfileRoles,
+  prepareProfileRolesSafetyFixture,
   seedChatAttachmentFixture,
   seedProfileContentFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
@@ -34,11 +39,12 @@ const profileListsOnly = options.profileListsOnly;
 const profileContentOnly = options.profileContentOnly;
 const profileEntryOnly = options.profileEntryOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
+const profileRolesSafetyOnly = options.profileRolesSafetyOnly;
 const menuSurfaceOnly = options.menuSurfaceOnly;
 const keyboardMenuOnly = options.keyboardMenuOnly;
 const attachmentsAudioOnly = options.attachmentsAudioOnly;
 const groupSosOnly = options.groupSosOnly;
-const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profileEntryOnly || profilePrivateChatOnly;
+const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly;
 const report = {
   check,
   status: "failed",
@@ -77,6 +83,7 @@ const state = {
   profileContent: null,
   profileEntry: null,
   profilePrivateChat: null,
+  profileRolesSafety: null,
   profilePrivateChatMarkerMessage: null,
   attachmentsAudio: null,
   sosWithLocationMarker: null,
@@ -258,6 +265,14 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.profileContent = state.profileEntry.profileContent;
       report.steps.push("profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared");
     }
+    if (profileRolesSafetyOnly) {
+      state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
+        actorSession: state.a,
+        targetSession: state.b,
+        withDatabase,
+      });
+      report.steps.push("profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared");
+    }
     if (profileContentOnly) {
       state.profileContent = {
         marker: `qadata-profile-content-${runId}`,
@@ -327,6 +342,7 @@ export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E=${profileListsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E=${profileContentOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesSafetyOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID=${shellQuote(state.profileEntry?.official?.id ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD=${shellQuote(state.b.neighborhood ?? "Bovano")}
@@ -365,8 +381,10 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? "ios_xctest_profile_followers_and_following_lists_verified"
       : profileContentOnly
         ? "ios_xctest_profile_content_gallery_comments_and_attachments_verified"
-        : profileEntryOnly
+      : profileEntryOnly
           ? "ios_xctest_profile_entry_feed_official_communities_conversations_and_chat_verified"
+        : profileRolesSafetyOnly
+          ? "ios_xctest_profile_roles_safety_roles_report_and_block_verified"
         : profilePrivateChatOnly
           ? "profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc"
         : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
@@ -378,6 +396,26 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     if (profileContentOnly) {
       state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
       report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
+    }
+    if (profileRolesSafetyOnly) {
+      report.evidence.profileRolesPersisted = await pollProfileRoles({
+        fixture: state.profileRolesSafety,
+        withDatabase,
+        expected: { isAdmin: false, isOfficial: true },
+        delay,
+      });
+      report.evidence.profileReportPersisted = await pollProfileReport({
+        fixture: state.profileRolesSafety,
+        withDatabase,
+        delay,
+      });
+      report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
+        fixture: state.profileRolesSafety,
+        withDatabase,
+        expectedBlocked: true,
+        delay,
+      });
+      report.steps.push("profile_roles_safety_roles_report_and_block_verified_by_db");
     }
 
     if (menuSurfaceOnly) {
@@ -442,6 +480,14 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         profileEntry: state.profileEntry ? {
           officialPostId: state.profileEntry.official.id,
           officialMarkerSha256: sha256(state.profileEntry.official.marker),
+        } : null,
+        profileRolesSafety: state.profileRolesSafety ? {
+          targetProfileIdSha256: sha256(state.profileRolesSafety.targetProfileId),
+          actorWasAdmin: state.profileRolesSafety.actorRoles?.isAdmin ?? null,
+          targetWasAdmin: state.profileRolesSafety.targetRoles?.isAdmin ?? null,
+          targetWasOfficial: state.profileRolesSafety.targetRoles?.isOfficial ?? null,
+          hadGlobalBlock: state.profileRolesSafety.hadGlobalBlock ?? null,
+          hadProfileReport: Boolean(state.profileRolesSafety.previousReport),
         } : null,
         privateMarkerSha256: profilePrivateChatOnly ? sha256(state.privateMarker) : null,
         profilePrivateChatThreadId: state.profilePrivateChat ?? null,
@@ -535,6 +581,16 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         cleanup.error = safeFailure(error);
       }
     }
+    if (state.profileRolesSafety) {
+      try {
+        cleanup.profileRolesSafety = await cleanupProfileRolesSafetyFixture(state.profileRolesSafety);
+        cleanup.actions.push("profile_roles_safety_fixture_restored");
+        cleanup.actions.push("cleanup_verified_profile_roles_safety_restored");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
     if (state.forwardProfile) {
       try {
         cleanup.forwardDestination = await hardDeleteTemporaryForwardDestination(state.forwardProfile, state.forwardThread);
@@ -591,6 +647,7 @@ function parseArgs(argv) {
     profileContentOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_ONLY === "1",
     profileEntryOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
+    profileRolesSafetyOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ROLES_SAFETY_ONLY === "1",
     menuSurfaceOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MENU_SURFACE_ONLY === "1",
     keyboardMenuOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_KEYBOARD_MENU_ONLY === "1",
     attachmentsAudioOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENTS_AUDIO_ONLY === "1",
@@ -637,6 +694,14 @@ function parseArgs(argv) {
     }
     if (key === "--profile-private-chat-only") {
       result.profilePrivateChatOnly = true;
+      continue;
+    }
+    if (key === "--profile-roles-safety-only") {
+      result.profileRolesSafetyOnly = true;
+      result.output = resolve("build-reports/ios/profile-roles-safety-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/profile-roles-safety-evidence");
+      result.remoteLogDir = "build/reports/ios/profile-roles-safety";
+      result.remoteResultBundleDir = "build/reports/ios/profile-roles-safety/xcresults";
       continue;
     }
     if (key === "--menu-surface-only") {
@@ -1335,6 +1400,10 @@ async function prepareProfileContentFixture(fixture) {
 
 async function cleanupProfileContentFixture(fixture) {
   return cleanupSharedProfileContentFixture({ fixture, withDatabase });
+}
+
+async function cleanupProfileRolesSafetyFixture(fixture) {
+  return cleanupSharedProfileRolesSafetyFixture({ fixture, withDatabase });
 }
 
 async function pollProfileContentComment(fixture, marker, timeout = 45_000) {

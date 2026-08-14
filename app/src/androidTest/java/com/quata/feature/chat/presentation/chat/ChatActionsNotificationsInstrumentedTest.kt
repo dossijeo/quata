@@ -84,7 +84,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val credentials = credentialsFile?.let(::credentialsFromFile)
         val hasRequiredStageArguments = when (stage) {
             "menu-surface" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
-            "profile", "profile-follow" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
+            "profile", "profile-follow", "profile-roles-safety" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
@@ -133,6 +133,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "menu-surface" -> runMenuSurfaceStage(ownProbe.orEmpty())
                 "profile" -> runProfileStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
+                "profile-roles-safety" -> runProfileRolesSafetyStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty())
                 "group-sos" -> runGroupSosStage(ownProbe.orEmpty())
@@ -565,6 +566,49 @@ class ChatActionsNotificationsInstrumentedTest {
         saveScreenshot("android-chat-profile-follow-after")
         closePublicProfile(peerProbe)
         saveScreenshot("android-chat-profile-follow-return")
+    }
+
+    private fun runProfileRolesSafetyStage(peerProbe: String, profileId: String) {
+        openPeerProfile(peerProbe, profileId)
+        listOf(
+            "public-profile.roles.$profileId",
+            "public-profile.roles.admin.$profileId",
+            "public-profile.roles.official.$profileId",
+            "public-profile.safety.$profileId",
+            "public-profile.safety.report.$profileId",
+            "public-profile.safety.block.$profileId",
+        ).forEach { tag ->
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }
+        saveScreenshot("android-chat-profile-roles-safety-initial")
+
+        compose.onNodeWithTag("public-profile.roles.official.$profileId", useUnmergedTree = true)
+            .performClick()
+        saveScreenshot("android-chat-profile-roles-safety-role-updating")
+
+        compose.onNodeWithTag("public-profile.safety.report.$profileId", useUnmergedTree = true)
+            .performClick()
+        compose.onNodeWithTag("public-profile.safety.dialog.report", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        saveScreenshot("android-chat-profile-safety-report-dialog")
+        compose.onNodeWithTag("public-profile.safety.dialog.confirm.report", useUnmergedTree = true)
+            .performClick()
+
+        compose.onNodeWithTag("public-profile.safety.block.$profileId", useUnmergedTree = true)
+            .performClick()
+        compose.onNodeWithTag("public-profile.safety.dialog.block", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        saveScreenshot("android-chat-profile-safety-block-dialog")
+        compose.onNodeWithTag("public-profile.safety.dialog.confirm.block", useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNodeWithTag("public-profile.safety.unblock.$profileId", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        saveScreenshot("android-chat-profile-roles-safety-after-block")
     }
 
     private fun assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String) {

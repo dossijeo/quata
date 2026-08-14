@@ -51,6 +51,17 @@ const val PublicProfileFollowersKpiTestTagPrefix = "public-profile.kpi.followers
 const val PublicProfileFollowingKpiTestTagPrefix = "public-profile.kpi.following."
 const val PublicProfileGalleryTestTagPrefix = "public-profile.gallery."
 const val PublicProfileGalleryHeaderTestTagPrefix = "public-profile.gallery.header."
+const val PublicProfileModerationRootTestTagPrefix = "public-profile.safety."
+const val PublicProfileModerationReportTestTagPrefix = "public-profile.safety.report."
+const val PublicProfileModerationBlockTestTagPrefix = "public-profile.safety.block."
+const val PublicProfileModerationUnblockTestTagPrefix = "public-profile.safety.unblock."
+const val PublicProfileRolesRootTestTagPrefix = "public-profile.roles."
+const val PublicProfileRolesAdminTestTagPrefix = "public-profile.roles.admin."
+const val PublicProfileRolesOfficialTestTagPrefix = "public-profile.roles.official."
+const val PublicProfileRolesLoadingTestTagPrefix = "public-profile.roles.loading."
+const val PublicProfileModerationDialogTestTagPrefix = "public-profile.safety.dialog."
+const val PublicProfileModerationDialogConfirmTestTagPrefix = "public-profile.safety.dialog.confirm."
+const val PublicProfileModerationDialogCancelTestTag = "public-profile.safety.dialog.cancel"
 
 data class CommunityProfileStrings(
     val posts: String,
@@ -232,6 +243,7 @@ fun CommunityProfileScreenHost(
                         },
                         moderationActions = {
                             ProfileModerationActions(
+                                userId = profile.user.id,
                                 visible = !isOwnProfile && onReportProfile != null && onSetProfileBlocked != null,
                                 isBlocked = profile.isBlockedByCurrentUser,
                                 isUpdating = profileSafetyUpdatingUserId == profile.user.id,

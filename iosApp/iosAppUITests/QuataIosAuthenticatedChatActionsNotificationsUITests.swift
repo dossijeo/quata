@@ -613,6 +613,76 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         dismissProfileCommentsPanel(in: app)
     }
 
+    func testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat profile roles/safety UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
+              let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]) else {
+            throw XCTSkip("Disposable Chat profile roles/safety fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "profile roles/safety conversation")
+        assertChatRoute(conversationId, in: app, context: "profile roles/safety conversation")
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-profile-roles-safety-thread-initial")
+
+        let profile = openPeerPublicProfile(peerProfileId: peerProfileId, in: app)
+        for identifier in [
+            "public-profile.roles.\(peerProfileId)",
+            "public-profile.roles.admin.\(peerProfileId)",
+            "public-profile.roles.official.\(peerProfileId)",
+            "public-profile.safety.\(peerProfileId)",
+            "public-profile.safety.report.\(peerProfileId)",
+            "public-profile.safety.block.\(peerProfileId)",
+        ] {
+            _ = profileElement(identifier, in: app, context: "profile roles/safety")
+        }
+        attachScreenshot(app, name: "ios-chat-profile-roles-safety-initial")
+
+        profileElement("public-profile.roles.official.\(peerProfileId)", in: app, context: "profile official switch")
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        attachScreenshot(app, name: "ios-chat-profile-roles-safety-role-updating")
+
+        profileElement("public-profile.safety.report.\(peerProfileId)", in: app, context: "profile report")
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        _ = profileElement("public-profile.safety.dialog.report", in: app, context: "profile report dialog")
+        attachScreenshot(app, name: "ios-chat-profile-safety-report-dialog")
+        profileElement("public-profile.safety.dialog.confirm.report", in: app, context: "profile report confirm")
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+
+        profileElement("public-profile.safety.block.\(peerProfileId)", in: app, context: "profile block")
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        _ = profileElement("public-profile.safety.dialog.block", in: app, context: "profile block dialog")
+        attachScreenshot(app, name: "ios-chat-profile-safety-block-dialog")
+        profileElement("public-profile.safety.dialog.confirm.block", in: app, context: "profile block confirm")
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        _ = profileElement("public-profile.safety.unblock.\(peerProfileId)", in: app, context: "profile unblock after block")
+        attachScreenshot(app, name: "ios-chat-profile-roles-safety-after-block")
+
+        closePublicProfile(in: app)
+        XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after checking roles/safety.")
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 20), "Closing profile roles/safety must return to the same Chat conversation.")
+        attachScreenshot(app, name: "ios-chat-profile-roles-safety-return")
+    }
+
     func testProfilePrivateChatFromChatUsesSharedPublicProfileAction() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E"] == "1" else {

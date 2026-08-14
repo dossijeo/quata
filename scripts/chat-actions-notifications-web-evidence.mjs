@@ -11,7 +11,12 @@ import pg from "pg";
 import {
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   createCleanupRegistry,
+  cleanupProfileRolesSafetyFixture as cleanupSharedProfileRolesSafetyFixture,
+  pollProfileGlobalBlock,
+  pollProfileReport,
   pollProfileContentComment as pollSharedProfileContentComment,
+  pollProfileRoles,
+  prepareProfileRolesSafetyFixture,
   seedChatAttachmentFixture,
   seedProfileContentFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
@@ -30,6 +35,7 @@ let lastThreadSnapshot = null;
 class ProfileOnlyCompleted extends Error {}
 class ProfileListsOnlyCompleted extends Error {}
 class ProfileEntryOnlyCompleted extends Error {}
+class ProfileRolesSafetyOnlyCompleted extends Error {}
 
 function parseArgs(argv) {
   const result = {
@@ -44,6 +50,7 @@ function parseArgs(argv) {
     profileContentOnly: false,
     profileEntryOnly: false,
     profilePrivateChatOnly: false,
+    profileRolesSafetyOnly: false,
     menuSurfaceOnly: false,
     attachmentsAudioOnly: false,
     groupSosOnly: false,
@@ -76,6 +83,12 @@ function parseArgs(argv) {
     }
     if (key === "--profile-private-chat-only") {
       result.profilePrivateChatOnly = true;
+      continue;
+    }
+    if (key === "--profile-roles-safety-only") {
+      result.profileRolesSafetyOnly = true;
+      result.output = resolve("build-reports/web/profile-roles-safety-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/profile-roles-safety-evidence");
       continue;
     }
     if (key === "--menu-surface-only") {
@@ -122,7 +135,8 @@ function isProfileFocalMode(options) {
     options.profileListsOnly ||
     options.profileContentOnly ||
     options.profileEntryOnly ||
-    options.profilePrivateChatOnly;
+    options.profilePrivateChatOnly ||
+    options.profileRolesSafetyOnly;
 }
 
 function isFullEvidenceMode(options) {
@@ -960,6 +974,67 @@ async function cleanupProfileContentFixture(fixture) {
 
 async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   return pollSharedProfileContentComment({ fixture, marker, withDatabase: withPoolerClient, delay, timeout });
+}
+
+async function cleanupProfileRolesSafetyFixture(fixture) {
+  return cleanupSharedProfileRolesSafetyFixture({ fixture, withDatabase: withPoolerClient });
+}
+
+async function clickProfileAnchorOrText(page, tag, patterns, errorPrefix) {
+  const anchor = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 3_000);
+  if (anchor) {
+    await clickLocatorCenter(page, anchor, `${errorPrefix}:${tag}`);
+    return;
+  }
+  for (const pattern of patterns) {
+    const locator = page.getByText(pattern).first();
+    if (await locator.waitFor({ timeout: 700 }).then(() => true).catch(() => false)) {
+      await locator.scrollIntoViewIfNeeded({ timeout: 1_000 }).catch(() => {});
+      await locator.click({ timeout: 3_000, force: true });
+      return;
+    }
+  }
+  throw new Error(`${errorPrefix}:${tag}`);
+}
+
+async function verifyProfileRolesSafetyFromOpenProfile(page, profile, fixture, evidenceDir, report) {
+  const profileId = profile.profileId;
+  await assertVisibleTagOrText(page, `public-profile.roles.${profileId}`, [/Roles|Rol|Admin|Oficial|Official/i], "profile_roles_anchor_missing");
+  await assertVisibleTagOrText(page, `public-profile.roles.admin.${profileId}`, [/Admin/i], "profile_roles_anchor_missing");
+  await assertVisibleTagOrText(page, `public-profile.roles.official.${profileId}`, [/Oficial|Official/i], "profile_roles_anchor_missing");
+  await assertVisibleTagOrText(page, `public-profile.safety.${profileId}`, [/Reportar|Report|Bloquear|Block/i], "profile_safety_anchor_missing");
+  await assertVisibleTagOrText(page, `public-profile.safety.report.${profileId}`, [/Reportar|Report/i], "profile_safety_anchor_missing");
+  await assertVisibleTagOrText(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "profile_safety_anchor_missing");
+  report.evidence.profileRolesSafetyInitial = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-safety-initial");
+
+  await clickProfileAnchorOrText(page, `public-profile.roles.official.${profileId}`, [/Oficial|Official/i], "profile_roles_action_not_clickable");
+  report.evidence.profileRolesSafetyRoleUpdating = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-safety-role-updating");
+  report.evidence.profileRolesPersisted = await pollProfileRoles({
+    fixture,
+    withDatabase: withPoolerClient,
+    expected: { isAdmin: false, isOfficial: true },
+    delay,
+  });
+
+  await clickProfileAnchorOrText(page, `public-profile.safety.report.${profileId}`, [/Reportar|Report/i], "profile_report_action_not_clickable");
+  await assertVisibleTagOrText(page, "public-profile.safety.dialog.report", [/Reportar|Report/i], "profile_report_dialog_missing");
+  report.evidence.profileReportDialog = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-report-dialog");
+  await clickProfileAnchorOrText(page, "public-profile.safety.dialog.confirm.report", [/Reportar|Report/i], "profile_report_confirm_not_clickable");
+  const profileReport = await pollProfileReport({ fixture, withDatabase: withPoolerClient, delay });
+  report.evidence.profileReportPersisted = { id: profileReport.id, status: profileReport.status, reason: profileReport.reason };
+
+  await clickProfileAnchorOrText(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "profile_block_action_not_clickable");
+  await assertVisibleTagOrText(page, "public-profile.safety.dialog.block", [/Bloquear|Block/i], "profile_block_dialog_missing");
+  report.evidence.profileBlockDialog = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-block-dialog");
+  await clickProfileAnchorOrText(page, "public-profile.safety.dialog.confirm.block", [/Bloquear|Block/i], "profile_block_confirm_not_clickable");
+  report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
+    fixture,
+    withDatabase: withPoolerClient,
+    expectedBlocked: true,
+    delay,
+  });
+  await assertVisibleTagOrText(page, `public-profile.safety.unblock.${profileId}`, [/Desbloquear|Unblock/i], "profile_unblock_anchor_missing");
+  report.evidence.profileRolesSafetyAfterBlock = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-safety-after-block");
 }
 
 async function prepareProfileEntryFixture(runId) {
@@ -2682,7 +2757,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, privateMarker: null, attachmentsAudio: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, privateMarker: null, attachmentsAudio: null, cleanupRegistry: createCleanupRegistry() };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -2921,6 +2996,16 @@ try {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-private-chat");
       await openPrivateChatFromOpenProfile(page, state.b, state.profilePrivateChat, state.privateMarker, options.evidenceDir, report);
       report.steps.push("profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc");
+    } else if (options.profileRolesSafetyOnly) {
+      state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
+        actorSession: state.a,
+        targetSession: state.b,
+        withDatabase: withPoolerClient,
+      });
+      report.steps.push("profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared");
+      await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-roles-safety");
+      await verifyProfileRolesSafetyFromOpenProfile(page, state.b, state.profileRolesSafety, options.evidenceDir, report);
+      report.steps.push("profile_roles_safety_roles_report_and_block_verified_by_db");
     } else if (options.profileFollowOnly) {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
       await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
@@ -2935,7 +3020,7 @@ try {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly) {
       const blockingFaults = faults.filter((fault) => !isNonBlockingProfileEntryWasmFault(fault));
       if (faults.length) {
         report.diagnostics = {
@@ -2974,13 +3059,22 @@ try {
           officialMarkerSha256: sha256(state.profileEntry.official.marker),
         } : null,
         profilePrivateChatThreadId: state.profilePrivateChat?.threadId ?? null,
+        profileRolesSafety: state.profileRolesSafety ? {
+          targetProfileIdSha256: sha256(state.profileRolesSafety.targetProfileId),
+          actorWasAdmin: state.profileRolesSafety.actorRoles?.isAdmin ?? null,
+          targetWasAdmin: state.profileRolesSafety.targetRoles?.isAdmin ?? null,
+          targetWasOfficial: state.profileRolesSafety.targetRoles?.isOfficial ?? null,
+          hadGlobalBlock: state.profileRolesSafety.hadGlobalBlock ?? null,
+          hadProfileReport: Boolean(state.profileRolesSafety.previousReport),
+        } : null,
         privateMarkerSha256: state.privateMarker ? sha256(state.privateMarker) : null,
       };
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       if (options.profileEntryOnly) throw new ProfileEntryOnlyCompleted();
+      if (options.profileRolesSafetyOnly) throw new ProfileRolesSafetyOnlyCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
@@ -3096,7 +3190,7 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted) {
+  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted || error instanceof ProfileRolesSafetyOnlyCompleted) {
     // Focal modes already set report.status and fixture; cleanup still runs in finally.
   } else {
     if (pageContext?.page) {
@@ -3187,6 +3281,16 @@ try {
         cleanup.profileEntryOfficial = await cleanupOfficialProfileEntryPost(state.profileEntry.official);
         cleanup.actions.push("profile_entry_official_post_deleted");
         cleanup.actions.push("cleanup_verified_profile_entry_official_residue_absent");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (state.profileRolesSafety) {
+      try {
+        cleanup.profileRolesSafety = await cleanupProfileRolesSafetyFixture(state.profileRolesSafety);
+        cleanup.actions.push("profile_roles_safety_fixture_restored");
+        cleanup.actions.push("cleanup_verified_profile_roles_safety_restored");
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);
