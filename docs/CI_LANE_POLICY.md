@@ -58,6 +58,16 @@ missing/pending/failed required check, or unresolved branch protection. Spark
 watchers use that diagnosis only for exceptions; they do not notify the normal
 PASS path.
 
+If the native auto-merge automation was introduced after a PR already received
+`candidate-final`, run
+`node scripts/backfill-candidate-auto-merge.mjs --pr <number>` or run it without
+`--pr` to scan open `candidate-final` PRs. The backfill is conservative: it only
+arms open, non-draft, conflict-free candidates whose required final gates are
+already completed successfully and whose native auto-merge request is still
+missing. Closed or already merged PRs, such as historical candidates inspected
+after integration, are skipped explicitly even if their archived GraphQL field
+shows `autoMergeRequest: null`.
+
 Both workflows deliberately have no `paths` filter: every pull request reaches
 the classifier, fast contracts and fail-closed gate, while selected platform
 jobs are omitted inside the workflow. This also means a `labeled` or

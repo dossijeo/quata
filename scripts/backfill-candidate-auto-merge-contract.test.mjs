@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 
 import { requiredFinalChecks, validateBackfillCandidate } from "./backfill-candidate-auto-merge.mjs";
@@ -19,6 +20,7 @@ function check(name, overrides = {}) {
 function pr(overrides = {}) {
   return {
     number: 247,
+    state: "OPEN",
     isDraft: false,
     headRefName: "codex/chat-group-sos-evidence",
     headRefOid: "a".repeat(40),
@@ -42,6 +44,8 @@ test("backfill enables only valid candidate-final PRs missing native auto-merge"
 
 test("backfill skips conflicts, drafts, missing label and already armed candidates", () => {
   for (const [pullRequest, expected] of [
+    [pr({ state: "MERGED" }), /pr_not_open:MERGED/],
+    [pr({ state: "CLOSED" }), /pr_not_open:CLOSED/],
     [pr({ isDraft: true }), /draft_pr/],
     [pr({ labels: [] }), /missing_candidate_final/],
     [pr({ autoMergeRequest: { mergeMethod: "SQUASH" } }), /auto_merge_already_enabled/],
@@ -82,4 +86,18 @@ test("backfill uses the latest check per name so superseded cancelled runs do no
     requiredChecks: [requiredFinalChecks[0]],
   });
   assert.equal(result.ok, true);
+});
+
+test("backfill CLI treats closed historical candidates as benign skips", () => {
+  const source = execFileSync(process.execPath, [
+    "--input-type=module",
+    "-e",
+    `
+      import { readFileSync } from "node:fs";
+      const source = readFileSync("scripts/backfill-candidate-auto-merge.mjs", "utf8");
+      if (!/function benignSkip\\(result\\)/.test(source)) process.exit(1);
+      if (!/failure\\.startsWith\\("pr_not_open:"\\)/.test(source)) process.exit(1);
+    `,
+  ], { encoding: "utf8" });
+  assert.equal(source, "");
 });
