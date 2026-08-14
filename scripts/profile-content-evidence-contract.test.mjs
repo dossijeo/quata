@@ -67,6 +67,11 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(androidUiTest, /performTextReplacement\(uiComment\)/);
   assert.match(androidUiTest, /public-profile\.attachments\.item\.sb:\$attachmentId/);
   assert.match(iosUiTest, /public-profile\.attachments\.item\.sb:\\\(attachmentId\)/);
+  assert.ok(
+    iosUiTest.indexOf('"public-profile.attachments.item.sb:\\(attachmentId)"') <
+      iosUiTest.indexOf("posts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()"),
+    "iOS must assert profile attachments before opening the posts gallery so scroll-to-gallery does not hide them.",
+  );
   assert.match(webRunner, /public-profile\.attachments\.item\.sb:\$\{fixture\.attachmentId\}/);
   assert.match(androidUiTest, /"profile-content" -> \{\s*openProfileFromPeerMessage\(peerProbe\.orEmpty\(\), profileId\.orEmpty\(\)\)/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT/);

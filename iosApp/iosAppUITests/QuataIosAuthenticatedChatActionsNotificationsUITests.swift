@@ -492,6 +492,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: "public-profile.kpi.posts.\(profileId)")
             .firstMatch
         XCTAssertTrue(posts.waitForExistence(timeout: 10), "The shared profile posts KPI must be visible.")
+
+        for identifier in [
+            "public-profile.attachments",
+            "public-profile.attachments.item.sb:\(attachmentId)",
+        ] {
+            _ = profileElement(identifier, in: app, context: "profile content attachments")
+        }
+
         posts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
         for identifier in [
@@ -500,8 +508,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "public-profile.gallery.post.\(postId)",
             "public-profile.post.preview.\(postId)",
             "public-profile.post.action.comments.\(postId)",
-            "public-profile.attachments",
-            "public-profile.attachments.item.sb:\(attachmentId)",
         ] {
             _ = profileElement(identifier, in: app, context: "profile content")
         }
