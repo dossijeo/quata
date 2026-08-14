@@ -9,6 +9,7 @@ const iosWrapper = await readFile(new URL("./run-ios-chat-actions-notifications-
 const sharedFixtures = await readFile(new URL("./e2e-fixtures/chat-attachments.mjs", import.meta.url), "utf8");
 const androidUiTest = await readFile(new URL("../app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt", import.meta.url), "utf8");
 const iosUiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift", import.meta.url), "utf8");
+const iosNeighborhoodsHost = await readFile(new URL("../feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
@@ -71,6 +72,7 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(iosUiTest, /public-profile\.comments\.close/);
   assert.match(iosUiTest, /dismissProfileCommentsPanel\(in: app\)/);
   assert.match(iosUiTest, /tapPublicProfileBackOrDismiss\(in: app\)/);
+  assert.match(iosNeighborhoodsHost, /showDismissButton = true/);
   assert.match(iosUiTest, /profile comment submitted from iOS must remain visible/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E/);
   assert.match(iosWrapper, /testProfileContentFromChatUsesSharedPublicProfileSurface/);

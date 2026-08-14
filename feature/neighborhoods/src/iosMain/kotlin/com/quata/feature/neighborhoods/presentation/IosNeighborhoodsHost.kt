@@ -300,6 +300,7 @@ fun QuataCommunityProfileViewController(
                         timestamp = "Now",
                     )
                 },
+                showDismissButton = true,
             )
         }
     }
