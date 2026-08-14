@@ -53,6 +53,16 @@ test("subscription renewal remains session-bound and CI executes executable brow
   assert.match(smoke, /Input\.dispatchMouseEvent/);
 });
 
+test("share-target smoke creates the IndexedDB store on clean browser profiles", async () => {
+  const e2e = await source("../scripts/web-share-target-pwa-e2e.mjs");
+  const boundary = e2e.slice(e2e.indexOf("async function addShareInspectionBoundary"));
+  assert.match(boundary, /onupgradeneeded/);
+  assert.match(boundary, /objectStoreNames\.contains\("incoming-shares"\)/);
+  assert.match(boundary, /createObjectStore\("incoming-shares", \{ keyPath: "id" \}\)/);
+  assert.match(boundary, /database\.transaction\("incoming-shares", "readonly"\)/);
+  assert.match(boundary, /database\.transaction\("incoming-shares", "readwrite"\)/);
+});
+
 async function source(relativePath) {
   return readFile(new URL(relativePath, import.meta.url), "utf8");
 }
