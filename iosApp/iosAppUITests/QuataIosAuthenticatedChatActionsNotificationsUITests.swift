@@ -531,6 +531,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(persistedComment.waitForExistence(timeout: 15), "The profile comment submitted from iOS must remain visible after the optimistic write resolves.")
         attachScreenshot(app, name: "ios-chat-profile-content")
+        dismissProfileCommentsPanel(in: app)
     }
 
     func testProfilePrivateChatFromChatUsesSharedPublicProfileAction() throws {
@@ -670,6 +671,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.88))
             start.press(forDuration: 0.1, thenDragTo: end)
         }
+    }
+
+    private func dismissProfileCommentsPanel(in app: XCUIApplication) {
+        dismissKeyboardIfPresent(in: app)
+        let close = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.comments.close")
+            .firstMatch
+        if close.waitForExistence(timeout: 5) {
+            close.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        } else {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)).tap()
+        }
+        let panel = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.comments.panel")
+            .firstMatch
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 10), "The profile comments panel must close before returning to Chat.")
     }
 
     private func selectMessage(_ markerProbe: String, expectedMessageId: String?, in app: XCUIApplication, context: String) {
