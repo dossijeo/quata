@@ -138,7 +138,7 @@ async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   return pollSharedProfileContentComment({ fixture, marker, withDatabase, delay, timeout });
 }
 
-async function prepareProfileEntryFixture(runId) {
+async function prepareProfileEntryFixture(config, runId) {
   const profileContent = {
     marker: `qadata-profile-content-${runId}`,
     config,
@@ -1379,7 +1379,7 @@ try {
       report.steps.push("profile_follow_list_edges_prepared_reversibly");
     }
     if (profileEntryOnly) {
-      state.profileEntry = await prepareProfileEntryFixture(runId);
+      state.profileEntry = await prepareProfileEntryFixture(config, runId);
       state.profileContent = state.profileEntry.profileContent;
       report.steps.push("profile_entry_feed_official_conversations_and_chat_fixtures_prepared");
     } else if (profileContentOnly) {

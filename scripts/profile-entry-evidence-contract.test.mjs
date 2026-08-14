@@ -44,7 +44,8 @@ test("PROF-ENTRY Web evidence is opt-in, semantic-first and reversible", () => {
 
 test("PROF-ENTRY Android and iOS evidence cover Feed, Official, Conversations and Chat", () => {
   assert.match(androidRunner, /--profile-entry-only/);
-  assert.match(androidRunner, /prepareProfileEntryFixture/);
+  assert.match(androidRunner, /async function prepareProfileEntryFixture\(config, runId\)/);
+  assert.match(androidRunner, /prepareProfileEntryFixture\(config, runId\)/);
   assert.match(androidRunner, /profile_entry_feed_official_conversations_and_chat_fixtures_prepared/);
   assert.match(androidRunner, /profile_entry_feed_official_conversations_and_chat_opened_common_profile_and_returned/);
   assert.match(androidRunner, /cleanupOfficialProfileEntryPost/);
