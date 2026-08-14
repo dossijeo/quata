@@ -3,6 +3,7 @@ package com.quata.feature.neighborhoods.presentation
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +61,7 @@ fun NeighborhoodsScreenHost(
     model: NeighborhoodsScreenModel? = null,
     closeModelOnDispose: Boolean = false,
     openingProfileUserId: String? = null,
+    requestedCommunityMembers: String? = null,
 ) {
     require((repository == null) != (model == null)) {
         "Provide exactly one Communities state source"
@@ -80,6 +82,15 @@ fun NeighborhoodsScreenHost(
             viewModel.stopObservingCommunities()
             if (ownedModel != null || closeModelOnDispose) viewModel.close()
         }
+    }
+
+    LaunchedEffect(requestedCommunityMembers, state.communities) {
+        val requested = requestedCommunityMembers?.trim()?.takeIf(String::isNotEmpty) ?: return@LaunchedEffect
+        val selected = state.communities.firstOrNull { it.name.equals(requested, ignoreCase = true) }
+            ?: state.communities.firstOrNull { community ->
+                neighborhoodRequestKey(community.name) == neighborhoodRequestKey(requested)
+            }
+        if (selected != null) selectedCommunity = selected.name
     }
 
     val selected = state.communities.firstOrNull { it.name == selectedCommunity }
@@ -133,3 +144,6 @@ fun NeighborhoodsScreenHost(
         )
     }
 }
+
+private fun neighborhoodRequestKey(value: String): String =
+    value.trim().lowercase().replace(Regex("[^a-z0-9]+"), ".").trim('.')

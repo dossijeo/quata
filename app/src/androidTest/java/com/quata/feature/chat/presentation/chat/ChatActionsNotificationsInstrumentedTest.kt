@@ -37,6 +37,7 @@ import com.quata.QuataApp
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.navigation.quataPostUrl
+import com.quata.feature.chat.presentation.conversations.ConversationListTestTag
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -78,6 +79,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val documentProbe = optionalArgument("quataChatActionsDocumentProbe")
         val audioProbe = optionalArgument("quataChatActionsAudioProbe")
         val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
+        val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
         val hasRequiredStageArguments = when (stage) {
@@ -111,6 +113,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 officialPostId = officialPostId.orEmpty(),
                 chatUrl = chatUrl.orEmpty(),
                 peerProbe = peerProbe.orEmpty(),
+                profileNeighborhood = profileNeighborhood.orEmpty(),
             )
             writeReport(
                 JSONObject()
@@ -216,6 +219,7 @@ class ChatActionsNotificationsInstrumentedTest {
         officialPostId: String,
         chatUrl: String,
         peerProbe: String,
+        profileNeighborhood: String,
     ) {
         ActivityScenario.launch<MainActivity>(chatIntent(quataPostUrl(feedPostId))).use {
             openProfileFromAuthorTag(
@@ -238,12 +242,30 @@ class ChatActionsNotificationsInstrumentedTest {
                 returnScreenshot = "android-profile-entry-conversations-return",
             )
         }
+        ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Neighborhoods.route)).use {
+            val communityTag = "neighborhood.members.${profileNeighborhood.toNeighborhoodTagSuffix()}"
+            waitForTag(communityTag, "profile entry communities members", 45_000)
+            saveScreenshot("android-profile-entry-communities-source")
+            clickStableTag(communityTag)
+            openProfileFromAuthorTag(
+                tag = "neighborhood.user.avatar.$profileId",
+                openScreenshot = "android-profile-entry-communities",
+                returnScreenshot = "android-profile-entry-communities-return",
+            )
+        }
         ActivityScenario.launch<MainActivity>(chatIntent(chatUrl)).use {
             openProfileFromPeerMessage(peerProbe, profileId)
             closePublicProfile(peerProbe)
             saveScreenshot("android-profile-entry-chat-return")
         }
     }
+
+    private fun String.toNeighborhoodTagSuffix(): String =
+        trim()
+            .lowercase()
+            .replace(Regex("[^a-z0-9]+"), ".")
+            .trim('.')
+            .ifBlank { "unknown" }
 
     private fun openProfileFromAuthorTag(tag: String, openScreenshot: String, returnScreenshot: String) {
         waitForTag(tag, "profile entry source $tag", 45_000)
@@ -905,7 +927,12 @@ class ChatActionsNotificationsInstrumentedTest {
             ?: waitForObject(By.descContains(tag), tag, 1_000)
         if (nativeVisible != null) return
         val scrolled = runCatching {
-            compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+            val scrollContainerTag = if (tag.startsWith("conversation.avatar.")) {
+                ConversationListTestTag
+            } else {
+                ChatConversationMessagesListTestTag
+            }
+            compose.onNodeWithTag(scrollContainerTag, useUnmergedTree = true)
                 .performScrollToNode(hasTestTag(tag))
             compose.waitUntil(10_000) { nodeWithTagVisible(tag) }
             true

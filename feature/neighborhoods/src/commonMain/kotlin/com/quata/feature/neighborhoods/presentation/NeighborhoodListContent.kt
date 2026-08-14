@@ -32,6 +32,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,6 +59,15 @@ data class NeighborhoodListStrings(
     val openChat: String,
     val timeLabel: (Long?) -> String
 )
+
+fun neighborhoodMembersButtonTestTag(communityName: String): String =
+    "neighborhood.members.${communityName.toNeighborhoodTestTagSuffix()}"
+
+private fun String.toNeighborhoodTestTagSuffix(): String =
+    trim().lowercase()
+        .replace(Regex("[^a-z0-9]+"), ".")
+        .trim('.')
+        .ifBlank { "unknown" }
 
 @Composable
 fun NeighborhoodListContent(
@@ -163,7 +175,15 @@ private fun NeighborhoodCardContent(
             }
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(onClick = onShowUsers, shape = RoundedCornerShape(6.dp), modifier = Modifier.compactButtonMinSize(), contentPadding = CompactButtonContentPadding) { Text(strings.viewUsers) }
+                OutlinedButton(
+                    onClick = onShowUsers,
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier
+                        .compactButtonMinSize()
+                        .testTag(neighborhoodMembersButtonTestTag(community.name))
+                        .semantics { contentDescription = neighborhoodMembersButtonTestTag(community.name) },
+                    contentPadding = CompactButtonContentPadding,
+                ) { Text(strings.viewUsers) }
                 Button(onClick = onOpenChat, enabled = canOpenChat && !isOpeningChat, shape = RoundedCornerShape(12.dp), modifier = Modifier.compactButtonMinSize(), contentPadding = CompactButtonContentPadding, colors = ButtonDefaults.buttonColors(containerColor = template.colors.surfaceAlt, contentColor = MaterialTheme.colorScheme.onSurface)) {
                     if (isOpeningChat) { CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurface); Spacer(Modifier.width(8.dp)) }
                     Text(strings.openChat)

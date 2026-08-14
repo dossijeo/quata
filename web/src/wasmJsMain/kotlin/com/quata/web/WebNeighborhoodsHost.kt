@@ -51,6 +51,7 @@ fun WebNeighborhoodsHost(
     onOpenUserRoute: (String) -> Unit,
     /** Feed author navigation enters the existing shared Community member profile surface. */
     initialMemberProfileId: String? = null,
+    requestedCommunityMembers: String? = null,
     onInitialMemberProfileClosed: () -> Unit = {},
     showInitialLoadingSurface: Boolean = true,
     padding: PaddingValues = PaddingValues(),
@@ -91,6 +92,7 @@ fun WebNeighborhoodsHost(
                 onAuthRequired = onAuthRequired,
                 padding = padding,
                 model = viewModel,
+                requestedCommunityMembers = requestedCommunityMembers,
             )
         }
         if (selectedProfile != null) {

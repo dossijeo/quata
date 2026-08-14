@@ -73,7 +73,7 @@ internal object BrowserCanvasImageLoader {
 
     private fun complete(url: String, state: BrowserCanvasImageState) {
         val request = requests.remove(url) ?: return
-        if (browserCanvasImageIsCacheable(state)) putReady(url, state as BrowserCanvasImageState.Ready)
+        if (state is BrowserCanvasImageState.Ready) putReady(url, state)
         request.observers.toList().forEach { it(state) }
         request.observers.clear()
     }

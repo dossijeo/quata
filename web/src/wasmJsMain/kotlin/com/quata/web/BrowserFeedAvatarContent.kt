@@ -84,15 +84,20 @@ fun BrowserRemoteAvatar(
         isOfficial = isOfficial,
         isOnline = isOnline,
         modifier = modifier,
-        avatar = (imageState as? BrowserCanvasImageState.Ready)?.let { ready ->
-            {
-                Image(
-                    painter = BitmapPainter(ready.bitmap),
-                    contentDescription = name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+        avatar = when (imageState) {
+            is BrowserCanvasImageState.Ready -> {
+                {
+                    Image(
+                        painter = BitmapPainter(imageState.bitmap),
+                        contentDescription = name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
+            BrowserCanvasImageState.Error,
+            BrowserCanvasImageState.Loading,
+            null -> null
         },
     )
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.Conversation
 
@@ -21,6 +22,8 @@ data class ConversationListRow(
     val updatedAt: String,
 )
 
+const val ConversationListTestTag: String = "conversation.list"
+
 @Composable
 fun ConversationsListContent(
     rows: List<ConversationListRow>,
@@ -34,7 +37,7 @@ fun ConversationsListContent(
     rowActions: @Composable RowScope.(ConversationListRow) -> Unit = {},
 ) {
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().testTag(ConversationListTestTag),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         header?.let { content ->
