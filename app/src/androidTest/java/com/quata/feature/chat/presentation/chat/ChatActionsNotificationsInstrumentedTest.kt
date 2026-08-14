@@ -587,6 +587,7 @@ class ChatActionsNotificationsInstrumentedTest {
             .performClick()
         saveScreenshot("android-chat-profile-roles-safety-role-updating")
 
+        scrollPublicProfileToTag("public-profile.safety.report.$profileId")
         compose.onNodeWithTag("public-profile.safety.report.$profileId", useUnmergedTree = true)
             .performClick()
         compose.onNodeWithTag("public-profile.safety.dialog.report", useUnmergedTree = true)
@@ -596,6 +597,7 @@ class ChatActionsNotificationsInstrumentedTest {
             .performClick()
         dismissProfileSafetyDialogIfPresent("report")
 
+        scrollPublicProfileToTag("public-profile.safety.block.$profileId")
         compose.onNodeWithTag("public-profile.safety.block.$profileId", useUnmergedTree = true)
             .performClick()
         compose.onNodeWithTag("public-profile.safety.dialog.block", useUnmergedTree = true)
@@ -610,6 +612,14 @@ class ChatActionsNotificationsInstrumentedTest {
             }.isSuccess
         }
         saveScreenshot("android-chat-profile-roles-safety-after-block")
+    }
+
+    private fun scrollPublicProfileToTag(tag: String) {
+        runCatching {
+            compose.onNodeWithTag("public-profile.details", useUnmergedTree = true)
+                .performScrollToNode(hasTestTag(tag))
+            compose.waitForIdle()
+        }
     }
 
     private fun dismissProfileSafetyDialogIfPresent(action: String) {

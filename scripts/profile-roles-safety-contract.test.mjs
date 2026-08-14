@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const commonHost = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt", import.meta.url), "utf8");
+const detailsContent = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileDetailsContent.kt", import.meta.url), "utf8");
 const rolesContent = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileRoleControlsContent.kt", import.meta.url), "utf8");
 const moderationActions = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileModerationActions.kt", import.meta.url), "utf8");
 const moderationConfirmation = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileModerationConfirmation.kt", import.meta.url), "utf8");
@@ -28,6 +29,8 @@ test("PROF-ROLES/SAFETY exposes common semantic anchors", () => {
   ]) {
     assert.match(commonHost, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+  assert.match(detailsContent, /PublicProfileDetailsTestTag = "public-profile\.details"/);
+  assert.match(detailsContent, /testTag\(PublicProfileDetailsTestTag\)/);
   assert.match(commonHost, /ProfileModerationActions\(\s*userId = profile\.user\.id,/);
   assert.match(rolesContent, /PublicProfileRolesRootTestTagPrefix \+ user\.id/);
   assert.match(rolesContent, /PublicProfileRolesAdminTestTagPrefix \+ user\.id/);
