@@ -1,9 +1,11 @@
 package com.quata.feature.neighborhoods.presentation
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -32,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
+import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
@@ -91,6 +94,7 @@ class CommunityProfilePlatformSlots(
     ) -> Unit,
     val attachment: @Composable (ProfileAttachment, onOpen: () -> Unit) -> Unit,
     val postMedia: @Composable BoxScope.(Post, isVideoLoaded: Boolean, onLoadVideo: () -> Unit) -> Unit,
+    val nativeMediaClose: @Composable BoxScope.(onDismiss: () -> Unit) -> Unit = {},
     val openAttachment: (ProfileAttachment) -> Unit,
     val sharePost: (Post) -> Unit,
 )
@@ -137,6 +141,7 @@ fun CommunityProfileScreenHost(
     val isOwnProfile = profile.user.id == currentUserId
     var showPosts by rememberSaveable(profile.user.id) { mutableStateOf(false) }
     var userList by rememberSaveable(profile.user.id) { mutableStateOf<ProfileUserList?>(null) }
+    var selectedMediaPostId by rememberSaveable(profile.user.id) { mutableStateOf<String?>(null) }
     var pendingModeration by remember { mutableStateOf<ProfileModerationAction?>(null) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -165,38 +170,50 @@ fun CommunityProfileScreenHost(
         modifier = Modifier.semantics { testTag = PublicProfileRootTestTag },
         onDismiss = onBack,
     ) {
-        if (showDismissButton) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                CompactIconButton(onClick = onBack, modifier = Modifier.semantics { testTag = PublicProfileBackTestTag }) {
-                    CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back)
+        val selectedMediaPost = selectedMediaPostId?.let { postId -> profile.posts.firstOrNull { it.id == postId } }
+        if (selectedMediaPost != null) {
+            QuataFullscreenMediaOverlayContent(
+                title = selectedMediaPost.imageTitle(),
+                onDismiss = { selectedMediaPostId = null },
+                nativeClose = { dismiss -> slots.nativeMediaClose(this, dismiss) },
+            ) { mediaModifier ->
+                androidx.compose.foundation.layout.Box(mediaModifier) {
+                    slots.postMedia(this, selectedMediaPost, true) {}
                 }
             }
-        }
-        val selectedList = userList
-        if (selectedList != null) {
-            val users = if (selectedList == ProfileUserList.Followers) profile.followers else profile.following
-            ProfileUsersListCommon(
-                listKind = selectedList.testTagSuffix,
-                title = if (selectedList == ProfileUserList.Followers) strings.followersOf(profile.user.displayName) else strings.followingOf(profile.user.displayName),
-                users = users,
-                currentUserId = currentUserId,
-                isOpeningChat = isOpeningChat,
-                openingProfileUserId = openingProfileUserId,
-                followingUserId = followingUserId,
-                strings = strings.userRow,
-                back = strings.back,
-                avatar = { user, loading, modifier, click -> slots.avatar(user, Modifier.size(48.dp).then(modifier), loading, click) },
-                onBack = { userList = null },
-                onFollow = { user -> if (currentUserId == null) onAuthRequired() else onFollowUser(user.id) },
-                onProfile = { user -> onOpenUserProfile(user.id) },
-                onChat = { user -> if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(user.id) },
-            )
         } else {
-            CommunityProfileDetailsContent(
-                listState = listState,
-                modifier = Modifier.heightIn(max = 780.dp),
-                header = {
-                    CommunityProfileHeaderContent(
+            if (showDismissButton) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    CompactIconButton(onClick = onBack, modifier = Modifier.semantics { testTag = PublicProfileBackTestTag }) {
+                        CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back)
+                    }
+                }
+            }
+            val selectedList = userList
+            if (selectedList != null) {
+                val users = if (selectedList == ProfileUserList.Followers) profile.followers else profile.following
+                ProfileUsersListCommon(
+                    listKind = selectedList.testTagSuffix,
+                    title = if (selectedList == ProfileUserList.Followers) strings.followersOf(profile.user.displayName) else strings.followingOf(profile.user.displayName),
+                    users = users,
+                    currentUserId = currentUserId,
+                    isOpeningChat = isOpeningChat,
+                    openingProfileUserId = openingProfileUserId,
+                    followingUserId = followingUserId,
+                    strings = strings.userRow,
+                    back = strings.back,
+                    avatar = { user, loading, modifier, click -> slots.avatar(user, Modifier.size(48.dp).then(modifier), loading, click) },
+                    onBack = { userList = null },
+                    onFollow = { user -> if (currentUserId == null) onAuthRequired() else onFollowUser(user.id) },
+                    onProfile = { user -> onOpenUserProfile(user.id) },
+                    onChat = { user -> if (currentUserId == null) onAuthRequired() else onOpenPrivateChat(user.id) },
+                )
+            } else {
+                CommunityProfileDetailsContent(
+                    listState = listState,
+                    modifier = Modifier.heightIn(max = 780.dp),
+                    header = {
+                        CommunityProfileHeaderContent(
                         displayName = profile.user.displayName,
                         neighborhood = profile.user.neighborhood,
                         modifier = Modifier.semantics { testTag = PublicProfileHeaderTestTagPrefix + profile.user.id },
@@ -308,6 +325,7 @@ fun CommunityProfileScreenHost(
                                         onToggleLike = { onTogglePostLike(post.id) },
                                         onOpenComments = openComments,
                                         onAuthRequired = onAuthRequired,
+                                        onOpenMedia = { selectedMediaPostId = post.id },
                                         onShare = { slots.sharePost(post) },
                                         onReport = {
                                             if (currentUserId == null) onAuthRequired()
@@ -341,7 +359,8 @@ fun CommunityProfileScreenHost(
                         }
                     }
                 } else null,
-            )
+                )
+            }
         }
     }
 }
@@ -356,3 +375,6 @@ private fun NeighborhoodUser.toAvatarAttachment(): ProfileAttachment = ProfileAt
     sentAtMillis = null,
     senderName = displayName,
 )
+
+private fun Post.imageTitle(): String =
+    placeName?.takeIf { it.isNotBlank() } ?: rankingLabel.takeIf { it.isNotBlank() } ?: author.displayName

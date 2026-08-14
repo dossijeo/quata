@@ -78,3 +78,34 @@ fun WebNativeButton(label: String, enabled: Boolean, onClick: () -> Unit, modifi
         modifier = modifier.fillMaxWidth(),
     )
 }
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun WebNativeIconButton(label: String, text: String, onClick: () -> Unit, modifier: Modifier) {
+    WebElementView(
+        factory = {
+            (document.createElement("button") as HTMLButtonElement).apply {
+                setAttribute("aria-label", label)
+                style.width = "100%"
+                style.height = "100%"
+                style.border = "0"
+                style.borderRadius = "999px"
+                style.background = "rgba(255, 246, 238, 0.92)"
+                style.color = "#1f2933"
+                style.font = "700 22px system-ui, sans-serif"
+                style.cursor = "pointer"
+                style.setProperty("pointer-events", "auto")
+                style.position = "relative"
+                style.zIndex = "9999"
+                onclick = { onClick(); null }
+            }
+        },
+        update = { button ->
+            button.textContent = text
+            button.setAttribute("aria-label", label)
+            button.onclick = { onClick(); null }
+        },
+        onRelease = { button -> button.onclick = null },
+        modifier = modifier,
+    )
+}

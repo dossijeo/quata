@@ -55,7 +55,13 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
     assert.match(source, /public-profile\.gallery\./);
     assert.match(source, /public-profile\.gallery\.post\./);
     assert.match(source, /public-profile\.post\.preview\./);
+    assert.match(source, /public-profile\.post\.media\.open\./);
     assert.match(source, /public-profile\.post\.action\.comments\./);
+    assert.match(source, /fullscreen-media\.root/);
+    assert.match(source, /fullscreen-media\.title/);
+    assert.match(source, /fullscreen-media\.back/);
+    assert.match(source, /fullscreen-media\.close/);
+    assert.match(source, /fullscreen-media\.media-close/);
     assert.match(source, /public-profile\.comments\.panel/);
     assert.match(source, /public-profile\.comments\.list/);
     assert.match(source, /public-profile\.comments\.row\./);
@@ -73,6 +79,8 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
     "iOS must assert profile attachments before opening the posts gallery so scroll-to-gallery does not hide them.",
   );
   assert.match(webRunner, /public-profile\.attachments\.item\.sb:\$\{fixture\.attachmentId\}/);
+  assert.match(webRunner, /async function openAndCloseProfileContentMediaViewer/);
+  assert.match(webRunner, /profile_content_media_viewer_opened_and_closed/);
   assert.match(webRunner, /async function openProfileContentCommentsPanel/);
   assert.match(webRunner, /isProfileCommentsComposerOpen\(page\)/);
   assert.match(webRunner, /Cerrar comentarios\|Close comments/);
@@ -88,6 +96,7 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(iosNeighborhoodsHost, /showDismissButton = true/);
   assert.match(commonProfileDetails, /footer: \(@Composable \(\) -> Unit\)\? = null/);
   assert.match(commonProfileHost, /PublicProfileFooterBackTestTag = "public-profile\.back\.footer"/);
+  assert.match(commonProfileHost, /QuataFullscreenMediaOverlayContent/);
   assert.match(iosUiTest, /profile comment submitted from iOS must remain visible/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E/);
   assert.match(iosWrapper, /testProfileContentFromChatUsesSharedPublicProfileSurface/);

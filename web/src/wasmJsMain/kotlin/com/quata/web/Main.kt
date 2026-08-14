@@ -1171,6 +1171,17 @@ private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
                 onMuteChange = { muted = it },
             )
         },
+        nativeMediaClose = { dismiss ->
+            WebNativeIconButton(
+                label = "fullscreen-media.media-close",
+                text = "×",
+                onClick = dismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .size(42.dp),
+            )
+        },
         openAttachment = { attachment -> openWebCommunityResource(attachment.uri) },
         sharePost = { post -> openWebCommunityResource(quataPostUrl(post.id)) },
     ),

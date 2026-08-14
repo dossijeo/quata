@@ -25,6 +25,13 @@ export function validWavFixture() {
   return buffer;
 }
 
+export function validPngFixture() {
+  return Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mP8z8Dwn4GBgYFhAQB4iQb9Z11xZQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+}
+
 export function pathSegment(path) {
   return String(path).split("/").map(encodeURIComponent).join("/");
 }
@@ -175,6 +182,19 @@ export async function seedProfileContentFixture({
     body: content,
   }, "profile_content_storage_upload_failed");
   const publicUrl = `${config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(fixture.storagePath)}`;
+  const imageContent = validPngFixture();
+  fixture.postImageStoragePath = `${fixture.actorSession.profileId}/profile-content/${marker}.png`;
+  cleanup?.trackStorageObject({
+    bucket: chatAttachmentsBucket,
+    storagePath: fixture.postImageStoragePath,
+    name: "profile_content_post_image",
+  });
+  await storageRequest(config, fixture.actorSession, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(fixture.postImageStoragePath)}`, {
+    method: "POST",
+    headers: { "content-type": "image/png", "x-upsert": "false" },
+    body: imageContent,
+  }, "profile_content_post_image_storage_upload_failed");
+  fixture.postImageUrl = `${config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(fixture.postImageStoragePath)}`;
   fixture.attachmentId = attachmentId(await rpc(config, fixture.actorSession, "quata_chat_register_attachment", {
     p_actor_profile_id: fixture.actorSession.profileId,
     p_thread_id: fixture.threadId,
@@ -217,11 +237,11 @@ export async function seedProfileContentFixture({
            select id from fallback_wall
            limit 1
          )
-         insert into public.community_posts(id, wall_id, profile_id, body)
-         select gen_random_uuid(), wall.id, $1, $2
+         insert into public.community_posts(id, wall_id, profile_id, body, image_url)
+         select gen_random_uuid(), wall.id, $1, $2, $3
          from wall
          returning id`,
-        [fixture.targetSession.profileId, `${marker} post body`],
+        [fixture.targetSession.profileId, `${marker} post body`, fixture.postImageUrl],
       );
       fixture.postId = post.rows[0]?.id;
       if (!uuid.test(fixture.postId ?? "")) throw new Error("profile_content_fixture_wall_unavailable");
