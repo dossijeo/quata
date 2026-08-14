@@ -5,6 +5,7 @@ import test from "node:test";
 const webRunner = await readFile(new URL("./chat-actions-notifications-web-evidence.mjs", import.meta.url), "utf8");
 const androidRunner = await readFile(new URL("./chat-actions-notifications-android-evidence.mjs", import.meta.url), "utf8");
 const iosRunner = await readFile(new URL("./chat-actions-notifications-ios-evidence.mjs", import.meta.url), "utf8");
+const iosWrapper = await readFile(new URL("./run-ios-chat-actions-notifications-ui-test.sh", import.meta.url), "utf8");
 const sharedFixtures = await readFile(new URL("./e2e-fixtures/chat-attachments.mjs", import.meta.url), "utf8");
 const androidUiTest = await readFile(new URL("../app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt", import.meta.url), "utf8");
 const iosUiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift", import.meta.url), "utf8");
@@ -62,6 +63,11 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT/);
   assert.match(iosUiTest, /typeText\(uiComment, into: "public-profile\.comments\.input", in: app\)/);
   assert.match(iosUiTest, /profile comment submitted from iOS must remain visible/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E/);
+  assert.match(iosWrapper, /testProfileContentFromChatUsesSharedPublicProfileSurface/);
+  assert.match(iosWrapper, /profile-content\.log/);
+  assert.match(iosWrapper, /elif \[\[ "\$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" == "1" \]\]; then\s+run_and_require "\$profile_content" "\$profile_content_method"/);
+  assert.match(iosWrapper, /"\$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" != "1"/);
 });
 
 test("Android PROF-CONTENT runner writes focal reports to requested paths", () => {
