@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-COMPOSER",
+    "CHAT-MESSAGE-ACTIONS"
+  ],
+  "productSha": "48c64fa9b8f9f24fef7ff70f3440f6070875d81e",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "48c64fa9b8f9f24fef7ff70f3440f6070875d81e",
+      "report": "build-reports/web/chat-keyboard-menu-web-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "48c64fa9b8f9f24fef7ff70f3440f6070875d81e",
+      "report": "build-reports/android/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "48c64fa9b8f9f24fef7ff70f3440f6070875d81e",
+      "report": "build-reports/ios/chat-keyboard-menu-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata for PR #248 after PR #247 merged into main at 6f22225475a263ddbb4d7e7c6dfdc7c9d6aa3edb.",
+    "The product code was already present in the stack: ChatScreenHost keeps the header outside the imePadding viewport, and ChatSelectedMessageActionBarContent paints chatHeaderSurfaceColor behind the selected-message action bar.",
+    "Android evidence uses the shared chat.menu.mute/chat.menu.unmute semantic anchors for the menu action instead of relying on localized text or absolute coordinates.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated."
+  ]
+}

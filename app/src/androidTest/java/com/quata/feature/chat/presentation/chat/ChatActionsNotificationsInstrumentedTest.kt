@@ -244,8 +244,7 @@ class ChatActionsNotificationsInstrumentedTest {
         openOptionsMenu()
         waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 10_000)
         saveScreenshot("android-chat-options-menu-surface")
-        waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 2_000)?.click()
-            ?: error("chat_options_mute_action_not_found")
+        clickChatMenuMuteAction()
         compose.waitForIdle()
         SystemClock.sleep(800)
     }
@@ -355,6 +354,19 @@ class ChatActionsNotificationsInstrumentedTest {
         }.getOrDefault(false) ||
             waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 250) != null ||
             waitForText("Reactivar notificaciones", "Unmute", timeoutMillis = 250) != null
+
+    private fun clickChatMenuMuteAction() {
+        val clickedByTag = listOf(ChatGroupMenuMuteTestTag, ChatGroupMenuUnmuteTestTag).any { tag ->
+            runCatching {
+                compose.onNodeWithTag(tag, useUnmergedTree = true)
+                    .performClick()
+            }.isSuccess
+        }
+        if (clickedByTag) return
+        waitForText("Silenciar conversaci", "Mute conversation", timeoutMillis = 2_000)?.click()
+            ?: waitForText("Reactivar notificaciones", "Unmute", timeoutMillis = 2_000)?.click()
+            ?: error("chat_options_mute_action_not_found")
+    }
 
     private fun clickOptionsButtonFallback(attempt: Int) {
         if (runCatching {

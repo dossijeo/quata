@@ -49,6 +49,14 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(runner, /hardDeleteTemporaryForwardDestination/);
   assert.match(runner, /forward_destination_cleanup_verified_physical_residue_absent/);
   assert.match(runner, /ChatActionsNotificationsInstrumentedTest/);
+  assert.match(runner, /function resolveAdbCommand\(\)/);
+  assert.match(runner, /process\.env\.ADB/);
+  assert.match(runner, /process\.env\.ANDROID_HOME/);
+  assert.match(runner, /process\.env\.ANDROID_SDK_ROOT/);
+  assert.match(runner, /process\.env\.LOCALAPPDATA/);
+  assert.doesNotMatch(runner, /run\("adb"/);
+  assert.doesNotMatch(runner, /runCapture\("adb"/);
+  assert.doesNotMatch(runner, /spawn\("adb"/);
   assert.match(runner, /--profile-follow-only/);
   assert.match(runner, /--menu-surface-only/);
   assert.match(runner, /--group-sos-only/);

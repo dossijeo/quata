@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,6 +66,7 @@ fun ChatAudioAttachmentPlayerContent(
     modifier: Modifier = Modifier,
 ) {
     var scrubberSize by remember { mutableStateOf(IntSize.Zero) }
+    val toggleDescription = "$playPauseDescription $displayText"
     fun seekToX(x: Float) {
         val width = scrubberSize.width.toFloat().coerceAtLeast(1f)
         onSeekToFraction(x / width)
@@ -86,11 +88,14 @@ fun ChatAudioAttachmentPlayerContent(
                 CompactIconButton(
                     enabled = !hasError,
                     onClick = onTogglePlayback,
-                    modifier = Modifier.semantics { testTag = ChatAudioAttachmentToggleTestTag },
+                    modifier = Modifier.semantics {
+                        testTag = ChatAudioAttachmentToggleTestTag
+                        contentDescription = toggleDescription
+                    },
                 ) {
                     CompactIcon(
                         imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = playPauseDescription,
+                        contentDescription = null,
                         tint = Color.White,
                     )
                 }

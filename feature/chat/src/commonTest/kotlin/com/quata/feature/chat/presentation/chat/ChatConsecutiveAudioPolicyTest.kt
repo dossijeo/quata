@@ -14,6 +14,7 @@ class ChatConsecutiveAudioPolicyTest {
         val first = message("1", "sender-a", "audio/ogg")
         val second = message("2", "sender-a", "audio/mp4")
         assertEquals(second, nextConsecutiveAudioMessage(listOf(first, second), first.composeKey()))
+        assertEquals(second, nextConsecutiveAudioMessage(listOf(second, first), first.composeKey()))
 
         assertNull(nextConsecutiveAudioMessage(listOf(first, second.copy(senderId = "sender-b")), first.composeKey()))
         assertNull(nextConsecutiveAudioMessage(listOf(first, second.copy(attachmentMimeType = "image/jpeg")), first.composeKey()))

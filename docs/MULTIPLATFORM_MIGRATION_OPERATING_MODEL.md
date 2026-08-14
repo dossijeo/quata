@@ -187,6 +187,14 @@ si falta y solicita auto-merge nativo con metodo
 checks requeridos, estado actualizado ni conflicto de merge; solo autoriza a GitHub a fusionar el
 SHA congelado cuando GitHub ya lo considera apto.
 
+Si una PR abierta ya tenia `candidate-final` antes de existir la automatizacion, o en cualquier
+checkpoint natural aparece una candidata valida con `autoMergeRequest: null`, se ejecuta primero
+`node scripts/backfill-candidate-auto-merge.mjs --pr <numero> --dry-run`. Solo si ese diagnostico
+confirma que no hay draft, conflicto, cambios solicitados, gates requeridos pendientes/faltantes ni
+parent stack desactualizado, se repite sin `--dry-run` para solicitar auto-merge nativo. Si la PR
+dependia de una rama padre ya fusionada, se rebasa/sincroniza antes sobre `main`; cualquier cambio de
+producto no recertificado bloquea el backfill.
+
 Cuando la PR candidata queda con `candidate-final` y auto-merge nativo, pasa los checks rapidos
 iniciales relevantes y se observa que los jobs pesados ya entraron en builds, simuladores,
 distribuciones o pruebas largas, esa rama pasa a estado **CANDIDATE FROZEN / CERTIFICATION IN

@@ -9,12 +9,15 @@ fun nextConsecutiveAudioMessage(messages: List<Message>, finishedMessageKey: Str
     val currentIndex = messages.indexOfFirst { it.composeKey() == finishedMessageKey }
     if (currentIndex < 0) return null
     val current = messages[currentIndex]
-    val next = messages.getOrNull(currentIndex + 1) ?: return null
-    if (next.isDeleted || next.senderId != current.senderId) return null
-    val reference = next.attachmentUri?.takeIf(String::isNotBlank) ?: return null
-    return next.takeIf {
-        chatAttachmentKind(PlatformFile(reference, next.attachmentName, next.attachmentMimeType)) == ChatAttachmentKind.Audio
-    }
+    return listOf(currentIndex + 1, currentIndex - 1)
+        .mapNotNull(messages::getOrNull)
+        .firstOrNull { candidate -> candidate.isConsecutiveAudioFrom(current) }
+}
+
+private fun Message.isConsecutiveAudioFrom(current: Message): Boolean {
+    if (isDeleted || senderId != current.senderId) return false
+    val reference = attachmentUri?.takeIf(String::isNotBlank) ?: return false
+    return chatAttachmentKind(PlatformFile(reference, attachmentName, attachmentMimeType)) == ChatAttachmentKind.Audio
 }
 
 fun didAudioPlaybackFinish(previous: AudioPlaybackState, current: AudioPlaybackState): Boolean {
