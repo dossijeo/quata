@@ -612,16 +612,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func closePublicProfile(_ profile: XCUIElement, in app: XCUIApplication) {
-        let back = app.descendants(matching: .any)
-            .matching(identifier: "public-profile.back")
-            .firstMatch
-        if back.waitForExistence(timeout: 5), back.isHittable {
-            back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        } else {
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.88))
-            start.press(forDuration: 0.1, thenDragTo: end)
-        }
+        tapPublicProfileBackOrDismiss(in: app)
         XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after the dismiss gesture.")
     }
 
@@ -661,16 +652,28 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func closePublicProfile(in app: XCUIApplication) {
+        tapPublicProfileBackOrDismiss(in: app)
+    }
+
+    private func tapPublicProfileBackOrDismiss(in app: XCUIApplication) {
         let back = app.descendants(matching: .any)
             .matching(identifier: "public-profile.back")
             .firstMatch
         if back.waitForExistence(timeout: 5), back.isHittable {
             back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        } else {
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.88))
-            start.press(forDuration: 0.1, thenDragTo: end)
+            return
         }
+        for _ in 0..<8 {
+            app.swipeDown()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            if back.waitForExistence(timeout: 1), back.isHittable {
+                back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                return
+            }
+        }
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.88))
+        start.press(forDuration: 0.1, thenDragTo: end)
     }
 
     private func dismissProfileCommentsPanel(in app: XCUIApplication) {

@@ -70,6 +70,7 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(iosUiTest, /typeText\(uiComment, into: "public-profile\.comments\.input", in: app\)/);
   assert.match(iosUiTest, /public-profile\.comments\.close/);
   assert.match(iosUiTest, /dismissProfileCommentsPanel\(in: app\)/);
+  assert.match(iosUiTest, /tapPublicProfileBackOrDismiss\(in: app\)/);
   assert.match(iosUiTest, /profile comment submitted from iOS must remain visible/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E/);
   assert.match(iosWrapper, /testProfileContentFromChatUsesSharedPublicProfileSurface/);
