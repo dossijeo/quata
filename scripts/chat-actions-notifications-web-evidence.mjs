@@ -29,6 +29,7 @@ let lastThreadSnapshot = null;
 
 class ProfileOnlyCompleted extends Error {}
 class ProfileListsOnlyCompleted extends Error {}
+class ProfileEntryOnlyCompleted extends Error {}
 
 function parseArgs(argv) {
   const result = {
@@ -41,6 +42,7 @@ function parseArgs(argv) {
     profileFollowOnly: false,
     profileListsOnly: false,
     profileContentOnly: false,
+    profileEntryOnly: false,
     profilePrivateChatOnly: false,
     menuSurfaceOnly: false,
     attachmentsAudioOnly: false,
@@ -66,6 +68,10 @@ function parseArgs(argv) {
     }
     if (key === "--profile-content-only") {
       result.profileContentOnly = true;
+      continue;
+    }
+    if (key === "--profile-entry-only") {
+      result.profileEntryOnly = true;
       continue;
     }
     if (key === "--profile-private-chat-only") {
@@ -96,11 +102,26 @@ function parseArgs(argv) {
   return result;
 }
 
+async function withTimeout(promise, timeoutMs, label) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(`${label}_timeout`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function isProfileFocalMode(options) {
   return options.profileOnly ||
     options.profileFollowOnly ||
     options.profileListsOnly ||
     options.profileContentOnly ||
+    options.profileEntryOnly ||
     options.profilePrivateChatOnly;
 }
 
@@ -933,6 +954,84 @@ async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   return pollSharedProfileContentComment({ fixture, marker, withDatabase: withPoolerClient, delay, timeout });
 }
 
+async function prepareProfileEntryFixture(runId) {
+  const profileContent = {
+    marker: `qadata-profile-content-${runId}`,
+    actorSession: state.a,
+    targetSession: state.b,
+    threadId: state.thread,
+  };
+  await prepareProfileContentFixture(profileContent);
+  const privateChat = await createPrivateChatSeed(config, state.a, state.b, `profile-entry-private-${runId}`);
+  const official = await createOfficialProfileEntryPost(state.b.profileId, `qadata-profile-entry-official-${runId}`);
+  return { profileContent, privateChat, official };
+}
+
+async function createOfficialProfileEntryPost(profileId, marker) {
+  const id = randomUUID();
+  const translationGroupId = randomUUID();
+  const title = `QADATA profile entry official ${marker.slice(-12)}`;
+  const publishedAt = new Date().toISOString();
+  await withPoolerClient(async (client) => {
+    await client.query("begin");
+    try {
+      await client.query(
+        `insert into public.official_posts(
+           id, profile_id, title, summary, post_type, content_html,
+           read_more_label, language, translation_group_id, media_url,
+           media_type, link_url, is_live, is_published, published_at
+         ) values (
+           $1::uuid, $2::uuid, $3, $4, 'news', $5,
+           'Leer mas', 'es', $6::uuid, null,
+           null, null, false, true, $7
+         )`,
+        [
+          id,
+          profileId,
+          title,
+          `Entrada reversible al perfil publico ${marker}`,
+          `<p>Entrada reversible al perfil publico ${marker}</p>`,
+          translationGroupId,
+          publishedAt,
+        ],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  return { id, translationGroupId, marker, title };
+}
+
+async function cleanupOfficialProfileEntryPost(fixture) {
+  if (!fixture?.id) return null;
+  return await withPoolerClient(async (client) => {
+    await client.query("begin");
+    try {
+      await client.query("delete from public.official_post_likes where official_post_id = $1::uuid", [fixture.id]);
+      await client.query("delete from public.official_post_comments where official_post_id = $1::uuid", [fixture.id]);
+      const deleted = await client.query(
+        `delete from public.official_posts
+         where id = $1::uuid or translation_group_id = $2::uuid`,
+        [fixture.id, fixture.translationGroupId],
+      );
+      const remaining = await client.query(
+        `select count(*)::int as count
+         from public.official_posts
+         where id = $1::uuid or translation_group_id = $2::uuid or title like $3`,
+        [fixture.id, fixture.translationGroupId, `%${fixture.marker}%`],
+      );
+      if (remaining.rows[0]?.count !== 0) throw new Error("profile_entry_official_cleanup_residue");
+      await client.query("commit");
+      return { state: "hard_deleted_verified", deletedRows: deleted.rowCount, remainingRows: 0 };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
 async function assertVisibleTagOrText(page, tag, patterns, errorPrefix = "profile_content_tag_missing") {
   const deadline = Date.now() + 12_000;
   while (Date.now() < deadline) {
@@ -1150,6 +1249,107 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
   }
   report.evidence.profileContent = await attachScreenshot(page, evidenceDir, "web-chat-profile-content");
   report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
+}
+
+async function openAuthenticatedRoute(page, origin, fragment, expectedRoute) {
+  await page.goto(`${origin}/?quata-profile-entry-e2e=1#${fragment}`, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(
+    (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
+    expectedRoute,
+    { timeout: 45_000 },
+  );
+  await delay(1_500);
+}
+
+async function openProfileBySemanticAnchor(page, tag, profile, evidenceDir, screenshotName) {
+  const anchor = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 15_000) ??
+    await visibleTextLocator(page, [new RegExp(`^${escapeRegExp(profile.displayName)}$`), new RegExp(escapeRegExp(profile.displayName))], 2_000);
+  if (anchor) {
+    await clickLocatorCenter(page, anchor, `profile_entry_not_opened:anchor_not_clickable:${tag}`);
+    if (!(await waitForOpenMemberProfile(page, profile.profileId, 4_000))) {
+      await openProfileWithBridge(page, profile.profileId, tag);
+    }
+  } else {
+    await openProfileWithBridge(page, profile.profileId, tag);
+  }
+  if (!(await waitForOpenMemberProfile(page, profile.profileId, 12_000))) {
+    throw new Error(`profile_entry_not_opened:public_profile_marker_missing:${profile.profileId}`);
+  }
+  await assertVisibleTagOrText(page, `public-profile.user.${profile.profileId}`, [/Publicaciones|Posts/i], "profile_entry_not_opened");
+  return attachScreenshot(page, evidenceDir, screenshotName);
+}
+
+async function waitForOpenMemberProfile(page, profileId, timeout) {
+  return await page.waitForFunction(
+    (id) => document.documentElement.getAttribute("data-quata-member-profile-id") === id,
+    profileId,
+    { timeout },
+  ).then(() => true).catch(() => false);
+}
+
+async function openProfileWithBridge(page, profileId, tag) {
+  const opened = await page.evaluate(async ({ profileId }) => {
+    const bridge = globalThis.__quataProfileEntryE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.openProfile !== "function") return false;
+    bridge.openProfile(profileId);
+    return true;
+  }, { profileId }).catch(() => false);
+  if (!opened) throw new Error(`profile_entry_not_opened:missing_anchor:${tag}`);
+}
+
+async function visibleTextLocator(page, patterns, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    for (const pattern of patterns) {
+      const locator = page.getByText(pattern).first();
+      if (await locator.isVisible({ timeout: 250 }).catch(() => false)) return locator;
+    }
+    await delay(250);
+  }
+  return null;
+}
+
+async function closeProfileForEntry(page) {
+  if (await clickProfileBack(page)) {
+    await closeProfileSheetIfVisible(page);
+    await delay(750);
+    return;
+  }
+  throw new Error("profile_entry_not_opened:profile_back_not_clickable");
+}
+
+async function verifyProfileEntryWeb(page, origin, fixture, profile, evidenceDir, report) {
+  await openAuthenticatedRoute(page, origin, `post-${encodeURIComponent(fixture.profileContent.postId)}`, `post/${fixture.profileContent.postId}`);
+  report.evidence.profileEntryFeed = await openProfileBySemanticAnchor(
+    page,
+    `feed.author.avatar.${profile.profileId}`,
+    profile,
+    evidenceDir,
+    "web-profile-entry-feed",
+  );
+  await closeProfileForEntry(page);
+
+  await openAuthenticatedRoute(page, origin, `official-${encodeURIComponent(fixture.official.id)}`, `official/${fixture.official.id}`);
+  report.evidence.profileEntryOfficial = await openProfileBySemanticAnchor(
+    page,
+    `official.author.avatar.${profile.profileId}`,
+    profile,
+    evidenceDir,
+    "web-profile-entry-official",
+  );
+  await closeProfileForEntry(page);
+
+  await openAuthenticatedRoute(page, origin, "chat", "chat");
+  report.evidence.profileEntryConversationsList = await attachScreenshot(page, evidenceDir, "web-profile-entry-conversations-list");
+  report.evidence.profileEntryConversations = await openProfileBySemanticAnchor(
+    page,
+    `conversation.avatar.${profile.profileId}`,
+    profile,
+    evidenceDir,
+    "web-profile-entry-conversations",
+  );
+  await closeProfileForEntry(page);
+  report.steps.push("feed_official_and_conversations_profile_entry_anchors_opened_common_profile");
 }
 
 async function openPrivateChatFromOpenProfile(page, peerProfile, privateChat, privateMarker, evidenceDir, report) {
@@ -2218,7 +2418,7 @@ function safeFailure(error) {
     "profile_content_tag_missing", "profile_content_comments_action_not_clickable",
     "profile_content_comments_input_not_visible", "profile_content_comments_send_not_clickable",
     "profile_content_comment_not_persisted",
-    "profile_private_chat_not_opened",
+    "profile_private_chat_not_opened", "profile_entry_not_opened", "profile_entry_official_cleanup",
     "consecutive_audio_playback_state_not_observed",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_actions_notifications_web_failure";
 }
@@ -2235,7 +2435,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, privateMarker: null, attachmentsAudio: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, privateMarker: null, attachmentsAudio: null, cleanupRegistry: createCleanupRegistry() };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -2450,6 +2650,12 @@ try {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-lists");
       await assertProfileFollowLists(page, server.origin, `sb:${state.thread}`, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_public_profile_followers_and_following_lists_opened_and_returned");
+    } else if (options.profileEntryOnly) {
+      state.profileEntry = await prepareProfileEntryFixture(runId);
+      state.profileContent = state.profileEntry.profileContent;
+      state.profilePrivateChat = state.profileEntry.privateChat;
+      report.steps.push("profile_entry_feed_official_and_conversations_fixtures_prepared");
+      await verifyProfileEntryWeb(page, server.origin, state.profileEntry, state.b, options.evidenceDir, report);
     } else if (options.profileContentOnly) {
       state.profileContent = {
         marker: `qadata-profile-content-${runId}`,
@@ -2482,7 +2688,7 @@ try {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profilePrivateChatOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly) {
       if (faults.length) throw new Error("browser_runtime_fault");
       report.status = "passed";
       report.fixture = {
@@ -2504,13 +2710,20 @@ try {
           attachmentId: state.profileContent.attachmentId,
           attachmentMessageId: state.profileContent.attachmentMessageId,
         } : null,
+        profileEntry: state.profileEntry ? {
+          feedPostId: state.profileEntry.profileContent.postId,
+          officialPostId: state.profileEntry.official.id,
+          privateThreadId: state.profileEntry.privateChat.threadId,
+          officialMarkerSha256: sha256(state.profileEntry.official.marker),
+        } : null,
         profilePrivateChatThreadId: state.profilePrivateChat?.threadId ?? null,
         privateMarkerSha256: state.privateMarker ? sha256(state.privateMarker) : null,
       };
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
+      if (options.profileEntryOnly) throw new ProfileEntryOnlyCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profilePrivateChatOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
@@ -2626,7 +2839,7 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted) {
+  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted) {
     // Focal modes already set report.status and fixture; cleanup still runs in finally.
   } else {
     if (pageContext?.page) {
@@ -2653,9 +2866,12 @@ try {
 } finally {
   const cleanup = { state: "completed", actions: [] };
   let cleanupFailed = false;
-  try { await pageContext?.context?.close(); } catch {}
-  try { await browser?.close(); } catch {}
-  try { await server?.close(); } catch {}
+  try { await withTimeout(pageContext?.context?.close() ?? Promise.resolve(), 5_000, "playwright_context_close"); }
+  catch (error) { cleanup.actions.push(safeFailure(error)); }
+  try { await withTimeout(browser?.close() ?? Promise.resolve(), 5_000, "playwright_browser_close"); }
+  catch (error) { cleanup.actions.push(safeFailure(error)); }
+  try { await withTimeout(server?.close() ?? Promise.resolve(), 5_000, "web_evidence_server_close"); }
+  catch (error) { cleanup.actions.push(safeFailure(error)); }
   try { await rm(distribution, { recursive: true, force: true }); } catch {}
   try {
     await profileHashWindow.restore();
@@ -2704,6 +2920,16 @@ try {
         cleanup.profileContent = await cleanupProfileContentFixture(state.profileContent);
         cleanup.actions.push("profile_content_fixture_deleted");
         cleanup.actions.push("cleanup_verified_profile_content_residue_absent");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (state.profileEntry?.official) {
+      try {
+        cleanup.profileEntryOfficial = await cleanupOfficialProfileEntryPost(state.profileEntry.official);
+        cleanup.actions.push("profile_entry_official_post_deleted");
+        cleanup.actions.push("cleanup_verified_profile_entry_official_residue_absent");
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);

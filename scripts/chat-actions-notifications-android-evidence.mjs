@@ -27,6 +27,7 @@ const profileOnly = process.argv.includes("--profile-only");
 const profileFollowOnly = process.argv.includes("--profile-follow-only");
 const profileListsOnly = process.argv.includes("--profile-lists-only");
 const profileContentOnly = process.argv.includes("--profile-content-only");
+const profileEntryOnly = process.argv.includes("--profile-entry-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
 const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
@@ -69,6 +70,16 @@ const evidenceFiles = [
   "android-chat-profile-content.png",
   "android-chat-profile-private-chat-before.png",
   "android-chat-profile-private-chat-opened.png",
+  "android-profile-entry-feed-source.png",
+  "android-profile-entry-feed.png",
+  "android-profile-entry-feed-return.png",
+  "android-profile-entry-official-source.png",
+  "android-profile-entry-official.png",
+  "android-profile-entry-official-return.png",
+  "android-profile-entry-conversations-source.png",
+  "android-profile-entry-conversations.png",
+  "android-profile-entry-conversations-return.png",
+  "android-profile-entry-chat-return.png",
   "android-chat-attachment-document-visible.png",
   "android-chat-audio-player-visible.png",
   "android-chat-audio-toggle-attempted.png",
@@ -125,6 +136,84 @@ async function cleanupProfileContentFixture(fixture) {
 
 async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   return pollSharedProfileContentComment({ fixture, marker, withDatabase, delay, timeout });
+}
+
+async function prepareProfileEntryFixture(config, runId) {
+  const profileContent = {
+    marker: `qadata-profile-content-${runId}`,
+    config,
+    actorSession: state.a,
+    targetSession: state.b,
+    threadId: state.thread,
+  };
+  await prepareProfileContentFixture(profileContent);
+  const official = await createOfficialProfileEntryPost(state.b.profileId, `qadata-profile-entry-official-android-${runId}`);
+  return { profileContent, official };
+}
+
+async function createOfficialProfileEntryPost(profileId, marker) {
+  const id = randomUUID();
+  const translationGroupId = randomUUID();
+  const title = `QADATA profile entry official ${marker.slice(-12)}`;
+  const publishedAt = new Date().toISOString();
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      await client.query(
+        `insert into public.official_posts(
+           id, profile_id, title, summary, post_type, content_html,
+           read_more_label, language, translation_group_id, media_url,
+           media_type, link_url, is_live, is_published, published_at
+         ) values (
+           $1::uuid, $2::uuid, $3, $4, 'news', $5,
+           'Leer mas', 'es', $6::uuid, null,
+           null, null, false, true, $7
+         )`,
+        [
+          id,
+          profileId,
+          title,
+          `Entrada reversible al perfil publico ${marker}`,
+          `<p>Entrada reversible al perfil publico ${marker}</p>`,
+          translationGroupId,
+          publishedAt,
+        ],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  return { id, translationGroupId, marker, title };
+}
+
+async function cleanupOfficialProfileEntryPost(fixture) {
+  if (!fixture?.id) return null;
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      await client.query("delete from public.official_post_likes where official_post_id = $1::uuid", [fixture.id]);
+      await client.query("delete from public.official_post_comments where official_post_id = $1::uuid", [fixture.id]);
+      const deleted = await client.query(
+        `delete from public.official_posts
+         where id = $1::uuid or translation_group_id = $2::uuid`,
+        [fixture.id, fixture.translationGroupId],
+      );
+      const remaining = await client.query(
+        `select count(*)::int as count
+         from public.official_posts
+         where id = $1::uuid or translation_group_id = $2::uuid or title like $3`,
+        [fixture.id, fixture.translationGroupId, `%${fixture.marker}%`],
+      );
+      if (Number(remaining.rows[0]?.count ?? 0) !== 0) throw new Error("profile_entry_official_cleanup_residue");
+      await client.query("commit");
+      return { state: "hard_deleted_verified", deletedRows: deleted.rowCount, remainingRows: 0 };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
 }
 
 function env(name) {
@@ -998,7 +1087,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = options.evidenceDir;
@@ -1025,7 +1114,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profilePrivateChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !groupSosOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profileEntryOnly && !profilePrivateChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !groupSosOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1154,6 +1243,7 @@ try {
       "-e", "quataChatActionsEditMarker", editMarker,
       "-e", "quataChatActionsForwardQuery", state.forwardProfile?.phoneLocal ?? "translation-only",
       "-e", "quataChatActionsPostId", state.profileContent?.postId ?? "",
+      "-e", "quataChatActionsOfficialPostId", state.profileEntry?.official?.id ?? "",
       "-e", "quataChatActionsCommentId", state.profileContent?.seedCommentId ?? "",
       "-e", "quataChatActionsAttachmentId", String(state.profileContent?.attachmentId ?? ""),
       "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
@@ -1288,7 +1378,11 @@ try {
       state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_list_edges_prepared_reversibly");
     }
-    if (profileContentOnly) {
+    if (profileEntryOnly) {
+      state.profileEntry = await prepareProfileEntryFixture(config, runId);
+      state.profileContent = state.profileEntry.profileContent;
+      report.steps.push("profile_entry_feed_official_conversations_and_chat_fixtures_prepared");
+    } else if (profileContentOnly) {
       state.profileContent = {
         marker: `qadata-profile-content-${runId}`,
         config,
@@ -1300,7 +1394,7 @@ try {
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
     }
-    const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profilePrivateChatOnly ? "profile-private-chat" : "profile";
+    const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
@@ -1310,6 +1404,8 @@ try {
       ? "peer_public_profile_followers_and_following_lists_opened_and_returned"
       : profileContentOnly
         ? "profile_content_gallery_comments_and_attachments_verified"
+        : profileEntryOnly
+          ? "profile_entry_feed_official_conversations_and_chat_opened_common_profile_and_returned"
         : profilePrivateChatOnly
           ? "profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc"
         : "peer_avatar_opened_public_profile_and_returned_to_chat");
@@ -1319,7 +1415,7 @@ try {
     }
   }
 
-  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profilePrivateChatOnly) {
+  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profileEntryOnly || profilePrivateChatOnly) {
     await rm(evidenceDir, { recursive: true, force: true });
     await mkdir(evidenceDir, { recursive: true });
     for (const file of evidenceFiles.filter((name) => name.includes("profile") || name.endsWith("evidence.json"))) {
@@ -1347,8 +1443,12 @@ try {
         attachmentId: state.profileContent.attachmentId,
         attachmentMessageId: state.profileContent.attachmentMessageId,
       } : null,
+      profileEntry: state.profileEntry ? {
+        officialPostId: state.profileEntry.official.id,
+        officialMarkerSha256: sha256(state.profileEntry.official.marker),
+      } : null,
     };
-    throw new Error(profilePrivateChatOnly ? "profile_private_chat_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
+    throw new Error(profilePrivateChatOnly ? "profile_private_chat_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));
@@ -1419,6 +1519,7 @@ try {
     error?.message === "profile_only_completed" ||
     error?.message === "profile_follow_only_completed" ||
     error?.message === "profile_lists_only_completed" ||
+    error?.message === "profile_entry_only_completed" ||
     error?.message === "profile_content_only_completed" ||
     error?.message === "profile_private_chat_only_completed"
   ) {
@@ -1497,6 +1598,16 @@ try {
         cleanup.profileContent = await cleanupProfileContentFixture(state.profileContent);
         cleanup.actions.push("profile_content_fixture_deleted");
         cleanup.actions.push("cleanup_verified_profile_content_residue_absent");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (config && state.profileEntry?.official) {
+      try {
+        cleanup.profileEntryOfficial = await cleanupOfficialProfileEntryPost(state.profileEntry.official);
+        cleanup.actions.push("profile_entry_official_post_deleted");
+        cleanup.actions.push("cleanup_verified_profile_entry_official_residue_absent");
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);

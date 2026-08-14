@@ -13,6 +13,8 @@ import com.quata.core.text.parsePostShortcodeContent
 import com.quata.core.ui.components.QuataFeedActionRail
 import com.quata.core.ui.components.QuataFeedOverflowActionButton
 
+fun feedAuthorAvatarTestTag(profileId: String): String = "feed.author.avatar.$profileId"
+
 /** Localized labels and platform-independent formatting used by the shared reel structure. */
 data class FeedReelStrings(
     val like: String,

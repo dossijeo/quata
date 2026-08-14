@@ -25,6 +25,7 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.feature.official.domain.OfficialPostItem
 
 fun officialPostCardTestTag(postId: String): String = "official-post-card-$postId"
+fun officialAuthorAvatarTestTag(profileId: String): String = "official.author.avatar.$profileId"
 
 /**
  * Portable shell for an Official post. Platform hosts provide media, avatar, navigation and

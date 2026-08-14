@@ -117,6 +117,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -261,7 +262,11 @@ fun FeedScreen(
                     isOfficial = post.author.isOfficial, profileId = post.author.id,
                     isLoading = openingProfileUserId == post.author.id,
                     onClick = { onOpenUserProfile(post.author.id) },
-                    modifier = Modifier.size(56.dp).border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
+                    modifier = Modifier
+                        .size(56.dp)
+                        .testTag(feedAuthorAvatarTestTag(post.author.id))
+                        .semantics { contentDescription = feedAuthorAvatarTestTag(post.author.id) }
+                        .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
                 )
             },
             share = shareService::share,

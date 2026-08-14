@@ -34,6 +34,9 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.quata.MainActivity
 import com.quata.QuataApp
+import com.quata.core.navigation.AppDestinations
+import com.quata.core.navigation.quataOfficialPostUrl
+import com.quata.core.navigation.quataPostUrl
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -69,6 +72,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val editMarker = optionalArgument("quataChatActionsEditMarker")
         val forwardQuery = optionalArgument("quataChatActionsForwardQuery")
         val postId = optionalArgument("quataChatActionsPostId")
+        val officialPostId = optionalArgument("quataChatActionsOfficialPostId")
         val commentId = optionalArgument("quataChatActionsCommentId")
         val attachmentId = optionalArgument("quataChatActionsAttachmentId")
         val documentProbe = optionalArgument("quataChatActionsDocumentProbe")
@@ -81,6 +85,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile", "profile-follow" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
+            "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
@@ -98,6 +103,23 @@ class ChatActionsNotificationsInstrumentedTest {
             "The Android app must hold a real Supabase-authenticated session before opening Chat.",
             app.container.sessionManager.currentSession()?.isSupabaseAuthenticated() == true,
         )
+
+        if (stage == "profile-entry") {
+            runProfileEntryStage(
+                profileId = profileId.orEmpty(),
+                feedPostId = postId.orEmpty(),
+                officialPostId = officialPostId.orEmpty(),
+                chatUrl = chatUrl.orEmpty(),
+                peerProbe = peerProbe.orEmpty(),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
 
         ActivityScenario.launch<MainActivity>(chatIntent(chatUrl.orEmpty())).use {
             when (stage) {
@@ -181,6 +203,64 @@ class ChatActionsNotificationsInstrumentedTest {
         Intent(Intent.ACTION_VIEW, Uri.parse(url), targetContext, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             .putExtra("com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", true)
+
+    private fun evidenceStartIntent(route: String): Intent =
+        Intent(targetContext, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            .putExtra("com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", true)
+            .putExtra("com.quata.extra.START_DESTINATION_FOR_EVIDENCE", route)
+
+    private fun runProfileEntryStage(
+        profileId: String,
+        feedPostId: String,
+        officialPostId: String,
+        chatUrl: String,
+        peerProbe: String,
+    ) {
+        ActivityScenario.launch<MainActivity>(chatIntent(quataPostUrl(feedPostId))).use {
+            openProfileFromAuthorTag(
+                tag = "feed.author.avatar.$profileId",
+                openScreenshot = "android-profile-entry-feed",
+                returnScreenshot = "android-profile-entry-feed-return",
+            )
+        }
+        ActivityScenario.launch<MainActivity>(chatIntent(quataOfficialPostUrl(officialPostId))).use {
+            openProfileFromAuthorTag(
+                tag = "official.author.avatar.$profileId",
+                openScreenshot = "android-profile-entry-official",
+                returnScreenshot = "android-profile-entry-official-return",
+            )
+        }
+        ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Conversations.route)).use {
+            openProfileFromAuthorTag(
+                tag = "conversation.avatar.$profileId",
+                openScreenshot = "android-profile-entry-conversations",
+                returnScreenshot = "android-profile-entry-conversations-return",
+            )
+        }
+        ActivityScenario.launch<MainActivity>(chatIntent(chatUrl)).use {
+            openProfileFromPeerMessage(peerProbe, profileId)
+            closePublicProfile(peerProbe)
+            saveScreenshot("android-profile-entry-chat-return")
+        }
+    }
+
+    private fun openProfileFromAuthorTag(tag: String, openScreenshot: String, returnScreenshot: String) {
+        waitForTag(tag, "profile entry source $tag", 45_000)
+        saveScreenshot("$openScreenshot-source")
+        clickStableTag(tag)
+        val profileId = tag.substringAfterLast('.')
+        compose.waitUntil(30_000) { publicProfileVisible(profileId) }
+        saveScreenshot(openScreenshot)
+        val closedByCommonBack = runCatching {
+            compose.onNodeWithTag("public-profile.back", useUnmergedTree = true)
+                .performTouchInput { click(center) }
+            true
+        }.getOrDefault(false)
+        if (!closedByCommonBack) device.pressBack()
+        waitForTag(tag, "profile entry return $tag", 20_000)
+        saveScreenshot(returnScreenshot)
+    }
 
     private suspend fun runSendReplyStage(ownProbe: String, composerMarker: String, replyMarker: String) {
         waitForMarker(ownProbe, "initial chat thread")
@@ -821,6 +901,9 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         if (visible) return
+        val nativeVisible = waitForObject(By.res(targetContext.packageName, tag), tag, 1_000)
+            ?: waitForObject(By.descContains(tag), tag, 1_000)
+        if (nativeVisible != null) return
         val scrolled = runCatching {
             compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
                 .performScrollToNode(hasTestTag(tag))
@@ -828,6 +911,19 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         assertTrue("The semantic tag must be visible in $context.", scrolled)
+    }
+
+    private fun clickStableTag(tag: String) {
+        val clickedByCompose = runCatching {
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .performTouchInput { click(center) }
+            true
+        }.getOrDefault(false)
+        if (clickedByCompose) return
+        val nativeNode = waitForObject(By.res(targetContext.packageName, tag), tag, 1_000)
+            ?: waitForObject(By.descContains(tag), tag, 1_000)
+        check(nativeNode != null) { "stable_tag_not_clickable:$tag" }
+        nativeNode.click()
     }
 
     private fun waitForMarkerOrProfileAvatar(markerProbe: String, profileId: String, context: String, timeoutMillis: Long = 45_000) {

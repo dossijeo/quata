@@ -2,10 +2,13 @@
 
 package com.quata.web
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -14,7 +17,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,6 +41,7 @@ import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.ShareService
+import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.designsystem.translation.FangTextTranslatorGateway
@@ -59,6 +67,7 @@ import com.quata.feature.official.presentation.defaultOfficialFeedScreenStrings
 import com.quata.feature.official.presentation.detectOfficialPostLanguage
 import com.quata.feature.official.presentation.officialPostEditorPreviewItem
 import com.quata.feature.official.presentation.OfficialPostMediaFrameContent
+import com.quata.feature.official.presentation.officialAuthorAvatarTestTag
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
 import kotlin.js.JsString
@@ -99,12 +108,7 @@ fun WebOfficialHost(
         modifier = modifier,
         slots = OfficialFeedScreenPlatformSlots(
         avatar = { post, avatarModifier ->
-            BrowserFeedAuthorAvatar(
-                post.asFeedPost(),
-                onOpenUserProfile,
-                isLoading = openingProfileUserId == post.author.id,
-                modifier = avatarModifier,
-            )
+            BrowserOfficialAuthorAvatar(post, onOpenUserProfile, openingProfileUserId == post.author.id, avatarModifier)
         },
         media = { post, mediaModifier, open ->
             OfficialPostMediaFrameContent(
@@ -308,6 +312,29 @@ private fun WebOfficialEditorPreview(state: OfficialPostEditorPreviewState, modi
         },
         modifier = modifier,
     )
+}
+
+@Composable
+private fun BrowserOfficialAuthorAvatar(
+    post: OfficialPostItem,
+    onOpenUserProfile: (String) -> Unit,
+    isLoading: Boolean,
+    modifier: Modifier,
+) {
+    QuataAvatarLoadingHaloContent(isLoading = isLoading, modifier = modifier) {
+        BrowserRemoteAvatar(
+            name = post.author.displayName,
+            profileId = post.author.id,
+            avatarUrl = post.author.avatarUrl,
+            isOfficial = post.author.isOfficial,
+            isOnline = null,
+            modifier = Modifier.fillMaxSize()
+                .testTag(officialAuthorAvatarTestTag(post.author.id))
+                .semantics { contentDescription = officialAuthorAvatarTestTag(post.author.id) }
+                .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
+                .clickable(enabled = !isLoading) { onOpenUserProfile(post.author.id) },
+        )
+    }
 }
 
 @Composable

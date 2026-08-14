@@ -97,7 +97,7 @@ test("Official editor Android real evidence is opt-in, redacted and reversible",
 
   assert.match(mainActivity, /testTagsAsResourceId = true/);
   assert.match(mainActivity, /BuildConfig\.DEBUG/);
-  assert.match(mainActivity, /EvidenceStartDestinations = setOf\(AppDestinations\.OfficialPostEditor\.route\)/);
+  assert.match(mainActivity, /EvidenceStartDestinations = setOf\([\s\S]*AppDestinations\.OfficialPostEditor\.route[\s\S]*\)/);
   assert.match(supabaseModels, /val is_official: Boolean\? = null/);
   assert.match(androidAuthRepository, /SupabaseCacheMode\.NETWORK_ONLY/);
   assert.match(androidAuthRepository, /fallbackProfile = profile/);

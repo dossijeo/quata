@@ -240,6 +240,13 @@ private fun QuataWebApp(
     val feedMemberProfileRoute = remember(navigation) {
         WebFeedMemberProfileRoute(navigation::navigateConversation)
     }
+    DisposableEffect(feedMemberProfileRoute) {
+        val uninstall = installWebProfileEntryE2eBridge(feedMemberProfileRoute::open)
+        onDispose(uninstall)
+    }
+    LaunchedEffect(feedMemberProfileRoute.profileId) {
+        setWebMemberProfileMarker(feedMemberProfileRoute.profileId)
+    }
     var themeMode by remember { mutableStateOf(QuataThemeMode.System) }
     var touchFlowEnabled by remember { mutableStateOf(true) }
     var webPushOptedIn by remember { mutableStateOf(false) }
@@ -1046,6 +1053,14 @@ private external fun setWebNavigationShellMarker(route: String, selectedPrimaryR
   root?.removeAttribute('data-quata-primary-selected-route');
 }""")
 private external fun clearWebNavigationShellMarker()
+
+@JsFun("""(profileId) => {
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  if (profileId) root.setAttribute('data-quata-member-profile-id', profileId);
+  else root.removeAttribute('data-quata-member-profile-id');
+}""")
+private external fun setWebMemberProfileMarker(profileId: String?)
 
 /** Test semantics for the real Compose prompt; these attributes do not render a parallel UI. */
 @JsFun("""(visible, pendingRoute) => {

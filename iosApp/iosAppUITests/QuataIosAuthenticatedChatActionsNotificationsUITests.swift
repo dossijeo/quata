@@ -296,6 +296,68 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-return")
     }
 
+    func testProfileEntryFromFeedOfficialConversationsAndChatReturns() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated profile-entry UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
+              let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]),
+              let postId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID"]),
+              let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID"]) else {
+            throw XCTSkip("Disposable profile-entry fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#post-\(encodedFragment(postId))", in: app)
+        openPublicProfileFromTaggedSource(
+            "feed.author.avatar.\(peerProfileId)",
+            peerProfileId: peerProfileId,
+            openScreenshot: "ios-profile-entry-feed",
+            returnScreenshot: "ios-profile-entry-feed-return",
+            in: app
+        )
+
+        openDeepLink("quata://egquata.com/#official-\(encodedFragment(officialPostId))", in: app)
+        openPublicProfileFromTaggedSource(
+            "official.author.avatar.\(peerProfileId)",
+            peerProfileId: peerProfileId,
+            openScreenshot: "ios-profile-entry-official",
+            returnScreenshot: "ios-profile-entry-official-return",
+            in: app
+        )
+
+        tapTaggedButton("navigation.primary.conversations", in: app, context: "open conversations primary route")
+        _ = chatHost(in: app, context: "profile-entry conversations list")
+        openPublicProfileFromTaggedSource(
+            "conversation.avatar.\(peerProfileId)",
+            peerProfileId: peerProfileId,
+            openScreenshot: "ios-profile-entry-conversations",
+            returnScreenshot: "ios-profile-entry-conversations-return",
+            in: app
+        )
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "profile-entry chat conversation")
+        assertChatRoute(conversationId, in: app, context: "profile-entry chat conversation")
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        let profile = openPeerPublicProfile(peerProfileId: peerProfileId, in: app)
+        attachScreenshot(app, name: "ios-profile-entry-chat")
+        closePublicProfile(in: app)
+        XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close from Chat.")
+        XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 20), "Closing the profile must return to the same Chat conversation.")
+        attachScreenshot(app, name: "ios-profile-entry-chat-return")
+    }
+
     func testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E"] == "1" else {
@@ -655,6 +717,32 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(profile.waitForExistence(timeout: 30), "Opening the peer avatar must mount the shared public profile.")
         return profile
+    }
+
+    private func openPublicProfileFromTaggedSource(
+        _ sourceIdentifier: String,
+        peerProfileId: String,
+        openScreenshot: String,
+        returnScreenshot: String,
+        in app: XCUIApplication
+    ) {
+        let source = app.descendants(matching: .any)
+            .matching(identifier: sourceIdentifier)
+            .firstMatch
+        XCTAssertTrue(source.waitForExistence(timeout: 45), "The source \(sourceIdentifier) must expose a stable profile-entry anchor.")
+        attachScreenshot(app, name: "\(openScreenshot)-source")
+        source.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        let profile = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.user.\(peerProfileId)")
+            .firstMatch
+        XCTAssertTrue(profile.waitForExistence(timeout: 30), "Tapping \(sourceIdentifier) must mount the shared public profile.")
+        attachScreenshot(app, name: openScreenshot)
+
+        closePublicProfile(in: app)
+        XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close for \(sourceIdentifier).")
+        XCTAssertTrue(source.waitForExistence(timeout: 20), "Closing the profile must restore the origin for \(sourceIdentifier).")
+        attachScreenshot(app, name: returnScreenshot)
     }
 
     private func closePublicProfile(in app: XCUIApplication) {
