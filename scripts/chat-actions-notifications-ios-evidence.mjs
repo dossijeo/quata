@@ -262,6 +262,15 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.profileContent.uiCommentMarker = `${state.profileContent.marker} ios ui comment`;
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
+      const sharedAttachments = await sharedAttachmentIds(config, state.a, state.a.profileId, state.b.profileId);
+      if (!sharedAttachments.includes(Number(state.profileContent.attachmentId))) {
+        report.evidence.profileContentBackendSharedAttachments = {
+          expectedAttachmentId: state.profileContent.attachmentId,
+          returnedCount: sharedAttachments.length,
+        };
+        throw new Error("profile_content_shared_attachment_rpc_missing");
+      }
+      report.steps.push("profile_content_shared_attachment_rpc_verified");
     }
     if (attachmentsAudioOnly) {
       state.attachmentsAudio = {
@@ -780,6 +789,18 @@ function rpc(config, session, name, body) {
     headers: headers(config, session.accessToken),
     body: JSON.stringify(body),
   }, `chat_rpc_failed:${name}`);
+}
+
+async function sharedAttachmentIds(config, session, actorProfileId, peerProfileId) {
+  const payload = await rpc(config, session, "quata_chat_list_shared_attachments", {
+    p_actor_profile_id: actorProfileId,
+    p_peer_profile_id: peerProfileId,
+    p_limit: 120,
+    p_offset: 0,
+  });
+  return rows(payload, "files")
+    .map((entry) => Number(entry?.id ?? entry?.file?.id))
+    .filter((id) => Number.isSafeInteger(id) && id > 0);
 }
 
 async function storageRequest(config, session, path, options, prefix) {

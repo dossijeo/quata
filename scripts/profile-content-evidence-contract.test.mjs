@@ -40,6 +40,9 @@ test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
   assert.match(sharedFixtures, /community_post_likes/);
   assert.match(sharedFixtures, /chat_attachments/);
   assert.match(sharedFixtures, /cleanup_verified_profile_content_residue_absent/);
+  assert.match(iosRunner, /profile_content_shared_attachment_rpc_verified/);
+  assert.match(iosRunner, /profile_content_shared_attachment_rpc_missing/);
+  assert.match(iosRunner, /quata_chat_list_shared_attachments/);
 });
 
 test("PROF-CONTENT evidence uses common public-profile content anchors on every platform", () => {
