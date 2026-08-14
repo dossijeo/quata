@@ -19,10 +19,12 @@ internal class WebFeedMemberProfileRoute(
 
     fun open(profileId: String) {
         this.profileId = profileId.takeIf(String::isNotBlank)
+        setWebMemberProfileRouteMarker(this.profileId)
     }
 
     fun close() {
         profileId = null
+        setWebMemberProfileRouteMarker(null)
     }
 
     fun openConversation(conversationId: String) {
@@ -30,3 +32,11 @@ internal class WebFeedMemberProfileRoute(
         navigateConversation(conversationId)
     }
 }
+
+@JsFun("""(profileId) => {
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  if (profileId) root.setAttribute('data-quata-member-profile-id', profileId);
+  else root.removeAttribute('data-quata-member-profile-id');
+}""")
+private external fun setWebMemberProfileRouteMarker(profileId: String?)

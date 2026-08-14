@@ -25,6 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.PostComment
 import com.quata.core.navigation.quataOfficialPostUrl
@@ -245,7 +248,26 @@ fun OfficialFeedScreenHost(
                     OfficialPagerPostPageContent(card = { cardModifier ->
                         OfficialPostCardContent(
                             post = post, typeLabel = strings.typeLabel(post.type), readMoreLabel = strings.readMoreLabel(post.readMoreLabel), isLandscape = windowInfo.isLandscape,
-                            author = { authorModifier -> OfficialAuthorHeaderContent(post.author.displayName, post.author.neighborhood, strings.officialAccountFallback, { slots.avatar(post, Modifier.size(58.dp)) }, authorModifier.clickable { onOpenUserProfile(post.author.id) }) },
+                            author = { authorModifier ->
+                                OfficialAuthorHeaderContent(
+                                    displayName = post.author.displayName,
+                                    neighborhood = post.author.neighborhood,
+                                    fallbackNeighborhood = strings.officialAccountFallback,
+                                    avatar = {
+                                        slots.avatar(
+                                            post,
+                                            Modifier
+                                                .size(58.dp)
+                                                .testTag(officialAuthorAvatarTestTag(post.author.id))
+                                                .semantics { contentDescription = officialAuthorAvatarTestTag(post.author.id) },
+                                        )
+                                    },
+                                    modifier = authorModifier
+                                        .testTag(officialAuthorAvatarTestTag(post.author.id))
+                                        .semantics { contentDescription = officialAuthorAvatarTestTag(post.author.id) }
+                                        .clickable { onOpenUserProfile(post.author.id) },
+                                )
+                            },
                             media = post.mediaUrl?.takeIf(String::isNotBlank)?.let { { mediaModifier -> slots.media(post, mediaModifier) { mediaPost = post.id } } },
                             actionRail = { landscape, railModifier ->
                                 OfficialPostActionRailContent(
@@ -306,7 +328,36 @@ fun OfficialFeedScreenHost(
         if (slots.showComposeMessage) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
     state.posts.firstOrNull { it.id == readMorePost }?.let { post ->
-        OfficialPostDetailPanelContent(strings.readMoreLabel(post.readMoreLabel), strings.close, post.linkUrl, { readMorePost = null }, { slots.article(post, it) }, { OfficialAuthorHeaderContent(post.author.displayName, post.author.neighborhood, strings.officialAccountFallback, { slots.avatar(post, Modifier.size(58.dp)) }, it.clickable { onOpenUserProfile(post.author.id) }) }, post.mediaUrl?.takeIf(String::isNotBlank)?.let { { modifier -> slots.media(post, modifier) { mediaPost = post.id } } }, post.linkUrl?.let { link -> { modifier -> TextButton({ slots.openUrl(link) }, modifier) { Text(link) } } }, { modifier -> TextButton({ onOpenUserProfile(post.author.id) }, modifier) { Text(strings.profile) } })
+        OfficialPostDetailPanelContent(
+            title = strings.readMoreLabel(post.readMoreLabel),
+            closeLabel = strings.close,
+            link = post.linkUrl,
+            onDismiss = { readMorePost = null },
+            articleContent = { slots.article(post, it) },
+            author = {
+                OfficialAuthorHeaderContent(
+                    displayName = post.author.displayName,
+                    neighborhood = post.author.neighborhood,
+                    fallbackNeighborhood = strings.officialAccountFallback,
+                    avatar = {
+                        slots.avatar(
+                            post,
+                            Modifier
+                                .size(58.dp)
+                                .testTag(officialAuthorAvatarTestTag(post.author.id))
+                                .semantics { contentDescription = officialAuthorAvatarTestTag(post.author.id) },
+                        )
+                    },
+                    modifier = it
+                        .testTag(officialAuthorAvatarTestTag(post.author.id))
+                        .semantics { contentDescription = officialAuthorAvatarTestTag(post.author.id) }
+                        .clickable { onOpenUserProfile(post.author.id) },
+                )
+            },
+            media = post.mediaUrl?.takeIf(String::isNotBlank)?.let { { modifier -> slots.media(post, modifier) { mediaPost = post.id } } },
+            resourceContent = post.linkUrl?.let { link -> { modifier -> TextButton({ slots.openUrl(link) }, modifier) { Text(link) } } },
+            navigationContent = { modifier -> TextButton({ onOpenUserProfile(post.author.id) }, modifier) { Text(strings.profile) } },
+        )
     }
     OfficialCommentsPanelEntryContent(state.posts.firstOrNull { it.id == commentsPost }, state.posts, effectiveUserId, onAuthRequired, { postId, comment -> viewModel.onEvent(OfficialFeedUiEvent.AddComment(postId, comment)) }, { id -> viewModel.onEvent(OfficialFeedUiEvent.ReportComment(id)) }, { commentsPost = null }) { post, canParticipate, add, report, dismiss ->
         OfficialCommentsPanelContent(
