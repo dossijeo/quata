@@ -3,12 +3,12 @@
   "units": [
     "PROF-ENTRY"
   ],
-  "productSha": "c0c447663d1f3134accf316c308f4d3f0007a465",
+  "productSha": "1e41d2b3efebc5bbeba9500e6cdf0f6face7ae12",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "c0c447663d1f3134accf316c308f4d3f0007a465",
-      "report": "build-reports/web/profile-entry-evidence-c0c44766.json",
+      "sha": "1e41d2b3efebc5bbeba9500e6cdf0f6face7ae12",
+      "report": "build-reports/web/profile-entry-community-evidence-1e41d2b3.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -16,8 +16,8 @@
     },
     "android": {
       "status": "passed",
-      "sha": "c0c447663d1f3134accf316c308f4d3f0007a465",
-      "report": "build-reports/android/profile-entry-evidence-c0c44766.json",
+      "sha": "1e41d2b3efebc5bbeba9500e6cdf0f6face7ae12",
+      "report": "build-reports/android/profile-entry-community-evidence-1e41d2b3.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -25,8 +25,8 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "c0c447663d1f3134accf316c308f4d3f0007a465",
-      "report": "build-reports/ios/profile-entry-evidence-c0c44766.json",
+      "sha": "1e41d2b3efebc5bbeba9500e6cdf0f6face7ae12",
+      "report": "build-reports/ios/profile-entry-community-evidence-1e41d2b3.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -35,7 +35,8 @@
   },
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
-    "PROF-ENTRY covers opening the shared public profile from Feed, Official, Conversations and Chat and returning to the origin on Android, Web/Wasm and iOS.",
+    "PROF-ENTRY covers opening the shared public profile from Feed, Official, Communities, Conversations and Chat and returning to the origin on Android, Web/Wasm and iOS.",
+    "Communities evidence uses common anchors neighborhood.members.<sanitized> and neighborhood.user.avatar.<profileId>. Web/Wasm keeps a controlled bridge fallback only after resolving the visible semantic target because Compose canvas does not expose every node as DOM.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated."
   ]
 }
