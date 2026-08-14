@@ -31,6 +31,8 @@ test("PROF-ENTRY Web evidence is opt-in, semantic-first and reversible", () => {
   assert.match(webRunner, /openProfileWithBridge/);
   assert.match(webRunner, /data-quata-member-profile-id/);
   assert.match(webRunner, /quata-profile-entry-e2e=1/);
+  assert.match(webRunner, /withTimeout\(pageContext\?\.context\?\.close\(\)/);
+  assert.match(webRunner, /playwright_browser_close/);
   assert.match(webRunner, /profile_entry_feed_official_and_conversations_fixtures_prepared/);
   assert.match(webRunner, /profile_entry_official_post_deleted/);
   assert.match(webRunner, /cleanup_verified_profile_entry_official_residue_absent/);

@@ -102,6 +102,20 @@ function parseArgs(argv) {
   return result;
 }
 
+async function withTimeout(promise, timeoutMs, label) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(`${label}_timeout`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function isProfileFocalMode(options) {
   return options.profileOnly ||
     options.profileFollowOnly ||
@@ -2852,9 +2866,12 @@ try {
 } finally {
   const cleanup = { state: "completed", actions: [] };
   let cleanupFailed = false;
-  try { await pageContext?.context?.close(); } catch {}
-  try { await browser?.close(); } catch {}
-  try { await server?.close(); } catch {}
+  try { await withTimeout(pageContext?.context?.close() ?? Promise.resolve(), 5_000, "playwright_context_close"); }
+  catch (error) { cleanup.actions.push(safeFailure(error)); }
+  try { await withTimeout(browser?.close() ?? Promise.resolve(), 5_000, "playwright_browser_close"); }
+  catch (error) { cleanup.actions.push(safeFailure(error)); }
+  try { await withTimeout(server?.close() ?? Promise.resolve(), 5_000, "web_evidence_server_close"); }
+  catch (error) { cleanup.actions.push(safeFailure(error)); }
   try { await rm(distribution, { recursive: true, force: true }); } catch {}
   try {
     await profileHashWindow.restore();
