@@ -13,6 +13,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.ui.components.CompactIcon
 
@@ -25,6 +28,7 @@ data class ProfileModerationStrings(
 /** Platform-neutral entry points; confirmation and mutation stay with the host. */
 @Composable
 fun ProfileModerationActions(
+    userId: String,
     visible: Boolean,
     isBlocked: Boolean,
     isUpdating: Boolean,
@@ -36,15 +40,40 @@ fun ProfileModerationActions(
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { testTag = PublicProfileModerationRootTestTagPrefix + userId },
     ) {
-        TextButton(onClick = onReport, enabled = !isUpdating, modifier = Modifier.weight(1f)) {
-            CompactIcon(Icons.Filled.Flag, contentDescription = null, modifier = Modifier.size(17.dp))
+        TextButton(
+            onClick = onReport,
+            enabled = !isUpdating,
+            modifier = Modifier
+                .weight(1f)
+                .semantics {
+                    testTag = PublicProfileModerationReportTestTagPrefix + userId
+                    contentDescription = PublicProfileModerationReportTestTagPrefix + userId
+                },
+        ) {
+            CompactIcon(Icons.Filled.Flag, contentDescription = strings.report, modifier = Modifier.size(17.dp))
             Spacer(Modifier.width(6.dp))
             Text(strings.report)
         }
-        TextButton(onClick = onBlock, enabled = !isUpdating, modifier = Modifier.weight(1f)) {
-            CompactIcon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(17.dp))
+        val blockTag = if (isBlocked) {
+            PublicProfileModerationUnblockTestTagPrefix + userId
+        } else {
+            PublicProfileModerationBlockTestTagPrefix + userId
+        }
+        TextButton(
+            onClick = onBlock,
+            enabled = !isUpdating,
+            modifier = Modifier
+                .weight(1f)
+                .semantics {
+                    testTag = blockTag
+                    contentDescription = blockTag
+                },
+        ) {
+            CompactIcon(Icons.Filled.Close, contentDescription = if (isBlocked) strings.unblock else strings.block, modifier = Modifier.size(17.dp))
             Spacer(Modifier.width(6.dp))
             Text(if (isBlocked) strings.unblock else strings.block)
         }

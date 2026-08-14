@@ -11,7 +11,12 @@ import pg from "pg";
 import {
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   createCleanupRegistry,
+  cleanupProfileRolesSafetyFixture as cleanupSharedProfileRolesSafetyFixture,
+  pollProfileGlobalBlock,
+  pollProfileReport,
   pollProfileContentComment as pollSharedProfileContentComment,
+  pollProfileRoles,
+  prepareProfileRolesSafetyFixture,
   seedChatAttachmentFixture,
   seedProfileContentFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
@@ -30,6 +35,7 @@ let lastThreadSnapshot = null;
 class ProfileOnlyCompleted extends Error {}
 class ProfileListsOnlyCompleted extends Error {}
 class ProfileEntryOnlyCompleted extends Error {}
+class ProfileRolesSafetyOnlyCompleted extends Error {}
 
 function parseArgs(argv) {
   const result = {
@@ -44,6 +50,7 @@ function parseArgs(argv) {
     profileContentOnly: false,
     profileEntryOnly: false,
     profilePrivateChatOnly: false,
+    profileRolesSafetyOnly: false,
     menuSurfaceOnly: false,
     attachmentsAudioOnly: false,
     groupSosOnly: false,
@@ -76,6 +83,12 @@ function parseArgs(argv) {
     }
     if (key === "--profile-private-chat-only") {
       result.profilePrivateChatOnly = true;
+      continue;
+    }
+    if (key === "--profile-roles-safety-only") {
+      result.profileRolesSafetyOnly = true;
+      result.output = resolve("build-reports/web/profile-roles-safety-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/profile-roles-safety-evidence");
       continue;
     }
     if (key === "--menu-surface-only") {
@@ -122,7 +135,8 @@ function isProfileFocalMode(options) {
     options.profileListsOnly ||
     options.profileContentOnly ||
     options.profileEntryOnly ||
-    options.profilePrivateChatOnly;
+    options.profilePrivateChatOnly ||
+    options.profileRolesSafetyOnly;
 }
 
 function isFullEvidenceMode(options) {
@@ -960,6 +974,255 @@ async function cleanupProfileContentFixture(fixture) {
 
 async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   return pollSharedProfileContentComment({ fixture, marker, withDatabase: withPoolerClient, delay, timeout });
+}
+
+async function cleanupProfileRolesSafetyFixture(fixture) {
+  return cleanupSharedProfileRolesSafetyFixture({ fixture, withDatabase: withPoolerClient });
+}
+
+async function clickProfileAnchorOrText(page, tag, patterns, errorPrefix) {
+  const deadline = Date.now() + 12_000;
+  while (Date.now() < deadline) {
+    const target = await profileActionTarget(page, tag, patterns);
+    if (target) {
+      await page.mouse.click(target.x + (target.width / 2), target.y + (target.height / 2));
+      await delay(350);
+      return;
+    }
+    await page.mouse.wheel(0, 260).catch(() => {});
+    await delay(250);
+  }
+  throw new Error(`${errorPrefix}:${tag}`);
+}
+
+async function profileActionTarget(page, tag, patterns) {
+  const serializedPatterns = patterns.map((pattern) => ({ source: pattern.source, flags: pattern.flags }));
+  return await page.evaluate(({ tag, serializedPatterns }) => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const regexes = serializedPatterns.map((pattern) => new RegExp(pattern.source, pattern.flags));
+    const visibleRect = (element) => {
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      if (rect.width <= 0 || rect.height <= 0 || style.visibility === "hidden" || style.display === "none") return null;
+      if (rect.bottom < 0 || rect.right < 0 || rect.top > window.innerHeight || rect.left > window.innerWidth) return null;
+      return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+    };
+    const byAria = [...scope.querySelectorAll("[aria-label]")]
+      .map((element) => ({ element, label: element.getAttribute("aria-label") ?? "", rect: visibleRect(element) }))
+      .filter((item) => item.rect && item.label === tag)
+      .sort((a, b) => (a.rect.width * a.rect.height) - (b.rect.width * b.rect.height));
+    if (byAria[0]) return byAria[0].rect;
+    const byText = [...scope.querySelectorAll("button,[role='button'],div,span")]
+      .map((element) => ({ element, text: (element.textContent ?? "").trim(), rect: visibleRect(element) }))
+      .filter((item) => item.rect && regexes.some((regex) => regex.test(item.text)))
+      .filter((item) => ![...item.element.children].some((child) => regexes.some((regex) => regex.test((child.textContent ?? "").trim()))))
+      .sort((a, b) => (a.rect.width * a.rect.height) - (b.rect.width * b.rect.height));
+    return byText[0]?.rect ?? null;
+  }, { tag, serializedPatterns });
+}
+
+async function dismissProfileReportDialogIfStillOpen(page, report) {
+  return await dismissProfileDialogIfStillOpen(page, "report", report);
+}
+
+async function dismissProfileBlockDialogIfStillOpen(page, report) {
+  return await dismissProfileDialogIfStillOpen(page, "block", report);
+}
+
+async function dismissProfileDialogIfStillOpen(page, action, report) {
+  const dialog = await profileActionTarget(page, `public-profile.safety.dialog.${action}`, []) ?? await profileAnySafetyDialogTarget(page);
+  if (!dialog) return true;
+  const cancel = await profileActionTarget(page, "public-profile.safety.dialog.cancel", []);
+  if (!cancel) throw new Error(`profile_${action}_dialog_not_dismissible`);
+  await page.mouse.click(cancel.x + (cancel.width / 2), cancel.y + (cancel.height / 2));
+  await delay(350);
+  if (await profileActionTarget(page, `public-profile.safety.dialog.${action}`, []) ?? await profileAnySafetyDialogTarget(page)) {
+    await page.keyboard.press("Escape").catch(() => {});
+    await delay(350);
+  }
+  if (await profileActionTarget(page, `public-profile.safety.dialog.${action}`, []) ?? await profileAnySafetyDialogTarget(page)) {
+    report.steps.push(`profile_${action}_dialog_remained_open_after_persisted_action`);
+    return false;
+  }
+  report.steps.push(`profile_${action}_dialog_dismissed_after_persisted_action`);
+  return true;
+}
+
+async function profileAnySafetyDialogTarget(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const visibleRect = (element) => {
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      if (rect.width <= 0 || rect.height <= 0 || style.visibility === "hidden" || style.display === "none") return null;
+      if (rect.bottom < 0 || rect.right < 0 || rect.top > window.innerHeight || rect.left > window.innerWidth) return null;
+      return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+    };
+    const dialogs = [...scope.querySelectorAll("[aria-label]")]
+      .map((element) => ({ label: element.getAttribute("aria-label") ?? "", rect: visibleRect(element) }))
+      .filter((item) => item.rect && item.label.startsWith("public-profile.safety.dialog."))
+      .sort((a, b) => (a.rect.width * a.rect.height) - (b.rect.width * b.rect.height));
+    return dialogs[0]?.rect ?? null;
+  });
+}
+
+async function scrollProfileAdministrationIntoView(page) {
+  for (let index = 0; index < 8; index += 1) {
+    const target = await profileTextTarget(page, [/Administraci[oó]n|Administration/i]);
+    if (target) return;
+    await page.mouse.wheel(0, -520).catch(() => {});
+    await delay(250);
+  }
+}
+
+async function scrollProfileHeaderIntoView(page) {
+  await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    for (const element of [scope, ...scope.querySelectorAll("*")]) {
+      if (typeof element.scrollTop === "number" && element.scrollHeight > element.clientHeight) {
+        element.scrollTop = 0;
+      }
+    }
+  }).catch(() => {});
+  await page.mouse.move(215, 520).catch(() => {});
+  for (let index = 0; index < 8; index += 1) {
+    await page.mouse.wheel(0, -1000).catch(() => {});
+    await delay(180);
+  }
+}
+
+async function assertVisibleAriaTag(page, tag, errorPrefix) {
+  const deadline = Date.now() + 12_000;
+  let target = null;
+  while (Date.now() < deadline && !target) {
+    target = await profileActionTarget(page, tag, []);
+    if (!target) await delay(250);
+  }
+  if (!target) throw new Error(`${errorPrefix}:${tag}`);
+}
+
+async function clickProfileSafetyAction(page, tag, patterns, kind, report) {
+  const target = await profileActionTarget(page, tag, patterns);
+  if (target) {
+    await page.mouse.click(target.x + (target.width / 2), target.y + (target.height / 2));
+    await delay(350);
+    return;
+  }
+  const labelTarget = await profileTextTarget(page, patterns);
+  if (labelTarget) {
+    await page.mouse.click(labelTarget.x + (labelTarget.width / 2), labelTarget.y + (labelTarget.height / 2));
+    await delay(350);
+    return;
+  }
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  report.diagnostics = {
+    ...(report.diagnostics ?? {}),
+    wasmProfileSafetyActionFallback: "Compose/Wasm renders profile safety action labels in canvas without exposing these testTags as DOM aria; Web evidence uses viewport-relative action-row fallback after visual safety anchor assertion. Android/iOS retain semantic-anchor coverage.",
+  };
+  const fallbackColumns = { report: 0.28, block: 0.72, unblock: 0.72 };
+  const x = Math.round(viewport.width * (fallbackColumns[kind] ?? 0.5));
+  await page.mouse.click(x, Math.round(viewport.height * 0.555));
+  await delay(350);
+}
+
+async function clickProfileSwitchByLabel(page, tag, labelPatterns, errorPrefix, report) {
+  const semanticTarget = await profileActionTarget(page, tag, []);
+  if (semanticTarget) {
+    await page.mouse.click(semanticTarget.x + (semanticTarget.width / 2), semanticTarget.y + (semanticTarget.height / 2));
+    await delay(350);
+    return;
+  }
+  const labelTarget = await profileTextTarget(page, labelPatterns);
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  if (labelTarget) {
+    await page.mouse.click(Math.max(1, viewport.width - 62), labelTarget.y + (labelTarget.height / 2));
+    await delay(350);
+    return;
+  }
+  report.diagnostics = {
+    ...(report.diagnostics ?? {}),
+    wasmProfileRolesSwitchFallback: "Compose/Wasm renders the visible role switch in canvas without exposing the switch testTag/contentDescription as DOM aria; Web evidence uses a viewport-relative fallback after visual panel assertion. Android/iOS retain semantic-anchor coverage.",
+  };
+  await page.mouse.click(Math.max(1, viewport.width - 62), Math.round(viewport.height * 0.73));
+  await delay(350);
+}
+
+async function profileTextTarget(page, patterns) {
+  const serializedPatterns = patterns.map((pattern) => ({ source: pattern.source, flags: pattern.flags }));
+  return await page.evaluate(({ serializedPatterns }) => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const regexes = serializedPatterns.map((pattern) => new RegExp(pattern.source, pattern.flags));
+    const visibleRect = (element) => {
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      if (rect.width <= 0 || rect.height <= 0 || style.visibility === "hidden" || style.display === "none") return null;
+      if (rect.bottom < 0 || rect.right < 0 || rect.top > window.innerHeight || rect.left > window.innerWidth) return null;
+      return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+    };
+    const matches = [...scope.querySelectorAll("div,span,p")]
+      .map((element) => ({ element, text: (element.textContent ?? "").trim(), rect: visibleRect(element) }))
+      .filter((item) => item.rect && regexes.some((regex) => regex.test(item.text)))
+      .filter((item) => ![...item.element.children].some((child) => regexes.some((regex) => regex.test((child.textContent ?? "").trim()))))
+      .sort((a, b) => (a.rect.width * a.rect.height) - (b.rect.width * b.rect.height));
+    return matches[0]?.rect ?? null;
+  }, { serializedPatterns });
+}
+
+async function verifyProfileRolesSafetyFromOpenProfile(page, profile, fixture, evidenceDir, report, reopenProfile) {
+  const profileId = profile.profileId;
+  await assertVisibleTagOrText(page, `public-profile.roles.${profileId}`, [/Roles|Rol|Admin|Oficial|Official/i], "profile_roles_anchor_missing");
+  await assertVisibleTagOrText(page, `public-profile.roles.admin.${profileId}`, [/Admin/i], "profile_roles_anchor_missing");
+  await assertVisibleTagOrText(page, `public-profile.roles.official.${profileId}`, [/Oficial|Official/i], "profile_roles_anchor_missing");
+  await assertVisibleTagOrText(page, `public-profile.safety.${profileId}`, [/Reportar|Report|Bloquear|Block/i], "profile_safety_anchor_missing");
+  await assertVisibleTagOrText(page, `public-profile.safety.report.${profileId}`, [/Reportar|Report/i], "profile_safety_anchor_missing");
+  await assertVisibleTagOrText(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "profile_safety_anchor_missing");
+  await scrollProfileAdministrationIntoView(page);
+  report.evidence.profileRolesSafetyInitial = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-safety-initial");
+
+  await clickProfileSwitchByLabel(page, `public-profile.roles.official.${profileId}`, [/Oficial|Official/i], "profile_roles_action_not_clickable", report);
+  report.evidence.profileRolesSafetyRoleUpdating = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-safety-role-updating");
+  report.evidence.profileRolesPersisted = await pollProfileRoles({
+    fixture,
+    withDatabase: withPoolerClient,
+    expected: { isAdmin: false, isOfficial: true },
+    delay,
+  });
+
+  await scrollProfileHeaderIntoView(page);
+  await clickProfileSafetyAction(page, `public-profile.safety.report.${profileId}`, [/Reportar|Report/i], "report", report);
+  await assertVisibleAriaTag(page, "public-profile.safety.dialog.report", "profile_report_dialog_missing");
+  report.evidence.profileReportDialog = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-report-dialog");
+  await clickProfileAnchorOrText(page, "public-profile.safety.dialog.confirm.report", [/Reportar|Report/i], "profile_report_confirm_not_clickable");
+  const profileReport = await pollProfileReport({ fixture, withDatabase: withPoolerClient, delay });
+  report.evidence.profileReportPersisted = { id: profileReport.id, status: profileReport.status, reason: profileReport.reason };
+  const reportDialogDismissed = await dismissProfileReportDialogIfStillOpen(page, report);
+  if (!reportDialogDismissed) {
+    await reopenProfile();
+    report.steps.push("profile_reopened_after_report_dialog_wasm_dismiss_limit");
+  }
+
+  await scrollProfileHeaderIntoView(page);
+  await clickProfileSafetyAction(page, `public-profile.safety.block.${profileId}`, [/Bloquear|Block/i], "block", report);
+  await assertVisibleAriaTag(page, "public-profile.safety.dialog.block", "profile_block_dialog_missing");
+  report.evidence.profileBlockDialog = await attachScreenshot(page, evidenceDir, "web-chat-profile-safety-block-dialog");
+  await clickProfileAnchorOrText(page, "public-profile.safety.dialog.confirm.block", [/Bloquear|Block/i], "profile_block_confirm_not_clickable");
+  report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
+    fixture,
+    withDatabase: withPoolerClient,
+    expectedBlocked: true,
+    delay,
+  });
+  const blockDialogDismissed = await dismissProfileBlockDialogIfStillOpen(page, report);
+  if (!blockDialogDismissed) {
+    await reopenProfile();
+    report.steps.push("profile_reopened_after_block_dialog_wasm_dismiss_limit");
+  }
+  await assertVisibleTagOrText(page, `public-profile.safety.unblock.${profileId}`, [/Desbloquear|Unblock/i], "profile_unblock_anchor_missing");
+  report.evidence.profileRolesSafetyAfterBlock = await attachScreenshot(page, evidenceDir, "web-chat-profile-roles-safety-after-block");
 }
 
 async function prepareProfileEntryFixture(runId) {
@@ -2666,6 +2929,12 @@ function safeFailure(error) {
     "profile_content_comments_input_not_visible", "profile_content_comments_send_not_clickable",
     "profile_content_comment_not_persisted",
     "profile_private_chat_not_opened", "profile_entry_not_opened", "profile_entry_official_cleanup",
+    "profile_roles_anchor_missing", "profile_safety_anchor_missing", "profile_roles_action_not_clickable",
+    "profile_report_action_not_clickable", "profile_report_dialog_missing", "profile_report_confirm_not_clickable",
+    "profile_report_dialog_not_dismissible", "profile_block_dialog_not_dismissible",
+    "profile_block_action_not_clickable", "profile_block_dialog_missing", "profile_block_confirm_not_clickable",
+    "profile_unblock_anchor_missing", "profile_roles_not_persisted", "profile_report_not_persisted",
+    "profile_block_state_not_persisted", "profile_roles_safety_fixture",
     "consecutive_audio_playback_state_not_observed",
   ].find((prefix) => message.startsWith(prefix)) ?? "unexpected_chat_actions_notifications_web_failure";
 }
@@ -2682,7 +2951,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, privateMarker: null, attachmentsAudio: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, privateMarker: null, attachmentsAudio: null, cleanupRegistry: createCleanupRegistry() };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -2921,6 +3190,18 @@ try {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-private-chat");
       await openPrivateChatFromOpenProfile(page, state.b, state.profilePrivateChat, state.privateMarker, options.evidenceDir, report);
       report.steps.push("profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc");
+    } else if (options.profileRolesSafetyOnly) {
+      state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
+        actorSession: state.a,
+        targetSession: state.b,
+        withDatabase: withPoolerClient,
+      });
+      report.steps.push("profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared");
+      await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-roles-safety");
+      await verifyProfileRolesSafetyFromOpenProfile(page, state.b, state.profileRolesSafety, options.evidenceDir, report, async () => {
+        await reopenPeerProfileFromChat(page, server.origin, `sb:${state.thread}`, peerMarker, state.b);
+      });
+      report.steps.push("profile_roles_safety_roles_report_and_block_verified_by_db");
     } else if (options.profileFollowOnly) {
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
       await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
@@ -2935,7 +3216,7 @@ try {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly) {
       const blockingFaults = faults.filter((fault) => !isNonBlockingProfileEntryWasmFault(fault));
       if (faults.length) {
         report.diagnostics = {
@@ -2974,13 +3255,22 @@ try {
           officialMarkerSha256: sha256(state.profileEntry.official.marker),
         } : null,
         profilePrivateChatThreadId: state.profilePrivateChat?.threadId ?? null,
+        profileRolesSafety: state.profileRolesSafety ? {
+          targetProfileIdSha256: sha256(state.profileRolesSafety.targetProfileId),
+          actorWasAdmin: state.profileRolesSafety.actorRoles?.isAdmin ?? null,
+          targetWasAdmin: state.profileRolesSafety.targetRoles?.isAdmin ?? null,
+          targetWasOfficial: state.profileRolesSafety.targetRoles?.isOfficial ?? null,
+          hadGlobalBlock: state.profileRolesSafety.hadGlobalBlock ?? null,
+          hadProfileReport: Boolean(state.profileRolesSafety.previousReport),
+        } : null,
         privateMarkerSha256: state.privateMarker ? sha256(state.privateMarker) : null,
       };
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       if (options.profileEntryOnly) throw new ProfileEntryOnlyCompleted();
+      if (options.profileRolesSafetyOnly) throw new ProfileRolesSafetyOnlyCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
@@ -3096,7 +3386,7 @@ try {
     peerMarkerSha256: sha256(peerMarker),
   };
 } catch (error) {
-  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted) {
+  if (error instanceof EvidenceCompleted || error instanceof ProfileOnlyCompleted || error instanceof ProfileListsOnlyCompleted || error instanceof ProfileEntryOnlyCompleted || error instanceof ProfileRolesSafetyOnlyCompleted) {
     // Focal modes already set report.status and fixture; cleanup still runs in finally.
   } else {
     if (pageContext?.page) {
@@ -3190,6 +3480,17 @@ try {
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);
+      }
+    }
+    if (state.profileRolesSafety) {
+      try {
+        cleanup.profileRolesSafety = await cleanupProfileRolesSafetyFixture(state.profileRolesSafety);
+        cleanup.actions.push("profile_roles_safety_fixture_restored");
+        cleanup.actions.push("cleanup_verified_profile_roles_safety_restored");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+        cleanup.safeErrorMessage = typeof error?.message === "string" ? error.message : "unknown";
       }
     }
   }

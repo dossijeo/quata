@@ -9,7 +9,12 @@ import pg from "pg";
 import {
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   createCleanupRegistry,
+  cleanupProfileRolesSafetyFixture as cleanupSharedProfileRolesSafetyFixture,
+  pollProfileGlobalBlock,
+  pollProfileReport,
   pollProfileContentComment as pollSharedProfileContentComment,
+  pollProfileRoles,
+  prepareProfileRolesSafetyFixture,
   seedChatAttachmentFixture,
   seedProfileContentFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
@@ -29,6 +34,7 @@ const profileListsOnly = process.argv.includes("--profile-lists-only");
 const profileContentOnly = process.argv.includes("--profile-content-only");
 const profileEntryOnly = process.argv.includes("--profile-entry-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
+const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-only");
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
 const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
 const groupSosOnly = process.argv.includes("--group-sos-only");
@@ -68,6 +74,11 @@ const evidenceFiles = [
   "android-chat-profile-list-following.png",
   "android-chat-profile-lists-return.png",
   "android-chat-profile-content.png",
+  "android-chat-profile-roles-safety-initial.png",
+  "android-chat-profile-roles-safety-role-updating.png",
+  "android-chat-profile-safety-report-dialog.png",
+  "android-chat-profile-safety-block-dialog.png",
+  "android-chat-profile-roles-safety-after-block.png",
   "android-chat-profile-private-chat-before.png",
   "android-chat-profile-private-chat-opened.png",
   "android-profile-entry-feed-source.png",
@@ -139,6 +150,10 @@ async function cleanupProfileContentFixture(fixture) {
 
 async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   return pollSharedProfileContentComment({ fixture, marker, withDatabase, delay, timeout });
+}
+
+async function cleanupProfileRolesSafetyFixture(fixture) {
+  return cleanupSharedProfileRolesSafetyFixture({ fixture, withDatabase });
 }
 
 async function prepareProfileEntryFixture(config, runId) {
@@ -1091,7 +1106,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = options.evidenceDir;
@@ -1118,7 +1133,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profileEntryOnly && !profilePrivateChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !groupSosOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !groupSosOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1387,6 +1402,13 @@ try {
       state.profileEntry = await prepareProfileEntryFixture(config, runId);
       state.profileContent = state.profileEntry.profileContent;
       report.steps.push("profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared");
+    } else if (profileRolesSafetyOnly) {
+      state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
+        actorSession: state.a,
+        targetSession: state.b,
+        withDatabase,
+      });
+      report.steps.push("profile_roles_safety_initial_state_snapshot_and_admin_actor_prepared");
     } else if (profileContentOnly) {
       state.profileContent = {
         marker: `qadata-profile-content-${runId}`,
@@ -1399,7 +1421,7 @@ try {
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
     }
-    const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : "profile";
+    const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
@@ -1418,9 +1440,29 @@ try {
       state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
       report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
     }
+    if (profileRolesSafetyOnly) {
+      report.evidence.profileRolesPersisted = await pollProfileRoles({
+        fixture: state.profileRolesSafety,
+        withDatabase,
+        expected: { isAdmin: false, isOfficial: true },
+        delay,
+      });
+      report.evidence.profileReportPersisted = await pollProfileReport({
+        fixture: state.profileRolesSafety,
+        withDatabase,
+        delay,
+      });
+      report.evidence.profileBlockPersisted = await pollProfileGlobalBlock({
+        fixture: state.profileRolesSafety,
+        withDatabase,
+        expectedBlocked: true,
+        delay,
+      });
+      report.steps.push("profile_roles_safety_roles_report_and_block_verified_by_db");
+    }
   }
 
-  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profileEntryOnly || profilePrivateChatOnly) {
+  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly) {
     await rm(evidenceDir, { recursive: true, force: true });
     await mkdir(evidenceDir, { recursive: true });
     for (const file of evidenceFiles.filter((name) => name.includes("profile") || name.endsWith("evidence.json"))) {
@@ -1452,8 +1494,16 @@ try {
         officialPostId: state.profileEntry.official.id,
         officialMarkerSha256: sha256(state.profileEntry.official.marker),
       } : null,
+      profileRolesSafety: state.profileRolesSafety ? {
+        targetProfileIdSha256: sha256(state.profileRolesSafety.targetProfileId),
+        actorWasAdmin: state.profileRolesSafety.actorRoles?.isAdmin ?? null,
+        targetWasAdmin: state.profileRolesSafety.targetRoles?.isAdmin ?? null,
+        targetWasOfficial: state.profileRolesSafety.targetRoles?.isOfficial ?? null,
+        hadGlobalBlock: state.profileRolesSafety.hadGlobalBlock ?? null,
+        hadProfileReport: Boolean(state.profileRolesSafety.previousReport),
+      } : null,
     };
-    throw new Error(profilePrivateChatOnly ? "profile_private_chat_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
+    throw new Error(profileRolesSafetyOnly ? "profile_roles_safety_only_completed" : profilePrivateChatOnly ? "profile_private_chat_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));
@@ -1526,7 +1576,8 @@ try {
     error?.message === "profile_lists_only_completed" ||
     error?.message === "profile_entry_only_completed" ||
     error?.message === "profile_content_only_completed" ||
-    error?.message === "profile_private_chat_only_completed"
+    error?.message === "profile_private_chat_only_completed" ||
+    error?.message === "profile_roles_safety_only_completed"
   ) {
     // Focal modes finished successfully; cleanup and report writing still happen in finally.
   } else {
@@ -1613,6 +1664,16 @@ try {
         cleanup.profileEntryOfficial = await cleanupOfficialProfileEntryPost(state.profileEntry.official);
         cleanup.actions.push("profile_entry_official_post_deleted");
         cleanup.actions.push("cleanup_verified_profile_entry_official_residue_absent");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (config && state.profileRolesSafety) {
+      try {
+        cleanup.profileRolesSafety = await cleanupProfileRolesSafetyFixture(state.profileRolesSafety);
+        cleanup.actions.push("profile_roles_safety_fixture_restored");
+        cleanup.actions.push("cleanup_verified_profile_roles_safety_restored");
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);

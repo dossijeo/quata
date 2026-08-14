@@ -343,6 +343,259 @@ export async function pollProfileContentComment({
   throw new Error("profile_content_comment_not_persisted");
 }
 
+export async function prepareProfileRolesSafetyFixture({
+  actorSession,
+  targetSession,
+  withDatabase,
+}) {
+  if (!uuid.test(actorSession?.profileId ?? "") || !uuid.test(targetSession?.profileId ?? "")) {
+    throw new Error("profile_roles_safety_fixture_invalid_profiles");
+  }
+  if (actorSession.profileId === targetSession.profileId) throw new Error("profile_roles_safety_fixture_self_target");
+  const fixture = {
+    actorProfileId: actorSession.profileId,
+    targetProfileId: targetSession.profileId,
+    prepared: false,
+  };
+  const snapshot = await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const profiles = await client.query(
+        `select id, is_admin, is_official
+           from public.community_profiles
+          where id = any($1::uuid[])
+          for update`,
+        [[actorSession.profileId, targetSession.profileId]],
+      );
+      if (profiles.rowCount !== 2) throw new Error("profile_roles_safety_fixture_profiles_not_found");
+      const actor = profiles.rows.find((row) => row.id === actorSession.profileId);
+      const target = profiles.rows.find((row) => row.id === targetSession.profileId);
+      const block = await client.query(
+        `select thread_id, blocker_profile_id, blocked_profile_id
+           from public.chat_profile_blocks
+          where thread_id is null
+            and blocker_profile_id = $1::uuid
+            and blocked_profile_id = $2::uuid
+          for update`,
+        [actorSession.profileId, targetSession.profileId],
+      );
+      const report = await client.query(
+        `select id, reporter_profile_id, target_type, target_id, reported_profile_id,
+                reason, details, status, created_at, reviewed_at, reviewed_by
+           from public.ugc_reports
+          where reporter_profile_id = $1::uuid
+            and target_type = 'profile'
+            and target_id = $2
+          for update`,
+        [actorSession.profileId, targetSession.profileId],
+      );
+      await client.query(
+        "update public.community_profiles set is_admin = true where id = $1::uuid",
+        [actorSession.profileId],
+      );
+      await client.query(
+        "update public.community_profiles set is_admin = false, is_official = false where id = $1::uuid",
+        [targetSession.profileId],
+      );
+      await client.query(
+        `delete from public.chat_profile_blocks
+          where thread_id is null
+            and blocker_profile_id = $1::uuid
+            and blocked_profile_id = $2::uuid`,
+        [actorSession.profileId, targetSession.profileId],
+      );
+      await client.query("commit");
+      return {
+        actorRoles: { isAdmin: actor.is_admin === true, isOfficial: actor.is_official === true },
+        targetRoles: { isAdmin: target.is_admin === true, isOfficial: target.is_official === true },
+        hadGlobalBlock: block.rowCount > 0,
+        previousReport: report.rows[0] ?? null,
+      };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  Object.assign(fixture, snapshot, { prepared: true });
+  return fixture;
+}
+
+export async function pollProfileRoles({
+  fixture,
+  withDatabase,
+  expected,
+  delay,
+  timeout = 45_000,
+}) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => await client.query(
+      "select is_admin, is_official from public.community_profiles where id = $1::uuid",
+      [fixture.targetProfileId],
+    ));
+    const row = result.rows[0];
+    if (row && row.is_admin === expected.isAdmin && row.is_official === expected.isOfficial) {
+      return { isAdmin: row.is_admin === true, isOfficial: row.is_official === true };
+    }
+    await delay(1_000);
+  }
+  throw new Error("profile_roles_not_persisted");
+}
+
+export async function pollProfileGlobalBlock({
+  fixture,
+  withDatabase,
+  expectedBlocked,
+  delay,
+  timeout = 45_000,
+}) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => await client.query(
+      `select count(*)::int as count
+         from public.chat_profile_blocks
+        where thread_id is null
+          and blocker_profile_id = $1::uuid
+          and blocked_profile_id = $2::uuid`,
+      [fixture.actorProfileId, fixture.targetProfileId],
+    ));
+    const blocked = Number(result.rows[0]?.count ?? 0) > 0;
+    if (blocked === expectedBlocked) return { blocked };
+    await delay(1_000);
+  }
+  throw new Error(`profile_block_state_not_persisted:${expectedBlocked}`);
+}
+
+export async function pollProfileReport({
+  fixture,
+  withDatabase,
+  delay,
+  timeout = 45_000,
+}) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => await client.query(
+      `select id, status, reason
+         from public.ugc_reports
+        where reporter_profile_id = $1::uuid
+          and target_type = 'profile'
+          and target_id = $2
+        order by created_at desc
+        limit 1`,
+      [fixture.actorProfileId, fixture.targetProfileId],
+    ));
+    const row = result.rows[0];
+    if (row && row.status === "pending" && row.reason === "other") return row;
+    await delay(1_000);
+  }
+  throw new Error("profile_report_not_persisted");
+}
+
+export async function cleanupProfileRolesSafetyFixture({
+  fixture,
+  withDatabase,
+}) {
+  if (!fixture?.prepared) return null;
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      await client.query(
+        "update public.community_profiles set is_admin = $2, is_official = $3 where id = $1::uuid",
+        [fixture.actorProfileId, fixture.actorRoles.isAdmin, fixture.actorRoles.isOfficial],
+      );
+      await client.query(
+        "update public.community_profiles set is_admin = $2, is_official = $3 where id = $1::uuid",
+        [fixture.targetProfileId, fixture.targetRoles.isAdmin, fixture.targetRoles.isOfficial],
+      );
+      await client.query(
+        `delete from public.chat_profile_blocks
+          where thread_id is null
+            and blocker_profile_id = $1::uuid
+            and blocked_profile_id = $2::uuid`,
+        [fixture.actorProfileId, fixture.targetProfileId],
+      );
+      if (fixture.hadGlobalBlock) {
+        await client.query(
+          `insert into public.chat_profile_blocks(thread_id, blocker_profile_id, blocked_profile_id)
+           values (null, $1::uuid, $2::uuid)
+           on conflict do nothing`,
+          [fixture.actorProfileId, fixture.targetProfileId],
+        );
+      }
+      await client.query(
+        `delete from public.ugc_reports
+          where reporter_profile_id = $1::uuid
+            and target_type = 'profile'
+            and target_id = $2`,
+        [fixture.actorProfileId, fixture.targetProfileId],
+      );
+      if (fixture.previousReport) {
+        const report = fixture.previousReport;
+        await client.query(
+          `insert into public.ugc_reports(
+             id, reporter_profile_id, target_type, target_id, reported_profile_id,
+             reason, details, status, created_at, reviewed_at, reviewed_by
+           ) values (
+             $1, $2::uuid, $3, $4, $5::uuid,
+             $6, $7, $8, $9, $10, $11::uuid
+           )
+           on conflict (reporter_profile_id, target_type, target_id) do update
+             set reported_profile_id = excluded.reported_profile_id,
+                 reason = excluded.reason,
+                 details = excluded.details,
+                 status = excluded.status,
+                 created_at = excluded.created_at,
+                 reviewed_at = excluded.reviewed_at,
+                 reviewed_by = excluded.reviewed_by`,
+          [
+            report.id,
+            report.reporter_profile_id,
+            report.target_type,
+            report.target_id,
+            report.reported_profile_id,
+            report.reason,
+            report.details,
+            report.status,
+            report.created_at,
+            report.reviewed_at,
+            report.reviewed_by,
+          ],
+        );
+      }
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+    const residue = await client.query(
+      `select
+        (select is_admin from public.community_profiles where id = $1::uuid) as actor_is_admin,
+        (select is_official from public.community_profiles where id = $1::uuid) as actor_is_official,
+        (select is_admin from public.community_profiles where id = $2::uuid) as target_is_admin,
+        (select is_official from public.community_profiles where id = $2::uuid) as target_is_official,
+        (select count(*)::int from public.chat_profile_blocks
+          where thread_id is null and blocker_profile_id = $1::uuid and blocked_profile_id = $2::uuid) as block_count,
+        (select count(*)::int from public.ugc_reports
+          where reporter_profile_id = $1::uuid and target_type = 'profile' and target_id = $3) as report_count`,
+      [fixture.actorProfileId, fixture.targetProfileId, fixture.targetProfileId],
+    );
+    const row = residue.rows[0] ?? {};
+    const restored =
+      row.actor_is_admin === fixture.actorRoles.isAdmin &&
+      row.actor_is_official === fixture.actorRoles.isOfficial &&
+      row.target_is_admin === fixture.targetRoles.isAdmin &&
+      row.target_is_official === fixture.targetRoles.isOfficial &&
+      Number(row.block_count ?? 0) === (fixture.hadGlobalBlock ? 1 : 0) &&
+      Number(row.report_count ?? 0) === (fixture.previousReport ? 1 : 0);
+    if (!restored) throw new Error("cleanup_residue_detected:profile_roles_safety");
+    return {
+      status: "cleanup_verified_profile_roles_safety_restored",
+      targetProfileId: fixture.targetProfileId,
+      restored: true,
+    };
+  });
+}
+
 function safeFailure(error) {
   return String(error?.message ?? error)
     .replace(/(bearer\s+|authorization\s*[:=]\s*|token\s*[:=]\s*|password\s*[:=]\s*|apikey\s*[:=]\s*)[^\s,;]+/gi, "$1[REDACTED]")

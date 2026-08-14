@@ -15,6 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataOrange
@@ -31,22 +34,54 @@ fun ProfileRoleControlsContent(
     onSetRoles: (Boolean, Boolean) -> Unit
 ) {
     val template = quataTheme()
-    Card(colors = CardDefaults.cardColors(containerColor = template.colors.surfaceAlt), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = template.colors.surfaceAlt),
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { testTag = PublicProfileRolesRootTestTagPrefix + user.id },
+    ) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 Text(strings.title, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                if (isUpdating) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = QuataOrange)
+                if (isUpdating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .semantics { testTag = PublicProfileRolesLoadingTestTagPrefix + user.id },
+                        strokeWidth = 2.dp,
+                        color = QuataOrange,
+                    )
+                }
             }
-            RoleSwitchRow(strings.admin, user.isAdmin, !isUpdating) { onSetRoles(it, user.isOfficial) }
-            RoleSwitchRow(strings.official, user.isOfficial, !isUpdating) { onSetRoles(user.isAdmin, it) }
+            RoleSwitchRow(
+                label = strings.admin,
+                checked = user.isAdmin,
+                enabled = !isUpdating,
+                tag = PublicProfileRolesAdminTestTagPrefix + user.id,
+            ) { onSetRoles(it, user.isOfficial) }
+            RoleSwitchRow(
+                label = strings.official,
+                checked = user.isOfficial,
+                enabled = !isUpdating,
+                tag = PublicProfileRolesOfficialTestTagPrefix + user.id,
+            ) { onSetRoles(user.isAdmin, it) }
         }
     }
 }
 
 @Composable
-private fun RoleSwitchRow(label: String, checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun RoleSwitchRow(label: String, checked: Boolean, enabled: Boolean, tag: String, onCheckedChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
         Text(label, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
-        Switch(checked = checked, enabled = enabled, onCheckedChange = onCheckedChange)
+        Switch(
+            checked = checked,
+            enabled = enabled,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.semantics {
+                testTag = tag
+                contentDescription = tag
+            },
+        )
     }
 }

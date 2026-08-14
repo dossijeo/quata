@@ -4,6 +4,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 
 enum class ProfileModerationAction { Report, Block, Unblock }
 
@@ -28,7 +32,12 @@ fun ProfileModerationConfirmation(
     onConfirm: (ProfileModerationAction) -> Unit
 ) {
     action ?: return
+    val actionTag = action.testTagSuffix()
     AlertDialog(
+        modifier = Modifier.semantics {
+            testTag = PublicProfileModerationDialogTestTagPrefix + actionTag
+            contentDescription = PublicProfileModerationDialogTestTagPrefix + actionTag
+        },
         onDismissRequest = onDismiss,
         title = {
             Text(when (action) {
@@ -44,9 +53,25 @@ fun ProfileModerationConfirmation(
                 ProfileModerationAction.Unblock -> strings.unblockMessage
             })
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(strings.cancel) } },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.semantics {
+                    testTag = PublicProfileModerationDialogCancelTestTag
+                    contentDescription = PublicProfileModerationDialogCancelTestTag
+                },
+            ) {
+                Text(strings.cancel)
+            }
+        },
         confirmButton = {
-            TextButton(onClick = { onConfirm(action) }) {
+            TextButton(
+                onClick = { onConfirm(action) },
+                modifier = Modifier.semantics {
+                    testTag = PublicProfileModerationDialogConfirmTestTagPrefix + actionTag
+                    contentDescription = PublicProfileModerationDialogConfirmTestTagPrefix + actionTag
+                },
+            ) {
                 Text(when (action) {
                     ProfileModerationAction.Report -> strings.report
                     ProfileModerationAction.Block -> strings.block
@@ -55,4 +80,10 @@ fun ProfileModerationConfirmation(
             }
         }
     )
+}
+
+private fun ProfileModerationAction.testTagSuffix(): String = when (this) {
+    ProfileModerationAction.Report -> "report"
+    ProfileModerationAction.Block -> "block"
+    ProfileModerationAction.Unblock -> "unblock"
 }

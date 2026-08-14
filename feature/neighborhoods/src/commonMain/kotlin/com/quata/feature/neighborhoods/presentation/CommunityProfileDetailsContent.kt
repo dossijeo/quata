@@ -6,7 +6,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+
+const val PublicProfileDetailsTestTag = "public-profile.details"
 
 /**
  * Shared scrollable body for a community profile sheet/screen.
@@ -26,7 +29,7 @@ fun CommunityProfileDetailsContent(
 ) {
     LazyColumn(
         state = listState,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().testTag(PublicProfileDetailsTestTag),
         contentPadding = contentPadding,
     ) {
         item(key = "community-profile-header") { header() }
