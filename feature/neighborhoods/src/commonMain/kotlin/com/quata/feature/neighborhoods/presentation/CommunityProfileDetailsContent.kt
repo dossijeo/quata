@@ -20,6 +20,7 @@ fun CommunityProfileDetailsContent(
     header: @Composable () -> Unit,
     attachments: @Composable () -> Unit,
     gallery: (@Composable () -> Unit)? = null,
+    footer: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(start = 20.dp, top = 14.dp, end = 20.dp, bottom = 28.dp),
 ) {
@@ -32,6 +33,9 @@ fun CommunityProfileDetailsContent(
         item(key = "community-profile-attachments") { attachments() }
         gallery?.let { content ->
             item(key = "community-profile-gallery") { content() }
+        }
+        footer?.let { content ->
+            item(key = "community-profile-footer") { content() }
         }
     }
 }

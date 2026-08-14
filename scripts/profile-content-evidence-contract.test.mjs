@@ -10,6 +10,8 @@ const sharedFixtures = await readFile(new URL("./e2e-fixtures/chat-attachments.m
 const androidUiTest = await readFile(new URL("../app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt", import.meta.url), "utf8");
 const iosUiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift", import.meta.url), "utf8");
 const iosNeighborhoodsHost = await readFile(new URL("../feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt", import.meta.url), "utf8");
+const commonProfileHost = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt", import.meta.url), "utf8");
+const commonProfileDetails = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileDetailsContent.kt", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
@@ -72,7 +74,10 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(iosUiTest, /public-profile\.comments\.close/);
   assert.match(iosUiTest, /dismissProfileCommentsPanel\(in: app\)/);
   assert.match(iosUiTest, /tapPublicProfileBackOrDismiss\(in: app\)/);
+  assert.match(iosUiTest, /public-profile\.back\.footer/);
   assert.match(iosNeighborhoodsHost, /showDismissButton = true/);
+  assert.match(commonProfileDetails, /footer: \(@Composable \(\) -> Unit\)\? = null/);
+  assert.match(commonProfileHost, /PublicProfileFooterBackTestTag = "public-profile\.back\.footer"/);
   assert.match(iosUiTest, /profile comment submitted from iOS must remain visible/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E/);
   assert.match(iosWrapper, /testProfileContentFromChatUsesSharedPublicProfileSurface/);

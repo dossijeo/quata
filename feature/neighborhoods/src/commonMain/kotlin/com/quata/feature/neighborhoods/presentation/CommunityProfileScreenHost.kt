@@ -40,6 +40,7 @@ import com.quata.feature.neighborhoods.domain.ProfileAttachment
 
 const val PublicProfileRootTestTag = "public-profile.root"
 const val PublicProfileBackTestTag = "public-profile.back"
+const val PublicProfileFooterBackTestTag = "public-profile.back.footer"
 const val PublicProfileUserTestTagPrefix = "public-profile.user."
 const val PublicProfileHeaderTestTagPrefix = PublicProfileUserTestTagPrefix
 const val PublicProfileAvatarTestTagPrefix = "public-profile.avatar."
@@ -316,6 +317,15 @@ fun CommunityProfileScreenHost(
                                     )
                                 },
                             )
+                        }
+                    }
+                } else null,
+                footer = if (showDismissButton) {
+                    {
+                        Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)) {
+                            CompactIconButton(onClick = onBack, modifier = Modifier.semantics { testTag = PublicProfileFooterBackTestTag }) {
+                                CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, strings.back)
+                            }
                         }
                     }
                 } else null,

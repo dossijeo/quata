@@ -656,17 +656,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func tapPublicProfileBackOrDismiss(in app: XCUIApplication) {
-        let back = app.descendants(matching: .any)
-            .matching(identifier: "public-profile.back")
-            .firstMatch
-        if back.waitForExistence(timeout: 5), back.isHittable {
+        if let back = publicProfileBackAction(in: app, timeout: 5) {
             back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             return
         }
         for _ in 0..<8 {
             app.swipeDown()
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
-            if back.waitForExistence(timeout: 1), back.isHittable {
+            if let back = publicProfileBackAction(in: app, timeout: 1) {
                 back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
                 return
             }
@@ -674,6 +671,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.88))
         start.press(forDuration: 0.1, thenDragTo: end)
+    }
+
+    private func publicProfileBackAction(in app: XCUIApplication, timeout: TimeInterval) -> XCUIElement? {
+        for identifier in ["public-profile.back", "public-profile.back.footer"] {
+            let action = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            if action.waitForExistence(timeout: timeout), action.isHittable {
+                return action
+            }
+        }
+        return nil
     }
 
     private func dismissProfileCommentsPanel(in app: XCUIApplication) {
