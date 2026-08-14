@@ -70,6 +70,13 @@ test("Android PROF-CONTENT runner writes focal reports to requested paths", () =
   assert.match(androidRunner, /const output = options\.output/);
 });
 
+test("PROF-CONTENT runners provide delay to the shared comment poller", () => {
+  for (const runner of [androidRunner, iosRunner]) {
+    assert.match(runner, /setTimeout as delay/);
+    assert.match(runner, /pollSharedProfileContentComment\(\{ fixture, marker, withDatabase, delay, timeout \}\)/);
+  }
+});
+
 test("PROF-CONTENT contract is part of local fast contract suites", () => {
   assert.match(packageJson.scripts["test:ci-fast-contracts"], /scripts\/profile-content-evidence-contract\.test\.mjs/);
   assert.match(packageJson.scripts["test:web-wave2-contracts"], /scripts\/profile-content-evidence-contract\.test\.mjs/);
