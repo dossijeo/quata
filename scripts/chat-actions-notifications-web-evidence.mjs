@@ -1031,22 +1031,41 @@ async function dismissProfileBlockDialogIfStillOpen(page, report) {
 }
 
 async function dismissProfileDialogIfStillOpen(page, action, report) {
-  const dialog = await profileActionTarget(page, `public-profile.safety.dialog.${action}`, []);
+  const dialog = await profileActionTarget(page, `public-profile.safety.dialog.${action}`, []) ?? await profileAnySafetyDialogTarget(page);
   if (!dialog) return true;
   const cancel = await profileActionTarget(page, "public-profile.safety.dialog.cancel", []);
   if (!cancel) throw new Error(`profile_${action}_dialog_not_dismissible`);
   await page.mouse.click(cancel.x + (cancel.width / 2), cancel.y + (cancel.height / 2));
   await delay(350);
-  if (await profileActionTarget(page, `public-profile.safety.dialog.${action}`, [])) {
+  if (await profileActionTarget(page, `public-profile.safety.dialog.${action}`, []) ?? await profileAnySafetyDialogTarget(page)) {
     await page.keyboard.press("Escape").catch(() => {});
     await delay(350);
   }
-  if (await profileActionTarget(page, `public-profile.safety.dialog.${action}`, [])) {
+  if (await profileActionTarget(page, `public-profile.safety.dialog.${action}`, []) ?? await profileAnySafetyDialogTarget(page)) {
     report.steps.push(`profile_${action}_dialog_remained_open_after_persisted_action`);
     return false;
   }
   report.steps.push(`profile_${action}_dialog_dismissed_after_persisted_action`);
   return true;
+}
+
+async function profileAnySafetyDialogTarget(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const visibleRect = (element) => {
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      if (rect.width <= 0 || rect.height <= 0 || style.visibility === "hidden" || style.display === "none") return null;
+      if (rect.bottom < 0 || rect.right < 0 || rect.top > window.innerHeight || rect.left > window.innerWidth) return null;
+      return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+    };
+    const dialogs = [...scope.querySelectorAll("[aria-label]")]
+      .map((element) => ({ label: element.getAttribute("aria-label") ?? "", rect: visibleRect(element) }))
+      .filter((item) => item.rect && item.label.startsWith("public-profile.safety.dialog."))
+      .sort((a, b) => (a.rect.width * a.rect.height) - (b.rect.width * b.rect.height));
+    return dialogs[0]?.rect ?? null;
+  });
 }
 
 async function scrollProfileAdministrationIntoView(page) {
