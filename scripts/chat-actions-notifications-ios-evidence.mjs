@@ -32,12 +32,13 @@ const profileOnly = options.profileOnly;
 const profileFollowOnly = options.profileFollowOnly;
 const profileListsOnly = options.profileListsOnly;
 const profileContentOnly = options.profileContentOnly;
+const profileEntryOnly = options.profileEntryOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const menuSurfaceOnly = options.menuSurfaceOnly;
 const keyboardMenuOnly = options.keyboardMenuOnly;
 const attachmentsAudioOnly = options.attachmentsAudioOnly;
 const groupSosOnly = options.groupSosOnly;
-const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profilePrivateChatOnly;
+const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profileEntryOnly || profilePrivateChatOnly;
 const report = {
   check,
   status: "failed",
@@ -74,6 +75,7 @@ const state = {
   profileFollow: null,
   profileListEdges: null,
   profileContent: null,
+  profileEntry: null,
   profilePrivateChat: null,
   profilePrivateChatMarkerMessage: null,
   attachmentsAudio: null,
@@ -120,7 +122,7 @@ try {
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
   state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
-  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+    state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
   state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
   state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
   state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
@@ -251,6 +253,11 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_list_edges_prepared_reversibly");
     }
+    if (profileEntryOnly) {
+      state.profileEntry = await prepareProfileEntryFixture(runId);
+      state.profileContent = state.profileEntry.profileContent;
+      report.steps.push("profile_entry_feed_official_conversations_and_chat_fixtures_prepared");
+    }
     if (profileContentOnly) {
       state.profileContent = {
         marker: `qadata-profile-content-${runId}`,
@@ -319,6 +326,9 @@ export QUATA_IOS_CHAT_PROFILE_ONLY=${profileEvidenceOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E=${profileListsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E=${profileContentOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
+export QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID=${shellQuote(state.profileEntry?.official?.id ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID=${shellQuote(state.profileContent?.postId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID=${shellQuote(state.profileContent?.seedCommentId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID=${shellQuote(state.profileContent?.attachmentId ?? "profile-only")}
@@ -354,6 +364,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? "ios_xctest_profile_followers_and_following_lists_verified"
       : profileContentOnly
         ? "ios_xctest_profile_content_gallery_comments_and_attachments_verified"
+        : profileEntryOnly
+          ? "ios_xctest_profile_entry_feed_official_conversations_and_chat_verified"
         : profilePrivateChatOnly
           ? "profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc"
         : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
@@ -425,6 +437,10 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           uiCommentId: state.profileContent.uiCommentId,
           attachmentId: state.profileContent.attachmentId,
           attachmentMessageId: state.profileContent.attachmentMessageId,
+        } : null,
+        profileEntry: state.profileEntry ? {
+          officialPostId: state.profileEntry.official.id,
+          officialMarkerSha256: sha256(state.profileEntry.official.marker),
         } : null,
         privateMarkerSha256: profilePrivateChatOnly ? sha256(state.privateMarker) : null,
         profilePrivateChatThreadId: state.profilePrivateChat ?? null,
@@ -508,6 +524,16 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         cleanup.error = safeFailure(error);
       }
     }
+    if (state.profileEntry?.official) {
+      try {
+        cleanup.profileEntryOfficial = await cleanupOfficialProfileEntryPost(state.profileEntry.official);
+        cleanup.actions.push("profile_entry_official_post_deleted");
+        cleanup.actions.push("cleanup_verified_profile_entry_official_residue_absent");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
     if (state.forwardProfile) {
       try {
         cleanup.forwardDestination = await hardDeleteTemporaryForwardDestination(state.forwardProfile, state.forwardThread);
@@ -562,6 +588,7 @@ function parseArgs(argv) {
     profileFollowOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_FOLLOW_ONLY === "1",
     profileListsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_LISTS_ONLY === "1",
     profileContentOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_ONLY === "1",
+    profileEntryOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
     menuSurfaceOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MENU_SURFACE_ONLY === "1",
     keyboardMenuOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_KEYBOARD_MENU_ONLY === "1",
@@ -597,6 +624,14 @@ function parseArgs(argv) {
     }
     if (key === "--profile-content-only") {
       result.profileContentOnly = true;
+      continue;
+    }
+    if (key === "--profile-entry-only") {
+      result.profileEntryOnly = true;
+      result.output = resolve("build-reports/ios/profile-entry-chat-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/profile-entry-chat-evidence");
+      result.remoteLogDir = "build/reports/ios/profile-entry-chat";
+      result.remoteResultBundleDir = "build/reports/ios/profile-entry-chat/xcresults";
       continue;
     }
     if (key === "--profile-private-chat-only") {
@@ -1303,6 +1338,84 @@ async function cleanupProfileContentFixture(fixture) {
 
 async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   return pollSharedProfileContentComment({ fixture, marker, withDatabase, delay, timeout });
+}
+
+async function prepareProfileEntryFixture(runId) {
+  const profileContent = {
+    marker: `qadata-profile-content-${runId}`,
+    config,
+    actorSession: state.a,
+    targetSession: state.b,
+    threadId: state.thread,
+  };
+  await prepareProfileContentFixture(profileContent);
+  const official = await createOfficialProfileEntryPost(state.b.profileId, `qadata-profile-entry-official-ios-${runId}`);
+  return { profileContent, official };
+}
+
+async function createOfficialProfileEntryPost(profileId, marker) {
+  const id = randomUUID();
+  const translationGroupId = randomUUID();
+  const title = `QADATA profile entry official ${marker.slice(-12)}`;
+  const publishedAt = new Date().toISOString();
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      await client.query(
+        `insert into public.official_posts(
+           id, profile_id, title, summary, post_type, content_html,
+           read_more_label, language, translation_group_id, media_url,
+           media_type, link_url, is_live, is_published, published_at
+         ) values (
+           $1::uuid, $2::uuid, $3, $4, 'news', $5,
+           'Leer mas', 'es', $6::uuid, null,
+           null, null, false, true, $7
+         )`,
+        [
+          id,
+          profileId,
+          title,
+          `Entrada reversible al perfil publico ${marker}`,
+          `<p>Entrada reversible al perfil publico ${marker}</p>`,
+          translationGroupId,
+          publishedAt,
+        ],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  return { id, translationGroupId, marker, title };
+}
+
+async function cleanupOfficialProfileEntryPost(fixture) {
+  if (!fixture?.id) return null;
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      await client.query("delete from public.official_post_likes where official_post_id = $1::uuid", [fixture.id]);
+      await client.query("delete from public.official_post_comments where official_post_id = $1::uuid", [fixture.id]);
+      const deleted = await client.query(
+        `delete from public.official_posts
+         where id = $1::uuid or translation_group_id = $2::uuid`,
+        [fixture.id, fixture.translationGroupId],
+      );
+      const remaining = await client.query(
+        `select count(*)::int as count
+         from public.official_posts
+         where id = $1::uuid or translation_group_id = $2::uuid or title like $3`,
+        [fixture.id, fixture.translationGroupId, `%${fixture.marker}%`],
+      );
+      if (Number(remaining.rows[0]?.count ?? 0) !== 0) throw new Error("profile_entry_official_cleanup_residue");
+      await client.query("commit");
+      return { state: "hard_deleted_verified", deletedRows: deleted.rowCount, remainingRows: 0 };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
 }
 
 async function hardDeleteTemporaryForwardDestination(profile, threadId) {

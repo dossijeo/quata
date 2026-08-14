@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const webRunner = await readFile(new URL("./chat-actions-notifications-web-evidence.mjs", import.meta.url), "utf8");
+const androidRunner = await readFile(new URL("./chat-actions-notifications-android-evidence.mjs", import.meta.url), "utf8");
+const androidUiTest = await readFile(new URL("../app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt", import.meta.url), "utf8");
+const iosRunner = await readFile(new URL("./chat-actions-notifications-ios-evidence.mjs", import.meta.url), "utf8");
+const iosUiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift", import.meta.url), "utf8");
 const feedAnchor = await readFile(new URL("../feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelPostContent.kt", import.meta.url), "utf8");
 const officialAnchor = await readFile(new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostCardContent.kt", import.meta.url), "utf8");
 const officialHost = await readFile(new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt", import.meta.url), "utf8");
@@ -12,6 +16,8 @@ const webBridge = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata
 const webProfileRoute = await readFile(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebFeedMemberProfileRoute.kt", import.meta.url), "utf8");
 const conversationAnchor = await readFile(new URL("../feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationAvatarPresentation.kt", import.meta.url), "utf8");
 const conversationsHost = await readFile(new URL("../feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/conversations/ConversationsScreenHost.kt", import.meta.url), "utf8");
+const bottomNavigation = await readFile(new URL("../designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataBottomNavigation.kt", import.meta.url), "utf8");
+const mainActivity = await readFile(new URL("../app/src/main/java/com/quata/MainActivity.kt", import.meta.url), "utf8");
 
 test("PROF-ENTRY Web evidence is opt-in, semantic-first and reversible", () => {
   assert.match(webRunner, /--profile-entry-only/);
@@ -36,6 +42,35 @@ test("PROF-ENTRY Web evidence is opt-in, semantic-first and reversible", () => {
   assert.doesNotMatch(webRunner, /680242607|680242608|21085800|SERVICE_ROLE\s*=/);
 });
 
+test("PROF-ENTRY Android and iOS evidence cover Feed, Official, Conversations and Chat", () => {
+  assert.match(androidRunner, /--profile-entry-only/);
+  assert.match(androidRunner, /prepareProfileEntryFixture/);
+  assert.match(androidRunner, /profile_entry_feed_official_conversations_and_chat_fixtures_prepared/);
+  assert.match(androidRunner, /profile_entry_feed_official_conversations_and_chat_opened_common_profile_and_returned/);
+  assert.match(androidRunner, /cleanupOfficialProfileEntryPost/);
+  assert.match(androidRunner, /quataChatActionsOfficialPostId/);
+  assert.match(androidUiTest, /"profile-entry" ->/);
+  assert.match(androidUiTest, /runProfileEntryStage/);
+  assert.match(androidUiTest, /quataPostUrl\(feedPostId\)/);
+  assert.match(androidUiTest, /quataOfficialPostUrl\(officialPostId\)/);
+  assert.match(androidUiTest, /evidenceStartIntent\(AppDestinations\.Conversations\.route\)/);
+  assert.match(androidUiTest, /conversation\.avatar\.\$profileId/);
+  assert.match(mainActivity, /AppDestinations\.Conversations\.route/);
+
+  assert.match(iosRunner, /--profile-entry-only/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E/);
+  assert.match(iosRunner, /prepareProfileEntryFixture/);
+  assert.match(iosRunner, /profile_entry_feed_official_conversations_and_chat_fixtures_prepared/);
+  assert.match(iosRunner, /cleanupOfficialProfileEntryPost/);
+  assert.match(iosUiTest, /testProfileEntryFromFeedOfficialConversationsAndChatReturns/);
+  assert.match(iosUiTest, /feed\.author\.avatar\.\\\(peerProfileId\)/);
+  assert.match(iosUiTest, /official\.author\.avatar\.\\\(peerProfileId\)/);
+  assert.match(iosUiTest, /navigation\.primary\.conversations/);
+  assert.match(iosUiTest, /conversation\.avatar\.\\\(peerProfileId\)/);
+  assert.match(iosUiTest, /chat\.profile\.message\.\\\(peerProfileId\)/);
+  assert.doesNotMatch(`${androidRunner}\n${iosRunner}`, /680242607|680242608|21085800|SERVICE_ROLE\s*=/);
+});
+
 test("PROF-ENTRY product anchors live in common/shared surfaces", () => {
   assert.match(feedAnchor, /fun feedAuthorAvatarTestTag\(profileId: String\): String = "feed\.author\.avatar\.\$profileId"/);
   assert.match(officialAnchor, /fun officialAuthorAvatarTestTag\(profileId: String\): String = "official\.author\.avatar\.\$profileId"/);
@@ -47,6 +82,7 @@ test("PROF-ENTRY product anchors live in common/shared surfaces", () => {
   assert.match(conversationAnchor, /contentDescription = conversationAvatarTestTag\(id\)/);
   assert.match(conversationsHost, /rowModifier = \{ row ->/);
   assert.match(conversationsHost, /contentDescription = conversationAvatarTestTag\(profileId\)/);
+  assert.match(bottomNavigation, /navigation\.primary\.\$\{item\.id\}/);
   assert.match(webMain, /installWebProfileEntryE2eBridge\(feedMemberProfileRoute::open\)/);
   assert.match(webMain, /setWebMemberProfileMarker\(feedMemberProfileRoute\.profileId\)/);
   assert.match(webBridge, /quata-profile-entry-e2e/);

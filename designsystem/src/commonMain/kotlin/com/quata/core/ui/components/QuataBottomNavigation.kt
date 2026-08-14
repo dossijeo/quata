@@ -24,6 +24,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -58,12 +61,16 @@ fun QuataBottomNavigation(
 private fun RowScope.QuataBottomNavigationItem(item: QuataNavigationItem, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val template = quataTheme()
     val contentColor = if (selected) template.colors.textPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    val navigationTag = "navigation.primary.${item.id}"
     Surface(
         color = if (selected) template.colors.selectedSurface else template.colors.surfaceAlt,
         contentColor = contentColor,
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, if (selected) template.colors.selectedBorder else template.colors.divider),
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier
+            .testTag(navigationTag)
+            .semantics { contentDescription = navigationTag }
+            .clickable(onClick = onClick),
     ) {
         Column(Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 2.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center) {
             Icon(item.icon, item.label, tint = contentColor, modifier = Modifier.size(24.dp))
