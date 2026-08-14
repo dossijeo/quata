@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-ROLES",
+    "PROF-SAFETY"
+  ],
+  "productSha": "23165ab3a74a4410a166611d27c2e7c47b995172",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "23165ab3a74a4410a166611d27c2e7c47b995172",
+      "report": "build-reports/web/profile-roles-safety-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0,
+        "profileRestored": true
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "23165ab3a74a4410a166611d27c2e7c47b995172",
+      "report": "build-reports/android/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0,
+        "profileRestored": true
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "23165ab3a74a4410a166611d27c2e7c47b995172",
+      "report": "build-reports/ios/profile-roles-safety-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0,
+        "profileRestored": true
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "The common public profile details list exposes public-profile.details so platform runners can scroll to roles and safety actions semantically before interaction.",
+    "Web/Wasm Compose can leave modal dialog nodes visible after a persisted moderation action; the evidence runner clears any public-profile.safety.dialog.* overlay and records the Wasm limitation while Android/iOS retain direct semantic-anchor coverage."
+  ]
+}
