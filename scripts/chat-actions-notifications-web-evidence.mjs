@@ -971,6 +971,29 @@ async function scrollProfileContentGalleryIntoView(page) {
   };
 }
 
+async function visibleCommentInputBox(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const candidates = [...scope.querySelectorAll("textarea, input")]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const placeholder = element.getAttribute("placeholder") ?? "";
+        const label = element.getAttribute("aria-label") ?? "";
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, placeholder, label };
+      })
+      .filter((item) => item.width > 0 && item.height > 0 && /coment|comment|public-profile\.comments\.input/i.test(`${item.placeholder} ${item.label}`));
+    candidates.sort((left, right) => (right.y - left.y) || (right.width - left.width));
+    return candidates[0] ?? null;
+  });
+}
+
+async function isProfileCommentsComposerOpen(page) {
+  if (await visibleAriaLocator(page, [new RegExp(escapeRegExp("public-profile.comments.input"))], 500)) return true;
+  if (await visibleAriaLocator(page, [/Cerrar comentarios|Close comments/i], 500)) return true;
+  return Boolean(await visibleCommentInputBox(page));
+}
+
 async function clickProfileContentCommentsAction(page, postId) {
   const tag = `public-profile.post.action.comments.${postId}`;
   const tagged = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 2_000);
@@ -993,6 +1016,30 @@ async function clickProfileContentCommentsAction(page, postId) {
   await page.mouse.click(buttonBox.x + (buttonBox.width / 2), buttonBox.y + (buttonBox.height / 2));
 }
 
+async function openProfileContentCommentsPanel(page, postId, fallbackPoints) {
+  await clickProfileContentCommentsAction(page, postId).catch((error) => {
+    if (error?.message !== "profile_content_comments_action_not_clickable") throw error;
+  });
+  if (await isProfileCommentsComposerOpen(page)) return;
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  const candidates = [
+    fallbackPoints,
+    { commentsX: Math.round(viewport.width * 0.28), commentsY: Math.round(viewport.height * 0.755) },
+    { commentsX: Math.round(viewport.width * 0.28), commentsY: Math.round(viewport.height * 0.735) },
+    { commentsX: Math.round(viewport.width * 0.28), commentsY: Math.round(viewport.height * 0.775) },
+  ];
+  const seen = new Set();
+  for (const point of candidates) {
+    const key = `${point.commentsX}:${point.commentsY}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    await page.mouse.click(point.commentsX, point.commentsY);
+    await delay(500);
+    if (await isProfileCommentsComposerOpen(page)) return;
+  }
+  throw new Error("profile_content_comments_input_not_visible");
+}
+
 async function fillProfileContentComment(page, fallbackPoints, value) {
   const viewport = page.viewportSize() ?? { width: 430, height: 932 };
   const panelFallback = {
@@ -1005,24 +1052,13 @@ async function fillProfileContentComment(page, fallbackPoints, value) {
   if (input) {
     await input.fill(value, { timeout: 10_000 });
   } else {
-    const inputBox = await page.evaluate(() => {
-      const root = document.querySelector("#quata-root");
-      const scope = root?.shadowRoot ?? root ?? document;
-      const candidates = [...scope.querySelectorAll("textarea, input")]
-        .map((element) => {
-          const rect = element.getBoundingClientRect();
-          const placeholder = element.getAttribute("placeholder") ?? "";
-          const label = element.getAttribute("aria-label") ?? "";
-          return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, placeholder, label };
-        })
-        .filter((item) => item.width > 0 && item.height > 0 && /coment|comment|public-profile\.comments\.input/i.test(`${item.placeholder} ${item.label}`));
-      candidates.sort((left, right) => (right.y - left.y) || (right.width - left.width));
-      return candidates[0] ?? null;
-    });
+    const inputBox = await visibleCommentInputBox(page);
     if (inputBox) {
       await page.mouse.click(inputBox.x + Math.min(24, inputBox.width / 2), inputBox.y + (inputBox.height / 2));
-    } else {
+    } else if (await isProfileCommentsComposerOpen(page)) {
       await page.mouse.click(panelFallback.inputX, panelFallback.inputY);
+    } else {
+      throw new Error("profile_content_comments_input_not_visible");
     }
     await page.keyboard.type(value, { delay: 8 });
     await delay(300);
@@ -1089,9 +1125,9 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
     report.steps.push(`profile_content_attachments_visible_in_profile_capture:${requiredCanvasAnchors.join(",")}`);
   }
   if (semanticGalleryVisible) {
-    await clickProfileContentCommentsAction(page, fixture.postId);
+    await openProfileContentCommentsPanel(page, fixture.postId, fallbackPoints);
   } else {
-    await page.mouse.click(fallbackPoints.commentsX, fallbackPoints.commentsY);
+    await openProfileContentCommentsPanel(page, fixture.postId, fallbackPoints);
   }
   const uiCommentMarker = `${fixture.marker} ui comment`;
   await fillProfileContentComment(page, fallbackPoints, uiCommentMarker);

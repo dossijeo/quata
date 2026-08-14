@@ -73,6 +73,11 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
     "iOS must assert profile attachments before opening the posts gallery so scroll-to-gallery does not hide them.",
   );
   assert.match(webRunner, /public-profile\.attachments\.item\.sb:\$\{fixture\.attachmentId\}/);
+  assert.match(webRunner, /async function openProfileContentCommentsPanel/);
+  assert.match(webRunner, /isProfileCommentsComposerOpen\(page\)/);
+  assert.match(webRunner, /Cerrar comentarios\|Close comments/);
+  assert.match(webRunner, /throw new Error\("profile_content_comments_input_not_visible"\)/);
+  assert.match(webRunner, /else if \(await isProfileCommentsComposerOpen\(page\)\) \{\s+await page\.mouse\.click\(panelFallback\.inputX, panelFallback\.inputY\)/);
   assert.match(androidUiTest, /"profile-content" -> \{\s*openProfileFromPeerMessage\(peerProbe\.orEmpty\(\), profileId\.orEmpty\(\)\)/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT/);
   assert.match(iosUiTest, /typeText\(uiComment, into: "public-profile\.comments\.input", in: app\)/);
