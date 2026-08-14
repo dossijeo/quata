@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-CONTENT"
+  ],
+  "productSha": "60b72193f5d7723fdd256a62bc13db04d182f941",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "60b72193f5d7723fdd256a62bc13db04d182f941",
+      "report": "build-reports/web/profile-content-evidence-60b72193.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "60b72193f5d7723fdd256a62bc13db04d182f941",
+      "report": "build-reports/android/profile-content-evidence-60b72193.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "60b72193f5d7723fdd256a62bc13db04d182f941",
+      "report": "build-reports/ios/profile-content-evidence-60b72193.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "Web/Wasm Compose exposes the profile content surface primarily through the canvas in this lane; the runner records capture-backed anchors while Android/iOS retain direct semantic-anchor coverage and commonMain remains the product reference."
+  ]
+}
