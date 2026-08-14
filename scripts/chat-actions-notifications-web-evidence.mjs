@@ -96,6 +96,22 @@ function parseArgs(argv) {
   return result;
 }
 
+function isProfileFocalMode(options) {
+  return options.profileOnly ||
+    options.profileFollowOnly ||
+    options.profileListsOnly ||
+    options.profileContentOnly ||
+    options.profilePrivateChatOnly;
+}
+
+function isFullEvidenceMode(options) {
+  return !options.translationOnly &&
+    !isProfileFocalMode(options) &&
+    !options.menuSurfaceOnly &&
+    !options.attachmentsAudioOnly &&
+    !options.groupSosOnly;
+}
+
 async function runSilent(command, args, options = {}) {
   return await new Promise((resolvePromise, reject) => {
     let output = "";
@@ -2211,7 +2227,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-${runId}`;
-  if (!options.translationOnly && !options.profileOnly && !options.profileFollowOnly && !options.profileListsOnly && !options.profileContentOnly && !options.profilePrivateChatOnly && !options.menuSurfaceOnly && !options.attachmentsAudioOnly && !options.groupSosOnly) {
+  if (isFullEvidenceMode(options)) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -2318,7 +2334,7 @@ try {
   report.steps.push(state.peerMessage ? "thread_rendered_with_own_and_peer_messages" : "thread_rendered_with_own_message");
 
   const translationMarker = state.peerMessage ? peerMarker : ownMarker;
-  if (options.translationOnly || (!options.menuSurfaceOnly && !options.attachmentsAudioOnly && state.peerMessage)) {
+  if (options.translationOnly || (isFullEvidenceMode(options) && state.peerMessage)) {
     await verifyChatTranslation(page, options.evidenceDir, translationMarker);
     report.evidence.translationOverlay = join(options.evidenceDir, "web-chat-translation-overlay.png");
     report.evidence.translationResult = join(options.evidenceDir, "web-chat-translation-result.png");

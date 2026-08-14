@@ -58,8 +58,16 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
     assert.match(source, /public-profile\.attachments\.item\./);
   }
   assert.match(androidUiTest, /performTextReplacement\(uiComment\)/);
+  assert.match(androidUiTest, /"profile-content" -> \{\s*openProfileFromPeerMessage\(peerProbe\.orEmpty\(\), profileId\.orEmpty\(\)\)/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT/);
   assert.match(iosUiTest, /typeText\(uiComment\)/);
+});
+
+test("Android PROF-CONTENT runner writes focal reports to requested paths", () => {
+  assert.match(androidRunner, /function parseArgs\(argv\)/);
+  assert.match(androidRunner, /"--out", "--evidence-dir"/);
+  assert.match(androidRunner, /const evidenceDir = options\.evidenceDir/);
+  assert.match(androidRunner, /const output = options\.output/);
 });
 
 test("PROF-CONTENT contract is part of local fast contract suites", () => {

@@ -238,7 +238,9 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /urlOrigin/);
   assert.doesNotMatch(webRunner, /text: entry\.text\(\)\.slice/);
   assert.match(webRunner, /\.\.\.\(report\.diagnostics \?\? \{\}\),\s*visibleNativeControls/);
-  assert.match(webRunner, /!options\.attachmentsAudioOnly && state\.peerMessage/);
+  assert.match(webRunner, /function isFullEvidenceMode\(options\)/);
+  assert.match(webRunner, /isFullEvidenceMode\(options\) && state\.peerMessage/);
+  assert.doesNotMatch(webRunner, /!\s*options\.attachmentsAudioOnly && state\.peerMessage/);
   assert.match(webRunner, /async function waitAudioPlaybackObserved\(page, timeout = 10_000\)/);
   assert.match(webRunner, /async function clickLocatorCenter\(page, locator, error\)/);
   assert.match(webRunner, /clickLocatorCenter\(page, play, "audio_attachment_toggle_not_clickable"\)/);

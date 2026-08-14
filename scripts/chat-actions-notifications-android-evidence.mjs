@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import {
@@ -14,6 +15,7 @@ import {
 } from "./e2e-fixtures/chat-attachments.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const options = parseArgs(process.argv.slice(2));
 const defaultDbUrlFile = "C:/Users/PC/.quata-supabase-db-url.txt";
 const defaultDbTlsCaFile = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const hardCleanupAuthorizationEnvironment = "QUATA_CHAT_ACTIONS_NOTIFICATIONS_HARD_CLEANUP_AUTHORIZATION";
@@ -76,6 +78,23 @@ const evidenceFiles = [
 ];
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
 let lastThreadSnapshot = null;
+
+function parseArgs(argv) {
+  const result = {
+    output: join("build-reports", "android", "chat-actions-notifications-evidence.json"),
+    evidenceDir: join("build-reports", "android", "chat-actions-notifications-evidence"),
+  };
+  for (let index = 0; index < argv.length; index += 1) {
+    const key = argv[index];
+    if (!["--out", "--evidence-dir"].includes(key)) continue;
+    const value = argv[index + 1];
+    if (!value || value.startsWith("--")) throw new Error("invalid_arguments");
+    index += 1;
+    if (key === "--out") result.output = value;
+    if (key === "--evidence-dir") result.evidenceDir = value;
+  }
+  return result;
+}
 
 function resolveAdbCommand() {
   const executable = process.platform === "win32" ? "adb.exe" : "adb";
@@ -982,7 +1001,7 @@ const report = {
 const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profilePrivateChat: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
-const evidenceDir = join("build-reports", "android", "chat-actions-notifications-evidence");
+const evidenceDir = options.evidenceDir;
 try {
   const config = await publicBackendConfig();
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) throw new Error("invalid_public_supabase_url");
@@ -1504,7 +1523,7 @@ try {
   report.cleanup = cleanup;
   if (report.status === "passed") delete report.error;
   report.finishedAt = new Date().toISOString();
-  const output = join("build-reports", "android", "chat-actions-notifications-evidence.json");
+  const output = options.output;
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
   console.log(`Chat actions/notifications Android evidence written: ${output}`);
