@@ -31,7 +31,19 @@ subflujos a GO completo: faltan administración UI profunda de grupo y retorno/e
 mapa SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
-**Candidato actual:** `23165ab3a74a4410a166611d27c2e7c47b995172` cierra
+**Candidato actual:** `63f8a3e3c00afc15b31fa8b8d8a0df0f1ccd5655` cierra
+`PROF-MEDIA-DETAIL` dentro de `OVR-PUBLIC-PROFILE` y reduce `OVR-MEDIA`: abre desde Chat el
+perfil p?blico global, muestra galer?a, abre media real de publicaci?n seeded en Storage, captura
+el visor com?n, cierra de vuelta al perfil y contin?a a comentarios en Android, Web/Wasm e iOS.
+Evidencias finales del mismo Product/Evidence SHA: Web/Wasm
+`build-reports/web/profile-detail-media-evidence-product.json`, Android
+`build-reports/android/profile-detail-media-evidence-product.json` e iOS
+`build-reports/ios/profile-detail-media-evidence-product.json`; las tres usan fixture reversible
+compartida y terminan con limpieza f?sica y residuo cero. Attestation:
+`docs/candidate-attestations/profile-detail-media.json`. Quedan fuera Feed/Official/Chat attachment
+media, documentos, descarga/compartir, v?deo real largo y errores/rollback forzados.
+
+**Candidato anterior:** `23165ab3a74a4410a166611d27c2e7c47b995172` cierra
 `PROF-ROLES` y `PROF-SAFETY` dentro de `OVR-PUBLIC-PROFILE`: controles admin/oficial, reporte y
 bloqueo/desbloqueo comunes abiertos desde Chat en Android, Web/Wasm e iOS. Evidencias finales del
 mismo Product/Evidence SHA: Web/Wasm `build-reports/web/profile-roles-safety-evidence.json`,
