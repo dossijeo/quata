@@ -18,9 +18,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
@@ -157,19 +154,6 @@ fun ConversationsScreenHost(
                         )
                     },
                     onOpenConversation = { row -> onOpenConversation(row.conversation.id) },
-                    rowModifier = { row ->
-                        resolveConversationAvatarPresentation(
-                            row.conversation,
-                            state.currentUser,
-                            state.usersById,
-                            strings.conversationTitle(row.conversation),
-                            openingProfileUserId,
-                        ).profileId?.let { profileId ->
-                            Modifier
-                                .testTag(conversationAvatarTestTag(profileId))
-                                .semantics { contentDescription = conversationAvatarTestTag(profileId) }
-                        } ?: Modifier
-                    },
                     modifier = Modifier.weight(1f),
                 )
             }

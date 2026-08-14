@@ -83,8 +83,7 @@ test("PROF-ENTRY product anchors live in common/shared surfaces", () => {
   assert.match(webOfficialHost, /officialAuthorAvatarTestTag\(post\.author\.id\)/);
   assert.match(conversationAnchor, /fun conversationAvatarTestTag\(profileId: String\): String = "conversation\.avatar\.\$profileId"/);
   assert.match(conversationAnchor, /contentDescription = conversationAvatarTestTag\(id\)/);
-  assert.match(conversationsHost, /rowModifier = \{ row ->/);
-  assert.match(conversationsHost, /contentDescription = conversationAvatarTestTag\(profileId\)/);
+  assert.equal((conversationsHost.match(/conversationAvatarTestTag/g) ?? []).length, 0);
   assert.match(bottomNavigation, /navigation\.primary\.\$\{item\.id\}/);
   assert.match(webMain, /installWebProfileEntryE2eBridge\(feedMemberProfileRoute::open\)/);
   assert.match(webMain, /setWebMemberProfileMarker\(feedMemberProfileRoute\.profileId\)/);
