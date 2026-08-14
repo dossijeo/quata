@@ -527,13 +527,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let input = app.descendants(matching: .any)
             .matching(identifier: "public-profile.comments.input")
             .firstMatch
-        input.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        input.typeText(uiComment)
+        XCTAssertTrue(input.waitForExistence(timeout: 10), "The shared profile comment input must be visible before typing.")
+        typeText(uiComment, into: "public-profile.comments.input", in: app)
         app.descendants(matching: .any)
             .matching(identifier: "public-profile.comments.send")
             .firstMatch
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .tap()
+        let persistedComment = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", uiComment, uiComment))
+            .firstMatch
+        XCTAssertTrue(persistedComment.waitForExistence(timeout: 15), "The profile comment submitted from iOS must remain visible after the optimistic write resolves.")
         attachScreenshot(app, name: "ios-chat-profile-content")
     }
 

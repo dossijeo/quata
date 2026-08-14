@@ -225,13 +225,18 @@ test("shared profile content cleanup deletes owned rows and verifies residue", a
   });
   assert.equal(summary.status, "cleanup_verified_profile_content_residue_absent");
   assert.ok(queries.some((entry) => /delete from public\.community_post_likes/.test(entry.sql)));
-  assert.ok(queries.some((entry) => /delete from public\.community_comments/.test(entry.sql)));
+  assert.ok(queries.some((entry) =>
+    /delete from public\.community_comments/.test(entry.sql) &&
+    /select id from public\.community_posts/.test(entry.sql) &&
+    /profile_id = \$3/.test(entry.sql),
+  ));
   assert.ok(queries.some((entry) => /delete from public\.community_posts/.test(entry.sql)));
-  assert.deepEqual(queries.at(-1).params.slice(0, 4), [
+  assert.deepEqual(queries.at(-1).params.slice(0, 5), [
     "33333333-3333-3333-3333-333333333333",
     "%qadata-profile-content-12345678-1234-1234-1234-123456789abc%",
     191,
     "11111111-1111-1111-1111-111111111111/profile-content/qadata-profile-content.txt",
+    "22222222-2222-2222-2222-222222222222",
   ]);
 });
 

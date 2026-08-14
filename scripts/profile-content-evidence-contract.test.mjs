@@ -60,7 +60,8 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(androidUiTest, /performTextReplacement\(uiComment\)/);
   assert.match(androidUiTest, /"profile-content" -> \{\s*openProfileFromPeerMessage\(peerProbe\.orEmpty\(\), profileId\.orEmpty\(\)\)/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT/);
-  assert.match(iosUiTest, /typeText\(uiComment\)/);
+  assert.match(iosUiTest, /typeText\(uiComment, into: "public-profile\.comments\.input", in: app\)/);
+  assert.match(iosUiTest, /profile comment submitted from iOS must remain visible/);
 });
 
 test("Android PROF-CONTENT runner writes focal reports to requested paths", () => {

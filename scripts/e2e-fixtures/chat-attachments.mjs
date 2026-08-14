@@ -259,18 +259,26 @@ export async function cleanupProfileContentFixture({
       if (fixture.postId) {
         await client.query(
           `delete from public.community_post_likes
-           where post_id = $1 and profile_id in ($2, $3)`,
-          [fixture.postId, fixture.actorSession?.profileId ?? nilUuid, fixture.targetSession?.profileId ?? nilUuid],
+           where post_id in (
+             select id from public.community_posts
+             where id = $1 and body like $2 and profile_id = $3
+           )`,
+          [fixture.postId, `%${fixture.marker}%`, fixture.targetSession?.profileId ?? nilUuid],
         );
         await client.query(
           `delete from public.community_comments
-           where post_id = $1 and (body like $2 or id = $3)`,
-          [fixture.postId, `%${fixture.marker}%`, fixture.seedCommentId ?? nilUuid],
+           where post_id in (
+             select id from public.community_posts
+             where id = $1 and body like $2 and profile_id = $3
+           )
+              or body like $2
+              or id = $4`,
+          [fixture.postId, `%${fixture.marker}%`, fixture.targetSession?.profileId ?? nilUuid, fixture.seedCommentId ?? nilUuid],
         );
         await client.query(
           `delete from public.community_posts
-           where id = $1 and body like $2`,
-          [fixture.postId, `%${fixture.marker}%`],
+           where id = $1 and body like $2 and profile_id = $3`,
+          [fixture.postId, `%${fixture.marker}%`, fixture.targetSession?.profileId ?? nilUuid],
         );
       }
       await client.query("commit");
@@ -280,11 +288,17 @@ export async function cleanupProfileContentFixture({
     }
     const residue = await client.query(
       `select
-        (select count(*)::int from public.community_posts where id = $1 or body like $2) as community_posts,
+        (select count(*)::int from public.community_posts where (id = $1 or body like $2) and profile_id = $5) as community_posts,
         (select count(*)::int from public.community_comments where post_id = $1 or body like $2) as community_comments,
         (select count(*)::int from public.community_post_likes where post_id = $1) as community_post_likes,
         (select count(*)::int from public.chat_attachments where id = $3 and storage_path = $4) as chat_attachments`,
-      [fixture.postId ?? nilUuid, `%${fixture.marker}%`, fixture.attachmentId ?? -1, fixture.storagePath ?? ""],
+      [
+        fixture.postId ?? nilUuid,
+        `%${fixture.marker}%`,
+        fixture.attachmentId ?? -1,
+        fixture.storagePath ?? "",
+        fixture.targetSession?.profileId ?? nilUuid,
+      ],
     );
     const counts = residue.rows[0] ?? {};
     if (Object.values(counts).some((count) => Number(count) !== 0)) throw new Error("cleanup_residue_detected:profile_content");
