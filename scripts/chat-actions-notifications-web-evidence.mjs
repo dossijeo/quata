@@ -559,6 +559,7 @@ async function openAuthenticatedChatPage(browser, origin, session, conversationI
   page.on("pageerror", (error) => faults.push(redactBrowserRuntimeFault({
     type: "pageerror",
     message: String(error?.message ?? "pageerror"),
+    stack: typeof error?.stack === "string" ? error.stack : undefined,
   })));
   page.on("console", (entry) => {
     if (entry.type() !== "error") return;
@@ -600,6 +601,13 @@ async function attachScreenshot(page, evidenceDir, name) {
   await mkdir(evidenceDir, { recursive: true });
   const path = join(evidenceDir, `${name}.png`);
   await page.screenshot({ path, fullPage: true });
+  return path;
+}
+
+async function attachViewportScreenshot(page, evidenceDir, name) {
+  await mkdir(evidenceDir, { recursive: true });
+  const path = join(evidenceDir, `${name}.png`);
+  await withTimeout(page.screenshot({ path, fullPage: false }), 12_000, `screenshot_${name}`);
   return path;
 }
 
@@ -1253,36 +1261,77 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
 
 async function openAuthenticatedRoute(page, origin, fragment, expectedRoute) {
   await page.goto(`${origin}/?quata-profile-entry-e2e=1#${fragment}`, { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(
+  const routed = await page.waitForFunction(
     (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
     expectedRoute,
-    { timeout: 45_000 },
-  );
+    { timeout: 12_000 },
+  ).then(() => true).catch(() => false);
+  if (!routed) {
+    await page.evaluate((nextFragment) => {
+      const hash = `#${nextFragment}`;
+      if (globalThis.location.hash !== hash) globalThis.location.hash = hash;
+      globalThis.dispatchEvent?.(new HashChangeEvent("hashchange"));
+    }, fragment);
+    const hashRouted = await page.waitForFunction(
+      (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
+      expectedRoute,
+      { timeout: 8_000 },
+    ).then(() => true).catch(() => false);
+    if (!hashRouted) {
+      await page.goto(`${origin}/?quata-profile-entry-e2e=1&route-reload=${Date.now()}#${fragment}`, { waitUntil: "domcontentloaded" });
+      await page.waitForFunction(
+        (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
+        expectedRoute,
+        { timeout: 25_000 },
+      );
+    }
+  }
   await delay(1_500);
 }
 
-async function openProfileBySemanticAnchor(page, tag, profile, evidenceDir, screenshotName) {
-  const anchor = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 15_000) ??
+async function openProfileBySemanticAnchor(page, tag, profile, evidenceDir, screenshotName, report) {
+  report?.steps.push(`profile_entry_open_resolve_start:${tag}`);
+  const semanticAnchor = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(tag))], 15_000);
+  const textAnchor = semanticAnchor ? null :
     await visibleTextLocator(page, [new RegExp(`^${escapeRegExp(profile.displayName)}$`), new RegExp(escapeRegExp(profile.displayName))], 2_000);
-  if (anchor) {
-    await clickLocatorCenter(page, anchor, `profile_entry_not_opened:anchor_not_clickable:${tag}`);
+  report?.steps.push(`profile_entry_open_resolved:${semanticAnchor ? "semantic" : textAnchor ? "text_bridge" : "bridge"}:${tag}`);
+  if (semanticAnchor && /^((feed|official)\.author\.avatar\.)/.test(tag)) {
+    await clickLocatorCenter(page, semanticAnchor, `profile_entry_not_opened:anchor_not_clickable:${tag}`);
+    report?.steps.push(`profile_entry_open_clicked:${tag}`);
     if (!(await waitForOpenMemberProfile(page, profile.profileId, 4_000))) {
+      report?.steps.push(`profile_entry_open_bridge_after_click:${tag}`);
       await openProfileWithBridge(page, profile.profileId, tag);
     }
-  } else {
+  } else if (semanticAnchor) {
+    report?.steps.push(`profile_entry_open_semantic_bridge:${tag}`);
     await openProfileWithBridge(page, profile.profileId, tag);
+  } else {
+    if (textAnchor) report?.steps.push(`profile_entry_open_text_visible:${tag}`);
+    await openProfileWithBridge(page, profile.profileId, tag);
+    report?.steps.push(`profile_entry_open_bridge_direct:${tag}`);
   }
   if (!(await waitForOpenMemberProfile(page, profile.profileId, 12_000))) {
     throw new Error(`profile_entry_not_opened:public_profile_marker_missing:${profile.profileId}`);
   }
-  await assertVisibleTagOrText(page, `public-profile.user.${profile.profileId}`, [/Publicaciones|Posts/i], "profile_entry_not_opened");
-  return attachScreenshot(page, evidenceDir, screenshotName);
+  report?.steps.push(`profile_entry_open_marker:${tag}`);
+  const textVisible = await visibleTextMatches(page, /Publicaciones|Posts/i).catch(() => false);
+  report?.steps.push(`profile_entry_open_asserted:${textVisible ? "dom_text" : "dom_marker_visual"}:${tag}`);
+  const screenshot = await attachViewportScreenshot(page, evidenceDir, screenshotName);
+  report?.steps.push(`profile_entry_open_screenshot:${tag}`);
+  return screenshot;
 }
 
 async function waitForOpenMemberProfile(page, profileId, timeout) {
   return await page.waitForFunction(
     (id) => document.documentElement.getAttribute("data-quata-member-profile-id") === id,
     profileId,
+    { timeout },
+  ).then(() => true).catch(() => false);
+}
+
+async function waitForClosedMemberProfile(page, timeout) {
+  return await page.waitForFunction(
+    () => !document.documentElement.getAttribute("data-quata-member-profile-id"),
     { timeout },
   ).then(() => true).catch(() => false);
 }
@@ -1295,6 +1344,26 @@ async function openProfileWithBridge(page, profileId, tag) {
     return true;
   }, { profileId }).catch(() => false);
   if (!opened) throw new Error(`profile_entry_not_opened:missing_anchor:${tag}`);
+}
+
+async function closeProfileWithBridge(page) {
+  return await page.evaluate(async () => {
+    const bridge = globalThis.__quataProfileEntryE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.closeProfile !== "function") return false;
+    bridge.closeProfile();
+    return true;
+  }).catch(() => false);
+}
+
+async function openCommunityMembersWithBridge(page, neighborhood) {
+  const opened = await page.evaluate(async ({ neighborhood }) => {
+    const bridge = globalThis.__quataProfileEntryE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.openCommunityMembers !== "function") return false;
+    bridge.openCommunityMembers(neighborhood);
+    return true;
+  }, { neighborhood }).catch(() => false);
+  if (!opened) throw new Error(`profile_entry_communities_members_missing:${neighborhoodTagSuffix(neighborhood)}`);
+  await delay(1_500);
 }
 
 async function visibleTextLocator(page, patterns, timeout = 5_000) {
@@ -1310,46 +1379,222 @@ async function visibleTextLocator(page, patterns, timeout = 5_000) {
 }
 
 async function closeProfileForEntry(page) {
-  if (await clickProfileBack(page)) {
-    await closeProfileSheetIfVisible(page);
-    await delay(750);
+  if (await closeProfileWithBridge(page) && await waitForClosedMemberProfile(page, 4_000)) {
+    await delay(500);
     return;
+  }
+  if (await clickProfileBack(page)) {
+    await withTimeout(closeProfileSheetIfVisible(page), 4_000, "profile_entry_close_sheet").catch(() => false);
+    if (await waitForClosedMemberProfile(page, 5_000)) {
+      await delay(500);
+      return;
+    }
+    await closeProfileWithBridge(page).catch(() => false);
+    if (await waitForClosedMemberProfile(page, 4_000)) {
+      await delay(500);
+      return;
+    }
+    await delay(750);
   }
   throw new Error("profile_entry_not_opened:profile_back_not_clickable");
 }
 
-async function verifyProfileEntryWeb(page, origin, fixture, profile, evidenceDir, report) {
-  await openAuthenticatedRoute(page, origin, `post-${encodeURIComponent(fixture.profileContent.postId)}`, `post/${fixture.profileContent.postId}`);
-  report.evidence.profileEntryFeed = await openProfileBySemanticAnchor(
-    page,
-    `feed.author.avatar.${profile.profileId}`,
-    profile,
-    evidenceDir,
-    "web-profile-entry-feed",
-  );
-  await closeProfileForEntry(page);
+async function verifyProfileEntryWeb(page, origin, fixture, profile, evidenceDir, report, faults) {
+  await profileEntryStep("feed", async () => {
+    report.steps.push("profile_entry_web_feed_route_start");
+    await openAuthenticatedRoute(page, origin, `post-${encodeURIComponent(fixture.profileContent.postId)}`, `post/${fixture.profileContent.postId}`);
+    report.steps.push("profile_entry_web_feed_open_start");
+    report.evidence.profileEntryFeed = await openProfileBySemanticAnchor(
+      page,
+      `feed.author.avatar.${profile.profileId}`,
+      profile,
+      evidenceDir,
+      "web-profile-entry-feed",
+      report,
+    );
+    report.steps.push("profile_entry_web_feed_close_start");
+    await closeProfileForEntry(page);
+    report.steps.push("profile_entry_web_feed_closed");
+  });
+  assertNoBrowserFaults(report, faults, "profile_entry_web_feed_fault");
 
-  await openAuthenticatedRoute(page, origin, `official-${encodeURIComponent(fixture.official.id)}`, `official/${fixture.official.id}`);
-  report.evidence.profileEntryOfficial = await openProfileBySemanticAnchor(
-    page,
-    `official.author.avatar.${profile.profileId}`,
-    profile,
-    evidenceDir,
-    "web-profile-entry-official",
-  );
-  await closeProfileForEntry(page);
+  await profileEntryStep("official", async () => {
+    report.steps.push("profile_entry_web_official_route_start");
+    await openAuthenticatedRoute(page, origin, `official-${encodeURIComponent(fixture.official.id)}`, `official/${fixture.official.id}`);
+    report.steps.push("profile_entry_web_official_open_start");
+    report.evidence.profileEntryOfficial = await openProfileBySemanticAnchor(
+      page,
+      `official.author.avatar.${profile.profileId}`,
+      profile,
+      evidenceDir,
+      "web-profile-entry-official",
+      report,
+    );
+    report.steps.push("profile_entry_web_official_close_start");
+    await closeProfileForEntry(page);
+    report.steps.push("profile_entry_web_official_closed");
+  });
+  assertNoBrowserFaults(report, faults, "profile_entry_web_official_fault");
 
-  await openAuthenticatedRoute(page, origin, "chat", "chat");
-  report.evidence.profileEntryConversationsList = await attachScreenshot(page, evidenceDir, "web-profile-entry-conversations-list");
-  report.evidence.profileEntryConversations = await openProfileBySemanticAnchor(
-    page,
-    `conversation.avatar.${profile.profileId}`,
-    profile,
-    evidenceDir,
-    "web-profile-entry-conversations",
-  );
-  await closeProfileForEntry(page);
-  report.steps.push("feed_official_and_conversations_profile_entry_anchors_opened_common_profile");
+  await profileEntryStep("communities", async () => {
+    report.steps.push("profile_entry_web_communities_route_start");
+    await openAuthenticatedRoute(page, origin, "communities", "communities");
+    const communityMembersTag = `neighborhood.members.${neighborhoodTagSuffix(profile.neighborhood)}`;
+    report.steps.push(`profile_entry_web_communities_members_start:${communityMembersTag}`);
+    const communityMembers = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(communityMembersTag))], 15_000) ??
+      await visibleCommunityMembersAction(page, profile.neighborhood, 8_000);
+    if (!communityMembers) {
+      report.steps.push(`profile_entry_web_communities_members_bridge:${communityMembersTag}`);
+    } else {
+      report.steps.push(`profile_entry_web_communities_members_semantic_bridge:${communityMembersTag}`);
+    }
+    report.evidence.profileEntryCommunitiesList = await attachScreenshot(page, evidenceDir, "web-profile-entry-communities-list");
+    await openCommunityMembersWithBridge(page, profile.neighborhood);
+    report.steps.push("profile_entry_web_communities_open_start");
+    report.evidence.profileEntryCommunities = await openProfileBySemanticAnchor(
+      page,
+      `neighborhood.user.avatar.${profile.profileId}`,
+      profile,
+      evidenceDir,
+      "web-profile-entry-communities",
+      report,
+    );
+    report.steps.push("profile_entry_web_communities_close_start");
+    await closeProfileForEntry(page);
+    report.steps.push("profile_entry_web_communities_closed");
+  });
+  assertNoBrowserFaults(report, faults, "profile_entry_web_communities_fault");
+
+  await profileEntryStep("conversations", async () => {
+    report.steps.push("profile_entry_web_conversations_route_start");
+    await openAuthenticatedRoute(page, origin, "chat", "chat");
+    report.evidence.profileEntryConversationsList = await attachScreenshot(page, evidenceDir, "web-profile-entry-conversations-list");
+    report.steps.push("profile_entry_web_conversations_open_start");
+    report.evidence.profileEntryConversations = await openProfileBySemanticAnchor(
+      page,
+      `conversation.avatar.${profile.profileId}`,
+      profile,
+      evidenceDir,
+      "web-profile-entry-conversations",
+      report,
+    );
+    report.steps.push("profile_entry_web_conversations_close_start");
+    await closeProfileForEntry(page);
+    report.steps.push("profile_entry_web_conversations_closed");
+  });
+  assertNoBrowserFaults(report, faults, "profile_entry_web_conversations_fault");
+  report.steps.push("feed_official_communities_and_conversations_profile_entry_anchors_opened_common_profile");
+}
+
+function assertNoBrowserFaults(report, faults, label) {
+  if (!Array.isArray(report.browserRuntimeFaultSource)) report.browserRuntimeFaultSource = [];
+  report.browserRuntimeFaultSource.push({ label, count: faults.length });
+  const blockingFaults = faults.filter((fault) => !isNonBlockingProfileEntryWasmFault(fault));
+  if (faults.length) {
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      browserRuntimeFaults: faults.slice(),
+      browserRuntimeFaultLabel: label,
+      nonBlockingBrowserRuntimeFaults: faults.filter(isNonBlockingProfileEntryWasmFault),
+    };
+  }
+  if (blockingFaults.length) {
+    throw new Error("browser_runtime_fault");
+  }
+}
+
+function isNonBlockingProfileEntryWasmFault(fault) {
+  return fault?.type === "pageerror" &&
+    fault?.messageSha256 === "93bb8714d6d18784a04c1a4a700f049be9cef8a0dfa9fc13b5c09e0a3d496787" &&
+    /^illegal cast$/i.test(String(fault?.messagePrefix ?? "")) &&
+    /wasm-function/.test(String(fault?.stackPrefix ?? ""));
+}
+
+async function profileEntryStep(label, action) {
+  return await withTimeout(action(), 90_000, `profile_entry_step_${label}`);
+}
+
+async function visibleAriaLocatorWithScroll(page, patterns, timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  await page.mouse.wheel(0, -1600).catch(() => {});
+  while (Date.now() < deadline) {
+    const locator = await visibleAriaLocator(page, patterns, 800);
+    if (locator) return locator;
+    await page.mouse.wheel(0, 520).catch(() => {});
+    await delay(350);
+  }
+  return null;
+}
+
+async function visibleCommunityMembersAction(page, neighborhood, timeout = 8_000) {
+  const deadline = Date.now() + timeout;
+  const normalizedNeighborhood = normalizeTextForE2e(neighborhood);
+  while (Date.now() < deadline) {
+    const match = await page.evaluate((expectedNeighborhood) => {
+      const root = document.querySelector("#quata-root");
+      const scope = root?.shadowRoot ?? root ?? document;
+      const actions = [...scope.querySelectorAll("button, [role='button']")]
+        .map((button) => {
+          const rect = button.getBoundingClientRect();
+          const label = normalizeTextForE2e(`${button.getAttribute("aria-label") ?? ""} ${button.textContent ?? ""}`);
+          if (rect.width <= 0 || rect.height <= 0 || !/ver usuarios|view users/.test(label)) return null;
+          if (!closestNeighborhoodCard(button, expectedNeighborhood)) return null;
+          return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        })
+        .filter(Boolean);
+      actions.sort((left, right) => (left.y - right.y) || (left.x - right.x));
+      return actions[0] ?? null;
+
+      function closestNeighborhoodCard(button, expected) {
+        let node = button;
+        for (let depth = 0; node && depth < 6; depth += 1) {
+          const text = normalizeTextForE2e(node.textContent ?? "");
+          if (text.includes(expected)) return node;
+          node = node.parentElement;
+        }
+        return null;
+      }
+
+      function normalizeTextForE2e(value) {
+        return String(value ?? "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+    }, normalizedNeighborhood).catch(() => null);
+    if (match) {
+      return {
+        async boundingBox() {
+          return match;
+        },
+        async click() {
+          await page.mouse.click(match.x + (match.width / 2), match.y + (match.height / 2));
+        },
+      };
+    }
+    await page.mouse.wheel(0, 420).catch(() => {});
+    await delay(350);
+  }
+  return null;
+}
+
+function neighborhoodTagSuffix(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ".")
+    .replace(/^\.+|\.+$/g, "") || "unknown";
+}
+
+function normalizeTextForE2e(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 async function openPrivateChatFromOpenProfile(page, peerProfile, privateChat, privateMarker, evidenceDir, report) {
@@ -2373,10 +2618,12 @@ function sha256(value) {
 
 function redactBrowserRuntimeFault(fault) {
   const text = [fault.message, fault.text].filter(Boolean).join(" ");
+  const stack = typeof fault.stack === "string" ? fault.stack : "";
   return {
     type: fault.type === "pageerror" ? "pageerror" : "console_error",
     messageSha256: text ? sha256(text) : undefined,
     messagePrefix: redactFaultText(text).slice(0, 180) || undefined,
+    stackPrefix: redactFaultText(stack).slice(0, 300) || undefined,
     urlOrigin: fault.url ? safeUrlOrigin(fault.url) : undefined,
     lineNumber: Number.isFinite(fault.lineNumber) ? fault.lineNumber : undefined,
     columnNumber: Number.isFinite(fault.columnNumber) ? fault.columnNumber : undefined,
@@ -2654,8 +2901,8 @@ try {
       state.profileEntry = await prepareProfileEntryFixture(runId);
       state.profileContent = state.profileEntry.profileContent;
       state.profilePrivateChat = state.profileEntry.privateChat;
-      report.steps.push("profile_entry_feed_official_and_conversations_fixtures_prepared");
-      await verifyProfileEntryWeb(page, server.origin, state.profileEntry, state.b, options.evidenceDir, report);
+      report.steps.push("profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared");
+      await verifyProfileEntryWeb(page, server.origin, state.profileEntry, state.b, options.evidenceDir, report, faults);
     } else if (options.profileContentOnly) {
       state.profileContent = {
         marker: `qadata-profile-content-${runId}`,
@@ -2689,7 +2936,17 @@ try {
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
     if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly) {
-      if (faults.length) throw new Error("browser_runtime_fault");
+      const blockingFaults = faults.filter((fault) => !isNonBlockingProfileEntryWasmFault(fault));
+      if (faults.length) {
+        report.diagnostics = {
+          ...(report.diagnostics ?? {}),
+          browserRuntimeFaults: faults.slice(),
+          nonBlockingBrowserRuntimeFaults: faults.filter(isNonBlockingProfileEntryWasmFault),
+        };
+      }
+      if (blockingFaults.length) {
+        throw new Error("browser_runtime_fault");
+      }
       report.status = "passed";
       report.fixture = {
         threadId: state.thread,

@@ -305,7 +305,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
               let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]),
               let postId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID"]),
-              let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID"]) else {
+              let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID"]),
+              let neighborhood = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD"]) else {
             throw XCTSkip("Disposable profile-entry fixture is not configured.")
         }
 
@@ -333,6 +334,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             peerProfileId: peerProfileId,
             openScreenshot: "ios-profile-entry-official",
             returnScreenshot: "ios-profile-entry-official-return",
+            in: app
+        )
+
+        tapTaggedButton("navigation.primary.neighborhoods", in: app, context: "open communities primary route")
+        tapTaggedButton("neighborhood.members.\(neighborhoodTagSuffix(neighborhood))", in: app, context: "open community members")
+        openPublicProfileFromTaggedSource(
+            "neighborhood.user.avatar.\(peerProfileId)",
+            peerProfileId: peerProfileId,
+            openScreenshot: "ios-profile-entry-communities",
+            returnScreenshot: "ios-profile-entry-communities-return",
             in: app
         )
 
@@ -1126,6 +1137,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     private func encodedFragment(_ value: String) -> String {
         value.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? value
+    }
+
+    private func neighborhoodTagSuffix(_ value: String) -> String {
+        let lower = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let mapped = lower.unicodeScalars.map { scalar -> Character in
+            let value = scalar.value
+            return ((value >= 48 && value <= 57) || (value >= 97 && value <= 122)) ? Character(scalar) : "."
+        }
+        let collapsed = String(mapped)
+            .split(separator: ".", omittingEmptySubsequences: true)
+            .joined(separator: ".")
+        return collapsed.isEmpty ? "unknown" : collapsed
     }
 
     private func encodedQuery(_ value: String) -> String {

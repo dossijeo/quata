@@ -256,7 +256,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
     if (profileEntryOnly) {
       state.profileEntry = await prepareProfileEntryFixture(runId);
       state.profileContent = state.profileEntry.profileContent;
-      report.steps.push("profile_entry_feed_official_conversations_and_chat_fixtures_prepared");
+      report.steps.push("profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared");
     }
     if (profileContentOnly) {
       state.profileContent = {
@@ -329,6 +329,7 @@ export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E=${profileContentOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID=${shellQuote(state.profileEntry?.official?.id ?? "profile-entry")}
+export QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD=${shellQuote(state.b.neighborhood ?? "Bovano")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID=${shellQuote(state.profileContent?.postId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID=${shellQuote(state.profileContent?.seedCommentId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID=${shellQuote(state.profileContent?.attachmentId ?? "profile-only")}
@@ -365,7 +366,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       : profileContentOnly
         ? "ios_xctest_profile_content_gallery_comments_and_attachments_verified"
         : profileEntryOnly
-          ? "ios_xctest_profile_entry_feed_official_conversations_and_chat_verified"
+          ? "ios_xctest_profile_entry_feed_official_communities_conversations_and_chat_verified"
         : profilePrivateChatOnly
           ? "profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc"
         : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");

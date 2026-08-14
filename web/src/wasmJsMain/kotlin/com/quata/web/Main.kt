@@ -240,8 +240,16 @@ private fun QuataWebApp(
     val feedMemberProfileRoute = remember(navigation) {
         WebFeedMemberProfileRoute(navigation::navigateConversation)
     }
+    var profileEntryCommunityMembersRequest by remember { mutableStateOf<String?>(null) }
     DisposableEffect(feedMemberProfileRoute) {
-        val uninstall = installWebProfileEntryE2eBridge(feedMemberProfileRoute::open)
+        val uninstall = installWebProfileEntryE2eBridge(
+            openProfile = feedMemberProfileRoute::open,
+            closeProfile = feedMemberProfileRoute::close,
+            openCommunityMembers = { neighborhood ->
+                profileEntryCommunityMembersRequest = neighborhood
+                navigation.navigate("communities")
+            },
+        )
         onDispose(uninstall)
     }
     LaunchedEffect(feedMemberProfileRoute.profileId) {
@@ -683,6 +691,7 @@ private fun QuataWebApp(
                             onAuthRequired = ::requestAuthenticationForCurrentRoute,
                             onOpenUserRoute = { navigation.navigate("communities") },
                             initialMemberProfileId = null,
+                            requestedCommunityMembers = profileEntryCommunityMembersRequest,
                         )
                     }
                 } else if (navigation.route == "official" || navigation.officialPostId != null) {

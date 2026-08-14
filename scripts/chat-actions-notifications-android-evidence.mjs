@@ -79,6 +79,9 @@ const evidenceFiles = [
   "android-profile-entry-conversations-source.png",
   "android-profile-entry-conversations.png",
   "android-profile-entry-conversations-return.png",
+  "android-profile-entry-communities-source.png",
+  "android-profile-entry-communities.png",
+  "android-profile-entry-communities-return.png",
   "android-profile-entry-chat-return.png",
   "android-chat-attachment-document-visible.png",
   "android-chat-audio-player-visible.png",
@@ -319,10 +322,11 @@ async function login(config, user) {
   }, "public_auth_request_failed");
   const session = payload?.session;
   const profileId = payload?.profile?.id;
+  const neighborhood = String(payload?.profile?.neighborhood ?? payload?.profile?.barrio ?? "").trim();
   if (!uuid.test(profileId ?? "") || !session?.access_token || !session?.refresh_token || !Number.isFinite(session?.expires_at)) {
     throw new Error(`invalid_auth_response:${user.label}`);
   }
-  return { label: user.label, profileId, accessToken: session.access_token };
+  return { label: user.label, profileId, neighborhood, accessToken: session.access_token };
 }
 
 async function rpc(config, session, name, body) {
@@ -1238,6 +1242,7 @@ try {
       "-e", "quataChatActionsPeerProbe", peerProbe,
       "-e", "quataChatActionsPrivateProbe", privateProbe,
       "-e", "quataChatActionsProfileId", state.b.profileId,
+      "-e", "quataChatActionsProfileNeighborhood", state.b.neighborhood || "Bovano",
       "-e", "quataChatActionsComposerMarker", composerMarker,
       "-e", "quataChatActionsReplyMarker", replyMarker,
       "-e", "quataChatActionsEditMarker", editMarker,
@@ -1381,7 +1386,7 @@ try {
     if (profileEntryOnly) {
       state.profileEntry = await prepareProfileEntryFixture(config, runId);
       state.profileContent = state.profileEntry.profileContent;
-      report.steps.push("profile_entry_feed_official_conversations_and_chat_fixtures_prepared");
+      report.steps.push("profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared");
     } else if (profileContentOnly) {
       state.profileContent = {
         marker: `qadata-profile-content-${runId}`,
@@ -1405,7 +1410,7 @@ try {
       : profileContentOnly
         ? "profile_content_gallery_comments_and_attachments_verified"
         : profileEntryOnly
-          ? "profile_entry_feed_official_conversations_and_chat_opened_common_profile_and_returned"
+          ? "profile_entry_feed_official_communities_conversations_and_chat_opened_common_profile_and_returned"
         : profilePrivateChatOnly
           ? "profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc"
         : "peer_avatar_opened_public_profile_and_returned_to_chat");

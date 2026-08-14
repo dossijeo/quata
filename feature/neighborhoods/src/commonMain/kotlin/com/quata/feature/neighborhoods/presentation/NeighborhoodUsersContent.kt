@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -19,6 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +40,8 @@ data class NeighborhoodUsersStrings(
     val empty: String,
     val row: NeighborhoodUserRowStrings
 )
+
+fun neighborhoodUserAvatarTestTag(profileId: String): String = "neighborhood.user.avatar.$profileId"
 
 @Composable
 fun NeighborhoodUsersContent(
@@ -81,7 +87,16 @@ fun NeighborhoodUsersContent(
                             isFollowingLoading = followingUserId == user.id,
                             isOpeningChat = isOpeningChat && openingPrivateChatUserId == user.id,
                             strings = strings.row,
-                            avatar = { avatar(user, openingProfileUserId == user.id) { onOpenProfile(user) } },
+                            avatar = {
+                                Box(
+                                    modifier = Modifier
+                                        .testTag(neighborhoodUserAvatarTestTag(user.id))
+                                        .semantics { contentDescription = neighborhoodUserAvatarTestTag(user.id) }
+                                        .clickable { onOpenProfile(user) },
+                                ) {
+                                    avatar(user, openingProfileUserId == user.id) { onOpenProfile(user) }
+                                }
+                            },
                             onFollowUser = { onFollowUser(user) },
                             onOpenPrivateChat = { onOpenPrivateChat(user) }
                         )

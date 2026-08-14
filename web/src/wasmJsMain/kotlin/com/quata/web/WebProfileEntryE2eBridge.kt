@@ -1,19 +1,35 @@
 package com.quata.web
 
-internal fun installWebProfileEntryE2eBridge(openProfile: (String) -> Unit): () -> Unit =
-    installProfileEntryBridgeWhenAllowed(openProfile)
+internal fun installWebProfileEntryE2eBridge(
+    openProfile: (String) -> Unit,
+    closeProfile: () -> Unit,
+    openCommunityMembers: (String) -> Unit,
+): () -> Unit =
+    installProfileEntryBridgeWhenAllowed(openProfile, closeProfile, openCommunityMembers)
 
 @JsFun("""
-(openProfile) => {
+(openProfile, closeProfile, openCommunityMembers) => {
   const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
   if (!local) return () => {};
+  const assertOptedIn = () => {
+    const optedIn = new URLSearchParams(location?.search || '').get('quata-profile-entry-e2e') === '1';
+    if (!optedIn) throw Error('profile_entry_bridge_not_enabled');
+  };
   const bridge = Object.freeze({
     version: 1,
     openProfile: (profileId) => {
-      const optedIn = new URLSearchParams(location?.search || '').get('quata-profile-entry-e2e') === '1';
-      if (!optedIn) throw Error('profile_entry_bridge_not_enabled');
+      assertOptedIn();
       if (typeof profileId !== 'string' || !profileId.trim()) throw Error('profile_entry_bridge_profile_invalid');
       openProfile(profileId.trim());
+    },
+    closeProfile: () => {
+      assertOptedIn();
+      closeProfile();
+    },
+    openCommunityMembers: (neighborhood) => {
+      assertOptedIn();
+      if (typeof neighborhood !== 'string' || !neighborhood.trim()) throw Error('profile_entry_bridge_neighborhood_invalid');
+      openCommunityMembers(neighborhood.trim());
     }
   });
   globalThis.__quataProfileEntryE2eProduct = bridge;
@@ -24,4 +40,8 @@ internal fun installWebProfileEntryE2eBridge(openProfile: (String) -> Unit): () 
   };
 }
 """)
-private external fun installProfileEntryBridgeWhenAllowed(openProfile: (String) -> Unit): () -> Unit
+private external fun installProfileEntryBridgeWhenAllowed(
+    openProfile: (String) -> Unit,
+    closeProfile: () -> Unit,
+    openCommunityMembers: (String) -> Unit,
+): () -> Unit

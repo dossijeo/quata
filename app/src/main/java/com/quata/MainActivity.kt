@@ -221,6 +221,7 @@ class MainActivity : ComponentActivity() {
         val EvidenceStartDestinations = setOf(
             AppDestinations.OfficialPostEditor.route,
             AppDestinations.Conversations.route,
+            AppDestinations.Neighborhoods.route,
         )
         const val EXTRA_SKIP_SPLASH_FOR_EVIDENCE = "com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE"
         const val EXTRA_START_DESTINATION_FOR_EVIDENCE = "com.quata.extra.START_DESTINATION_FOR_EVIDENCE"
