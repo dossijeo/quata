@@ -503,14 +503,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "public-profile.attachments",
             "public-profile.attachments.item.\(attachmentId)",
         ] {
-            let element = app.descendants(matching: .any)
-                .matching(identifier: identifier)
-                .firstMatch
-            XCTAssertTrue(element.waitForExistence(timeout: 10), "The shared public-profile content element \(identifier) must be visible.")
+            _ = profileElement(identifier, in: app, context: "profile content")
         }
-        let commentsAction = app.descendants(matching: .any)
-            .matching(identifier: "public-profile.post.action.comments.\(postId)")
-            .firstMatch
+        let commentsAction = profileElement("public-profile.post.action.comments.\(postId)", in: app, context: "profile content comments action")
         commentsAction.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         for identifier in [
             "public-profile.comments.panel",
@@ -519,10 +514,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "public-profile.comments.input",
             "public-profile.comments.send",
         ] {
-            let element = app.descendants(matching: .any)
-                .matching(identifier: identifier)
-                .firstMatch
-            XCTAssertTrue(element.waitForExistence(timeout: 10), "The shared public-profile comments element \(identifier) must be visible.")
+            _ = profileElement(identifier, in: app, context: "profile comments")
         }
         let input = app.descendants(matching: .any)
             .matching(identifier: "public-profile.comments.input")
@@ -535,7 +527,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .tap()
         let persistedComment = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", uiComment, uiComment))
+            .matching(NSPredicate(format: "(label CONTAINS %@ OR value CONTAINS %@) AND identifier != %@", uiComment, uiComment, "public-profile.comments.input"))
             .firstMatch
         XCTAssertTrue(persistedComment.waitForExistence(timeout: 15), "The profile comment submitted from iOS must remain visible after the optimistic write resolves.")
         attachScreenshot(app, name: "ios-chat-profile-content")
@@ -794,6 +786,31 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(button.exists, "Expected \(identifier) for \(context).")
         button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func profileElement(_ identifier: String, in app: XCUIApplication, context: String) -> XCUIElement {
+        let element = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+        if element.waitForExistence(timeout: 5) {
+            return element
+        }
+        for _ in 0..<6 {
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            if element.waitForExistence(timeout: 1) {
+                return element
+            }
+        }
+        for _ in 0..<4 {
+            app.swipeDown()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            if element.waitForExistence(timeout: 1) {
+                return element
+            }
+        }
+        XCTAssertTrue(element.exists, "The shared public-profile element \(identifier) must be visible for \(context).")
+        return element
     }
 
     private func openOptionsMenu(in app: XCUIApplication, expectedIdentifier: String, expectedText: String, context: String) {

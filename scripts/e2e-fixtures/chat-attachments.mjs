@@ -281,6 +281,13 @@ export async function cleanupProfileContentFixture({
           [fixture.postId, `%${fixture.marker}%`, fixture.targetSession?.profileId ?? nilUuid],
         );
       }
+      if (fixture.attachmentId && fixture.storagePath) {
+        await client.query(
+          `delete from public.chat_attachments
+           where id = $1 and storage_path = $2 and uploaded_by_profile_id = $3`,
+          [fixture.attachmentId, fixture.storagePath, fixture.actorSession?.profileId ?? nilUuid],
+        );
+      }
       await client.query("commit");
     } catch (error) {
       await client.query("rollback").catch(() => {});

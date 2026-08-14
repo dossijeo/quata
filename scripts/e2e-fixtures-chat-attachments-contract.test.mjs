@@ -231,6 +231,10 @@ test("shared profile content cleanup deletes owned rows and verifies residue", a
     /profile_id = \$3/.test(entry.sql),
   ));
   assert.ok(queries.some((entry) => /delete from public\.community_posts/.test(entry.sql)));
+  assert.ok(queries.some((entry) =>
+    /delete from public\.chat_attachments/.test(entry.sql) &&
+    /uploaded_by_profile_id = \$3/.test(entry.sql),
+  ));
   assert.deepEqual(queries.at(-1).params.slice(0, 5), [
     "33333333-3333-3333-3333-333333333333",
     "%qadata-profile-content-12345678-1234-1234-1234-123456789abc%",
