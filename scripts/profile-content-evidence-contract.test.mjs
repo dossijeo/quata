@@ -62,6 +62,9 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
     assert.match(source, /public-profile\.attachments\.item\./);
   }
   assert.match(androidUiTest, /performTextReplacement\(uiComment\)/);
+  assert.match(androidUiTest, /public-profile\.attachments\.item\.sb:\$attachmentId/);
+  assert.match(iosUiTest, /public-profile\.attachments\.item\.sb:\\\(attachmentId\)/);
+  assert.match(webRunner, /public-profile\.attachments\.item\.sb:\$\{fixture\.attachmentId\}/);
   assert.match(androidUiTest, /"profile-content" -> \{\s*openProfileFromPeerMessage\(peerProbe\.orEmpty\(\), profileId\.orEmpty\(\)\)/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT/);
   assert.match(iosUiTest, /typeText\(uiComment, into: "public-profile\.comments\.input", in: app\)/);

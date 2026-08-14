@@ -1079,12 +1079,12 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
     await assertVisibleTagOrText(page, `public-profile.post.preview.${fixture.postId}`, [/qadata-profile-content/i]);
     await assertVisibleTagOrText(page, `public-profile.post.action.comments.${fixture.postId}`, [/Comentarios|Comments|1/i]);
     await assertVisibleTagOrText(page, "public-profile.attachments", [/qadata-profile-content\.txt|Adjuntos|Attachments/i]);
-    await assertVisibleTagOrText(page, `public-profile.attachments.item.${fixture.attachmentId}`, [/qadata-profile-content\.txt/i]);
+    await assertVisibleTagOrText(page, `public-profile.attachments.item.sb:${fixture.attachmentId}`, [/qadata-profile-content\.txt/i]);
   } else {
     // Compose Web can expose the card only through the canvas bridge in this lane.
     const requiredCanvasAnchors = [
       "public-profile.attachments",
-      `public-profile.attachments.item.${fixture.attachmentId}`,
+      `public-profile.attachments.item.sb:${fixture.attachmentId}`,
     ];
     report.steps.push(`profile_content_attachments_visible_in_profile_capture:${requiredCanvasAnchors.join(",")}`);
   }

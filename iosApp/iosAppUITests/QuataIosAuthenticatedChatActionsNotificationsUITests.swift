@@ -501,7 +501,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "public-profile.post.preview.\(postId)",
             "public-profile.post.action.comments.\(postId)",
             "public-profile.attachments",
-            "public-profile.attachments.item.\(attachmentId)",
+            "public-profile.attachments.item.sb:\(attachmentId)",
         ] {
             _ = profileElement(identifier, in: app, context: "profile content")
         }
