@@ -594,6 +594,7 @@ class ChatActionsNotificationsInstrumentedTest {
         saveScreenshot("android-chat-profile-safety-report-dialog")
         compose.onNodeWithTag("public-profile.safety.dialog.confirm.report", useUnmergedTree = true)
             .performClick()
+        dismissProfileSafetyDialogIfPresent("report")
 
         compose.onNodeWithTag("public-profile.safety.block.$profileId", useUnmergedTree = true)
             .performClick()
@@ -609,6 +610,28 @@ class ChatActionsNotificationsInstrumentedTest {
             }.isSuccess
         }
         saveScreenshot("android-chat-profile-roles-safety-after-block")
+    }
+
+    private fun dismissProfileSafetyDialogIfPresent(action: String) {
+        val dialogTag = "public-profile.safety.dialog.$action"
+        val stillOpen = runCatching {
+            compose.onNodeWithTag(dialogTag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+            true
+        }.getOrDefault(false)
+        if (!stillOpen) return
+        val dismissedByCancel = runCatching {
+            compose.onNodeWithTag("public-profile.safety.dialog.cancel", useUnmergedTree = true)
+                .performClick()
+            true
+        }.getOrDefault(false)
+        if (!dismissedByCancel) device.pressBack()
+        compose.waitUntil(10_000) {
+            runCatching {
+                compose.onNodeWithTag(dialogTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isFailure
+        }
     }
 
     private fun assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String) {

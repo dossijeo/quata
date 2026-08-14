@@ -53,6 +53,8 @@ test("PROF-ROLES/SAFETY fixture snapshots and restores every mutated backend sur
   assert.match(fixtures, /export async function pollProfileGlobalBlock/);
   assert.match(fixtures, /export async function pollProfileReport/);
   assert.match(fixtures, /export async function cleanupProfileRolesSafetyFixture/);
+  assert.match(fixtures, /target_id = \$3\) as report_count/);
+  assert.match(fixtures, /\[fixture\.actorProfileId, fixture\.targetProfileId, fixture\.targetProfileId\]/);
   assert.match(fixtures, /cleanup_verified_profile_roles_safety_restored/);
   assert.match(fixtures, /cleanup_residue_detected:profile_roles_safety/);
   assert.doesNotMatch(fixtures, /680242607|680242608|21085800|SERVICE_ROLE\s*=/);

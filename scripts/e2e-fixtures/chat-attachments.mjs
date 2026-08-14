@@ -576,8 +576,8 @@ export async function cleanupProfileRolesSafetyFixture({
         (select count(*)::int from public.chat_profile_blocks
           where thread_id is null and blocker_profile_id = $1::uuid and blocked_profile_id = $2::uuid) as block_count,
         (select count(*)::int from public.ugc_reports
-          where reporter_profile_id = $1::uuid and target_type = 'profile' and target_id = $2) as report_count`,
-      [fixture.actorProfileId, fixture.targetProfileId],
+          where reporter_profile_id = $1::uuid and target_type = 'profile' and target_id = $3) as report_count`,
+      [fixture.actorProfileId, fixture.targetProfileId, fixture.targetProfileId],
     );
     const row = residue.rows[0] ?? {};
     const restored =
