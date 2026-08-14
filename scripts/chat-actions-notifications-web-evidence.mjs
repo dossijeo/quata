@@ -1111,12 +1111,19 @@ async function clickProfileSafetyAction(page, tag, patterns, kind, report) {
     await delay(350);
     return;
   }
+  const labelTarget = await profileTextTarget(page, patterns);
+  if (labelTarget) {
+    await page.mouse.click(labelTarget.x + (labelTarget.width / 2), labelTarget.y + (labelTarget.height / 2));
+    await delay(350);
+    return;
+  }
   const viewport = page.viewportSize() ?? { width: 430, height: 932 };
   report.diagnostics = {
     ...(report.diagnostics ?? {}),
     wasmProfileSafetyActionFallback: "Compose/Wasm renders profile safety action labels in canvas without exposing these testTags as DOM aria; Web evidence uses viewport-relative action-row fallback after visual safety anchor assertion. Android/iOS retain semantic-anchor coverage.",
   };
-  const x = kind === "report" ? Math.round(viewport.width * 0.28) : Math.round(viewport.width * 0.72);
+  const fallbackColumns = { report: 0.28, block: 0.72, unblock: 0.72 };
+  const x = Math.round(viewport.width * (fallbackColumns[kind] ?? 0.5));
   await page.mouse.click(x, Math.round(viewport.height * 0.555));
   await delay(350);
 }
