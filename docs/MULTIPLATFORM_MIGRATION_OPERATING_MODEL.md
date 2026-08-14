@@ -315,6 +315,18 @@ conexión conceptual a `commonMain`, el backend real o la comparación visual 1:
 - Durante la certificación CI de una PR publicada se aplica el **Two-lane migration pipeline**:
   tras fast gates verdes y tramo largo iniciado, la candidata queda congelada y el orquestador
   empieza la siguiente superficie en una rama normal o apilada.
+- El happy path remoto usa GitHub nativo: una PR con `candidate-final` y auto-merge habilitado se
+  fusiona cuando branch protection queda satisfecha y el repositorio elimina automáticamente la
+  rama remota de head.
+- El happy path local se limpia en el siguiente checkpoint natural antes de abrir otra superficie:
+  `git fetch --prune`, `node scripts/cleanup-merged-worktrees.mjs --json`, revisión del plan y
+  `node scripts/cleanup-merged-worktrees.mjs --apply` solo para candidatos inequívocamente seguros.
+- En ramas apiladas, si el padre ya fue fusionado, primero se rebasa la hija activa sobre
+  `origin/main`; solo después, cuando la hija ya no depende de la rama/worktree padre, se limpia el
+  padre localmente.
+- La limpieza local falla cerrada: nunca usa `git worktree remove --force` ni `git branch -D` ante
+  cambios sin commit, archivos no trackeados, commits no publicados, PR abierta, PR no demostrada
+  como mergeada, rama usada por otro worktree, dependencia apilada o estado ambiguo.
 - Una PR superseded se cierra solo cuando su sucesora contiene su ancestry necesaria y ha obtenido
   evidencia suficiente; después se eliminan ambas ramas obsoletas.
 - Tras completar la migración y limpiar lo integrado, el objetivo de repositorio es conservar solo
