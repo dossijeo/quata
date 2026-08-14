@@ -492,6 +492,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: "public-profile.kpi.posts.\(profileId)")
             .firstMatch
         XCTAssertTrue(posts.waitForExistence(timeout: 10), "The shared profile posts KPI must be visible.")
+
+        for identifier in [
+            "public-profile.attachments",
+            "public-profile.attachments.item.sb:\(attachmentId)",
+        ] {
+            _ = profileElement(identifier, in: app, context: "profile content attachments")
+        }
+
         posts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
         for identifier in [
@@ -500,17 +508,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "public-profile.gallery.post.\(postId)",
             "public-profile.post.preview.\(postId)",
             "public-profile.post.action.comments.\(postId)",
-            "public-profile.attachments",
-            "public-profile.attachments.item.\(attachmentId)",
         ] {
-            let element = app.descendants(matching: .any)
-                .matching(identifier: identifier)
-                .firstMatch
-            XCTAssertTrue(element.waitForExistence(timeout: 10), "The shared public-profile content element \(identifier) must be visible.")
+            _ = profileElement(identifier, in: app, context: "profile content")
         }
-        let commentsAction = app.descendants(matching: .any)
-            .matching(identifier: "public-profile.post.action.comments.\(postId)")
-            .firstMatch
+        let commentsAction = profileElement("public-profile.post.action.comments.\(postId)", in: app, context: "profile content comments action")
         commentsAction.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         for identifier in [
             "public-profile.comments.panel",
@@ -519,22 +520,24 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "public-profile.comments.input",
             "public-profile.comments.send",
         ] {
-            let element = app.descendants(matching: .any)
-                .matching(identifier: identifier)
-                .firstMatch
-            XCTAssertTrue(element.waitForExistence(timeout: 10), "The shared public-profile comments element \(identifier) must be visible.")
+            _ = profileElement(identifier, in: app, context: "profile comments")
         }
         let input = app.descendants(matching: .any)
             .matching(identifier: "public-profile.comments.input")
             .firstMatch
-        input.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        input.typeText(uiComment)
+        XCTAssertTrue(input.waitForExistence(timeout: 10), "The shared profile comment input must be visible before typing.")
+        typeText(uiComment, into: "public-profile.comments.input", in: app)
         app.descendants(matching: .any)
             .matching(identifier: "public-profile.comments.send")
             .firstMatch
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .tap()
+        let persistedComment = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "(label CONTAINS %@ OR value CONTAINS %@) AND identifier != %@", uiComment, uiComment, "public-profile.comments.input"))
+            .firstMatch
+        XCTAssertTrue(persistedComment.waitForExistence(timeout: 15), "The profile comment submitted from iOS must remain visible after the optimistic write resolves.")
         attachScreenshot(app, name: "ios-chat-profile-content")
+        dismissProfileCommentsPanel(in: app)
     }
 
     func testProfilePrivateChatFromChatUsesSharedPublicProfileAction() throws {
@@ -615,16 +618,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func closePublicProfile(_ profile: XCUIElement, in app: XCUIApplication) {
-        let back = app.descendants(matching: .any)
-            .matching(identifier: "public-profile.back")
-            .firstMatch
-        if back.waitForExistence(timeout: 5), back.isHittable {
-            back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        } else {
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.88))
-            start.press(forDuration: 0.1, thenDragTo: end)
-        }
+        tapPublicProfileBackOrDismiss(in: app)
         XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after the dismiss gesture.")
     }
 
@@ -664,16 +658,55 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func closePublicProfile(in app: XCUIApplication) {
-        let back = app.descendants(matching: .any)
-            .matching(identifier: "public-profile.back")
-            .firstMatch
-        if back.waitForExistence(timeout: 5), back.isHittable {
+        tapPublicProfileBackOrDismiss(in: app)
+    }
+
+    private func tapPublicProfileBackOrDismiss(in app: XCUIApplication) {
+        if let back = publicProfileBackAction(in: app, timeout: 5) {
             back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        } else {
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.88))
-            start.press(forDuration: 0.1, thenDragTo: end)
+            return
         }
+        for _ in 0..<8 {
+            app.swipeDown()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            if let back = publicProfileBackAction(in: app, timeout: 1) {
+                back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                return
+            }
+        }
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.88))
+        start.press(forDuration: 0.1, thenDragTo: end)
+    }
+
+    private func publicProfileBackAction(in app: XCUIApplication, timeout: TimeInterval) -> XCUIElement? {
+        for identifier in ["public-profile.back", "public-profile.back.footer"] {
+            let action = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            if action.waitForExistence(timeout: timeout), action.isHittable {
+                return action
+            }
+        }
+        return nil
+    }
+
+    private func dismissProfileCommentsPanel(in app: XCUIApplication) {
+        dismissKeyboardIfPresent(in: app)
+        let panel = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.comments.panel")
+            .firstMatch
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)).tap()
+        if panel.waitForNonExistence(timeout: 4) {
+            return
+        }
+        let close = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.comments.close")
+            .firstMatch
+        if close.exists, close.isHittable {
+            close.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+        XCTAssertTrue(panel.waitForNonExistence(timeout: 10), "The profile comments panel must close before returning to Chat.")
     }
 
     private func selectMessage(_ markerProbe: String, expectedMessageId: String?, in app: XCUIApplication, context: String) {
@@ -790,6 +823,31 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(button.exists, "Expected \(identifier) for \(context).")
         button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func profileElement(_ identifier: String, in app: XCUIApplication, context: String) -> XCUIElement {
+        let element = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+        if element.waitForExistence(timeout: 5) {
+            return element
+        }
+        for _ in 0..<6 {
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            if element.waitForExistence(timeout: 1) {
+                return element
+            }
+        }
+        for _ in 0..<4 {
+            app.swipeDown()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            if element.waitForExistence(timeout: 1) {
+                return element
+            }
+        }
+        XCTAssertTrue(element.exists, "The shared public-profile element \(identifier) must be visible for \(context).")
+        return element
     }
 
     private func openOptionsMenu(in app: XCUIApplication, expectedIdentifier: String, expectedText: String, context: String) {

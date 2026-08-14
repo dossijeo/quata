@@ -5,8 +5,13 @@ import test from "node:test";
 const webRunner = await readFile(new URL("./chat-actions-notifications-web-evidence.mjs", import.meta.url), "utf8");
 const androidRunner = await readFile(new URL("./chat-actions-notifications-android-evidence.mjs", import.meta.url), "utf8");
 const iosRunner = await readFile(new URL("./chat-actions-notifications-ios-evidence.mjs", import.meta.url), "utf8");
+const iosWrapper = await readFile(new URL("./run-ios-chat-actions-notifications-ui-test.sh", import.meta.url), "utf8");
+const sharedFixtures = await readFile(new URL("./e2e-fixtures/chat-attachments.mjs", import.meta.url), "utf8");
 const androidUiTest = await readFile(new URL("../app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt", import.meta.url), "utf8");
 const iosUiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift", import.meta.url), "utf8");
+const iosNeighborhoodsHost = await readFile(new URL("../feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt", import.meta.url), "utf8");
+const commonProfileHost = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt", import.meta.url), "utf8");
+const commonProfileDetails = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileDetailsContent.kt", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
@@ -15,18 +20,32 @@ test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
     assert.match(runner, /prepareProfileContentFixture/);
     assert.match(runner, /cleanupProfileContentFixture/);
     assert.match(runner, /qadata-profile-content-/);
-    assert.match(runner, /community_posts/);
-    assert.match(runner, /community_comments/);
-    assert.match(runner, /community_post_likes/);
-    assert.match(runner, /chat_attachments/);
     assert.match(runner, /cleanup_verified_profile_content_residue_absent/);
     assert.match(runner, /pollProfileContentComment/);
     assert.match(runner, /profile_content_comment_created_from_ui_and_verified_by_db/);
     assert.match(runner, /attachmentMessageId/);
+    assert.match(runner, /seedProfileContentFixture/);
+    assert.match(runner, /cleanupSharedProfileContentFixture/);
+    assert.match(runner, /pollSharedProfileContentComment/);
+    assert.doesNotMatch(runner, /profile content attachment \$\{marker\}/);
+    assert.doesNotMatch(runner, /quata_chat_register_attachment"[\s\S]*profile-content-attachment-\$\{marker\}/);
+    assert.doesNotMatch(runner, /insert into public\.community_posts/);
     assert.doesNotMatch(runner, /else if \(options\.profileOnly \|\| options\.profileFollowOnly \|\| options\.profileListsOnly \|\| options\.profileContentOnly\) \{\s*\}\s*else if/);
     assert.doesNotMatch(runner, /profile_content_fixture_not_implemented/);
     assert.doesNotMatch(runner, /680242607|680242608|21085800|SERVICE_ROLE\s*=/);
   }
+  assert.match(sharedFixtures, /export async function seedProfileContentFixture/);
+  assert.match(sharedFixtures, /export async function cleanupProfileContentFixture/);
+  assert.match(sharedFixtures, /export async function pollProfileContentComment/);
+  assert.match(sharedFixtures, /cleanup\?\.trackStorageObject/);
+  assert.match(sharedFixtures, /community_posts/);
+  assert.match(sharedFixtures, /community_comments/);
+  assert.match(sharedFixtures, /community_post_likes/);
+  assert.match(sharedFixtures, /chat_attachments/);
+  assert.match(sharedFixtures, /cleanup_verified_profile_content_residue_absent/);
+  assert.match(iosRunner, /profile_content_shared_attachment_rpc_verified/);
+  assert.match(iosRunner, /profile_content_shared_attachment_rpc_missing/);
+  assert.match(iosRunner, /quata_chat_list_shared_attachments/);
 });
 
 test("PROF-CONTENT evidence uses common public-profile content anchors on every platform", () => {
@@ -46,8 +65,49 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
     assert.match(source, /public-profile\.attachments\.item\./);
   }
   assert.match(androidUiTest, /performTextReplacement\(uiComment\)/);
+  assert.match(androidUiTest, /public-profile\.attachments\.item\.sb:\$attachmentId/);
+  assert.match(iosUiTest, /public-profile\.attachments\.item\.sb:\\\(attachmentId\)/);
+  assert.ok(
+    iosUiTest.indexOf('"public-profile.attachments.item.sb:\\(attachmentId)"') <
+      iosUiTest.indexOf("posts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()"),
+    "iOS must assert profile attachments before opening the posts gallery so scroll-to-gallery does not hide them.",
+  );
+  assert.match(webRunner, /public-profile\.attachments\.item\.sb:\$\{fixture\.attachmentId\}/);
+  assert.match(webRunner, /async function openProfileContentCommentsPanel/);
+  assert.match(webRunner, /isProfileCommentsComposerOpen\(page\)/);
+  assert.match(webRunner, /Cerrar comentarios\|Close comments/);
+  assert.match(webRunner, /throw new Error\("profile_content_comments_input_not_visible"\)/);
+  assert.match(webRunner, /else if \(await isProfileCommentsComposerOpen\(page\)\) \{\s+await page\.mouse\.click\(panelFallback\.inputX, panelFallback\.inputY\)/);
+  assert.match(androidUiTest, /"profile-content" -> \{\s*openProfileFromPeerMessage\(peerProbe\.orEmpty\(\), profileId\.orEmpty\(\)\)/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT/);
-  assert.match(iosUiTest, /typeText\(uiComment\)/);
+  assert.match(iosUiTest, /typeText\(uiComment, into: "public-profile\.comments\.input", in: app\)/);
+  assert.match(iosUiTest, /public-profile\.comments\.close/);
+  assert.match(iosUiTest, /dismissProfileCommentsPanel\(in: app\)/);
+  assert.match(iosUiTest, /tapPublicProfileBackOrDismiss\(in: app\)/);
+  assert.match(iosUiTest, /public-profile\.back\.footer/);
+  assert.match(iosNeighborhoodsHost, /showDismissButton = true/);
+  assert.match(commonProfileDetails, /footer: \(@Composable \(\) -> Unit\)\? = null/);
+  assert.match(commonProfileHost, /PublicProfileFooterBackTestTag = "public-profile\.back\.footer"/);
+  assert.match(iosUiTest, /profile comment submitted from iOS must remain visible/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E/);
+  assert.match(iosWrapper, /testProfileContentFromChatUsesSharedPublicProfileSurface/);
+  assert.match(iosWrapper, /profile-content\.log/);
+  assert.match(iosWrapper, /elif \[\[ "\$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" == "1" \]\]; then\s+run_and_require "\$profile_content" "\$profile_content_method"/);
+  assert.match(iosWrapper, /"\$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" != "1"/);
+});
+
+test("Android PROF-CONTENT runner writes focal reports to requested paths", () => {
+  assert.match(androidRunner, /function parseArgs\(argv\)/);
+  assert.match(androidRunner, /"--out", "--evidence-dir"/);
+  assert.match(androidRunner, /const evidenceDir = options\.evidenceDir/);
+  assert.match(androidRunner, /const output = options\.output/);
+});
+
+test("PROF-CONTENT runners provide delay to the shared comment poller", () => {
+  for (const runner of [androidRunner, iosRunner]) {
+    assert.match(runner, /setTimeout as delay/);
+    assert.match(runner, /pollSharedProfileContentComment\(\{ fixture, marker, withDatabase, delay, timeout \}\)/);
+  }
 });
 
 test("PROF-CONTENT contract is part of local fast contract suites", () => {

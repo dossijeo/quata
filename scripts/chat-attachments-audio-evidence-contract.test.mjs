@@ -212,9 +212,9 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
     assert.doesNotMatch(runner, /function attachmentStorageFixtures\(state\)/);
     assert.match(runner, /document_and_(audio|consecutive_audio)_attachment_messages_seeded/);
     assert.match(runner, /document_and_audio_shared_attachment_chrome_verified|ios_xctest_document_and_audio_attachment_chrome_verified/);
-    assert.match(runner, /chatAttachmentsBucket/);
   }
   const sharedFixtures = await source("scripts/e2e-fixtures/chat-attachments.mjs");
+  assert.match(sharedFixtures, /chatAttachmentsBucket/);
   assert.match(sharedFixtures, /storage_delete_verified_absent/);
   assert.match(sharedFixtures, /quata_chat_register_attachment/);
   assert.match(sharedFixtures, /quata_chat_send_message/);
@@ -238,7 +238,9 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /urlOrigin/);
   assert.doesNotMatch(webRunner, /text: entry\.text\(\)\.slice/);
   assert.match(webRunner, /\.\.\.\(report\.diagnostics \?\? \{\}\),\s*visibleNativeControls/);
-  assert.match(webRunner, /!options\.attachmentsAudioOnly && state\.peerMessage/);
+  assert.match(webRunner, /function isFullEvidenceMode\(options\)/);
+  assert.match(webRunner, /isFullEvidenceMode\(options\) && state\.peerMessage/);
+  assert.doesNotMatch(webRunner, /!\s*options\.attachmentsAudioOnly && state\.peerMessage/);
   assert.match(webRunner, /async function waitAudioPlaybackObserved\(page, timeout = 10_000\)/);
   assert.match(webRunner, /async function clickLocatorCenter\(page, locator, error\)/);
   assert.match(webRunner, /clickLocatorCenter\(page, play, "audio_attachment_toggle_not_clickable"\)/);

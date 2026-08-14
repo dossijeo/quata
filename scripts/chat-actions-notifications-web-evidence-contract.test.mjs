@@ -257,6 +257,10 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /class EvidenceCompleted extends Error/);
   assert.match(runner, /if \(options\.translationOnly\) \{/);
   assert.match(runner, /const translationMarker = state\.peerMessage \? peerMarker : ownMarker/);
+  assert.match(runner, /function isProfileFocalMode\(options\)/);
+  assert.match(runner, /function isFullEvidenceMode\(options\)/);
+  assert.match(runner, /if \(options\.translationOnly \|\| \(isFullEvidenceMode\(options\) && state\.peerMessage\)\) \{/);
+  assert.doesNotMatch(runner, /!\s*options\.menuSurfaceOnly && !\s*options\.attachmentsAudioOnly && state\.peerMessage/);
   assert.match(runner, /verifyChatTranslation\(page, options\.evidenceDir, translationMarker\)/);
   assert.match(runner, /async function verifyChatTranslation\(page, evidenceDir, marker\)/);
   assert.match(runner, /async function clickTranslatorOverlayMessage\(page, marker\)/);

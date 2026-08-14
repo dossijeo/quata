@@ -5,11 +5,14 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import {
-  chatAttachmentsBucket,
+  cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   createCleanupRegistry,
+  pollProfileContentComment as pollSharedProfileContentComment,
   seedChatAttachmentFixture,
+  seedProfileContentFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
 const check = "CHAT-ACTIONS-NOTIFICATIONS-IOS-001";
@@ -259,6 +262,15 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.profileContent.uiCommentMarker = `${state.profileContent.marker} ios ui comment`;
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
+      const sharedAttachments = await sharedAttachmentIds(config, state.a, state.a.profileId, state.b.profileId);
+      if (!sharedAttachments.includes(Number(state.profileContent.attachmentId))) {
+        report.evidence.profileContentBackendSharedAttachments = {
+          expectedAttachmentId: state.profileContent.attachmentId,
+          returnedCount: sharedAttachments.length,
+        };
+        throw new Error("profile_content_shared_attachment_rpc_missing");
+      }
+      report.steps.push("profile_content_shared_attachment_rpc_verified");
     }
     if (attachmentsAudioOnly) {
       state.attachmentsAudio = {
@@ -779,6 +791,18 @@ function rpc(config, session, name, body) {
   }, `chat_rpc_failed:${name}`);
 }
 
+async function sharedAttachmentIds(config, session, actorProfileId, peerProfileId) {
+  const payload = await rpc(config, session, "quata_chat_list_shared_attachments", {
+    p_actor_profile_id: actorProfileId,
+    p_peer_profile_id: peerProfileId,
+    p_limit: 120,
+    p_offset: 0,
+  });
+  return rows(payload, "files")
+    .map((entry) => Number(entry?.id ?? entry?.file?.id))
+    .filter((id) => Number.isSafeInteger(id) && id > 0);
+}
+
 async function storageRequest(config, session, path, options, prefix) {
   let response;
   try {
@@ -847,10 +871,6 @@ function attachmentId(payload) {
   const value = Number(raw);
   if (!Number.isSafeInteger(value) || value <= 0) throw new Error("chat_contract_invalid:attachment_id");
   return value;
-}
-
-function pathSegment(path) {
-  return path.split("/").map(encodeURIComponent).join("/");
 }
 
 function messageText(row) {
@@ -1266,165 +1286,23 @@ async function pollProfileFollowEdge(actorProfileId, targetProfileId, expected, 
 }
 
 async function prepareProfileContentFixture(fixture) {
-  if (!fixture?.marker?.startsWith("qadata-profile-content-")) throw new Error("profile_content_fixture_marker_invalid");
-  if (!fixture.config || !fixture.actorSession || !fixture.targetSession || !Number.isSafeInteger(Number(fixture.threadId))) {
-    throw new Error("profile_content_fixture_invalid_context");
-  }
-  if (fixture.prepared) return fixture;
-  const marker = fixture.marker;
-  const content = `profile content attachment ${marker}\n`;
-  fixture.storagePath = `${fixture.actorSession.profileId}/profile-content/${marker}.txt`;
-  await storageRequest(fixture.config, fixture.actorSession, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(fixture.storagePath)}`, {
-    method: "POST",
-    headers: { "content-type": "text/plain; charset=utf-8", "x-upsert": "false" },
-    body: content,
-  }, "profile_content_storage_upload_failed");
-  fixture.storageObjectCreated = true;
-  const publicUrl = `${fixture.config.baseUrl}/storage/v1/object/public/${chatAttachmentsBucket}/${pathSegment(fixture.storagePath)}`;
-  fixture.attachmentId = attachmentId(await rpc(fixture.config, fixture.actorSession, "quata_chat_register_attachment", {
-    p_actor_profile_id: fixture.actorSession.profileId,
-    p_thread_id: fixture.threadId,
-    p_file_url: publicUrl,
-    p_storage_bucket: chatAttachmentsBucket,
-    p_storage_path: fixture.storagePath,
-    p_mime_type: "text/plain",
-    p_name: "qadata-profile-content.txt",
-    p_size_bytes: Buffer.byteLength(content),
-    p_ext: "txt",
-    p_thumb: null,
-  }));
-  fixture.attachmentMessageId = messageId(await rpc(fixture.config, fixture.actorSession, "quata_chat_send_message", {
-    p_actor_profile_id: fixture.actorSession.profileId,
-    p_thread_id: fixture.threadId,
-    p_message: "",
-    p_file_ids: [fixture.attachmentId],
-    p_reply_to_message_id: null,
-    p_client_message_id: `profile-content-attachment-${marker}`,
-  }));
-  await withDatabase(async (client) => {
-    await client.query("begin");
-    try {
-      const post = await client.query(
-        `with selected_wall as (
-           select wall_id as id
-           from public.community_members
-           where profile_id = $1
-           order by created_at desc
-           limit 1
-         ), fallback_wall as (
-           select id
-           from public.community_walls_stats
-           where is_active = true
-           order by sort_order asc
-           limit 1
-         ), wall as (
-           select id from selected_wall
-           union all
-           select id from fallback_wall
-           limit 1
-         )
-         insert into public.community_posts(id, wall_id, profile_id, body)
-         select gen_random_uuid(), wall.id, $1, $2
-         from wall
-         returning id`,
-        [fixture.targetSession.profileId, `${marker} post body`],
-      );
-      fixture.postId = post.rows[0]?.id;
-      if (!uuid.test(fixture.postId ?? "")) throw new Error("profile_content_fixture_wall_unavailable");
-      const comment = await client.query(
-        `insert into public.community_comments(id, post_id, profile_id, body)
-         values (gen_random_uuid(), $1, $2, $3)
-         returning id`,
-        [fixture.postId, fixture.actorSession.profileId, `${marker} seed comment`],
-      );
-      fixture.seedCommentId = comment.rows[0]?.id;
-      await client.query(
-        `insert into public.community_post_likes(post_id, profile_id)
-         values ($1, $2)
-         on conflict do nothing`,
-        [fixture.postId, fixture.actorSession.profileId],
-      );
-      await client.query("commit");
-    } catch (error) {
-      await client.query("rollback").catch(() => {});
-      throw error;
-    }
+  return seedProfileContentFixture({
+    fixture,
+    withDatabase,
+    rpc,
+    storageRequest,
+    attachmentId,
+    messageId,
+    cleanup: state.cleanupRegistry,
   });
-  fixture.prepared = true;
-  return fixture;
 }
 
 async function cleanupProfileContentFixture(fixture) {
-  if (!fixture) return null;
-  if (fixture.storageObjectCreated && fixture.config && fixture.actorSession && fixture.storagePath) {
-    await storageRequest(fixture.config, fixture.actorSession, `/storage/v1/object/${chatAttachmentsBucket}`, {
-      method: "DELETE",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prefixes: [fixture.storagePath] }),
-    }, "profile_content_storage_delete_failed");
-    fixture.storageObjectCreated = false;
-  }
-  return await withDatabase(async (client) => {
-    await client.query("begin");
-    try {
-      if (fixture.postId) {
-        await client.query(
-          `delete from public.community_post_likes
-           where post_id = $1 and profile_id in ($2, $3)`,
-          [fixture.postId, fixture.actorSession?.profileId ?? "00000000-0000-0000-0000-000000000000", fixture.targetSession?.profileId ?? "00000000-0000-0000-0000-000000000000"],
-        );
-        await client.query(
-          `delete from public.community_comments
-           where post_id = $1 and (body like $2 or id = $3)`,
-          [fixture.postId, `%${fixture.marker}%`, fixture.seedCommentId ?? "00000000-0000-0000-0000-000000000000"],
-        );
-        await client.query(
-          `delete from public.community_posts
-           where id = $1 and body like $2`,
-          [fixture.postId, `%${fixture.marker}%`],
-        );
-      }
-      await client.query("commit");
-    } catch (error) {
-      await client.query("rollback").catch(() => {});
-      throw error;
-    }
-    const residue = await client.query(
-      `select
-        (select count(*)::int from public.community_posts where id = $1 or body like $2) as community_posts,
-        (select count(*)::int from public.community_comments where post_id = $1 or body like $2) as community_comments,
-        (select count(*)::int from public.community_post_likes where post_id = $1) as community_post_likes,
-        (select count(*)::int from public.chat_attachments where id = $3 and storage_path = $4) as chat_attachments`,
-      [fixture.postId ?? "00000000-0000-0000-0000-000000000000", `%${fixture.marker}%`, fixture.attachmentId ?? -1, fixture.storagePath ?? ""],
-    );
-    const counts = residue.rows[0] ?? {};
-    if (Object.values(counts).some((count) => Number(count) !== 0)) throw new Error("cleanup_residue_detected:profile_content");
-    return {
-      postId: fixture.postId ?? null,
-      seedCommentId: fixture.seedCommentId ?? null,
-      attachmentId: fixture.attachmentId ?? null,
-      residueCounts: counts,
-      status: "cleanup_verified_profile_content_residue_absent",
-    };
-  });
+  return cleanupSharedProfileContentFixture({ fixture, withDatabase });
 }
 
 async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
-  const deadline = Date.now() + timeout;
-  while (Date.now() < deadline) {
-    const result = await withDatabase(async (client) => await client.query(
-      `select id
-         from public.community_comments
-        where post_id = $1 and profile_id = $2 and body = $3
-        order by created_at desc
-        limit 1`,
-      [fixture.postId, fixture.actorSession.profileId, marker],
-    ));
-    const id = result.rows[0]?.id;
-    if (uuid.test(id ?? "")) return id;
-    await delay(1_000);
-  }
-  throw new Error("profile_content_comment_not_persisted");
+  return pollSharedProfileContentComment({ fixture, marker, withDatabase, delay, timeout });
 }
 
 async function hardDeleteTemporaryForwardDestination(profile, threadId) {

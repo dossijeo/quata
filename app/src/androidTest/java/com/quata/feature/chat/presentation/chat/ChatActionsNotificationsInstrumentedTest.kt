@@ -112,7 +112,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty())
                 "group-sos" -> runGroupSosStage(ownProbe.orEmpty())
                 "profile-content" -> {
-                    openPeerProfile(peerProbe.orEmpty(), profileId.orEmpty())
+                    openProfileFromPeerMessage(peerProbe.orEmpty(), profileId.orEmpty())
                     assertProfileContentStage(profileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty())
                     closePublicProfile(peerProbe.orEmpty())
                     saveScreenshot("android-chat-profile-return")

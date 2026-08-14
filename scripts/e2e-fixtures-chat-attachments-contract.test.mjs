@@ -5,6 +5,8 @@ import {
   attachmentStorageFixtures,
   chatAttachmentsBucket,
   createCleanupRegistry,
+  cleanupProfileContentFixture,
+  seedProfileContentFixture,
   seedChatAttachmentFixture,
   validWavFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
@@ -123,4 +125,150 @@ test("shared fixture supports stable visible name suffixes for repeated attachme
     messageId: (payload) => payload.message_id,
   });
   assert.equal(fixture.name, "qadata-audio-12345678-next.wav");
+});
+
+test("seedProfileContentFixture registers storage cleanup before remote upload", async () => {
+  const cleanup = createCleanupRegistry();
+  const order = [];
+  await assert.rejects(seedProfileContentFixture({
+    fixture: {
+      marker: "qadata-profile-content-12345678-1234-1234-1234-123456789abc",
+      actorSession: { profileId: "actor-profile" },
+      targetSession: { profileId: "target-profile" },
+      threadId: 123,
+    },
+    config: { baseUrl: "https://example.supabase.co" },
+    cleanup: {
+      trackStorageObject(entry) {
+        order.push(`track:${entry.storagePath}`);
+        return cleanup.trackStorageObject(entry);
+      },
+    },
+    storageRequest: async () => {
+      order.push("upload");
+      throw new Error("upload_failed");
+    },
+    rpc: async () => { throw new Error("must_not_register_after_upload_failure"); },
+    withDatabase: async () => { throw new Error("must_not_insert_post_after_upload_failure"); },
+    attachmentId: () => 1,
+    messageId: () => 1,
+  }), /upload_failed/);
+  assert.equal(order[0].startsWith("track:"), true);
+  assert.equal(order[1], "upload");
+  assert.equal(cleanup.summary().trackedStorageObjects, 1);
+});
+
+test("shared profile content fixture seeds post, comment, like and attachment metadata", async () => {
+  const calls = [];
+  const queries = [];
+  const cleanup = createCleanupRegistry();
+  const fixture = await seedProfileContentFixture({
+    fixture: {
+      marker: "qadata-profile-content-12345678-1234-1234-1234-123456789abc",
+      actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+      targetSession: { profileId: "22222222-2222-2222-2222-222222222222" },
+      threadId: 123,
+    },
+    config: { baseUrl: "https://example.supabase.co" },
+    cleanup,
+    storageRequest: async (_config, _session, path, options) => calls.push({ path, options }),
+    rpc: async (_config, _session, name) => name === "quata_chat_register_attachment" ? { id: 191 } : { message_id: 192 },
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        if (/insert into public\.community_posts/.test(sql)) return { rows: [{ id: "33333333-3333-3333-3333-333333333333" }] };
+        if (/insert into public\.community_comments/.test(sql)) return { rows: [{ id: "44444444-4444-4444-4444-444444444444" }] };
+        return { rows: [], rowCount: 0 };
+      },
+    }),
+    attachmentId: (payload) => payload.id,
+    messageId: (payload) => payload.message_id,
+  });
+  assert.equal(fixture.attachmentId, 191);
+  assert.equal(fixture.attachmentMessageId, 192);
+  assert.equal(fixture.postId, "33333333-3333-3333-3333-333333333333");
+  assert.equal(fixture.seedCommentId, "44444444-4444-4444-4444-444444444444");
+  assert.equal(calls[0].options.headers["content-type"], "text/plain; charset=utf-8");
+  assert.match(calls[0].path, new RegExp(`/storage/v1/object/${chatAttachmentsBucket}/`));
+  assert.ok(queries.some((entry) => /insert into public\.community_post_likes/.test(entry.sql)));
+  assert.equal(cleanup.summary().trackedStorageObjects, 1);
+});
+
+test("shared profile content cleanup deletes owned rows and verifies residue", async () => {
+  const queries = [];
+  const summary = await cleanupProfileContentFixture({
+    fixture: {
+      marker: "qadata-profile-content-12345678-1234-1234-1234-123456789abc",
+      actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+      targetSession: { profileId: "22222222-2222-2222-2222-222222222222" },
+      postId: "33333333-3333-3333-3333-333333333333",
+      seedCommentId: "44444444-4444-4444-4444-444444444444",
+      attachmentId: 191,
+      storagePath: "11111111-1111-1111-1111-111111111111/profile-content/qadata-profile-content.txt",
+    },
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        if (/select\s+\(select count\(\*\)::int from public\.community_posts/.test(sql)) {
+          return {
+            rows: [{
+              community_posts: 0,
+              community_comments: 0,
+              community_post_likes: 0,
+              chat_attachments: 0,
+            }],
+          };
+        }
+        return { rows: [], rowCount: 0 };
+      },
+    }),
+  });
+  assert.equal(summary.status, "cleanup_verified_profile_content_residue_absent");
+  assert.ok(queries.some((entry) => /delete from public\.community_post_likes/.test(entry.sql)));
+  assert.ok(queries.some((entry) =>
+    /delete from public\.community_comments/.test(entry.sql) &&
+    /select id from public\.community_posts/.test(entry.sql) &&
+    /profile_id = \$3/.test(entry.sql),
+  ));
+  assert.ok(queries.some((entry) => /delete from public\.community_posts/.test(entry.sql)));
+  assert.ok(queries.some((entry) =>
+    /delete from public\.chat_attachments/.test(entry.sql) &&
+    /uploaded_by_profile_id = \$3/.test(entry.sql),
+  ));
+  assert.deepEqual(queries.at(-1).params.slice(0, 5), [
+    "33333333-3333-3333-3333-333333333333",
+    "%qadata-profile-content-12345678-1234-1234-1234-123456789abc%",
+    191,
+    "11111111-1111-1111-1111-111111111111/profile-content/qadata-profile-content.txt",
+    "22222222-2222-2222-2222-222222222222",
+  ]);
+});
+
+test("shared profile content cleanup fails closed on residue", async () => {
+  await assert.rejects(cleanupProfileContentFixture({
+    fixture: {
+      marker: "qadata-profile-content-12345678-1234-1234-1234-123456789abc",
+      actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+      targetSession: { profileId: "22222222-2222-2222-2222-222222222222" },
+      postId: "33333333-3333-3333-3333-333333333333",
+      seedCommentId: "44444444-4444-4444-4444-444444444444",
+      attachmentId: 191,
+      storagePath: "11111111-1111-1111-1111-111111111111/profile-content/qadata-profile-content.txt",
+    },
+    withDatabase: async (callback) => callback({
+      query: async (sql) => {
+        if (/select\s+\(select count\(\*\)::int from public\.community_posts/.test(sql)) {
+          return {
+            rows: [{
+              community_posts: 1,
+              community_comments: 0,
+              community_post_likes: 0,
+              chat_attachments: 0,
+            }],
+          };
+        }
+        return { rows: [], rowCount: 0 };
+      },
+    }),
+  }), /cleanup_residue_detected:profile_content/);
 });
