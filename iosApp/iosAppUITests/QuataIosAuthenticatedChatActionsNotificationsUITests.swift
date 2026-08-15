@@ -108,6 +108,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-attachment-document-visible")
 
         XCTAssertTrue(messageText(audioProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        guard makeChatAnchorVisible(identifier: "chat.attachment.audio.player", context: "Chat audio attachment", in: app) else {
+            return
+        }
         for identifier in ["chat.attachment.audio.player", "chat.attachment.audio.toggle", "chat.attachment.audio.progress"] {
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: identifier).firstMatch.waitForExistence(timeout: 10),
@@ -115,9 +118,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             )
         }
         attachScreenshot(app, name: "ios-chat-audio-player-visible")
-        app.descendants(matching: .any)
+        let audioToggle = app.descendants(matching: .any)
             .matching(identifier: "chat.attachment.audio.toggle")
             .firstMatch
+        XCTAssertTrue(audioToggle.waitForExistence(timeout: 5), "The shared audio toggle must be visible before playback is attempted.")
+        audioToggle
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .tap()
         attachScreenshot(app, name: "ios-chat-audio-toggle-attempted")
@@ -828,6 +833,34 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "chat.message.\(messageId)", markerProbe))
             .firstMatch
+    }
+
+    private func makeChatAnchorVisible(identifier: String, context: String, in app: XCUIApplication) -> Bool {
+        let anchor = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+
+        for _ in 0..<8 {
+            if anchor.waitForExistence(timeout: 1), anchor.isHittable {
+                return true
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+
+        for _ in 0..<4 {
+            if anchor.waitForExistence(timeout: 1), anchor.isHittable {
+                return true
+            }
+            app.swipeDown()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+
+        guard anchor.waitForExistence(timeout: 3) else {
+            XCTFail("The shared anchor \(identifier) must be visible for \(context).")
+            return false
+        }
+        return true
     }
 
     private func openChatMediaAttachment(identifier: String, context: String, in app: XCUIApplication) -> Bool {
