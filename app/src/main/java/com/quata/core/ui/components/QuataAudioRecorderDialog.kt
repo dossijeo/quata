@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -128,6 +130,13 @@ fun QuataAudioRecorderDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(28.dp)
+                .semantics {
+                    testTag = if (isRecording) {
+                        "chat.composer.recording"
+                    } else {
+                        "chat.composer.recording.dialog"
+                    }
+                }
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -146,16 +155,29 @@ fun QuataAudioRecorderDialog(
                     fontWeight = FontWeight.Bold,
                     fontSize = 30.sp
                 )
-                QuataAudioRecordButton(
-                    isRecording = isRecording,
-                    onClick = {
-                        if (isRecording) {
-                            stopAndAttach()
-                        } else {
-                            startRecording()
-                        }
+                val recordAction = {
+                    if (isRecording) {
+                        stopAndAttach()
+                    } else {
+                        startRecording()
                     }
-                )
+                }
+                Box(
+                    modifier = Modifier
+                        .semantics {
+                            testTag = if (isRecording) {
+                                "chat.composer.recording.stop"
+                            } else {
+                                "chat.composer.recording.start"
+                            }
+                        }
+                        .clickable(onClick = recordAction),
+                ) {
+                    QuataAudioRecordButton(
+                        isRecording = isRecording,
+                        onClick = recordAction,
+                    )
+                }
                 Text(
                     text = stringResource(
                         if (isRecording) {
@@ -168,7 +190,12 @@ fun QuataAudioRecorderDialog(
                     fontSize = 13.sp
                 )
                 errorText?.let { message ->
-                    Text(message, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    Text(
+                        message,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 13.sp,
+                        modifier = Modifier.semantics { testTag = "chat.composer.recording.error" },
+                    )
                 }
                 Spacer(Modifier.height(2.dp))
                 Row(

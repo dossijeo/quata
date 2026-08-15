@@ -361,6 +361,8 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun runAttachmentsAudioStage(documentProbe: String, audioProbe: String, imageProbe: String, videoProbe: String) {
+        verifyAndroidAudioRecordingComposer()
+
         waitForMarker(videoProbe.take(28), "video attachment message")
         compose.waitUntil(20_000) {
             runCatching {
@@ -436,6 +438,23 @@ class ChatActionsNotificationsInstrumentedTest {
             .performTouchInput { click(center) }
         compose.waitForIdle()
         saveScreenshot("android-chat-audio-toggle-attempted")
+    }
+
+    private fun verifyAndroidAudioRecordingComposer() {
+        grantRecordAudioPermission()
+        compose.onNodeWithTag(ChatComposerRecordAudioTestTag, useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        compose.waitUntil(10_000) { nodeWithTagVisible(ChatComposerRecordingTestTag) }
+        compose.waitUntil(10_000) { nodeWithTagVisible("chat.composer.recording.stop") }
+        SystemClock.sleep(1_500)
+        saveScreenshot("android-chat-audio-recording-active")
+        compose.onNodeWithTag("chat.composer.recording.stop", useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        compose.waitUntil(15_000) { nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag) }
+        saveScreenshot("android-chat-audio-recording-pending-attachment")
+        compose.onNodeWithTag(ChatPendingAttachmentClearTestTag, useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        compose.waitUntil(8_000) { !nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag) }
     }
 
     private suspend fun runAttachmentPickerStage(source: String, name: String, marker: String) {
@@ -1309,6 +1328,12 @@ class ChatActionsNotificationsInstrumentedTest {
         if (Build.VERSION.SDK_INT < 33) return
         if (targetContext.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
         instrumentation.uiAutomation.executeShellCommand("pm grant ${targetContext.packageName} ${Manifest.permission.POST_NOTIFICATIONS}")
+            .close()
+    }
+
+    private fun grantRecordAudioPermission() {
+        if (targetContext.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) return
+        instrumentation.uiAutomation.executeShellCommand("pm grant ${targetContext.packageName} ${Manifest.permission.RECORD_AUDIO}")
             .close()
     }
 

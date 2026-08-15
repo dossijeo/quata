@@ -226,12 +226,22 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /ChatVideoAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatImageAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatDocumentAttachmentTestTag/);
+  assert.match(androidUiTest, /verifyAndroidAudioRecordingComposer/);
+  assert.match(androidUiTest, /Manifest\.permission\.RECORD_AUDIO/);
+  assert.match(androidUiTest, /ChatComposerRecordAudioTestTag/);
+  assert.match(androidUiTest, /chat\.composer\.recording\.stop/);
+  assert.match(androidUiTest, /ChatPendingAttachmentOverlayTestTag/);
+  assert.match(androidUiTest, /ChatPendingAttachmentClearTestTag/);
+  assert.match(androidUiTest, /android-chat-audio-recording-active/);
+  assert.match(androidUiTest, /android-chat-audio-recording-pending-attachment/);
   assert.match(androidUiTest, /ChatAudioAttachmentPlayerTestTag/);
   assert.match(androidUiTest, /ChatAudioAttachmentToggleTestTag/);
   assert.match(androidUiTest, /ChatAudioAttachmentProgressTestTag/);
   assert.match(androidUiTest, /android-chat-attachment-video-viewer/);
   assert.match(androidUiTest, /android-chat-attachment-media-viewer/);
   assert.match(androidUiTest, /android-chat-attachment-document-visible/);
+  assert.match(androidRunner, /android-chat-audio-recording-active\.png/);
+  assert.match(androidRunner, /android-chat-audio-recording-pending-attachment\.png/);
   assert.match(androidUiTest, /android-chat-audio-toggle-attempted/);
 
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
