@@ -87,70 +87,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         assertChatRoute(conversationId, in: app, context: "attachments/audio conversation")
 
         XCTAssertTrue(messageText(videoProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
-        let video = app.descendants(matching: .any)
-            .matching(identifier: "chat.attachment.media.video")
-            .firstMatch
-        XCTAssertTrue(video.waitForExistence(timeout: 10), "The shared video attachment anchor must be visible.")
-        video.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 10),
-            "The shared fullscreen media overlay must open from a Chat video attachment.",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay title must be visible for Chat video attachments.",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay close control must be visible for Chat video attachments.",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay in-media close control must be visible for Chat video attachments.",
-        )
+        guard openChatMediaAttachment(identifier: "chat.attachment.media.video", context: "Chat video attachment", in: app) else {
+            return
+        }
         attachScreenshot(app, name: "ios-chat-attachment-video-viewer")
-        app.descendants(matching: .any)
-            .matching(identifier: "fullscreen-media.back")
-            .firstMatch
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .tap()
-        XCTAssertFalse(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay must close back to the Chat thread after video.",
-        )
+        closeFullscreenMedia(context: "Chat video attachment", in: app)
 
         XCTAssertTrue(messageText(imageProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
-        let media = app.descendants(matching: .any)
-            .matching(identifier: "chat.attachment.media.image")
-            .firstMatch
-        XCTAssertTrue(media.waitForExistence(timeout: 10), "The shared media attachment anchor must be visible.")
-        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 10),
-            "The shared fullscreen media overlay must open from a Chat image attachment.",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay title must be visible for Chat image attachments.",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay close control must be visible for Chat image attachments.",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay in-media close control must be visible for Chat image attachments.",
-        )
+        guard openChatMediaAttachment(identifier: "chat.attachment.media.image", context: "Chat image attachment", in: app) else {
+            return
+        }
         attachScreenshot(app, name: "ios-chat-attachment-media-viewer")
-        app.descendants(matching: .any)
-            .matching(identifier: "fullscreen-media.back")
-            .firstMatch
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .tap()
-        XCTAssertFalse(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay must close back to the Chat thread.",
-        )
+        closeFullscreenMedia(context: "Chat image attachment", in: app)
 
         XCTAssertTrue(messageText(documentProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         let document = app.descendants(matching: .any)
@@ -880,6 +828,76 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "chat.message.\(messageId)", markerProbe))
             .firstMatch
+    }
+
+    private func openChatMediaAttachment(identifier: String, context: String, in app: XCUIApplication) -> Bool {
+        let media = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+
+        for _ in 0..<8 {
+            if media.waitForExistence(timeout: 1), media.isHittable {
+                media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                return assertFullscreenMediaOpened(context: context, in: app)
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+
+        for _ in 0..<4 {
+            if media.waitForExistence(timeout: 1), media.isHittable {
+                media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                return assertFullscreenMediaOpened(context: context, in: app)
+            }
+            app.swipeDown()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+
+        guard media.waitForExistence(timeout: 3) else {
+            XCTFail("The shared media attachment anchor \(identifier) must be visible for \(context).")
+            return false
+        }
+
+        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        return assertFullscreenMediaOpened(context: context, in: app)
+    }
+
+    private func assertFullscreenMediaOpened(context: String, in app: XCUIApplication) -> Bool {
+        guard app.descendants(matching: .any)
+            .matching(identifier: "fullscreen-media.root")
+            .firstMatch
+            .waitForExistence(timeout: 10) else {
+            XCTFail("The shared fullscreen media overlay must open from \(context).")
+            return false
+        }
+
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay title must be visible for \(context).",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay close control must be visible for \(context).",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay in-media close control must be visible for \(context).",
+        )
+        return true
+    }
+
+    private func closeFullscreenMedia(context: String, in app: XCUIApplication) {
+        let back = app.descendants(matching: .any)
+            .matching(identifier: "fullscreen-media.back")
+            .firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 5), "The shared fullscreen media overlay back action must be visible for \(context).")
+        if back.exists {
+            back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay must close back to the Chat thread after \(context).",
+        )
     }
 
     private func openPeerPublicProfile(peerProfileId: String, in app: XCUIApplication) -> XCUIElement {
