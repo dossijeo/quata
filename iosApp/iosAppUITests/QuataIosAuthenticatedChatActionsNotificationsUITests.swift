@@ -104,10 +104,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         closeFullscreenMedia(context: "Chat image attachment", in: app)
 
         XCTAssertTrue(messageText(documentProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
-        let document = app.descendants(matching: .any)
-            .matching(identifier: "chat.attachment.document")
-            .firstMatch
-        XCTAssertTrue(document.waitForExistence(timeout: 10), "The shared document attachment anchor must be visible.")
+        guard makeChatAnchorVisible(identifier: "chat.attachment.document", context: "Chat document attachment", in: app) else {
+            return
+        }
+        for identifier in ["chat.attachment.document.open", "chat.attachment.document.download", "chat.attachment.document.share"] {
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: identifier).firstMatch.waitForExistence(timeout: 10),
+                "The shared document attachment action \(identifier) must be visible.",
+            )
+        }
         attachScreenshot(app, name: "ios-chat-attachment-document-visible")
 
         XCTAssertTrue(messageText(audioProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)

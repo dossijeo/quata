@@ -154,6 +154,8 @@ class ChatViewModel(
             ChatUiEvent.ReportSelectedMessage -> reportSelectedMessage()
             ChatUiEvent.ClearNotice -> _uiState.value = _uiState.value.copy(notice = null)
             ChatUiEvent.ClearError -> _uiState.value = _uiState.value.copy(error = null)
+            is ChatUiEvent.ShowNotice -> _uiState.value = _uiState.value.copy(notice = event.message, error = null)
+            is ChatUiEvent.ShowError -> _uiState.value = _uiState.value.copy(error = event.message)
             ChatUiEvent.OpenForwardDialog -> openForwardPicker()
             ChatUiEvent.CloseForwardDialog -> closeForwardPicker()
             ChatUiEvent.SendForward -> sendForward()

@@ -736,6 +736,7 @@ private fun QuataWebApp(
                                 audioRecordingReferences = platformServices.audioRecordingReferences,
                                 filePicker = platformServices.filePicker,
                                 documentOpener = platformServices.documentOpener,
+                                shareService = platformServices.share,
                                 conversationId = navigation.chatConversationId,
                                 focusedMessageId = navigation.chatMessageId,
                                 onFocusedMessageHandled = {

@@ -889,6 +889,7 @@ fun AppNavGraph(
                             conversationId = conversationId,
                             repository = container.chatRepository,
                             clipboardService = container.clipboardService,
+                            shareService = container.shareService,
                             filePickerService = container.filePickerService,
                             cameraCaptureService = container.cameraCaptureService,
                             audioRecorderService = container.audioRecorderService,

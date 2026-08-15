@@ -1,7 +1,11 @@
 package com.quata.feature.chat.presentation.chat
 
 import android.content.Context
+import android.content.ContentValues
 import android.content.Intent
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
@@ -36,6 +40,8 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.SharePayload
+import com.quata.core.platform.ShareService
 import com.quata.core.translation.QuataCachedTranslator
 import com.quata.core.ui.components.AttachmentFullscreenMediaContent
 import com.quata.core.ui.components.AttachmentPreview
@@ -44,7 +50,12 @@ import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.openAttachmentWithDocumentReaderOrChooser
 import com.quata.feature.chat.domain.ChatRepository
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.util.Locale
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Android system adapters for the same [ChatProductHostContent] mounted by Wasm and iOS. */
 @Composable
@@ -53,6 +64,7 @@ fun AndroidChatProductScreen(
     conversationId: String,
     repository: ChatRepository,
     clipboardService: ClipboardService,
+    shareService: ShareService,
     filePickerService: FilePickerService,
     cameraCaptureService: CameraCaptureService,
     audioRecorderService: AudioRecorderService,
@@ -106,6 +118,15 @@ fun AndroidChatProductScreen(
                 context.openAttachmentWithDocumentReaderOrChooser(
                     attachment = file.toAttachmentPreview(attachmentFallbackName),
                     isDarkMode = template.resolvedTheme != QuataResolvedTheme.Light,
+                )
+            },
+            onDownloadAttachment = { file -> context.saveChatAttachmentToDownloads(file, attachmentFallbackName) },
+            onShareAttachment = { file ->
+                shareService.share(
+                    SharePayload(
+                        title = file.displayName ?: attachmentFallbackName,
+                        files = listOf(file),
+                    ),
                 )
             },
             onOpenExternalLink = context::openSafeChatExternalLink,
@@ -172,6 +193,58 @@ private fun Context.openSafeChatExternalLink(value: String) {
     if (uri.scheme?.lowercase() !in setOf("http", "https")) return
     runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
 }
+
+private suspend fun Context.saveChatAttachmentToDownloads(
+    file: PlatformFile,
+    fallbackName: String,
+): PlatformResult<Unit> = withContext(Dispatchers.IO) {
+    val name = file.displayName.safeDownloadName(fallbackName)
+    val mimeType = file.mimeType?.takeIf(String::isNotBlank) ?: "application/octet-stream"
+    runCatching {
+        val input = when (val uri = file.reference.toUri()) {
+            else -> when (uri.scheme?.lowercase(Locale.US)) {
+                "content" -> contentResolver.openInputStream(uri)
+                "file" -> FileInputStream(File(uri.path ?: error("chat_attachment_download_path_missing")))
+                else -> null
+            }
+        } ?: return@withContext PlatformResult.Unsupported
+        input.use { source ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                    put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+                val destination = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: error("chat_attachment_download_insert_failed")
+                try {
+                    contentResolver.openOutputStream(destination)?.use { target -> source.copyTo(target) }
+                        ?: error("chat_attachment_download_stream_failed")
+                    values.clear()
+                    values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    contentResolver.update(destination, values, null, null)
+                } catch (failure: Throwable) {
+                    contentResolver.delete(destination, null, null)
+                    throw failure
+                }
+            } else {
+                val directory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                if (!directory.exists()) directory.mkdirs()
+                FileOutputStream(File(directory, name)).use { target -> source.copyTo(target) }
+            }
+        }
+        PlatformResult.Success(Unit)
+    }.getOrElse { PlatformResult.Failure(it.message) }
+}
+
+private fun String?.safeDownloadName(fallbackName: String): String =
+    this?.trim()
+        ?.substringAfterLast('/')
+        ?.substringAfterLast('\\')
+        ?.replace(Regex("[^A-Za-z0-9._ -]"), "_")
+        ?.takeIf { it.isNotBlank() && it.length <= 128 }
+        ?: fallbackName
 
 private const val ChatEvidencePreferences = "quata_chat_evidence"
 private const val ChatMediaFixtureOptIn = "I_ACCEPT_ANDROID_CHAT_ATTACHMENT_PICKER_FIXTURE"

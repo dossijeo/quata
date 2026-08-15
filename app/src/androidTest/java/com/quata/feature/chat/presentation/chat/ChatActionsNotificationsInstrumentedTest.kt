@@ -21,6 +21,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
@@ -418,6 +419,14 @@ class ChatActionsNotificationsInstrumentedTest {
                     .fetchSemanticsNode()
             }.isSuccess
         }
+        listOf(
+            ChatDocumentAttachmentOpenTestTag,
+            ChatDocumentAttachmentDownloadTestTag,
+            ChatDocumentAttachmentShareTestTag,
+        ).forEach { tag ->
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }
         saveScreenshot("android-chat-attachment-document-visible")
 
         waitForMarker(audioProbe.take(28), "audio attachment message")
@@ -442,6 +451,7 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun verifyAndroidAudioRecordingComposer() {
         grantRecordAudioPermission()
+        prepareComposerForAudioRecording()
         compose.onNodeWithTag(ChatComposerRecordAudioTestTag, useUnmergedTree = true)
             .performTouchInput { click(center) }
         compose.waitUntil(10_000) { nodeWithTagVisible(ChatComposerRecordingTestTag) }
@@ -455,6 +465,18 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.onNodeWithTag(ChatPendingAttachmentClearTestTag, useUnmergedTree = true)
             .performTouchInput { click(center) }
         compose.waitUntil(8_000) { !nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag) }
+    }
+
+    private fun prepareComposerForAudioRecording() {
+        compose.waitUntil(15_000) { nodeWithTagVisible(ChatComposerInputTestTag) }
+        if (nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag)) {
+            compose.onNodeWithTag(ChatPendingAttachmentClearTestTag, useUnmergedTree = true)
+                .performTouchInput { click(center) }
+            compose.waitUntil(8_000) { !nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag) }
+        }
+        compose.onNodeWithTag(ChatComposerInputTestTag, useUnmergedTree = true)
+            .performTextClearance()
+        compose.waitUntil(10_000) { nodeWithTagVisible(ChatComposerRecordAudioTestTag) }
     }
 
     private suspend fun runAttachmentPickerStage(source: String, name: String, marker: String) {

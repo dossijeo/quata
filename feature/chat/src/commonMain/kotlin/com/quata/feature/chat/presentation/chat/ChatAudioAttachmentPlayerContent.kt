@@ -116,7 +116,7 @@ fun ChatAudioAttachmentPlayerContent(
                     }
                 }
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(14.dp).semantics { testTag = ChatAudioAttachmentProgressTestTag }.onSizeChanged { scrubberSize = it }
+                    modifier = Modifier.fillMaxWidth().height(14.dp).onSizeChanged { scrubberSize = it }
                         .pointerInput(scrubberSize) { detectTapGestures { offset -> seekToX(offset.x) } }
                         .pointerInput(scrubberSize) {
                             detectHorizontalDragGestures(
@@ -128,7 +128,10 @@ fun ChatAudioAttachmentPlayerContent(
                 ) {
                     LinearProgressIndicator(
                         progress = { progress.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(999.dp)),
+                        modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(999.dp)).semantics {
+                            testTag = ChatAudioAttachmentProgressTestTag
+                            contentDescription = "$ChatAudioAttachmentProgressTestTag $displayText"
+                        },
                         color = textColor.copy(alpha = 0.78f),
                         trackColor = textColor.copy(alpha = 0.18f),
                     )

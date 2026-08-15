@@ -83,6 +83,9 @@ test("attachment picker, pending surface and attachment cards expose stable comm
     ]],
     [commonDocumentAttachment, [
       ["ChatDocumentAttachmentTestTag", "chat.attachment.document"],
+      ["ChatDocumentAttachmentOpenTestTag", "chat.attachment.document.open"],
+      ["ChatDocumentAttachmentDownloadTestTag", "chat.attachment.document.download"],
+      ["ChatDocumentAttachmentShareTestTag", "chat.attachment.document.share"],
     ]],
     [commonAttachmentPresentation, [
       ["ChatMediaAttachmentTestTag", "chat.attachment.media"],
@@ -164,11 +167,22 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
     assert.match(host, /audioRecorder\s*=/);
     assert.match(host, /filePicker\s*=/);
     assert.match(host, /onOpenAttachment\s*=/);
+    assert.match(host, /onDownloadAttachment\s*=/);
+    assert.match(host, /onShareAttachment\s*=/);
     assert.match(host, /mediaSlots\s*=\s*(ChatMediaPlatformSlots|iosChatMediaPlatformSlots)\(/);
   }
   assert.match(androidHost, /openAttachmentWithDocumentReaderOrChooser/);
+  assert.match(androidHost, /saveChatAttachmentToDownloads/);
+  assert.match(androidHost, /shareService\.share\(/);
   assert.match(webHost, /openWebAttachment\(documentOpener\)/);
+  assert.match(webHost, /downloadWebAttachment/);
+  assert.match(webHost, /shareWebAttachment\(shareService\)/);
+  assert.match(webHost, /materializeWebAttachment/);
+  assert.match(webHost, /SharePayload\(title = .*files = listOf\(local\)\)/);
+  assert.match(webHost, /revokeWebAttachmentObjectUrl/);
   assert.match(iosHost, /onOpenAttachment: \(PlatformFile\) -> Unit/);
+  assert.match(iosHost, /shareDownloadedAttachment/);
+  assert.match(iosHost, /attachmentDownloader\.download/);
 });
 
 test("common chat product routes attachments and audio without platform-specific product forks", () => {
@@ -180,6 +194,8 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonHost, /ChatBrowserAttachmentContent\(/);
   assert.match(commonHost, /ChatMediaAttachmentContent\(/);
   assert.match(commonHost, /ChatDocumentAttachmentContent\(/);
+  assert.match(commonHost, /ChatDocumentAttachmentDownloadTestTag|onDownloadAttachment/);
+  assert.match(commonHost, /ChatDocumentAttachmentShareTestTag|onShareAttachment/);
   assert.match(commonHost, /ChatAudioAttachmentPlayerContent\(/);
   assert.match(commonHost, /audioPlayer\.load/);
   assert.match(commonHost, /audioPlayer\.seekTo/);
@@ -234,6 +250,9 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /ChatPendingAttachmentClearTestTag/);
   assert.match(androidUiTest, /android-chat-audio-recording-active/);
   assert.match(androidUiTest, /android-chat-audio-recording-pending-attachment/);
+  assert.match(androidUiTest, /ChatDocumentAttachmentOpenTestTag/);
+  assert.match(androidUiTest, /ChatDocumentAttachmentDownloadTestTag/);
+  assert.match(androidUiTest, /ChatDocumentAttachmentShareTestTag/);
   assert.match(androidUiTest, /ChatAudioAttachmentPlayerTestTag/);
   assert.match(androidUiTest, /ChatAudioAttachmentToggleTestTag/);
   assert.match(androidUiTest, /ChatAudioAttachmentProgressTestTag/);
@@ -252,6 +271,9 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /chat\.attachment\.media/);
   assert.match(iosUiTest, /chat\.attachment\.media\.video/);
   assert.match(iosUiTest, /chat\.attachment\.document/);
+  assert.match(iosUiTest, /chat\.attachment\.document\.open/);
+  assert.match(iosUiTest, /chat\.attachment\.document\.download/);
+  assert.match(iosUiTest, /chat\.attachment\.document\.share/);
   assert.match(iosUiTest, /chat\.attachment\.audio\.player/);
   assert.match(iosUiTest, /chat\.attachment\.audio\.toggle/);
   assert.match(iosUiTest, /chat\.attachment\.audio\.progress/);
@@ -310,6 +332,10 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER'\] = picker_marker/);
   assert.match(iosWrapper, /testAttachmentPickerFixtureUsesSharedComposerAnchors/);
   assert.match(iosWrapper, /attachment-picker\.log/);
+  assert.match(iosRunner, /QUATA_IOS_REMOTE_JAVA_HOME/);
+  assert.match(iosRunner, /--remote-java-home/);
+  assert.match(iosRunner, /export JAVA_HOME=\$\{shellQuote\(options\.remoteJavaHome\)\}/);
+  assert.match(iosRunner, /export PATH="\$JAVA_HOME\/bin:\$PATH"/);
   const attachmentsMode = iosWrapper.slice(
     iosWrapper.indexOf('if [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]'),
     iosWrapper.indexOf('elif [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" == "1"'),
@@ -354,6 +380,12 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(androidRunner, /runInstrumentationStage\("attachments-audio"\)/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=\$\{attachmentsAudioOnly \? "1" : "0"\}/);
   assert.match(webRunner, /verifyAttachmentsAudioWeb/);
+  assert.match(webRunner, /verifyDocumentAttachmentActionsWeb/);
+  assert.match(webRunner, /acceptDownloads: true/);
+  assert.match(webRunner, /__quataSharePayloads/);
+  assert.match(webRunner, /chat\\.attachment\\.document\\.download/);
+  assert.match(webRunner, /chat\\.attachment\\.document\\.share/);
+  assert.match(webRunner, /web_chat_document_attachment_download_and_share_actions_verified/);
   assert.match(webRunner, /function sentMessageId\(payload\)/);
   assert.match(webRunner, /messageId: sentMessageId/);
   assert.doesNotMatch(webRunner, /consumeBrowserRuntimeFaultsForSyntheticAudio/);

@@ -30,6 +30,8 @@ import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.SharePayload
+import com.quata.core.platform.ShareService
 import com.quata.core.navigation.AppDestinations
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.presentation.chat.ChatProductHostContent
@@ -44,6 +46,8 @@ import com.quata.feature.chat.presentation.conversations.ConversationsViewModel
 import com.quata.feature.chat.presentation.conversations.conversationsHostStringsForLanguage
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.launch
 
 /** Browser adapter: hash navigation and safe URL opening stay at the platform boundary. */
@@ -55,6 +59,7 @@ fun WebChatHost(
     audioRecordingReferences: AudioRecordingReferenceReleaser? = null,
     filePicker: FilePickerService,
     documentOpener: DocumentOpenService,
+    shareService: ShareService,
     conversationId: String?,
     focusedMessageId: String? = null,
     onFocusedMessageHandled: () -> Unit = {},
@@ -122,6 +127,8 @@ fun WebChatHost(
         onOpenMessageConversation = onOpenMessageConversation,
         onBackToList = onBackToList,
         onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
+        onDownloadAttachment = { file -> file.downloadWebAttachment() },
+        onShareAttachment = { file -> file.shareWebAttachment(shareService) },
         onOpenExternalLink = ::openWebExternalLink,
         onOpenUserProfile = openUserProfile,
         openingProfileUserId = openingProfileUserId,
@@ -257,4 +264,177 @@ private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenS
     }
 }
 
+private suspend fun PlatformFile.downloadWebAttachment(): PlatformResult<Unit> {
+    recordWebAttachmentActionEvent("download", "start", displayName)
+    val url = reference.safeBrowserChatMediaUrl() ?: return PlatformResult.Unsupported
+    return suspendCoroutine { continuation ->
+        downloadWebAttachment(url, displayName ?: "quata-attachment") { state, reason ->
+            recordWebAttachmentActionEvent("download", state, reason)
+            continuation.resume(
+                when (state) {
+                    "success" -> PlatformResult.Success(Unit)
+                    "unsupported" -> PlatformResult.Unsupported
+                    else -> PlatformResult.Failure(reason)
+                },
+            )
+        }
+    }
+}
+
+private suspend fun PlatformFile.shareWebAttachment(shareService: ShareService): PlatformResult<Unit> {
+    recordWebAttachmentActionEvent("share", "start", displayName)
+    if (reference.startsWith("blob:", ignoreCase = true)) {
+        return shareService.share(SharePayload(title = displayName ?: "QÜATA", files = listOf(this))).also {
+            recordWebAttachmentActionEvent("share", "blob-result", it.webAttachmentResultName())
+        }
+    }
+    val url = reference.safeBrowserChatMediaUrl() ?: return PlatformResult.Unsupported
+    val local = when (val result = materializeWebAttachment(url, displayName, mimeType)) {
+        is PlatformResult.Success -> {
+            recordWebAttachmentActionEvent("share", "materialized", result.value.displayName)
+            result.value
+        }
+        is PlatformResult.Failure -> {
+            recordWebAttachmentActionEvent("share", "materialize-failure", result.reason)
+            return result
+        }
+        PlatformResult.Cancelled -> {
+            recordWebAttachmentActionEvent("share", "materialize-cancelled", null)
+            return PlatformResult.Cancelled
+        }
+        PlatformResult.Unsupported -> {
+            recordWebAttachmentActionEvent("share", "materialize-unsupported", null)
+            return shareService.share(SharePayload(title = displayName ?: "QÜATA", text = url)).also {
+                recordWebAttachmentActionEvent("share", "url-result", it.webAttachmentResultName())
+            }
+        }
+    }
+    return try {
+        shareService.share(SharePayload(title = local.displayName ?: displayName ?: "QÜATA", files = listOf(local))).also {
+            recordWebAttachmentActionEvent("share", "file-result", it.webAttachmentResultName())
+        }
+    } finally {
+        revokeWebAttachmentObjectUrl(local.reference)
+    }
+}
+
+private suspend fun materializeWebAttachment(
+    url: String,
+    displayName: String?,
+    mimeType: String?,
+): PlatformResult<PlatformFile> = suspendCoroutine { continuation ->
+    materializeWebAttachment(url, displayName ?: "quata-attachment", mimeType) { state, reference, resolvedMimeType, size ->
+        continuation.resume(
+            when (state) {
+                "success" -> reference?.let {
+                    PlatformResult.Success(
+                        PlatformFile(
+                            reference = it,
+                            displayName = displayName ?: "quata-attachment",
+                            mimeType = resolvedMimeType ?: mimeType,
+                            sizeBytes = size.takeIf { value -> value >= 0 }?.toLong(),
+                        ),
+                    )
+                } ?: PlatformResult.Failure("web_chat_attachment_share_blob_missing")
+                "unsupported" -> PlatformResult.Unsupported
+                else -> PlatformResult.Failure(reference)
+            },
+        )
+    }
+}
+
+private fun PlatformResult<Unit>.webAttachmentResultName(): String = when (this) {
+    is PlatformResult.Success -> "success"
+    is PlatformResult.Failure -> reason ?: "failure"
+    PlatformResult.Cancelled -> "cancelled"
+    PlatformResult.Unsupported -> "unsupported"
+}
+
 private fun openWebExternalLink(url: String): Unit = js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
+
+private fun downloadWebAttachment(url: String, name: String, onResult: (String, String?) -> Unit): Unit = js(
+    """
+    (async () => {
+      const document = globalThis.document;
+      if (!document?.body || typeof document.createElement !== 'function') {
+        onResult('unsupported', null);
+        return;
+      }
+      if (typeof globalThis.fetch !== 'function' || !globalThis.URL?.createObjectURL) {
+        onResult('unsupported', null);
+        return;
+      }
+      const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store' });
+      if (!response.ok) {
+        onResult('failure', `web_chat_attachment_download_http_${'$'}{response.status}`);
+        return;
+      }
+      const blob = await response.blob();
+      if (!blob) {
+        onResult('failure', 'web_chat_attachment_download_empty');
+        return;
+      }
+      const objectUrl = globalThis.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = (name || 'quata-attachment').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 128);
+      anchor.rel = 'noopener noreferrer';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      globalThis.setTimeout(() => {
+        anchor.remove();
+        globalThis.URL.revokeObjectURL(objectUrl);
+      }, 1000);
+      onResult('success', null);
+    })().catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_chat_attachment_download_failed'))
+    """,
+)
+
+private fun materializeWebAttachment(
+    url: String,
+    name: String,
+    mimeType: String?,
+    onResult: (String, String?, String?, Double) -> Unit,
+): Unit = js(
+    """
+    (async () => {
+      if (typeof globalThis.fetch !== 'function' || !globalThis.URL?.createObjectURL) {
+        onResult('unsupported', null, null, -1);
+        return;
+      }
+      const response = await globalThis.fetch(url, { credentials: 'omit', cache: 'no-store' });
+      if (!response.ok) {
+        onResult('failure', `web_chat_attachment_share_http_${'$'}{response.status}`, null, -1);
+        return;
+      }
+      const sourceBlob = await response.blob();
+      if (!sourceBlob) {
+        onResult('failure', 'web_chat_attachment_share_empty', null, -1);
+        return;
+      }
+      const blob = mimeType && sourceBlob.type !== mimeType ? new Blob([sourceBlob], { type: mimeType }) : sourceBlob;
+      onResult('success', globalThis.URL.createObjectURL(blob), blob.type || mimeType || null, blob.size ?? -1);
+    })().catch((error) => onResult('failure', error?.message ?? error?.name ?? 'web_chat_attachment_share_failed', null, -1))
+    """,
+)
+
+private fun revokeWebAttachmentObjectUrl(reference: String): Unit = js(
+    """
+    (() => {
+      if (reference?.startsWith?.('blob:')) globalThis.URL?.revokeObjectURL?.(reference);
+    })()
+    """,
+)
+
+private fun recordWebAttachmentActionEvent(action: String, state: String, detail: String?): Unit = js(
+    """
+    (() => {
+      const root = globalThis;
+      const events = root.__quataAttachmentActionEvents;
+      if (!Array.isArray(events)) return;
+      events.push({ action, state, detail: detail ?? null, time: Date.now() });
+      if (events.length > 60) events.shift();
+    })()
+    """,
+)
