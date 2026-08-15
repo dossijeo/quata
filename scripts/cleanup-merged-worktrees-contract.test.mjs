@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
@@ -143,4 +145,27 @@ test("duplicate branch candidates produce one cleanup decision", () => {
   });
   assert.equal(plan.length, 1);
   assert.equal(plan[0].action, "clean");
+});
+
+test("diagnostic skip-fetch is documented as dry-run only", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("./cleanup-merged-worktrees.mjs", import.meta.url), "utf8");
+  assert.match(source, /skip_fetch_not_allowed_with_apply/);
+  assert.match(source, /skipped_diagnostics_only/);
+});
+
+test("apply with diagnostic skip-fetch fails closed as JSON", () => {
+  const script = fileURLToPath(new URL("./cleanup-merged-worktrees.mjs", import.meta.url));
+  const result = spawnSync(process.execPath, [script, "--apply", "--skip-fetch"], { encoding: "utf8" });
+  assert.equal(result.status, 2);
+  const payload = JSON.parse(result.stderr);
+  assert.equal(payload.status, "failed");
+  assert.match(payload.error, /skip_fetch_not_allowed_with_apply/);
+});
+
+test("gh calls receive safe.directory through environment", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("./cleanup-merged-worktrees.mjs", import.meta.url), "utf8");
+  assert.match(source, /GIT_CONFIG_KEY_0:\s*"safe\.directory"/);
+  assert.match(source, /GIT_CONFIG_VALUE_0:\s*process\.env\.QUATA_GIT_SAFE_DIRECTORY/);
 });

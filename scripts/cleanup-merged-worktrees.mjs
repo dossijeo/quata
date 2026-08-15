@@ -4,37 +4,60 @@ import { fileURLToPath } from "node:url";
 
 function usage() {
   return [
-    "Usage: node scripts/cleanup-merged-worktrees.mjs [--apply] [--json]",
+    "Usage: node scripts/cleanup-merged-worktrees.mjs [--apply] [--json] [--skip-fetch]",
     "",
     "Safely removes local codex/* worktrees and branches whose PR is confirmed merged.",
     "Default mode is dry-run. Use --apply only after reviewing the JSON plan.",
+    "--skip-fetch is diagnostics-only and is rejected with --apply.",
   ].join("\n");
 }
 
 function parseArgs(argv) {
-  const args = { apply: false, json: true };
+  const args = { apply: false, json: true, skipFetch: false };
   for (const value of argv) {
     if (value === "--apply") args.apply = true;
     else if (value === "--json") args.json = true;
+    else if (value === "--skip-fetch") args.skipFetch = true;
     else if (value === "--help" || value === "-h") args.help = true;
     else throw new Error(`unknown_argument:${value}`);
   }
+  if (args.apply && args.skipFetch) throw new Error("skip_fetch_not_allowed_with_apply");
   return args;
 }
 
 function run(command, args, options = {}) {
   return execFileSync(command, args, {
     encoding: "utf8",
+    env: options.env ?? process.env,
     stdio: options.stdio ?? ["ignore", "pipe", "pipe"],
   });
 }
 
+function safeDirectoryArgs(...paths) {
+  const candidates = [process.cwd(), process.env.QUATA_GIT_SAFE_DIRECTORY, ...paths]
+    .filter(Boolean)
+    .map((path) => String(path).replaceAll("\\", "/"));
+  return [...new Set(candidates)].flatMap((path) => ["-c", `safe.directory=${path}`]);
+}
+
 function git(args, options) {
-  return run("git", args, options);
+  return run("git", [...safeDirectoryArgs(), ...args], options);
+}
+
+function gitInPath(path, args, options) {
+  return run("git", [...safeDirectoryArgs(path), "-C", path, ...args], options);
 }
 
 function gh(args, options) {
-  return run("gh", args, options);
+  return run("gh", args, {
+    ...options,
+    env: {
+      ...process.env,
+      GIT_CONFIG_COUNT: "1",
+      GIT_CONFIG_KEY_0: "safe.directory",
+      GIT_CONFIG_VALUE_0: process.env.QUATA_GIT_SAFE_DIRECTORY ?? process.cwd(),
+    },
+  });
 }
 
 export function parsePorcelainWorktrees(value) {
@@ -187,8 +210,8 @@ function allOpenPullRequests() {
 
 function worktreeStatus(path) {
   try {
-    const porcelain = git(["-C", path, "status", "--porcelain=v1", "--branch"]);
-    const head = git(["-C", path, "rev-parse", "HEAD"]).trim();
+    const porcelain = gitInPath(path, ["status", "--porcelain=v1", "--branch"]);
+    const head = gitInPath(path, ["rev-parse", "HEAD"]).trim();
     const lines = porcelain.split(/\r?\n/).filter(Boolean);
     const branchLine = lines.find((line) => line.startsWith("## ")) ?? "";
     const changes = lines.filter((line) => !line.startsWith("## "));
@@ -257,8 +280,8 @@ export function buildCleanupPlan({ worktrees, localBranches, pullRequestsByBranc
   });
 }
 
-function cleanupMergedWorktrees({ apply = false } = {}) {
-  git(["fetch", "--prune", "origin"], { stdio: "inherit" });
+function cleanupMergedWorktrees({ apply = false, skipFetch = false } = {}) {
+  if (!skipFetch) git(["fetch", "--prune", "origin"], { stdio: "inherit" });
   const worktrees = listWorktrees();
   const localBranches = listLocalBranches();
   const openPullRequests = allOpenPullRequests();
@@ -271,34 +294,51 @@ function cleanupMergedWorktrees({ apply = false } = {}) {
   const remoteStates = Object.fromEntries(branches.map((branch) => [branch, remoteBranchState(branch)]));
   const plan = buildCleanupPlan({ worktrees, localBranches, pullRequestsByBranch, statusesByPath, openPullRequests, remoteStates });
   const cleaned = [];
+  const applyErrors = [];
   if (apply) {
     for (const item of plan.filter((candidate) => candidate.action === "clean")) {
-      if (item.worktree) removeWorktree(item.worktree);
-      deleteLocalBranch(item.branch);
-      cleaned.push(item.branch);
+      try {
+        if (item.worktree) removeWorktree(item.worktree);
+        deleteLocalBranch(item.branch);
+        cleaned.push(item.branch);
+      } catch (error) {
+        applyErrors.push({
+          branch: item.branch,
+          worktree: item.worktree,
+          reason: "apply_failed",
+          error: error?.message ?? String(error),
+        });
+      }
     }
     git(["worktree", "prune"]);
     git(["fetch", "--prune", "origin"], { stdio: "inherit" });
   }
   return {
     mode: apply ? "apply" : "dry-run",
+    fetch: skipFetch ? "skipped_diagnostics_only" : "completed",
     cleaned,
+    applyErrors,
     cleanable: plan.filter((item) => item.action === "clean"),
     skipped: plan.filter((item) => item.action === "skip"),
   };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  let args = { json: true };
   try {
-    const args = parseArgs(process.argv.slice(2));
+    args = parseArgs(process.argv.slice(2));
     if (args.help) {
       console.log(usage());
       process.exit(0);
     }
-    console.log(JSON.stringify(cleanupMergedWorktrees({ apply: args.apply }), null, 2));
+    console.log(JSON.stringify(cleanupMergedWorktrees({ apply: args.apply, skipFetch: args.skipFetch }), null, 2));
   } catch (error) {
-    console.error(error?.message ?? error);
-    console.error(usage());
+    const message = error?.message ?? String(error);
+    if (args.json) console.error(JSON.stringify({ status: "failed", error: message }, null, 2));
+    else {
+      console.error(message);
+      console.error(usage());
+    }
     process.exit(2);
   }
 }

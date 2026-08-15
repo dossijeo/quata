@@ -317,10 +317,19 @@ conexión conceptual a `commonMain`, el backend real o la comparación visual 1:
   empieza la siguiente superficie en una rama normal o apilada.
 - El happy path remoto usa GitHub nativo: una PR con `candidate-final` y auto-merge habilitado se
   fusiona cuando branch protection queda satisfecha y el repositorio elimina automáticamente la
-  rama remota de head.
+  rama remota de head mediante `Automatically delete head branches`.
+- La limpieza remota retroactiva no usa workflows propios: se ejecuta
+  `node scripts/cleanup-merged-remote-branches.mjs --json`, se revisa el plan y solo despues
+  `node scripts/cleanup-merged-remote-branches.mjs --apply`. La herramienta borra ramas remotas
+  `codex/*` unicamente si la PR asociada esta confirmadamente mergeada, el SHA remoto coincide con
+  el `headRefOid` mergeado, no existe PR abierta que use esa rama como head/base, la rama no esta
+  protegida y GitHub no devuelve estado ambiguo.
 - El happy path local se limpia en el siguiente checkpoint natural antes de abrir otra superficie:
   `git fetch --prune`, `node scripts/cleanup-merged-worktrees.mjs --json`, revisión del plan y
   `node scripts/cleanup-merged-worktrees.mjs --apply` solo para candidatos inequívocamente seguros.
+  Si el proceso ejecuta Git/GitHub CLI con un SID distinto y aparece `dubious ownership`, se exporta
+  `QUATA_GIT_SAFE_DIRECTORY=<ruta absoluta del repo>` para que las utilidades propaguen
+  `safe.directory` tambien a las llamadas internas de `gh`, sin cambiar la configuracion global.
 - En ramas apiladas, si el padre ya fue fusionado, primero se rebasa la hija activa sobre
   `origin/main`; solo después, cuando la hija ya no depende de la rama/worktree padre, se limpia el
   padre localmente.
