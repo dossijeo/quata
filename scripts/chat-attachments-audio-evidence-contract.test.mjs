@@ -223,6 +223,14 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /chat\.attachment\.audio\.player/);
   assert.match(iosUiTest, /chat\.attachment\.audio\.toggle/);
   assert.match(iosUiTest, /chat\.attachment\.audio\.progress/);
+  assert.match(iosUiTest, /verifyAudioRecordingComposer\(in: app\)/);
+  assert.match(iosUiTest, /chat\.composer\.record/);
+  assert.match(iosUiTest, /chat\.composer\.recording/);
+  assert.match(iosUiTest, /chat\.composer\.recording\.stop/);
+  assert.match(iosUiTest, /ios-chat-audio-recording-active/);
+  assert.match(iosUiTest, /ios-chat-audio-recording-pending-attachment/);
+  assert.match(iosUiTest, /chat\.attachment\.pending/);
+  assert.match(iosUiTest, /chat\.attachment\.pending\.clear/);
   assert.match(iosUiTest, /ios-chat-attachment-media-viewer/);
   assert.match(iosUiTest, /ios-chat-attachment-video-viewer/);
   assert.match(iosUiTest, /ios-chat-attachment-document-visible/);
@@ -242,6 +250,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /chat\.attachment\.pending/);
   assert.match(iosUiTest, /chat\.composer\.send/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
+  assert.match(iosWrapper, /simctl privacy "\$QUATA_IOS_SIMULATOR_UDID" grant microphone com\.quata\.ios/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE/);

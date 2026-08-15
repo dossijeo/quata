@@ -86,6 +86,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "attachments/audio conversation")
         assertChatRoute(conversationId, in: app, context: "attachments/audio conversation")
 
+        verifyAudioRecordingComposer(in: app)
+
         XCTAssertTrue(messageText(videoProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         guard openChatMediaAttachment(identifier: "chat.attachment.media.video", context: "Chat video attachment", in: app) else {
             return
@@ -180,6 +182,32 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         tapTaggedButton("chat.composer.send", in: app, context: "send picked attachment")
         XCTAssertTrue(messageText(composerMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-attachment-picker-sent-\(pickerSource)")
+    }
+
+    private func verifyAudioRecordingComposer(in app: XCUIApplication) {
+        tapTaggedButton("chat.composer.recordAudio", in: app, context: "start audio recording")
+
+        let recording = app.descendants(matching: .any)
+            .matching(identifier: "chat.composer.recording")
+            .firstMatch
+        XCTAssertTrue(recording.waitForExistence(timeout: 10), "The shared recording state anchor must be visible after starting audio recording.")
+
+        let stop = app.descendants(matching: .any)
+            .matching(identifier: "chat.composer.recording.stop")
+            .firstMatch
+        XCTAssertTrue(stop.waitForExistence(timeout: 10), "The shared recording stop anchor must be visible while recording.")
+        RunLoop.current.run(until: Date().addingTimeInterval(1.25))
+        attachScreenshot(app, name: "ios-chat-audio-recording-active")
+        stop.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        let pending = app.descendants(matching: .any)
+            .matching(identifier: "chat.attachment.pending")
+            .firstMatch
+        XCTAssertTrue(pending.waitForExistence(timeout: 15), "Stopping an iOS audio recording must attach a pending voice note through the shared pending surface.")
+        attachScreenshot(app, name: "ios-chat-audio-recording-pending-attachment")
+
+        tapTaggedButton("chat.attachment.pending.clear", in: app, context: "clear pending audio recording")
+        XCTAssertTrue(pending.waitForNonExistence(timeout: 8), "Clearing the pending audio recording must remove the shared pending attachment surface.")
     }
 
     func testKeyboardAndSelectedActionBarUseSharedChatChrome() throws {
