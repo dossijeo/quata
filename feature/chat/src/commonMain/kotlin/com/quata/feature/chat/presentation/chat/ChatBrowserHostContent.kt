@@ -94,6 +94,8 @@ fun ChatProductHostContent(
     onOpenMessageConversation: (String, String) -> Unit,
     onBackToList: () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    onDownloadAttachment: suspend (PlatformFile) -> PlatformResult<Unit> = { PlatformResult.Unsupported },
+    onShareAttachment: suspend (PlatformFile) -> PlatformResult<Unit> = { PlatformResult.Unsupported },
     onOpenExternalLink: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     openingProfileUserId: String? = null,
@@ -143,6 +145,8 @@ fun ChatProductHostContent(
             onOpenConversation = onOpenConversation,
             onOpenMessageConversation = onOpenMessageConversation,
             onOpenAttachment = onOpenAttachment,
+            onDownloadAttachment = onDownloadAttachment,
+            onShareAttachment = onShareAttachment,
             onOpenExternalLink = onOpenExternalLink,
             onOpenUserProfile = onOpenUserProfile,
             onCopyMessage = onCopyMessage,
@@ -187,6 +191,8 @@ private fun ChatCommonConversationHost(
     onOpenConversation: (String) -> Unit,
     onOpenMessageConversation: (String, String) -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
+    onDownloadAttachment: suspend (PlatformFile) -> PlatformResult<Unit>,
+    onShareAttachment: suspend (PlatformFile) -> PlatformResult<Unit>,
     onOpenExternalLink: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onCopyMessage: (String) -> Unit,
@@ -248,6 +254,33 @@ private fun ChatCommonConversationHost(
         when (chatAttachmentKind(file)) {
             ChatAttachmentKind.Image, ChatAttachmentKind.Video -> viewedMedia = file
             else -> onOpenAttachment(file)
+        }
+    }
+    fun handleAttachmentActionResult(result: PlatformResult<Unit>, successText: String, unsupportedText: String) {
+        when (result) {
+            is PlatformResult.Success -> viewModel.onEvent(ChatUiEvent.ShowNotice(successText))
+            is PlatformResult.Failure -> viewModel.onEvent(ChatUiEvent.ShowError(result.reason ?: chromeStrings.attachmentActionFailed))
+            PlatformResult.Cancelled -> Unit
+            PlatformResult.Unsupported -> viewModel.onEvent(ChatUiEvent.ShowError(unsupportedText))
+        }
+    }
+    fun downloadAttachment(file: PlatformFile) {
+        scope.launch {
+            handleAttachmentActionResult(
+                onDownloadAttachment(file),
+                chromeStrings.attachmentDownloadStarted,
+                chromeStrings.attachmentDownloadUnsupported,
+            )
+        }
+    }
+    fun shareAttachment(file: PlatformFile) {
+        scope.launch {
+            val result = onShareAttachment(file)
+            handleAttachmentActionResult(
+                result,
+                chromeStrings.attachmentShareStarted,
+                chromeStrings.attachmentShareUnsupported,
+            )
         }
     }
     LaunchedEffect(isRecordingAudio) {
@@ -553,9 +586,14 @@ private fun ChatCommonConversationHost(
                         audioFailed = failed
                     },
                     onOpenAttachment = ::openAttachment,
+                    onDownloadAttachment = ::downloadAttachment,
+                    onShareAttachment = ::shareAttachment,
                     mediaPreview = mediaSlots.preview,
                     playVideoLabel = chromeStrings.playVideo,
                     attachmentLabel = chromeStrings.attachment,
+                    openAttachmentLabel = chromeStrings.openAttachment,
+                    downloadAttachmentLabel = chromeStrings.downloadAttachment,
+                    shareAttachmentLabel = chromeStrings.shareAttachment,
                     playAudioLabel = chromeStrings.playAudio,
                     pauseAudioLabel = chromeStrings.pauseAudio,
                     audioErrorText = chromeStrings.audioUnsupported,
@@ -653,6 +691,11 @@ private fun ChatBrowserAttachmentContent(
     mediaPreview: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
     playVideoLabel: String = "Play video",
     attachmentLabel: String = "Attachment",
+    openAttachmentLabel: String = "Open attachment",
+    downloadAttachmentLabel: String = "Download attachment",
+    shareAttachmentLabel: String = "Share attachment",
+    onDownloadAttachment: (PlatformFile) -> Unit,
+    onShareAttachment: (PlatformFile) -> Unit,
     playAudioLabel: String = "Play audio",
     pauseAudioLabel: String = "Pause audio",
     audioErrorText: String = "Audio not available",
@@ -682,6 +725,11 @@ private fun ChatBrowserAttachmentContent(
             name = displayName,
             textColor = textColor,
             onOpen = { onOpenAttachment(file) },
+            openLabel = openAttachmentLabel,
+            downloadLabel = downloadAttachmentLabel,
+            shareLabel = shareAttachmentLabel,
+            onDownload = { onDownloadAttachment(file) },
+            onShare = { onShareAttachment(file) },
             icon = {
                 CompactIcon(
                     if (kind == ChatAttachmentKind.Document) Icons.Filled.AttachFile else Icons.AutoMirrored.Filled.InsertDriveFile,

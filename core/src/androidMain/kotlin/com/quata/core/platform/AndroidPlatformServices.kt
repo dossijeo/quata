@@ -15,6 +15,7 @@ import java.io.File
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import kotlinx.coroutines.tasks.await
@@ -234,7 +235,7 @@ class AndroidShareService(context: Context) : ShareService {
     private val applicationContext = context.applicationContext
 
     override suspend fun share(payload: SharePayload): PlatformResult<Unit> = runCatching {
-        val files = payload.files.mapNotNull { file -> Uri.parse(file.reference).takeIf { it.scheme == "content" } }
+        val files = payload.files.mapNotNull(::shareableUri)
         if (payload.files.isNotEmpty() && files.size != payload.files.size) return PlatformResult.Unsupported
         val intent = when {
             files.size > 1 -> Intent(Intent.ACTION_SEND_MULTIPLE).apply {
@@ -260,6 +261,23 @@ class AndroidShareService(context: Context) : ShareService {
         applicationContext.startActivity(Intent.createChooser(intent, payload.title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         PlatformResult.Success(Unit)
     }.getOrElse { PlatformResult.Failure(it.message) }
+
+    private fun shareableUri(file: PlatformFile): Uri? {
+        val uri = Uri.parse(file.reference)
+        if (uri.scheme == "content") return uri
+        if (uri.scheme != "file") return null
+        val path = uri.path?.let(::File) ?: return null
+        if (!path.isFile || path.length() <= 0L || !path.isShareableLocalFile()) return null
+        return FileProvider.getUriForFile(applicationContext, "${applicationContext.packageName}.fileprovider", path)
+    }
+
+    private fun File.isShareableLocalFile(): Boolean {
+        val canonical = runCatching { canonicalFile }.getOrNull() ?: return false
+        return listOf(applicationContext.cacheDir, applicationContext.filesDir).any { root ->
+            val canonicalRoot = runCatching { root.canonicalFile }.getOrNull() ?: return@any false
+            canonical.path == canonicalRoot.path || canonical.path.startsWith("${canonicalRoot.path}${File.separator}")
+        }
+    }
 }
 
 class AndroidLocationService(context: Context) : LocationService {

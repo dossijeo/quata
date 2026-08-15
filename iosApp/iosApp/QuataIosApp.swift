@@ -1962,6 +1962,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 audioRecorder: services.audioRecorder,
                 filePicker: services.filePicker,
                 cameraCapture: services.cameraCapture,
+                shareService: services.share,
                 mediaViewerFactory: IosChatNativeMediaFactory.shared,
                 conversationId: conversationId,
                 focusedMessageId: messageId,

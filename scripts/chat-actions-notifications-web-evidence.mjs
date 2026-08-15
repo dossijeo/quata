@@ -340,6 +340,7 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
   await page.getByText(fixtures.document.name, { exact: false }).first().waitFor({ timeout: 15_000 });
   await page.getByText(fixtures.audio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
   report.evidence.attachmentsDocument = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-visible");
+  await verifyDocumentAttachmentActionsWeb(page, fixtures.document, evidenceDir, report);
   const play = await visibleAriaLocator(page, [/Play audio|Reproducir audio/i], 10_000);
   if (!play) throw new Error("audio_attachment_toggle_not_visible");
   report.evidence.audioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-player-visible");
@@ -365,6 +366,59 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
     const nextPlay = await visibleAriaLocator(page, [new RegExp(`Play audio ${escapeRegExp(fixtures.nextAudio.name)}|Reproducir audio ${escapeRegExp(fixtures.nextAudio.name)}`, "i")], 10_000);
     if (!nextPlay) throw new Error("next_audio_attachment_toggle_not_visible");
     report.evidence.nextAudioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-next-player-visible");
+  }
+}
+
+async function verifyDocumentAttachmentActionsWeb(page, documentFixture, evidenceDir, report) {
+  const open = await visibleAriaLocator(page, [/chat\.attachment\.document\.open|Abrir adjunto|Open attachment/i], 10_000);
+  const download = await visibleAriaLocator(page, [/chat\.attachment\.document\.download|Descargar adjunto|Download attachment/i], 10_000);
+  const share = await visibleAriaLocator(page, [/chat\.attachment\.document\.share|Compartir adjunto|Share attachment/i], 10_000);
+  if (!open) throw new Error("document_attachment_open_anchor_missing");
+  if (!download) throw new Error("document_attachment_download_anchor_missing");
+  if (!share) throw new Error("document_attachment_share_anchor_missing");
+  report.evidence.attachmentDocumentActions = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-actions");
+
+  const [downloadEvent] = await Promise.all([
+    page.waitForEvent("download", { timeout: 10_000 }),
+    clickLocatorCenter(page, download, "document_attachment_download_not_clickable"),
+  ]);
+  const suggestedName = downloadEvent.suggestedFilename();
+  const expectedStem = documentFixture.name.toLowerCase().split(".")[0];
+  if (!suggestedName.toLowerCase().includes(expectedStem)) {
+    throw new Error(`document_attachment_download_name_mismatch:${suggestedName}`);
+  }
+  await closeTransientNotice(page);
+
+  const shareAfterDownload = await visibleAriaLocator(page, [/chat\.attachment\.document\.share|Compartir adjunto|Share attachment/i], 10_000);
+  if (!shareAfterDownload) throw new Error("document_attachment_share_anchor_missing_after_download");
+  const beforeShareCount = await page.evaluate(() => globalThis.__quataSharePayloads?.length ?? 0);
+  await clickLocatorPreferDom(page, shareAfterDownload, "document_attachment_share_not_clickable");
+  await page.waitForFunction((count) => (globalThis.__quataSharePayloads?.length ?? 0) > count, beforeShareCount, { timeout: 10_000 });
+  const payload = await page.evaluate(() => globalThis.__quataSharePayloads.at(-1));
+  const sharedText = String(payload?.text ?? payload?.url ?? "");
+  const sharedFiles = Array.isArray(payload?.files) ? payload.files : [];
+  const hasAttachmentUrl = sharedText.includes("chat-attachments");
+  const hasExpectedFile = sharedFiles.some((file) => String(file?.name ?? "").toLowerCase().includes(expectedStem));
+  if (!payload || (!hasAttachmentUrl && !hasExpectedFile)) {
+    throw new Error("document_attachment_share_payload_missing_attachment_url");
+  }
+  report.evidence.attachmentDocumentActionsResult = {
+    downloadSuggestedName: suggestedName,
+    sharePayload: {
+      title: payload.title,
+      hasChatAttachmentUrl: hasAttachmentUrl,
+      hasExpectedFile,
+      fileCount: sharedFiles.length,
+    },
+  };
+  report.steps.push("web_chat_document_attachment_download_and_share_actions_verified");
+}
+
+async function closeTransientNotice(page) {
+  const close = await visibleAriaLocator(page, [/Cerrar|Close/i], 1_000);
+  if (close) {
+    await clickLocatorPreferDom(page, close, "transient_notice_close_not_clickable").catch(() => {});
+    await delay(500);
   }
 }
 
@@ -814,12 +868,44 @@ function contentType(path) {
 }
 
 async function openAuthenticatedChatPage(browser, origin, session, conversationId, faults, options = {}) {
-  const context = await browser.newContext({ locale: "es-ES", viewport: { width: 430, height: 930 }, deviceScaleFactor: 1 });
+  const context = await browser.newContext({ locale: "es-ES", viewport: { width: 430, height: 930 }, deviceScaleFactor: 1, acceptDownloads: true });
   if (options.grantMicrophone) {
     await context.grantPermissions(["microphone"], { origin });
   }
   await context.addInitScript(({ storage }) => {
     for (const [key, value] of Object.entries(storage)) localStorage.setItem(key, value);
+    globalThis.__quataSharePayloads = [];
+    globalThis.__quataClickEvents = [];
+    globalThis.__quataAttachmentActionEvents = [];
+    globalThis.document?.addEventListener?.("click", (event) => {
+      const target = event.target;
+      const element = target?.closest?.("[aria-label],button,[role]");
+      globalThis.__quataClickEvents.push({
+        x: event.clientX,
+        y: event.clientY,
+        targetTag: target?.tagName ?? null,
+        targetLabel: target?.getAttribute?.("aria-label") ?? null,
+        elementTag: element?.tagName ?? null,
+        elementRole: element?.getAttribute?.("role") ?? null,
+        elementLabel: element?.getAttribute?.("aria-label") ?? null,
+      });
+      if (globalThis.__quataClickEvents.length > 40) globalThis.__quataClickEvents.shift();
+    }, true);
+    Object.defineProperty(globalThis.navigator, "share", {
+      configurable: true,
+      value: async (payload) => {
+        globalThis.__quataSharePayloads.push({
+          title: payload?.title ?? null,
+          text: payload?.text ?? null,
+          url: payload?.url ?? null,
+          files: Array.isArray(payload?.files) ? payload.files.map((file) => ({ name: file?.name ?? null, type: file?.type ?? null, size: file?.size ?? null })) : [],
+        });
+      },
+    });
+    Object.defineProperty(globalThis.navigator, "canShare", {
+      configurable: true,
+      value: () => true,
+    });
   }, {
     storage: {
       quata_web_access_token: session.accessToken,
@@ -3880,6 +3966,9 @@ try {
           ...(report.diagnostics ?? {}),
           visibleNativeControls: await visibleNativeControls(pageContext.page),
           nativeControls: await allNativeControls(pageContext.page),
+          browserClickEvents: await pageContext.page.evaluate(() => globalThis.__quataClickEvents ?? []).catch(() => []),
+          browserSharePayloads: await pageContext.page.evaluate(() => globalThis.__quataSharePayloads ?? []).catch(() => []),
+          browserAttachmentActionEvents: await pageContext.page.evaluate(() => globalThis.__quataAttachmentActionEvents ?? []).catch(() => []),
         };
       } catch {}
     }

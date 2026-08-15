@@ -21,6 +21,8 @@ import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.SharePayload
+import com.quata.core.platform.ShareService
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.data.IosChatAttachmentDownloader
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarKind
@@ -51,6 +53,7 @@ class IosChatHostDependencies(
     val filePicker: FilePickerService,
     val cameraCapture: CameraCaptureService,
     val attachmentDownloader: IosChatAttachmentDownloader,
+    val shareService: ShareService,
     val mediaViewerFactory: IosChatMediaViewerFactory,
     val conversationId: String? = null,
     /** Optional deep-link target; common UI resolves it only against messages already present. */
@@ -120,6 +123,8 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 onOpenMessageConversation = dependencies.onOpenMessageConversation,
                 onBackToList = dependencies.onBackToList,
                 onOpenAttachment = dependencies.onOpenAttachment,
+                onDownloadAttachment = { file -> dependencies.shareDownloadedAttachment(file) },
+                onShareAttachment = { file -> dependencies.shareDownloadedAttachment(file) },
                 onOpenExternalLink = dependencies.onOpenExternalLink,
                 onOpenUserProfile = dependencies.onOpenAvatar,
                 openingProfileUserId = openingProfileUserId,
@@ -184,6 +189,22 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
             )
         }
     }
+
+private suspend fun IosChatHostDependencies.shareDownloadedAttachment(file: PlatformFile): PlatformResult<Unit> {
+    val downloaded = attachmentDownloader.download(file.reference, file.displayName)
+    val localFile = when (downloaded) {
+        is PlatformResult.Success -> downloaded.value
+        is PlatformResult.Failure -> return PlatformResult.Failure(downloaded.reason)
+        PlatformResult.Cancelled -> return PlatformResult.Cancelled
+        PlatformResult.Unsupported -> return PlatformResult.Unsupported
+    }
+    return shareService.share(
+        SharePayload(
+            title = localFile.displayName ?: file.displayName ?: "QÜATA",
+            files = listOf(localFile),
+        ),
+    )
+}
 
 private const val ChatMediaFixtureOptIn = "I_ACCEPT_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE"
 

@@ -418,6 +418,14 @@ class ChatActionsNotificationsInstrumentedTest {
                     .fetchSemanticsNode()
             }.isSuccess
         }
+        listOf(
+            ChatDocumentAttachmentOpenTestTag,
+            ChatDocumentAttachmentDownloadTestTag,
+            ChatDocumentAttachmentShareTestTag,
+        ).forEach { tag ->
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+        }
         saveScreenshot("android-chat-attachment-document-visible")
 
         waitForMarker(audioProbe.take(28), "audio attachment message")
