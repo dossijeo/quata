@@ -363,10 +363,7 @@ class ChatActionsNotificationsInstrumentedTest {
                     .fetchSemanticsNode()
             }.isSuccess
         }
-        compose.onNodeWithContentDescription(ChatVideoAttachmentContentDescription, useUnmergedTree = true)
-            .performClick()
-        compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
-            .fetchSemanticsNode()
+        openChatMediaAttachmentViewer(ChatVideoAttachmentContentDescription)
         compose.onNodeWithTag("fullscreen-media.title", useUnmergedTree = true)
             .fetchSemanticsNode()
         compose.onNodeWithTag("fullscreen-media.close", useUnmergedTree = true)
@@ -390,10 +387,7 @@ class ChatActionsNotificationsInstrumentedTest {
                     .fetchSemanticsNode()
             }.isSuccess
         }
-        compose.onNodeWithContentDescription(ChatImageAttachmentContentDescription, useUnmergedTree = true)
-            .performClick()
-        compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
-            .fetchSemanticsNode()
+        openChatMediaAttachmentViewer(ChatImageAttachmentContentDescription)
         compose.onNodeWithTag("fullscreen-media.title", useUnmergedTree = true)
             .fetchSemanticsNode()
         compose.onNodeWithTag("fullscreen-media.close", useUnmergedTree = true)
@@ -699,6 +693,24 @@ class ChatActionsNotificationsInstrumentedTest {
                     .fetchSemanticsNode()
             }.isFailure
         }
+    }
+
+    private fun openChatMediaAttachmentViewer(contentDescription: String) {
+        val matcher = hasTestTag(ChatMediaAttachmentTestTag) and hasContentDescription(contentDescription)
+        compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+            .performScrollToNode(matcher)
+        compose.onNode(matcher, useUnmergedTree = true)
+            .fetchSemanticsNode()
+        compose.onNode(matcher, useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        compose.waitUntil(10_000) {
+            runCatching {
+                compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
+            .fetchSemanticsNode()
     }
 
     private fun assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String) {
