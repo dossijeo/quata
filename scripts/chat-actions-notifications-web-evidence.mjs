@@ -331,6 +331,7 @@ async function storageRequest(config, session, path, options, prefix) {
 }
 
 async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
+  await verifyWebAudioRecordingComposer(page, evidenceDir, report);
   await waitMessageVisible(page, fixtures.image.marker, "image_attachment_message_not_visible");
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "video", true);
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "image", true);
@@ -430,6 +431,60 @@ async function verifyAttachmentPickerWeb(page, source, config, state, runId, evi
   } finally {
     await rm(dirname(fixture.localPath), { recursive: true, force: true }).catch(() => {});
   }
+}
+
+async function verifyWebAudioRecordingComposer(page, evidenceDir, report) {
+  report.diagnostics ??= {};
+  const record = await visibleWebSemanticAnchor(page, {
+    testTag: "chat.composer.recordAudio",
+    labels: [/^Grabar audio$/i, /^Record audio$/i, /^Enregistrer l'audio$/i],
+    timeout: 10_000,
+    diagnostics: report.diagnostics,
+  });
+  if (!record) throw new Error("audio_recording_start_anchor_not_visible");
+  await clickLocatorCenter(page, record, "audio_recording_start_anchor_not_clickable");
+  const recording = await visibleWebSemanticAnchor(page, {
+    testTag: "chat.composer.recording",
+    labels: [/^Grabando\b/i, /^Recording\b/i, /^Enregistrement\b/i, /^Detener grabaci[oó]n$/i, /^Stop recording$/i],
+    timeout: 10_000,
+    diagnostics: report.diagnostics,
+  });
+  if (!recording) throw new Error("audio_recording_state_anchor_not_visible");
+  await delay(1_250);
+  report.evidence.audioRecordingActive = await attachScreenshot(page, evidenceDir, "web-chat-audio-recording-active");
+  const stop = await visibleWebSemanticAnchor(page, {
+    testTag: "chat.composer.recording.stop",
+    labels: [/^Detener y adjuntar$/i, /^Detener grabaci[oó]n$/i, /^Stop and attach$/i, /^Stop recording$/i, /^Arr[eê]ter/i],
+    timeout: 10_000,
+    diagnostics: report.diagnostics,
+  });
+  if (!stop) throw new Error("audio_recording_stop_anchor_not_visible");
+  await clickLocatorCenter(page, stop, "audio_recording_stop_anchor_not_clickable");
+  const pending = await visibleWebSemanticAnchor(page, {
+    testTag: "chat.attachment.pending",
+    labels: [/^Adjunto preparado$/i, /^Attachment ready$/i, /^Pi[eè]ce jointe pr[eê]te$/i, /^Quitar adjunto$/i, /^Remove attachment$/i],
+    timeout: 10_000,
+    diagnostics: report.diagnostics,
+  });
+  if (!pending) throw new Error("audio_recording_pending_attachment_not_visible");
+  report.evidence.audioRecordingPendingAttachment = await attachScreenshot(page, evidenceDir, "web-chat-audio-recording-pending-attachment");
+  const clear = await visibleWebSemanticAnchor(page, {
+    testTag: "chat.attachment.pending.clear",
+    labels: [/^Quitar adjunto$/i, /^Remove attachment$/i, /^Retirer la pi[eè]ce jointe$/i],
+    timeout: 10_000,
+    diagnostics: report.diagnostics,
+  });
+  if (!clear) throw new Error("audio_recording_pending_clear_anchor_not_visible");
+  await clickLocatorCenter(page, clear, "audio_recording_pending_clear_not_clickable");
+  if (await visibleWebSemanticAnchor(page, {
+    testTag: "chat.attachment.pending",
+    labels: [/^Adjunto preparado$/i, /^Attachment ready$/i, /^Pi[eè]ce jointe pr[eê]te$/i],
+    timeout: 2_000,
+    diagnostics: report.diagnostics,
+  })) {
+    throw new Error("audio_recording_pending_attachment_not_cleared");
+  }
+  report.steps.push("web_audio_recording_composer_start_stop_and_blob_cleanup_verified");
 }
 
 async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, kind = "media", allowScroll = false) {
@@ -758,8 +813,11 @@ function contentType(path) {
   ]).get(extname(path).toLowerCase()) ?? "application/octet-stream";
 }
 
-async function openAuthenticatedChatPage(browser, origin, session, conversationId, faults) {
+async function openAuthenticatedChatPage(browser, origin, session, conversationId, faults, options = {}) {
   const context = await browser.newContext({ locale: "es-ES", viewport: { width: 430, height: 930 }, deviceScaleFactor: 1 });
+  if (options.grantMicrophone) {
+    await context.grantPermissions(["microphone"], { origin });
+  }
   await context.addInitScript(({ storage }) => {
     for (const [key, value] of Object.entries(storage)) localStorage.setItem(key, value);
   }, {
@@ -2649,6 +2707,25 @@ async function visibleAriaLocator(page, patterns, timeout) {
   return null;
 }
 
+async function visibleWebSemanticAnchor(page, { testTag, labels, timeout, diagnostics }) {
+  const tagPatterns = testTag ? [new RegExp(escapeRegExp(testTag))] : [];
+  const byTag = tagPatterns.length > 0 ? await visibleAriaLocator(page, tagPatterns, Math.min(timeout, 1_000)) : null;
+  if (byTag) {
+    diagnostics.webAudioRecordingAnchorResolution ??= [];
+    diagnostics.webAudioRecordingAnchorResolution.push({ testTag, resolvedBy: "testTag" });
+    return byTag;
+  }
+  const byLabel = await visibleAriaLocator(page, labels, timeout);
+  if (byLabel) {
+    diagnostics.webAudioRecordingAnchorResolution ??= [];
+    diagnostics.webAudioRecordingAnchorResolution.push({ testTag, resolvedBy: "accessibleLabel" });
+    return byLabel;
+  }
+  diagnostics.webAudioRecordingMissingAnchors ??= [];
+  diagnostics.webAudioRecordingMissingAnchors.push({ testTag, fallbackLabels: labels.map((label) => String(label)) });
+  return null;
+}
+
 async function clickLocatorCenter(page, locator, error) {
   const box = await locator.boundingBox().catch(() => null);
   if (!box || box.width <= 0 || box.height <= 0) throw new Error(error);
@@ -3421,9 +3498,16 @@ try {
   browser = await chromium.launch({
     executablePath: options.chrome,
     headless: true,
-    args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-renderer-accessibility"],
+    args: [
+      "--use-angle=swiftshader",
+      "--enable-unsafe-swiftshader",
+      "--force-renderer-accessibility",
+      ...(options.attachmentsAudioOnly ? ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] : []),
+    ],
   });
-  pageContext = await openAuthenticatedChatPage(browser, server.origin, state.a, `sb:${state.thread}`, faults);
+  pageContext = await openAuthenticatedChatPage(browser, server.origin, state.a, `sb:${state.thread}`, faults, {
+    grantMicrophone: options.attachmentsAudioOnly,
+  });
   const page = pageContext.page;
   if (options.groupSosOnly) {
     report.evidence.threadInitial = await attachScreenshot(page, options.evidenceDir, "web-chat-group-sos-thread-initial");
