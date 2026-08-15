@@ -36,18 +36,20 @@ subflujos a GO completo: faltan administración UI profunda de grupo y retorno/e
 mapa SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
-**Candidato actual:** `7ff9292ce5fe449b370da5796f02fce1fdcdc1e3` reduce `CHAT-AUDIO` y mantiene
-la cobertura `CHAT-ATTACHMENTS` de documento/audio: el composer común expone anclas
-`chat.composer.recordAudio`, `chat.composer.recording`, `chat.composer.recording.stop`,
-`chat.composer.recording.cancel` y `chat.composer.recording.error`; Web/Wasm, Android e iOS
-verifican start/stop de grabación y adjunto preparado, y vuelven a recorrer documento/audio con
-fixtures compartidos y limpieza física cero. Evidencias finales del mismo Product/Evidence SHA:
-Web/Wasm `build-reports/web/chat-audio-advanced-prep-web.json`, Android
-`build-reports/android/chat-audio-advanced-prep-android.json` e iOS
-`build-reports/ios/chat-audio-advanced-prep-ios.json`; iOS exporta attachments XCTest
-`ios-chat-audio-recording-active` e `ios-chat-audio-recording-pending-attachment` desde el
-simulador `Quata-Raster-iOS-26-ChatCandidate`. Attestation:
-`docs/candidate-attestations/chat-attachments-audio.json`. Quedan fuera descarga/compartir,
+**Candidato actual:** `e2b69601e740e9c91450036a3f0fd7b89882fe6b` reduce `CHAT-ATTACHMENTS` y
+`CHAT-AUDIO` con descarga/compartir ancladas en común, visor fullscreen común desde adjuntos de
+imagen/vídeo y revalidación de documento/audio/grabación en Web/Wasm, Android e iOS. El indicador
+visible de progreso de audio expone ahora la ancla común `chat.attachment.audio.progress`, de modo
+que XCTest/AX resuelve el mismo objetivo que Web/Android sin fallback geométrico. Evidencias finales
+del mismo Product/Evidence SHA: Web/Wasm `build-reports/web/chat-attachment-download-share-e2b69601.json`,
+Android `build-reports/android/chat-attachment-download-share-e2b69601.json` e iOS
+`build-reports/ios/chat-attachment-download-share-e2b69601.json`; iOS exporta attachments XCTest
+`ios-chat-attachment-document-visible`, `ios-chat-attachment-media-viewer`,
+`ios-chat-attachment-video-viewer`, `ios-chat-audio-player-visible`,
+`ios-chat-audio-toggle-attempted`, `ios-chat-audio-recording-active` e
+`ios-chat-audio-recording-pending-attachment` desde el simulador Mac. Las tres evidencias terminan
+con hard cleanup físico cero en Storage/DB. Attestation:
+`docs/candidate-attestations/chat-attachments-audio.json`. Quedan fuera picker real nativo,
 camara/galeria nativas, seek/autoavance completo, envío final de grabación y errores/rollback
 forzados.
 
