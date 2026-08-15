@@ -4,12 +4,12 @@
     "CHAT-ATTACHMENTS",
     "INT-PLATFORM-PERMISSIONS"
   ],
-  "productSha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
+  "productSha": "11eabc8ab9778bd085427d4e4ae6095f21f86031",
   "evidence": {
     "webDocumentCancelled": {
       "status": "passed",
-      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
-      "report": "build-reports/web/chat-attachment-picker-negative-7e840753-document-cancelled.json",
+      "sha": "11eabc8ab9778bd085427d4e4ae6095f21f86031",
+      "report": "build-reports/web/chat-attachment-picker-negative-11eabc8a-document-cancelled.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -17,8 +17,8 @@
     },
     "webGalleryUnsupported": {
       "status": "passed",
-      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
-      "report": "build-reports/web/chat-attachment-picker-negative-7e840753-gallery-unsupported.json",
+      "sha": "11eabc8ab9778bd085427d4e4ae6095f21f86031",
+      "report": "build-reports/web/chat-attachment-picker-negative-11eabc8a-gallery-unsupported.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -26,8 +26,8 @@
     },
     "webCameraFailure": {
       "status": "passed",
-      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
-      "report": "build-reports/web/chat-attachment-picker-negative-7e840753-camera-failure.json",
+      "sha": "11eabc8ab9778bd085427d4e4ae6095f21f86031",
+      "report": "build-reports/web/chat-attachment-picker-negative-11eabc8a-camera-failure.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -35,8 +35,8 @@
     },
     "androidDocumentCancelled": {
       "status": "passed",
-      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
-      "report": "build-reports/android/chat-attachment-picker-negative-7e840753-document-cancelled.json",
+      "sha": "11eabc8ab9778bd085427d4e4ae6095f21f86031",
+      "report": "build-reports/android/chat-attachment-picker-negative-11eabc8a-document-cancelled.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -44,8 +44,8 @@
     },
     "androidGalleryUnsupported": {
       "status": "passed",
-      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
-      "report": "build-reports/android/chat-attachment-picker-negative-7e840753-gallery-unsupported.json",
+      "sha": "11eabc8ab9778bd085427d4e4ae6095f21f86031",
+      "report": "build-reports/android/chat-attachment-picker-negative-11eabc8a-gallery-unsupported.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -53,8 +53,8 @@
     },
     "androidCameraFailure": {
       "status": "passed",
-      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
-      "report": "build-reports/android/chat-attachment-picker-negative-7e840753-camera-failure.json",
+      "sha": "11eabc8ab9778bd085427d4e4ae6095f21f86031",
+      "report": "build-reports/android/chat-attachment-picker-negative-11eabc8a-camera-failure.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -62,8 +62,8 @@
     },
     "iosDocumentCancelled": {
       "status": "passed",
-      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
-      "report": "build-reports/ios/chat-attachment-picker-negative-7e840753-document-cancelled.json",
+      "sha": "11eabc8ab9778bd085427d4e4ae6095f21f86031",
+      "report": "build-reports/ios/chat-attachment-picker-negative-11eabc8a-document-cancelled.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -71,8 +71,8 @@
     },
     "iosGalleryUnsupported": {
       "status": "passed",
-      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
-      "report": "build-reports/ios/chat-attachment-picker-negative-7e840753-gallery-unsupported.json",
+      "sha": "11eabc8ab9778bd085427d4e4ae6095f21f86031",
+      "report": "build-reports/ios/chat-attachment-picker-negative-11eabc8a-gallery-unsupported.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -80,8 +80,8 @@
     },
     "iosCameraFailure": {
       "status": "passed",
-      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
-      "report": "build-reports/ios/chat-attachment-picker-negative-7e840753-camera-failure.json",
+      "sha": "11eabc8ab9778bd085427d4e4ae6095f21f86031",
+      "report": "build-reports/ios/chat-attachment-picker-negative-11eabc8a-camera-failure.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0

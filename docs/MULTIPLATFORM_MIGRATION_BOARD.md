@@ -63,12 +63,12 @@ las nueve pasan con hard cleanup físico cero y mensaje con adjunto registrado p
 `docs/candidate-attestations/chat-attachment-picker.json`. Quedan fuera cancelación de picker,
 permisos denegados, errores de plataforma y rollback forzados.
 
-**Candidato activo apilado:** `7e8407537c62c59a8387de5ebf07bed9a23a9d73` reduce `CHAT-ATTACHMENTS`
+**Candidato activo apilado:** `11eabc8ab9778bd085427d4e4ae6095f21f86031` reduce `CHAT-ATTACHMENTS`
 e `INT-PLATFORM-PERMISSIONS` con negative paths de picker usando los mismos controles comunes de
 composer/quick panel: documento cancelado, galería no soportada y fallo de cámara. Evidencias locales:
-Web/Wasm `build-reports/web/chat-attachment-picker-negative-7e840753-{document-cancelled,gallery-unsupported,camera-failure}.json`,
-Android `build-reports/android/chat-attachment-picker-negative-7e840753-{document-cancelled,gallery-unsupported,camera-failure}.json`
-e iOS `build-reports/ios/chat-attachment-picker-negative-7e840753-{document-cancelled,gallery-unsupported,camera-failure}.json`;
+Web/Wasm `build-reports/web/chat-attachment-picker-negative-11eabc8a-{document-cancelled,gallery-unsupported,camera-failure}.json`,
+Android `build-reports/android/chat-attachment-picker-negative-11eabc8a-{document-cancelled,gallery-unsupported,camera-failure}.json`
+e iOS `build-reports/ios/chat-attachment-picker-negative-11eabc8a-{document-cancelled,gallery-unsupported,camera-failure}.json`;
 las nueve pasan en el mismo Product/Evidence SHA, no crean adjunto pendiente ni mensaje, exponen
 `chat.attachment.error` para error/unsupported y terminan con hard cleanup físico cero. Attestation:
 `docs/candidate-attestations/chat-attachment-picker-negative-paths.json`. Quedan fuera rollback
