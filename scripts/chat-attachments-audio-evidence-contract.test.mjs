@@ -27,6 +27,8 @@ const [
   browserAudioPlayer,
   browserChatMedia,
   androidMediaViewer,
+  iosAudioHost,
+  iosEvidenceAudioHost,
   attestationJson,
 ] = await Promise.all([
   source("package.json"),
@@ -51,6 +53,8 @@ const [
   source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserAudioPlayerService.wasm.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/BrowserChatMediaContent.kt"),
   source("app/src/main/java/com/quata/core/ui/components/AttachmentMediaViewer.kt"),
+  source("core/src/iosMain/kotlin/com/quata/core/platform/IosAvFoundationAudioHost.kt"),
+  source("core/src/iosMain/kotlin/com/quata/core/platform/IosEvidenceAudioRecorderHost.kt"),
   source("docs/candidate-attestations/chat-attachments-audio.json"),
 ]);
 
@@ -133,6 +137,24 @@ test("chat composer exposes stable common audio recording anchors", () => {
   assert.match(commonComposer, /onStopRecording/);
   assert.match(commonComposer, /onCancelRecording/);
   assert.match(commonComposer, /recordingError/);
+});
+
+test("iOS AVFoundation recorder honors pregranted microphone permission before requesting", () => {
+  assert.match(iosAudioHost, /audioSession\.recordPermission/);
+  assert.match(iosAudioHost, /AVAudioSessionRecordPermissionGranted/);
+  assert.match(iosAudioHost, /AVAudioSessionRecordPermissionDenied/);
+  assert.match(iosAudioHost, /requestRecordPermission/);
+  assert.match(iosAudioHost, /setCategory\(AVAudioSessionCategoryPlayAndRecord/);
+  assert.doesNotMatch(iosAudioHost, /setActive\(/);
+});
+
+test("iOS UI evidence uses an opt-in deterministic recorder instead of simulator microphone hardware", () => {
+  assert.match(iosEvidenceAudioHost, /class IosEvidenceAudioRecorderHost : IosAudioRecorderHost/);
+  assert.match(iosEvidenceAudioHost, /QUATA_IOS_AUDIO_RECORDER_E2E_FAKE/);
+  assert.match(iosEvidenceAudioHost, /quata_audio_e2e_/);
+  assert.match(iosEvidenceAudioHost, /durationMillis = 1_250L/);
+  assert.match(iosUiTest, /testAttachmentsAndAudioExposeSharedAnchors\(\)[\s\S]*app\.launchEnvironment\["QUATA_IOS_AUDIO_RECORDER_E2E_FAKE"\] = "1"/);
+  assert.doesNotMatch(iosAudioHost, /QUATA_IOS_AUDIO_RECORDER_E2E_FAKE/);
 });
 
 test("Android, Web and iOS attach native adapters to the same common chat product host", () => {

@@ -75,6 +75,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launchEnvironment["QUATA_IOS_AUDIO_RECORDER_E2E_FAKE"] = "1"
         app.launch()
 
         let feed = app.descendants(matching: .any)
