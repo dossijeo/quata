@@ -124,7 +124,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
 
 test("chat composer exposes stable common audio recording anchors", () => {
   for (const [constant, tag] of [
-    ["ChatComposerRecordTestTag", "chat.composer.record"],
+    ["ChatComposerRecordAudioTestTag", "chat.composer.recordAudio"],
     ["ChatComposerRecordingTestTag", "chat.composer.recording"],
     ["ChatComposerRecordingStopTestTag", "chat.composer.recording.stop"],
     ["ChatComposerRecordingCancelTestTag", "chat.composer.recording.cancel"],
