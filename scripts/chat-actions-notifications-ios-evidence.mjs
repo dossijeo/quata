@@ -708,6 +708,7 @@ function parseArgs(argv) {
     simulatorUdid: process.env.QUATA_IOS_SIMULATOR_UDID?.trim(),
     remoteLogDir: process.env.QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR?.trim() || "build/reports/ios/chat-actions-notifications",
     remoteResultBundleDir: process.env.QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_RESULT_BUNDLE_DIR?.trim() || "build/reports/ios/chat-actions-notifications/xcresults",
+    remoteJavaHome: process.env.QUATA_IOS_REMOTE_JAVA_HOME?.trim() || "",
     output: resolve("build-reports/ios/chat-actions-notifications-evidence.json"),
     evidenceDir: resolve("build-reports/ios/chat-actions-notifications-evidence"),
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
@@ -819,7 +820,7 @@ function parseArgs(argv) {
       result.remoteResultBundleDir = "build/reports/ios/chat-group-sos/xcresults";
       continue;
     }
-    if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
+    if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--remote-java-home", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
       throw new Error("invalid_arguments");
     }
     index += 1;
@@ -829,6 +830,7 @@ function parseArgs(argv) {
     if (key === "--simulator") result.simulatorUdid = value;
     if (key === "--remote-log-dir") result.remoteLogDir = value;
     if (key === "--remote-result-bundle-dir") result.remoteResultBundleDir = value;
+    if (key === "--remote-java-home") result.remoteJavaHome = value;
     if (key === "--out") result.output = resolve(value);
     if (key === "--evidence-dir") result.evidenceDir = resolve(value);
   }
@@ -1850,7 +1852,10 @@ function shellQuote(value) {
 }
 
 async function runSshScript(host, script, timeoutMs = 15 * 60 * 1000) {
-  return run("ssh", [host, "bash", "-s"], { input: script, timeoutMs });
+  const javaPrefix = options.remoteJavaHome
+    ? `export JAVA_HOME=${shellQuote(options.remoteJavaHome)}\nexport PATH="$JAVA_HOME/bin:$PATH"\n`
+    : "";
+  return run("ssh", [host, "bash", "-s"], { input: `${javaPrefix}${script}`, timeoutMs });
 }
 
 async function run(command, args, options = {}) {

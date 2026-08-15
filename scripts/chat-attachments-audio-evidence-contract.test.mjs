@@ -332,6 +332,10 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER'\] = picker_marker/);
   assert.match(iosWrapper, /testAttachmentPickerFixtureUsesSharedComposerAnchors/);
   assert.match(iosWrapper, /attachment-picker\.log/);
+  assert.match(iosRunner, /QUATA_IOS_REMOTE_JAVA_HOME/);
+  assert.match(iosRunner, /--remote-java-home/);
+  assert.match(iosRunner, /export JAVA_HOME=\$\{shellQuote\(options\.remoteJavaHome\)\}/);
+  assert.match(iosRunner, /export PATH="\$JAVA_HOME\/bin:\$PATH"/);
   const attachmentsMode = iosWrapper.slice(
     iosWrapper.indexOf('if [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]'),
     iosWrapper.indexOf('elif [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" == "1"'),
