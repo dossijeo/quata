@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 export const chatAttachmentsBucket = "chat-attachments";
 
 export function validWavFixture() {
@@ -30,6 +33,10 @@ export function validPngFixture() {
     "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mP8z8Dwn4GBgYFhAQB4iQb9Z11xZQAAAABJRU5ErkJggg==",
     "base64",
   );
+}
+
+export function validMp4Fixture() {
+  return readFileSync(resolve("play-store/05-assets/quata-demo-video.mp4"));
 }
 
 export function pathSegment(path) {
@@ -112,15 +119,12 @@ export async function seedChatAttachmentFixture({
   cleanup,
   nameSuffix = "",
 }) {
-  const isAudio = kind === "audio";
-  const extension = isAudio ? "wav" : "txt";
-  const mimeType = isAudio ? "audio/wav" : "text/plain";
+  const media = chatAttachmentFixtureMedia(kind);
+  const { extension, mimeType } = media;
   const marker = `chat-${kind}-attachment-${platformLabel}-${runId}`;
   const safeNameSuffix = String(nameSuffix).replace(/[^a-z0-9_-]/gi, "").slice(0, 24);
   const name = `qadata-${kind}-${runId.slice(0, 8)}${safeNameSuffix}.${extension}`;
-  const content = isAudio
-    ? validWavFixture()
-    : Buffer.from(`QADATA ${platformLabel} document fixture ${marker}\n`, "utf8");
+  const content = media.content({ platformLabel, marker });
   const storagePath = `${session.profileId}/evidence/${runId}/${name}`;
   cleanup?.trackStorageObject({ bucket: chatAttachmentsBucket, storagePath, name });
   await storageRequest(config, session, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(storagePath)}`, {
@@ -151,6 +155,35 @@ export async function seedChatAttachmentFixture({
   }));
   await pollMessage(config, session, thread, (message) => Number(message?.id) === msg && messageText(message) === marker);
   return { id, messageId: msg, marker, markerProbe: marker.slice(0, 28), name, mimeType, storagePath };
+}
+
+function chatAttachmentFixtureMedia(kind) {
+  if (kind === "audio") {
+    return {
+      extension: "wav",
+      mimeType: "audio/wav",
+      content: () => validWavFixture(),
+    };
+  }
+  if (kind === "image") {
+    return {
+      extension: "png",
+      mimeType: "image/png",
+      content: () => validPngFixture(),
+    };
+  }
+  if (kind === "video") {
+    return {
+      extension: "mp4",
+      mimeType: "video/mp4",
+      content: () => validMp4Fixture(),
+    };
+  }
+  return {
+    extension: "txt",
+    mimeType: "text/plain",
+    content: ({ platformLabel, marker }) => Buffer.from(`QADATA ${platformLabel} document fixture ${marker}\n`, "utf8"),
+  };
 }
 
 export async function seedProfileContentFixture({

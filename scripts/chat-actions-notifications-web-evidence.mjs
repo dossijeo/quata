@@ -312,8 +312,11 @@ async function storageRequest(config, session, path, options, prefix) {
 }
 
 async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
-  await waitMessageVisible(page, fixtures.document.marker, "document_attachment_message_not_visible");
-  await waitMessageVisible(page, fixtures.audio.marker, "audio_attachment_message_not_visible");
+  await waitMessageVisible(page, fixtures.image.marker, "image_attachment_message_not_visible");
+  await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "video", true);
+  await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "image", true);
+  await waitMessageVisibleBelowCurrentPosition(page, fixtures.document.marker, "document_attachment_message_not_visible");
+  await waitMessageVisibleBelowCurrentPosition(page, fixtures.audio.marker, "audio_attachment_message_not_visible");
   await page.getByText(fixtures.document.name, { exact: false }).first().waitFor({ timeout: 15_000 });
   await page.getByText(fixtures.audio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
   report.evidence.attachmentsDocument = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-visible");
@@ -326,6 +329,8 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
   report.evidence.audioPlaybackObserved = playback;
   report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
   if (fixtures.nextAudio) {
+    await page.mouse.wheel(0, 520);
+    await delay(350);
     await waitMessageVisible(page, fixtures.nextAudio.marker, "next_audio_attachment_message_not_visible");
     await page.getByText(fixtures.nextAudio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
     try {
@@ -340,6 +345,81 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
     const nextPlay = await visibleAriaLocator(page, [new RegExp(`Play audio ${escapeRegExp(fixtures.nextAudio.name)}|Reproducir audio ${escapeRegExp(fixtures.nextAudio.name)}`, "i")], 10_000);
     if (!nextPlay) throw new Error("next_audio_attachment_toggle_not_visible");
     report.evidence.nextAudioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-next-player-visible");
+  }
+}
+
+async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, kind = "media", allowScroll = false) {
+  const target = kind === "video" ? "chat.attachment.media.video" : kind === "image" ? "chat.attachment.media.image" : "chat.attachment.media";
+  const opener = allowScroll
+    ? await visibleAriaLocatorNearCurrentPosition(page, [new RegExp(escapeRegExp(target))], 15_000)
+    : await visibleAriaLocator(page, [new RegExp(escapeRegExp(target))], 10_000);
+  if (!opener) throw new Error("chat_attachment_media_anchor_missing");
+  if (kind === "video") {
+    await clickMediaAttachmentOpener(page, opener, "chat_attachment_media_anchor_not_clickable");
+  } else {
+    await clickLocatorCenter(page, opener, "chat_attachment_media_anchor_not_clickable");
+  }
+  let root = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.root"))], 5_000);
+  let title = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 5_000);
+  if (!title) {
+    await clickLocatorCenter(page, opener, "chat_attachment_media_anchor_not_clickable");
+    root = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.root"))], 3_000);
+    title = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 3_000);
+  }
+  if (!title) throw new Error("chat_attachment_media_viewer_title_missing");
+  const closePatterns = [
+    new RegExp(escapeRegExp("fullscreen-media.media-close")),
+    new RegExp(escapeRegExp("fullscreen-media.close")),
+    new RegExp(escapeRegExp("fullscreen-media.back")),
+  ];
+  const closeControl = await visibleNativeControl(page, closePatterns, 5_000);
+  const close = closeControl ? null : await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.close"))], 2_000);
+  const back = close ?? await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.back"))], 2_000);
+  if (!closeControl && !back) throw new Error("chat_attachment_media_viewer_back_missing");
+  if (!root) {
+    report.diagnostics ??= {};
+    report.diagnostics.chatAttachmentMediaViewerRoot =
+      "Compose/Wasm opened the common fullscreen media overlay but did not expose fullscreen-media.root as an aria-label; title/back anchors were visible and used for replay.";
+  }
+  report.evidence[kind === "video" ? "chatAttachmentVideoViewer" : "chatAttachmentMediaViewer"] =
+    await attachScreenshot(page, evidenceDir, kind === "video" ? "web-chat-attachment-video-viewer" : "web-chat-attachment-media-viewer");
+  if (closeControl) {
+    const clickedDomButton = closeControl.tag === "BUTTON" && await clickNativeButtonByLabel(page, closePatterns);
+    if (!clickedDomButton) {
+      await clickNativeControlCenter(page, closeControl, "chat_attachment_media_viewer_back_not_clickable");
+    }
+  }
+  await delay(650);
+  if (await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 750)) {
+    const semanticClose = back ?? await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.back"))], 2_000);
+    if (!semanticClose) throw new Error("chat_attachment_media_viewer_back_missing_after_native_click");
+    await semanticClose.evaluate((element) => element.click()).catch(() => {});
+    await delay(650);
+  }
+  if (await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 750)) {
+    throw new Error("chat_attachment_media_viewer_did_not_close");
+  }
+  await closeChatSelectionToolbarIfVisible(page);
+}
+
+async function clickMediaAttachmentOpener(page, locator, error) {
+  const clicked = await locator.evaluate((element) => {
+    element.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, cancelable: true, view: window }));
+    element.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, cancelable: true, view: window }));
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+    return true;
+  }).catch(() => false);
+  if (!clicked) await clickLocatorCenter(page, locator, error);
+  await delay(250);
+}
+
+async function closeChatSelectionToolbarIfVisible(page) {
+  const action = await visibleAriaLocator(page, [/Copiar|Copy|Editar|Edit|Favorito|Favorite|Eliminar|Delete/i], 750);
+  if (!action) return;
+  const back = await visibleAriaLocator(page, [/Volver|Back/i], 1_500);
+  if (back) {
+    await clickLocatorCenter(page, back, "chat_selection_toolbar_back_not_clickable").catch(() => {});
+    await delay(350);
   }
 }
 
@@ -626,7 +706,15 @@ async function attachViewportScreenshot(page, evidenceDir, name) {
 }
 
 async function visibleNativeControls(page) {
-  return await page.evaluate(() => {
+  return await nativeControls(page, true);
+}
+
+async function allNativeControls(page) {
+  return await nativeControls(page, false);
+}
+
+async function nativeControls(page, onlyVisible) {
+  return await page.evaluate((onlyVisibleArg) => {
     const root = document.querySelector("#quata-root");
     const scope = root?.shadowRoot ?? root ?? document;
     return [...scope.querySelectorAll("button[aria-label], input[aria-label], [role][aria-label]")]
@@ -643,9 +731,9 @@ async function visibleNativeControls(page) {
           height: Math.round(rect.height),
         };
       })
-      .filter((entry) => entry.visible)
+      .filter((entry) => !onlyVisibleArg || entry.visible)
       .slice(0, 80);
-  });
+  }, onlyVisible);
 }
 
 async function visibleNativeControl(page, patterns, timeout = 5_000) {
@@ -869,6 +957,33 @@ async function waitMessageVisible(page, marker, error, timeout = 45_000) {
     await delay(250);
   }
   throw new Error(error);
+}
+
+async function waitMessageVisibleBelowCurrentPosition(page, marker, error, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    try {
+      await waitMessageVisible(page, marker, error, Math.min(1_200, Math.max(250, deadline - Date.now())));
+      return;
+    } catch {
+      await wheelChatViewport(page, 420);
+      await delay(300);
+    }
+  }
+  throw new Error(error);
+}
+
+async function wheelChatViewport(page, deltaY) {
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  const x = Math.round(viewport.width * 0.5);
+  await page.mouse.move(x, Math.round(viewport.height * 0.48)).catch(() => {});
+  await page.mouse.wheel(0, deltaY).catch(() => {});
+  const startY = deltaY > 0 ? Math.round(viewport.height * 0.72) : Math.round(viewport.height * 0.32);
+  const endY = deltaY > 0 ? Math.round(viewport.height * 0.32) : Math.round(viewport.height * 0.72);
+  await page.mouse.move(x, startY).catch(() => {});
+  await page.mouse.down().catch(() => {});
+  await page.mouse.move(x, endY, { steps: 8 }).catch(() => {});
+  await page.mouse.up().catch(() => {});
 }
 
 async function openPeerProfileFromMessage(page, peerMarker, peerProfile, evidenceDir, report) {
@@ -1885,14 +2000,25 @@ async function profileEntryStep(label, action) {
 
 async function visibleAriaLocatorWithScroll(page, patterns, timeout = 10_000) {
   const deadline = Date.now() + timeout;
-  await page.mouse.wheel(0, -1600).catch(() => {});
+  await wheelChatViewport(page, -1600);
   while (Date.now() < deadline) {
     const locator = await visibleAriaLocator(page, patterns, 800);
     if (locator) return locator;
-    await page.mouse.wheel(0, 520).catch(() => {});
+    await wheelChatViewport(page, 520);
     await delay(350);
   }
   return null;
+}
+
+async function visibleAriaLocatorNearCurrentPosition(page, patterns, timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const locator = await visibleAriaLocator(page, patterns, 800);
+    if (locator) return locator;
+    await wheelChatViewport(page, -240);
+    await delay(250);
+  }
+  return await visibleAriaLocatorWithScroll(page, patterns, 3_000);
 }
 
 async function visibleCommunityMembersAction(page, neighborhood, timeout = 8_000) {
@@ -2531,6 +2657,8 @@ async function logicalCleanup(config, state) {
   const messagesBySession = [
     ["own_message", state.a, state.ownMessage],
     ["peer_message", state.b, state.peerMessage],
+    ["video_attachment_message", state.a, state.attachmentsAudio?.video?.messageId],
+    ["image_attachment_message", state.a, state.attachmentsAudio?.image?.messageId],
     ["document_attachment_message", state.a, state.attachmentsAudio?.document?.messageId],
     ["audio_attachment_message", state.a, state.attachmentsAudio?.audio?.messageId],
     ["next_audio_attachment_message", state.a, state.attachmentsAudio?.nextAudio?.messageId],
@@ -3238,11 +3366,13 @@ try {
 
   if (options.attachmentsAudioOnly) {
     state.attachmentsAudio = {
+      video: await createChatAttachmentMessage(config, state.a, state.thread, runId, "video"),
+      image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
       document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
       audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
       nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next"),
     };
-    report.steps.push("document_and_consecutive_audio_attachment_messages_seeded");
+    report.steps.push("video_image_document_and_consecutive_audio_attachment_messages_seeded");
     faults.length = 0;
     await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
     await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report);
@@ -3255,13 +3385,19 @@ try {
     report.fixture = {
       threadId: state.thread,
       conversationId: `sb:${state.thread}`,
+      imageMessageId: state.attachmentsAudio.image.messageId,
+      videoMessageId: state.attachmentsAudio.video.messageId,
       documentMessageId: state.attachmentsAudio.document.messageId,
       audioMessageId: state.attachmentsAudio.audio.messageId,
       nextAudioMessageId: state.attachmentsAudio.nextAudio.messageId,
+      imageAttachmentId: state.attachmentsAudio.image.id,
+      videoAttachmentId: state.attachmentsAudio.video.id,
       documentAttachmentId: state.attachmentsAudio.document.id,
       audioAttachmentId: state.attachmentsAudio.audio.id,
       nextAudioAttachmentId: state.attachmentsAudio.nextAudio.id,
       uniqueKeySha256: sha256(state.uniqueKey),
+      imageMarkerSha256: sha256(state.attachmentsAudio.image.marker),
+      videoMarkerSha256: sha256(state.attachmentsAudio.video.marker),
       documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
       audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
       nextAudioMarkerSha256: sha256(state.attachmentsAudio.nextAudio.marker),
@@ -3509,6 +3645,7 @@ try {
         report.diagnostics = {
           ...(report.diagnostics ?? {}),
           visibleNativeControls: await visibleNativeControls(pageContext.page),
+          nativeControls: await allNativeControls(pageContext.page),
         };
       } catch {}
     }

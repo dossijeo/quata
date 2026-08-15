@@ -24,6 +24,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.platform.DocumentSupport
 import com.quata.core.platform.PlatformFile
@@ -56,6 +59,10 @@ data class ChatMediaPlatformSlots(
     val viewer: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
 )
 
+const val ChatMediaAttachmentTestTag = "chat.attachment.media"
+const val ChatImageAttachmentContentDescription = "chat.attachment.media.image"
+const val ChatVideoAttachmentContentDescription = "chat.attachment.media.video"
+
 @Composable
 fun ChatMediaAttachmentContent(
     file: PlatformFile,
@@ -70,8 +77,7 @@ fun ChatMediaAttachmentContent(
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onOpen),
+            .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
         media(file, kind, Modifier.fillMaxSize())
@@ -89,6 +95,19 @@ fun ChatMediaAttachmentContent(
                 )
             }
         }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .semantics {
+                    testTag = ChatMediaAttachmentTestTag
+                    contentDescription = when (kind) {
+                        ChatAttachmentKind.Video -> ChatVideoAttachmentContentDescription
+                        ChatAttachmentKind.Image -> ChatImageAttachmentContentDescription
+                        else -> ChatMediaAttachmentTestTag
+                    }
+                }
+                .clickable(onClick = onOpen),
+        )
     }
 }
 

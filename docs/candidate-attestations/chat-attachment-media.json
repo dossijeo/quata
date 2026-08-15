@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-ATTACHMENTS",
+    "CHAT-AUDIO",
+    "OVR-MEDIA"
+  ],
+  "productSha": "68999f22fd510206cc1a68590441a8081d81228a",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "68999f22fd510206cc1a68590441a8081d81228a",
+      "report": "build-reports/web/chat-attachment-video-evidence-product-68999f22.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "68999f22fd510206cc1a68590441a8081d81228a",
+      "report": "build-reports/android/chat-attachment-video-evidence-product-68999f22.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "68999f22fd510206cc1a68590441a8081d81228a",
+      "report": "build-reports/ios/chat-attachment-video-evidence-product-68999f22.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "This candidate reduces CHAT-ATTACHMENTS, CHAT-AUDIO and OVR-MEDIA by opening the shared fullscreen media viewer from both video and image attachments in Chat, while keeping document/audio evidence from PR #245 covered on the same flow.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated."
+  ]
+}

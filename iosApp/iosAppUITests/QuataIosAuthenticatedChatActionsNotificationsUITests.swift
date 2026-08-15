@@ -67,7 +67,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let documentProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE"]),
-              let audioProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE"]) else {
+              let audioProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE"]),
+              let imageProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE"]),
+              let videoProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE"]) else {
             throw XCTSkip("Disposable Chat attachments/audio fixture is not configured.")
         }
 
@@ -84,6 +86,20 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "attachments/audio conversation")
         assertChatRoute(conversationId, in: app, context: "attachments/audio conversation")
 
+        XCTAssertTrue(messageText(videoProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        guard openChatMediaAttachment(identifier: "chat.attachment.media.video", context: "Chat video attachment", in: app) else {
+            return
+        }
+        attachScreenshot(app, name: "ios-chat-attachment-video-viewer")
+        closeFullscreenMedia(context: "Chat video attachment", in: app)
+
+        XCTAssertTrue(messageText(imageProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        guard openChatMediaAttachment(identifier: "chat.attachment.media.image", context: "Chat image attachment", in: app) else {
+            return
+        }
+        attachScreenshot(app, name: "ios-chat-attachment-media-viewer")
+        closeFullscreenMedia(context: "Chat image attachment", in: app)
+
         XCTAssertTrue(messageText(documentProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         let document = app.descendants(matching: .any)
             .matching(identifier: "chat.attachment.document")
@@ -92,6 +108,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-attachment-document-visible")
 
         XCTAssertTrue(messageText(audioProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        guard makeChatAnchorVisible(identifier: "chat.attachment.audio.player", context: "Chat audio attachment", in: app) else {
+            return
+        }
         for identifier in ["chat.attachment.audio.player", "chat.attachment.audio.toggle", "chat.attachment.audio.progress"] {
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: identifier).firstMatch.waitForExistence(timeout: 10),
@@ -99,9 +118,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             )
         }
         attachScreenshot(app, name: "ios-chat-audio-player-visible")
-        app.descendants(matching: .any)
+        let audioToggle = app.descendants(matching: .any)
             .matching(identifier: "chat.attachment.audio.toggle")
             .firstMatch
+        XCTAssertTrue(audioToggle.waitForExistence(timeout: 5), "The shared audio toggle must be visible before playback is attempted.")
+        audioToggle
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .tap()
         attachScreenshot(app, name: "ios-chat-audio-toggle-attempted")
@@ -812,6 +833,104 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "chat.message.\(messageId)", markerProbe))
             .firstMatch
+    }
+
+    private func makeChatAnchorVisible(identifier: String, context: String, in app: XCUIApplication) -> Bool {
+        let anchor = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+
+        for _ in 0..<8 {
+            if anchor.waitForExistence(timeout: 1), anchor.isHittable {
+                return true
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+
+        for _ in 0..<4 {
+            if anchor.waitForExistence(timeout: 1), anchor.isHittable {
+                return true
+            }
+            app.swipeDown()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+
+        guard anchor.waitForExistence(timeout: 3) else {
+            XCTFail("The shared anchor \(identifier) must be visible for \(context).")
+            return false
+        }
+        return true
+    }
+
+    private func openChatMediaAttachment(identifier: String, context: String, in app: XCUIApplication) -> Bool {
+        let media = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+
+        for _ in 0..<8 {
+            if media.waitForExistence(timeout: 1), media.isHittable {
+                media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                return assertFullscreenMediaOpened(context: context, in: app)
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+
+        for _ in 0..<4 {
+            if media.waitForExistence(timeout: 1), media.isHittable {
+                media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                return assertFullscreenMediaOpened(context: context, in: app)
+            }
+            app.swipeDown()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+
+        guard media.waitForExistence(timeout: 3) else {
+            XCTFail("The shared media attachment anchor \(identifier) must be visible for \(context).")
+            return false
+        }
+
+        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        return assertFullscreenMediaOpened(context: context, in: app)
+    }
+
+    private func assertFullscreenMediaOpened(context: String, in app: XCUIApplication) -> Bool {
+        guard app.descendants(matching: .any)
+            .matching(identifier: "fullscreen-media.root")
+            .firstMatch
+            .waitForExistence(timeout: 10) else {
+            XCTFail("The shared fullscreen media overlay must open from \(context).")
+            return false
+        }
+
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay title must be visible for \(context).",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay close control must be visible for \(context).",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay in-media close control must be visible for \(context).",
+        )
+        return true
+    }
+
+    private func closeFullscreenMedia(context: String, in app: XCUIApplication) {
+        let back = app.descendants(matching: .any)
+            .matching(identifier: "fullscreen-media.back")
+            .firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 5), "The shared fullscreen media overlay back action must be visible for \(context).")
+        if back.exists {
+            back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay must close back to the Chat thread after \(context).",
+        )
     }
 
     private func openPeerPublicProfile(peerProfileId: String, in app: XCUIApplication) -> XCUIElement {
