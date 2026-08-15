@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-ATTACHMENTS",
+    "INT-PLATFORM-PERMISSIONS"
+  ],
+  "productSha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
+  "evidence": {
+    "webDocumentCancelled": {
+      "status": "passed",
+      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
+      "report": "build-reports/web/chat-attachment-picker-negative-7e840753-document-cancelled.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "webGalleryUnsupported": {
+      "status": "passed",
+      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
+      "report": "build-reports/web/chat-attachment-picker-negative-7e840753-gallery-unsupported.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "webCameraFailure": {
+      "status": "passed",
+      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
+      "report": "build-reports/web/chat-attachment-picker-negative-7e840753-camera-failure.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "androidDocumentCancelled": {
+      "status": "passed",
+      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
+      "report": "build-reports/android/chat-attachment-picker-negative-7e840753-document-cancelled.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "androidGalleryUnsupported": {
+      "status": "passed",
+      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
+      "report": "build-reports/android/chat-attachment-picker-negative-7e840753-gallery-unsupported.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "androidCameraFailure": {
+      "status": "passed",
+      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
+      "report": "build-reports/android/chat-attachment-picker-negative-7e840753-camera-failure.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "iosDocumentCancelled": {
+      "status": "passed",
+      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
+      "report": "build-reports/ios/chat-attachment-picker-negative-7e840753-document-cancelled.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "iosGalleryUnsupported": {
+      "status": "passed",
+      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
+      "report": "build-reports/ios/chat-attachment-picker-negative-7e840753-gallery-unsupported.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "iosCameraFailure": {
+      "status": "passed",
+      "sha": "7e8407537c62c59a8387de5ebf07bed9a23a9d73",
+      "report": "build-reports/ios/chat-attachment-picker-negative-7e840753-camera-failure.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate covers picker negative paths across Web/Wasm, Android and iOS: document cancellation, gallery unsupported and camera failure. Each route uses the shared composer/attachment controls, leaves no pending attachment, creates no message and records cleanup with physical residue zero.",
+    "Android still has a legacy ChatScreen surface for the active instrumented route; this candidate adds the same opt-in negative picker outcome and shared chat.attachment.error anchor there while the common ChatProductHostContent remains the reference implementation."
+  ]
+}

@@ -63,6 +63,17 @@ las nueve pasan con hard cleanup físico cero y mensaje con adjunto registrado p
 `docs/candidate-attestations/chat-attachment-picker.json`. Quedan fuera cancelación de picker,
 permisos denegados, errores de plataforma y rollback forzados.
 
+**Candidato activo apilado:** `7e8407537c62c59a8387de5ebf07bed9a23a9d73` reduce `CHAT-ATTACHMENTS`
+e `INT-PLATFORM-PERMISSIONS` con negative paths de picker usando los mismos controles comunes de
+composer/quick panel: documento cancelado, galería no soportada y fallo de cámara. Evidencias locales:
+Web/Wasm `build-reports/web/chat-attachment-picker-negative-7e840753-{document-cancelled,gallery-unsupported,camera-failure}.json`,
+Android `build-reports/android/chat-attachment-picker-negative-7e840753-{document-cancelled,gallery-unsupported,camera-failure}.json`
+e iOS `build-reports/ios/chat-attachment-picker-negative-7e840753-{document-cancelled,gallery-unsupported,camera-failure}.json`;
+las nueve pasan en el mismo Product/Evidence SHA, no crean adjunto pendiente ni mensaje, exponen
+`chat.attachment.error` para error/unsupported y terminan con hard cleanup físico cero. Attestation:
+`docs/candidate-attestations/chat-attachment-picker-negative-paths.json`. Quedan fuera rollback
+forzado tras upload/RPC parcial y permisos de sistema reales no simulados.
+
 **Candidato anterior:** `63f8a3e3c00afc15b31fa8b8d8a0df0f1ccd5655`, integrado en `main` como #255,
 cierra `PROF-MEDIA-DETAIL` dentro de `OVR-PUBLIC-PROFILE` y reduce `OVR-MEDIA`: abre desde Chat el
 perfil p?blico global, muestra galer?a, abre media real de publicaci?n seeded en Storage, captura
