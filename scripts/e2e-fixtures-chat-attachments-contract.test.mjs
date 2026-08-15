@@ -8,6 +8,7 @@ import {
   cleanupProfileContentFixture,
   seedProfileContentFixture,
   seedChatAttachmentFixture,
+  validMp4Fixture,
   validWavFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
@@ -16,6 +17,12 @@ test("validWavFixture is shared and produces a playable RIFF/WAVE buffer", () =>
   assert.equal(wav.subarray(0, 4).toString("ascii"), "RIFF");
   assert.equal(wav.subarray(8, 12).toString("ascii"), "WAVE");
   assert.ok(wav.length > 44);
+});
+
+test("validMp4Fixture is shared and produces a real MP4 buffer", () => {
+  const mp4 = validMp4Fixture();
+  assert.ok(mp4.length > 8_000);
+  assert.equal(mp4.subarray(4, 8).toString("ascii"), "ftyp");
 });
 
 test("cleanup registry deduplicates storage paths", () => {
@@ -130,6 +137,33 @@ test("shared fixture seeds image attachments with valid PNG metadata", async () 
   assert.equal(fixture.name, "qadata-image-12345678.png");
   assert.equal(calls[0].options.headers["content-type"], "image/png");
   assert.ok(Buffer.isBuffer(calls[0].options.body));
+  assert.match(calls[0].path, new RegExp(`/storage/v1/object/${chatAttachmentsBucket}/`));
+});
+
+test("shared fixture seeds video attachments with valid MP4 metadata", async () => {
+  const calls = [];
+  const fixture = await seedChatAttachmentFixture({
+    config: { baseUrl: "https://example.supabase.co" },
+    session: { profileId: "profile-a" },
+    thread: 123,
+    runId: "12345678-1234-1234-1234-123456789abc",
+    kind: "video",
+    platformLabel: "web",
+    cleanup: createCleanupRegistry(),
+    storageRequest: async (_config, _session, path, options) => calls.push({ path, options }),
+    rpc: async (_config, _session, name) => name === "quata_chat_register_attachment" ? { id: 291 } : { message_id: 292 },
+    pollMessage: async () => {},
+    messageText: (message) => message.message,
+    attachmentId: (payload) => payload.id,
+    messageId: (payload) => payload.message_id,
+  });
+  assert.equal(fixture.id, 291);
+  assert.equal(fixture.messageId, 292);
+  assert.equal(fixture.mimeType, "video/mp4");
+  assert.equal(fixture.name, "qadata-video-12345678.mp4");
+  assert.equal(calls[0].options.headers["content-type"], "video/mp4");
+  assert.ok(Buffer.isBuffer(calls[0].options.body));
+  assert.ok(calls[0].options.body.length > 8_000);
   assert.match(calls[0].path, new RegExp(`/storage/v1/object/${chatAttachmentsBucket}/`));
 });
 

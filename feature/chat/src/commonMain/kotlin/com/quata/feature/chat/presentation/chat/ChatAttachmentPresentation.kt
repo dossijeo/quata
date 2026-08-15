@@ -60,6 +60,8 @@ data class ChatMediaPlatformSlots(
 )
 
 const val ChatMediaAttachmentTestTag = "chat.attachment.media"
+const val ChatImageAttachmentContentDescription = "chat.attachment.media.image"
+const val ChatVideoAttachmentContentDescription = "chat.attachment.media.video"
 
 @Composable
 fun ChatMediaAttachmentContent(
@@ -98,7 +100,11 @@ fun ChatMediaAttachmentContent(
                 .fillMaxSize()
                 .semantics {
                     testTag = ChatMediaAttachmentTestTag
-                    contentDescription = ChatMediaAttachmentTestTag
+                    contentDescription = when (kind) {
+                        ChatAttachmentKind.Video -> ChatVideoAttachmentContentDescription
+                        ChatAttachmentKind.Image -> ChatImageAttachmentContentDescription
+                        else -> ChatMediaAttachmentTestTag
+                    }
                 }
                 .clickable(onClick = onOpen),
         )

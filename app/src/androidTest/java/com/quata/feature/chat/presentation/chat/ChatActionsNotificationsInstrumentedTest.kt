@@ -17,6 +17,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -79,6 +80,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val documentProbe = optionalArgument("quataChatActionsDocumentProbe")
         val audioProbe = optionalArgument("quataChatActionsAudioProbe")
         val imageProbe = optionalArgument("quataChatActionsImageProbe")
+        val videoProbe = optionalArgument("quataChatActionsVideoProbe")
         val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
         val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
@@ -90,7 +92,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment).all { !it.isNullOrBlank() }
-            "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, imageProbe).all { !it.isNullOrBlank() }
+            "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, imageProbe, videoProbe).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
         }
@@ -136,7 +138,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-roles-safety" -> runProfileRolesSafetyStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
-                "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty(), imageProbe.orEmpty())
+                "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty(), imageProbe.orEmpty(), videoProbe.orEmpty())
                 "group-sos" -> runGroupSosStage(ownProbe.orEmpty())
                 "profile-content" -> {
                     openProfileFromPeerMessage(peerProbe.orEmpty(), profileId.orEmpty())
@@ -353,7 +355,34 @@ class ChatActionsNotificationsInstrumentedTest {
         SystemClock.sleep(800)
     }
 
-    private fun runAttachmentsAudioStage(documentProbe: String, audioProbe: String, imageProbe: String) {
+    private fun runAttachmentsAudioStage(documentProbe: String, audioProbe: String, imageProbe: String, videoProbe: String) {
+        waitForMarker(videoProbe.take(28), "video attachment message")
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNodeWithContentDescription(ChatVideoAttachmentContentDescription, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        compose.onNodeWithContentDescription(ChatVideoAttachmentContentDescription, useUnmergedTree = true)
+            .performClick()
+        compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        compose.onNodeWithTag("fullscreen-media.title", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        compose.onNodeWithTag("fullscreen-media.close", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        compose.onNodeWithTag("fullscreen-media.media-close", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        saveScreenshot("android-chat-attachment-video-viewer")
+        compose.onNodeWithTag("fullscreen-media.back", useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(10_000) {
+            runCatching {
+                compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isFailure
+        }
+
         waitForMarker(imageProbe.take(28), "image attachment message")
         compose.waitUntil(20_000) {
             runCatching {

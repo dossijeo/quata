@@ -20,6 +20,7 @@ if [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]; then
   : "${QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE:?Set QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE.}"
   : "${QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE:?Set QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE.}"
   : "${QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE:?Set QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE.}"
+  : "${QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE:?Set QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE.}"
   : "${QUATA_IOS_CHAT_E2E_MESSAGE_ID:=attachments-audio}"
   : "${QUATA_IOS_CHAT_E2E_MARKER_PROBE:=attachments-audio}"
   : "${QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE:=attachments-audio}"
@@ -124,9 +125,9 @@ elif [[ "$bootstatus_status" -ne 0 ]]; then
   exit "$bootstatus_status"
 fi
 
-/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID" "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E:-0}" "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E:-0}" "${QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E:-0}" "${QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_SOS_UI_E2E:-0}" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" "$QUATA_IOS_CHAT_E2E_FORWARD_QUERY" "$QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE" "${QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT:-profile-content}" <<'PY'
+/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID" "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E:-0}" "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E:-0}" "${QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E:-0}" "${QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_SOS_UI_E2E:-0}" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" "$QUATA_IOS_CHAT_E2E_FORWARD_QUERY" "$QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE" "${QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT:-profile-content}" <<'PY'
 import plistlib, sys
-path, credentials, conversation, message, marker, profile_marker, profile_id, profile_follow, profile_lists, profile_content, profile_roles_safety, menu_surface, keyboard_menu, attachments_audio, group_sos, editable_message, editable_marker, composer, reply, edit, forward_query, attachment_document, attachment_audio, attachment_image, profile_content_post, profile_content_comment, profile_content_attachment, profile_content_ui_comment = sys.argv[1:]
+path, credentials, conversation, message, marker, profile_marker, profile_id, profile_follow, profile_lists, profile_content, profile_roles_safety, menu_surface, keyboard_menu, attachments_audio, group_sos, editable_message, editable_marker, composer, reply, edit, forward_query, attachment_document, attachment_audio, attachment_image, attachment_video, profile_content_post, profile_content_comment, profile_content_attachment, profile_content_ui_comment = sys.argv[1:]
 with open(path, 'rb') as f:
     data = plistlib.load(f)
 matched = set()
@@ -161,6 +162,7 @@ def patch_target(target, hint=''):
         env['QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE'] = attachment_document
         env['QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE'] = attachment_audio
         env['QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE'] = attachment_image
+        env['QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE'] = attachment_video
         env['QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID'] = profile_content_post
         env['QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID'] = profile_content_comment
         env['QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID'] = profile_content_attachment

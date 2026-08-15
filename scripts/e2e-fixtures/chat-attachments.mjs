@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 export const chatAttachmentsBucket = "chat-attachments";
 
 export function validWavFixture() {
@@ -30,6 +33,10 @@ export function validPngFixture() {
     "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mP8z8Dwn4GBgYFhAQB4iQb9Z11xZQAAAABJRU5ErkJggg==",
     "base64",
   );
+}
+
+export function validMp4Fixture() {
+  return readFileSync(resolve("play-store/05-assets/quata-demo-video.mp4"));
 }
 
 export function pathSegment(path) {
@@ -163,6 +170,13 @@ function chatAttachmentFixtureMedia(kind) {
       extension: "png",
       mimeType: "image/png",
       content: () => validPngFixture(),
+    };
+  }
+  if (kind === "video") {
+    return {
+      extension: "mp4",
+      mimeType: "video/mp4",
+      content: () => validMp4Fixture(),
     };
   }
   return {

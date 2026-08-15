@@ -68,7 +68,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let documentProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE"]),
               let audioProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE"]),
-              let imageProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE"]) else {
+              let imageProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE"]),
+              let videoProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE"]) else {
             throw XCTSkip("Disposable Chat attachments/audio fixture is not configured.")
         }
 
@@ -85,9 +86,42 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "attachments/audio conversation")
         assertChatRoute(conversationId, in: app, context: "attachments/audio conversation")
 
+        XCTAssertTrue(messageText(videoProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        let video = app.descendants(matching: .any)
+            .matching(identifier: "chat.attachment.media.video")
+            .firstMatch
+        XCTAssertTrue(video.waitForExistence(timeout: 10), "The shared video attachment anchor must be visible.")
+        video.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 10),
+            "The shared fullscreen media overlay must open from a Chat video attachment.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay title must be visible for Chat video attachments.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay close control must be visible for Chat video attachments.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay in-media close control must be visible for Chat video attachments.",
+        )
+        attachScreenshot(app, name: "ios-chat-attachment-video-viewer")
+        app.descendants(matching: .any)
+            .matching(identifier: "fullscreen-media.back")
+            .firstMatch
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay must close back to the Chat thread after video.",
+        )
+
         XCTAssertTrue(messageText(imageProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         let media = app.descendants(matching: .any)
-            .matching(identifier: "chat.attachment.media")
+            .matching(identifier: "chat.attachment.media.image")
             .firstMatch
         XCTAssertTrue(media.waitForExistence(timeout: 10), "The shared media attachment anchor must be visible.")
         media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
