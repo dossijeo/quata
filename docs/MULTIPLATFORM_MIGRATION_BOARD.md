@@ -53,12 +53,12 @@ con hard cleanup físico cero en Storage/DB. Attestation:
 camara/galeria nativas, seek/autoavance completo, envío final de grabación y errores/rollback
 forzados.
 
-**Candidato activo apilado:** `a2791c2260ee1cd75de2b443429a8591963651bd` revalida el borde nativo
+**Candidato activo apilado:** `8892cea2c71a4a088dd0b19f0ea0bc5d47d974ef` revalida el borde nativo
 de `CHAT-ATTACHMENTS` para selección desde documento, galería y cámara usando el quick panel/composer
 común sobre la rama congelada #259. Evidencias locales: Web/Wasm
-`build-reports/web/chat-attachment-picker-evidence-a2791c22-{document,gallery,camera}.json`,
-Android `build-reports/android/chat-attachment-picker-evidence-a2791c22-{document,gallery,camera}.json`
-e iOS `build-reports/ios/chat-attachment-picker-evidence-a2791c22-{document,gallery,camera}.json`;
+`build-reports/web/chat-attachment-picker-evidence-8892cea2-{document,gallery,camera}.json`,
+Android `build-reports/android/chat-attachment-picker-evidence-8892cea2-{document,gallery,camera}.json`
+e iOS `build-reports/ios/chat-attachment-picker-evidence-8892cea2-{document,gallery,camera}.json`;
 las nueve pasan con hard cleanup físico cero y mensaje con adjunto registrado por RPC. Attestation:
 `docs/candidate-attestations/chat-attachment-picker.json`. Quedan fuera cancelación de picker,
 permisos denegados, errores de plataforma y rollback forzados.
