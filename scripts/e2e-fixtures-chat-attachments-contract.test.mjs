@@ -107,6 +107,32 @@ test("shared fixture seeds document/audio with expected metadata", async () => {
   assert.equal(cleanup.summary().trackedStorageObjects, 1);
 });
 
+test("shared fixture seeds image attachments with valid PNG metadata", async () => {
+  const calls = [];
+  const fixture = await seedChatAttachmentFixture({
+    config: { baseUrl: "https://example.supabase.co" },
+    session: { profileId: "profile-a" },
+    thread: 123,
+    runId: "12345678-1234-1234-1234-123456789abc",
+    kind: "image",
+    platformLabel: "ios",
+    cleanup: createCleanupRegistry(),
+    storageRequest: async (_config, _session, path, options) => calls.push({ path, options }),
+    rpc: async (_config, _session, name) => name === "quata_chat_register_attachment" ? { id: 191 } : { message_id: 192 },
+    pollMessage: async () => {},
+    messageText: (message) => message.message,
+    attachmentId: (payload) => payload.id,
+    messageId: (payload) => payload.message_id,
+  });
+  assert.equal(fixture.id, 191);
+  assert.equal(fixture.messageId, 192);
+  assert.equal(fixture.mimeType, "image/png");
+  assert.equal(fixture.name, "qadata-image-12345678.png");
+  assert.equal(calls[0].options.headers["content-type"], "image/png");
+  assert.ok(Buffer.isBuffer(calls[0].options.body));
+  assert.match(calls[0].path, new RegExp(`/storage/v1/object/${chatAttachmentsBucket}/`));
+});
+
 test("shared fixture supports stable visible name suffixes for repeated attachments", async () => {
   const fixture = await seedChatAttachmentFixture({
     config: { baseUrl: "https://example.supabase.co" },

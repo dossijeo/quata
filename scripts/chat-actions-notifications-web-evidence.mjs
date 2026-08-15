@@ -312,10 +312,12 @@ async function storageRequest(config, session, path, options, prefix) {
 }
 
 async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
+  await waitMessageVisible(page, fixtures.image.marker, "image_attachment_message_not_visible");
   await waitMessageVisible(page, fixtures.document.marker, "document_attachment_message_not_visible");
   await waitMessageVisible(page, fixtures.audio.marker, "audio_attachment_message_not_visible");
   await page.getByText(fixtures.document.name, { exact: false }).first().waitFor({ timeout: 15_000 });
   await page.getByText(fixtures.audio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
+  await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report);
   report.evidence.attachmentsDocument = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-visible");
   const play = await visibleAriaLocator(page, [/Play audio|Reproducir audio/i], 10_000);
   if (!play) throw new Error("audio_attachment_toggle_not_visible");
@@ -326,6 +328,8 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
   report.evidence.audioPlaybackObserved = playback;
   report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
   if (fixtures.nextAudio) {
+    await page.mouse.wheel(0, 520);
+    await delay(350);
     await waitMessageVisible(page, fixtures.nextAudio.marker, "next_audio_attachment_message_not_visible");
     await page.getByText(fixtures.nextAudio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
     try {
@@ -340,6 +344,46 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
     const nextPlay = await visibleAriaLocator(page, [new RegExp(`Play audio ${escapeRegExp(fixtures.nextAudio.name)}|Reproducir audio ${escapeRegExp(fixtures.nextAudio.name)}`, "i")], 10_000);
     if (!nextPlay) throw new Error("next_audio_attachment_toggle_not_visible");
     report.evidence.nextAudioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-next-player-visible");
+  }
+}
+
+async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report) {
+  const opener = await visibleAriaLocator(page, [new RegExp(escapeRegExp("chat.attachment.media"))], 10_000);
+  if (!opener) throw new Error("chat_attachment_media_anchor_missing");
+  await clickLocatorCenter(page, opener, "chat_attachment_media_anchor_not_clickable");
+  const root = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.root"))], 5_000);
+  const title = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 5_000);
+  if (!title) throw new Error("chat_attachment_media_viewer_title_missing");
+  const closePatterns = [
+    new RegExp(escapeRegExp("fullscreen-media.media-close")),
+    new RegExp(escapeRegExp("fullscreen-media.close")),
+    new RegExp(escapeRegExp("fullscreen-media.back")),
+  ];
+  const closeControl = await visibleNativeControl(page, closePatterns, 5_000);
+  const close = closeControl ? null : await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.close"))], 2_000);
+  const back = close ?? await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.back"))], 2_000);
+  if (!closeControl && !back) throw new Error("chat_attachment_media_viewer_back_missing");
+  if (!root) {
+    report.diagnostics ??= {};
+    report.diagnostics.chatAttachmentMediaViewerRoot =
+      "Compose/Wasm opened the common fullscreen media overlay but did not expose fullscreen-media.root as an aria-label; title/back anchors were visible and used for replay.";
+  }
+  report.evidence.chatAttachmentMediaViewer = await attachScreenshot(page, evidenceDir, "web-chat-attachment-media-viewer");
+  if (closeControl) {
+    const clickedDomButton = closeControl.tag === "BUTTON" && await clickNativeButtonByLabel(page, closePatterns);
+    if (!clickedDomButton) {
+      await clickNativeControlCenter(page, closeControl, "chat_attachment_media_viewer_back_not_clickable");
+    }
+  }
+  await delay(650);
+  if (await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 750)) {
+    const semanticClose = back ?? await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.back"))], 2_000);
+    if (!semanticClose) throw new Error("chat_attachment_media_viewer_back_missing_after_native_click");
+    await semanticClose.evaluate((element) => element.click()).catch(() => {});
+    await delay(650);
+  }
+  if (await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 750)) {
+    throw new Error("chat_attachment_media_viewer_did_not_close");
   }
 }
 
@@ -2531,6 +2575,7 @@ async function logicalCleanup(config, state) {
   const messagesBySession = [
     ["own_message", state.a, state.ownMessage],
     ["peer_message", state.b, state.peerMessage],
+    ["image_attachment_message", state.a, state.attachmentsAudio?.image?.messageId],
     ["document_attachment_message", state.a, state.attachmentsAudio?.document?.messageId],
     ["audio_attachment_message", state.a, state.attachmentsAudio?.audio?.messageId],
     ["next_audio_attachment_message", state.a, state.attachmentsAudio?.nextAudio?.messageId],
@@ -3238,11 +3283,12 @@ try {
 
   if (options.attachmentsAudioOnly) {
     state.attachmentsAudio = {
+      image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
       document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
       audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
       nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next"),
     };
-    report.steps.push("document_and_consecutive_audio_attachment_messages_seeded");
+    report.steps.push("image_document_and_consecutive_audio_attachment_messages_seeded");
     faults.length = 0;
     await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
     await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report);
@@ -3255,13 +3301,16 @@ try {
     report.fixture = {
       threadId: state.thread,
       conversationId: `sb:${state.thread}`,
+      imageMessageId: state.attachmentsAudio.image.messageId,
       documentMessageId: state.attachmentsAudio.document.messageId,
       audioMessageId: state.attachmentsAudio.audio.messageId,
       nextAudioMessageId: state.attachmentsAudio.nextAudio.messageId,
+      imageAttachmentId: state.attachmentsAudio.image.id,
       documentAttachmentId: state.attachmentsAudio.document.id,
       audioAttachmentId: state.attachmentsAudio.audio.id,
       nextAudioAttachmentId: state.attachmentsAudio.nextAudio.id,
       uniqueKeySha256: sha256(state.uniqueKey),
+      imageMarkerSha256: sha256(state.attachmentsAudio.image.marker),
       documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
       audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
       nextAudioMarkerSha256: sha256(state.attachmentsAudio.nextAudio.marker),

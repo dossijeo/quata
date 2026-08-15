@@ -615,7 +615,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("favorite_removed");
   }
-  const messageIds = [state.message, state.peerMessage, state.editedMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId, ...state.uiMessages]
+  const messageIds = [state.message, state.peerMessage, state.editedMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.image?.messageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId, ...state.uiMessages]
     .filter((id, index, all) => Number.isInteger(Number(id)) && all.indexOf(id) === index);
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
@@ -1269,6 +1269,7 @@ try {
       "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
       "-e", "quataChatActionsDocumentProbe", state.attachmentsAudio?.document?.markerProbe ?? "",
       "-e", "quataChatActionsAudioProbe", state.attachmentsAudio?.audio?.markerProbe ?? "",
+      "-e", "quataChatActionsImageProbe", state.attachmentsAudio?.image?.markerProbe ?? "",
       "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
     ].map(adbShellQuote).join(" "),
   ]);
@@ -1337,10 +1338,11 @@ try {
 
   if (attachmentsAudioOnly) {
     state.attachmentsAudio = {
+      image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
       document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
       audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
     };
-    report.steps.push("document_and_audio_attachment_messages_seeded");
+    report.steps.push("image_document_and_audio_attachment_messages_seeded");
     assertInstrumentationPassed("attachments-audio", await runInstrumentationStage("attachments-audio"));
     await rm(evidenceDir, { recursive: true, force: true });
     await mkdir(evidenceDir, { recursive: true });
@@ -1353,11 +1355,14 @@ try {
     report.fixture = {
       threadId: state.thread,
       conversationId: `sb:${state.thread}`,
+      imageMessageId: state.attachmentsAudio.image.messageId,
       documentMessageId: state.attachmentsAudio.document.messageId,
       audioMessageId: state.attachmentsAudio.audio.messageId,
+      imageAttachmentId: state.attachmentsAudio.image.id,
       documentAttachmentId: state.attachmentsAudio.document.id,
       audioAttachmentId: state.attachmentsAudio.audio.id,
       markerSha256: sha256(marker),
+      imageMarkerSha256: sha256(state.attachmentsAudio.image.marker),
       documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
       audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
     };

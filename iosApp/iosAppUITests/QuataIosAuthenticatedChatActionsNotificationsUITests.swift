@@ -67,7 +67,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let documentProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE"]),
-              let audioProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE"]) else {
+              let audioProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE"]),
+              let imageProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE"]) else {
             throw XCTSkip("Disposable Chat attachments/audio fixture is not configured.")
         }
 
@@ -83,6 +84,39 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio conversation")
         assertChatRoute(conversationId, in: app, context: "attachments/audio conversation")
+
+        XCTAssertTrue(messageText(imageProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        let media = app.descendants(matching: .any)
+            .matching(identifier: "chat.attachment.media")
+            .firstMatch
+        XCTAssertTrue(media.waitForExistence(timeout: 10), "The shared media attachment anchor must be visible.")
+        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 10),
+            "The shared fullscreen media overlay must open from a Chat image attachment.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay title must be visible for Chat image attachments.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay close control must be visible for Chat image attachments.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay in-media close control must be visible for Chat image attachments.",
+        )
+        attachScreenshot(app, name: "ios-chat-attachment-media-viewer")
+        app.descendants(matching: .any)
+            .matching(identifier: "fullscreen-media.back")
+            .firstMatch
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay must close back to the Chat thread.",
+        )
 
         XCTAssertTrue(messageText(documentProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         let document = app.descendants(matching: .any)

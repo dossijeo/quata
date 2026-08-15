@@ -296,10 +296,11 @@ bash scripts/run-ios-chat-translation-ui-test.sh
     }
     if (attachmentsAudioOnly) {
       state.attachmentsAudio = {
+        image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
         document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
         audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
       };
-      report.steps.push("document_and_audio_attachment_messages_seeded");
+      report.steps.push("image_document_and_audio_attachment_messages_seeded");
     }
     if (groupSosOnly) {
       state.sosWithLocationMarker = "[SOS:kind=update;name=Gabrielo;lat=3.7523;lng=8.7741;age_ms=45000;accuracy_m=18;speed_kmh=0]";
@@ -358,6 +359,7 @@ export QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=${attachmentsAudioOnly ? "1" : "0
 export QUATA_IOS_CHAT_GROUP_SOS_UI_E2E=${groupSosOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE=${shellQuote(state.attachmentsAudio?.document?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE=${shellQuote(state.attachmentsAudio?.audio?.markerProbe ?? "attachments-audio")}
+export QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE=${shellQuote(state.attachmentsAudio?.image?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_INCLUDE_UNMUTE=${menuSurfaceOnly ? "0" : "1"}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "profile-only")}
@@ -460,10 +462,13 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         attachmentsAudioOnly,
         groupSosOnly,
         attachmentsAudio: state.attachmentsAudio ? {
+          imageMessageId: state.attachmentsAudio.image.messageId,
           documentMessageId: state.attachmentsAudio.document.messageId,
           audioMessageId: state.attachmentsAudio.audio.messageId,
+          imageAttachmentId: state.attachmentsAudio.image.id,
           documentAttachmentId: state.attachmentsAudio.document.id,
           audioAttachmentId: state.attachmentsAudio.audio.id,
+          imageMarkerSha256: sha256(state.attachmentsAudio.image.marker),
           documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
           audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
         } : null,
@@ -1144,7 +1149,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("seed_favorite_removed");
   }
-  const messageIds = [state.seedMessage, state.peerMessage, state.editableMessage, state.composerMessage, state.replyMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId].filter((value) => Number.isSafeInteger(value));
+  const messageIds = [state.seedMessage, state.peerMessage, state.editableMessage, state.composerMessage, state.replyMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.image?.messageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId].filter((value) => Number.isSafeInteger(value));
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
       p_actor_profile_id: state.a.profileId,
