@@ -16,7 +16,7 @@ function assertCaptureContract(yaml) {
   assert.match(yaml, /test "\$GITHUB_SHA" = "\$origin_main"/);
   assert.match(yaml, /git checkout --detach "\$GITHUB_SHA"/);
   assert.match(yaml, /git status --porcelain --untracked-files=all/);
-  assert.match(yaml, /distribution: jetbrains\n          java-version: "21"\n          set-default: false/);
+  assert.match(yaml, /distribution: jetbrains\n          java-version: "21\.0\.8"\n          check-latest: false\n          set-default: false/);
   assert.match(yaml, /distribution: temurin\n          java-version: "17"/);
   assert.match(yaml, /node-version: "20\.19\.0"/);
   assert.match(yaml, /gradle\/actions\/setup-gradle@v6/);
