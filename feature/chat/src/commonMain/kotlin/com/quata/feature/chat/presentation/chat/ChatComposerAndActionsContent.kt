@@ -51,6 +51,10 @@ const val ChatComposerEmojiTestTag = "chat.composer.emoji"
 const val ChatComposerAttachTestTag = "chat.composer.attach"
 const val ChatComposerCameraTestTag = "chat.composer.camera"
 const val ChatComposerRecordAudioTestTag = "chat.composer.recordAudio"
+const val ChatComposerRecordingTestTag = "chat.composer.recording"
+const val ChatComposerRecordingStopTestTag = "chat.composer.recording.stop"
+const val ChatComposerRecordingCancelTestTag = "chat.composer.recording.cancel"
+const val ChatComposerRecordingErrorTestTag = "chat.composer.recording.error"
 const val ChatComposerEditingBannerTestTag = "chat.composer.editing"
 const val ChatComposerReplyBannerTestTag = "chat.composer.reply"
 const val ChatForwardPickerRootTestTag = "chat.forward.root"
@@ -256,23 +260,40 @@ fun ChatComposerContent(
             )
         }
         if (isRecordingAudio) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .semantics { testTag = ChatComposerRecordingTestTag },
+            ) {
                 Text(strings.recording(recordingElapsedLabel.orEmpty()))
                 androidx.compose.foundation.layout.Row {
                     onStopRecording?.let { stop ->
-                        Button(onClick = stop) {
+                        Button(
+                            onClick = stop,
+                            modifier = Modifier.semantics { testTag = ChatComposerRecordingStopTestTag },
+                        ) {
                             CompactIcon(Icons.Filled.Stop, strings.stopRecording)
                             Text(strings.stopAndAttach)
                         }
                     }
                     onCancelRecording?.let { cancel ->
-                        Button(onClick = cancel) { Text(strings.cancel) }
+                        Button(
+                            onClick = cancel,
+                            modifier = Modifier.semantics { testTag = ChatComposerRecordingCancelTestTag },
+                        ) { Text(strings.cancel) }
                     }
                 }
             }
         }
         recordingError?.let {
-            Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 12.dp))
+            Text(
+                it,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .semantics { testTag = ChatComposerRecordingErrorTestTag },
+            )
         }
         if (emojiVisible) CommunityEmojiPanelContent(
             sections = communityEmojiSections(),

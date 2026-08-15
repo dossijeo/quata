@@ -857,7 +857,7 @@ fun ChatScreen(
                                         }
                                 },
                                 modifier = Modifier.semantics {
-                                    testTag = if (canSend) ChatComposerSendTestTag else "chat.composer.record"
+                                    testTag = if (canSend) ChatComposerSendTestTag else ChatComposerRecordAudioTestTag
                                 },
                                 icon = {
                                 CompactIcon(

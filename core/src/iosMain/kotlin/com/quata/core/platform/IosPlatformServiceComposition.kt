@@ -1,6 +1,7 @@
 package com.quata.core.platform
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import platform.Foundation.NSProcessInfo
 import platform.UIKit.UIViewController
 
 /**
@@ -17,7 +18,7 @@ class IosPlatformServiceComposition(
     private var presenter: UIViewController? = null
     // Keep AVFoundation at the iOS composition boundary. The portable services still accept
     // injected hosts for tests or a launcher that needs to coordinate a different audio policy.
-    private val audioRecorderHost: IosAudioRecorderHost = IosAvFoundationAudioHost()
+    private val audioRecorderHost: IosAudioRecorderHost = iosAudioRecorderHost()
     private val audioPlayerHost: IosAudioPlayerHost = IosAvFoundationAudioPlayerHost()
 
     /**
@@ -47,3 +48,12 @@ class IosPlatformServiceComposition(
 
     override fun activeViewController(): UIViewController? = presenter
 }
+
+private const val IosAudioRecorderEvidenceFakeEnv = "QUATA_IOS_AUDIO_RECORDER_E2E_FAKE"
+
+private fun iosAudioRecorderHost(): IosAudioRecorderHost =
+    if (NSProcessInfo.processInfo.environment[IosAudioRecorderEvidenceFakeEnv]?.toString() == "1") {
+        IosEvidenceAudioRecorderHost()
+    } else {
+        IosAvFoundationAudioHost()
+    }

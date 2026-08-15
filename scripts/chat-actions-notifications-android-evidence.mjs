@@ -96,6 +96,8 @@ const evidenceFiles = [
   "android-profile-entry-communities-return.png",
   "android-profile-entry-chat-return.png",
   "android-chat-attachment-document-visible.png",
+  "android-chat-audio-recording-active.png",
+  "android-chat-audio-recording-pending-attachment.png",
   "android-chat-audio-player-visible.png",
   "android-chat-audio-toggle-attempted.png",
   "android-chat-attachment-picker-pending-document.png",

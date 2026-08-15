@@ -4,12 +4,12 @@
     "CHAT-ATTACHMENTS",
     "CHAT-AUDIO"
   ],
-  "productSha": "424d558cda191a09cbb1e4a2b02350803b1eda62",
+  "productSha": "7ff9292ce5fe449b370da5796f02fce1fdcdc1e3",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "424d558cda191a09cbb1e4a2b02350803b1eda62",
-      "report": "build-reports/web/chat-attachments-audio-evidence-r11/web-chat-actions-notifications-evidence.json",
+      "sha": "7ff9292ce5fe449b370da5796f02fce1fdcdc1e3",
+      "report": "build-reports/web/chat-audio-advanced-prep-web.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -17,8 +17,8 @@
     },
     "android": {
       "status": "passed",
-      "sha": "424d558cda191a09cbb1e4a2b02350803b1eda62",
-      "report": "build-reports/android/chat-actions-notifications-evidence.json",
+      "sha": "7ff9292ce5fe449b370da5796f02fce1fdcdc1e3",
+      "report": "build-reports/android/chat-audio-advanced-prep-android.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -26,8 +26,8 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "424d558cda191a09cbb1e4a2b02350803b1eda62",
-      "report": "build-reports/ios/chat-attachments-audio-evidence.json",
+      "sha": "7ff9292ce5fe449b370da5796f02fce1fdcdc1e3",
+      "report": "build-reports/ios/chat-audio-advanced-prep-ios.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -36,6 +36,7 @@
   },
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
-    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated."
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate adds shared audio-recording composer anchors and validates start/stop/pending-attachment evidence across Web, Android and iOS, while preserving document/audio attachment playback evidence and physical cleanup verification."
   ]
 }

@@ -27,6 +27,8 @@ const [
   browserAudioPlayer,
   browserChatMedia,
   androidMediaViewer,
+  iosAudioHost,
+  iosEvidenceAudioHost,
   attestationJson,
 ] = await Promise.all([
   source("package.json"),
@@ -51,6 +53,8 @@ const [
   source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserAudioPlayerService.wasm.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/BrowserChatMediaContent.kt"),
   source("app/src/main/java/com/quata/core/ui/components/AttachmentMediaViewer.kt"),
+  source("core/src/iosMain/kotlin/com/quata/core/platform/IosAvFoundationAudioHost.kt"),
+  source("core/src/iosMain/kotlin/com/quata/core/platform/IosEvidenceAudioRecorderHost.kt"),
   source("docs/candidate-attestations/chat-attachments-audio.json"),
 ]);
 
@@ -116,6 +120,41 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /if \(hasError\) errorText else displayText/);
   assert.match(commonAudioPlayer, /onTogglePlayback/);
   assert.match(commonAudioPlayer, /onSeekToFraction/);
+});
+
+test("chat composer exposes stable common audio recording anchors", () => {
+  for (const [constant, tag] of [
+    ["ChatComposerRecordAudioTestTag", "chat.composer.recordAudio"],
+    ["ChatComposerRecordingTestTag", "chat.composer.recording"],
+    ["ChatComposerRecordingStopTestTag", "chat.composer.recording.stop"],
+    ["ChatComposerRecordingCancelTestTag", "chat.composer.recording.cancel"],
+    ["ChatComposerRecordingErrorTestTag", "chat.composer.recording.error"],
+  ]) {
+    assert.match(commonComposer, new RegExp(`${constant} = "${tag.replaceAll(".", "\\.")}"`));
+    assert.match(commonComposer, new RegExp(`testTag = ${constant}`));
+  }
+  assert.match(commonComposer, /onRecordAudio/);
+  assert.match(commonComposer, /onStopRecording/);
+  assert.match(commonComposer, /onCancelRecording/);
+  assert.match(commonComposer, /recordingError/);
+});
+
+test("iOS AVFoundation recorder honors pregranted microphone permission before requesting", () => {
+  assert.match(iosAudioHost, /audioSession\.recordPermission/);
+  assert.match(iosAudioHost, /AVAudioSessionRecordPermissionGranted/);
+  assert.match(iosAudioHost, /AVAudioSessionRecordPermissionDenied/);
+  assert.match(iosAudioHost, /requestRecordPermission/);
+  assert.match(iosAudioHost, /setCategory\(AVAudioSessionCategoryPlayAndRecord/);
+  assert.doesNotMatch(iosAudioHost, /setActive\(/);
+});
+
+test("iOS UI evidence uses an opt-in deterministic recorder instead of simulator microphone hardware", () => {
+  assert.match(iosEvidenceAudioHost, /class IosEvidenceAudioRecorderHost : IosAudioRecorderHost/);
+  assert.match(iosEvidenceAudioHost, /QUATA_IOS_AUDIO_RECORDER_E2E_FAKE/);
+  assert.match(iosEvidenceAudioHost, /quata_audio_e2e_/);
+  assert.match(iosEvidenceAudioHost, /durationMillis = 1_250L/);
+  assert.match(iosUiTest, /testAttachmentsAndAudioExposeSharedAnchors\(\)[\s\S]*app\.launchEnvironment\["QUATA_IOS_AUDIO_RECORDER_E2E_FAKE"\] = "1"/);
+  assert.doesNotMatch(iosAudioHost, /QUATA_IOS_AUDIO_RECORDER_E2E_FAKE/);
 });
 
 test("Android, Web and iOS attach native adapters to the same common chat product host", () => {
@@ -187,12 +226,22 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /ChatVideoAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatImageAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatDocumentAttachmentTestTag/);
+  assert.match(androidUiTest, /verifyAndroidAudioRecordingComposer/);
+  assert.match(androidUiTest, /Manifest\.permission\.RECORD_AUDIO/);
+  assert.match(androidUiTest, /ChatComposerRecordAudioTestTag/);
+  assert.match(androidUiTest, /chat\.composer\.recording\.stop/);
+  assert.match(androidUiTest, /ChatPendingAttachmentOverlayTestTag/);
+  assert.match(androidUiTest, /ChatPendingAttachmentClearTestTag/);
+  assert.match(androidUiTest, /android-chat-audio-recording-active/);
+  assert.match(androidUiTest, /android-chat-audio-recording-pending-attachment/);
   assert.match(androidUiTest, /ChatAudioAttachmentPlayerTestTag/);
   assert.match(androidUiTest, /ChatAudioAttachmentToggleTestTag/);
   assert.match(androidUiTest, /ChatAudioAttachmentProgressTestTag/);
   assert.match(androidUiTest, /android-chat-attachment-video-viewer/);
   assert.match(androidUiTest, /android-chat-attachment-media-viewer/);
   assert.match(androidUiTest, /android-chat-attachment-document-visible/);
+  assert.match(androidRunner, /android-chat-audio-recording-active\.png/);
+  assert.match(androidRunner, /android-chat-audio-recording-pending-attachment\.png/);
   assert.match(androidUiTest, /android-chat-audio-toggle-attempted/);
 
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
@@ -206,6 +255,14 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /chat\.attachment\.audio\.player/);
   assert.match(iosUiTest, /chat\.attachment\.audio\.toggle/);
   assert.match(iosUiTest, /chat\.attachment\.audio\.progress/);
+  assert.match(iosUiTest, /verifyAudioRecordingComposer\(in: app\)/);
+  assert.match(iosUiTest, /chat\.composer\.record/);
+  assert.match(iosUiTest, /chat\.composer\.recording/);
+  assert.match(iosUiTest, /chat\.composer\.recording\.stop/);
+  assert.match(iosUiTest, /ios-chat-audio-recording-active/);
+  assert.match(iosUiTest, /ios-chat-audio-recording-pending-attachment/);
+  assert.match(iosUiTest, /chat\.attachment\.pending/);
+  assert.match(iosUiTest, /chat\.attachment\.pending\.clear/);
   assert.match(iosUiTest, /ios-chat-attachment-media-viewer/);
   assert.match(iosUiTest, /ios-chat-attachment-video-viewer/);
   assert.match(iosUiTest, /ios-chat-attachment-document-visible/);
@@ -225,6 +282,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /chat\.attachment\.pending/);
   assert.match(iosUiTest, /chat\.composer\.send/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
+  assert.match(iosWrapper, /simctl privacy "\$QUATA_IOS_SIMULATOR_UDID" grant microphone com\.quata\.ios/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE/);
@@ -330,6 +388,19 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /nextAudio: await createChatAttachmentMessage/);
   assert.match(webRunner, /"audio", "-next"/);
   assert.match(webRunner, /next_audio_attachment_message/);
+  assert.match(webRunner, /verifyWebAudioRecordingComposer/);
+  assert.match(webRunner, /visibleWebSemanticAnchor/);
+  assert.match(webRunner, /chat\.composer\.record/);
+  assert.match(webRunner, /Grabar audio/);
+  assert.match(webRunner, /chat\.composer\.recording\.stop/);
+  assert.match(webRunner, /Detener grabaci/);
+  assert.match(webRunner, /Detener y adjuntar/);
+  assert.match(webRunner, /Quitar adjunto/);
+  assert.match(webRunner, /webAudioRecordingAnchorResolution/);
+  assert.doesNotMatch(webRunner, /audio_recording_start_anchor_not_clickable[\s\S]*?page\.mouse\.click\(382/);
+  assert.match(webRunner, /web_audio_recording_composer_start_stop_and_blob_cleanup_verified/);
+  assert.match(webRunner, /--use-fake-device-for-media-stream/);
+  assert.match(webRunner, /grantPermissions\(\["microphone"\]/);
   assert.match(webRunner, /waitConsecutiveAudioPlaybackObserved/);
   assert.match(webRunner, /consecutive_audio_playback_state_not_observed/);
   assert.match(webRunner, /next_audio_attachment_toggle_not_visible/);

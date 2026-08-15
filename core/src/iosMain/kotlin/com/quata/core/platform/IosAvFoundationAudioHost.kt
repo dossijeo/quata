@@ -12,6 +12,8 @@ import platform.AVFAudio.AVAudioQualityHigh
 import platform.AVFAudio.AVEncoderAudioQualityKey
 import platform.AVFAudio.AVFormatIDKey
 import platform.AVFAudio.AVNumberOfChannelsKey
+import platform.AVFAudio.AVAudioSessionRecordPermissionDenied
+import platform.AVFAudio.AVAudioSessionRecordPermissionGranted
 import platform.AVFAudio.AVSampleRateKey
 import platform.CoreAudioTypes.kAudioFormatMPEG4AAC
 import platform.Foundation.NSFileManager
@@ -116,6 +118,16 @@ class IosAvFoundationAudioHost(
     }
 
     private suspend fun requestMicrophonePermission(): Boolean = suspendCancellableCoroutine { continuation ->
+        when (audioSession.recordPermission) {
+            AVAudioSessionRecordPermissionGranted -> {
+                continuation.resume(true)
+                return@suspendCancellableCoroutine
+            }
+            AVAudioSessionRecordPermissionDenied -> {
+                continuation.resume(false)
+                return@suspendCancellableCoroutine
+            }
+        }
         audioSession.requestRecordPermission { granted ->
             if (continuation.isActive) continuation.resume(granted)
         }

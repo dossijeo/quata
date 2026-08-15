@@ -24,7 +24,9 @@ una conversación reversible con limpieza física de residuo cero; la barra de a
 usa superficie común coherente con el encabezado. #245 reduce `CHAT-ATTACHMENTS` y `CHAT-AUDIO` con
 fixtures compartidos y limpieza física cero; candidato `13cf94f1` suma imagen adjunta de Chat,
 apertura/cierre del visor fullscreen común y revalida documento/audio en Android, Web/Wasm e iOS;
-candidato `68999f22` suma vídeo adjunto real con la misma fixture compartida y visor común.
+candidato `68999f22` suma vídeo adjunto real con la misma fixture compartida y visor común; candidato
+`7ff9292c` suma grabación de audio desde el composer común con start/stop/adjunto preparado en
+Web/Wasm, Android e iOS.
 PR #247 reduce `CHAT-GROUP` y
 `CHAT-LOCATION-SOS` sobre Product/Evidence SHA `566a97e9`: añade anclas comunes de grupo/SOS,
 `contentDescription`/roles accesibles, contratos focales, compilación Chat Android/Wasm/iOS,
@@ -34,18 +36,20 @@ subflujos a GO completo: faltan administración UI profunda de grupo y retorno/e
 mapa SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
-**Candidato actual:** `68999f22fd510206cc1a68590441a8081d81228a` reduce
-`CHAT-ATTACHMENTS`, `CHAT-AUDIO` y `OVR-MEDIA`: Chat siembra vídeo MP4 real, imagen, documento y
-audio reales en Storage con fixture compartida, abre vídeo e imagen adjuntos en
-`QuataFullscreenMediaOverlayContent` común, cierra de vuelta al Chat y revalida documento/audio en
-Android, Web/Wasm e iOS. Evidencias finales del mismo Product/Evidence SHA: Web/Wasm
-`build-reports/web/chat-attachment-video-evidence-product-68999f22.json`, Android
-`build-reports/android/chat-attachment-video-evidence-product-68999f22.json` e iOS
-`build-reports/ios/chat-attachment-video-evidence-product-68999f22.json`; las tres usan datos
-temporales reversibles y terminan con limpieza fisica de hilo, adjuntos y Storage con residuo cero.
-Attestation: `docs/candidate-attestations/chat-attachment-media.json`. Quedan fuera picker real,
-descarga/compartir, camara/galeria nativas, grabacion/permisos, seek/autoavance completo y errores/
-rollback forzados.
+**Candidato actual:** `7ff9292ce5fe449b370da5796f02fce1fdcdc1e3` reduce `CHAT-AUDIO` y mantiene
+la cobertura `CHAT-ATTACHMENTS` de documento/audio: el composer común expone anclas
+`chat.composer.recordAudio`, `chat.composer.recording`, `chat.composer.recording.stop`,
+`chat.composer.recording.cancel` y `chat.composer.recording.error`; Web/Wasm, Android e iOS
+verifican start/stop de grabación y adjunto preparado, y vuelven a recorrer documento/audio con
+fixtures compartidos y limpieza física cero. Evidencias finales del mismo Product/Evidence SHA:
+Web/Wasm `build-reports/web/chat-audio-advanced-prep-web.json`, Android
+`build-reports/android/chat-audio-advanced-prep-android.json` e iOS
+`build-reports/ios/chat-audio-advanced-prep-ios.json`; iOS exporta attachments XCTest
+`ios-chat-audio-recording-active` e `ios-chat-audio-recording-pending-attachment` desde el
+simulador `Quata-Raster-iOS-26-ChatCandidate`. Attestation:
+`docs/candidate-attestations/chat-attachments-audio.json`. Quedan fuera descarga/compartir,
+camara/galeria nativas, seek/autoavance completo, envío final de grabación y errores/rollback
+forzados.
 
 **Candidato anterior:** `63f8a3e3c00afc15b31fa8b8d8a0df0f1ccd5655`, integrado en `main` como #255,
 cierra `PROF-MEDIA-DETAIL` dentro de `OVR-PUBLIC-PROFILE` y reduce `OVR-MEDIA`: abre desde Chat el
