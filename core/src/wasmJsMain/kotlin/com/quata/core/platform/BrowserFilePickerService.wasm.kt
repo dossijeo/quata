@@ -33,20 +33,23 @@ class BrowserFilePickerService : FilePickerService, FilePickerReferenceReleaser 
     )
 
     /** Uses the browser's real file/gallery chooser or capture control when the UA supports it. */
-    override suspend fun pick(request: FilePickerRequest): PlatformResult<List<PlatformFile>> = suspendCoroutine { continuation ->
-        val acceptedMimeTypes = request.browserAcceptedMimeTypes()
-        browserPickFiles(
-            accept = acceptedMimeTypes.joinToString(","),
-            allowMultiple = request.allowMultiple && request.source != FilePickerSource.Camera,
-            capture = request.source == FilePickerSource.Camera,
-        ) { result ->
-            continuation.resume(
-                when (result) {
-                    BrowserPickerUnsupported -> PlatformResult.Unsupported
-                    null -> PlatformResult.Cancelled
-                    else -> PlatformResult.Success(result.toPlatformFiles()).also(::trackIssuedReferences)
-                }
-            )
+    override suspend fun pick(request: FilePickerRequest): PlatformResult<List<PlatformFile>> {
+        browserChatAttachmentPickerE2eOutcome(request.source)?.let { return it }
+        return suspendCoroutine { continuation ->
+            val acceptedMimeTypes = request.browserAcceptedMimeTypes()
+            browserPickFiles(
+                accept = acceptedMimeTypes.joinToString(","),
+                allowMultiple = request.allowMultiple && request.source != FilePickerSource.Camera,
+                capture = request.source == FilePickerSource.Camera,
+            ) { result ->
+                continuation.resume(
+                    when (result) {
+                        BrowserPickerUnsupported -> PlatformResult.Unsupported
+                        null -> PlatformResult.Cancelled
+                        else -> PlatformResult.Success(result.toPlatformFiles()).also(::trackIssuedReferences)
+                    }
+                )
+            }
         }
     }
 
@@ -66,6 +69,23 @@ class BrowserFilePickerService : FilePickerService, FilePickerReferenceReleaser 
             ?.filter { it.startsWith("blob:", ignoreCase = true) }
             ?.forEach(issuedReferences::add)
     }
+}
+
+private fun browserChatAttachmentPickerE2eOutcome(source: FilePickerSource): PlatformResult<List<PlatformFile>>? {
+    val outcome = browserChatAttachmentPickerE2eOutcomeValue(source.browserChatEvidenceSourceName()) ?: return null
+    return when {
+        outcome == "cancelled" -> PlatformResult.Cancelled
+        outcome == "unsupported" -> PlatformResult.Unsupported
+        outcome.startsWith("failure:") -> PlatformResult.Failure(outcome.removePrefix("failure:").ifBlank { "attachment_picker_e2e_failure" })
+        outcome == "failure" -> PlatformResult.Failure("attachment_picker_e2e_failure")
+        else -> null
+    }
+}
+
+private fun FilePickerSource.browserChatEvidenceSourceName(): String = when (this) {
+    FilePickerSource.Documents -> "document"
+    FilePickerSource.Gallery -> "gallery"
+    FilePickerSource.Camera -> "camera"
 }
 
 /** Keeps browser gallery/camera defaults aligned with Android's visual-media request. */
@@ -158,3 +178,17 @@ private fun browserPickFiles(
 }
 
 private const val BrowserPickerUnsupported = "unsupported"
+
+private fun browserChatAttachmentPickerE2eOutcomeValue(source: String): String? = js(
+    """
+    (() => {
+      const fixture = globalThis.__quataChatAttachmentPickerE2E;
+      if (!fixture || fixture.optIn !== 'I_ACCEPT_WEB_CHAT_ATTACHMENT_PICKER_OUTCOME') return null;
+      if (fixture.source && fixture.source !== source) return null;
+      const outcome = String(fixture.outcome || 'success').toLowerCase();
+      if (outcome === 'failure') return 'failure:' + String(fixture.reason || 'attachment_picker_e2e_failure');
+      if (outcome === 'cancelled' || outcome === 'unsupported') return outcome;
+      return null;
+    })()
+    """,
+)

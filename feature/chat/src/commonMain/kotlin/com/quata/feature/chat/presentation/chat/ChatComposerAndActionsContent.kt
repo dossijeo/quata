@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.TextRange
@@ -55,6 +56,7 @@ const val ChatComposerRecordingTestTag = "chat.composer.recording"
 const val ChatComposerRecordingStopTestTag = "chat.composer.recording.stop"
 const val ChatComposerRecordingCancelTestTag = "chat.composer.recording.cancel"
 const val ChatComposerRecordingErrorTestTag = "chat.composer.recording.error"
+const val ChatAttachmentErrorTestTag = "chat.attachment.error"
 const val ChatComposerEditingBannerTestTag = "chat.composer.editing"
 const val ChatComposerReplyBannerTestTag = "chat.composer.reply"
 const val ChatForwardPickerRootTestTag = "chat.forward.root"
@@ -310,7 +312,16 @@ fun ChatComposerContent(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
         )
         attachmentError?.let {
-            Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 12.dp))
+            Text(
+                it,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .semantics {
+                        testTag = ChatAttachmentErrorTestTag
+                        contentDescription = "$ChatAttachmentErrorTestTag $it"
+                    },
+            )
         }
         val cameraAction: (@Composable (Modifier) -> Unit)? = if (onCamera != null) {
             { cameraModifier ->

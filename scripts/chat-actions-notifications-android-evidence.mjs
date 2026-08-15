@@ -118,6 +118,7 @@ function parseArgs(argv) {
     output: join("build-reports", "android", "chat-actions-notifications-evidence.json"),
     evidenceDir: join("build-reports", "android", "chat-actions-notifications-evidence"),
     attachmentPickerSource: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_ANDROID_ATTACHMENT_PICKER_SOURCE || "document",
+    attachmentPickerOutcome: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_ANDROID_ATTACHMENT_PICKER_OUTCOME || "success",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -133,6 +134,13 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (key === "--attachment-picker-outcome") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) throw new Error("invalid_arguments");
+      result.attachmentPickerOutcome = value;
+      index += 1;
+      continue;
+    }
     if (!["--out", "--evidence-dir"].includes(key)) continue;
     const value = argv[index + 1];
     if (!value || value.startsWith("--")) throw new Error("invalid_arguments");
@@ -142,6 +150,9 @@ function parseArgs(argv) {
   }
   if (!["document", "gallery", "camera"].includes(result.attachmentPickerSource)) {
     throw new Error(`invalid_attachment_picker_source:${result.attachmentPickerSource}`);
+  }
+  if (!["success", "cancelled", "failure", "unsupported"].includes(result.attachmentPickerOutcome)) {
+    throw new Error(`invalid_attachment_picker_outcome:${result.attachmentPickerOutcome}`);
   }
   return result;
 }
@@ -1317,6 +1328,7 @@ try {
       "-e", "quataChatActionsImageProbe", state.attachmentsAudio?.image?.markerProbe ?? "",
       "-e", "quataChatActionsVideoProbe", state.attachmentsAudio?.video?.markerProbe ?? "",
       "-e", "quataChatActionsAttachmentPickerSource", options.attachmentPickerSource,
+      "-e", "quataChatActionsAttachmentPickerOutcome", options.attachmentPickerOutcome,
       "-e", "quataChatActionsAttachmentPickerName", attachmentPickerName,
       "-e", "quataChatActionsAttachmentPickerMarker", attachmentPickerMarker,
       "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
@@ -1424,6 +1436,30 @@ try {
 
   if (attachmentPickerOnly) {
     assertInstrumentationPassed("attachment-picker", await runInstrumentationStage("attachment-picker"));
+    if (options.attachmentPickerOutcome !== "success") {
+      await rm(evidenceDir, { recursive: true, force: true });
+      await mkdir(evidenceDir, { recursive: true });
+      for (const file of evidenceFiles.filter((name) => name.includes("attachment-picker") || name.endsWith("evidence.json"))) {
+        await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
+      }
+      report.status = "passed";
+      report.steps.push(`attachment_picker_${options.attachmentPickerSource}_${options.attachmentPickerOutcome}_handled_without_attachment`);
+      report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+      report.evidence.attachmentPicker = {
+        source: options.attachmentPickerSource,
+        outcome: options.attachmentPickerOutcome,
+        pendingCreated: false,
+        messageCreated: false,
+      };
+      report.fixture = {
+        threadId: state.thread,
+        conversationId: `sb:${state.thread}`,
+        markerSha256: sha256(attachmentPickerMarker),
+        source: options.attachmentPickerSource,
+        outcome: options.attachmentPickerOutcome,
+      };
+      throw new Error("attachment_picker_only_completed");
+    }
     const pickerMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === attachmentPickerMarker);
     const pickerMessageId = messageId(pickerMessage);
     state.uiMessages.push(pickerMessageId);
@@ -1455,6 +1491,7 @@ try {
       messageId: pickerMessageId,
       markerSha256: sha256(attachmentPickerMarker),
       source: options.attachmentPickerSource,
+      outcome: options.attachmentPickerOutcome,
     };
     throw new Error("attachment_picker_only_completed");
   }

@@ -43,6 +43,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationListTestTag
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
@@ -83,6 +84,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val imageProbe = optionalArgument("quataChatActionsImageProbe")
         val videoProbe = optionalArgument("quataChatActionsVideoProbe")
         val attachmentPickerSource = optionalArgument("quataChatActionsAttachmentPickerSource")
+        val attachmentPickerOutcome = optionalArgument("quataChatActionsAttachmentPickerOutcome") ?: "success"
         val attachmentPickerName = optionalArgument("quataChatActionsAttachmentPickerName")
         val attachmentPickerMarker = optionalArgument("quataChatActionsAttachmentPickerMarker")
         val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
@@ -144,7 +146,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile-roles-safety" -> runProfileRolesSafetyStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty(), imageProbe.orEmpty(), videoProbe.orEmpty())
-                "attachment-picker" -> runAttachmentPickerStage(attachmentPickerSource.orEmpty(), attachmentPickerName.orEmpty(), attachmentPickerMarker.orEmpty())
+                "attachment-picker" -> runAttachmentPickerStage(attachmentPickerSource.orEmpty(), attachmentPickerOutcome, attachmentPickerName.orEmpty(), attachmentPickerMarker.orEmpty())
                 "group-sos" -> runGroupSosStage(ownProbe.orEmpty())
                 "profile-content" -> {
                     openProfileFromPeerMessage(peerProbe.orEmpty(), profileId.orEmpty())
@@ -479,12 +481,14 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.waitUntil(10_000) { nodeWithTagVisible(ChatComposerRecordAudioTestTag) }
     }
 
-    private suspend fun runAttachmentPickerStage(source: String, name: String, marker: String) {
+    private suspend fun runAttachmentPickerStage(source: String, outcome: String, name: String, marker: String) {
         val fixture = createAttachmentPickerFixture(source, name)
         targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
             .edit()
             .putString("attachmentPicker.optIn", "I_ACCEPT_ANDROID_CHAT_ATTACHMENT_PICKER_FIXTURE")
             .putString("attachmentPicker.source", source)
+            .putString("attachmentPicker.outcome", outcome)
+            .putString("attachmentPicker.reason", "${source}_permission_denied")
             .putString("attachmentPicker.path", fixture.absolutePath)
             .putString("attachmentPicker.name", name)
             .putString("attachmentPicker.mime", if (source == "document") "text/plain" else "image/png")
@@ -505,6 +509,18 @@ class ChatActionsNotificationsInstrumentedTest {
                         .performTouchInput { click(center) }
                 }
                 else -> error("unknown_attachment_picker_source:$source")
+            }
+            if (outcome != "success") {
+                compose.waitForIdle()
+                assertFalse(
+                    "A $outcome picker result must not create a pending attachment.",
+                    nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag),
+                )
+                if (outcome == "failure" || outcome == "unsupported") {
+                    compose.waitUntil(8_000) { nodeWithTagVisible(ChatAttachmentErrorTestTag) }
+                }
+                saveScreenshot("android-chat-attachment-picker-$outcome-$source")
+                return
             }
             compose.waitUntil(15_000) { nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag) }
             waitForText(name.take(24), name.take(24), timeoutMillis = 10_000)

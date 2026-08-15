@@ -48,6 +48,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.material.icons.Icons
@@ -186,6 +187,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationsUiState
 import com.quata.feature.chat.presentation.chatDisplayTitle
 import com.quata.feature.chat.presentation.relativeUpdatedAt
 import com.quata.feature.chat.presentation.relativeTimeLabel
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -380,6 +382,14 @@ fun ChatScreen(
         }
     }
     fun launchCameraAttachment() {
+        context.androidLegacyChatEvidencePickerOutcome("camera")?.let { outcome ->
+            when (outcome) {
+                "cancelled" -> Unit
+                "failure" -> viewModel.onEvent(ChatUiEvent.ShowError(context.androidLegacyChatEvidencePickerReason()))
+                "unsupported" -> viewModel.onEvent(ChatUiEvent.ShowError(context.getString(R.string.conversation_camera_permission)))
+            }
+            return
+        }
         val requiredPermissions = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
         val missingPermissions = requiredPermissions.filter { permission ->
             ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED
@@ -722,6 +732,19 @@ fun ChatScreen(
                             text = stringResource(R.string.conversation_replying_to, reply.senderName),
                             onClear = { viewModel.onEvent(ChatUiEvent.ClearReply) },
                             modifier = Modifier.semantics { testTag = ChatComposerReplyBannerTestTag },
+                        )
+                    }
+                    if (!isFavoritesConversation) state.error?.takeIf { it.isNotBlank() }?.let { error ->
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                                .semantics {
+                                    testTag = ChatAttachmentErrorTestTag
+                                    contentDescription = "$ChatAttachmentErrorTestTag $error"
+                                },
                         )
                     }
                     if (!isFavoritesConversation && isEmojiPickerVisible && !isLandscapeLayout) {
@@ -2058,6 +2081,24 @@ private fun android.content.Context.playChatSound(rawResId: Int) {
     }
     runCatching { player.start() }
         .onFailure { player.release() }
+}
+
+private fun android.content.Context.androidLegacyChatEvidencePickerOutcome(source: String): String? {
+    val preferences = applicationContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+    if (preferences.getString("attachmentPicker.optIn", null) != "I_ACCEPT_ANDROID_CHAT_ATTACHMENT_PICKER_FIXTURE") {
+        return null
+    }
+    if (preferences.getString("attachmentPicker.source", null) != source) return null
+    return preferences.getString("attachmentPicker.outcome", null)
+        ?.lowercase(Locale.ROOT)
+        ?.takeIf { it in setOf("cancelled", "failure", "unsupported") }
+}
+
+private fun android.content.Context.androidLegacyChatEvidencePickerReason(): String {
+    val preferences = applicationContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+    return preferences.getString("attachmentPicker.reason", null)
+        ?.takeIf { it.isNotBlank() }
+        ?: getString(R.string.conversation_camera_permission)
 }
 
 private const val CHAT_REPLY_SWIPE_THRESHOLD_PX = 92f

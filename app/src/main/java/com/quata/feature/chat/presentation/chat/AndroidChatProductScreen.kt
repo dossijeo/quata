@@ -253,6 +253,8 @@ private const val ChatEvidenceSourceKey = "attachmentPicker.source"
 private const val ChatEvidencePathKey = "attachmentPicker.path"
 private const val ChatEvidenceNameKey = "attachmentPicker.name"
 private const val ChatEvidenceMimeKey = "attachmentPicker.mime"
+private const val ChatEvidenceOutcomeKey = "attachmentPicker.outcome"
+private const val ChatEvidenceReasonKey = "attachmentPicker.reason"
 
 private class AndroidChatEvidenceFilePicker(
     private val context: Context,
@@ -266,6 +268,7 @@ private class AndroidChatEvidenceFilePicker(
     )
 
     override suspend fun pick(request: FilePickerRequest): PlatformResult<List<PlatformFile>> {
+        androidChatEvidencePickerOutcome(context, request.source)?.let { return it }
         val file = androidChatEvidencePickedFile(context, request.source)
             ?: return delegate.pick(request)
         return PlatformResult.Success(listOf(file))
@@ -278,17 +281,40 @@ private class AndroidChatEvidenceFilePicker(
 }
 
 private fun androidChatEvidenceCameraCapturePhoto(context: Context): PlatformResult<PlatformFile>? =
-    androidChatEvidencePickedFile(context, FilePickerSource.Camera)?.let { PlatformResult.Success(it) }
+    androidChatEvidencePickerOutcome(context, FilePickerSource.Camera)
+        ?.let {
+            when (it) {
+                is PlatformResult.Success -> it.value.firstOrNull()?.let { file -> PlatformResult.Success(file) }
+                    ?: PlatformResult.Failure("camera_capture_empty")
+                is PlatformResult.Failure -> it
+                PlatformResult.Cancelled -> PlatformResult.Cancelled
+                PlatformResult.Unsupported -> PlatformResult.Unsupported
+            }
+        }
+        ?: androidChatEvidencePickedFile(context, FilePickerSource.Camera)?.let { PlatformResult.Success(it) }
+
+private fun androidChatEvidencePickerOutcome(
+    context: Context,
+    source: FilePickerSource,
+): PlatformResult<List<PlatformFile>>? {
+    if (!androidChatEvidenceFixtureOptedIn(context)) return null
+    val preferences = context.applicationContext.getSharedPreferences(ChatEvidencePreferences, Context.MODE_PRIVATE)
+    if (preferences.getString(ChatEvidenceSourceKey, null) != source.androidChatEvidenceSourceName()) return null
+    return when (preferences.getString(ChatEvidenceOutcomeKey, "success")?.lowercase(Locale.ROOT)) {
+        "cancelled" -> PlatformResult.Cancelled
+        "failure" -> PlatformResult.Failure(
+            preferences.getString(ChatEvidenceReasonKey, null)?.takeIf { it.isNotBlank() }
+                ?: "attachment_picker_e2e_failure",
+        )
+        "unsupported" -> PlatformResult.Unsupported
+        else -> null
+    }
+}
 
 private fun androidChatEvidencePickedFile(context: Context, source: FilePickerSource): PlatformFile? {
     if (!androidChatEvidenceFixtureOptedIn(context)) return null
     val preferences = context.applicationContext.getSharedPreferences(ChatEvidencePreferences, Context.MODE_PRIVATE)
-    val requestedSource = when (source) {
-        FilePickerSource.Documents -> "document"
-        FilePickerSource.Gallery -> "gallery"
-        FilePickerSource.Camera -> "camera"
-    }
-    if (preferences.getString(ChatEvidenceSourceKey, null) != requestedSource) return null
+    if (preferences.getString(ChatEvidenceSourceKey, null) != source.androidChatEvidenceSourceName()) return null
     val path = preferences.getString(ChatEvidencePathKey, null)?.takeIf { it.isNotBlank() } ?: return null
     val file = File(path).takeIf { it.isFile && it.length() > 0L } ?: return null
     return PlatformFile(
@@ -301,6 +327,12 @@ private fun androidChatEvidencePickedFile(context: Context, source: FilePickerSo
         },
         sizeBytes = file.length(),
     )
+}
+
+private fun FilePickerSource.androidChatEvidenceSourceName(): String = when (this) {
+    FilePickerSource.Documents -> "document"
+    FilePickerSource.Gallery -> "gallery"
+    FilePickerSource.Camera -> "camera"
 }
 
 private fun androidChatEvidenceFixtureOptedIn(context: Context): Boolean =
