@@ -25,6 +25,7 @@ const [
   webRunner,
   iosRunner,
   browserAudioPlayer,
+  browserChatMedia,
   androidMediaViewer,
   attestationJson,
 ] = await Promise.all([
@@ -48,6 +49,7 @@ const [
   source("scripts/chat-actions-notifications-web-evidence.mjs"),
   source("scripts/chat-actions-notifications-ios-evidence.mjs"),
   source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserAudioPlayerService.wasm.kt"),
+  source("web/src/wasmJsMain/kotlin/com/quata/web/BrowserChatMediaContent.kt"),
   source("app/src/main/java/com/quata/core/ui/components/AttachmentMediaViewer.kt"),
   source("docs/candidate-attestations/chat-attachments-audio.json"),
 ]);
@@ -178,8 +180,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /val videoProbe = optionalArgument\("quataChatActionsVideoProbe"\)/);
   assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, audioProbe, imageProbe, videoProbe\)/);
   assert.match(androidUiTest, /"attachments-audio" -> runAttachmentsAudioStage\(documentProbe\.orEmpty\(\), audioProbe\.orEmpty\(\), imageProbe\.orEmpty\(\), videoProbe\.orEmpty\(\)\)/);
-  assert.match(androidUiTest, /ChatMediaAttachmentTestTag/);
   assert.match(androidUiTest, /ChatVideoAttachmentContentDescription/);
+  assert.match(androidUiTest, /ChatImageAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatDocumentAttachmentTestTag/);
   assert.match(androidUiTest, /ChatAudioAttachmentPlayerTestTag/);
   assert.match(androidUiTest, /ChatAudioAttachmentToggleTestTag/);
@@ -315,4 +317,14 @@ test("Web audio player loads remote attachments through local Blob URLs under CO
   assert.match(browserAudioPlayer, /element\.ended && durationMillis > 0 \? durationMillis/);
   assert.match(browserAudioPlayer, /revokeObjectURL/);
   assert.doesNotMatch(browserAudioPlayer, /element\.src = source/);
+});
+
+test("Web chat video media loads remote attachments through local Blob URLs under COEP", () => {
+  assert.match(browserChatMedia, /resolveBrowserChatVideoSource/);
+  assert.match(browserChatMedia, /globalThis\.fetch\(source, \{ credentials: 'omit', cache: 'no-store'/);
+  assert.match(browserChatMedia, /const blob = await response\.blob\(\)/);
+  assert.match(browserChatMedia, /globalThis\.URL\.createObjectURL\(blob\)/);
+  assert.match(browserChatMedia, /revokeBrowserChatVideoSource/);
+  assert.match(browserChatMedia, /if \(video\.src != videoSource\) video\.src = videoSource/);
+  assert.doesNotMatch(browserChatMedia, /if \(video\.src != source\) video\.src = source/);
 });

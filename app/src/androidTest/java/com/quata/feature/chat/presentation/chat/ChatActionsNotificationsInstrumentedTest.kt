@@ -386,11 +386,11 @@ class ChatActionsNotificationsInstrumentedTest {
         waitForMarker(imageProbe.take(28), "image attachment message")
         compose.waitUntil(20_000) {
             runCatching {
-                compose.onNodeWithTag(ChatMediaAttachmentTestTag, useUnmergedTree = true)
+                compose.onNodeWithContentDescription(ChatImageAttachmentContentDescription, useUnmergedTree = true)
                     .fetchSemanticsNode()
             }.isSuccess
         }
-        compose.onNodeWithTag(ChatMediaAttachmentTestTag, useUnmergedTree = true)
+        compose.onNodeWithContentDescription(ChatImageAttachmentContentDescription, useUnmergedTree = true)
             .performClick()
         compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
             .fetchSemanticsNode()
