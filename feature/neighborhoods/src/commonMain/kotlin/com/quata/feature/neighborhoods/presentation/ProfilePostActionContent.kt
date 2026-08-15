@@ -28,11 +28,10 @@ fun ProfilePostActionContent(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            modifier = Modifier
+            modifier = modifier
                 .size(42.dp)
                 .background(Color.Black.copy(alpha = 0.42f), CircleShape)
                 .clickable(enabled = enabled, onClick = onClick),

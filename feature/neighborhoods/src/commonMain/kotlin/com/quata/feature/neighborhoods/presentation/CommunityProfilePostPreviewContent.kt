@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
@@ -29,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +45,7 @@ import com.quata.core.ui.textCanvasBrush
 
 const val PublicProfilePostPreviewTestTagPrefix = "public-profile.post.preview."
 const val PublicProfilePostMediaTestTagPrefix = "public-profile.post.media."
+const val PublicProfilePostOpenMediaTestTagPrefix = "public-profile.post.media.open."
 const val PublicProfilePostTextFallbackTestTagPrefix = "public-profile.post.text."
 const val PublicProfilePostLikeActionTestTagPrefix = "public-profile.post.action.like."
 const val PublicProfilePostCommentsActionTestTagPrefix = "public-profile.post.action.comments."
@@ -65,6 +68,7 @@ fun CommunityProfilePostPreviewContent(
     onToggleLike: () -> Unit,
     onOpenComments: () -> Unit,
     onAuthRequired: () -> Unit,
+    onOpenMedia: () -> Unit,
     onShare: () -> Unit,
     onReport: () -> Unit,
     media: @Composable BoxScope.(isVideoLoaded: Boolean, onLoadVideo: () -> Unit) -> Unit,
@@ -84,6 +88,10 @@ fun CommunityProfilePostPreviewContent(
                     Modifier
                         .fillMaxWidth()
                         .height(430.dp)
+                        .clickable(
+                            enabled = post.imageUrl != null || (post.videoUrl != null && isVideoLoaded),
+                            onClick = onOpenMedia,
+                        )
                         .semantics { testTag = PublicProfilePostMediaTestTagPrefix + post.id },
                 ) {
                     media(isVideoLoaded) { isVideoLoaded = true }
@@ -107,6 +115,24 @@ fun CommunityProfilePostPreviewContent(
                                 )
                             }
                         }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(14.dp)
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.46f))
+                            .clickable(onClick = onOpenMedia)
+                            .semantics { testTag = PublicProfilePostOpenMediaTestTagPrefix + post.id },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.OpenInFull,
+                            contentDescription = PublicProfilePostOpenMediaTestTagPrefix + post.id,
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp),
+                        )
                     }
                 }
             } else {
@@ -156,26 +182,42 @@ fun CommunityProfilePostPreviewContent(
                     onClick = {
                         if (canParticipate) onToggleLike() else onAuthRequired()
                     },
-                    modifier = Modifier.semantics { testTag = PublicProfilePostLikeActionTestTagPrefix + post.id },
+                    modifier = Modifier.semantics {
+                        val tag = PublicProfilePostLikeActionTestTagPrefix + post.id
+                        testTag = tag
+                        contentDescription = tag
+                    },
                 )
                 ProfilePostActionContent(
                     Icons.Filled.ChatBubble,
                     commentsCount.toString(),
                     onClick = onOpenComments,
-                    modifier = Modifier.semantics { testTag = PublicProfilePostCommentsActionTestTagPrefix + post.id },
+                    modifier = Modifier.semantics {
+                        val tag = PublicProfilePostCommentsActionTestTagPrefix + post.id
+                        testTag = tag
+                        contentDescription = tag
+                    },
                 )
                 ProfilePostActionContent(
                     Icons.Filled.Share,
                     null,
                     onClick = onShare,
-                    modifier = Modifier.semantics { testTag = PublicProfilePostShareActionTestTagPrefix + post.id },
+                    modifier = Modifier.semantics {
+                        val tag = PublicProfilePostShareActionTestTagPrefix + post.id
+                        testTag = tag
+                        contentDescription = tag
+                    },
                 )
                 ProfilePostActionContent(
                     icon = Icons.Filled.Flag,
                     count = null,
                     tint = if (post.isReportedByCurrentUser) QuataOrange else Color.White,
                     onClick = onReport,
-                    modifier = Modifier.semantics { testTag = PublicProfilePostReportActionTestTagPrefix + post.id },
+                    modifier = Modifier.semantics {
+                        val tag = PublicProfilePostReportActionTestTagPrefix + post.id
+                        testTag = tag
+                        contentDescription = tag
+                    },
                 )
             }
         },

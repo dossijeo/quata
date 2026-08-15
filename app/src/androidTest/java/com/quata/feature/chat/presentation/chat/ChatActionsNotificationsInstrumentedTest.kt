@@ -660,6 +660,25 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.onNodeWithTag(tag, useUnmergedTree = true)
                 .fetchSemanticsNode()
         }
+        compose.onNodeWithTag("public-profile.post.media.open.$postId", useUnmergedTree = true)
+            .performClick()
+        compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        compose.onNodeWithTag("fullscreen-media.title", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        compose.onNodeWithTag("fullscreen-media.close", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        compose.onNodeWithTag("fullscreen-media.media-close", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        saveScreenshot("android-chat-profile-media-viewer")
+        compose.onNodeWithTag("fullscreen-media.back", useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(10_000) {
+            runCatching {
+                compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isFailure
+        }
         compose.onNodeWithTag("public-profile.post.action.comments.$postId", useUnmergedTree = true)
             .performClick()
         listOf(

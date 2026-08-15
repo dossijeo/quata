@@ -190,8 +190,10 @@ test("shared profile content fixture seeds post, comment, like and attachment me
   assert.equal(fixture.seedCommentId, "44444444-4444-4444-4444-444444444444");
   assert.equal(calls[0].options.headers["content-type"], "text/plain; charset=utf-8");
   assert.match(calls[0].path, new RegExp(`/storage/v1/object/${chatAttachmentsBucket}/`));
+  assert.equal(calls[1].options.headers["content-type"], "image/png");
+  assert.match(calls[1].path, new RegExp(`/storage/v1/object/${chatAttachmentsBucket}/`));
   assert.ok(queries.some((entry) => /insert into public\.community_post_likes/.test(entry.sql)));
-  assert.equal(cleanup.summary().trackedStorageObjects, 1);
+  assert.equal(cleanup.summary().trackedStorageObjects, 2);
 });
 
 test("shared profile content cleanup deletes owned rows and verifies residue", async () => {

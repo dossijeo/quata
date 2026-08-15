@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "PROF-MEDIA-DETAIL",
+    "OVR-MEDIA"
+  ],
+  "productSha": "63f8a3e3c00afc15b31fa8b8d8a0df0f1ccd5655",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "63f8a3e3c00afc15b31fa8b8d8a0df0f1ccd5655",
+      "report": "build-reports/web/profile-detail-media-evidence-product.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "63f8a3e3c00afc15b31fa8b8d8a0df0f1ccd5655",
+      "report": "build-reports/android/profile-detail-media-evidence-product.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "63f8a3e3c00afc15b31fa8b8d8a0df0f1ccd5655",
+      "report": "build-reports/ios/profile-detail-media-evidence-product.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate reduces OVR-MEDIA only for public-profile post media opened from Chat. Feed, Official, Chat attachment media, documents, download/share, errors and rollback remain outside this focal GO.",
+    "Web/Wasm keeps a native DOM close button only as an input/accessibility actual for the shared fullscreen media overlay; Android and iOS use the same common overlay state and media-close/back/close anchors."
+  ]
+}

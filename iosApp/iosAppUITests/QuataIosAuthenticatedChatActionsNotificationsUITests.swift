@@ -584,6 +584,34 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         ] {
             _ = profileElement(identifier, in: app, context: "profile content")
         }
+        let mediaOpen = profileElement("public-profile.post.media.open.\(postId)", in: app, context: "profile media open")
+        mediaOpen.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 10),
+            "The shared fullscreen media overlay must open from the public profile post media action.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay title must be visible.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay close control must be visible.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay in-media close control must be visible.",
+        )
+        attachScreenshot(app, name: "ios-chat-profile-media-viewer")
+        app.descendants(matching: .any)
+            .matching(identifier: "fullscreen-media.back")
+            .firstMatch
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
+            "The shared fullscreen media overlay must close back to the public profile.",
+        )
         let commentsAction = profileElement("public-profile.post.action.comments.\(postId)", in: app, context: "profile content comments action")
         commentsAction.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         for identifier in [

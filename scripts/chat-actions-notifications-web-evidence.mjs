@@ -648,6 +648,23 @@ async function visibleNativeControls(page) {
   });
 }
 
+async function visibleNativeControl(page, patterns, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const controls = await visibleNativeControls(page);
+    const match = controls.find((control) => patterns.some((pattern) => pattern.test(control.label ?? "")));
+    if (match) return match;
+    await delay(250);
+  }
+  return null;
+}
+
+async function clickNativeControlCenter(page, control, error) {
+  if (!control || control.width <= 0 || control.height <= 0) throw new Error(error);
+  await page.mouse.click(control.x + (control.width / 2), control.y + (control.height / 2));
+  await delay(250);
+}
+
 async function clickLabel(page, patterns, error) {
   const locator = await visibleAriaLocator(page, patterns, 5_000);
   if (locator) {
@@ -1410,6 +1427,93 @@ async function openProfileContentCommentsPanel(page, postId, fallbackPoints) {
   throw new Error("profile_content_comments_input_not_visible");
 }
 
+async function openAndCloseProfileContentMediaViewer(page, postId, evidenceDir, report) {
+  const openTag = `public-profile.post.media.open.${postId}`;
+  const openPatterns = [new RegExp(escapeRegExp(openTag))];
+  const openerControl = await visibleNativeControl(page, openPatterns, 5_000);
+  const opener = openerControl ? null : await visibleAriaLocator(page, openPatterns, 2_000);
+  if (!openerControl && !opener) throw new Error(`profile_content_media_open_anchor_missing:${openTag}`);
+  if (openerControl) {
+    await clickNativeControlCenter(page, openerControl, `profile_content_media_open_anchor_not_clickable:${openTag}`);
+  } else {
+    await clickLocatorCenter(page, opener, `profile_content_media_open_anchor_not_clickable:${openTag}`);
+  }
+  const root = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.root"))], 5_000);
+  const title = await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.title"))], 5_000);
+  if (!title) throw new Error("profile_content_media_viewer_title_missing");
+  const closePatterns = [
+    new RegExp(escapeRegExp("fullscreen-media.media-close")),
+    new RegExp(escapeRegExp("fullscreen-media.close")),
+    new RegExp(escapeRegExp("fullscreen-media.back")),
+  ];
+  const closeControl = await visibleNativeControl(page, closePatterns, 5_000);
+  const close = closeControl ? null : await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.close"))], 2_000);
+  const back = close ?? await visibleAriaLocator(page, [new RegExp(escapeRegExp("fullscreen-media.back"))], 2_000);
+  if (!closeControl && !back) throw new Error("profile_content_media_viewer_back_missing");
+  if (!root) {
+    report.diagnostics ??= {};
+    report.diagnostics.profileContentMediaViewerRoot =
+      "Compose/Wasm opened the common fullscreen media overlay but did not expose fullscreen-media.root as an aria-label; title/back anchors were visible and used for replay.";
+  }
+  report.evidence.profileContentMediaViewer = await attachScreenshot(page, evidenceDir, "web-chat-profile-media-viewer");
+  if (closeControl) {
+    const clickedDomButton = closeControl.tag === "BUTTON" && await clickNativeButtonByLabel(page, closePatterns);
+    if (!clickedDomButton) {
+      await clickNativeControlCenter(page, closeControl, "profile_content_media_viewer_back_not_clickable");
+    }
+  } else {
+    await back.evaluate((element) => element.click()).catch(() => {});
+  }
+  await delay(650);
+  const profileReturnPatterns = [
+    new RegExp(escapeRegExp(`public-profile.post.media.open.${postId}`)),
+    new RegExp(escapeRegExp(`public-profile.post.action.comments.${postId}`)),
+  ];
+  const isClosedToProfile = async (timeout) => {
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+      const stillOpen = Boolean(await visibleNativeControl(page, closePatterns, 500));
+      if (stillOpen) {
+        await delay(250);
+        continue;
+      }
+      await delay(750);
+      const reopened = Boolean(await visibleNativeControl(page, closePatterns, 500));
+      if (reopened) {
+        await delay(250);
+        continue;
+      }
+      const profileVisible = Boolean(await visibleNativeControl(page, profileReturnPatterns, 500) ?? await visibleAriaLocator(page, profileReturnPatterns, 500));
+      if (profileVisible) return true;
+    }
+    return false;
+  };
+  let closed = await isClosedToProfile(2_000);
+  if (!closed) {
+    const closeAgain = await visibleNativeControl(page, closePatterns, 2_000);
+    if (closeAgain) {
+      const clickedDomButton = closeAgain.tag === "BUTTON" && await clickNativeButtonByLabel(page, closePatterns);
+      if (!clickedDomButton) {
+        await clickNativeControlCenter(page, closeAgain, "profile_content_media_viewer_back_not_clickable");
+      }
+      await delay(650);
+      if (!(await isClosedToProfile(1_000))) {
+        const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+        await page.mouse.click(Math.round(viewport.width * 0.5), closeAgain.y + (closeAgain.height / 2));
+        await delay(650);
+      }
+    } else if (back) {
+      await clickLocatorCenter(page, back, "profile_content_media_viewer_back_not_clickable");
+      await delay(650);
+    }
+    closed = await isClosedToProfile(5_000);
+  }
+  if (!closed) {
+    throw new Error("profile_content_media_viewer_did_not_close");
+  }
+  report.steps.push("profile_content_media_viewer_opened_and_closed");
+}
+
 async function fillProfileContentComment(page, fallbackPoints, value) {
   const viewport = page.viewportSize() ?? { width: 430, height: 932 };
   const panelFallback = {
@@ -1483,6 +1587,7 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
     await assertVisibleTagOrText(page, `public-profile.gallery.${profile.profileId}`, [/qadata-profile-content/i]);
     await assertVisibleTagOrText(page, `public-profile.gallery.post.${fixture.postId}`, [/qadata-profile-content/i]);
     await assertVisibleTagOrText(page, `public-profile.post.preview.${fixture.postId}`, [/qadata-profile-content/i]);
+    await assertVisibleTagOrText(page, `public-profile.post.media.open.${fixture.postId}`, [/public-profile\.post\.media\.open/i]);
     await assertVisibleTagOrText(page, `public-profile.post.action.comments.${fixture.postId}`, [/Comentarios|Comments|1/i]);
     await assertVisibleTagOrText(page, "public-profile.attachments", [/qadata-profile-content\.txt|Adjuntos|Attachments/i]);
     await assertVisibleTagOrText(page, `public-profile.attachments.item.sb:${fixture.attachmentId}`, [/qadata-profile-content\.txt/i]);
@@ -1494,6 +1599,7 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
     ];
     report.steps.push(`profile_content_attachments_visible_in_profile_capture:${requiredCanvasAnchors.join(",")}`);
   }
+  await openAndCloseProfileContentMediaViewer(page, fixture.postId, evidenceDir, report);
   if (semanticGalleryVisible) {
     await openProfileContentCommentsPanel(page, fixture.postId, fallbackPoints);
   } else {
@@ -2231,14 +2337,22 @@ async function waitLabel(page, patterns, error) {
 async function clickNativeButtonByLabel(page, patterns) {
   return await page.evaluate((sources) => {
     const matchers = sources.map((source) => new RegExp(source.source, source.flags));
+    const activate = (element) => {
+      const label = element.getAttribute("aria-label") ?? "";
+      const rect = element.getBoundingClientRect();
+      if (matchers.some((pattern) => pattern.test(label)) && rect.width > 0 && rect.height > 0) {
+        element.click();
+        return true;
+      }
+      return false;
+    };
     const collect = (root) => {
-      for (const element of root.querySelectorAll("button[aria-label], [role='button'][aria-label]")) {
-        const label = element.getAttribute("aria-label") ?? "";
-        const rect = element.getBoundingClientRect();
-        if (matchers.some((pattern) => pattern.test(label)) && rect.width > 0 && rect.height > 0) {
-          element.click();
-          return true;
-        }
+      for (const element of root.querySelectorAll("button[aria-label]")) {
+        if (activate(element)) return true;
+        if (element.shadowRoot && collect(element.shadowRoot)) return true;
+      }
+      for (const element of root.querySelectorAll("[role='button'][aria-label]")) {
+        if (activate(element)) return true;
         if (element.shadowRoot && collect(element.shadowRoot)) return true;
       }
       return false;
