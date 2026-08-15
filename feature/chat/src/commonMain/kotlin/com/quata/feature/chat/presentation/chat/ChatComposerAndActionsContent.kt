@@ -208,6 +208,7 @@ fun ChatComposerContent(
     messageInputOverride: (@Composable (
         String,
         (String) -> Unit,
+        () -> Unit,
         Modifier,
         @Composable () -> Unit,
         @Composable () -> Unit,
@@ -348,6 +349,7 @@ fun ChatComposerContent(
                         fieldValue = TextFieldValue(value, TextRange(value.length))
                         onEvent(ChatUiEvent.MessageChanged(value))
                     },
+                    { onEvent(ChatUiEvent.Send) },
                     taggedInputModifier,
                     leadingIcon,
                     trailingIcon,

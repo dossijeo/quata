@@ -90,10 +90,8 @@ try {
   await page.waitForFunction(() => localStorage.getItem("web.navigation.route")?.startsWith("chat/") === true);
 
   const message = page.locator('input[aria-label="Mensaje"]');
-  const send = page.locator('button[aria-label="Enviar"]');
   await message.waitFor();
   await assertUniqueNativeAx(page, { role: "textbox", name: "Mensaje", selector: 'input[aria-label="Mensaje"]' });
-  if (await send.count() !== 0) throw new Error("native_chat_send_initial_state_changed");
   await message.focus();
   await page.keyboard.press("Enter");
   await page.waitForTimeout(100);
@@ -102,16 +100,7 @@ try {
   }
   const chatMarker = "mensaje AX local";
   await message.fill(chatMarker);
-  await send.waitFor();
-  await assertUniqueNativeAx(page, { role: "button", name: "Enviar", selector: 'button[aria-label="Enviar"]' });
-  await waitFor(async () => await send.isEnabled(), "native_chat_send_enabled_state_missing");
-  await send.focus();
-  await assertUniqueNativeAx(page, {
-    role: "button",
-    name: "Enviar",
-    selector: 'button[aria-label="Enviar"]',
-    focused: true,
-  });
+  await assertUniqueNativeAx(page, { role: "textbox", name: "Mensaje", selector: 'input[aria-label="Mensaje"]', focused: true });
   await page.keyboard.press("Enter");
   await page.waitForFunction(marker => {
     const value = globalThis.__quataChatE2eProduct;

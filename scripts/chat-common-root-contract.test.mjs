@@ -290,7 +290,7 @@ test("common chat composer exposes stable cross-platform evidence anchors", () =
   assert.match(selectedActions, /sendButtonOverride\?\.let[\s\S]*?Modifier\.semantics \{ testTag = ChatComposerSendTestTag \}/);
   assert.match(selectedActions, /ChatComposerModeBannerContent\([\s\S]*?ChatComposerEditingBannerTestTag/);
   assert.match(selectedActions, /ChatComposerModeBannerContent\([\s\S]*?ChatComposerReplyBannerTestTag/);
-  assert.match(webHost, /messageInputOverride = \{ value, onChange, modifier, leadingIcon, trailingIcon ->[\s\S]*?WebNativeInput\(/);
+  assert.match(webHost, /messageInputOverride = \{ value, onChange, onSubmit, modifier, leadingIcon, trailingIcon ->[\s\S]*?WebNativeInput\([\s\S]*?onSubmit = onSubmit/);
   assert.doesNotMatch(webHost, /sendButtonOverride = \{/);
   assert.doesNotMatch(webHost, /WebNativeButton\("Enviar"/);
   assert.match(iosHost, /ChatProductHostContent\([\s\S]*?audioRecordingConfiguration = dependencies\.audioRecordingConfiguration/);

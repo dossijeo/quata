@@ -181,11 +181,12 @@ fun WebChatHost(
                 modifier = listModifier,
             )
         },
-        messageInputOverride = { value, onChange, modifier, leadingIcon, trailingIcon ->
+        messageInputOverride = { value, onChange, onSubmit, modifier, leadingIcon, trailingIcon ->
             if (openingProfileUserId == null) {
                 WebNativeInput(
                     value = value,
                     onValueChange = onChange,
+                    onSubmit = onSubmit,
                     name = "Mensaje",
                     modifier = modifier.height(62.dp),
                     inputType = "text",
