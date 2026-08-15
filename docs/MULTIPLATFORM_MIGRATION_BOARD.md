@@ -22,7 +22,9 @@ Android, Web/Wasm e iOS
 acreditan envío, respuesta, edición, selección/copiar, favorito, reportar, borrar y mute/unmute en
 una conversación reversible con limpieza física de residuo cero; la barra de acciones seleccionadas
 usa superficie común coherente con el encabezado. #245 reduce `CHAT-ATTACHMENTS` y `CHAT-AUDIO` con
-fixtures compartidos y limpieza física cero. PR #247 reduce `CHAT-GROUP` y
+fixtures compartidos y limpieza física cero; candidato `13cf94f1` suma imagen adjunta de Chat,
+apertura/cierre del visor fullscreen común y revalida documento/audio en Android, Web/Wasm e iOS.
+PR #247 reduce `CHAT-GROUP` y
 `CHAT-LOCATION-SOS` sobre Product/Evidence SHA `566a97e9`: añade anclas comunes de grupo/SOS,
 `contentDescription`/roles accesibles, contratos focales, compilación Chat Android/Wasm/iOS,
 evidencia backend real `CHAT-GROUP-BACKEND-001` con mutaciones reversibles y evidencia visual/
@@ -31,8 +33,21 @@ subflujos a GO completo: faltan administración UI profunda de grupo y retorno/e
 mapa SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
-**Candidato actual:** `63f8a3e3c00afc15b31fa8b8d8a0df0f1ccd5655` cierra
-`PROF-MEDIA-DETAIL` dentro de `OVR-PUBLIC-PROFILE` y reduce `OVR-MEDIA`: abre desde Chat el
+**Candidato actual:** `13cf94f1cd6409f3b90d4fb6ef3539298443f15e` reduce
+`CHAT-ATTACHMENTS`, `CHAT-AUDIO` y `OVR-MEDIA`: Chat siembra imagen, documento y audio reales en
+Storage con fixture compartida, abre la imagen adjunta en `QuataFullscreenMediaOverlayContent`
+común, cierra de vuelta al Chat y revalida documento/audio en Android, Web/Wasm e iOS. Evidencias
+finales del mismo Product/Evidence SHA: Web/Wasm
+`build-reports/web/chat-attachment-media-evidence-product.json`, Android
+`build-reports/android/chat-attachment-media-evidence-product.json` e iOS
+`build-reports/ios/chat-attachment-media-evidence-product.json`; las tres usan datos temporales
+reversibles y terminan con limpieza fisica de hilo, adjuntos y Storage con residuo cero.
+Attestation: `docs/candidate-attestations/chat-attachment-media.json`. Quedan fuera picker real,
+descarga/compartir, video de adjunto, grabacion/permisos, seek/autoavance completo y errores/
+rollback forzados.
+
+**Candidato anterior:** `63f8a3e3c00afc15b31fa8b8d8a0df0f1ccd5655`, integrado en `main` como #255,
+cierra `PROF-MEDIA-DETAIL` dentro de `OVR-PUBLIC-PROFILE` y reduce `OVR-MEDIA`: abre desde Chat el
 perfil p?blico global, muestra galer?a, abre media real de publicaci?n seeded en Storage, captura
 el visor com?n, cierra de vuelta al perfil y contin?a a comentarios en Android, Web/Wasm e iOS.
 Evidencias finales del mismo Product/Evidence SHA: Web/Wasm
@@ -42,17 +57,6 @@ Evidencias finales del mismo Product/Evidence SHA: Web/Wasm
 compartida y terminan con limpieza f?sica y residuo cero. Attestation:
 `docs/candidate-attestations/profile-detail-media.json`. Quedan fuera Feed/Official/Chat attachment
 media, documentos, descarga/compartir, v?deo real largo y errores/rollback forzados.
-
-**Candidato anterior:** `23165ab3a74a4410a166611d27c2e7c47b995172` cierra
-`PROF-ROLES` y `PROF-SAFETY` dentro de `OVR-PUBLIC-PROFILE`: controles admin/oficial, reporte y
-bloqueo/desbloqueo comunes abiertos desde Chat en Android, Web/Wasm e iOS. Evidencias finales del
-mismo Product/Evidence SHA: Web/Wasm `build-reports/web/profile-roles-safety-evidence.json`,
-Android `build-reports/android/chat-actions-notifications-evidence.json` e iOS
-`build-reports/ios/profile-roles-safety-evidence.json`; las tres usan datos temporales reversibles,
-validan persistencia por DB y terminan con residuo fisico cero y perfiles restaurados. Attestation:
-`docs/candidate-attestations/profile-roles-safety.json`. Quedan fuera de este GO focal
-errores/rollback forzados, moderacion avanzada, estados anonimos/no autorizados y matriz exhaustiva
-de permisos no-admin.
 
 **Candidato anterior:** `60b72193f5d7723fdd256a62bc13db04d182f941` cierra
 `PROF-CONTENT` dentro de `OVR-PUBLIC-PROFILE`: publicaciones/galeria, comentarios y adjuntos comunes
