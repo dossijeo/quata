@@ -510,7 +510,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 }
                 else -> error("unknown_attachment_picker_source:$source")
             }
-            if (outcome != "success") {
+            if (outcome != "success" && outcome != "register-failure") {
                 compose.waitForIdle()
                 assertFalse(
                     "A $outcome picker result must not create a pending attachment.",
@@ -526,7 +526,20 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForText(name.take(24), name.take(24), timeoutMillis = 10_000)
                 ?: error("attachment_picker_pending_name_not_visible:$name")
             saveScreenshot("android-chat-attachment-picker-pending-$source")
-            fillComposer(marker, afterSendScreenshotName = "android-chat-attachment-picker-sent-$source")
+            fillComposer(
+                text = marker,
+                forceNativeSend = outcome == "register-failure",
+                afterSendScreenshotName = "android-chat-attachment-picker-sent-$source",
+            )
+            if (outcome == "register-failure") {
+                compose.waitUntil(10_000) { nodeWithTagVisible(ChatAttachmentErrorTestTag) }
+                assertFalse(
+                    "A register failure must not leave the picked attachment pending after rollback.",
+                    nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag),
+                )
+                saveScreenshot("android-chat-attachment-picker-register-failure-$source")
+                return
+            }
             flushPendingChatMessages()
             waitForMarker(marker.take(28), "attachment picker message")
         } finally {
@@ -1114,18 +1127,20 @@ class ChatActionsNotificationsInstrumentedTest {
         input.performTextReplacement(text)
         compose.waitForIdle()
         beforeSendScreenshotName?.let(::saveScreenshot)
-        if (forceNativeSend && clickComposerSendNative()) return
-        compose.waitUntil(10_000) {
+        val sentByNative = forceNativeSend && clickComposerSendNative()
+        if (!sentByNative) {
+            compose.waitUntil(10_000) {
+                runCatching {
+                    compose.onNodeWithTag(ChatComposerSendTestTag, useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                }.isSuccess
+            }
             runCatching {
                 compose.onNodeWithTag(ChatComposerSendTestTag, useUnmergedTree = true)
-                    .fetchSemanticsNode()
-            }.isSuccess
-        }
-        runCatching {
-            compose.onNodeWithTag(ChatComposerSendTestTag, useUnmergedTree = true)
-                .performTouchInput { click(center) }
-        }.getOrElse {
-            tapComposerPrimaryAction()
+                    .performTouchInput { click(center) }
+            }.getOrElse {
+                tapComposerPrimaryAction()
+            }
         }
         compose.waitForIdle()
         afterSendScreenshotName?.let(::saveScreenshot)

@@ -58,6 +58,33 @@ class ChatViewModelComposerActionsTest {
     }
 
     @Test
+    fun failedAttachmentSendRestoresTextButClearsPreparedAttachment() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val repository = RecordingChatRepository(
+            messages = listOf(otherMessage(id = "message-1")),
+        ).apply {
+            sendMessageResult = Result.failure(IllegalStateException("register failed"))
+        }
+        val model = chatViewModel(repository, dispatcher)
+
+        testScheduler.advanceUntilIdle()
+
+        model.onEvent(ChatUiEvent.MessageChanged("keep this text"))
+        model.onEvent(ChatUiEvent.AttachmentSelected("file://document.txt", "document.txt", "text/plain"))
+        model.onEvent(ChatUiEvent.Send)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("keep this text", model.uiState.value.messageText)
+        assertNull(model.uiState.value.attachmentUri)
+        assertNull(model.uiState.value.attachmentName)
+        assertNull(model.uiState.value.attachmentMimeType)
+        assertNotNull(model.uiState.value.error)
+        assertFalse(model.uiState.value.messages.any { it.isLocalEcho })
+
+        model.close()
+    }
+
+    @Test
     fun replyAndEditModesDispatchSharedRepositoryCallsAndCanBeCancelled() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val own = ownMessage(id = "own-1", text = "before")

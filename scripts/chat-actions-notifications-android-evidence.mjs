@@ -106,6 +106,9 @@ const evidenceFiles = [
   "android-chat-attachment-picker-sent-gallery.png",
   "android-chat-attachment-picker-pending-camera.png",
   "android-chat-attachment-picker-sent-camera.png",
+  "android-chat-attachment-picker-register-failure-document.png",
+  "android-chat-attachment-picker-register-failure-gallery.png",
+  "android-chat-attachment-picker-register-failure-camera.png",
   "android-chat-group-menu-shared-anchors.png",
   "android-chat-sos-location-shared-anchors.png",
   "android-chat-actions-notifications-evidence.json",
@@ -151,7 +154,7 @@ function parseArgs(argv) {
   if (!["document", "gallery", "camera"].includes(result.attachmentPickerSource)) {
     throw new Error(`invalid_attachment_picker_source:${result.attachmentPickerSource}`);
   }
-  if (!["success", "cancelled", "failure", "unsupported"].includes(result.attachmentPickerOutcome)) {
+  if (!["success", "cancelled", "failure", "unsupported", "register-failure"].includes(result.attachmentPickerOutcome)) {
     throw new Error(`invalid_attachment_picker_outcome:${result.attachmentPickerOutcome}`);
   }
   return result;
@@ -966,6 +969,24 @@ async function verifyStorageObjectAbsent(bucket, storagePath) {
   });
 }
 
+async function assertNoAttachmentPickerResidue(config, state, attachmentName, marker) {
+  await delay(2_000);
+  const message = await pollMessage(config, state.a, state.thread, (row) => messageText(row) === marker, 3_000)
+    .then(() => true)
+    .catch((error) => {
+      if (String(error?.message ?? error).includes("poll_timeout")) return false;
+      throw error;
+    });
+  if (message) throw new Error("attachment_register_failure_created_message");
+  await withDatabase(async (client) => {
+    const result = await client.query(
+      "select count(*)::int as count from storage.objects where bucket_id = 'chat-attachments' and name like '%' || $1 || '%'",
+      [attachmentName],
+    );
+    if (Number(result.rows[0]?.count ?? 0) !== 0) throw new Error("attachment_register_failure_storage_residue_detected");
+  });
+}
+
 async function resolveAdjacentRecipientProfile(phoneKeys) {
   return await withDatabase(async (client) => {
     const result = await client.query(
@@ -1436,7 +1457,7 @@ try {
 
   if (attachmentPickerOnly) {
     assertInstrumentationPassed("attachment-picker", await runInstrumentationStage("attachment-picker"));
-    if (options.attachmentPickerOutcome !== "success") {
+    if (options.attachmentPickerOutcome !== "success" && options.attachmentPickerOutcome !== "register-failure") {
       await rm(evidenceDir, { recursive: true, force: true });
       await mkdir(evidenceDir, { recursive: true });
       for (const file of evidenceFiles.filter((name) => name.includes("attachment-picker") || name.endsWith("evidence.json"))) {
@@ -1450,6 +1471,32 @@ try {
         outcome: options.attachmentPickerOutcome,
         pendingCreated: false,
         messageCreated: false,
+      };
+      report.fixture = {
+        threadId: state.thread,
+        conversationId: `sb:${state.thread}`,
+        markerSha256: sha256(attachmentPickerMarker),
+        source: options.attachmentPickerSource,
+        outcome: options.attachmentPickerOutcome,
+      };
+      throw new Error("attachment_picker_only_completed");
+    }
+    if (options.attachmentPickerOutcome === "register-failure") {
+      await assertNoAttachmentPickerResidue(config, state, attachmentPickerName, attachmentPickerMarker);
+      await rm(evidenceDir, { recursive: true, force: true });
+      await mkdir(evidenceDir, { recursive: true });
+      for (const file of evidenceFiles.filter((name) => name.includes("attachment-picker") || name.endsWith("evidence.json"))) {
+        await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
+      }
+      report.status = "passed";
+      report.steps.push(`attachment_picker_${options.attachmentPickerSource}_register_failure_rolled_back_storage`);
+      report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+      report.evidence.attachmentPicker = {
+        source: options.attachmentPickerSource,
+        outcome: options.attachmentPickerOutcome,
+        pendingCreated: true,
+        messageCreated: false,
+        storageResidueCount: 0,
       };
       report.fixture = {
         threadId: state.thread,

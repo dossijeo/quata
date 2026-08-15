@@ -137,7 +137,7 @@ function parseArgs(argv) {
   if (!["document", "gallery", "camera"].includes(result.attachmentPickerSource)) {
     throw new Error(`unsupported_attachment_picker_source:${result.attachmentPickerSource}`);
   }
-  if (!["success", "cancelled", "failure", "unsupported"].includes(result.attachmentPickerOutcome)) {
+  if (!["success", "cancelled", "failure", "unsupported", "register-failure"].includes(result.attachmentPickerOutcome)) {
     throw new Error(`unsupported_attachment_picker_outcome:${result.attachmentPickerOutcome}`);
   }
   return result;
@@ -435,8 +435,19 @@ async function closeTransientNotice(page) {
 async function verifyAttachmentPickerWeb(page, source, outcome, config, state, runId, evidenceDir, report) {
   const fixture = await createAttachmentPickerFixture(source, runId, "web");
   state.attachmentPicker = fixture;
+  let registerFailureInjected = false;
   try {
-    if (outcome !== "success") {
+    if (outcome === "register-failure") {
+      await page.route("**/rest/v1/rpc/quata_chat_register_attachment", async (route) => {
+        registerFailureInjected = true;
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "chat_attachment_register_e2e_failure" }),
+        });
+      }, { times: 1 });
+    }
+    if (outcome !== "success" && outcome !== "register-failure") {
       await page.evaluate(({ source, outcome }) => {
         globalThis.__quataChatAttachmentPickerE2E = {
           optIn: "I_ACCEPT_WEB_CHAT_ATTACHMENT_PICKER_OUTCOME",
@@ -464,17 +475,21 @@ async function verifyAttachmentPickerWeb(page, source, outcome, config, state, r
         };
         throw new Error(`attachment_picker_${source}_anchor_missing`);
       }
-      const chooserPromise = outcome === "success" ? page.waitForEvent("filechooser", { timeout: 10_000 }) : null;
+      const chooserPromise = (outcome === "success" || outcome === "register-failure")
+        ? page.waitForEvent("filechooser", { timeout: 10_000 })
+        : null;
       await clickLocatorCenter(page, picker, `attachment_picker_${source}_not_clickable`);
       if (chooserPromise) await (await chooserPromise).setFiles(fixture.localPath);
     } else {
-      const chooserPromise = outcome === "success" ? page.waitForEvent("filechooser", { timeout: 10_000 }) : null;
+      const chooserPromise = (outcome === "success" || outcome === "register-failure")
+        ? page.waitForEvent("filechooser", { timeout: 10_000 })
+        : null;
       const camera = await visibleAriaLocator(page, [/chat\.composer\.camera|C[aá]mara|Camera/i], 10_000);
       if (!camera) throw new Error("attachment_picker_camera_anchor_missing");
       await clickLocatorCenter(page, camera, "attachment_picker_camera_not_clickable");
       if (chooserPromise) await (await chooserPromise).setFiles(fixture.localPath);
     }
-    if (outcome !== "success") {
+    if (outcome !== "success" && outcome !== "register-failure") {
       const pendingAfterOutcome = await visibleAriaLocator(page, [/chat\.attachment\.pending/i], 1_500).catch(() => null);
       if (pendingAfterOutcome) throw new Error(`attachment_picker_${outcome}_created_pending_attachment`);
       if (outcome === "failure" || outcome === "unsupported") {
@@ -491,6 +506,28 @@ async function verifyAttachmentPickerWeb(page, source, outcome, config, state, r
     await page.getByText(fixture.name, { exact: false }).first().waitFor({ timeout: 10_000 });
     report.evidence.attachmentPickerPending = await attachScreenshot(page, evidenceDir, `web-chat-attachment-picker-pending-${source}`);
     await fillComposerAndSend(page, fixture.marker);
+    if (outcome === "register-failure") {
+      const registerDeadline = Date.now() + 20_000;
+      while (!registerFailureInjected && Date.now() < registerDeadline) {
+        await delay(250);
+      }
+      if (!registerFailureInjected) throw new Error("attachment_register_failure_rpc_not_intercepted");
+      const error = await visibleAriaLocator(page, [/chat\.attachment\.error|chat_attachment_register_e2e_failure|register|registro/i], 10_000);
+      if (!error) throw new Error("attachment_register_failure_error_anchor_missing");
+      const pendingAfterFailure = await visibleAriaLocator(page, [/chat\.attachment\.pending/i], 2_000).catch(() => null);
+      if (pendingAfterFailure) throw new Error("attachment_register_failure_left_pending_attachment");
+      await assertNoAttachmentPickerResidue(fixture.name, fixture.marker);
+      report.evidence.attachmentPicker = {
+        source,
+        outcome,
+        pendingCreated: true,
+        messageCreated: false,
+        storageResidueCount: 0,
+      };
+      report.evidence.attachmentPickerRegisterFailure = await attachScreenshot(page, evidenceDir, `web-chat-attachment-picker-register-failure-${source}`);
+      report.steps.push(`web_chat_attachment_picker_${source}_register_failure_rolled_back_storage`);
+      return;
+    }
     const message = await pollMessage(config, state.a, state.thread, (row) => messageText(row) === fixture.marker);
     const id = messageId({ message });
     state.uiMessages.push(id);
@@ -3297,6 +3334,24 @@ async function verifyStorageObjectAbsent(bucket, storagePath) {
   });
 }
 
+async function assertNoAttachmentPickerResidue(attachmentName, marker) {
+  await delay(2_000);
+  const message = await pollMessage(config, state.a, state.thread, (row) => messageText(row) === marker, 3_000)
+    .then(() => true)
+    .catch((error) => {
+      if (String(error?.message ?? error).includes("poll_timeout")) return false;
+      throw error;
+    });
+  if (message) throw new Error("attachment_register_failure_created_message");
+  await withDatabase(async (client) => {
+    const result = await client.query(
+      "select count(*)::int as count from storage.objects where bucket_id = 'chat-attachments' and name like '%' || $1 || '%'",
+      [attachmentName],
+    );
+    if (Number(result.rows[0]?.count ?? 0) !== 0) throw new Error("attachment_register_failure_storage_residue_detected");
+  });
+}
+
 async function resolveAdjacentRecipientProfile(phoneKeys) {
   return await withDatabase(async (client) => {
     const result = await client.query(
@@ -3474,6 +3529,12 @@ function safeUrlOrigin(rawUrl) {
   } catch {
     return undefined;
   }
+}
+
+function isExpectedAttachmentRegisterFailureFault(fault, outcome) {
+  return outcome === "register-failure" &&
+    fault?.type === "console_error" &&
+    /status of 500|Internal Server Error/i.test(String(fault.messagePrefix ?? ""));
 }
 
 function safeFailure(error) {
@@ -3739,9 +3800,16 @@ try {
 
   if (options.attachmentPickerOnly) {
     await verifyAttachmentPickerWeb(page, options.attachmentPickerSource, options.attachmentPickerOutcome, config, state, runId, options.evidenceDir, report);
-    if (faults.length) {
+    const blockingFaults = faults.filter((fault) => !isExpectedAttachmentRegisterFailureFault(fault, options.attachmentPickerOutcome));
+    if (blockingFaults.length) {
       report.diagnostics = { ...(report.diagnostics ?? {}), browserRuntimeFaults: faults.slice() };
       throw new Error("browser_runtime_fault");
+    }
+    if (faults.length) {
+      report.diagnostics = {
+        ...(report.diagnostics ?? {}),
+        nonBlockingBrowserRuntimeFaults: faults.filter((fault) => isExpectedAttachmentRegisterFailureFault(fault, options.attachmentPickerOutcome)),
+      };
     }
     report.status = "passed";
     report.fixture = {

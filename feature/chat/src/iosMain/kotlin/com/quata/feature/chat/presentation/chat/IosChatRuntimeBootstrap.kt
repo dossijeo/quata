@@ -12,12 +12,15 @@ import com.quata.core.platform.ShareService
 import com.quata.feature.chat.data.IosChatAttachmentUploader
 import com.quata.feature.chat.data.IosChatAttachmentDownloader
 import com.quata.feature.chat.data.IosChatAuthenticatedUserProvider
+import com.quata.feature.chat.data.ChatPostgrestResponse
+import com.quata.feature.chat.data.ChatPostgrestTransport
 import com.quata.feature.chat.data.IosChatPostgrestTransport
 import com.quata.feature.chat.data.IosChatRuntimeConfiguration
 import com.quata.feature.chat.data.IosChatRealtimeGateway
 import com.quata.feature.chat.data.PostgrestChatRepository
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.core.ui.components.IosMemberProfileOpeningState
+import platform.Foundation.NSProcessInfo
 
 /**
  * Authenticated runtime composition for Chat. It shares the iOS Keychain owner with Auth/Feed
@@ -37,7 +40,7 @@ class IosChatRuntimeBootstrap(
 ) {
     private val chatRepository: ChatRepository by lazy {
         PostgrestChatRepository(
-            transport = IosChatPostgrestTransport(configuration, authSession),
+            transport = iosChatEvidenceFaultingTransportIfRequested(IosChatPostgrestTransport(configuration, authSession)),
             authenticatedUser = IosChatAuthenticatedUserProvider(authSession),
             attachmentUploader = IosChatAttachmentUploader(configuration, authSession),
             realtimeGateway = IosChatRealtimeGateway(configuration, authSession),
@@ -96,6 +99,28 @@ class IosChatRuntimeBootstrap(
         onOpenAvatar = onOpenAvatar,
         profileOpeningState = profileOpeningState,
     )
+}
+
+private fun iosChatEvidenceFaultingTransportIfRequested(
+    delegate: ChatPostgrestTransport,
+): ChatPostgrestTransport = if (iosChatRegisterFailureFixtureOptedIn()) {
+    object : ChatPostgrestTransport {
+        override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+            return if (functionName == "quata_chat_register_attachment") {
+                ChatPostgrestResponse.Failure(IllegalStateException("chat_attachment_register_e2e_failure"))
+            } else {
+                delegate.post(functionName, body)
+            }
+        }
+    }
+} else {
+    delegate
+}
+
+private fun iosChatRegisterFailureFixtureOptedIn(): Boolean {
+    val environment = NSProcessInfo.processInfo.environment
+    return environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN"]?.toString() == "I_ACCEPT_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE" &&
+        environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME"]?.toString()?.lowercase() == "register-failure"
 }
 
 /** Swift-facing factory avoiding Kotlin default-argument export ambiguity. */

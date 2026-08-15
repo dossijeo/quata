@@ -26,6 +26,9 @@ import platform.Foundation.setValue
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /** Client-safe deployment settings for the iOS chat boundary. */
 data class IosChatRuntimeConfiguration(
@@ -123,6 +126,19 @@ class IosChatAttachmentUploader(
         )
     }
 
+    override suspend fun deleteUploadedAttachment(uploaded: UploadedChatAttachment): Boolean {
+        val cleanPath = uploaded.storagePath.trim().trimStart('/')
+            .takeIf { it.isNotBlank() }
+            ?: error("ios_chat_attachment_delete_path_missing")
+        val body = JsonObject(mapOf("prefixes" to JsonArray(listOf(JsonPrimitive(cleanPath))))).toString()
+        val request = authenticatedDeleteRequest(
+            "${configuration.storageBaseUrl()}/object/$ChatAttachmentsBucket",
+            body,
+        )
+        request.execute(IosChatNetworkTimeouts.AttachmentCleanupMillis)
+        return true
+    }
+
     private suspend fun authenticatedUploadRequest(urlString: String, data: NSData, mimeType: String): NSMutableURLRequest {
         val url = NSURL(string = urlString) ?: error("ios_chat_storage_url_invalid")
         val session = authSession.currentSession()
@@ -135,6 +151,21 @@ class IosChatAttachmentUploader(
             setValue("Bearer ${session.bearerToken}", "Authorization")
             setValue(mimeType, "Content-Type")
             setValue("false", "x-upsert")
+        }
+    }
+
+    private suspend fun authenticatedDeleteRequest(urlString: String, body: String): NSMutableURLRequest {
+        val url = NSURL(string = urlString) ?: error("ios_chat_storage_url_invalid")
+        val session = authSession.currentSession()
+            ?.takeIf { it.bearerToken.isNotBlank() }
+            ?: error("ios_chat_session_missing")
+        return NSMutableURLRequest.requestWithURL(url).apply {
+            setHTTPMethod("DELETE")
+            setHTTPBody(body.encodeToByteArray().toIosData())
+            setValue(configuration.publishableKey(), "apikey")
+            setValue("Bearer ${session.bearerToken}", "Authorization")
+            setValue("application/json", "Content-Type")
+            setValue("application/json", "Accept")
         }
     }
 }
@@ -256,6 +287,7 @@ internal object IosChatNetworkTimeouts {
     const val RpcRequestMillis = 15_000L
     // Uploads can contain camera video/audio and must not inherit the short inbox RPC budget.
     const val AttachmentUploadMillis = 120_000L
+    const val AttachmentCleanupMillis = 30_000L
 }
 private val IosRpcName = Regex("[A-Za-z_][A-Za-z0-9_]*")
 private val IosStorageSegment = Regex("[A-Za-z0-9_-]+")

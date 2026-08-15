@@ -564,7 +564,7 @@ private fun ChatCommonConversationHost(
                             recordingError = null
                         }
                     },
-                    attachmentError = attachmentPickerError,
+                    attachmentError = attachmentPickerError ?: state.error,
                     modifier = composerModifier,
                     messageInputOverride = messageInputOverride,
                     sendButtonOverride = sendButtonOverride,

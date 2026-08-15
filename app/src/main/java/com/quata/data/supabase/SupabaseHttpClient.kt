@@ -218,8 +218,19 @@ class SupabaseHttpClient(
             .build()
         val responseBody = executeRequest(request)
         val raw = runCatching { json.parseToJsonElement(responseBody) }.getOrNull() ?: JsonPrimitive(responseBody)
-        val key = (raw as? JsonObject)?.get("Key")?.toString()?.trim('"')
+        val responseKey = (raw as? JsonObject)?.get("Key")?.toString()?.trim('"')
+        val key = responseKey
+            ?.removePrefix("$bucket/")
+            ?.trimStart('/')
+            ?.takeIf { it.isNotBlank() }
+            ?: cleanPath
         return StorageUploadResult(key = key, publicUrl = publicObjectUrl(cleanPath, bucket), raw = raw)
+    }
+
+    suspend fun deleteObject(path: String, bucket: String = config.storageBucket) {
+        val cleanPath = path.trimStart('/').takeIf { it.isNotBlank() } ?: return
+        val body = JsonObject(mapOf("prefixes" to JsonArray(listOf(JsonPrimitive(cleanPath))))).toString()
+        execute("DELETE", "${config.storageUrl}/object/$bucket", body, useContentProfile = false)
     }
 
     fun publicObjectUrl(path: String, bucket: String = config.storageBucket): String =

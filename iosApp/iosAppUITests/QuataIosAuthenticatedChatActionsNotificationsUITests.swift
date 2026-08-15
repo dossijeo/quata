@@ -178,7 +178,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return
         }
 
-        if pickerOutcome != "success" {
+        if pickerOutcome != "success" && pickerOutcome != "register-failure" {
             let pending = app.descendants(matching: .any)
                 .matching(identifier: "chat.attachment.pending")
                 .firstMatch
@@ -202,6 +202,18 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         typeText(composerMarker, into: "chat.composer.input", in: app)
         tapTaggedButton("chat.composer.send", in: app, context: "send picked attachment")
+        if pickerOutcome == "register-failure" {
+            let error = app.descendants(matching: .any)
+                .matching(identifier: "chat.attachment.error")
+                .firstMatch
+            XCTAssertTrue(error.waitForExistence(timeout: 10), "A register failure must expose the shared attachment error anchor.")
+            let pendingAfterFailure = app.descendants(matching: .any)
+                .matching(identifier: "chat.attachment.pending")
+                .firstMatch
+            XCTAssertFalse(pendingAfterFailure.waitForExistence(timeout: 2), "A register failure must not leave the picked attachment pending after rollback.")
+            attachScreenshot(app, name: "ios-chat-attachment-picker-register-failure-\(pickerSource)")
+            return
+        }
         XCTAssertTrue(messageText(composerMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-attachment-picker-sent-\(pickerSource)")
     }
