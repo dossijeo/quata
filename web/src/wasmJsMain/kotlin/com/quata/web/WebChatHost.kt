@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -182,11 +181,12 @@ fun WebChatHost(
                 modifier = listModifier,
             )
         },
-        messageInputOverride = { value, onChange, modifier, leadingIcon, trailingIcon ->
+        messageInputOverride = { value, onChange, onSubmit, modifier, leadingIcon, trailingIcon ->
             if (openingProfileUserId == null) {
                 WebNativeInput(
                     value = value,
                     onValueChange = onChange,
+                    onSubmit = onSubmit,
                     name = "Mensaje",
                     modifier = modifier.height(62.dp),
                     inputType = "text",
@@ -196,9 +196,6 @@ fun WebChatHost(
             } else {
                 Box(modifier.height(62.dp))
             }
-        },
-        sendButtonOverride = { enabled, onClick, modifier ->
-            WebNativeButton("Enviar", enabled, onClick, modifier.width(56.dp).height(48.dp))
         },
         modifier = modifier,
     )

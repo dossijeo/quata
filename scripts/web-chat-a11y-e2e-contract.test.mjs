@@ -28,13 +28,11 @@ test("WEB-CHAT-A11Y-E2E-001 drives the real Compose chat host through exact nati
   assert.match(runner, /quata-chat-e2e=1/);
   assert.match(runner, /localStorage\.getItem\("web\.navigation\.route"\)\?\.startsWith\("chat\/"\)/);
   assert.match(runner, /input\[aria-label="Mensaje"\]/);
-  assert.match(runner, /button\[aria-label="Enviar"\]/);
   assert.match(runner, /assertUniqueNativeAx\(page, \{ role: "textbox", name: "Mensaje"/);
-  assert.match(runner, /assertUniqueNativeAx\(page, \{ role: "button", name: "Enviar"/);
-  assert.match(runner, /if \(await send\.count\(\) !== 0\) throw new Error\("native_chat_send_initial_state_changed"\)/);
-  assert.match(runner, /await message\.fill\(chatMarker\)[\s\S]*?await send\.waitFor\(\)/);
+  assert.doesNotMatch(runner, /button\[aria-label="Enviar"\]/);
+  assert.doesNotMatch(runner, /assertUniqueNativeAx\(page, \{ role: "button", name: "Enviar"/);
+  assert.match(runner, /await message\.fill\(chatMarker\)[\s\S]*?await page\.keyboard\.press\("Enter"\)/);
   assert.match(runner, /native_chat_send_disabled_callback_fired/);
-  assert.match(runner, /await send\.focus\(\)/);
   assert.match(runner, /page\.keyboard\.press\("Enter"\)/);
   assert.match(runner, /await page\.waitForFunction\(marker => \{/);
   assert.match(runner, /native_chat_empty_uses_common_primary_action_and_enabled_native_send_keyboard_callback_once/);
@@ -82,5 +80,6 @@ test("WEB-CHAT-A11Y-E2E-001 fixture is localhost/query gated, has no network cod
   assert.doesNotMatch(fixture, /accessToken|refreshToken|password|credential/i);
   assert.match(host, /repository: ChatRepository/);
   assert.match(host, /WebNativeInput\([\s\S]*?value = value[\s\S]*?leadingIcon = leadingIcon[\s\S]*?trailingIcon = trailingIcon/);
-  assert.match(host, /sendButtonOverride = \{ enabled, onClick, modifier ->[\s\S]*?WebNativeButton\("Enviar", enabled, onClick/);
+  assert.doesNotMatch(host, /sendButtonOverride\s*=/);
+  assert.doesNotMatch(host, /WebNativeButton\("Enviar"/);
 });

@@ -17,7 +17,10 @@ import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.CameraCaptureService
+import com.quata.core.platform.FilePickerRequest
+import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
 import com.quata.feature.chat.domain.ChatRepository
 import com.quata.feature.chat.data.IosChatAttachmentDownloader
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarKind
@@ -29,6 +32,8 @@ import com.quata.core.ui.components.IosRemoteAvatar
 import com.quata.core.ui.components.QuataAvatarFallback
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.IosMemberProfileOpeningState
+import platform.Foundation.NSProcessInfo
+import platform.Foundation.NSURL
 import platform.UIKit.UIViewController
 import kotlinx.coroutines.launch
 
@@ -89,6 +94,9 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
             val translationGateway = remember {
                 FangChatTranslationGateway(FangTranslationService(transport = IosTranslationHttpTransport()))
             }
+            val evidenceFilePicker = remember(dependencies.filePicker) {
+                IosChatEvidenceFilePicker.wrapIfRequested(dependencies.filePicker)
+            }
             val scope = rememberCoroutineScope()
             val openingProfileUserId by dependencies.profileOpeningState.profileId.collectAsState()
             DisposableEffect(conversationsModel) { onDispose(conversationsModel::close) }
@@ -100,8 +108,10 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
                 repository = dependencies.repository,
                 audioPlayer = dependencies.audioPlayer,
                 audioRecorder = dependencies.audioRecorder,
-                filePicker = dependencies.filePicker,
-                capturePhoto = { dependencies.cameraCapture.capturePhoto() },
+                filePicker = evidenceFilePicker,
+                capturePhoto = {
+                    iosChatEvidenceCameraCapturePhoto() ?: dependencies.cameraCapture.capturePhoto()
+                },
                 conversationId = dependencies.conversationId,
                 focusedMessageId = dependencies.focusedMessageId,
                 onFocusedMessageHandled = dependencies.onFocusedMessageHandled,
@@ -174,5 +184,65 @@ fun QuataChatViewController(dependencies: IosChatHostDependencies): UIViewContro
             )
         }
     }
+
+private const val ChatMediaFixtureOptIn = "I_ACCEPT_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE"
+
+private class IosChatEvidenceFilePicker(
+    private val delegate: FilePickerService,
+) : FilePickerService {
+    override suspend fun pickFiles(
+        acceptedMimeTypes: List<String>,
+        allowMultiple: Boolean,
+    ): PlatformResult<List<PlatformFile>> = pick(
+        FilePickerRequest(acceptedMimeTypes, allowMultiple, FilePickerSource.Documents),
+    )
+
+    override suspend fun pick(request: FilePickerRequest): PlatformResult<List<PlatformFile>> {
+        iosChatEvidencePickedFile(request.source)?.let { return PlatformResult.Success(listOf(it)) }
+        return delegate.pick(request)
+    }
+
+    companion object {
+        fun wrapIfRequested(delegate: FilePickerService): FilePickerService =
+            if (iosChatEvidenceFixtureOptedIn()) IosChatEvidenceFilePicker(delegate) else delegate
+    }
+}
+
+private fun iosChatEvidenceCameraCapturePhoto(): PlatformResult<PlatformFile>? =
+    iosChatEvidencePickedFile(FilePickerSource.Camera)?.let { PlatformResult.Success(it) }
+
+private fun iosChatEvidencePickedFile(source: FilePickerSource): PlatformFile? {
+    val environment = NSProcessInfo.processInfo.environment
+    if (!iosChatEvidenceFixtureOptedIn(environment)) return null
+    val expectedSource = when (source) {
+        FilePickerSource.Documents -> "document"
+        FilePickerSource.Gallery -> "gallery"
+        FilePickerSource.Camera -> "camera"
+    }
+    if (environment.iosChatFixtureValue("QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE")?.lowercase() != expectedSource) {
+        return null
+    }
+    val path = environment.iosChatFixtureValue("QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH")
+        ?.takeIf(String::isNotBlank)
+        ?: return null
+    val reference = if (path.startsWith("file://")) path else NSURL.fileURLWithPath(path).absoluteString ?: path
+    val name = environment.iosChatFixtureValue("QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME")
+        ?: path.substringAfterLast('/').ifBlank { "chat-attachment-fixture" }
+    val mimeType = environment.iosChatFixtureValue("QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME")
+        ?: when (source) {
+            FilePickerSource.Documents -> "application/pdf"
+            FilePickerSource.Gallery,
+            FilePickerSource.Camera -> "image/png"
+        }
+    return PlatformFile(reference = reference, displayName = name, mimeType = mimeType)
+}
+
+private fun iosChatEvidenceFixtureOptedIn(
+    environment: Map<Any?, *> = NSProcessInfo.processInfo.environment,
+): Boolean =
+    environment.iosChatFixtureValue("QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN") == ChatMediaFixtureOptIn
+
+private fun Map<Any?, *>.iosChatFixtureValue(key: String): String? =
+    this[key]?.toString()?.takeIf(String::isNotBlank)
 
 private fun iosChatNowMillis(): Long = currentEpochMillis()

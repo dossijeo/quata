@@ -24,6 +24,7 @@ import org.w3c.dom.HTMLInputElement
 fun WebNativeInput(
     value: String,
     onValueChange: (String) -> Unit,
+    onSubmit: () -> Unit = {},
     name: String,
     modifier: Modifier,
     inputType: String = "tel",
@@ -52,8 +53,18 @@ fun WebNativeInput(
             update = { input ->
                 if (input.value != value) input.value = value
                 input.oninput = { onValueChange(input.value) }
+                input.onkeydown = { event ->
+                    if (event.key == "Enter") {
+                        onSubmit()
+                        event.preventDefault()
+                    }
+                    null
+                }
             },
-            onRelease = { input -> input.oninput = null },
+            onRelease = { input ->
+                input.oninput = null
+                input.onkeydown = null
+            },
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()

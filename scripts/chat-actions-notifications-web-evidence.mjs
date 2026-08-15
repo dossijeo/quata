@@ -19,6 +19,7 @@ import {
   prepareProfileRolesSafetyFixture,
   seedChatAttachmentFixture,
   seedProfileContentFixture,
+  validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -53,6 +54,8 @@ function parseArgs(argv) {
     profileRolesSafetyOnly: false,
     menuSurfaceOnly: false,
     attachmentsAudioOnly: false,
+    attachmentPickerOnly: false,
+    attachmentPickerSource: "document",
     groupSosOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -99,6 +102,18 @@ function parseArgs(argv) {
       result.attachmentsAudioOnly = true;
       continue;
     }
+    if (key === "--attachment-picker-only") {
+      result.attachmentPickerOnly = true;
+      result.output = resolve("build-reports/web/chat-attachment-picker-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-attachment-picker-evidence");
+      continue;
+    }
+    if (key === "--attachment-picker-source") {
+      index += 1;
+      if (index >= argv.length) throw new Error("missing_value:--attachment-picker-source");
+      result.attachmentPickerSource = argv[index];
+      continue;
+    }
     if (key === "--group-sos-only") {
       result.groupSosOnly = true;
       continue;
@@ -111,6 +126,9 @@ function parseArgs(argv) {
     if (key === "--chrome") result.chrome = resolve(value);
     if (key === "--out") result.output = resolve(value);
     if (key === "--evidence-dir") result.evidenceDir = resolve(value);
+  }
+  if (!["document", "gallery", "camera"].includes(result.attachmentPickerSource)) {
+    throw new Error(`unsupported_attachment_picker_source:${result.attachmentPickerSource}`);
   }
   return result;
 }
@@ -144,6 +162,7 @@ function isFullEvidenceMode(options) {
     !isProfileFocalMode(options) &&
     !options.menuSurfaceOnly &&
     !options.attachmentsAudioOnly &&
+    !options.attachmentPickerOnly &&
     !options.groupSosOnly;
 }
 
@@ -348,6 +367,71 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
   }
 }
 
+async function verifyAttachmentPickerWeb(page, source, config, state, runId, evidenceDir, report) {
+  const fixture = await createAttachmentPickerFixture(source, runId, "web");
+  state.attachmentPicker = fixture;
+  try {
+    if (source === "document" || source === "gallery") {
+      const attach = await visibleAriaLocator(page, [/chat\.composer\.attach|Adjuntar|Attach/i], 10_000);
+      if (!attach) throw new Error("attachment_picker_attach_anchor_missing");
+      const target = source === "gallery" ? /chat\.attachment\.pick\.gallery|Galer[ií]a|Gallery/i : /chat\.attachment\.pick\.file|Archivo|File/i;
+      await clickLocatorPreferDom(page, attach, "attachment_picker_attach_not_clickable");
+      report.evidence.attachmentPickerPanelOpened = await attachScreenshot(page, evidenceDir, `web-chat-attachment-picker-panel-${source}`);
+      const panel = await visibleAriaLocator(page, [/chat\.attachment\.quickPanel/i], 1_500).catch(() => null);
+      const picker = await visibleAriaLocator(page, [target], 5_000).catch(() => null);
+      if (!picker) {
+        const attachClickCount = await attach.getAttribute("data-quata-clicks").catch(() => null);
+        report.diagnostics = {
+          ...(report.diagnostics ?? {}),
+          attachmentPickerQuickPanelTagVisible: Boolean(panel),
+          attachmentPickerAttachClickCount: attachClickCount,
+          attachmentPickerControlsAfterOpen: await visibleNativeControls(page),
+        };
+        throw new Error(`attachment_picker_${source}_anchor_missing`);
+      }
+      const chooserPromise = page.waitForEvent("filechooser", { timeout: 10_000 });
+      await clickLocatorCenter(page, picker, `attachment_picker_${source}_not_clickable`);
+      await (await chooserPromise).setFiles(fixture.localPath);
+    } else {
+      const chooserPromise = page.waitForEvent("filechooser", { timeout: 10_000 });
+      const camera = await visibleAriaLocator(page, [/chat\.composer\.camera|C[aá]mara|Camera/i], 10_000);
+      if (!camera) throw new Error("attachment_picker_camera_anchor_missing");
+      await clickLocatorCenter(page, camera, "attachment_picker_camera_not_clickable");
+      await (await chooserPromise).setFiles(fixture.localPath);
+    }
+    const pending = await visibleAriaLocator(page, [/chat\.attachment\.pending/i], 15_000);
+    if (!pending) throw new Error("attachment_picker_pending_overlay_missing");
+    await page.getByText(fixture.name, { exact: false }).first().waitFor({ timeout: 10_000 });
+    report.evidence.attachmentPickerPending = await attachScreenshot(page, evidenceDir, `web-chat-attachment-picker-pending-${source}`);
+    await fillComposerAndSend(page, fixture.marker);
+    const message = await pollMessage(config, state.a, state.thread, (row) => messageText(row) === fixture.marker);
+    const id = messageId({ message });
+    state.uiMessages.push(id);
+    const attachments = messageAttachments(message);
+    if (!attachments.length) throw new Error("attachment_picker_message_missing_attachment");
+    for (const attachment of attachments) {
+      if (attachment.storagePath) {
+        state.cleanupRegistry.trackStorageObject({
+          storagePath: attachment.storagePath,
+          name: `web_chat_picker_${source}`,
+        });
+      }
+    }
+    report.evidence.attachmentPicker = {
+      source,
+      messageId: id,
+      attachmentCount: attachments.length,
+      names: attachments.map((attachment) => attachment.name).filter(Boolean),
+      storagePathSha256: attachments.map((attachment) => attachment.storagePath).filter(Boolean).map(sha256),
+    };
+    await waitMessageVisible(page, fixture.marker, "attachment_picker_message_not_visible");
+    report.evidence.attachmentPickerSent = await attachScreenshot(page, evidenceDir, `web-chat-attachment-picker-sent-${source}`);
+    report.steps.push(`web_chat_attachment_picker_${source}_sent_and_verified_by_rpc`);
+  } finally {
+    await rm(dirname(fixture.localPath), { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, kind = "media", allowScroll = false) {
   const target = kind === "video" ? "chat.attachment.media.video" : kind === "image" ? "chat.attachment.media.image" : "chat.attachment.media";
   const opener = allowScroll
@@ -440,6 +524,46 @@ function createChatAttachmentMessage(config, session, thread, runId, kind, nameS
     messageId: sentMessageId,
     cleanup: state.cleanupRegistry,
   });
+}
+
+async function createAttachmentPickerFixture(source, runId, platformLabel) {
+  const root = await mkdtemp(join(tmpdir(), `quata-${platformLabel}-chat-picker-`));
+  const media = source === "document"
+    ? {
+      name: `qadata-chat-picker-${platformLabel}-${runId.slice(0, 8)}.txt`,
+      mimeType: "text/plain",
+      content: Buffer.from(`QADATA ${platformLabel} Chat picker fixture ${runId}\n`, "utf8"),
+    }
+    : {
+      name: `qadata-chat-picker-${platformLabel}-${source}-${runId.slice(0, 8)}.png`,
+      mimeType: "image/png",
+      content: validPngFixture(),
+    };
+  const localPath = join(root, media.name);
+  await writeFile(localPath, media.content, { mode: 0o600 });
+  return {
+    source,
+    localPath,
+    name: media.name,
+    mimeType: media.mimeType,
+    marker: `chat-picker-${platformLabel}-${source}-${randomUUID()}`,
+  };
+}
+
+function messageAttachments(row) {
+  const values = [
+    row?.attachments,
+    row?.files,
+    row?.message?.attachments,
+    row?.message?.files,
+  ].find(Array.isArray) ?? [];
+  return values.map((attachment) => ({
+    id: Number(attachment?.id ?? attachment?.file_id ?? attachment?.attachment_id),
+    name: attachment?.name ?? attachment?.display_name,
+    storagePath: attachment?.storage_path ?? attachment?.storagePath,
+    bucket: attachment?.storage_bucket ?? attachment?.storageBucket,
+    mimeType: attachment?.mime_type ?? attachment?.mimeType,
+  })).filter((attachment) => Number.isSafeInteger(attachment.id) || attachment.storagePath || attachment.name);
 }
 
 function rows(payload, key) {
@@ -2532,6 +2656,12 @@ async function clickLocatorCenter(page, locator, error) {
   await delay(250);
 }
 
+async function clickLocatorPreferDom(page, locator, error) {
+  const clicked = await locator.click({ force: true, timeout: 1_000 }).then(() => true).catch(() => false);
+  if (!clicked) await clickLocatorCenter(page, locator, error);
+  await delay(250);
+}
+
 async function waitAudioPlaybackObserved(page, timeout = 10_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
@@ -3193,7 +3323,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, privateMarker: null, attachmentsAudio: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, cleanupRegistry: createCleanupRegistry() };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -3401,6 +3531,26 @@ try {
       documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
       audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
       nextAudioMarkerSha256: sha256(state.attachmentsAudio.nextAudio.marker),
+    };
+    throw new EvidenceCompleted();
+  }
+
+  if (options.attachmentPickerOnly) {
+    await verifyAttachmentPickerWeb(page, options.attachmentPickerSource, config, state, runId, options.evidenceDir, report);
+    if (faults.length) {
+      report.diagnostics = { ...(report.diagnostics ?? {}), browserRuntimeFaults: faults.slice() };
+      throw new Error("browser_runtime_fault");
+    }
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      ownMessageId: state.ownMessage,
+      peerMessageId: state.peerMessage,
+      attachmentPickerMessageId: state.uiMessages.at(-1),
+      uniqueKeySha256: sha256(state.uniqueKey),
+      source: options.attachmentPickerSource,
+      attachmentPickerMarkerSha256: sha256(state.attachmentPicker.marker),
     };
     throw new EvidenceCompleted();
   }

@@ -31,8 +31,11 @@ import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.ClipboardService
+import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
 import com.quata.core.translation.QuataCachedTranslator
 import com.quata.core.ui.components.AttachmentFullscreenMediaContent
 import com.quata.core.ui.components.AttachmentPreview
@@ -40,6 +43,7 @@ import com.quata.core.ui.components.AttachmentThumbnail
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.openAttachmentWithDocumentReaderOrChooser
 import com.quata.feature.chat.domain.ChatRepository
+import java.io.File
 import kotlinx.coroutines.launch
 
 /** Android system adapters for the same [ChatProductHostContent] mounted by Wasm and iOS. */
@@ -79,6 +83,9 @@ fun AndroidChatProductScreen(
     val translationGateway = remember(context) {
         FangChatTranslationGateway(QuataCachedTranslator.get(context))
     }
+    val evidenceFilePicker = remember(context, filePickerService) {
+        AndroidChatEvidenceFilePicker.wrap(context, filePickerService)
+    }
     var focusedMessageVisible by remember(conversationId) { mutableStateOf<String?>(null) }
 
     Box(Modifier.fillMaxSize().padding(padding)) {
@@ -86,8 +93,10 @@ fun AndroidChatProductScreen(
             repository = repository,
             audioPlayer = audioPlayerService,
             audioRecorder = audioRecorderService,
-            filePicker = filePickerService,
-            capturePhoto = { cameraCaptureService.capturePhoto() },
+            filePicker = evidenceFilePicker,
+            capturePhoto = {
+                androidChatEvidenceCameraCapturePhoto(context) ?: cameraCaptureService.capturePhoto()
+            },
             conversationId = conversationId,
             navigationMessage = "",
             onOpenConversation = onOpenConversation,
@@ -163,3 +172,65 @@ private fun Context.openSafeChatExternalLink(value: String) {
     if (uri.scheme?.lowercase() !in setOf("http", "https")) return
     runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
 }
+
+private const val ChatEvidencePreferences = "quata_chat_evidence"
+private const val ChatMediaFixtureOptIn = "I_ACCEPT_ANDROID_CHAT_ATTACHMENT_PICKER_FIXTURE"
+private const val ChatEvidenceOptInKey = "attachmentPicker.optIn"
+private const val ChatEvidenceSourceKey = "attachmentPicker.source"
+private const val ChatEvidencePathKey = "attachmentPicker.path"
+private const val ChatEvidenceNameKey = "attachmentPicker.name"
+private const val ChatEvidenceMimeKey = "attachmentPicker.mime"
+
+private class AndroidChatEvidenceFilePicker(
+    private val context: Context,
+    private val delegate: FilePickerService,
+) : FilePickerService {
+    override suspend fun pickFiles(
+        acceptedMimeTypes: List<String>,
+        allowMultiple: Boolean,
+    ): PlatformResult<List<PlatformFile>> = pick(
+        FilePickerRequest(acceptedMimeTypes, allowMultiple, FilePickerSource.Documents),
+    )
+
+    override suspend fun pick(request: FilePickerRequest): PlatformResult<List<PlatformFile>> {
+        val file = androidChatEvidencePickedFile(context, request.source)
+            ?: return delegate.pick(request)
+        return PlatformResult.Success(listOf(file))
+    }
+
+    companion object {
+        fun wrap(context: Context, delegate: FilePickerService): FilePickerService =
+            AndroidChatEvidenceFilePicker(context.applicationContext, delegate)
+    }
+}
+
+private fun androidChatEvidenceCameraCapturePhoto(context: Context): PlatformResult<PlatformFile>? =
+    androidChatEvidencePickedFile(context, FilePickerSource.Camera)?.let { PlatformResult.Success(it) }
+
+private fun androidChatEvidencePickedFile(context: Context, source: FilePickerSource): PlatformFile? {
+    if (!androidChatEvidenceFixtureOptedIn(context)) return null
+    val preferences = context.applicationContext.getSharedPreferences(ChatEvidencePreferences, Context.MODE_PRIVATE)
+    val requestedSource = when (source) {
+        FilePickerSource.Documents -> "document"
+        FilePickerSource.Gallery -> "gallery"
+        FilePickerSource.Camera -> "camera"
+    }
+    if (preferences.getString(ChatEvidenceSourceKey, null) != requestedSource) return null
+    val path = preferences.getString(ChatEvidencePathKey, null)?.takeIf { it.isNotBlank() } ?: return null
+    val file = File(path).takeIf { it.isFile && it.length() > 0L } ?: return null
+    return PlatformFile(
+        reference = file.toURI().toString(),
+        displayName = preferences.getString(ChatEvidenceNameKey, null)?.takeIf { it.isNotBlank() } ?: file.name,
+        mimeType = preferences.getString(ChatEvidenceMimeKey, null)?.takeIf { it.isNotBlank() } ?: when (source) {
+            FilePickerSource.Documents -> "text/plain"
+            FilePickerSource.Gallery,
+            FilePickerSource.Camera -> "image/png"
+        },
+        sizeBytes = file.length(),
+    )
+}
+
+private fun androidChatEvidenceFixtureOptedIn(context: Context): Boolean =
+    context.applicationContext
+        .getSharedPreferences(ChatEvidencePreferences, Context.MODE_PRIVATE)
+        .getString(ChatEvidenceOptInKey, null) == ChatMediaFixtureOptIn

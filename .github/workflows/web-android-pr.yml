@@ -61,7 +61,8 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: jetbrains
-          java-version: "21"
+          java-version: "21.0.8"
+          check-latest: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -148,7 +149,8 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: jetbrains
-          java-version: "21"
+          java-version: "21.0.8"
+          check-latest: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -387,7 +389,8 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: jetbrains
-          java-version: "21"
+          java-version: "21.0.8"
+          check-latest: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -453,7 +456,8 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: jetbrains
-          java-version: "21"
+          java-version: "21.0.8"
+          check-latest: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -526,7 +530,8 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: jetbrains
-          java-version: "21"
+          java-version: "21.0.8"
+          check-latest: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5

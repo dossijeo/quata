@@ -18,6 +18,7 @@ import {
   prepareProfileRolesSafetyFixture,
   seedChatAttachmentFixture,
   seedProfileContentFixture,
+  validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
 const check = "CHAT-ACTIONS-NOTIFICATIONS-IOS-001";
@@ -44,6 +45,7 @@ const menuSurfaceOnly = options.menuSurfaceOnly;
 const keyboardMenuOnly = options.keyboardMenuOnly;
 const attachmentsAudioOnly = options.attachmentsAudioOnly;
 const groupSosOnly = options.groupSosOnly;
+const attachmentPickerOnly = options.attachmentPickerOnly;
 const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly;
 const report = {
   check,
@@ -57,6 +59,8 @@ const report = {
 
 let localCredentials;
 let remoteCredentials;
+let localAttachmentPickerFixture;
+let remoteAttachmentPickerFixture;
 let config;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const state = {
@@ -86,6 +90,7 @@ const state = {
   profileRolesSafety: null,
   profilePrivateChatMarkerMessage: null,
   attachmentsAudio: null,
+  attachmentPicker: null,
   sosWithLocationMarker: null,
   sosUnavailableMarker: null,
   sosWithLocationMessage: null,
@@ -121,7 +126,7 @@ try {
     p_community_id: null,
   }));
   report.steps.push("isolated_group_thread_ready");
-  if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly) {
+  if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly && !attachmentPickerOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -129,10 +134,10 @@ try {
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
   state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
-    state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
-  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
+  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
+  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -169,7 +174,7 @@ try {
       state.profilePrivateChatMarkerMessage = messageId(privateMessage);
       report.steps.push("profile_private_chat_seed_message_ready");
     }
-    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly) {
+    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly && !attachmentPickerOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
         p_thread_id: state.thread,
@@ -199,6 +204,17 @@ try {
   ])).trim();
   await run("scp", [localCredentials, `${options.host}:${remoteCredentials}`]);
   report.steps.push("ios_real_credentials_copied_to_mac_tempfile_without_logging_contents");
+
+  if (attachmentPickerOnly) {
+    state.attachmentPicker = await createAttachmentPickerFixture(options.attachmentPickerSource, runId);
+    localAttachmentPickerFixture = state.attachmentPicker.localPath;
+    remoteAttachmentPickerFixture = (await runCapture("ssh", [
+      options.host,
+      "mktemp /tmp/quata-ios-chat-attachment-picker.XXXXXX",
+    ])).trim();
+    await run("scp", [localAttachmentPickerFixture, `${options.host}:${remoteAttachmentPickerFixture}`]);
+    report.steps.push(`ios_chat_attachment_picker_${options.attachmentPickerSource}_fixture_copied_to_mac_tempfile`);
+  }
 
   const remoteHead = (await runSshScript(options.host, `
 set -euo pipefail
@@ -357,6 +373,13 @@ export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE=${shellQuote(state.priva
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E=${menuSurfaceOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E=${keyboardMenuOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=${attachmentsAudioOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E=${attachmentPickerOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN=${attachmentPickerOnly ? shellQuote("I_ACCEPT_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE") : "0"}
+export QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE=${shellQuote(state.attachmentPicker?.source ?? "document")}
+export QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH=${shellQuote(remoteAttachmentPickerFixture ?? "/tmp/quata-chat-picker-not-configured")}
+export QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME=${shellQuote(state.attachmentPicker?.name ?? "qadata-chat-picker.txt")}
+export QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME=${shellQuote(state.attachmentPicker?.mimeType ?? "text/plain")}
+export QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER=${shellQuote(state.attachmentPicker?.marker ?? "attachment-picker")}
 export QUATA_IOS_CHAT_GROUP_SOS_UI_E2E=${groupSosOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE=${shellQuote(state.attachmentsAudio?.document?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE=${shellQuote(state.attachmentsAudio?.audio?.markerProbe ?? "attachments-audio")}
@@ -379,6 +402,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? "ios_xctest_keyboard_header_and_selected_action_bar_verified"
       : attachmentsAudioOnly
       ? "ios_xctest_document_and_audio_attachment_chrome_verified"
+      : attachmentPickerOnly
+      ? `ios_xctest_attachment_picker_${options.attachmentPickerSource}_used_shared_composer_and_sent`
       : groupSosOnly
       ? "ios_xctest_group_menu_and_sos_shared_anchors_verified"
       : profileListsOnly
@@ -392,6 +417,32 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         : profilePrivateChatOnly
           ? "profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc"
         : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
+
+    if (attachmentPickerOnly) {
+      const message = await pollMessage(config, state.a, state.thread, (row) => messageText(row) === state.attachmentPicker.marker, "attachment picker message");
+      state.attachmentPicker.messageId = messageId({ message });
+      const attachments = messageAttachments(message);
+      if (!attachments.length) throw new Error("attachment_picker_message_missing_attachment");
+      for (const attachment of attachments) {
+        if (attachment.storagePath) {
+          state.cleanupRegistry.trackStorageObject({
+            storagePath: attachment.storagePath,
+            name: `ios_chat_picker_${options.attachmentPickerSource}`,
+          });
+        }
+      }
+      report.evidence.attachmentPicker = {
+        source: options.attachmentPickerSource,
+        messageId: state.attachmentPicker.messageId,
+        attachmentCount: attachments.length,
+        names: attachments.map((attachment) => attachment.name).filter(Boolean),
+        storagePathSha256: attachments
+          .map((attachment) => attachment.storagePath)
+          .filter(Boolean)
+          .map(sha256),
+      };
+      report.steps.push("ios_chat_attachment_picker_message_and_registered_attachment_verified_by_rpc");
+    }
 
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
@@ -432,7 +483,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("keyboard_header_and_selected_action_bar_captured");
     }
 
-    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly) {
+    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly && !attachmentPickerOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -450,7 +501,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     await copyRemoteEvidence(options);
     report.status = "passed";
-    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly)
+    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly)
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -462,7 +513,15 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         menuSurfaceOnly,
         keyboardMenuOnly,
         attachmentsAudioOnly,
+        attachmentPickerOnly,
         groupSosOnly,
+        attachmentPicker: state.attachmentPicker ? {
+          source: state.attachmentPicker.source,
+          name: state.attachmentPicker.name,
+          mimeType: state.attachmentPicker.mimeType,
+          messageId: state.attachmentPicker.messageId,
+          markerSha256: sha256(state.attachmentPicker.marker),
+        } : null,
         attachmentsAudio: state.attachmentsAudio ? {
           videoMessageId: state.attachmentsAudio.video.messageId,
           imageMessageId: state.attachmentsAudio.image.messageId,
@@ -625,7 +684,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     report.error = "temporary_profile_hash_window_restore_failed";
   }
   if (remoteCredentials) await run("ssh", [options.host, "rm", "-f", remoteCredentials]).catch(() => {});
+  if (remoteAttachmentPickerFixture) await run("ssh", [options.host, "rm", "-f", remoteAttachmentPickerFixture]).catch(() => {});
   if (localCredentials) await rm(dirname(localCredentials), { recursive: true, force: true }).catch(() => {});
+  if (localAttachmentPickerFixture) await rm(dirname(localAttachmentPickerFixture), { recursive: true, force: true }).catch(() => {});
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
@@ -661,6 +722,8 @@ function parseArgs(argv) {
     menuSurfaceOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MENU_SURFACE_ONLY === "1",
     keyboardMenuOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_KEYBOARD_MENU_ONLY === "1",
     attachmentsAudioOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENTS_AUDIO_ONLY === "1",
+    attachmentPickerOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENT_PICKER_ONLY === "1",
+    attachmentPickerSource: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENT_PICKER_SOURCE?.trim() || "document",
     groupSosOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_GROUP_SOS_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -734,6 +797,20 @@ function parseArgs(argv) {
       result.remoteResultBundleDir = "build/reports/ios/chat-attachments-audio/xcresults";
       continue;
     }
+    if (key === "--attachment-picker-only") {
+      result.attachmentPickerOnly = true;
+      result.output = resolve("build-reports/ios/chat-attachment-picker-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/chat-attachment-picker-evidence");
+      result.remoteLogDir = "build/reports/ios/chat-attachment-picker";
+      result.remoteResultBundleDir = "build/reports/ios/chat-attachment-picker/xcresults";
+      continue;
+    }
+    if (key === "--attachment-picker-source") {
+      index += 1;
+      if (index >= argv.length) throw new Error("missing_value:--attachment-picker-source");
+      result.attachmentPickerSource = argv[index];
+      continue;
+    }
     if (key === "--group-sos-only") {
       result.groupSosOnly = true;
       result.output = resolve("build-reports/ios/chat-group-sos-evidence.json");
@@ -756,6 +833,9 @@ function parseArgs(argv) {
     if (key === "--evidence-dir") result.evidenceDir = resolve(value);
   }
   if (!result.simulatorUdid) throw new Error("missing_environment:QUATA_IOS_SIMULATOR_UDID");
+  if (!["document", "gallery", "camera"].includes(result.attachmentPickerSource)) {
+    throw new Error(`unsupported_attachment_picker_source:${result.attachmentPickerSource}`);
+  }
   return result;
 }
 
@@ -950,6 +1030,47 @@ async function createChatAttachmentMessage(config, session, thread, runId, kind)
     messageId,
     cleanup: state.cleanupRegistry,
   });
+}
+
+async function createAttachmentPickerFixture(source, runId) {
+  const root = await mkdtemp(join(tmpdir(), "quata-ios-chat-picker-"));
+  const media = source === "document"
+    ? {
+      name: `qadata-chat-picker-${runId.slice(0, 8)}.txt`,
+      mimeType: "text/plain",
+      content: Buffer.from(`QADATA iOS Chat picker fixture ${runId}\n`, "utf8"),
+    }
+    : {
+      name: `qadata-chat-picker-${source}-${runId.slice(0, 8)}.png`,
+      mimeType: "image/png",
+      content: validPngFixture(),
+    };
+  const localPath = join(root, media.name);
+  await writeFile(localPath, media.content, { mode: 0o600 });
+  return {
+    source,
+    localPath,
+    name: media.name,
+    mimeType: media.mimeType,
+    marker: `chat-picker-ios-${source}-${randomUUID()}`,
+  };
+}
+
+function messageAttachments(row) {
+  const candidates = [
+    row?.attachments,
+    row?.files,
+    row?.message?.attachments,
+    row?.message?.files,
+  ];
+  const values = candidates.find(Array.isArray) ?? [];
+  return values.map((attachment) => ({
+    id: Number(attachment?.id ?? attachment?.file_id ?? attachment?.attachment_id),
+    name: attachment?.name ?? attachment?.display_name,
+    storagePath: attachment?.storage_path ?? attachment?.storagePath,
+    bucket: attachment?.storage_bucket ?? attachment?.storageBucket,
+    mimeType: attachment?.mime_type ?? attachment?.mimeType,
+  })).filter((attachment) => Number.isSafeInteger(attachment.id) || attachment.storagePath || attachment.name);
 }
 
 function rows(payload, key) {
@@ -1154,7 +1275,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("seed_favorite_removed");
   }
-  const messageIds = [state.seedMessage, state.peerMessage, state.editableMessage, state.composerMessage, state.replyMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.video?.messageId, state.attachmentsAudio?.image?.messageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId].filter((value) => Number.isSafeInteger(value));
+  const messageIds = [state.seedMessage, state.peerMessage, state.editableMessage, state.composerMessage, state.replyMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.video?.messageId, state.attachmentsAudio?.image?.messageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId, state.attachmentPicker?.messageId].filter((value) => Number.isSafeInteger(value));
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
       p_actor_profile_id: state.a.profileId,
@@ -1173,7 +1294,7 @@ async function logicalCleanup(config, state) {
   }
   const deletedStalePrivateMarkers = await deletePrivateChatTestMarkers(config, state);
   if (deletedStalePrivateMarkers > 0) actions.push(`stale_profile_private_chat_markers_deleted:${deletedStalePrivateMarkers}`);
-  const markers = [state.seedMarker, state.peerMarker, state.editableMarker, state.composerMarker, state.replyMarker, state.editMarker];
+  const markers = [state.seedMarker, state.peerMarker, state.editableMarker, state.composerMarker, state.replyMarker, state.editMarker, state.attachmentPicker?.marker];
   if (state.thread && state.a && await threadContainsAnyMarker(config, state.a, state.thread, markers)) {
     throw new Error("cleanup_residue_detected:message_a");
   }

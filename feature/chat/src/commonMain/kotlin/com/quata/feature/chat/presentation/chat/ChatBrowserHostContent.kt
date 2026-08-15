@@ -119,6 +119,7 @@ fun ChatProductHostContent(
     messageInputOverride: (@Composable (
         String,
         (String) -> Unit,
+        () -> Unit,
         Modifier,
         @Composable () -> Unit,
         @Composable () -> Unit,
@@ -208,6 +209,7 @@ private fun ChatCommonConversationHost(
     messageInputOverride: (@Composable (
         String,
         (String) -> Unit,
+        () -> Unit,
         Modifier,
         @Composable () -> Unit,
         @Composable () -> Unit,

@@ -4,7 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -38,11 +39,14 @@ fun ChatPendingAttachmentOverlayContent(
         color = surfaceColor,
         shape = RoundedCornerShape(22.dp),
         shadowElevation = 8.dp,
-        modifier = modifier.semantics { testTag = ChatPendingAttachmentOverlayTestTag },
+        modifier = modifier.semantics {
+            testTag = ChatPendingAttachmentOverlayTestTag
+            contentDescription = "${ChatPendingAttachmentOverlayTestTag} $name"
+        },
     ) {
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.fillMaxSize().clickable(onClick = onOpen).padding(18.dp),
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
             ) {
