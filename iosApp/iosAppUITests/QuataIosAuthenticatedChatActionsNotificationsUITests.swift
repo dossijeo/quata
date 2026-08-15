@@ -128,6 +128,60 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-audio-toggle-attempted")
     }
 
+    func testAttachmentPickerFixtureUsesSharedComposerAnchors() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat attachment picker UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let pickerSource = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE"]),
+              let attachmentName = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME"]),
+              let composerMarker = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER"]) else {
+            throw XCTSkip("Disposable Chat attachment picker fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        propagatePickerFixtureEnvironment(to: app)
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "attachment picker conversation")
+        assertChatRoute(conversationId, in: app, context: "attachment picker conversation")
+
+        if pickerSource == "document" || pickerSource == "gallery" {
+            tapTaggedButton("chat.composer.attach", in: app, context: "open shared attachment panel")
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "chat.attachment.quickPanel").firstMatch.waitForExistence(timeout: 10),
+                "The shared attachment quick panel must open before invoking the native picker.",
+            )
+            let pickerIdentifier = pickerSource == "gallery" ? "chat.attachment.pick.gallery" : "chat.attachment.pick.file"
+            tapTaggedButton(pickerIdentifier, in: app, context: "invoke \(pickerSource) picker")
+        } else if pickerSource == "camera" {
+            tapTaggedButton("chat.composer.camera", in: app, context: "invoke camera capture")
+        } else {
+            XCTFail("Unsupported picker source \(pickerSource)")
+            return
+        }
+
+        let pending = app.descendants(matching: .any)
+            .matching(identifier: "chat.attachment.pending")
+            .firstMatch
+        XCTAssertTrue(pending.waitForExistence(timeout: 15), "The shared pending attachment overlay must appear after \(pickerSource) returns.")
+        XCTAssertTrue(menuText(attachmentName, in: app).waitForExistence(timeout: 10), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-attachment-picker-pending-\(pickerSource)")
+
+        typeText(composerMarker, into: "chat.composer.input", in: app)
+        tapTaggedButton("chat.composer.send", in: app, context: "send picked attachment")
+        XCTAssertTrue(messageText(composerMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-attachment-picker-sent-\(pickerSource)")
+    }
+
     func testKeyboardAndSelectedActionBarUseSharedChatChrome() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E"] == "1" else {
@@ -1139,6 +1193,21 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(button.exists, "Expected \(identifier) for \(context).")
         button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func propagatePickerFixtureEnvironment(to app: XCUIApplication) {
+        let environment = ProcessInfo.processInfo.environment
+        for key in [
+            "QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN",
+            "QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE",
+            "QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH",
+            "QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME",
+            "QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME",
+        ] {
+            if let value = environment[key] {
+                app.launchEnvironment[key] = value
+            }
+        }
     }
 
     private func profileElement(_ identifier: String, in app: XCUIApplication, context: String) -> XCUIElement {

@@ -49,6 +49,8 @@ const val ChatComposerInputTestTag = "chat.composer.input"
 const val ChatComposerSendTestTag = "chat.composer.send"
 const val ChatComposerEmojiTestTag = "chat.composer.emoji"
 const val ChatComposerAttachTestTag = "chat.composer.attach"
+const val ChatComposerCameraTestTag = "chat.composer.camera"
+const val ChatComposerRecordAudioTestTag = "chat.composer.recordAudio"
 const val ChatComposerEditingBannerTestTag = "chat.composer.editing"
 const val ChatComposerReplyBannerTestTag = "chat.composer.reply"
 const val ChatForwardPickerRootTestTag = "chat.forward.root"
@@ -290,7 +292,10 @@ fun ChatComposerContent(
         }
         val cameraAction: (@Composable (Modifier) -> Unit)? = if (onCamera != null) {
             { cameraModifier ->
-                CompactIconButton(onClick = onCamera, modifier = cameraModifier) {
+                CompactIconButton(
+                    onClick = onCamera,
+                    modifier = cameraModifier.semantics { testTag = ChatComposerCameraTestTag },
+                ) {
                     CompactIcon(Icons.Filled.PhotoCamera, strings.openCamera)
                 }
             }
@@ -308,7 +313,10 @@ fun ChatComposerContent(
             }
             !isRecordingAudio && onRecordAudio != null -> {
                 {
-                    CompactIconButton(onClick = onRecordAudio) {
+                    CompactIconButton(
+                        onClick = onRecordAudio,
+                        modifier = Modifier.semantics { testTag = ChatComposerRecordAudioTestTag },
+                    ) {
                         CompactIcon(Icons.Filled.Mic, strings.recordAudio)
                     }
                 }

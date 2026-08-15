@@ -37,6 +37,7 @@ const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-onl
 const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-only");
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
 const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
+const attachmentPickerOnly = process.argv.includes("--attachment-picker-only");
 const groupSosOnly = process.argv.includes("--group-sos-only");
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
@@ -97,6 +98,12 @@ const evidenceFiles = [
   "android-chat-attachment-document-visible.png",
   "android-chat-audio-player-visible.png",
   "android-chat-audio-toggle-attempted.png",
+  "android-chat-attachment-picker-pending-document.png",
+  "android-chat-attachment-picker-sent-document.png",
+  "android-chat-attachment-picker-pending-gallery.png",
+  "android-chat-attachment-picker-sent-gallery.png",
+  "android-chat-attachment-picker-pending-camera.png",
+  "android-chat-attachment-picker-sent-camera.png",
   "android-chat-group-menu-shared-anchors.png",
   "android-chat-sos-location-shared-anchors.png",
   "android-chat-actions-notifications-evidence.json",
@@ -108,15 +115,31 @@ function parseArgs(argv) {
   const result = {
     output: join("build-reports", "android", "chat-actions-notifications-evidence.json"),
     evidenceDir: join("build-reports", "android", "chat-actions-notifications-evidence"),
+    attachmentPickerSource: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_ANDROID_ATTACHMENT_PICKER_SOURCE || "document",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
+    if (key === "--attachment-picker-only") {
+      result.output = join("build-reports", "android", "chat-attachment-picker-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "chat-attachment-picker-evidence");
+      continue;
+    }
+    if (key === "--attachment-picker-source") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) throw new Error("invalid_arguments");
+      result.attachmentPickerSource = value;
+      index += 1;
+      continue;
+    }
     if (!["--out", "--evidence-dir"].includes(key)) continue;
     const value = argv[index + 1];
     if (!value || value.startsWith("--")) throw new Error("invalid_arguments");
     index += 1;
     if (key === "--out") result.output = value;
     if (key === "--evidence-dir") result.evidenceDir = value;
+  }
+  if (!["document", "gallery", "camera"].includes(result.attachmentPickerSource)) {
+    throw new Error(`invalid_attachment_picker_source:${result.attachmentPickerSource}`);
   }
   return result;
 }
@@ -431,6 +454,15 @@ function messageText(row) {
   return String(row?.body ?? row?.text ?? row?.message ?? "");
 }
 
+function messageAttachments(row) {
+  const candidates = [
+    row?.attachments,
+    row?.files,
+    row?.attachment ? [row.attachment] : null,
+  ].filter(Boolean).flat();
+  return candidates.filter((entry) => entry && typeof entry === "object");
+}
+
 function isMuted(row) {
   return row?.muted === true || row?.is_muted === true || row?.isMuted === true;
 }
@@ -580,12 +612,19 @@ async function gitMetadata() {
 async function adbRunAsCat(remotePath, localPath) {
   const chunks = [];
   await new Promise((resolve, reject) => {
-    const child = spawn(adbCommand, ["exec-out", "run-as", "com.quata", "cat", remotePath], { stdio: ["ignore", "pipe", "pipe"], shell: false });
+    const script = `if [ -f ${adbShellQuote(remotePath)} ]; then cat ${adbShellQuote(remotePath)}; else exit 44; fi`;
+    const child = spawn(adbCommand, ["exec-out", "run-as", "com.quata", "sh", "-c", script], { stdio: ["ignore", "pipe", "pipe"], shell: false });
     let stderr = "";
     child.stdout.on("data", (chunk) => chunks.push(chunk));
     child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
     child.on("error", reject);
-    child.on("exit", (code) => code === 0 ? resolve() : reject(new Error(`adb_exec_out_failed:${code}:${stderr.trim()}`)));
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`adb_exec_out_failed:${code}:${remotePath}:${stderr.trim()}`));
+    });
   });
   await writeFile(localPath, Buffer.concat(chunks));
 }
@@ -1106,7 +1145,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileFollow: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = options.evidenceDir;
@@ -1133,7 +1172,7 @@ try {
 
   const runId = randomUUID();
   state.uniqueKey = `qadata-chat-actions-notifications-android-${runId}`;
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !groupSosOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !attachmentPickerOnly && !groupSosOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1156,6 +1195,10 @@ try {
   const composerMarker = `chat-compose-ui-android-${randomUUID()}`;
   const replyMarker = `chat-reply-ui-android-${randomUUID()}`;
   const editMarker = `chat-edit-ui-android-${randomUUID()}`;
+  const attachmentPickerMarker = `chat-attachment-picker-android-${randomUUID()}`;
+  const attachmentPickerName = options.attachmentPickerSource === "document"
+    ? `qadata-android-picker-${runId}.txt`
+    : `qadata-android-picker-${runId}.png`;
   state.message = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -1271,6 +1314,9 @@ try {
       "-e", "quataChatActionsAudioProbe", state.attachmentsAudio?.audio?.markerProbe ?? "",
       "-e", "quataChatActionsImageProbe", state.attachmentsAudio?.image?.markerProbe ?? "",
       "-e", "quataChatActionsVideoProbe", state.attachmentsAudio?.video?.markerProbe ?? "",
+      "-e", "quataChatActionsAttachmentPickerSource", options.attachmentPickerSource,
+      "-e", "quataChatActionsAttachmentPickerName", attachmentPickerName,
+      "-e", "quataChatActionsAttachmentPickerMarker", attachmentPickerMarker,
       "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
     ].map(adbShellQuote).join(" "),
   ]);
@@ -1372,6 +1418,43 @@ try {
       audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
     };
     throw new Error("attachments_audio_only_completed");
+  }
+
+  if (attachmentPickerOnly) {
+    assertInstrumentationPassed("attachment-picker", await runInstrumentationStage("attachment-picker"));
+    const pickerMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === attachmentPickerMarker);
+    const pickerMessageId = messageId(pickerMessage);
+    state.uiMessages.push(pickerMessageId);
+    const attachments = messageAttachments(pickerMessage);
+    if (!attachments.length) throw new Error("attachment_picker_message_missing_attachment");
+    const uploaded = attachments[0];
+    const storagePath = uploaded.storage_path ?? uploaded.storagePath ?? uploaded.path ?? uploaded.object_path ?? uploaded.objectPath;
+    if (storagePath) {
+      state.cleanupRegistry.trackStorageObject({ storagePath, name: uploaded.name ?? uploaded.file_name ?? attachmentPickerName });
+    }
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((name) => name.includes("attachment-picker") || name.endsWith("evidence.json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
+    }
+    report.status = "passed";
+    report.steps.push("attachment_picker_shared_composer_flow_verified");
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.evidence.attachmentPicker = {
+      source: options.attachmentPickerSource,
+      messageId: pickerMessageId,
+      attachmentCount: attachments.length,
+      attachmentNames: attachments.map((entry) => entry.name ?? entry.file_name ?? entry.fileName).filter(Boolean),
+      storagePathSha256: storagePath ? sha256(storagePath) : null,
+    };
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      messageId: pickerMessageId,
+      markerSha256: sha256(attachmentPickerMarker),
+      source: options.attachmentPickerSource,
+    };
+    throw new Error("attachment_picker_only_completed");
   }
 
   if (groupSosOnly) {
@@ -1580,6 +1663,7 @@ try {
     error instanceof EvidenceCompleted ||
     error?.message === "menu_surface_only_completed" ||
     error?.message === "attachments_audio_only_completed" ||
+    error?.message === "attachment_picker_only_completed" ||
     error?.message === "group_sos_only_completed" ||
     error?.message === "profile_only_completed" ||
     error?.message === "profile_follow_only_completed" ||

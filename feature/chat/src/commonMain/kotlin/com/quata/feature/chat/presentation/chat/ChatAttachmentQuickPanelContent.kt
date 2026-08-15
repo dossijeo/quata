@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -66,8 +67,24 @@ fun ChatAttachmentQuickPanelContent(
         modifier = modifier.fillMaxWidth().semantics { testTag = ChatAttachmentQuickPanelTestTag },
     ) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ChatAttachmentQuickActionContent(Icons.AutoMirrored.Filled.InsertDriveFile, strings.file, onPickFile, Modifier.weight(1f).semantics { testTag = ChatAttachmentPickFileTestTag })
-            ChatAttachmentQuickActionContent(Icons.Filled.PhotoLibrary, strings.gallery, onPickGallery, Modifier.weight(1f).semantics { testTag = ChatAttachmentPickGalleryTestTag })
+            ChatAttachmentQuickActionContent(
+                Icons.AutoMirrored.Filled.InsertDriveFile,
+                strings.file,
+                onPickFile,
+                Modifier.weight(1f).semantics {
+                    testTag = ChatAttachmentPickFileTestTag
+                    contentDescription = "${ChatAttachmentPickFileTestTag} ${strings.file}"
+                },
+            )
+            ChatAttachmentQuickActionContent(
+                Icons.Filled.PhotoLibrary,
+                strings.gallery,
+                onPickGallery,
+                Modifier.weight(1f).semantics {
+                    testTag = ChatAttachmentPickGalleryTestTag
+                    contentDescription = "${ChatAttachmentPickGalleryTestTag} ${strings.gallery}"
+                },
+            )
         }
     }
 }

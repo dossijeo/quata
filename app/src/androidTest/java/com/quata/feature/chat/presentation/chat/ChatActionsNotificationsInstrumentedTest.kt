@@ -81,6 +81,9 @@ class ChatActionsNotificationsInstrumentedTest {
         val audioProbe = optionalArgument("quataChatActionsAudioProbe")
         val imageProbe = optionalArgument("quataChatActionsImageProbe")
         val videoProbe = optionalArgument("quataChatActionsVideoProbe")
+        val attachmentPickerSource = optionalArgument("quataChatActionsAttachmentPickerSource")
+        val attachmentPickerName = optionalArgument("quataChatActionsAttachmentPickerName")
+        val attachmentPickerMarker = optionalArgument("quataChatActionsAttachmentPickerMarker")
         val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
         val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
@@ -93,6 +96,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, imageProbe, videoProbe).all { !it.isNullOrBlank() }
+            "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
         }
@@ -139,6 +143,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile-roles-safety" -> runProfileRolesSafetyStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty(), imageProbe.orEmpty(), videoProbe.orEmpty())
+                "attachment-picker" -> runAttachmentPickerStage(attachmentPickerSource.orEmpty(), attachmentPickerName.orEmpty(), attachmentPickerMarker.orEmpty())
                 "group-sos" -> runGroupSosStage(ownProbe.orEmpty())
                 "profile-content" -> {
                     openProfileFromPeerMessage(peerProbe.orEmpty(), profileId.orEmpty())
@@ -431,6 +436,68 @@ class ChatActionsNotificationsInstrumentedTest {
             .performTouchInput { click(center) }
         compose.waitForIdle()
         saveScreenshot("android-chat-audio-toggle-attempted")
+    }
+
+    private suspend fun runAttachmentPickerStage(source: String, name: String, marker: String) {
+        val fixture = createAttachmentPickerFixture(source, name)
+        targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+            .edit()
+            .putString("attachmentPicker.optIn", "I_ACCEPT_ANDROID_CHAT_ATTACHMENT_PICKER_FIXTURE")
+            .putString("attachmentPicker.source", source)
+            .putString("attachmentPicker.path", fixture.absolutePath)
+            .putString("attachmentPicker.name", name)
+            .putString("attachmentPicker.mime", if (source == "document") "text/plain" else "image/png")
+            .commit()
+        try {
+            when (source) {
+                "document", "gallery" -> {
+                    compose.onNodeWithTag(ChatComposerAttachTestTag, useUnmergedTree = true)
+                        .performTouchInput { click(center) }
+                    compose.onNodeWithTag(ChatAttachmentQuickPanelTestTag, useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                    val tag = if (source == "document") ChatAttachmentPickFileTestTag else ChatAttachmentPickGalleryTestTag
+                    compose.onNodeWithTag(tag, useUnmergedTree = true)
+                        .performTouchInput { click(center) }
+                }
+                "camera" -> {
+                    compose.onNodeWithTag(ChatComposerCameraTestTag, useUnmergedTree = true)
+                        .performTouchInput { click(center) }
+                }
+                else -> error("unknown_attachment_picker_source:$source")
+            }
+            compose.waitUntil(15_000) { nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag) }
+            waitForText(name.take(24), name.take(24), timeoutMillis = 10_000)
+                ?: error("attachment_picker_pending_name_not_visible:$name")
+            saveScreenshot("android-chat-attachment-picker-pending-$source")
+            fillComposer(marker, afterSendScreenshotName = "android-chat-attachment-picker-sent-$source")
+            flushPendingChatMessages()
+            waitForMarker(marker.take(28), "attachment picker message")
+        } finally {
+            targetContext.getSharedPreferences("quata_chat_evidence", Context.MODE_PRIVATE)
+                .edit()
+                .clear()
+                .commit()
+            fixture.delete()
+        }
+    }
+
+    private fun createAttachmentPickerFixture(source: String, name: String): File {
+        val safeName = name.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank {
+            if (source == "document") "quata-picker.txt" else "quata-picker.png"
+        }
+        val file = File(targetContext.cacheDir, "chat_attachment_picker_$safeName")
+        if (source == "document") {
+            file.writeText("QADATA Android attachment picker fixture\n", Charsets.UTF_8)
+        } else {
+            val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+            bitmap.eraseColor(0xFF1E64FF.toInt())
+            FileOutputStream(file).use { output ->
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) { "attachment_picker_png_fixture_failed" }
+            }
+            bitmap.recycle()
+        }
+        check(file.isFile && file.length() > 0L) { "attachment_picker_fixture_empty:$source" }
+        return file
     }
 
     private fun runGroupSosStage(ownProbe: String) {

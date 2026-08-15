@@ -64,6 +64,10 @@ test("CHAT-ATTACHMENTS/AUDIO has a dedicated fast contract in CI", () => {
 
 test("attachment picker, pending surface and attachment cards expose stable common anchors", () => {
   for (const [sourceText, anchors] of [
+    [commonComposer, [
+      ["ChatComposerCameraTestTag", "chat.composer.camera"],
+      ["ChatComposerRecordAudioTestTag", "chat.composer.recordAudio"],
+    ]],
     [commonQuickPanel, [
       ["ChatAttachmentQuickPanelTestTag", "chat.attachment.quickPanel"],
       ["ChatAttachmentPickFileTestTag", "chat.attachment.pick.file"],
@@ -210,6 +214,16 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /messageText\(videoProbe, in: app\)/);
   assert.match(iosUiTest, /messageText\(documentProbe, in: app\)/);
   assert.match(iosUiTest, /messageText\(audioProbe, in: app\)/);
+  assert.match(iosUiTest, /testAttachmentPickerFixtureUsesSharedComposerAnchors/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN/);
+  assert.match(iosUiTest, /chat\.composer\.attach/);
+  assert.match(iosUiTest, /chat\.attachment\.quickPanel/);
+  assert.match(iosUiTest, /chat\.attachment\.pick\.file/);
+  assert.match(iosUiTest, /chat\.attachment\.pick\.gallery/);
+  assert.match(iosUiTest, /chat\.composer\.camera/);
+  assert.match(iosUiTest, /chat\.attachment\.pending/);
+  assert.match(iosUiTest, /chat\.composer\.send/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE/);
@@ -222,12 +236,34 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE'\] = attachment_video/);
   assert.match(iosWrapper, /testAttachmentsAndAudioExposeSharedAnchors/);
   assert.match(iosWrapper, /attachments-audio\.log/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E'\] = attachment_picker/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN'\] = picker_opt_in/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE'\] = picker_source/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH'\] = picker_path/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME'\] = picker_name/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME'\] = picker_mime/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER'\] = picker_marker/);
+  assert.match(iosWrapper, /testAttachmentPickerFixtureUsesSharedComposerAnchors/);
+  assert.match(iosWrapper, /attachment-picker\.log/);
   const attachmentsMode = iosWrapper.slice(
     iosWrapper.indexOf('if [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]'),
     iosWrapper.indexOf('elif [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" == "1"'),
   );
   assert.doesNotMatch(attachmentsMode, /:\s*"\$\{QUATA_IOS_CHAT_E2E_MESSAGE_ID:\?/);
   assert.doesNotMatch(attachmentsMode, /:\s*"\$\{QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE:\?/);
+  const pickerMode = iosWrapper.slice(
+    iosWrapper.indexOf('if [[ "$QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E" == "1" ]]'),
+    iosWrapper.indexOf('elif [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]'),
+  );
+  assert.doesNotMatch(pickerMode, /:\s*"\$\{QUATA_IOS_CHAT_E2E_MESSAGE_ID:\?/);
+  assert.doesNotMatch(pickerMode, /:\s*"\$\{QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE:\?/);
 });
 
 test("real Chat evidence runners seed reversible document/audio attachments", async () => {
@@ -301,6 +337,49 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /nextAudioMessageId/);
   assert.match(androidMediaViewer, /ChatAudioAttachmentPlayerContent\(/);
   assert.match(androidMediaViewer, /errorText = attachment\.name/);
+});
+
+test("Web, Android and iOS attachment picker evidence modes exercise native picker boundaries through common UI", () => {
+  assert.match(webRunner, /--attachment-picker-only/);
+  assert.match(webRunner, /page\.waitForEvent\("filechooser"/);
+  assert.match(webRunner, /chat\\.composer\\.attach/);
+  assert.match(webRunner, /chat\\.attachment\\.quickPanel/);
+  assert.match(webRunner, /chat\\.attachment\\.pick\\.file/);
+  assert.match(webRunner, /chat\\.attachment\\.pick\\.gallery/);
+  assert.match(webRunner, /chat\\.composer\\.camera/);
+  assert.match(webRunner, /chat\\.attachment\\.pending/);
+  assert.match(webRunner, /messageAttachments\(message\)/);
+  assert.match(webRunner, /trackStorageObject/);
+
+  assert.match(androidRunner, /--attachment-picker-only/);
+  assert.match(androidRunner, /runInstrumentationStage\("attachment-picker"\)/);
+  assert.match(androidRunner, /quataChatActionsAttachmentPickerSource/);
+  assert.match(androidRunner, /quataChatActionsAttachmentPickerName/);
+  assert.match(androidRunner, /quataChatActionsAttachmentPickerMarker/);
+  assert.match(androidRunner, /messageAttachments\(pickerMessage\)/);
+  assert.match(androidRunner, /trackStorageObject/);
+  assert.match(androidUiTest, /"attachment-picker" -> runAttachmentPickerStage/);
+  assert.match(androidUiTest, /I_ACCEPT_ANDROID_CHAT_ATTACHMENT_PICKER_FIXTURE/);
+  assert.match(androidUiTest, /ChatComposerAttachTestTag/);
+  assert.match(androidUiTest, /ChatAttachmentQuickPanelTestTag/);
+  assert.match(androidUiTest, /ChatAttachmentPickFileTestTag/);
+  assert.match(androidUiTest, /ChatAttachmentPickGalleryTestTag/);
+  assert.match(androidUiTest, /ChatComposerCameraTestTag/);
+  assert.match(androidUiTest, /ChatPendingAttachmentOverlayTestTag/);
+  assert.match(androidHost, /AndroidChatEvidenceFilePicker/);
+  assert.match(androidHost, /I_ACCEPT_ANDROID_CHAT_ATTACHMENT_PICKER_FIXTURE/);
+
+  assert.match(iosRunner, /--attachment-picker-only/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E/);
+  assert.match(iosRunner, /I_ACCEPT_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER/);
+  assert.match(iosRunner, /messageAttachments\(message\)/);
+  assert.match(iosRunner, /trackStorageObject/);
+  assert.match(iosHost, /IosChatEvidenceFilePicker/);
+  assert.match(iosHost, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN/);
+  assert.match(iosHost, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE/);
 });
 
 test("Web audio player loads remote attachments through local Blob URLs under COEP", () => {
