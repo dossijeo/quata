@@ -3,12 +3,12 @@
   "units": [
     "CHAT-ATTACHMENTS"
   ],
-  "productSha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
+  "productSha": "a2791c2260ee1cd75de2b443429a8591963651bd",
   "evidence": {
     "webDocument": {
       "status": "passed",
-      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
-      "report": "build-reports/web/chat-attachment-picker-evidence-1493b5f7-document.json",
+      "sha": "a2791c2260ee1cd75de2b443429a8591963651bd",
+      "report": "build-reports/web/chat-attachment-picker-evidence-a2791c22-document.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -16,8 +16,8 @@
     },
     "webGallery": {
       "status": "passed",
-      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
-      "report": "build-reports/web/chat-attachment-picker-evidence-1493b5f7-gallery.json",
+      "sha": "a2791c2260ee1cd75de2b443429a8591963651bd",
+      "report": "build-reports/web/chat-attachment-picker-evidence-a2791c22-gallery.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -25,8 +25,8 @@
     },
     "webCamera": {
       "status": "passed",
-      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
-      "report": "build-reports/web/chat-attachment-picker-evidence-1493b5f7-camera.json",
+      "sha": "a2791c2260ee1cd75de2b443429a8591963651bd",
+      "report": "build-reports/web/chat-attachment-picker-evidence-a2791c22-camera.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -34,8 +34,8 @@
     },
     "androidDocument": {
       "status": "passed",
-      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
-      "report": "build-reports/android/chat-attachment-picker-evidence-1493b5f7-document.json",
+      "sha": "a2791c2260ee1cd75de2b443429a8591963651bd",
+      "report": "build-reports/android/chat-attachment-picker-evidence-a2791c22-document.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -43,8 +43,8 @@
     },
     "androidGallery": {
       "status": "passed",
-      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
-      "report": "build-reports/android/chat-attachment-picker-evidence-1493b5f7-gallery.json",
+      "sha": "a2791c2260ee1cd75de2b443429a8591963651bd",
+      "report": "build-reports/android/chat-attachment-picker-evidence-a2791c22-gallery.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -52,8 +52,8 @@
     },
     "androidCamera": {
       "status": "passed",
-      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
-      "report": "build-reports/android/chat-attachment-picker-evidence-1493b5f7-camera.json",
+      "sha": "a2791c2260ee1cd75de2b443429a8591963651bd",
+      "report": "build-reports/android/chat-attachment-picker-evidence-a2791c22-camera.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -61,8 +61,8 @@
     },
     "iosDocument": {
       "status": "passed",
-      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
-      "report": "build-reports/ios/chat-attachment-picker-evidence-1493b5f7-document.json",
+      "sha": "a2791c2260ee1cd75de2b443429a8591963651bd",
+      "report": "build-reports/ios/chat-attachment-picker-evidence-a2791c22-document.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -70,8 +70,8 @@
     },
     "iosGallery": {
       "status": "passed",
-      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
-      "report": "build-reports/ios/chat-attachment-picker-evidence-1493b5f7-gallery.json",
+      "sha": "a2791c2260ee1cd75de2b443429a8591963651bd",
+      "report": "build-reports/ios/chat-attachment-picker-evidence-a2791c22-gallery.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -79,8 +79,8 @@
     },
     "iosCamera": {
       "status": "passed",
-      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
-      "report": "build-reports/ios/chat-attachment-picker-evidence-1493b5f7-camera.json",
+      "sha": "a2791c2260ee1cd75de2b443429a8591963651bd",
+      "report": "build-reports/ios/chat-attachment-picker-evidence-a2791c22-camera.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
