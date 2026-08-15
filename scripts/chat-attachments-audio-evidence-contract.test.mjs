@@ -118,6 +118,23 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /onSeekToFraction/);
 });
 
+test("chat composer exposes stable common audio recording anchors", () => {
+  for (const [constant, tag] of [
+    ["ChatComposerRecordTestTag", "chat.composer.record"],
+    ["ChatComposerRecordingTestTag", "chat.composer.recording"],
+    ["ChatComposerRecordingStopTestTag", "chat.composer.recording.stop"],
+    ["ChatComposerRecordingCancelTestTag", "chat.composer.recording.cancel"],
+    ["ChatComposerRecordingErrorTestTag", "chat.composer.recording.error"],
+  ]) {
+    assert.match(commonComposer, new RegExp(`${constant} = "${tag.replaceAll(".", "\\.")}"`));
+    assert.match(commonComposer, new RegExp(`testTag = ${constant}`));
+  }
+  assert.match(commonComposer, /onRecordAudio/);
+  assert.match(commonComposer, /onStopRecording/);
+  assert.match(commonComposer, /onCancelRecording/);
+  assert.match(commonComposer, /recordingError/);
+});
+
 test("Android, Web and iOS attach native adapters to the same common chat product host", () => {
   for (const host of [androidHost, webHost, iosHost]) {
     assert.match(host, /ChatProductHostContent\(/);
