@@ -23,7 +23,8 @@ acreditan envío, respuesta, edición, selección/copiar, favorito, reportar, bo
 una conversación reversible con limpieza física de residuo cero; la barra de acciones seleccionadas
 usa superficie común coherente con el encabezado. #245 reduce `CHAT-ATTACHMENTS` y `CHAT-AUDIO` con
 fixtures compartidos y limpieza física cero; candidato `13cf94f1` suma imagen adjunta de Chat,
-apertura/cierre del visor fullscreen común y revalida documento/audio en Android, Web/Wasm e iOS.
+apertura/cierre del visor fullscreen común y revalida documento/audio en Android, Web/Wasm e iOS;
+candidato `68999f22` suma vídeo adjunto real con la misma fixture compartida y visor común.
 PR #247 reduce `CHAT-GROUP` y
 `CHAT-LOCATION-SOS` sobre Product/Evidence SHA `566a97e9`: añade anclas comunes de grupo/SOS,
 `contentDescription`/roles accesibles, contratos focales, compilación Chat Android/Wasm/iOS,
@@ -33,17 +34,17 @@ subflujos a GO completo: faltan administración UI profunda de grupo y retorno/e
 mapa SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
-**Candidato actual:** `13cf94f1cd6409f3b90d4fb6ef3539298443f15e` reduce
-`CHAT-ATTACHMENTS`, `CHAT-AUDIO` y `OVR-MEDIA`: Chat siembra imagen, documento y audio reales en
-Storage con fixture compartida, abre la imagen adjunta en `QuataFullscreenMediaOverlayContent`
-común, cierra de vuelta al Chat y revalida documento/audio en Android, Web/Wasm e iOS. Evidencias
-finales del mismo Product/Evidence SHA: Web/Wasm
-`build-reports/web/chat-attachment-media-evidence-product.json`, Android
-`build-reports/android/chat-attachment-media-evidence-product.json` e iOS
-`build-reports/ios/chat-attachment-media-evidence-product.json`; las tres usan datos temporales
-reversibles y terminan con limpieza fisica de hilo, adjuntos y Storage con residuo cero.
+**Candidato actual:** `68999f22fd510206cc1a68590441a8081d81228a` reduce
+`CHAT-ATTACHMENTS`, `CHAT-AUDIO` y `OVR-MEDIA`: Chat siembra vídeo MP4 real, imagen, documento y
+audio reales en Storage con fixture compartida, abre vídeo e imagen adjuntos en
+`QuataFullscreenMediaOverlayContent` común, cierra de vuelta al Chat y revalida documento/audio en
+Android, Web/Wasm e iOS. Evidencias finales del mismo Product/Evidence SHA: Web/Wasm
+`build-reports/web/chat-attachment-video-evidence-product-68999f22.json`, Android
+`build-reports/android/chat-attachment-video-evidence-product-68999f22.json` e iOS
+`build-reports/ios/chat-attachment-video-evidence-product-68999f22.json`; las tres usan datos
+temporales reversibles y terminan con limpieza fisica de hilo, adjuntos y Storage con residuo cero.
 Attestation: `docs/candidate-attestations/chat-attachment-media.json`. Quedan fuera picker real,
-descarga/compartir, video de adjunto, grabacion/permisos, seek/autoavance completo y errores/
+descarga/compartir, camara/galeria nativas, grabacion/permisos, seek/autoavance completo y errores/
 rollback forzados.
 
 **Candidato anterior:** `63f8a3e3c00afc15b31fa8b8d8a0df0f1ccd5655`, integrado en `main` como #255,
