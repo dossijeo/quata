@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-ATTACHMENTS"
+  ],
+  "productSha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
+  "evidence": {
+    "webDocument": {
+      "status": "passed",
+      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
+      "report": "build-reports/web/chat-attachment-picker-evidence-1493b5f7-document.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "webGallery": {
+      "status": "passed",
+      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
+      "report": "build-reports/web/chat-attachment-picker-evidence-1493b5f7-gallery.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "webCamera": {
+      "status": "passed",
+      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
+      "report": "build-reports/web/chat-attachment-picker-evidence-1493b5f7-camera.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "androidDocument": {
+      "status": "passed",
+      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
+      "report": "build-reports/android/chat-attachment-picker-evidence-1493b5f7-document.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "androidGallery": {
+      "status": "passed",
+      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
+      "report": "build-reports/android/chat-attachment-picker-evidence-1493b5f7-gallery.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "androidCamera": {
+      "status": "passed",
+      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
+      "report": "build-reports/android/chat-attachment-picker-evidence-1493b5f7-camera.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "iosDocument": {
+      "status": "passed",
+      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
+      "report": "build-reports/ios/chat-attachment-picker-evidence-1493b5f7-document.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "iosGallery": {
+      "status": "passed",
+      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
+      "report": "build-reports/ios/chat-attachment-picker-evidence-1493b5f7-gallery.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "iosCamera": {
+      "status": "passed",
+      "sha": "1493b5f7b6e4b481775239c922d206eeaee1b221",
+      "report": "build-reports/ios/chat-attachment-picker-evidence-1493b5f7-camera.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This candidate revalidates the native attachment picker/camera/gallery boundary from the shared Chat composer on top of the #259 attestation head. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "The evidence covers document, gallery and camera source invocation through the common quick panel/composer, pending attachment overlay, send, backend registered attachment and hard cleanup with physical residue zero on Web/Wasm, Android and iOS.",
+    "This does not claim full CHAT-ATTACHMENTS GO for picker cancellation, denied permissions, forced platform errors or rollback paths."
+  ]
+}

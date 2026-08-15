@@ -30,6 +30,7 @@ const [
   iosAudioHost,
   iosEvidenceAudioHost,
   attestationJson,
+  pickerAttestationJson,
 ] = await Promise.all([
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
@@ -56,9 +57,11 @@ const [
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosAvFoundationAudioHost.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosEvidenceAudioRecorderHost.kt"),
   source("docs/candidate-attestations/chat-attachments-audio.json"),
+  source("docs/candidate-attestations/chat-attachment-picker.json"),
 ]);
 
 const attestation = JSON.parse(attestationJson);
+const pickerAttestation = JSON.parse(pickerAttestationJson);
 
 test("CHAT-ATTACHMENTS/AUDIO has a dedicated fast contract in CI", () => {
   const scripts = JSON.parse(packageJson).scripts;
@@ -219,6 +222,8 @@ test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evid
   assert.match(attachments, /build-reports\/ios\/chat-attachments-audio-evidence/);
   assert.match(attachments, /scripts\/e2e-fixtures\/chat-attachments\.mjs/);
   assert.match(attachments, /selecci/);
+  assert.match(attachments, /chat-attachment-picker-evidence-1493b5f7-\{document,gallery,camera\}\.json/);
+  assert.match(attachments, /docs\/candidate-attestations\/chat-attachment-picker\.json/);
   assert.match(attachments, /limpieza/);
   assert.match(audio, /Web\/Wasm/);
   assert.match(audio, new RegExp(productShaPrefix));
@@ -231,6 +236,18 @@ test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evid
   assert.equal(attestation.evidence.web.sha, attestation.productSha);
   assert.equal(attestation.evidence.android.sha, attestation.productSha);
   assert.equal(attestation.evidence.ios.sha, attestation.productSha);
+  assert.equal(pickerAttestation.productSha, "1493b5f7b6e4b481775239c922d206eeaee1b221");
+  for (const platform of ["web", "android", "ios"]) {
+    for (const sourceName of ["Document", "Gallery", "Camera"]) {
+      const source = sourceName.toLowerCase();
+      const evidence = pickerAttestation.evidence[`${platform}${sourceName}`];
+      assert.equal(evidence.status, "passed");
+      assert.equal(evidence.sha, pickerAttestation.productSha);
+      assert.equal(evidence.cleanup.verified, true);
+      assert.equal(evidence.cleanup.physicalResidue, 0);
+      assert.match(evidence.report, new RegExp(`build-reports/${platform}/chat-attachment-picker-evidence-1493b5f7-${source}\\.json`));
+    }
+  }
   assert.doesNotMatch(attachments, /\*\*GO/);
   assert.doesNotMatch(audio, /\*\*GO/);
 });
