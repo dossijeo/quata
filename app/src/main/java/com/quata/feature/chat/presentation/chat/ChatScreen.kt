@@ -1029,6 +1029,7 @@ fun ChatScreen(
         val selectedForwardNames = state.forwardConversationCandidates
             .filter { it.profileId in selectedForwardIds }
             .joinToString(", ") { it.displayName }
+        val forwardSentMessage = stringResource(R.string.conversation_forward_sent)
         ConversationCandidatePickerDialog(
             state = ConversationsUiState(
                 currentUser = state.currentUser,
@@ -1052,7 +1053,7 @@ fun ChatScreen(
             onConfirmSelection = {
                 if (state.selectedForwardProfileIds.isNotEmpty()) {
                     viewModel.onEvent(ChatUiEvent.SendForward)
-                    Toast.makeText(context, context.getString(R.string.conversation_forward_sent), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, forwardSentMessage, Toast.LENGTH_SHORT).show()
                 }
             },
             confirmEnabled = state.selectedForwardProfileIds.isNotEmpty() && !state.isConversationActionInProgress,
