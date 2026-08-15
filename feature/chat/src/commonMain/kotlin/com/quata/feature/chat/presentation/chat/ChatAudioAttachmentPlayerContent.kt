@@ -116,7 +116,10 @@ fun ChatAudioAttachmentPlayerContent(
                     }
                 }
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(14.dp).semantics { testTag = ChatAudioAttachmentProgressTestTag }.onSizeChanged { scrubberSize = it }
+                    modifier = Modifier.fillMaxWidth().height(14.dp).semantics {
+                        testTag = ChatAudioAttachmentProgressTestTag
+                        contentDescription = "$ChatAudioAttachmentProgressTestTag $displayText"
+                    }.onSizeChanged { scrubberSize = it }
                         .pointerInput(scrubberSize) { detectTapGestures { offset -> seekToX(offset.x) } }
                         .pointerInput(scrubberSize) {
                             detectHorizontalDragGestures(
