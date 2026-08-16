@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.quata.core.platform.DocumentSupport
 import com.quata.core.platform.PlatformFile
 
@@ -109,6 +110,7 @@ fun ChatMediaAttachmentContent(
         Box(
             Modifier
                 .fillMaxSize()
+                .zIndex(1f)
                 .background(Color.Black.copy(alpha = 0.001f))
                 .clickable(onClick = onOpen)
                 .semantics {
