@@ -88,17 +88,7 @@ fun ChatMediaAttachmentContent(
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onOpen)
-            .semantics {
-                testTag = semanticAnchor
-                contentDescription = semanticAnchor
-                role = Role.Button
-                onClick(label = semanticAnchor) {
-                    onOpen()
-                    true
-                }
-            },
+            .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
         media(file, kind, Modifier.fillMaxSize())
@@ -116,6 +106,20 @@ fun ChatMediaAttachmentContent(
                 )
             }
         }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clickable(onClick = onOpen)
+                .semantics {
+                    testTag = semanticAnchor
+                    contentDescription = semanticAnchor
+                    role = Role.Button
+                    onClick(label = semanticAnchor) {
+                        onOpen()
+                        true
+                    }
+                },
+        )
     }
 }
 
