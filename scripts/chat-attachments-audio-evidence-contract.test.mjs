@@ -120,8 +120,10 @@ test("attachment picker, pending surface and attachment cards expose stable comm
 });
 
 test("media attachments own the primary tap instead of the whole message bubble", () => {
-  assert.match(commonConversationDetail, /val mediaAttachmentOwnsTap = message\.attachmentMimeType/);
-  assert.match(commonConversationDetail, /it\.startsWith\("image\/"\) \|\| it\.startsWith\("video\/"\)/);
+  assert.match(commonConversationDetail, /val mediaAttachmentOwnsTap = message\.mediaAttachmentKind\(\)\?\.let/);
+  assert.match(commonConversationDetail, /it == ChatAttachmentKind\.Image \|\| it == ChatAttachmentKind\.Video/);
+  assert.match(commonConversationDetail, /private fun Message\.mediaAttachmentKind\(\): ChatAttachmentKind\?/);
+  assert.match(commonConversationDetail, /chatAttachmentKind\(PlatformFile\(reference, attachmentName, attachmentMimeType\)\)/);
   assert.match(
     commonConversationDetail,
     /if \(mediaAttachmentOwnsTap\) bubbleSemantics else bubbleSemantics\.clickable\(onClick = onClick\)/,
