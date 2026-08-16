@@ -70,6 +70,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let audioProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE"]),
               let imageProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE"]),
               let videoProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE"]),
+              let imageMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID"]),
+              let videoMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID"]),
               let audioRecordingMarker = nonEmpty(environment["QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER"]) else {
             throw XCTSkip("Disposable Chat attachments/audio fixture is not configured.")
         }
@@ -100,13 +102,25 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "attachments/audio conversation after recording send")
         assertChatRoute(conversationId, in: app, context: "attachments/audio conversation after recording send")
 
-        guard openChatMediaAttachment(identifier: "chat.attachment.media.video", context: "Chat video attachment", in: app) else {
+        guard openChatMediaAttachment(
+            identifier: "chat.attachment.media.video",
+            messageId: videoMessageId,
+            markerProbe: videoProbe,
+            context: "Chat video attachment",
+            in: app
+        ) else {
             return
         }
         attachScreenshot(app, name: "ios-chat-attachment-video-viewer")
         closeFullscreenMedia(context: "Chat video attachment", in: app)
 
-        guard openChatMediaAttachment(identifier: "chat.attachment.media.image", context: "Chat image attachment", in: app) else {
+        guard openChatMediaAttachment(
+            identifier: "chat.attachment.media.image",
+            messageId: imageMessageId,
+            markerProbe: imageProbe,
+            context: "Chat image attachment",
+            in: app
+        ) else {
             return
         }
         attachScreenshot(app, name: "ios-chat-attachment-media-viewer")
@@ -999,12 +1013,30 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         return true
     }
 
-    private func openChatMediaAttachment(identifier: String, context: String, in app: XCUIApplication) -> Bool {
-        let media = app.descendants(matching: .any)
-            .matching(identifier: identifier)
-            .firstMatch
+    private func openChatMediaAttachment(
+        identifier: String,
+        messageId: String,
+        markerProbe: String,
+        context: String,
+        in app: XCUIApplication
+    ) -> Bool {
+        func mediaElement() -> XCUIElement {
+            let message = messageWithId(messageId, containing: markerProbe, in: app)
+            if message.exists {
+                let scoped = message.descendants(matching: .any)
+                    .matching(identifier: identifier)
+                    .firstMatch
+                if scoped.exists {
+                    return scoped
+                }
+            }
+            return app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+        }
 
         for _ in 0..<8 {
+            let media = mediaElement()
             if media.waitForExistence(timeout: 1), media.isHittable {
                 media.tap()
                 return assertFullscreenMediaOpened(context: context, in: app)
@@ -1014,6 +1046,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
 
         for _ in 0..<6 {
+            let media = mediaElement()
             if media.waitForExistence(timeout: 1), media.isHittable {
                 media.tap()
                 return assertFullscreenMediaOpened(context: context, in: app)
@@ -1022,8 +1055,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
+        let media = mediaElement()
         guard media.waitForExistence(timeout: 3) else {
-            XCTFail("The shared media attachment anchor \(identifier) must be visible for \(context).")
+            XCTFail("The shared media attachment anchor \(identifier) must be visible in message \(messageId) for \(context).")
             return false
         }
 
