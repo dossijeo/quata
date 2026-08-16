@@ -376,6 +376,8 @@ export QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=${attachmentsAudioOnly ? "1" : "0
 export QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E=${attachmentPickerOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN=${attachmentPickerOnly ? shellQuote("I_ACCEPT_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE") : "0"}
 export QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE=${shellQuote(state.attachmentPicker?.source ?? "document")}
+export QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME=${shellQuote(options.attachmentPickerOutcome)}
+export QUATA_IOS_CHAT_ATTACHMENT_PICKER_REASON=${shellQuote(`${options.attachmentPickerSource}_permission_denied`)}
 export QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH=${shellQuote(remoteAttachmentPickerFixture ?? "/tmp/quata-chat-picker-not-configured")}
 export QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME=${shellQuote(state.attachmentPicker?.name ?? "qadata-chat-picker.txt")}
 export QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME=${shellQuote(state.attachmentPicker?.mimeType ?? "text/plain")}
@@ -403,7 +405,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       : attachmentsAudioOnly
       ? "ios_xctest_document_and_audio_attachment_chrome_verified"
       : attachmentPickerOnly
-      ? `ios_xctest_attachment_picker_${options.attachmentPickerSource}_used_shared_composer_and_sent`
+      ? `ios_xctest_attachment_picker_${options.attachmentPickerSource}_${options.attachmentPickerOutcome}_used_shared_composer`
       : groupSosOnly
       ? "ios_xctest_group_menu_and_sos_shared_anchors_verified"
       : profileListsOnly
@@ -419,29 +421,40 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
 
     if (attachmentPickerOnly) {
-      const message = await pollMessage(config, state.a, state.thread, (row) => messageText(row) === state.attachmentPicker.marker, "attachment picker message");
-      state.attachmentPicker.messageId = messageId({ message });
-      const attachments = messageAttachments(message);
-      if (!attachments.length) throw new Error("attachment_picker_message_missing_attachment");
-      for (const attachment of attachments) {
-        if (attachment.storagePath) {
-          state.cleanupRegistry.trackStorageObject({
-            storagePath: attachment.storagePath,
-            name: `ios_chat_picker_${options.attachmentPickerSource}`,
-          });
+      if (options.attachmentPickerOutcome !== "success") {
+        report.evidence.attachmentPicker = {
+          source: options.attachmentPickerSource,
+          outcome: options.attachmentPickerOutcome,
+          pendingCreated: false,
+          messageCreated: false,
+        };
+        report.steps.push(`ios_chat_attachment_picker_${options.attachmentPickerSource}_${options.attachmentPickerOutcome}_handled_without_attachment`);
+      } else {
+        const message = await pollMessage(config, state.a, state.thread, (row) => messageText(row) === state.attachmentPicker.marker, "attachment picker message");
+        state.attachmentPicker.messageId = messageId({ message });
+        const attachments = messageAttachments(message);
+        if (!attachments.length) throw new Error("attachment_picker_message_missing_attachment");
+        for (const attachment of attachments) {
+          if (attachment.storagePath) {
+            state.cleanupRegistry.trackStorageObject({
+              storagePath: attachment.storagePath,
+              name: `ios_chat_picker_${options.attachmentPickerSource}`,
+            });
+          }
         }
+        report.evidence.attachmentPicker = {
+          source: options.attachmentPickerSource,
+          outcome: options.attachmentPickerOutcome,
+          messageId: state.attachmentPicker.messageId,
+          attachmentCount: attachments.length,
+          names: attachments.map((attachment) => attachment.name).filter(Boolean),
+          storagePathSha256: attachments
+            .map((attachment) => attachment.storagePath)
+            .filter(Boolean)
+            .map(sha256),
+        };
+        report.steps.push("ios_chat_attachment_picker_message_and_registered_attachment_verified_by_rpc");
       }
-      report.evidence.attachmentPicker = {
-        source: options.attachmentPickerSource,
-        messageId: state.attachmentPicker.messageId,
-        attachmentCount: attachments.length,
-        names: attachments.map((attachment) => attachment.name).filter(Boolean),
-        storagePathSha256: attachments
-          .map((attachment) => attachment.storagePath)
-          .filter(Boolean)
-          .map(sha256),
-      };
-      report.steps.push("ios_chat_attachment_picker_message_and_registered_attachment_verified_by_rpc");
     }
 
     if (profileFollowOnly) {
@@ -725,6 +738,7 @@ function parseArgs(argv) {
     attachmentsAudioOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENTS_AUDIO_ONLY === "1",
     attachmentPickerOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENT_PICKER_ONLY === "1",
     attachmentPickerSource: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENT_PICKER_SOURCE?.trim() || "document",
+    attachmentPickerOutcome: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENT_PICKER_OUTCOME?.trim() || "success",
     groupSosOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_GROUP_SOS_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -812,6 +826,12 @@ function parseArgs(argv) {
       result.attachmentPickerSource = argv[index];
       continue;
     }
+    if (key === "--attachment-picker-outcome") {
+      index += 1;
+      if (index >= argv.length) throw new Error("missing_value:--attachment-picker-outcome");
+      result.attachmentPickerOutcome = argv[index];
+      continue;
+    }
     if (key === "--group-sos-only") {
       result.groupSosOnly = true;
       result.output = resolve("build-reports/ios/chat-group-sos-evidence.json");
@@ -837,6 +857,9 @@ function parseArgs(argv) {
   if (!result.simulatorUdid) throw new Error("missing_environment:QUATA_IOS_SIMULATOR_UDID");
   if (!["document", "gallery", "camera"].includes(result.attachmentPickerSource)) {
     throw new Error(`unsupported_attachment_picker_source:${result.attachmentPickerSource}`);
+  }
+  if (!["success", "cancelled", "failure", "unsupported"].includes(result.attachmentPickerOutcome)) {
+    throw new Error(`unsupported_attachment_picker_outcome:${result.attachmentPickerOutcome}`);
   }
   return result;
 }

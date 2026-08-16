@@ -84,6 +84,9 @@ test("attachment picker, pending surface and attachment cards expose stable comm
       ["ChatPendingAttachmentOverlayTestTag", "chat.attachment.pending"],
       ["ChatPendingAttachmentClearTestTag", "chat.attachment.pending.clear"],
     ]],
+    [commonComposer, [
+      ["ChatAttachmentErrorTestTag", "chat.attachment.error"],
+    ]],
     [commonDocumentAttachment, [
       ["ChatDocumentAttachmentTestTag", "chat.attachment.document"],
       ["ChatDocumentAttachmentOpenTestTag", "chat.attachment.document.open"],
@@ -313,11 +316,13 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /testAttachmentPickerFixtureUsesSharedComposerAnchors/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME/);
   assert.match(iosUiTest, /chat\.composer\.attach/);
   assert.match(iosUiTest, /chat\.attachment\.quickPanel/);
   assert.match(iosUiTest, /chat\.attachment\.pick\.file/);
   assert.match(iosUiTest, /chat\.attachment\.pick\.gallery/);
   assert.match(iosUiTest, /chat\.composer\.camera/);
+  assert.match(iosUiTest, /chat\.attachment\.error/);
   assert.match(iosUiTest, /chat\.attachment\.pending/);
   assert.match(iosUiTest, /chat\.composer\.send/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
@@ -336,6 +341,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_REASON/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME/);
@@ -343,12 +350,27 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E'\] = attachment_picker/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN'\] = picker_opt_in/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE'\] = picker_source/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME'\] = picker_outcome/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_REASON'\] = picker_reason/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH'\] = picker_path/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME'\] = picker_name/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME'\] = picker_mime/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER'\] = picker_marker/);
   assert.match(iosWrapper, /testAttachmentPickerFixtureUsesSharedComposerAnchors/);
   assert.match(iosWrapper, /attachment-picker\.log/);
+  assert.match(androidUiTest, /quataChatActionsAttachmentPickerOutcome/);
+  assert.match(androidUiTest, /ChatAttachmentErrorTestTag/);
+  assert.match(androidUiTest, /android-chat-attachment-picker-\$outcome-\$source/);
+  assert.match(androidRunner, /--attachment-picker-outcome/);
+  assert.match(androidRunner, /quataChatActionsAttachmentPickerOutcome/);
+  assert.match(androidRunner, /pendingCreated: false/);
+  assert.match(webRunner, /--attachment-picker-outcome/);
+  assert.match(webRunner, /__quataChatAttachmentPickerE2E/);
+  assert.match(webRunner, /attachment_picker_\$\{outcome\}_error_anchor_missing/);
+  assert.match(webRunner, /pendingCreated: false/);
+  assert.match(iosRunner, /--attachment-picker-outcome/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME/);
+  assert.match(iosRunner, /pendingCreated: false/);
   assert.match(iosRunner, /QUATA_IOS_REMOTE_JAVA_HOME/);
   assert.match(iosRunner, /--remote-java-home/);
   assert.match(iosRunner, /export JAVA_HOME=\$\{shellQuote\(options\.remoteJavaHome\)\}/);

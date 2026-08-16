@@ -143,6 +143,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let pickerSource = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE"]),
+              let pickerOutcome = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME"]),
               let attachmentName = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME"]),
               let composerMarker = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER"]) else {
             throw XCTSkip("Disposable Chat attachment picker fixture is not configured.")
@@ -174,6 +175,21 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             tapTaggedButton("chat.composer.camera", in: app, context: "invoke camera capture")
         } else {
             XCTFail("Unsupported picker source \(pickerSource)")
+            return
+        }
+
+        if pickerOutcome != "success" {
+            let pending = app.descendants(matching: .any)
+                .matching(identifier: "chat.attachment.pending")
+                .firstMatch
+            XCTAssertFalse(pending.waitForExistence(timeout: 2), "A \(pickerOutcome) picker result must not create a pending attachment.")
+            if pickerOutcome == "failure" || pickerOutcome == "unsupported" {
+                let error = app.descendants(matching: .any)
+                    .matching(identifier: "chat.attachment.error")
+                    .firstMatch
+                XCTAssertTrue(error.waitForExistence(timeout: 8), "A \(pickerOutcome) picker result must expose the shared attachment error anchor.")
+            }
+            attachScreenshot(app, name: "ios-chat-attachment-picker-\(pickerOutcome)-\(pickerSource)")
             return
         }
 
@@ -1234,6 +1250,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         for key in [
             "QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN",
             "QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE",
+            "QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME",
+            "QUATA_IOS_CHAT_ATTACHMENT_PICKER_REASON",
             "QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH",
             "QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME",
             "QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME",

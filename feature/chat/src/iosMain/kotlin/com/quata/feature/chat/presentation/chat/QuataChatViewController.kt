@@ -219,6 +219,7 @@ private class IosChatEvidenceFilePicker(
     )
 
     override suspend fun pick(request: FilePickerRequest): PlatformResult<List<PlatformFile>> {
+        iosChatEvidencePickerOutcome(request.source)?.let { return it }
         iosChatEvidencePickedFile(request.source)?.let { return PlatformResult.Success(listOf(it)) }
         return delegate.pick(request)
     }
@@ -230,17 +231,39 @@ private class IosChatEvidenceFilePicker(
 }
 
 private fun iosChatEvidenceCameraCapturePhoto(): PlatformResult<PlatformFile>? =
-    iosChatEvidencePickedFile(FilePickerSource.Camera)?.let { PlatformResult.Success(it) }
+    iosChatEvidencePickerOutcome(FilePickerSource.Camera)
+        ?.let {
+            when (it) {
+                is PlatformResult.Success -> it.value.firstOrNull()?.let { file -> PlatformResult.Success(file) }
+                    ?: PlatformResult.Failure("camera_capture_empty")
+                is PlatformResult.Failure -> it
+                PlatformResult.Cancelled -> PlatformResult.Cancelled
+                PlatformResult.Unsupported -> PlatformResult.Unsupported
+            }
+        }
+        ?: iosChatEvidencePickedFile(FilePickerSource.Camera)?.let { PlatformResult.Success(it) }
+
+private fun iosChatEvidencePickerOutcome(source: FilePickerSource): PlatformResult<List<PlatformFile>>? {
+    val environment = NSProcessInfo.processInfo.environment
+    if (!iosChatEvidenceFixtureOptedIn(environment)) return null
+    if (environment.iosChatFixtureValue("QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE")?.lowercase() != source.iosChatEvidenceSourceName()) {
+        return null
+    }
+    return when (environment.iosChatFixtureValue("QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME")?.lowercase()) {
+        "cancelled" -> PlatformResult.Cancelled
+        "failure" -> PlatformResult.Failure(
+            environment.iosChatFixtureValue("QUATA_IOS_CHAT_ATTACHMENT_PICKER_REASON")
+                ?: "attachment_picker_e2e_failure",
+        )
+        "unsupported" -> PlatformResult.Unsupported
+        else -> null
+    }
+}
 
 private fun iosChatEvidencePickedFile(source: FilePickerSource): PlatformFile? {
     val environment = NSProcessInfo.processInfo.environment
     if (!iosChatEvidenceFixtureOptedIn(environment)) return null
-    val expectedSource = when (source) {
-        FilePickerSource.Documents -> "document"
-        FilePickerSource.Gallery -> "gallery"
-        FilePickerSource.Camera -> "camera"
-    }
-    if (environment.iosChatFixtureValue("QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE")?.lowercase() != expectedSource) {
+    if (environment.iosChatFixtureValue("QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE")?.lowercase() != source.iosChatEvidenceSourceName()) {
         return null
     }
     val path = environment.iosChatFixtureValue("QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH")
@@ -256,6 +279,12 @@ private fun iosChatEvidencePickedFile(source: FilePickerSource): PlatformFile? {
             FilePickerSource.Camera -> "image/png"
         }
     return PlatformFile(reference = reference, displayName = name, mimeType = mimeType)
+}
+
+private fun FilePickerSource.iosChatEvidenceSourceName(): String = when (this) {
+    FilePickerSource.Documents -> "document"
+    FilePickerSource.Gallery -> "gallery"
+    FilePickerSource.Camera -> "camera"
 }
 
 private fun iosChatEvidenceFixtureOptedIn(
