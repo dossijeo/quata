@@ -1135,12 +1135,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func closeFullscreenMedia(context: String, in app: XCUIApplication) {
-        let back = app.descendants(matching: .any)
+        let back = app.buttons
             .matching(identifier: "fullscreen-media.back")
             .firstMatch
         XCTAssertTrue(back.waitForExistence(timeout: 5), "The shared fullscreen media overlay back action must be visible for \(context).")
         if back.exists {
-            back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            back.tap()
         }
         XCTAssertFalse(
             app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
