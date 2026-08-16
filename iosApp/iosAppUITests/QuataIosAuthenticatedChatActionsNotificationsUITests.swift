@@ -5,6 +5,72 @@ import UIKit
 /// The companion runner seeds the Keychain session and disposable backend conversation first.
 @available(iOS 16.4, *)
 final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
+    func testGroupAdminPromotesParticipantThroughSharedMemberMenu() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat group admin UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let seedMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]),
+              let profileId = nonEmpty(environment["QUATA_IOS_CHAT_GROUP_ADMIN_PROFILE_ID"]),
+              let displayName = nonEmpty(environment["QUATA_IOS_CHAT_GROUP_ADMIN_DISPLAY_NAME"]),
+              let searchQuery = nonEmpty(environment["QUATA_IOS_CHAT_GROUP_ADMIN_SEARCH_QUERY"]) else {
+            throw XCTSkip("Disposable Chat group admin fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "group admin conversation")
+        assertChatRoute(conversationId, in: app, context: "group admin conversation")
+        XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+
+        openOptionsMenu(in: app, expectedIdentifier: "chat.group.menu.addParticipants", expectedText: "Añadir participantes", context: "group admin menu")
+        tapTaggedButton("chat.group.menu.addParticipants", in: app, context: "group admin add participants")
+        typeDirectText(searchQuery, into: "chat.group.participants.search", in: app, context: "group admin participant search")
+        dismissKeyboardWithoutLeavingPanel(in: app)
+        attachScreenshot(app, name: "ios-chat-group-admin-participant-picker-filtered")
+
+        let candidateIdentifier = "chat.group.participants.candidate.\(profileId)"
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: candidateIdentifier).firstMatch.waitForExistence(timeout: 10),
+            "The shared participant picker must expose the candidate row before adding.",
+        )
+        tapVisibleIdentifier("chat.group.participants.candidate.toggle.\(profileId)", in: app, context: "group admin participant checkbox")
+        tapTaggedButton("chat.group.participants.confirm", in: app, context: "group admin participant confirm")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "chat.group.participants.root").firstMatch.waitForNonExistence(timeout: 20),
+            "The shared participant picker must close after adding the selected profile.",
+        )
+        attachScreenshot(app, name: "ios-chat-group-admin-participant-added")
+
+        tapTaggedButton("chat.conversation.titlebar", in: app, context: "group admin member list")
+        let memberRow = waitForVisibleIdentifier("chat.group.member.\(profileId)", in: app, context: "group admin member row")
+        XCTAssertTrue(memberRow.label.contains(displayName) || menuText(displayName, in: app).exists, "The added member name must be visible in the shared member list.")
+        attachScreenshot(app, name: "ios-chat-group-admin-member-list")
+
+        tapVisibleIdentifier("chat.group.member.manage.\(profileId)", in: app, context: "group admin member manage")
+        let roleAction = waitForVisibleIdentifier("chat.group.member.role.\(profileId)", in: app, context: "group admin member role menu")
+        XCTAssertTrue(roleAction.exists, "The shared promote/demote action must be exposed for the new participant.")
+        attachScreenshot(app, name: "ios-chat-group-admin-member-menu")
+        roleAction.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "quata.confirmation.dialog").firstMatch.waitForExistence(timeout: 10),
+            "The shared confirmation dialog must appear before promoting a participant.",
+        )
+        attachScreenshot(app, name: "ios-chat-group-admin-promote-confirmation")
+        tapTaggedButton("quata.confirmation.confirm", in: app, context: "group admin promote confirmation")
+        attachScreenshot(app, name: "ios-chat-group-admin-member-promoted")
+    }
+
     func testGroupMenuAndSosMessagesExposeSharedAnchors() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_GROUP_SOS_UI_E2E"] == "1" else {
@@ -1478,6 +1544,43 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
+    private func waitForVisibleIdentifier(_ identifier: String, in app: XCUIApplication, context: String) -> XCUIElement {
+        let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        if element.waitForExistence(timeout: 5), element.isHittable {
+            return element
+        }
+        for _ in 0..<6 {
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            if element.waitForExistence(timeout: 1), element.isHittable {
+                return element
+            }
+        }
+        for _ in 0..<4 {
+            app.swipeDown()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            if element.waitForExistence(timeout: 1), element.isHittable {
+                return element
+            }
+        }
+        XCTAssertTrue(element.exists, "Expected \(identifier) for \(context).")
+        return element
+    }
+
+    private func tapVisibleIdentifier(_ identifier: String, in app: XCUIApplication, context: String, normalizedOffset: CGVector = CGVector(dx: 0.5, dy: 0.5)) {
+        let element = waitForVisibleIdentifier(identifier, in: app, context: context)
+        element.coordinate(withNormalizedOffset: normalizedOffset).tap()
+    }
+
+    private func typeDirectText(_ value: String, into identifier: String, in app: XCUIApplication, context: String) {
+        let field = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Expected editable field \(identifier) for \(context).")
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        field.typeText(value)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+    }
+
     private func audioToggleElement(audioName: String, action: String, fallbackAction: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)
             .matching(NSPredicate(
@@ -1766,6 +1869,20 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         if app.keyboards.count > 0 {
             app.swipeDown()
+        }
+    }
+
+    private func dismissKeyboardWithoutLeavingPanel(in app: XCUIApplication) {
+        guard app.keyboards.count > 0 else {
+            return
+        }
+        for label in ["return", "Return", "Intro", "Retorno", "Done", "Hecho"] {
+            let key = app.keyboards.buttons[label].firstMatch
+            if key.exists, key.isHittable {
+                key.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+                return
+            }
         }
     }
 

@@ -40,6 +40,8 @@ import com.quata.QuataApp
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.navigation.quataOfficialPostUrl
 import com.quata.core.navigation.quataPostUrl
+import com.quata.core.ui.components.QuataConfirmationDialogConfirmTestTag
+import com.quata.core.ui.components.QuataConfirmationDialogTestTag
 import com.quata.feature.chat.presentation.conversations.ConversationListTestTag
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -92,6 +94,9 @@ class ChatActionsNotificationsInstrumentedTest {
         val attachmentPickerOutcome = optionalArgument("quataChatActionsAttachmentPickerOutcome") ?: "success"
         val attachmentPickerName = optionalArgument("quataChatActionsAttachmentPickerName")
         val attachmentPickerMarker = optionalArgument("quataChatActionsAttachmentPickerMarker")
+        val groupAdminProfileId = optionalArgument("quataChatGroupAdminProfileId")
+        val groupAdminDisplayName = optionalArgument("quataChatGroupAdminDisplayName")
+        val groupAdminSearchQuery = optionalArgument("quataChatGroupAdminSearchQuery")
         val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
         val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
@@ -106,6 +111,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
+            "group-admin" -> listOf(chatUrl, ownProbe, groupAdminProfileId, groupAdminDisplayName, groupAdminSearchQuery).all { !it.isNullOrBlank() }
             else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
         }
         assumeTrue(
@@ -153,6 +159,12 @@ class ChatActionsNotificationsInstrumentedTest {
                 "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty(), audioName.orEmpty(), nextAudioName.orEmpty(), imageProbe.orEmpty(), videoProbe.orEmpty(), audioRecordingMarker.orEmpty())
                 "attachment-picker" -> runAttachmentPickerStage(attachmentPickerSource.orEmpty(), attachmentPickerOutcome, attachmentPickerName.orEmpty(), attachmentPickerMarker.orEmpty())
                 "group-sos" -> runGroupSosStage(ownProbe.orEmpty())
+                "group-admin" -> runGroupAdminStage(
+                    ownProbe = ownProbe.orEmpty(),
+                    profileId = groupAdminProfileId.orEmpty(),
+                    displayName = groupAdminDisplayName.orEmpty(),
+                    searchQuery = groupAdminSearchQuery.orEmpty(),
+                )
                 "profile-content" -> {
                     openProfileFromPeerMessage(peerProbe.orEmpty(), profileId.orEmpty())
                     assertProfileContentStage(profileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty())
@@ -667,6 +679,64 @@ class ChatActionsNotificationsInstrumentedTest {
         waitForTag(ChatSosLocationUnavailableTestTag, "SOS unavailable message")
         waitForText("Ubicacion no disponible", "Location unavailable", timeoutMillis = 2_000)
         saveScreenshot("android-chat-sos-location-shared-anchors")
+    }
+
+    private fun runGroupAdminStage(
+        ownProbe: String,
+        profileId: String,
+        displayName: String,
+        searchQuery: String,
+    ) {
+        waitForMarker(ownProbe, "group admin initial chat thread")
+        openOptionsMenu()
+        clickStableTag(ChatGroupMenuAddParticipantsTestTag)
+        waitForTag(ChatGroupParticipantPickerSearchTestTag, "group participant picker search")
+        compose.onNodeWithTag(ChatGroupParticipantPickerSearchTestTag, useUnmergedTree = true)
+            .performTextReplacement(searchQuery)
+        compose.waitForIdle()
+        device.pressBack()
+        compose.waitForIdle()
+        val candidateTag = ChatGroupParticipantPickerCandidateTestTagPrefix + profileId
+        compose.waitUntil(20_000) { nodeWithTagVisible(candidateTag) }
+        saveScreenshot("android-chat-group-admin-participant-picker")
+        compose.onNodeWithTag(candidateTag, useUnmergedTree = true)
+            .performTouchInput { click(Offset(24f, center.y)) }
+        compose.waitForIdle()
+        saveScreenshot("android-chat-group-admin-participant-selected")
+        compose.onNodeWithTag(ChatGroupParticipantPickerConfirmTestTag, useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(30_000) {
+            runCatching {
+                compose.onNodeWithTag(ChatGroupParticipantPickerRootTestTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isFailure
+        }
+
+        val memberRowTag = ChatGroupMemberRowTestTagPrefix + profileId
+        SystemClock.sleep(1_500)
+        for (attempt in 0 until 4) {
+            compose.onNodeWithTag(ChatConversationTitleBarTestTag, useUnmergedTree = true)
+                .performClick()
+            compose.waitForIdle()
+            if (nodeWithTagVisible(memberRowTag) || waitForText(displayName, displayName, timeoutMillis = 750) != null) {
+                break
+            }
+            if (attempt < 3) SystemClock.sleep(750)
+        }
+        saveScreenshot("android-chat-group-admin-member-list")
+        waitForTag(memberRowTag, "group admin member row")
+        waitForText(displayName, displayName, timeoutMillis = 10_000)
+            ?: error("group_admin_member_name_not_visible")
+        compose.onNodeWithTag(ChatGroupMemberManageTestTagPrefix + profileId, useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        waitForTag(ChatGroupMemberPromoteDemoteTestTagPrefix + profileId, "group admin member menu")
+        saveScreenshot("android-chat-group-admin-member-menu")
+        clickStableTag(ChatGroupMemberPromoteDemoteTestTagPrefix + profileId)
+        waitForTag(QuataConfirmationDialogTestTag, "group admin promote confirmation", timeoutMillis = 10_000)
+        saveScreenshot("android-chat-group-admin-promote-confirmation")
+        clickStableTag(QuataConfirmationDialogConfirmTestTag)
+        SystemClock.sleep(1_500)
+        saveScreenshot("android-chat-group-admin-member-promoted")
     }
 
     private fun openOptionsMenu() {
@@ -1438,7 +1508,7 @@ class ChatActionsNotificationsInstrumentedTest {
     private fun clickStableTag(tag: String) {
         val clickedByCompose = runCatching {
             compose.onNodeWithTag(tag, useUnmergedTree = true)
-                .performTouchInput { click(center) }
+                .performClick()
             true
         }.getOrDefault(false)
         if (clickedByCompose) return
