@@ -1452,11 +1452,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
         if app.keyboards.count > 0 {
-            app.keyboards.firstMatch.swipeDown()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.18)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
         if app.keyboards.count > 0 {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.18)).tap()
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
         }
         RunLoop.current.run(until: Date().addingTimeInterval(0.4))
     }
