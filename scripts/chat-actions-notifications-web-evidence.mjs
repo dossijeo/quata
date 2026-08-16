@@ -340,8 +340,35 @@ async function storageRequest(config, session, path, options, prefix) {
   return text;
 }
 
-async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
-  await verifyWebAudioRecordingComposer(page, evidenceDir, report);
+async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, context = {}) {
+  await verifyWebAudioRecordingComposer(page, evidenceDir, report, fixtures.recordingMarker);
+  if (fixtures.recordingMarker) {
+    await waitMessageVisible(page, fixtures.recordingMarker, "audio_recording_sent_message_not_visible");
+    const recordingMessage = await pollMessage(
+      context.config,
+      context.session,
+      context.thread,
+      (message) => messageText(message) === fixtures.recordingMarker && messageAttachments(message).some((attachment) => /^audio\//i.test(attachment.mimeType ?? "")),
+      60_000,
+    );
+    const recordingAttachment = messageAttachments(recordingMessage).find((attachment) => /^audio\//i.test(attachment.mimeType ?? ""));
+    if (!recordingAttachment) throw new Error("audio_recording_sent_attachment_missing");
+    const recordingMessageId = messageNumericId(recordingMessage);
+    context.state?.uiMessages?.push(recordingMessageId);
+    context.state?.cleanupRegistry?.trackStorageObject({
+      bucket: recordingAttachment.bucket || "chat-attachments",
+      storagePath: recordingAttachment.storagePath,
+      name: recordingAttachment.name || "recorded-audio",
+    });
+    report.evidence.audioRecordingSent = {
+      markerSha256: sha256(fixtures.recordingMarker),
+      messageId: recordingMessageId,
+      attachmentId: recordingAttachment.id,
+      mimeType: recordingAttachment.mimeType,
+      storagePathSha256: recordingAttachment.storagePath ? sha256(recordingAttachment.storagePath) : null,
+    };
+    report.steps.push("web_audio_recording_sent_by_shared_composer_and_verified_by_rpc");
+  }
   await waitMessageVisible(page, fixtures.image.marker, "image_attachment_message_not_visible");
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "video", true);
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "image", true);
@@ -358,6 +385,7 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report) {
   const playback = await waitAudioPlaybackObserved(page);
   if (playback.state !== "playing") throw new Error(`audio_playback_not_playing:${playback.state}`);
   report.evidence.audioPlaybackObserved = playback;
+  report.evidence.audioSeekObserved = await seekAudioProgressWeb(page, fixtures.audio.name, 0.65);
   report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
   if (fixtures.nextAudio) {
     await page.mouse.wheel(0, 520);
@@ -556,7 +584,7 @@ async function verifyAttachmentPickerWeb(page, source, outcome, config, state, r
   }
 }
 
-async function verifyWebAudioRecordingComposer(page, evidenceDir, report) {
+async function verifyWebAudioRecordingComposer(page, evidenceDir, report, recordingMarker) {
   report.diagnostics ??= {};
   const record = await visibleWebSemanticAnchor(page, {
     testTag: "chat.composer.recordAudio",
@@ -591,6 +619,11 @@ async function verifyWebAudioRecordingComposer(page, evidenceDir, report) {
   });
   if (!pending) throw new Error("audio_recording_pending_attachment_not_visible");
   report.evidence.audioRecordingPendingAttachment = await attachScreenshot(page, evidenceDir, "web-chat-audio-recording-pending-attachment");
+  if (recordingMarker) {
+    await fillComposerAndSend(page, recordingMarker);
+    report.steps.push("web_audio_recording_composer_start_stop_and_sent");
+    return;
+  }
   const clear = await visibleWebSemanticAnchor(page, {
     testTag: "chat.attachment.pending.clear",
     labels: [/^Quitar adjunto$/i, /^Remove attachment$/i, /^Retirer la pi[eè]ce jointe$/i],
@@ -2888,6 +2921,13 @@ async function clickLocatorCenter(page, locator, error) {
   await delay(250);
 }
 
+async function clickLocatorFraction(page, locator, fraction, error) {
+  const box = await locator.boundingBox().catch(() => null);
+  if (!box || box.width <= 0 || box.height <= 0) throw new Error(error);
+  await page.mouse.click(box.x + (box.width * fraction), box.y + (box.height / 2));
+  await delay(250);
+}
+
 async function clickLocatorPreferDom(page, locator, error) {
   const clicked = await locator.click({ force: true, timeout: 1_000 }).then(() => true).catch(() => false);
   if (!clicked) await clickLocatorCenter(page, locator, error);
@@ -2906,6 +2946,53 @@ async function waitAudioPlaybackObserved(page, timeout = 10_000) {
     await delay(250);
   }
   throw new Error("audio_playback_state_not_observed");
+}
+
+async function seekAudioProgressWeb(page, audioName, fraction) {
+  const progress = await visibleAriaLocator(page, [new RegExp(`chat\\.attachment\\.audio\\.progress.*${escapeRegExp(audioName)}`, "i")], 10_000);
+  if (!progress) throw new Error("audio_progress_anchor_not_visible");
+  await clickLocatorFraction(page, progress, fraction, "audio_progress_seek_not_clickable");
+  const targetPercent = Math.round(fraction * 100);
+  const deadline = Date.now() + 8_000;
+  let lastState = null;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(() => {
+      const store = globalThis.__quataAudioPlayers;
+      const players = store instanceof Map
+        ? [...store.entries()].map(([id, element]) => ({
+          id,
+          playing: !element.paused && !element.ended,
+          positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)),
+          durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0,
+        }))
+        : [];
+      const labels = [...document.querySelectorAll("[aria-label]")]
+        .map((element) => element.getAttribute("aria-label") || "")
+        .filter(Boolean);
+      return { players, labels };
+    });
+    lastState = state;
+    const player = state.players.find((candidate) => candidate.durationMillis > 0);
+    const observedPercent = player ? Math.round((player.positionMillis / player.durationMillis) * 100) : 0;
+    const semanticPercent = state.labels.some((label) =>
+      /chat\.attachment\.audio\.progress/i.test(label) &&
+      label.includes(audioName) &&
+      /6[0-9]%|7[0-9]%/.test(label));
+    if ((player && Math.abs(observedPercent - targetPercent) <= 20) || semanticPercent) {
+      return {
+        state: "seek_observed",
+        targetPercent,
+        observedPercent,
+        selector: `aria:chat.attachment.audio.progress:${audioName}`,
+      };
+    }
+    await delay(250);
+  }
+  throw new Error(`audio_seek_state_not_observed:${JSON.stringify({
+    targetPercent,
+    players: lastState?.players ?? [],
+    labels: lastState?.labels?.filter((label) => /audio/i.test(label)).map(sha256) ?? [],
+  })}`);
 }
 
 async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName, timeout = 15_000, initialSawFirstPlaying = false) {
@@ -3764,11 +3851,17 @@ try {
       document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
       audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
       nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next"),
+      recordingMarker: `chat-audio-recording-web-${randomUUID()}`,
     };
     report.steps.push("video_image_document_and_consecutive_audio_attachment_messages_seeded");
     faults.length = 0;
     await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
-    await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report);
+    await verifyAttachmentsAudioWeb(page, state.attachmentsAudio, options.evidenceDir, report, {
+      config,
+      session: state.a,
+      thread: state.thread,
+      state,
+    });
     if (faults.length) {
       report.diagnostics = { ...(report.diagnostics ?? {}), browserRuntimeFaults: faults.slice() };
       throw new Error("browser_runtime_fault");
@@ -3788,6 +3881,9 @@ try {
       documentAttachmentId: state.attachmentsAudio.document.id,
       audioAttachmentId: state.attachmentsAudio.audio.id,
       nextAudioAttachmentId: state.attachmentsAudio.nextAudio.id,
+      recordingMarkerSha256: sha256(state.attachmentsAudio.recordingMarker),
+      recordingMessageId: report.evidence.audioRecordingSent?.messageId ?? null,
+      recordingAttachmentId: report.evidence.audioRecordingSent?.attachmentId ?? null,
       uniqueKeySha256: sha256(state.uniqueKey),
       imageMarkerSha256: sha256(state.attachmentsAudio.image.marker),
       videoMarkerSha256: sha256(state.attachmentsAudio.video.marker),

@@ -24,7 +24,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
@@ -63,6 +66,13 @@ const val ChatMediaAttachmentTestTag = "chat.attachment.media"
 const val ChatImageAttachmentContentDescription = "chat.attachment.media.image"
 const val ChatVideoAttachmentContentDescription = "chat.attachment.media.video"
 
+private fun chatMediaAttachmentSemanticAnchor(kind: ChatAttachmentKind): String =
+    when (kind) {
+        ChatAttachmentKind.Video -> ChatVideoAttachmentContentDescription
+        ChatAttachmentKind.Image -> ChatImageAttachmentContentDescription
+        else -> ChatMediaAttachmentTestTag
+    }
+
 @Composable
 fun ChatMediaAttachmentContent(
     file: PlatformFile,
@@ -72,12 +82,23 @@ fun ChatMediaAttachmentContent(
     playVideoLabel: String,
     modifier: Modifier = Modifier,
 ) {
+    val semanticAnchor = chatMediaAttachmentSemanticAnchor(kind)
     Box(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onOpen)
+            .semantics {
+                testTag = semanticAnchor
+                contentDescription = semanticAnchor
+                role = Role.Button
+                onClick(label = semanticAnchor) {
+                    onOpen()
+                    true
+                }
+            },
         contentAlignment = Alignment.Center,
     ) {
         media(file, kind, Modifier.fillMaxSize())
@@ -95,19 +116,6 @@ fun ChatMediaAttachmentContent(
                 )
             }
         }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .semantics {
-                    testTag = ChatMediaAttachmentTestTag
-                    contentDescription = when (kind) {
-                        ChatAttachmentKind.Video -> ChatVideoAttachmentContentDescription
-                        ChatAttachmentKind.Image -> ChatImageAttachmentContentDescription
-                        else -> ChatMediaAttachmentTestTag
-                    }
-                }
-                .clickable(onClick = onOpen),
-        )
     }
 }
 

@@ -69,9 +69,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let documentProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE"]),
               let audioProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE"]),
               let imageProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE"]),
-              let videoProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE"]) else {
+              let videoProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE"]),
+              let audioRecordingMarker = nonEmpty(environment["QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER"]) else {
             throw XCTSkip("Disposable Chat attachments/audio fixture is not configured.")
         }
+        XCTAssertEqual(
+            Set([documentProbe, audioProbe, imageProbe, videoProbe]).count,
+            4,
+            "The disposable attachments/audio fixture must expose distinct media/document/audio probes.",
+        )
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
@@ -87,23 +93,25 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "attachments/audio conversation")
         assertChatRoute(conversationId, in: app, context: "attachments/audio conversation")
 
-        verifyAudioRecordingComposer(in: app)
+        verifyAudioRecordingComposer(marker: audioRecordingMarker, in: app)
+        app.terminate()
+        app.launch()
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "attachments/audio conversation after recording send")
+        assertChatRoute(conversationId, in: app, context: "attachments/audio conversation after recording send")
 
-        XCTAssertTrue(messageText(videoProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         guard openChatMediaAttachment(identifier: "chat.attachment.media.video", context: "Chat video attachment", in: app) else {
             return
         }
         attachScreenshot(app, name: "ios-chat-attachment-video-viewer")
         closeFullscreenMedia(context: "Chat video attachment", in: app)
 
-        XCTAssertTrue(messageText(imageProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         guard openChatMediaAttachment(identifier: "chat.attachment.media.image", context: "Chat image attachment", in: app) else {
             return
         }
         attachScreenshot(app, name: "ios-chat-attachment-media-viewer")
         closeFullscreenMedia(context: "Chat image attachment", in: app)
 
-        XCTAssertTrue(messageText(documentProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         guard makeChatAnchorVisible(identifier: "chat.attachment.document", context: "Chat document attachment", in: app) else {
             return
         }
@@ -115,7 +123,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         attachScreenshot(app, name: "ios-chat-attachment-document-visible")
 
-        XCTAssertTrue(messageText(audioProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         guard makeChatAnchorVisible(identifier: "chat.attachment.audio.player", context: "Chat audio attachment", in: app) else {
             return
         }
@@ -134,6 +141,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .tap()
         attachScreenshot(app, name: "ios-chat-audio-toggle-attempted")
+        let audioProgress = app.descendants(matching: .any)
+            .matching(identifier: "chat.attachment.audio.progress")
+            .firstMatch
+        XCTAssertTrue(audioProgress.waitForExistence(timeout: 5), "The shared audio progress anchor must remain visible for seek.")
+        audioProgress
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.5))
+            .tap()
+        attachScreenshot(app, name: "ios-chat-audio-seek-attempted")
     }
 
     func testAttachmentPickerFixtureUsesSharedComposerAnchors() throws {
@@ -218,7 +233,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-attachment-picker-sent-\(pickerSource)")
     }
 
-    private func verifyAudioRecordingComposer(in app: XCUIApplication) {
+    private func verifyAudioRecordingComposer(marker: String, in app: XCUIApplication) {
         tapTaggedButton("chat.composer.recordAudio", in: app, context: "start audio recording")
 
         let recording = app.descendants(matching: .any)
@@ -240,8 +255,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(pending.waitForExistence(timeout: 15), "Stopping an iOS audio recording must attach a pending voice note through the shared pending surface.")
         attachScreenshot(app, name: "ios-chat-audio-recording-pending-attachment")
 
-        tapTaggedButton("chat.attachment.pending.clear", in: app, context: "clear pending audio recording")
-        XCTAssertTrue(pending.waitForNonExistence(timeout: 8), "Clearing the pending audio recording must remove the shared pending attachment surface.")
+        typeText(marker, into: "chat.composer.input", in: app)
+        attachScreenshot(app, name: "ios-chat-audio-recording-ready-to-send")
+        tapTaggedButton("chat.composer.send", in: app, context: "send audio recording")
+        XCTAssertTrue(messageText(marker, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-audio-recording-sent")
+        XCTAssertFalse(pending.waitForExistence(timeout: 2), "Sending the audio recording must clear the shared pending attachment surface.")
+        dismissKeyboardIfVisible(in: app)
     }
 
     func testKeyboardAndSelectedActionBarUseSharedChatChrome() throws {
@@ -989,16 +1009,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
                 return assertFullscreenMediaOpened(context: context, in: app)
             }
-            app.swipeUp()
+            app.swipeDown()
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
-        for _ in 0..<4 {
+        for _ in 0..<6 {
             if media.waitForExistence(timeout: 1), media.isHittable {
                 media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
                 return assertFullscreenMediaOpened(context: context, in: app)
             }
-            app.swipeDown()
+            app.swipeUp()
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
@@ -1380,6 +1400,31 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
         pasteText(value, into: field, in: app)
+    }
+
+    private func dismissKeyboardIfVisible(in app: XCUIApplication) {
+        guard app.keyboards.count > 0 else { return }
+        let returnKey = app.keyboards.buttons["Return"].firstMatch
+        if returnKey.waitForExistence(timeout: 1), returnKey.isHittable {
+            returnKey.tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        if app.keyboards.count > 0 {
+            app.descendants(matching: .any)
+                .matching(identifier: "chat.conversation.titlebar")
+                .firstMatch
+                .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        if app.keyboards.count > 0 {
+            app.keyboards.firstMatch.swipeDown()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+        if app.keyboards.count > 0 {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.18)).tap()
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
     }
 
     private func clearAndTypeText(_ value: String, into identifier: String, in app: XCUIApplication) {

@@ -83,6 +83,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val audioProbe = optionalArgument("quataChatActionsAudioProbe")
         val imageProbe = optionalArgument("quataChatActionsImageProbe")
         val videoProbe = optionalArgument("quataChatActionsVideoProbe")
+        val audioRecordingMarker = optionalArgument("quataChatActionsAudioRecordingMarker")
         val attachmentPickerSource = optionalArgument("quataChatActionsAttachmentPickerSource")
         val attachmentPickerOutcome = optionalArgument("quataChatActionsAttachmentPickerOutcome") ?: "success"
         val attachmentPickerName = optionalArgument("quataChatActionsAttachmentPickerName")
@@ -98,7 +99,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment).all { !it.isNullOrBlank() }
-            "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, imageProbe, videoProbe).all { !it.isNullOrBlank() }
+            "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
@@ -145,7 +146,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-roles-safety" -> runProfileRolesSafetyStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
-                "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty(), imageProbe.orEmpty(), videoProbe.orEmpty())
+                "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty(), imageProbe.orEmpty(), videoProbe.orEmpty(), audioRecordingMarker.orEmpty())
                 "attachment-picker" -> runAttachmentPickerStage(attachmentPickerSource.orEmpty(), attachmentPickerOutcome, attachmentPickerName.orEmpty(), attachmentPickerMarker.orEmpty())
                 "group-sos" -> runGroupSosStage(ownProbe.orEmpty())
                 "profile-content" -> {
@@ -363,8 +364,8 @@ class ChatActionsNotificationsInstrumentedTest {
         SystemClock.sleep(800)
     }
 
-    private fun runAttachmentsAudioStage(documentProbe: String, audioProbe: String, imageProbe: String, videoProbe: String) {
-        verifyAndroidAudioRecordingComposer()
+    private fun runAttachmentsAudioStage(documentProbe: String, audioProbe: String, imageProbe: String, videoProbe: String, audioRecordingMarker: String) {
+        verifyAndroidAudioRecordingComposer(audioRecordingMarker)
 
         waitForMarker(videoProbe.take(28), "video attachment message")
         compose.waitUntil(20_000) {
@@ -449,9 +450,15 @@ class ChatActionsNotificationsInstrumentedTest {
             .performTouchInput { click(center) }
         compose.waitForIdle()
         saveScreenshot("android-chat-audio-toggle-attempted")
+        compose.onNodeWithTag(ChatAudioAttachmentProgressTestTag, useUnmergedTree = true)
+            .performTouchInput {
+                click(center)
+            }
+        compose.waitForIdle()
+        saveScreenshot("android-chat-audio-seek-attempted")
     }
 
-    private fun verifyAndroidAudioRecordingComposer() {
+    private fun verifyAndroidAudioRecordingComposer(audioRecordingMarker: String) {
         grantRecordAudioPermission()
         prepareComposerForAudioRecording()
         compose.onNodeWithTag(ChatComposerRecordAudioTestTag, useUnmergedTree = true)
@@ -464,9 +471,15 @@ class ChatActionsNotificationsInstrumentedTest {
             .performTouchInput { click(center) }
         compose.waitUntil(15_000) { nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag) }
         saveScreenshot("android-chat-audio-recording-pending-attachment")
-        compose.onNodeWithTag(ChatPendingAttachmentClearTestTag, useUnmergedTree = true)
-            .performTouchInput { click(center) }
-        compose.waitUntil(8_000) { !nodeWithTagVisible(ChatPendingAttachmentOverlayTestTag) }
+        fillComposer(
+            audioRecordingMarker,
+            beforeSendScreenshotName = "android-chat-audio-recording-ready-to-send",
+            afterSendScreenshotName = "android-chat-audio-recording-sent",
+        )
+        waitForMarker(audioRecordingMarker.take(28), "audio recording sent message")
+        check(!nodeWithTagVisible(ChatPendingAttachmentClearTestTag)) {
+            "Pending audio attachment controls remained visible after sending recording"
+        }
     }
 
     private fun prepareComposerForAudioRecording() {
@@ -833,7 +846,7 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun openChatMediaAttachmentViewer(contentDescription: String) {
-        val matcher = hasTestTag(ChatMediaAttachmentTestTag) and hasContentDescription(contentDescription)
+        val matcher = hasContentDescription(contentDescription)
         compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
             .performScrollToNode(matcher)
         compose.onNode(matcher, useUnmergedTree = true)
