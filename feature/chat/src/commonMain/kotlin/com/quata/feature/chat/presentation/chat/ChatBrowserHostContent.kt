@@ -97,6 +97,10 @@ fun ChatProductHostContent(
     onDownloadAttachment: suspend (PlatformFile) -> PlatformResult<Unit> = { PlatformResult.Unsupported },
     onShareAttachment: suspend (PlatformFile) -> PlatformResult<Unit> = { PlatformResult.Unsupported },
     onOpenExternalLink: (String) -> Unit,
+    onOpenMapLink: (String) -> ChatMapOpenResult = { value ->
+        onOpenExternalLink(value)
+        ChatMapOpenResult.Opened
+    },
     onOpenUserProfile: (String) -> Unit,
     openingProfileUserId: String? = null,
     onCopyMessage: (String) -> Unit,
@@ -149,6 +153,7 @@ fun ChatProductHostContent(
             onDownloadAttachment = onDownloadAttachment,
             onShareAttachment = onShareAttachment,
             onOpenExternalLink = onOpenExternalLink,
+            onOpenMapLink = onOpenMapLink,
             onOpenUserProfile = onOpenUserProfile,
             onCopyMessage = onCopyMessage,
             openingProfileUserId = openingProfileUserId,
@@ -196,6 +201,7 @@ private fun ChatCommonConversationHost(
     onDownloadAttachment: suspend (PlatformFile) -> PlatformResult<Unit>,
     onShareAttachment: suspend (PlatformFile) -> PlatformResult<Unit>,
     onOpenExternalLink: (String) -> Unit,
+    onOpenMapLink: (String) -> ChatMapOpenResult,
     onOpenUserProfile: (String) -> Unit,
     onCopyMessage: (String) -> Unit,
     openingProfileUserId: String?,
@@ -285,6 +291,14 @@ private fun ChatCommonConversationHost(
                 chromeStrings.attachmentShareStarted,
                 chromeStrings.attachmentShareUnsupported,
             )
+        }
+    }
+    fun openMapLink(url: String) {
+        viewModel.onEvent(ChatUiEvent.ShowNotice(chromeStrings.mapOpenStarted))
+        when (onOpenMapLink(url)) {
+            ChatMapOpenResult.Opened -> Unit
+            ChatMapOpenResult.Unsupported -> viewModel.onEvent(ChatUiEvent.ShowError(chromeStrings.mapOpenUnsupported))
+            ChatMapOpenResult.Failed -> viewModel.onEvent(ChatUiEvent.ShowError(chromeStrings.mapOpenFailed))
         }
     }
     LaunchedEffect(isRecordingAudio) {
@@ -654,7 +668,7 @@ private fun ChatCommonConversationHost(
                         openMapsLabel = sosStrings.openMaps,
                         textColor = textColor,
                         accentColor = accentColor,
-                        onOpenMaps = onOpenExternalLink,
+                        onOpenMaps = ::openMapLink,
                         mapPreviewIcon = {
                             CompactIcon(
                                 imageVector = Icons.Filled.LocationOn,

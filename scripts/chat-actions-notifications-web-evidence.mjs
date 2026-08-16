@@ -1153,6 +1153,11 @@ async function clickLabel(page, patterns, error) {
 }
 
 async function clickOptionsMenu(page) {
+  const tagged = await visibleAriaLocator(page, [/chat\.menu\.options/i], 1_000);
+  if (tagged) {
+    await tagged.click({ timeout: 10_000, force: true });
+    return;
+  }
   const locator = await visibleAriaLocator(page, [/Opciones|Abrir/i, /Options|Open/i], 4_000);
   if (locator) {
     await locator.click({ timeout: 10_000, force: true });
@@ -1160,6 +1165,44 @@ async function clickOptionsMenu(page) {
   }
   const viewport = page.viewportSize() ?? { width: 430, height: 932 };
   await page.mouse.click(Math.max(1, viewport.width - 26), 104);
+}
+
+async function optionsMenuVisible(page, timeout = 500) {
+  return await page.getByText(/Silenciar conversaci[oó]n|Mute conversation|A[ñn]adir nuevos participantes|Add(?: new)? participants/i)
+    .first()
+    .isVisible({ timeout })
+    .catch(() => false);
+}
+
+async function closeOptionsMenu(page, report, context) {
+  await closeTransientMenus(page);
+  if (!(await optionsMenuVisible(page, 500))) return;
+  await clickOptionsMenu(page);
+  await delay(400);
+  if (!(await optionsMenuVisible(page, 500))) return;
+  const muteAction = await visibleAriaLocator(page, [/Silenciar conversaci[oó]n|Mute conversation/i], 1_000);
+  if (muteAction) {
+    await muteAction.click({ timeout: 5_000, force: true });
+    await delay(500);
+    if (!(await optionsMenuVisible(page, 500))) {
+      report.steps.push(`${context}_options_menu_closed_by_semantic_mute_action`);
+      return;
+    }
+  }
+  const muteControl = await visibleNativeControl(page, [/Silenciar conversaci[oó]n|Mute conversation/i], 1_000);
+  if (muteControl) {
+    await clickNativeControlCenter(page, muteControl, "options_menu_mute_control_not_clickable");
+    if (!(await optionsMenuVisible(page, 500))) {
+      report.steps.push(`${context}_options_menu_closed_by_native_mute_control`);
+      return;
+    }
+  }
+  report.diagnostics = {
+    ...(report.diagnostics ?? {}),
+    optionsMenuCloseFailedAt: context,
+    visibleNativeControls: await visibleNativeControls(page),
+  };
+  throw new Error("options_menu_did_not_close");
 }
 
 async function clickFavoriteAction(page) {
@@ -2710,15 +2753,45 @@ async function verifyChatGroupSosWeb(page, evidenceDir, report) {
     throw new Error(`missing_stable_anchor:${missingGroupAnchors.join(",")}`);
   }
   report.evidence.groupMenu = await attachScreenshot(page, evidenceDir, "web-chat-group-menu-shared-anchors");
-  await page.keyboard.press("Escape").catch(() => {});
-  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
-  await page.mouse.click(Math.max(1, viewport.width - 12), Math.max(1, viewport.height - 24)).catch(() => {});
-  await delay(500);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(
+    (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
+    `chat/sb:${state.thread}`,
+    { timeout: 45_000 },
+  );
+  await delay(1_500);
+  await waitMessageVisible(page, state.sosWithLocationMarker.slice(0, 28), "sos_chat_not_visible_after_menu_reset", 10_000);
+  report.steps.push("group_sos_options_menu_reset_by_route_after_anchor_evidence");
 
-  report.evidence.sosLocation = await attachScreenshot(page, evidenceDir, "web-chat-sos-location-shared-anchors");
+  const openMapsLocator = await visibleAriaLocator(page, [
+    /chat\.sos\.location\.openMaps/,
+    /Abrir ubicaci[oó]n en Google Maps|Open location in Google Maps/i,
+  ], 2_000);
+  if (!openMapsLocator) {
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      missingStableAnchors: [
+        ...new Set([...(report.diagnostics?.missingStableAnchors ?? []), "chat.sos.location.openMaps"]),
+      ],
+      visibleNativeControls: await visibleNativeControls(page),
+    };
+    throw new Error("missing_stable_anchor:chat.sos.location.openMaps");
+  }
+  const popupPromise = page.waitForEvent("popup", { timeout: 5_000 }).catch(() => null);
+  await openMapsLocator.click({ timeout: 5_000, force: true });
+  const popup = await popupPromise;
+  if (popup) await popup.close().catch(() => {});
+  const mapFeedbackVisible = await Promise.any([
+    waitMessageVisible(page, "Abriendo ubicación en mapas.", "sos_map_open_feedback_not_visible", 10_000).then(() => true),
+    waitMessageVisible(page, "No se pudo abrir la ubicación.", "sos_map_open_feedback_not_visible", 10_000).then(() => true),
+    waitMessageVisible(page, "No hay una aplicación de mapas disponible.", "sos_map_open_feedback_not_visible", 10_000).then(() => true),
+  ]).catch(() => false);
+  if (!mapFeedbackVisible) throw new Error("sos_map_open_feedback_not_visible");
+  await waitMessageVisible(page, state.sosWithLocationMarker.slice(0, 28), "sos_chat_not_visible_after_map_return", 10_000);
+  report.evidence.sosLocation = await attachScreenshot(page, evidenceDir, "web-chat-sos-location-map-return");
   report.diagnostics = {
     ...(report.diagnostics ?? {}),
-    wasmCanvasSemanticLimit: "SOS location body is visually rendered by Compose/Wasm but non-interactive SOS testTags are not exposed as DOM or aria nodes in this host; commonMain contracts and Android/iOS Compose/XCUI gates retain semantic-anchor coverage.",
+    wasmCanvasSemanticLimit: "SOS location body is visually rendered by Compose/Wasm but non-interactive SOS testTags may not be exposed as DOM or aria nodes in this host; the interactive map CTA must expose a stable semantic anchor or this runner fails closed.",
   };
 }
 

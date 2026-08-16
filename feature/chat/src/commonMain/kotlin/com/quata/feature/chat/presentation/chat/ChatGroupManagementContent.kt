@@ -140,7 +140,7 @@ fun ChatGroupManagementContent(
         trailingActions = {
             trailing()
             CompactIconButton(
-                onClick = { menuExpanded = true },
+                onClick = { menuExpanded = !menuExpanded },
                 modifier = Modifier.semantics { testTag = ChatGroupMenuOptionsTestTag },
             ) {
                 CompactIcon(Icons.Filled.MoreVert, strings.options)
@@ -250,7 +250,7 @@ fun ChatGroupManagementContent(
                     )
                     if (isModerator && !member.isSelf) {
                         CompactIconButton(
-                            onClick = { memberMenuExpanded = true },
+                            onClick = { memberMenuExpanded = !memberMenuExpanded },
                             modifier = Modifier.semantics { testTag = ChatGroupMemberManageTestTagPrefix + member.id },
                         ) {
                             CompactIcon(Icons.Filled.MoreVert, strings.manageMember(member.name), tint = template.colors.textPrimary)

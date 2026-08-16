@@ -34,8 +34,9 @@ import com.quata.core.platform.SharePayload
 import com.quata.core.platform.ShareService
 import com.quata.core.navigation.AppDestinations
 import com.quata.feature.chat.domain.ChatRepository
-import com.quata.feature.chat.presentation.chat.ChatProductHostContent
 import com.quata.feature.chat.presentation.chat.ChatMediaPlatformSlots
+import com.quata.feature.chat.presentation.chat.ChatMapOpenResult
+import com.quata.feature.chat.presentation.chat.ChatProductHostContent
 import com.quata.feature.chat.presentation.chat.FangChatTranslationGateway
 import com.quata.feature.chat.presentation.chat.chatTranslationDirectionForLanguage
 import com.quata.feature.chat.presentation.chat.chatTranslatorStringsForLanguage
@@ -131,6 +132,7 @@ fun WebChatHost(
         onDownloadAttachment = { file -> file.downloadWebAttachment() },
         onShareAttachment = { file -> file.shareWebAttachment(shareService) },
         onOpenExternalLink = ::openWebExternalLink,
+        onOpenMapLink = ::openWebMapLink,
         onOpenUserProfile = openUserProfile,
         openingProfileUserId = openingProfileUserId,
         onCopyMessage = { value -> scope.launch { clipboard.writeText(value) } },
@@ -355,7 +357,29 @@ private fun PlatformResult<Unit>.webAttachmentResultName(): String = when (this)
     PlatformResult.Unsupported -> "unsupported"
 }
 
-private fun openWebExternalLink(url: String): Unit = js("globalThis.open(url, '_blank', 'noopener,noreferrer')")
+private fun openWebExternalLink(url: String) {
+    openWebExternalLinkResult(url)
+}
+
+private fun openWebMapLink(url: String): ChatMapOpenResult = when (openWebExternalLinkResult(url)) {
+    "opened" -> ChatMapOpenResult.Opened
+    "unsupported" -> ChatMapOpenResult.Unsupported
+    else -> ChatMapOpenResult.Failed
+}
+
+private fun openWebExternalLinkResult(url: String): String = js(
+    """
+    (() => {
+      try {
+        if (!globalThis.open) return 'unsupported';
+        const opened = globalThis.open(url, '_blank', 'noopener,noreferrer');
+        return opened == null ? 'failed' : 'opened';
+      } catch (_) {
+        return 'failed';
+      }
+    })()
+    """,
+)
 
 private fun downloadWebAttachment(url: String, name: String, onResult: (String, String?) -> Unit): Unit = js(
     """

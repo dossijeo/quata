@@ -247,9 +247,15 @@ test("common SOS location messages expose map/open evidence anchors", () => {
     assert.match(sosLocation, new RegExp(`testTag = ChatSosLocation${constant}TestTag`));
   }
   assert.match(sosLocation, /onOpenMaps: \(String\) -> Unit/);
-  assert.match(sosLocation, /modifier = Modifier\.clickable \{ onOpenMaps\(url\) \}\.semantics \{[\s\S]*?testTag = ChatSosLocationOpenMapsTestTag[\s\S]*?contentDescription = openMapsLabel[\s\S]*?role = Role\.Button/);
+  assert.match(sosLocation, /modifier = Modifier\.semantics\(mergeDescendants = true\) \{[\s\S]*?testTag = ChatSosLocationOpenMapsTestTag[\s\S]*?contentDescription = openMapsLabel[\s\S]*?role = Role\.Button[\s\S]*?onClick\(label = openMapsLabel\)[\s\S]*?onOpenMaps\(url\)[\s\S]*?true[\s\S]*?\}\.clickable \{ onOpenMaps\(url\) \}/);
   assert.match(chatBrowserHostContent, /ChatSosLocationContent\(/);
-  assert.match(chatBrowserHostContent, /onOpenMaps = onOpenExternalLink/);
+  assert.match(chatBrowserHostContent, /onOpenMapLink: \(String\) -> ChatMapOpenResult/);
+  assert.match(chatBrowserHostContent, /fun openMapLink\(url: String\)/);
+  assert.match(chatBrowserHostContent, /fun openMapLink\(url: String\) \{[\s\S]*?ShowNotice\(chromeStrings\.mapOpenStarted\)[\s\S]*?when \(onOpenMapLink\(url\)\)/);
+  assert.match(chatBrowserHostContent, /ChatMapOpenResult\.Opened -> Unit/);
+  assert.match(chatBrowserHostContent, /ChatMapOpenResult\.Unsupported[\s\S]*?ShowError\(chromeStrings\.mapOpenUnsupported\)/);
+  assert.match(chatBrowserHostContent, /ChatMapOpenResult\.Failed[\s\S]*?ShowError\(chromeStrings\.mapOpenFailed\)/);
+  assert.match(chatBrowserHostContent, /onOpenMaps = ::openMapLink/);
   assert.match(chatBrowserHostContent, /resolveChatSosPresentation/);
 });
 

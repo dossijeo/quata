@@ -244,8 +244,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 "The shared SOS anchor \(identifier) must be visible.",
             )
         }
+        let openMaps = app.descendants(matching: .any).matching(identifier: "chat.sos.location.openMaps").firstMatch
+        XCTAssertTrue(openMaps.isHittable, "The shared SOS map action must be hittable before opening Maps.")
+        openMaps.tap()
+        app.activate()
+        XCTAssertTrue(menuText("Abriendo ubicación en mapas.", in: app).waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(menuText("Ubicación no disponible", in: app).waitForExistence(timeout: 10), app.debugDescription)
-        attachScreenshot(app, name: "ios-chat-sos-location-shared-anchors")
+        attachScreenshot(app, name: "ios-chat-sos-location-map-return")
     }
 
     func testAttachmentsAndAudioExposeSharedAnchors() throws {
