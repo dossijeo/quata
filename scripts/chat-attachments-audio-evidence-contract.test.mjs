@@ -8,6 +8,7 @@ const [
   packageJson,
   inventory,
   commonHost,
+  commonConversationDetail,
   commonComposer,
   commonQuickPanel,
   commonPendingAttachment,
@@ -35,6 +36,7 @@ const [
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatBrowserHostContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConversationDetailContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatComposerAndActionsContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAttachmentQuickPanelContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatPendingAttachmentOverlayContent.kt"),
@@ -115,6 +117,15 @@ test("attachment picker, pending surface and attachment cards expose stable comm
       }
     }
   }
+});
+
+test("media attachments own the primary tap instead of the whole message bubble", () => {
+  assert.match(commonConversationDetail, /val mediaAttachmentOwnsTap = message\.attachmentMimeType/);
+  assert.match(commonConversationDetail, /it\.startsWith\("image\/"\) \|\| it\.startsWith\("video\/"\)/);
+  assert.match(
+    commonConversationDetail,
+    /if \(mediaAttachmentOwnsTap\) bubbleSemantics else bubbleSemantics\.clickable\(onClick = onClick\)/,
+  );
 });
 
 test("audio attachment player exposes stable common playback anchors", () => {

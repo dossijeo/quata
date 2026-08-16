@@ -226,12 +226,20 @@ private fun ChatConversationMessageContent(
         selected = isSelected
         stateDescription = if (isSelected) "selected" else "not selected"
     }
+    val mediaAttachmentOwnsTap = message.attachmentMimeType
+        ?.substringBefore(';')
+        ?.trim()
+        ?.lowercase()
+        ?.let { it.startsWith("image/") || it.startsWith("video/") } == true
     ChatMessageBubbleLayoutContent(
         isMine = message.isMine,
         isSelected = isSelected,
         showSenderAvatar = showSenderAvatar,
         avatar = avatar,
-        bubbleModifier = translatableTextModifier(message, bubbleSemantics.clickable(onClick = onClick)),
+        bubbleModifier = translatableTextModifier(
+            message,
+            if (mediaAttachmentOwnsTap) bubbleSemantics else bubbleSemantics.clickable(onClick = onClick),
+        ),
     ) {
         ChatMessageBubbleContent(
             header = {
