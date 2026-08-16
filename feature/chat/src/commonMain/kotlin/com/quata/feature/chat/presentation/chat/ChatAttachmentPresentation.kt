@@ -109,6 +109,7 @@ fun ChatMediaAttachmentContent(
         Box(
             Modifier
                 .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.001f))
                 .clickable(onClick = onOpen)
                 .semantics {
                     testTag = semanticAnchor

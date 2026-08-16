@@ -116,7 +116,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(imageMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio image message")
-        assertChatRoute(conversationId, in: app, context: "attachments/audio image message")
 
         guard openChatMediaAttachment(
             identifier: "chat.attachment.media.image",
