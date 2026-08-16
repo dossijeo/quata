@@ -106,7 +106,7 @@ fun ChatMediaAttachmentContent(
                         testTag = semanticAnchor
                         contentDescription = semanticAnchor
                         role = Role.Button
-                        onClick(label = if (kind == ChatAttachmentKind.Video) playVideoLabel else semanticAnchor) {
+                        onClick(label = semanticAnchor) {
                             onOpen()
                             true
                         }
@@ -114,7 +114,7 @@ fun ChatMediaAttachmentContent(
             ) {
                 Icon(
                     imageVector = if (kind == ChatAttachmentKind.Video) Icons.Filled.PlayArrow else Icons.Filled.OpenInFull,
-                    contentDescription = null,
+                    contentDescription = if (kind == ChatAttachmentKind.Video) playVideoLabel else semanticAnchor,
                     modifier = Modifier.padding(12.dp).size(38.dp),
                 )
             }
