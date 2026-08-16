@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -90,7 +89,16 @@ fun ChatMediaAttachmentContent(
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onOpen)
+            .clickable(role = Role.Button, onClickLabel = semanticAnchor, onClick = onOpen)
+            .semantics {
+                testTag = semanticAnchor
+                contentDescription = semanticAnchor
+                role = Role.Button
+                onClick(label = semanticAnchor) {
+                    onOpen()
+                    true
+                }
+            }
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
@@ -103,19 +111,9 @@ fun ChatMediaAttachmentContent(
                 modifier = Modifier
                     .size(62.dp),
             ) {
-                IconButton(
-                    onClick = onOpen,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .semantics {
-                            testTag = semanticAnchor
-                            contentDescription = semanticAnchor
-                            role = Role.Button
-                            onClick(label = semanticAnchor) {
-                                onOpen()
-                                true
-                            }
-                        },
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = if (kind == ChatAttachmentKind.Video) Icons.Filled.PlayArrow else Icons.Filled.OpenInFull,
