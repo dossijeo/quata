@@ -508,7 +508,7 @@ class ChatRepositoryImpl(
             attachmentMimeType = attachmentMimeType
         )
         persistPendingOutgoing(session, pending)
-        if (deviceNetworkAvailable.value) attemptOutgoing(pending) else ChatOutboxWorkScheduler.scheduleOneTime(appContext)
+        attemptOrQueuePendingOutgoing(session, pending)
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun sendReply(
@@ -552,7 +552,7 @@ class ChatRepositoryImpl(
             replyToText = replyTo.text
         )
         persistPendingOutgoing(session, pending)
-        if (deviceNetworkAvailable.value) attemptOutgoing(pending) else ChatOutboxWorkScheduler.scheduleOneTime(appContext)
+        attemptOrQueuePendingOutgoing(session, pending)
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun flushPendingMessages(): Boolean {
@@ -620,6 +620,26 @@ class ChatRepositoryImpl(
         state.value = (state.value.filterNot { it.clientMessageId == outgoing.clientMessageId } + message)
             .sortedBy { it.sentAtMillis ?: Long.MAX_VALUE }
         cacheStore.upsertMessage(session.userId, message)
+    }
+
+    private suspend fun attemptOrQueuePendingOutgoing(session: AuthSession, outgoing: PendingOutgoingMessage) {
+        if (!deviceNetworkAvailable.value) {
+            ChatOutboxWorkScheduler.scheduleOneTime(appContext)
+            return
+        }
+        if (attemptOutgoing(outgoing)) return
+        if (shouldFailAttachmentRegistrationForEvidence()) {
+            removePendingOutgoing(session.userId, outgoing)
+            error("chat_attachment_register_e2e_failure")
+        }
+    }
+
+    private suspend fun removePendingOutgoing(profileId: String, outgoing: PendingOutgoingMessage) {
+        cacheStore.removeOutgoing(profileId, outgoing.clientMessageId)
+        outboxAttachmentStore.remove(outgoing.attachmentUri)
+        val state = messagesState(outgoing.conversationId)
+        state.value = state.value.filterNot { it.clientMessageId == outgoing.clientMessageId }
+        cacheStore.replaceMessages(profileId, outgoing.conversationId, state.value)
     }
 
     private suspend fun attemptOutgoing(outgoing: PendingOutgoingMessage): Boolean {
@@ -1327,19 +1347,30 @@ class ChatRepositoryImpl(
         val media = mediaUploadOptimizer.prepareAttachmentUpload(uri, attachmentName, attachmentMimeType)
         val upload = remote.uploadChatAttachment(profileId, media.bytes, media.extension, media.mimeType, media.fileName)
         val fileUrl = upload.publicUrl ?: error("No se pudo subir el adjunto")
-        val registered = remote.registerChatAttachment(
-            profileId = profileId,
-            threadId = threadId,
-            fileUrl = fileUrl,
-            storagePath = upload.key,
-            mimeType = media.mimeType,
-            name = media.fileName,
-            sizeBytes = media.bytes.size.toLong(),
-            extension = media.extension
-        )
-        return registered.obj.long("id")
-            ?: registered.obj.obj("file")?.long("id")
-            ?: error("No se pudo registrar el adjunto")
+        return try {
+            if (shouldFailAttachmentRegistrationForEvidence()) {
+                error("chat_attachment_register_e2e_failure")
+            }
+            val registered = remote.registerChatAttachment(
+                profileId = profileId,
+                threadId = threadId,
+                fileUrl = fileUrl,
+                storagePath = upload.key,
+                mimeType = media.mimeType,
+                name = media.fileName,
+                sizeBytes = media.bytes.size.toLong(),
+                extension = media.extension
+            )
+            registered.obj.long("id")
+                ?: registered.obj.obj("file")?.long("id")
+                ?: error("No se pudo registrar el adjunto")
+        } catch (error: Throwable) {
+            upload.key?.takeIf { it.isNotBlank() }?.let { storagePath ->
+                runCatching { remote.deleteChatAttachmentObject(storagePath) }
+                    .onFailure { cleanupError -> Log.w(TAG, "Could not clean orphan chat attachment $storagePath", cleanupError) }
+            }
+            throw error
+        }
     }
 
     private suspend fun upsertConversation(profileId: String, conversation: Conversation) {
@@ -1601,6 +1632,10 @@ class ChatRepositoryImpl(
         const val REALTIME_REFRESH_LEEWAY_SECONDS = 115L
         const val REALTIME_REFRESH_RETRY_MILLIS = 60_000L
         const val MAX_OUTBOX_ATTEMPTS = 5
+        const val CHAT_EVIDENCE_PREFERENCES = "quata_chat_evidence"
+        const val CHAT_MEDIA_FIXTURE_OPT_IN = "I_ACCEPT_ANDROID_CHAT_ATTACHMENT_PICKER_FIXTURE"
+        const val CHAT_EVIDENCE_OPT_IN_KEY = "attachmentPicker.optIn"
+        const val CHAT_EVIDENCE_OUTCOME_KEY = "attachmentPicker.outcome"
         val RealtimeTables = listOf(
             "chat_threads",
             "chat_participants",
@@ -1610,5 +1645,11 @@ class ChatRepositoryImpl(
             "chat_message_reads",
             "chat_message_states"
         )
+    }
+
+    private fun shouldFailAttachmentRegistrationForEvidence(): Boolean {
+        val preferences = appContext.getSharedPreferences(CHAT_EVIDENCE_PREFERENCES, Context.MODE_PRIVATE)
+        if (preferences.getString(CHAT_EVIDENCE_OPT_IN_KEY, null) != CHAT_MEDIA_FIXTURE_OPT_IN) return false
+        return preferences.getString(CHAT_EVIDENCE_OUTCOME_KEY, null)?.lowercase(Locale.ROOT) == "register-failure"
     }
 }

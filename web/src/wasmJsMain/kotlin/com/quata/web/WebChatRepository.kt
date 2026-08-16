@@ -24,8 +24,12 @@ class WebChatRepository(
     authenticatedUser = ChatAuthenticatedUserProvider {
         authRepository.sessionForAuthenticatedRequest()?.userId
     },
-    attachmentUploader = ChatAttachmentUploader { profileId, file ->
-        attachmentUploader.upload(profileId, file).toCommonAttachment()
+    attachmentUploader = object : ChatAttachmentUploader {
+        override suspend fun upload(profileId: String, file: com.quata.core.platform.PlatformFile): UploadedChatAttachment =
+            attachmentUploader.upload(profileId, file).toCommonAttachment()
+
+        override suspend fun deleteUploadedAttachment(uploaded: UploadedChatAttachment): Boolean =
+            attachmentUploader.delete(uploaded.storagePath)
     },
     pollIntervalMillis = pollIntervalMillis,
     realtimeGateway = WebChatRealtimeGateway(configuration, authRepository),

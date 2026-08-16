@@ -200,7 +200,7 @@ try {
   })}\n`, { mode: 0o600 });
   remoteCredentials = (await runCapture("ssh", [
     options.host,
-    "mktemp /tmp/quata-ios-chat-actions-credentials.XXXXXX.json",
+    "mktemp /tmp/quata-ios-chat-actions-credentials.XXXXXX",
   ])).trim();
   await run("scp", [localCredentials, `${options.host}:${remoteCredentials}`]);
   report.steps.push("ios_real_credentials_copied_to_mac_tempfile_without_logging_contents");
@@ -421,7 +421,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         : "ios_xctest_profile_entry_composer_reply_edit_and_action_bar_verified");
 
     if (attachmentPickerOnly) {
-      if (options.attachmentPickerOutcome !== "success") {
+      if (options.attachmentPickerOutcome !== "success" && options.attachmentPickerOutcome !== "register-failure") {
         report.evidence.attachmentPicker = {
           source: options.attachmentPickerSource,
           outcome: options.attachmentPickerOutcome,
@@ -430,6 +430,17 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         };
         report.steps.push(`ios_chat_attachment_picker_${options.attachmentPickerSource}_${options.attachmentPickerOutcome}_handled_without_attachment`);
       } else {
+        if (options.attachmentPickerOutcome === "register-failure") {
+          await assertNoAttachmentPickerResidue(state.attachmentPicker.name, state.attachmentPicker.marker);
+          report.evidence.attachmentPicker = {
+            source: options.attachmentPickerSource,
+            outcome: options.attachmentPickerOutcome,
+            pendingCreated: true,
+            messageCreated: false,
+            storageResidueCount: 0,
+          };
+          report.steps.push(`ios_chat_attachment_picker_${options.attachmentPickerSource}_register_failure_rolled_back_storage`);
+        } else {
         const message = await pollMessage(config, state.a, state.thread, (row) => messageText(row) === state.attachmentPicker.marker, "attachment picker message");
         state.attachmentPicker.messageId = messageId({ message });
         const attachments = messageAttachments(message);
@@ -454,6 +465,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
             .map(sha256),
         };
         report.steps.push("ios_chat_attachment_picker_message_and_registered_attachment_verified_by_rpc");
+        }
       }
     }
 
@@ -858,7 +870,7 @@ function parseArgs(argv) {
   if (!["document", "gallery", "camera"].includes(result.attachmentPickerSource)) {
     throw new Error(`unsupported_attachment_picker_source:${result.attachmentPickerSource}`);
   }
-  if (!["success", "cancelled", "failure", "unsupported"].includes(result.attachmentPickerOutcome)) {
+  if (!["success", "cancelled", "failure", "unsupported", "register-failure"].includes(result.attachmentPickerOutcome)) {
     throw new Error(`unsupported_attachment_picker_outcome:${result.attachmentPickerOutcome}`);
   }
   return result;
@@ -1711,6 +1723,24 @@ async function verifyStorageObjectAbsent(bucket, storagePath) {
       [bucket, storagePath],
     );
     if (Number(result.rows[0]?.count ?? 0) !== 0) throw new Error("cleanup_residue_detected:storage_object");
+  });
+}
+
+async function assertNoAttachmentPickerResidue(attachmentName, marker) {
+  await delay(2_000);
+  const message = await pollMessage(config, state.a, state.thread, (row) => messageText(row) === marker, "attachment register failure message", 3_000)
+    .then(() => true)
+    .catch((error) => {
+      if (String(error?.message ?? error).includes("poll_timeout")) return false;
+      throw error;
+    });
+  if (message) throw new Error("attachment_register_failure_created_message");
+  await withDatabase(async (client) => {
+    const result = await client.query(
+      "select count(*)::int as count from storage.objects where bucket_id = 'chat-attachments' and name like '%' || $1 || '%'",
+      [attachmentName],
+    );
+    if (Number(result.rows[0]?.count ?? 0) !== 0) throw new Error("attachment_register_failure_storage_residue_detected");
   });
 }
 

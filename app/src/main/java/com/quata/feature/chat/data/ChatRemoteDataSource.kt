@@ -23,6 +23,8 @@ class ChatRemoteDataSource(
         supabaseApi.uploadCommunityChatImage(profileId, bytes, extension, mimeType)
     suspend fun uploadChatAttachment(profileId: String, bytes: ByteArray, extension: String, mimeType: String, fileName: String?) =
         supabaseApi.uploadChatAttachment(profileId, bytes, extension, mimeType, fileName)
+    suspend fun deleteChatAttachmentObject(storagePath: String) =
+        supabaseApi.deleteChatAttachmentObject(storagePath)
     suspend fun getPrivateChats(profileId: String) = supabaseApi.getPrivateChats(profileId)
     fun observePrivateChats(profileId: String) = supabaseApi.observePrivateChats(profileId)
     suspend fun createOrGetPrivateChat(profileId: String, peerProfileId: String) =

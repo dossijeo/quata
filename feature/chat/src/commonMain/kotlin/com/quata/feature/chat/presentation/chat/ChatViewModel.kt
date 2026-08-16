@@ -391,12 +391,13 @@ class ChatViewModel(
     private fun restoreDraftIfComposerIsEmpty(draft: OutgoingDraft) {
         val state = _uiState.value
         if (state.messageText.isNotBlank() || state.attachmentUri != null) return
-        retryDraft = draft
+        val failedAttachment = draft.attachmentUri != null
+        retryDraft = if (failedAttachment) null else draft
         _uiState.value = state.copy(
             messageText = draft.text,
-            attachmentUri = draft.attachmentUri,
-            attachmentName = draft.attachmentName,
-            attachmentMimeType = draft.attachmentMimeType,
+            attachmentUri = null,
+            attachmentName = null,
+            attachmentMimeType = null,
             replyToMessage = draft.replyToMessage
         )
     }

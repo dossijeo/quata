@@ -1041,6 +1041,10 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         return client.uploadObject(path, bytes, mimeType, upsert = true, bucket = "chat-attachments")
     }
 
+    suspend fun deleteChatAttachmentObject(storagePath: String) {
+        client.deleteObject(storagePath, bucket = "chat-attachments")
+    }
+
     private fun digitsOnly(value: String): String = value.filter(Char::isDigit)
 
 

@@ -74,6 +74,19 @@ las nueve pasan en el mismo Product/Evidence SHA, no crean adjunto pendiente ni 
 `docs/candidate-attestations/chat-attachment-picker-negative-paths.json`. Quedan fuera rollback
 forzado tras upload/RPC parcial y permisos de sistema reales no simulados.
 
+**Candidato activo apilado:** `9cb0c341269a9ff9d606b95eef5a8ae9f784bb6b` reduce `CHAT-ATTACHMENTS`
+con rollback forzado cuando Storage sube el documento pero falla el registro RPC/envío antes de que
+exista un mensaje acreditado. La implementación común `PostgrestChatRepository` borra el objeto
+huérfano tras fallo de registro; Web/Wasm, Android legacy e iOS sólo divergen en el delete nativo de
+Storage detrás de ese contrato común. Evidencias locales: Web/Wasm
+`build-reports/web/chat-attachment-rollback-register-failure-9cb0c341.json`, Android
+`build-reports/android/chat-attachment-rollback-register-failure-9cb0c341.json` e iOS
+`build-reports/ios/chat-attachment-rollback-register-failure-9cb0c341.json`; las tres pasan
+con `pendingCreated=true`, `messageCreated=false`, ancla común `chat.attachment.error`, ausencia de
+`chat.attachment.pending`, `storageResidueCount=0` y hard cleanup físico cero. Attestation:
+`docs/candidate-attestations/chat-attachment-rollback.json`. Quedan fuera permisos de sistema reales
+no simulados y otros fallos de red no específicos del tramo upload->register.
+
 **Candidato anterior:** `63f8a3e3c00afc15b31fa8b8d8a0df0f1ccd5655`, integrado en `main` como #255,
 cierra `PROF-MEDIA-DETAIL` dentro de `OVR-PUBLIC-PROFILE` y reduce `OVR-MEDIA`: abre desde Chat el
 perfil p?blico global, muestra galer?a, abre media real de publicaci?n seeded en Storage, captura

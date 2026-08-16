@@ -56,6 +56,8 @@ fun interface ChatAuthenticatedUserProvider {
 
 fun interface ChatAttachmentUploader {
     suspend fun upload(profileId: String, file: PlatformFile): UploadedChatAttachment
+
+    suspend fun deleteUploadedAttachment(uploaded: UploadedChatAttachment): Boolean = false
 }
 
 data class UploadedChatAttachment(
@@ -462,8 +464,13 @@ open class PostgrestChatRepository(
             put("p_storage_path", uploaded.storagePath); put("p_mime_type", uploaded.mimeType); put("p_name", uploaded.name); uploaded.sizeBytes?.let { put("p_size_bytes", it) } ?: put("p_size_bytes", JsonNull)
             put("p_ext", uploaded.extension); put("p_thumb", JsonNull)
         }.toString()
-        return Json.parseToJsonElement(transport.post("quata_chat_register_attachment", body).successOrThrow()).jsonObject["id"]?.jsonPrimitive?.longOrNull?.takeIf { it > 0L }
-            ?: throw IllegalStateException("web_chat_attachment_registration_missing_id")
+        return try {
+            Json.parseToJsonElement(transport.post("quata_chat_register_attachment", body).successOrThrow()).jsonObject["id"]?.jsonPrimitive?.longOrNull?.takeIf { it > 0L }
+                ?: throw IllegalStateException("web_chat_attachment_registration_missing_id")
+        } catch (error: Throwable) {
+            runCatching { attachmentUploader.deleteUploadedAttachment(uploaded) }
+            throw error
+        }
     }
     private suspend fun refreshThread(conversationId: String, limit: Int): Result<List<Message>> = runCatching {
         val userId = currentUserId(); val threadId = conversationId.threadIdForRefresh(); _syncStatus.value = ChatSyncStatus.Refreshing

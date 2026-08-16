@@ -34,6 +34,25 @@ class PostgrestChatRepositoryTest {
         val calls = mutableListOf<Pair<String, String>>()
         var sendAttempts = 0
         var uploads = 0
+        val deletedStoragePaths = mutableListOf<String>()
+        val attachmentUploader = object : ChatAttachmentUploader {
+            override suspend fun upload(profileId: String, file: com.quata.core.platform.PlatformFile): UploadedChatAttachment {
+                uploads += 1
+                return UploadedChatAttachment(
+                    storagePath = "profile-1/${file.displayName}",
+                    publicUrl = "https://project.supabase.co/storage/v1/object/public/chat-attachments/profile-1/${file.displayName}",
+                    mimeType = file.mimeType ?: "image/jpeg",
+                    sizeBytes = 42,
+                    name = file.displayName ?: "photo.jpg",
+                    extension = "jpg",
+                )
+            }
+
+            override suspend fun deleteUploadedAttachment(uploaded: UploadedChatAttachment): Boolean {
+                deletedStoragePaths += uploaded.storagePath
+                return true
+            }
+        }
         val repository = PostgrestChatRepository(
             transport = object : ChatPostgrestTransport {
                 override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
@@ -53,17 +72,7 @@ class PostgrestChatRepositoryTest {
                 }
             },
             authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
-            attachmentUploader = ChatAttachmentUploader { _, file ->
-                uploads += 1
-                UploadedChatAttachment(
-                    storagePath = "profile-1/${file.displayName}",
-                    publicUrl = "https://project.supabase.co/storage/v1/object/public/chat-attachments/profile-1/${file.displayName}",
-                    mimeType = file.mimeType ?: "image/jpeg",
-                    sizeBytes = 42,
-                    name = file.displayName ?: "photo.jpg",
-                    extension = "jpg",
-                )
-            },
+            attachmentUploader = attachmentUploader,
         )
 
         assertTrue(
@@ -79,9 +88,58 @@ class PostgrestChatRepositoryTest {
         assertTrue(repository.retryPendingMessage("client-1").isSuccess)
 
         assertEquals(1, uploads)
+        assertEquals(emptyList(), deletedStoragePaths)
         assertEquals(1, calls.count { it.first == "quata_chat_register_attachment" })
         assertEquals(2, calls.count { it.first == "quata_chat_send_message" })
         assertTrue(calls.filter { it.first == "quata_chat_send_message" }.all { it.second.contains("\"p_file_ids\":[123]") })
+    }
+
+    @Test
+    fun registerFailureAfterAttachmentUploadDeletesTheOrphanStorageObject() = runTest {
+        val calls = mutableListOf<String>()
+        val deletedStoragePaths = mutableListOf<String>()
+        val repository = PostgrestChatRepository(
+            transport = object : ChatPostgrestTransport {
+                override suspend fun post(functionName: String, body: String): ChatPostgrestResponse {
+                    calls += functionName
+                    return when (functionName) {
+                        "quata_chat_register_attachment" -> ChatPostgrestResponse.Failure(IllegalStateException("register_failed_after_upload"))
+                        else -> ChatPostgrestResponse.Success("{}")
+                    }
+                }
+            },
+            authenticatedUser = ChatAuthenticatedUserProvider { "profile-1" },
+            attachmentUploader = object : ChatAttachmentUploader {
+                override suspend fun upload(profileId: String, file: com.quata.core.platform.PlatformFile): UploadedChatAttachment =
+                    UploadedChatAttachment(
+                        storagePath = "$profileId/${file.displayName}",
+                        publicUrl = "https://project.supabase.co/storage/v1/object/public/chat-attachments/$profileId/${file.displayName}",
+                        mimeType = file.mimeType ?: "image/jpeg",
+                        sizeBytes = 42,
+                        name = file.displayName ?: "photo.jpg",
+                        extension = "jpg",
+                    )
+
+                override suspend fun deleteUploadedAttachment(uploaded: UploadedChatAttachment): Boolean {
+                    deletedStoragePaths += uploaded.storagePath
+                    return true
+                }
+            },
+        )
+
+        assertTrue(
+            repository.sendMessage(
+                conversationId = "sb:77",
+                text = "",
+                attachmentUri = "local-photo",
+                attachmentName = "photo.jpg",
+                attachmentMimeType = "image/jpeg",
+                clientMessageId = "client-register-fail",
+            ).isFailure,
+        )
+
+        assertEquals(listOf("quata_chat_register_attachment"), calls)
+        assertEquals(listOf("profile-1/photo.jpg"), deletedStoragePaths)
     }
 
     @Test

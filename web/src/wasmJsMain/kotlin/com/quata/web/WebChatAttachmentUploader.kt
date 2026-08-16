@@ -54,6 +54,25 @@ class WebChatAttachmentUploader(
             extension = extension,
         )
     }
+
+    suspend fun delete(storagePath: String): Boolean {
+        val baseUrl = configuration.supabaseUrl?.trimEnd('/')
+            ?.takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException("supabase_url_missing")
+        val apiKey = configuration.supabasePublishableKey?.takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException("supabase_publishable_key_missing")
+        val credentials = authRepository.currentWebPushCredentials()
+            ?: throw IllegalStateException("web_session_missing")
+        val cleanPath = storagePath.trim().trimStart('/')
+            .takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException("web_chat_attachment_delete_path_missing")
+        return browserDeleteChatAttachment(
+            deleteUrl = "$baseUrl/storage/v1/object/chat-attachments",
+            apiKey = apiKey,
+            accessToken = credentials.accessToken,
+            storagePath = cleanPath,
+        )
+    }
 }
 
 data class UploadedWebChatAttachment(
@@ -128,6 +147,52 @@ private fun browserUploadChatAttachmentRequest(
         sizeBytes: Number.isFinite(blob.size) ? Math.trunc(blob.size) : null,
       }));
     }).catch((error) => onFailure(error?.message ?? error?.name ?? 'web_chat_attachment_upload_failed'));
+    })()
+    """,
+)
+
+private suspend fun browserDeleteChatAttachment(
+    deleteUrl: String,
+    apiKey: String,
+    accessToken: String,
+    storagePath: String,
+): Boolean = suspendCoroutine { continuation ->
+    browserDeleteChatAttachmentRequest(
+        deleteUrl = deleteUrl,
+        apiKey = apiKey,
+        accessToken = accessToken,
+        storagePath = storagePath,
+        onSuccess = { continuation.resume(true) },
+        onFailure = { reason -> continuation.resumeWith(Result.failure(IllegalStateException(reason))) },
+    )
+}
+
+private fun browserDeleteChatAttachmentRequest(
+    deleteUrl: String,
+    apiKey: String,
+    accessToken: String,
+    storagePath: String,
+    onSuccess: () -> Unit,
+    onFailure: (String) -> Unit,
+): Unit = js(
+    """
+    (() => {
+    if (typeof globalThis.fetch !== 'function') {
+      onFailure('web_chat_attachment_fetch_unsupported');
+      return;
+    }
+    globalThis.fetch(deleteUrl, {
+      method: 'DELETE',
+      headers: {
+        apikey: apiKey,
+        Authorization: `Bearer ${'$'}{accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ prefixes: [storagePath] }),
+    }).then((response) => {
+      if (!response.ok) throw new Error(`web_chat_attachment_delete_${'$'}{response.status}`);
+      onSuccess();
+    }).catch((error) => onFailure(error?.message ?? error?.name ?? 'web_chat_attachment_delete_failed'));
     })()
     """,
 )
