@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-ATTACHMENTS"
+  ],
+  "productSha": "6216e0711f6305b1ab327056cc646ad4cd0f3644",
+  "evidence": {
+    "webDocumentRegisterFailure": {
+      "status": "passed",
+      "sha": "6216e0711f6305b1ab327056cc646ad4cd0f3644",
+      "report": "build-reports/web/chat-attachment-rollback-register-failure-6216e071.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "androidDocumentRegisterFailure": {
+      "status": "passed",
+      "sha": "6216e0711f6305b1ab327056cc646ad4cd0f3644",
+      "report": "build-reports/android/chat-attachment-rollback-register-failure-6216e071.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "iosDocumentRegisterFailure": {
+      "status": "passed",
+      "sha": "6216e0711f6305b1ab327056cc646ad4cd0f3644",
+      "report": "build-reports/ios/chat-attachment-rollback-register-failure-6216e071-final.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate covers the forced attachment rollback path after Storage upload but before successful attachment registration/send on Web/Wasm, Android and iOS. Each route uses the shared composer/document attachment flow, leaves no pending attachment, creates no message and records Storage/DB physical residue zero.",
+    "The common PostgrestChatRepository now deletes orphan uploaded objects on register failure while preserving retry/outbox behavior for later send failures. Web/Wasm, Android legacy and iOS transports expose platform-specific Storage deletion only behind that common contract."
+  ]
+}
