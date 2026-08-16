@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -88,39 +89,36 @@ fun ChatMediaAttachmentContent(
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onOpen)
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
         media(file, kind, Modifier.fillMaxSize())
-        if (kind == ChatAttachmentKind.Video) {
+        if (kind == ChatAttachmentKind.Video || kind == ChatAttachmentKind.Image) {
             Surface(
                 color = Color.Black.copy(alpha = 0.38f),
                 contentColor = Color.White,
                 shape = CircleShape,
-                modifier = Modifier.size(62.dp),
+                modifier = Modifier
+                    .size(62.dp)
+                    .clickable(onClick = onOpen)
+                    .semantics {
+                        testTag = semanticAnchor
+                        contentDescription = semanticAnchor
+                        role = Role.Button
+                        onClick(label = semanticAnchor) {
+                            onOpen()
+                            true
+                        }
+                    },
             ) {
                 Icon(
-                    imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = playVideoLabel,
+                    imageVector = if (kind == ChatAttachmentKind.Video) Icons.Filled.PlayArrow else Icons.Filled.OpenInFull,
+                    contentDescription = if (kind == ChatAttachmentKind.Video) playVideoLabel else semanticAnchor,
                     modifier = Modifier.padding(12.dp).size(38.dp),
                 )
             }
         }
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.001f))
-                .clickable(onClick = onOpen)
-                .semantics {
-                    testTag = semanticAnchor
-                    contentDescription = semanticAnchor
-                    role = Role.Button
-                    onClick(label = semanticAnchor) {
-                        onOpen()
-                        true
-                    }
-                },
-        )
     }
 }
 
