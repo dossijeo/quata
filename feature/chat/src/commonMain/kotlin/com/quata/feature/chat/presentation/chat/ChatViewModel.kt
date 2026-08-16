@@ -68,7 +68,8 @@ class ChatViewModel(
                 }
                 .collect { conversations ->
                     _uiState.value = _uiState.value.copy(
-                        conversation = conversations.firstOrNull { it.id == conversationId }
+                        conversation = conversations.firstOrNull { it.id == conversationId },
+                        currentUser = repository.currentUser(),
                     )
                 }
         }
@@ -115,6 +116,7 @@ class ChatViewModel(
                     }
                     publishMessages(isLoading = false)
                     _uiState.value = _uiState.value.copy(
+                        currentUser = repository.currentUser(),
                         hasReceivedMessageSnapshot = true,
                         messageLoadFailure = null,
                     )

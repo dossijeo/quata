@@ -475,7 +475,10 @@ open class PostgrestChatRepository(
     private suspend fun refreshThread(conversationId: String, limit: Int): Result<List<Message>> = runCatching {
         val userId = currentUserId(); val threadId = conversationId.threadIdForRefresh(); _syncStatus.value = ChatSyncStatus.Refreshing
         val knownIds = messagesState(conversationId).value.mapNotNull { it.id.toLongOrNull() }
-        val envelope = rpc("quata_chat_get_thread", threadRequest(userId, threadId, limit, knownIds)); mergeMessages(envelope.toChatRpcMessages(userId)); _syncStatus.value = ChatSyncStatus.Online; messagesState(conversationId).value
+        val envelope = rpc("quata_chat_get_thread", threadRequest(userId, threadId, limit, knownIds))
+        updateCurrentUserFrom(envelope, userId)
+        mergeConversations(envelope.toChatRpcConversations(userId))
+        mergeMessages(envelope.toChatRpcMessages(userId)); _syncStatus.value = ChatSyncStatus.Online; messagesState(conversationId).value
     }.onFailure { updateReadFailure() }
     private suspend fun refreshFavorites(): Result<List<Message>> = runCatching {
         val userId = currentUserId(); _syncStatus.value = ChatSyncStatus.Refreshing
