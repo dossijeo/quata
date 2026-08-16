@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-GROUP"
+  ],
+  "productSha": "5c8d5f04117fc62f79938ccb0ab9e645523e5de8",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "5c8d5f04117fc62f79938ccb0ab9e645523e5de8",
+      "report": "build-reports/web/chat-group-admin-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "5c8d5f04117fc62f79938ccb0ab9e645523e5de8",
+      "report": "build-reports/android/chat-group-admin-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "5c8d5f04117fc62f79938ccb0ab9e645523e5de8",
+      "report": "build-reports/ios/chat-group-admin-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "Web/Wasm, Android and iOS exercise the shared group administration UI by adding a temporary participant from the common picker, opening the common member menu, promoting the participant to moderator, verifying the role through the database, and verifying physical cleanup residue remains zero.",
+    "Android and iOS resolve the shared semantic anchors for the picker, member menu and confirmation dialog. Compose/Wasm still does not expose every common testTag as native DOM/ARIA; the runner records those missing anchors, falls back to visible text/bounds only for replay, and verifies the resulting participant/role mutation through backend state."
+  ]
+}
