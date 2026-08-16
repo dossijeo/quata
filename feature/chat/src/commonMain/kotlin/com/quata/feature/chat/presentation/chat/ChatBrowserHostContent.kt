@@ -230,6 +230,7 @@ private fun ChatCommonConversationHost(
     var activeAudioMessageKey by remember { mutableStateOf<String?>(null) }
     var audioPlayback by remember { mutableStateOf(AudioPlaybackState()) }
     var audioFailed by remember { mutableStateOf(false) }
+    var audioOperationInFlight by remember { mutableStateOf(false) }
     var isRecordingAudio by remember { mutableStateOf(false) }
     var recordingElapsedSeconds by remember { mutableLongStateOf(0L) }
     var recordingError by remember { mutableStateOf<String?>(null) }
@@ -290,42 +291,46 @@ private fun ChatCommonConversationHost(
             recordingElapsedSeconds += 1L
         }
     }
-    LaunchedEffect(activeAudioReference) {
-        if (activeAudioReference == null) return@LaunchedEffect
+    suspend fun advanceOrCompleteActiveAudioPlayback() {
+        val next = activeAudioMessageKey?.let { key -> nextConsecutiveAudioMessage(state.messages, key) }
+        val nextReference = next?.attachmentUri
+        if (next != null && !nextReference.isNullOrBlank()) {
+            val nextFile = PlatformFile(nextReference, next.attachmentName, next.attachmentMimeType)
+            val result = when (val loaded = audioPlayer.load(nextFile)) {
+                is PlatformResult.Success -> audioPlayer.play()
+                is PlatformResult.Failure -> loaded
+                PlatformResult.Cancelled -> PlatformResult.Cancelled
+                PlatformResult.Unsupported -> PlatformResult.Unsupported
+            }
+            when (result) {
+                is PlatformResult.Success -> {
+                    activeAudioReference = nextReference
+                    activeAudioMessageKey = next.composeKey()
+                    audioPlayback = result.value
+                    audioFailed = false
+                }
+                is PlatformResult.Failure,
+                PlatformResult.Cancelled,
+                PlatformResult.Unsupported -> audioFailed = true
+            }
+        } else {
+            audioPlayback = AudioPlaybackState()
+            activeAudioReference = null
+            activeAudioMessageKey = null
+        }
+    }
+    LaunchedEffect(activeAudioReference, audioOperationInFlight) {
+        if (activeAudioReference == null || audioOperationInFlight) return@LaunchedEffect
         while (activeAudioReference != null) {
             delay(250L)
+            if (audioOperationInFlight) break
             val previousPlayback = audioPlayback
             val currentPlayback = audioPlayer.state()
             val finished = didAudioPlaybackFinish(previousPlayback, currentPlayback)
             if (finished) {
-                val next = activeAudioMessageKey?.let { key -> nextConsecutiveAudioMessage(state.messages, key) }
-                val nextReference = next?.attachmentUri
-                if (next != null && !nextReference.isNullOrBlank()) {
-                    val nextFile = PlatformFile(nextReference, next.attachmentName, next.attachmentMimeType)
-                    val result = when (val loaded = audioPlayer.load(nextFile)) {
-                        is PlatformResult.Success -> audioPlayer.play()
-                        is PlatformResult.Failure -> loaded
-                        PlatformResult.Cancelled -> PlatformResult.Cancelled
-                        PlatformResult.Unsupported -> PlatformResult.Unsupported
-                    }
-                    when (result) {
-                        is PlatformResult.Success -> {
-                            activeAudioReference = nextReference
-                            activeAudioMessageKey = next.composeKey()
-                            audioPlayback = result.value
-                            audioFailed = false
-                        }
-                        is PlatformResult.Failure,
-                        PlatformResult.Cancelled,
-                        PlatformResult.Unsupported -> audioFailed = true
-                    }
-                    break
-                } else {
-                    audioPlayback = currentPlayback
-                    activeAudioReference = null
-                    activeAudioMessageKey = null
-                    break
-                }
+                audioPlayback = currentPlayback
+                advanceOrCompleteActiveAudioPlayback()
+                break
             } else {
                 audioPlayback = currentPlayback
                 if (!currentPlayback.isPlaying) break
@@ -585,6 +590,8 @@ private fun ChatCommonConversationHost(
                         audioPlayback = updatedPlayback
                         audioFailed = failed
                     },
+                    onPlaybackOperationInFlight = { audioOperationInFlight = it },
+                    onPlaybackCompleted = { advanceOrCompleteActiveAudioPlayback() },
                     onOpenAttachment = ::openAttachment,
                     onDownloadAttachment = ::downloadAttachment,
                     onShareAttachment = ::shareAttachment,
@@ -688,6 +695,8 @@ private fun ChatBrowserAttachmentContent(
     playback: AudioPlaybackState,
     failed: Boolean,
     onPlaybackChanged: (String?, AudioPlaybackState, Boolean) -> Unit,
+    onPlaybackOperationInFlight: (Boolean) -> Unit,
+    onPlaybackCompleted: suspend () -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
     mediaPreview: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
     playVideoLabel: String = "Play video",
@@ -755,33 +764,50 @@ private fun ChatBrowserAttachmentContent(
         textColor = textColor,
         playPauseDescription = if (visiblePlayback.isPlaying) pauseAudioLabel else playAudioLabel,
         onTogglePlayback = {
+            if (!isActive) {
+                onPlaybackChanged(reference, AudioPlaybackState(isLoaded = true, isPlaying = true), false)
+            }
+            onPlaybackOperationInFlight(true)
             launch {
-                val result = when {
-                    !isActive -> when (val loaded = audioPlayer.load(PlatformFile(reference, displayName, mimeType))) {
-                        is PlatformResult.Success -> audioPlayer.play()
-                        is PlatformResult.Failure -> loaded
-                        PlatformResult.Cancelled -> PlatformResult.Cancelled
-                        PlatformResult.Unsupported -> PlatformResult.Unsupported
+                try {
+                    val result = when {
+                        !isActive -> when (val loaded = audioPlayer.load(PlatformFile(reference, displayName, mimeType))) {
+                            is PlatformResult.Success -> audioPlayer.play()
+                            is PlatformResult.Failure -> loaded
+                            PlatformResult.Cancelled -> PlatformResult.Cancelled
+                            PlatformResult.Unsupported -> PlatformResult.Unsupported
+                        }
+                        visiblePlayback.isPlaying -> audioPlayer.pause()
+                        else -> audioPlayer.play()
                     }
-                    visiblePlayback.isPlaying -> audioPlayer.pause()
-                    else -> audioPlayer.play()
-                }
-                when (result) {
-                    is PlatformResult.Success -> onPlaybackChanged(reference, result.value, false)
-                    is PlatformResult.Failure,
-                    PlatformResult.Cancelled,
-                    PlatformResult.Unsupported -> onPlaybackChanged(reference, visiblePlayback, true)
+                    when (result) {
+                        is PlatformResult.Success -> onPlaybackChanged(reference, result.value, false)
+                        is PlatformResult.Failure,
+                        PlatformResult.Cancelled,
+                        PlatformResult.Unsupported -> onPlaybackChanged(reference, visiblePlayback, true)
+                    }
+                } finally {
+                    onPlaybackOperationInFlight(false)
                 }
             }
         },
         onSeekToFraction = { fraction ->
             if (isActive && visiblePlayback.durationMillis > 0L) {
+                onPlaybackOperationInFlight(true)
                 launch {
-                    when (val result = audioPlayer.seekTo((visiblePlayback.durationMillis * fraction).toLong())) {
-                        is PlatformResult.Success -> onPlaybackChanged(reference, result.value, false)
-                        is PlatformResult.Failure,
-                        PlatformResult.Cancelled,
-                        PlatformResult.Unsupported -> onPlaybackChanged(reference, visiblePlayback, true)
+                    try {
+                        when (val result = audioPlayer.seekTo((visiblePlayback.durationMillis * fraction).toLong())) {
+                            is PlatformResult.Success -> {
+                                val finished = didAudioPlaybackFinish(visiblePlayback, result.value)
+                                onPlaybackChanged(reference, result.value, false)
+                                if (finished) onPlaybackCompleted()
+                            }
+                            is PlatformResult.Failure,
+                            PlatformResult.Cancelled,
+                            PlatformResult.Unsupported -> onPlaybackChanged(reference, visiblePlayback, true)
+                        }
+                    } finally {
+                        onPlaybackOperationInFlight(false)
                     }
                 }
             }

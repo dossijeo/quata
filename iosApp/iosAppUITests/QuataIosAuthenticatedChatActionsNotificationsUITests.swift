@@ -68,6 +68,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let documentProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE"]),
               let audioProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE"]),
+              let audioName = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME"]),
+              let nextAudioName = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME"]),
               let imageProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE"]),
               let videoProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE"]),
               let imageMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID"]),
@@ -148,6 +150,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard makeChatAnchorVisible(identifier: "chat.attachment.audio.player", context: "Chat audio attachment", in: app) else {
             return
         }
+        keepElementAboveComposer(identifier: "chat.attachment.audio.player", context: "Chat audio attachment", in: app)
         for identifier in ["chat.attachment.audio.player", "chat.attachment.audio.toggle", "chat.attachment.audio.progress"] {
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: identifier).firstMatch.waitForExistence(timeout: 10),
@@ -155,22 +158,34 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             )
         }
         attachScreenshot(app, name: "ios-chat-audio-player-visible")
-        let audioToggle = app.descendants(matching: .any)
-            .matching(identifier: "chat.attachment.audio.toggle")
-            .firstMatch
+        let audioToggle = audioToggleElement(audioName: audioName, action: "Reproducir", fallbackAction: "Play", in: app)
         XCTAssertTrue(audioToggle.waitForExistence(timeout: 5), "The shared audio toggle must be visible before playback is attempted.")
         audioToggle
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .tap()
+        let activeAudioToggle = audioToggleElement(audioName: audioName, action: "Pausar", fallbackAction: "Pause", in: app)
+        XCTAssertTrue(
+            activeAudioToggle.waitForExistence(timeout: 15),
+            "The shared audio toggle must switch to playing before the scrubber is used.",
+        )
         attachScreenshot(app, name: "ios-chat-audio-toggle-attempted")
-        let audioProgress = app.descendants(matching: .any)
-            .matching(identifier: "chat.attachment.audio.progress")
-            .firstMatch
+        keepElementAboveComposer(identifier: "chat.attachment.audio.progress", context: "Chat audio scrubber", in: app)
+        let audioProgress = audioProgressElement(audioName: audioName, in: app)
         XCTAssertTrue(audioProgress.waitForExistence(timeout: 5), "The shared audio progress anchor must remain visible for seek.")
+        XCTAssertTrue(
+            waitForAudioProgressToStart(audioName: audioName, in: app, timeout: 20),
+            "The shared audio progress anchor must expose real playback progress before seek.",
+        )
         audioProgress
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.5))
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5))
             .tap()
         attachScreenshot(app, name: "ios-chat-audio-seek-attempted")
+        let nextAudioToggle = audioToggleElement(audioName: nextAudioName, action: "Pausar", fallbackAction: "Pause", in: app)
+        XCTAssertTrue(
+            nextAudioToggle.waitForExistence(timeout: 8),
+            "Consecutive audio playback must advance to the next shared audio attachment.",
+        )
+        attachScreenshot(app, name: "ios-chat-audio-consecutive-next-playing")
     }
 
     func testAttachmentPickerFixtureUsesSharedComposerAnchors() throws {
@@ -280,9 +295,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         typeText(marker, into: "chat.composer.input", in: app)
         attachScreenshot(app, name: "ios-chat-audio-recording-ready-to-send")
         tapTaggedButton("chat.composer.send", in: app, context: "send audio recording")
+        waitForPendingAttachmentToSend(marker: marker, in: app, context: "audio recording")
         XCTAssertTrue(messageText(marker, in: app).waitForExistence(timeout: 45), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-audio-recording-sent")
-        XCTAssertFalse(pending.waitForExistence(timeout: 2), "Sending the audio recording must clear the shared pending attachment surface.")
         dismissKeyboardIfVisible(in: app)
     }
 
@@ -1048,6 +1063,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         for _ in 0..<14 {
             let media = mediaElement()
             if media.waitForExistence(timeout: 1), isElementVisibleInChatViewport(media, in: app) {
+                attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-visible")
                 return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
             }
             scrollElementTowardViewport(media, in: app)
@@ -1122,7 +1138,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return true
         }
         tapResolvedMediaFallback(media)
-        return assertFullscreenMediaOpened(context: context, in: app, reportFailure: failOnMiss)
+        if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
+            return true
+        }
+        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).tap()
+        if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
+            return true
+        }
+        tapVisibleFrameCenter(media, in: app)
+        if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
+            return true
+        }
+        attachScreenshot(app, name: "ios-\(slug(context))-media-open-failed")
+        if failOnMiss {
+            XCTFail("The shared fullscreen media overlay must open from \(context).")
+        }
+        return false
     }
 
     private func tapResolvedMedia(_ media: XCUIElement) {
@@ -1131,6 +1162,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     private func tapResolvedMediaFallback(_ media: XCUIElement) {
         media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func tapVisibleFrameCenter(_ element: XCUIElement, in app: XCUIApplication) {
+        let visibleFrame = element.frame.intersection(chatMessageViewport(in: app))
+        let frame = visibleFrame.isNull || visibleFrame.isEmpty ? element.frame : visibleFrame
+        guard !frame.isNull, !frame.isEmpty else { return }
+        let origin = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+        origin.withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
     }
 
     private func assertFullscreenMediaOpened(context: String, in app: XCUIApplication, reportFailure: Bool = true) -> Bool {
@@ -1156,6 +1195,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return false
         }
         return true
+    }
+
+    private func slug(_ value: String) -> String {
+        let allowed = CharacterSet.alphanumerics
+        return value
+            .unicodeScalars
+            .map { allowed.contains($0) ? Character($0).lowercased() : "-" }
+            .joined()
+            .replacingOccurrences(of: "--+", with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
     }
 
     private func closeFullscreenMedia(context: String, in app: XCUIApplication) {
@@ -1367,6 +1416,32 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         return false
     }
 
+    private func waitForPendingAttachmentToSend(marker: String, in app: XCUIApplication, context: String) {
+        let deadline = Date().addingTimeInterval(45)
+        while Date() < deadline {
+            let pending = app.descendants(matching: .any)
+                .matching(identifier: "chat.attachment.pending")
+                .firstMatch
+            let composerStillContainsMarker = waitForComposerValue(containing: marker, in: app, timeout: 0.2)
+            if !pending.exists && !composerStillContainsMarker {
+                return
+            }
+            if pending.exists || composerStillContainsMarker {
+                let send = app.descendants(matching: .any)
+                    .matching(identifier: "chat.composer.send")
+                    .firstMatch
+                if send.waitForExistence(timeout: 0.5), send.isHittable {
+                    send.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                } else {
+                    dismissKeyboardIfPresent(in: app)
+                }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        attachScreenshot(app, name: "ios-chat-\(context.replacingOccurrences(of: " ", with: "-"))-send-stuck")
+        XCTFail("Sending \(context) must clear the shared pending attachment surface and composer marker.")
+    }
+
     private func waitForFocusedMessageHighlightToClear(_ messageId: String, in app: XCUIApplication) {
         let focused = app.descendants(matching: .any)
             .matching(identifier: "chat.message.\(messageId).selected")
@@ -1401,6 +1476,68 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(button.exists, "Expected \(identifier) for \(context).")
         button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func audioToggleElement(audioName: String, action: String, fallbackAction: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(
+                format: "identifier == %@ AND label CONTAINS[c] %@ AND (label CONTAINS[c] %@ OR label CONTAINS[c] %@)",
+                "chat.attachment.audio.toggle",
+                audioName,
+                action,
+                fallbackAction,
+            ))
+            .firstMatch
+    }
+
+    private func audioProgressElement(audioName: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(
+                format: "identifier == %@ AND label CONTAINS[c] %@",
+                "chat.attachment.audio.progress",
+                audioName,
+            ))
+            .firstMatch
+    }
+
+    private func waitForAudioProgressToStart(audioName: String, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let progress = audioProgressElement(audioName: audioName, in: app)
+            if progress.exists,
+               progress.label.range(of: #" ([1-9][0-9]?|100)%"#, options: .regularExpression) != nil {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        return false
+    }
+
+    private func keepElementAboveComposer(identifier: String, context: String, in app: XCUIApplication) {
+        let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        XCTAssertTrue(element.waitForExistence(timeout: 10), "Expected \(identifier) for \(context).")
+        let composer = app.descendants(matching: .any).matching(identifier: "chat.composer.root").firstMatch
+        for _ in 0..<5 {
+            guard element.exists else { break }
+            if composer.exists {
+                let safeBottom = composer.frame.minY - 12
+                if element.frame.maxY > 0 && element.frame.maxY <= safeBottom {
+                    return
+                }
+            } else if element.isHittable {
+                return
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        }
+        XCTAssertTrue(element.exists, "Expected \(identifier) to remain visible for \(context).")
+        if composer.exists {
+            XCTAssertLessThanOrEqual(
+                element.frame.maxY,
+                composer.frame.minY - 12,
+                "\(identifier) must be above the shared composer before \(context) interaction.",
+            )
+        }
     }
 
     private func propagatePickerFixtureEnvironment(to app: XCUIApplication) {

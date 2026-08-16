@@ -19,6 +19,13 @@ test("validWavFixture is shared and produces a playable RIFF/WAVE buffer", () =>
   assert.ok(wav.length > 44);
 });
 
+test("validWavFixture supports longer observable playback windows for E2E chaining", () => {
+  const standard = validWavFixture();
+  const longer = validWavFixture({ durationSeconds: 12 });
+  assert.equal(longer.subarray(0, 4).toString("ascii"), "RIFF");
+  assert.ok(longer.length > standard.length * 2);
+});
+
 test("validMp4Fixture is shared and produces a real MP4 buffer", () => {
   const mp4 = validMp4Fixture();
   assert.ok(mp4.length > 8_000);

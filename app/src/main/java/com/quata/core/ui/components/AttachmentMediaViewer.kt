@@ -579,6 +579,8 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
         player.addListener(listener)
         onDispose {
             player.removeListener(listener)
+            player.stop()
+            player.clearMediaItems()
             player.release()
         }
     }
@@ -618,6 +620,9 @@ private fun FullscreenVideoPlayer(videoUri: String, modifier: Modifier = Modifie
                 }
                 playerView.findQuataTextureView()
                     ?.applyQuataVideoPlaybackTransform(playbackRotation)
+            },
+            onRelease = { playerView ->
+                playerView.player = null
             },
             modifier = Modifier.fillMaxSize()
         )

@@ -21,8 +21,14 @@ private fun Message.isConsecutiveAudioFrom(current: Message): Boolean {
 }
 
 fun didAudioPlaybackFinish(previous: AudioPlaybackState, current: AudioPlaybackState): Boolean {
-    if (!previous.isPlaying || current.isPlaying || current.durationMillis <= 0L) return false
-    return current.positionMillis >= (current.durationMillis - AUDIO_COMPLETION_TOLERANCE_MILLIS).coerceAtLeast(0L)
+    if (!previous.isPlaying) return false
+    return current.isNearEnd() || (!current.isPlaying && previous.isNearEnd(current.durationMillis))
 }
 
 private const val AUDIO_COMPLETION_TOLERANCE_MILLIS = 500L
+
+private fun AudioPlaybackState.isNearEnd(fallbackDurationMillis: Long = durationMillis): Boolean {
+    val duration = durationMillis.takeIf { it > 0L } ?: fallbackDurationMillis
+    if (duration <= 0L) return false
+    return positionMillis >= (duration - AUDIO_COMPLETION_TOLERANCE_MILLIS).coerceAtLeast(0L)
+}

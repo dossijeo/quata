@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -415,7 +415,7 @@ async function storageRequest(config, session, path, options, prefix) {
   return text;
 }
 
-async function createChatAttachmentMessage(config, session, thread, runId, kind) {
+async function createChatAttachmentMessage(config, session, thread, runId, kind, nameSuffix = "", options = {}) {
   return seedChatAttachmentFixture({
     config,
     session,
@@ -430,6 +430,8 @@ async function createChatAttachmentMessage(config, session, thread, runId, kind)
     attachmentId,
     messageId,
     cleanup: state.cleanupRegistry,
+    nameSuffix,
+    audioDurationSeconds: options.audioDurationSeconds,
   });
 }
 
@@ -663,7 +665,12 @@ async function collectAvailableDeviceEvidence(destination) {
   const copied = [];
   for (const file of evidenceFiles) {
     try {
-      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(destination, file));
+      const localFile = join(destination, file);
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, localFile);
+      if (file.endsWith(".png") && (await stat(localFile)).size === 0) {
+        await rm(localFile, { force: true });
+        continue;
+      }
       copied.push(file);
     } catch {}
   }
@@ -1358,6 +1365,8 @@ try {
       "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
       "-e", "quataChatActionsDocumentProbe", state.attachmentsAudio?.document?.markerProbe ?? "",
       "-e", "quataChatActionsAudioProbe", state.attachmentsAudio?.audio?.markerProbe ?? "",
+      "-e", "quataChatActionsAudioName", state.attachmentsAudio?.audio?.name ?? "",
+      "-e", "quataChatActionsNextAudioName", state.attachmentsAudio?.nextAudio?.name ?? "",
       "-e", "quataChatActionsImageProbe", state.attachmentsAudio?.image?.markerProbe ?? "",
       "-e", "quataChatActionsVideoProbe", state.attachmentsAudio?.video?.markerProbe ?? "",
       "-e", "quataChatActionsAudioRecordingMarker", state.attachmentsAudio?.recordingMarker ?? "",
@@ -1437,7 +1446,7 @@ try {
       image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
       document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
       audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
-      nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next"),
+      nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next", { audioDurationSeconds: 12 }),
       recordingMarker: `chat-audio-recording-android-${randomUUID()}`,
     };
     report.steps.push("video_image_document_and_consecutive_audio_attachment_messages_seeded");

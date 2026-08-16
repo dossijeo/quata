@@ -317,7 +317,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
         image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
         document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
         audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
-        nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next"),
+        nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next", { audioDurationSeconds: 12 }),
         recordingMarker: `chat-audio-recording-ios-${randomUUID()}`,
       };
       report.steps.push("video_image_document_and_consecutive_audio_attachment_messages_seeded");
@@ -388,6 +388,8 @@ export QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER=${shellQuote(state.attachmentPick
 export QUATA_IOS_CHAT_GROUP_SOS_UI_E2E=${groupSosOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE=${shellQuote(state.attachmentsAudio?.document?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE=${shellQuote(state.attachmentsAudio?.audio?.markerProbe ?? "attachments-audio")}
+export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME=${shellQuote(state.attachmentsAudio?.audio?.name ?? "attachments-audio.wav")}
+export QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME=${shellQuote(state.attachmentsAudio?.nextAudio?.name ?? "attachments-audio-next.wav")}
 export QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE=${shellQuote(state.attachmentsAudio?.image?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE=${shellQuote(state.attachmentsAudio?.video?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.image?.messageId ?? "attachments-audio"))}
@@ -1108,7 +1110,7 @@ async function storageRequest(config, session, path, options, prefix) {
   return text;
 }
 
-async function createChatAttachmentMessage(config, session, thread, runId, kind) {
+async function createChatAttachmentMessage(config, session, thread, runId, kind, nameSuffix = "", options = {}) {
   return seedChatAttachmentFixture({
     config,
     session,
@@ -1123,6 +1125,8 @@ async function createChatAttachmentMessage(config, session, thread, runId, kind)
     attachmentId,
     messageId,
     cleanup: state.cleanupRegistry,
+    nameSuffix,
+    audioDurationSeconds: options.audioDurationSeconds,
   });
 }
 
