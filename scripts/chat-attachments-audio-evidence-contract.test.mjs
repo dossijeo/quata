@@ -306,7 +306,9 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonHost, /val finished = didAudioPlaybackFinish\(visiblePlayback, result\.value\)[\s\S]*if \(finished\) onPlaybackCompleted\(\)/);
   assert.doesNotMatch(commonHost, /val currentPlayback = audioPlayer\.state\(\)\s+audioPlayback = currentPlayback\s+if \(didAudioPlaybackFinish/);
   assert.match(commonAudioPolicy, /listOf\(currentIndex \+ 1, currentIndex - 1\)/);
-  assert.match(commonAudioPolicy, /return current\.isNearEnd\(\) \|\| \(!current\.isPlaying && previous\.isNearEnd\(current\.durationMillis\)\)/);
+  assert.match(commonAudioPolicy, /if \(!previous\.isPlaying\) return false/);
+  assert.match(commonAudioPolicy, /if \(current\.isPlaying\) return false/);
+  assert.match(commonAudioPolicy, /return current\.isNearEnd\(\) \|\| previous\.isNearEnd\(current\.durationMillis\)/);
 });
 
 test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evidence exists", () => {
