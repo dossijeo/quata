@@ -3,11 +3,11 @@
   "units": [
     "CHAT-GROUP"
   ],
-  "productSha": "5a9d42f98b738390fc8fd36db9a8ab6b5ea4e1eb",
+  "productSha": "a22a5ece46cbb664026a12d25b671d84ddea1a6e",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "5a9d42f98b738390fc8fd36db9a8ab6b5ea4e1eb",
+      "sha": "a22a5ece46cbb664026a12d25b671d84ddea1a6e",
       "report": "build-reports/web/chat-group-admin-evidence.json",
       "cleanup": {
         "verified": true,
