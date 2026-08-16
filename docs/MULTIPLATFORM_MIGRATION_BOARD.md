@@ -74,14 +74,14 @@ las nueve pasan en el mismo Product/Evidence SHA, no crean adjunto pendiente ni 
 `docs/candidate-attestations/chat-attachment-picker-negative-paths.json`. Quedan fuera rollback
 forzado tras upload/RPC parcial y permisos de sistema reales no simulados.
 
-**Candidato activo apilado:** `6216e0711f6305b1ab327056cc646ad4cd0f3644` reduce `CHAT-ATTACHMENTS`
+**Candidato activo apilado:** `9cb0c341269a9ff9d606b95eef5a8ae9f784bb6b` reduce `CHAT-ATTACHMENTS`
 con rollback forzado cuando Storage sube el documento pero falla el registro RPC/envío antes de que
 exista un mensaje acreditado. La implementación común `PostgrestChatRepository` borra el objeto
 huérfano tras fallo de registro; Web/Wasm, Android legacy e iOS sólo divergen en el delete nativo de
 Storage detrás de ese contrato común. Evidencias locales: Web/Wasm
-`build-reports/web/chat-attachment-rollback-register-failure-6216e071.json`, Android
-`build-reports/android/chat-attachment-rollback-register-failure-6216e071.json` e iOS
-`build-reports/ios/chat-attachment-rollback-register-failure-6216e071-final.json`; las tres pasan
+`build-reports/web/chat-attachment-rollback-register-failure-9cb0c341.json`, Android
+`build-reports/android/chat-attachment-rollback-register-failure-9cb0c341.json` e iOS
+`build-reports/ios/chat-attachment-rollback-register-failure-9cb0c341.json`; las tres pasan
 con `pendingCreated=true`, `messageCreated=false`, ancla común `chat.attachment.error`, ausencia de
 `chat.attachment.pending`, `storageResidueCount=0` y hard cleanup físico cero. Attestation:
 `docs/candidate-attestations/chat-attachment-rollback.json`. Quedan fuera permisos de sistema reales

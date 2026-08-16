@@ -3,12 +3,12 @@
   "units": [
     "CHAT-ATTACHMENTS"
   ],
-  "productSha": "6216e0711f6305b1ab327056cc646ad4cd0f3644",
+  "productSha": "9cb0c341269a9ff9d606b95eef5a8ae9f784bb6b",
   "evidence": {
     "webDocumentRegisterFailure": {
       "status": "passed",
-      "sha": "6216e0711f6305b1ab327056cc646ad4cd0f3644",
-      "report": "build-reports/web/chat-attachment-rollback-register-failure-6216e071.json",
+      "sha": "9cb0c341269a9ff9d606b95eef5a8ae9f784bb6b",
+      "report": "build-reports/web/chat-attachment-rollback-register-failure-9cb0c341.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -16,8 +16,8 @@
     },
     "androidDocumentRegisterFailure": {
       "status": "passed",
-      "sha": "6216e0711f6305b1ab327056cc646ad4cd0f3644",
-      "report": "build-reports/android/chat-attachment-rollback-register-failure-6216e071.json",
+      "sha": "9cb0c341269a9ff9d606b95eef5a8ae9f784bb6b",
+      "report": "build-reports/android/chat-attachment-rollback-register-failure-9cb0c341.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -25,8 +25,8 @@
     },
     "iosDocumentRegisterFailure": {
       "status": "passed",
-      "sha": "6216e0711f6305b1ab327056cc646ad4cd0f3644",
-      "report": "build-reports/ios/chat-attachment-rollback-register-failure-6216e071-final.json",
+      "sha": "9cb0c341269a9ff9d606b95eef5a8ae9f784bb6b",
+      "report": "build-reports/ios/chat-attachment-rollback-register-failure-9cb0c341.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
