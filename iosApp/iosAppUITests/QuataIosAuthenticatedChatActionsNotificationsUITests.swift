@@ -1038,7 +1038,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         for _ in 0..<8 {
             let media = mediaElement()
             if media.waitForExistence(timeout: 1), media.isHittable {
-                media.tap()
+                tapResolvedMedia(media)
                 return assertFullscreenMediaOpened(context: context, in: app)
             }
             app.swipeDown()
@@ -1048,7 +1048,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         for _ in 0..<6 {
             let media = mediaElement()
             if media.waitForExistence(timeout: 1), media.isHittable {
-                media.tap()
+                tapResolvedMedia(media)
                 return assertFullscreenMediaOpened(context: context, in: app)
             }
             app.swipeUp()
@@ -1061,8 +1061,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return false
         }
 
-        media.tap()
+        tapResolvedMedia(media)
         return assertFullscreenMediaOpened(context: context, in: app)
+    }
+
+    private func tapResolvedMedia(_ media: XCUIElement) {
+        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     private func assertFullscreenMediaOpened(context: String, in app: XCUIApplication) -> Bool {
