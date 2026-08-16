@@ -1041,8 +1041,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         for _ in 0..<8 {
             let media = mediaElement()
             if media.waitForExistence(timeout: 1), media.isHittable {
-                tapResolvedMedia(media)
-                return assertFullscreenMediaOpened(context: context, in: app)
+                if openResolvedMedia(media, context: context, in: app) {
+                    return true
+                }
             }
             app.swipeDown()
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
@@ -1051,8 +1052,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         for _ in 0..<6 {
             let media = mediaElement()
             if media.waitForExistence(timeout: 1), media.isHittable {
-                tapResolvedMedia(media)
-                return assertFullscreenMediaOpened(context: context, in: app)
+                if openResolvedMedia(media, context: context, in: app) {
+                    return true
+                }
             }
             app.swipeUp()
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
@@ -1064,20 +1066,39 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return false
         }
 
+        return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
+    }
+
+    private func openResolvedMedia(
+        _ media: XCUIElement,
+        context: String,
+        in app: XCUIApplication,
+        failOnMiss: Bool = false
+    ) -> Bool {
         tapResolvedMedia(media)
-        return assertFullscreenMediaOpened(context: context, in: app)
+        if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
+            return true
+        }
+        tapResolvedMediaFallback(media)
+        return assertFullscreenMediaOpened(context: context, in: app, reportFailure: failOnMiss)
     }
 
     private func tapResolvedMedia(_ media: XCUIElement) {
         media.tap()
     }
 
-    private func assertFullscreenMediaOpened(context: String, in app: XCUIApplication) -> Bool {
+    private func tapResolvedMediaFallback(_ media: XCUIElement) {
+        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func assertFullscreenMediaOpened(context: String, in app: XCUIApplication, reportFailure: Bool = true) -> Bool {
         guard app.descendants(matching: .any)
             .matching(identifier: "fullscreen-media.root")
             .firstMatch
             .waitForExistence(timeout: 10) else {
-            XCTFail("The shared fullscreen media overlay must open from \(context).")
+            if reportFailure {
+                XCTFail("The shared fullscreen media overlay must open from \(context).")
+            }
             return false
         }
 

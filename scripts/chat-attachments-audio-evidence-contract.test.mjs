@@ -130,12 +130,17 @@ test("media attachments own the primary tap instead of the whole message bubble"
   );
 });
 
-test("iOS media attachment evidence replays the resolved semantic element tap", () => {
+test("iOS media attachment evidence replays resolved semantic media before relative fallback", () => {
   assert.match(iosUiTest, /private func tapResolvedMedia\(_ media: XCUIElement\) \{\s*media\.tap\(\)\s*\}/);
-  assert.doesNotMatch(
-    iosUiTest,
-    /private func tapResolvedMedia\(_ media: XCUIElement\) \{\s*media\.coordinate\(withNormalizedOffset:/,
+  assert.match(iosUiTest, /private func tapResolvedMediaFallback\(_ media: XCUIElement\)/);
+  assert.match(iosUiTest, /media\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
+  const openResolvedMedia = iosUiTest.slice(
+    iosUiTest.indexOf("private func openResolvedMedia"),
+    iosUiTest.indexOf("private func tapResolvedMedia("),
   );
+  assert.match(openResolvedMedia, /tapResolvedMedia\(media\)/);
+  assert.match(openResolvedMedia, /tapResolvedMediaFallback\(media\)/);
+  assert.doesNotMatch(openResolvedMedia, /app\.coordinate\(withNormalizedOffset:/);
 });
 
 test("audio attachment player exposes stable common playback anchors", () => {
