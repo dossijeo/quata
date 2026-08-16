@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -100,23 +101,28 @@ fun ChatMediaAttachmentContent(
                 contentColor = Color.White,
                 shape = CircleShape,
                 modifier = Modifier
-                    .size(62.dp)
-                    .clickable(onClick = onOpen)
-                    .semantics {
-                        testTag = semanticAnchor
-                        contentDescription = semanticAnchor
-                        role = Role.Button
-                        onClick(label = semanticAnchor) {
-                            onOpen()
-                            true
-                        }
-                    },
+                    .size(62.dp),
             ) {
-                Icon(
-                    imageVector = if (kind == ChatAttachmentKind.Video) Icons.Filled.PlayArrow else Icons.Filled.OpenInFull,
-                    contentDescription = if (kind == ChatAttachmentKind.Video) playVideoLabel else semanticAnchor,
-                    modifier = Modifier.padding(12.dp).size(38.dp),
-                )
+                IconButton(
+                    onClick = onOpen,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .semantics {
+                            testTag = semanticAnchor
+                            contentDescription = semanticAnchor
+                            role = Role.Button
+                            onClick(label = semanticAnchor) {
+                                onOpen()
+                                true
+                            }
+                        },
+                ) {
+                    Icon(
+                        imageVector = if (kind == ChatAttachmentKind.Video) Icons.Filled.PlayArrow else Icons.Filled.OpenInFull,
+                        contentDescription = null,
+                        modifier = Modifier.padding(12.dp).size(38.dp),
+                    )
+                }
             }
         }
     }
