@@ -1038,21 +1038,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 .firstMatch
         }
 
-        for _ in 0..<8 {
+        for _ in 0..<14 {
             let media = mediaElement()
-            if media.waitForExistence(timeout: 1), media.isHittable {
+            if media.waitForExistence(timeout: 1), isElementVisibleInViewport(media, in: app) {
                 return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
             }
-            app.swipeDown()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
-        }
-
-        for _ in 0..<6 {
-            let media = mediaElement()
-            if media.waitForExistence(timeout: 1), media.isHittable {
-                return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
-            }
-            app.swipeUp()
+            scrollElementTowardViewport(media, in: app)
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
@@ -1063,6 +1054,35 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
 
         return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
+    }
+
+    private func isElementVisibleInViewport(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        guard !frame.isNull, !frame.isEmpty else { return false }
+        let viewport = app.frame.insetBy(dx: 0, dy: 8)
+        let visible = frame.intersection(viewport)
+        guard !visible.isNull, !visible.isEmpty else { return false }
+        return visible.width >= min(frame.width * 0.55, 48) &&
+            visible.height >= min(frame.height * 0.55, 48)
+    }
+
+    private func scrollElementTowardViewport(_ element: XCUIElement, in app: XCUIApplication) {
+        guard element.exists else {
+            app.swipeUp()
+            return
+        }
+        let frame = element.frame
+        guard !frame.isNull, !frame.isEmpty else {
+            app.swipeUp()
+            return
+        }
+        let viewport = app.frame
+        if frame.midY > viewport.midY {
+            app.swipeUp()
+        } else {
+            app.swipeDown()
+        }
     }
 
     private func openResolvedMedia(
