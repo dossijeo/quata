@@ -3,10 +3,10 @@ import { resolve } from "node:path";
 
 export const chatAttachmentsBucket = "chat-attachments";
 
-export function validWavFixture() {
+export function validWavFixture({ durationSeconds = 4 } = {}) {
   const sampleRate = 8_000;
-  const durationSeconds = 1;
-  const samples = sampleRate * durationSeconds;
+  const boundedDurationSeconds = Math.max(1, Math.min(60, Number(durationSeconds) || 4));
+  const samples = sampleRate * boundedDurationSeconds;
   const dataSize = samples * 2;
   const buffer = Buffer.alloc(44 + dataSize);
   buffer.write("RIFF", 0);
@@ -118,13 +118,14 @@ export async function seedChatAttachmentFixture({
   messageId,
   cleanup,
   nameSuffix = "",
+  audioDurationSeconds,
 }) {
   const media = chatAttachmentFixtureMedia(kind);
   const { extension, mimeType } = media;
   const marker = `chat-${kind}-attachment-${platformLabel}-${runId}`;
   const safeNameSuffix = String(nameSuffix).replace(/[^a-z0-9_-]/gi, "").slice(0, 24);
   const name = `qadata-${kind}-${runId.slice(0, 8)}${safeNameSuffix}.${extension}`;
-  const content = media.content({ platformLabel, marker });
+  const content = media.content({ platformLabel, marker, audioDurationSeconds });
   const storagePath = `${session.profileId}/evidence/${runId}/${name}`;
   cleanup?.trackStorageObject({ bucket: chatAttachmentsBucket, storagePath, name });
   await storageRequest(config, session, `/storage/v1/object/${chatAttachmentsBucket}/${pathSegment(storagePath)}`, {
@@ -162,7 +163,7 @@ function chatAttachmentFixtureMedia(kind) {
     return {
       extension: "wav",
       mimeType: "audio/wav",
-      content: () => validWavFixture(),
+      content: ({ audioDurationSeconds }) => validWavFixture({ durationSeconds: audioDurationSeconds }),
     };
   }
   if (kind === "image") {

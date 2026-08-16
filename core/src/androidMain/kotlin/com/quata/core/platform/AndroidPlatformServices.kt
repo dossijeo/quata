@@ -390,8 +390,24 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
         active.pause()
     }
 
-    override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> = playerOrFailure { active ->
-        active.seekTo(positionMillis.coerceAtLeast(0L))
+    override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> {
+        val active = player ?: return PlatformResult.Failure("player_not_loaded")
+        return runCatching {
+            val durationMillis = active.duration.takeIf { it > 0L } ?: 0L
+            val target = if (durationMillis > 0L) {
+                positionMillis.coerceIn(0L, durationMillis)
+            } else {
+                positionMillis.coerceAtLeast(0L)
+            }
+            active.seekTo(target)
+            PlatformResult.Success(
+                currentState().copy(
+                    isPlaying = active.isPlaying || active.playWhenReady,
+                    positionMillis = target,
+                    durationMillis = durationMillis,
+                ),
+            )
+        }.getOrElse { PlatformResult.Failure(it.message) }
     }
 
     override suspend fun stop(): PlatformResult<Unit> {

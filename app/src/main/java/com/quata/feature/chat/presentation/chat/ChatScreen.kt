@@ -301,23 +301,13 @@ fun ChatScreen(
     val backgroundSeed = conversationId.takeUnless { isFavoritesConversation }
 
     fun queueNextConsecutiveVoiceNote(finishedMessage: Message) {
-        val currentIndex = state.messages.indexOfFirst {
-            it.composeKey() == finishedMessage.composeKey()
-        }
-        val nextIndex = currentIndex + 1
-        val nextMessage = state.messages.getOrNull(nextIndex)
-        val nextAttachment = nextMessage?.attachmentPreview(context)
-        if (
-            currentIndex >= 0 &&
-            nextMessage != null &&
-            !nextMessage.isDeleted &&
-            nextMessage.senderId == finishedMessage.senderId &&
-            nextAttachment?.isAudio == true
-        ) {
+        val nextMessage = nextConsecutiveAudioMessage(state.messages, finishedMessage.composeKey())
+        val nextIndex = state.messages.indexOfFirst { message -> message.composeKey() == nextMessage?.composeKey() }
+        if (nextMessage != null) {
             activeVoiceMessageId = nextMessage.composeKey()
             autoPlayVoiceMessageId = nextMessage.composeKey()
             screenScope.launch {
-                messagesListState.animateScrollToItem(nextIndex)
+                if (nextIndex >= 0) messagesListState.animateScrollToItem(nextIndex)
             }
         } else {
             if (activeVoiceMessageId == finishedMessage.id) {

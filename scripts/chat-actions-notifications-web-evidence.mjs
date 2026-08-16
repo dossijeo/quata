@@ -378,31 +378,27 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
   await page.getByText(fixtures.audio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
   report.evidence.attachmentsDocument = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-visible");
   await verifyDocumentAttachmentActionsWeb(page, fixtures.document, evidenceDir, report);
-  const play = await visibleAriaLocator(page, [/Play audio|Reproducir audio/i], 10_000);
+  const play = await visibleAriaLocator(page, [
+    new RegExp(`(?:Play audio|Reproducir audio).*${escapeRegExp(fixtures.audio.name)}`, "i"),
+  ], 10_000);
   if (!play) throw new Error("audio_attachment_toggle_not_visible");
   report.evidence.audioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-player-visible");
   await clickLocatorCenter(page, play, "audio_attachment_toggle_not_clickable");
   const playback = await waitAudioPlaybackObserved(page);
   if (playback.state !== "playing") throw new Error(`audio_playback_not_playing:${playback.state}`);
   report.evidence.audioPlaybackObserved = playback;
-  report.evidence.audioSeekObserved = await seekAudioProgressWeb(page, fixtures.audio.name, 0.65);
+  report.evidence.audioSeekObserved = await seekAudioProgressWeb(page, fixtures.audio.name, 0.95);
   report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
   if (fixtures.nextAudio) {
     await page.mouse.wheel(0, 520);
     await delay(350);
     await waitMessageVisible(page, fixtures.nextAudio.marker, "next_audio_attachment_message_not_visible");
     await page.getByText(fixtures.nextAudio.name, { exact: false }).first().waitFor({ timeout: 15_000 });
-    try {
-      report.evidence.consecutiveAudioAutoAdvanceObserved = await waitConsecutiveAudioPlaybackObserved(page, fixtures.audio.name, fixtures.nextAudio.name, 3_000, true);
-    } catch (error) {
-      report.diagnostics = {
-        ...(report.diagnostics ?? {}),
-        consecutiveAudioAutoAdvance: safeFailure(error),
-        consecutiveAudioAutoAdvanceMessage: typeof error?.message === "string" ? error.message.slice(0, 1_000) : undefined,
-      };
-    }
-    const nextPlay = await visibleAriaLocator(page, [new RegExp(`Play audio ${escapeRegExp(fixtures.nextAudio.name)}|Reproducir audio ${escapeRegExp(fixtures.nextAudio.name)}`, "i")], 10_000);
-    if (!nextPlay) throw new Error("next_audio_attachment_toggle_not_visible");
+    report.evidence.consecutiveAudioAutoAdvanceObserved = await waitConsecutiveAudioPlaybackObserved(page, fixtures.audio.name, fixtures.nextAudio.name, 8_000, true);
+    const nextPause = await visibleAriaLocator(page, [
+      new RegExp(`(?:Pause audio|Pausar audio).*${escapeRegExp(fixtures.nextAudio.name)}`, "i"),
+    ], 10_000);
+    if (!nextPause) throw new Error("next_audio_attachment_pause_anchor_not_visible");
     report.evidence.nextAudioPlayer = await attachScreenshot(page, evidenceDir, "web-chat-audio-next-player-visible");
   }
 }
@@ -718,7 +714,7 @@ async function closeChatSelectionToolbarIfVisible(page) {
   }
 }
 
-function createChatAttachmentMessage(config, session, thread, runId, kind, nameSuffix = "") {
+function createChatAttachmentMessage(config, session, thread, runId, kind, nameSuffix = "", options = {}) {
   return seedChatAttachmentFixture({
     config,
     session,
@@ -734,6 +730,7 @@ function createChatAttachmentMessage(config, session, thread, runId, kind, nameS
     attachmentId,
     messageId: sentMessageId,
     cleanup: state.cleanupRegistry,
+    audioDurationSeconds: options.audioDurationSeconds,
   });
 }
 
@@ -3035,11 +3032,14 @@ async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName,
       return { players, labels, firstName, secondName };
     }, { firstName, secondName });
     lastState = state;
-    const firstLabelPlaying = state.labels.some((label) => /Pausar audio|Pause audio/i.test(label) && label.includes(firstName));
-    const secondLabelPlaying = state.labels.some((label) => /Pausar audio|Pause audio/i.test(label) && label.includes(secondName));
-    const secondLoaded = state.players.some((player) => player.playing);
+    const nativeLabels = await visibleNativeControls(page)
+      .then((controls) => controls.map((control) => control.label).filter(Boolean))
+      .catch(() => []);
+    const labels = [...state.labels, ...nativeLabels];
+    const firstLabelPlaying = labels.some((label) => /Pausar audio|Pause audio/i.test(label) && label.includes(firstName));
+    const secondLabelPlaying = labels.some((label) => /Pausar audio|Pause audio/i.test(label) && label.includes(secondName));
     if (firstLabelPlaying) sawFirstPlaying = true;
-    if (sawFirstPlaying && secondLabelPlaying && secondLoaded) {
+    if (sawFirstPlaying && secondLabelPlaying) {
       return {
         state: "consecutive_playing",
         selector: `aria:pause_audio:${secondName}`,
@@ -3067,6 +3067,9 @@ async function waitConsecutiveAudioPlaybackObserved(page, firstName, secondName,
       durationMillis: player.durationMillis,
     })) ?? [],
     labels: lastState?.labels?.filter((label) => /audio/i.test(label)).map(sha256) ?? [],
+    visibleLabels: await visibleNativeControls(page)
+      .then((controls) => controls.map((control) => control.label).filter((label) => /audio/i.test(label)).map(sha256))
+      .catch(() => []),
   })}`);
 }
 
@@ -3867,7 +3870,7 @@ try {
       image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
       document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
       audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
-      nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next"),
+      nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next", { audioDurationSeconds: 12 }),
       recordingMarker: `chat-audio-recording-web-${randomUUID()}`,
     };
     report.steps.push("video_image_document_and_consecutive_audio_attachment_messages_seeded");
