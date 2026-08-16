@@ -130,6 +130,14 @@ test("media attachments own the primary tap instead of the whole message bubble"
   );
 });
 
+test("iOS media attachment evidence replays the resolved semantic element tap", () => {
+  assert.match(iosUiTest, /private func tapResolvedMedia\(_ media: XCUIElement\) \{\s*media\.tap\(\)\s*\}/);
+  assert.doesNotMatch(
+    iosUiTest,
+    /private func tapResolvedMedia\(_ media: XCUIElement\) \{\s*media\.coordinate\(withNormalizedOffset:/,
+  );
+});
+
 test("audio attachment player exposes stable common playback anchors", () => {
   for (const [constant, tag] of [
     ["ChatAudioAttachmentPlayerTestTag", "chat.attachment.audio.player"],

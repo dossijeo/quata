@@ -1066,7 +1066,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func tapResolvedMedia(_ media: XCUIElement) {
-        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        media.tap()
     }
 
     private func assertFullscreenMediaOpened(context: String, in app: XCUIApplication) -> Bool {
