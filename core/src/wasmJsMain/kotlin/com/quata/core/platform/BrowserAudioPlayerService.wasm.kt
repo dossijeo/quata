@@ -184,7 +184,7 @@ private fun browserAudioPause(id: String, onResult: (String) -> Unit): Unit = js
 )
 
 private fun browserAudioSeek(id: String, positionMillis: Long, onResult: (String) -> Unit): Unit = js(
-    """(() => { const element = globalThis.__quataAudioPlayers?.get(id); if (!element) return onResult('failure:web_audio_not_loaded'); const duration = Number.isFinite(element.duration) && element.duration >= 0 ? element.duration : Number.MAX_VALUE; element.currentTime = Math.min(duration, positionMillis / 1000); onResult(JSON.stringify({isLoaded: element.readyState > 0, isPlaying: !element.paused && !element.ended, positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)), durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0})); })()""",
+    """(() => { const element = globalThis.__quataAudioPlayers?.get(id); if (!element) return onResult('failure:web_audio_not_loaded'); const duration = Number.isFinite(element.duration) && element.duration >= 0 ? element.duration : Number.MAX_VALUE; const targetMillis = Number(positionMillis); const targetSeconds = Math.max(0, Number.isFinite(targetMillis) ? targetMillis : 0) / 1000; element.currentTime = Math.min(duration, targetSeconds); onResult(JSON.stringify({isLoaded: element.readyState > 0, isPlaying: !element.paused && !element.ended, positionMillis: Math.max(0, Math.floor((element.currentTime || 0) * 1000)), durationMillis: Number.isFinite(element.duration) && element.duration >= 0 ? Math.floor(element.duration * 1000) : 0})); })()""",
 )
 
 private fun browserAudioState(id: String, onResult: (String) -> Unit): Unit = js(

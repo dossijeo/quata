@@ -1156,7 +1156,21 @@ class ChatActionsNotificationsInstrumentedTest {
             }
         }
         compose.waitForIdle()
+        dismissComposerImeIfFocused()
         afterSendScreenshotName?.let(::saveScreenshot)
+    }
+
+    private fun dismissComposerImeIfFocused() {
+        val focused = runCatching {
+            compose.onNodeWithTag(ChatComposerInputTestTag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.Focused) == true
+        }.getOrDefault(false)
+        if (!focused) return
+        device.pressBack()
+        compose.waitForIdle()
+        SystemClock.sleep(500)
     }
 
     private fun clickComposerSendNative(): Boolean {

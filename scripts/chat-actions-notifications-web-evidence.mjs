@@ -369,7 +369,7 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
     };
     report.steps.push("web_audio_recording_sent_by_shared_composer_and_verified_by_rpc");
   }
-  await waitMessageVisible(page, fixtures.image.marker, "image_attachment_message_not_visible");
+  await waitMessageVisibleNearCurrentPosition(page, fixtures.image.marker, "image_attachment_message_not_visible");
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "video", true);
   await openAndCloseChatAttachmentMediaViewer(page, evidenceDir, report, "image", true);
   await waitMessageVisibleBelowCurrentPosition(page, fixtures.document.marker, "document_attachment_message_not_visible");
@@ -1325,6 +1325,23 @@ async function waitMessageVisible(page, marker, error, timeout = 45_000) {
       if (await visibleTextContentIncludes(page, probe)) return;
     }
     await delay(250);
+  }
+  throw new Error(error);
+}
+
+async function waitMessageVisibleNearCurrentPosition(page, marker, error, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  const deltas = [-520, -520, -520, -520, 520, 520, 520, 520];
+  let index = 0;
+  while (Date.now() < deadline) {
+    try {
+      await waitMessageVisible(page, marker, error, Math.min(1_200, Math.max(250, deadline - Date.now())));
+      return;
+    } catch {
+      await wheelChatViewport(page, deltas[index % deltas.length]);
+      index += 1;
+      await delay(300);
+    }
   }
   throw new Error(error);
 }

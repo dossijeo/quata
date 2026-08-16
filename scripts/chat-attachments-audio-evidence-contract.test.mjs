@@ -503,6 +503,8 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(iosRunner, /storage_cleanup_attempted_after_logical_cleanup_failure/);
   assert.match(iosRunner, /logical_cleanup_residue_resolved_by_verified_hard_cleanup/);
   assert.match(webRunner, /verifyAttachmentsAudioWeb/);
+  assert.match(webRunner, /waitMessageVisibleNearCurrentPosition\(page, fixtures\.image\.marker, "image_attachment_message_not_visible"\)/);
+  assert.match(webRunner, /async function waitMessageVisibleNearCurrentPosition\(page, marker, error, timeout = 45_000\)/);
   assert.match(webRunner, /verifyDocumentAttachmentActionsWeb/);
   assert.match(webRunner, /acceptDownloads: true/);
   assert.match(webRunner, /__quataSharePayloads/);
@@ -623,6 +625,7 @@ test("Web audio player loads remote attachments through local Blob URLs under CO
   assert.match(browserAudioPlayer, /if \(completed \|\| !playableSource\) return/);
   assert.match(browserAudioPlayer, /if \(completed\) return;\s*cleanup\(\)/);
   assert.match(browserAudioPlayer, /element\.src = playableSource/);
+  assert.match(browserAudioPlayer, /const targetMillis = Number\(positionMillis\)/);
   assert.match(browserAudioPlayer, /element\.ended && durationMillis > 0 \? durationMillis/);
   assert.match(browserAudioPlayer, /revokeObjectURL/);
   assert.doesNotMatch(browserAudioPlayer, /element\.src = source/);
