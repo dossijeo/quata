@@ -4,12 +4,12 @@
     "CHAT-ATTACHMENTS",
     "CHAT-AUDIO"
   ],
-  "productSha": "e2b69601e740e9c91450036a3f0fd7b89882fe6b",
+  "productSha": "4e14cc9bab3e0e7f491ac2555d1dfce6b860ffab",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "e2b69601e740e9c91450036a3f0fd7b89882fe6b",
-      "report": "build-reports/web/chat-attachment-download-share-e2b69601.json",
+      "sha": "4e14cc9bab3e0e7f491ac2555d1dfce6b860ffab",
+      "report": "build-reports/web/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -17,8 +17,8 @@
     },
     "android": {
       "status": "passed",
-      "sha": "e2b69601e740e9c91450036a3f0fd7b89882fe6b",
-      "report": "build-reports/android/chat-attachment-download-share-e2b69601.json",
+      "sha": "4e14cc9bab3e0e7f491ac2555d1dfce6b860ffab",
+      "report": "build-reports/android/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -26,8 +26,8 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "e2b69601e740e9c91450036a3f0fd7b89882fe6b",
-      "report": "build-reports/ios/chat-attachment-download-share-e2b69601.json",
+      "sha": "4e14cc9bab3e0e7f491ac2555d1dfce6b860ffab",
+      "report": "build-reports/ios/chat-attachments-audio-evidence.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -37,6 +37,6 @@
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate adds shared download/share anchors for document and image attachments, revalidates shared image/video fullscreen viewer entry from Chat attachments, keeps shared audio recording/playback anchors visible across Web, Android and iOS, and verifies physical cleanup residue remains zero."
+    "This candidate adds shared download/share anchors for document and image attachments, revalidates shared image/video fullscreen viewer entry from Chat attachments, keeps shared audio recording/playback anchors visible across Web, Android and iOS, fixes Web/Wasm audio seek BigInt conversion, stabilizes Web/Android visual replay around audio recording, and verifies physical cleanup residue remains zero."
   ]
 }
