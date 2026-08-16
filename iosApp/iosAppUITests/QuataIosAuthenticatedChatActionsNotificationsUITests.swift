@@ -1061,6 +1061,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let frame = element.frame
         guard !frame.isNull, !frame.isEmpty else { return false }
         let viewport = app.frame.insetBy(dx: 0, dy: 8)
+        guard viewport.contains(CGPoint(x: frame.midX, y: frame.midY)) else { return false }
         let visible = frame.intersection(viewport)
         guard !visible.isNull, !visible.isEmpty else { return false }
         return visible.width >= min(frame.width * 0.55, 48) &&
