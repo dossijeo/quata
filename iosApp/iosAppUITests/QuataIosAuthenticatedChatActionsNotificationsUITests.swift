@@ -1006,7 +1006,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         for _ in 0..<8 {
             if media.waitForExistence(timeout: 1), media.isHittable {
-                media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                media.tap()
                 return assertFullscreenMediaOpened(context: context, in: app)
             }
             app.swipeDown()
@@ -1015,7 +1015,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         for _ in 0..<6 {
             if media.waitForExistence(timeout: 1), media.isHittable {
-                media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                media.tap()
                 return assertFullscreenMediaOpened(context: context, in: app)
             }
             app.swipeUp()
@@ -1027,7 +1027,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return false
         }
 
-        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        media.tap()
         return assertFullscreenMediaOpened(context: context, in: app)
     }
 
