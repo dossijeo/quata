@@ -36,7 +36,7 @@ subflujos a GO completo: faltan administración UI profunda de grupo y retorno/e
 mapa SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
-**Candidato actual:** `4e14cc9bab3e0e7f491ac2555d1dfce6b860ffab` reduce `CHAT-ATTACHMENTS` y
+**Candidato actual:** `67823d4ed7fbc142e0cd3d5a7ea6652b3c3836f2` reduce `CHAT-ATTACHMENTS` y
 `CHAT-AUDIO` con descarga/compartir ancladas en común, visor fullscreen común desde adjuntos de
 imagen/vídeo y revalidación de documento/audio/grabación en Web/Wasm, Android e iOS. El indicador
 visible de progreso de audio expone ahora la ancla común `chat.attachment.audio.progress`, de modo

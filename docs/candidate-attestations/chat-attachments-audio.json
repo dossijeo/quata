@@ -4,11 +4,11 @@
     "CHAT-ATTACHMENTS",
     "CHAT-AUDIO"
   ],
-  "productSha": "4e14cc9bab3e0e7f491ac2555d1dfce6b860ffab",
+  "productSha": "67823d4ed7fbc142e0cd3d5a7ea6652b3c3836f2",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "4e14cc9bab3e0e7f491ac2555d1dfce6b860ffab",
+      "sha": "67823d4ed7fbc142e0cd3d5a7ea6652b3c3836f2",
       "report": "build-reports/web/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -17,7 +17,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "4e14cc9bab3e0e7f491ac2555d1dfce6b860ffab",
+      "sha": "67823d4ed7fbc142e0cd3d5a7ea6652b3c3836f2",
       "report": "build-reports/android/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -26,7 +26,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "4e14cc9bab3e0e7f491ac2555d1dfce6b860ffab",
+      "sha": "67823d4ed7fbc142e0cd3d5a7ea6652b3c3836f2",
       "report": "build-reports/ios/chat-attachments-audio-evidence.json",
       "cleanup": {
         "verified": true,
