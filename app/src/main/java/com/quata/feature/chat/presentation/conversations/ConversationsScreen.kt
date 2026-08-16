@@ -378,7 +378,13 @@ fun ConversationCandidatePickerDialog(
     confirmEnabled: Boolean = selectedCandidateIds.isNotEmpty(),
     selectionSummary: String = "",
     confirmIcon: ImageVector = Icons.AutoMirrored.Filled.Send,
-    confirmContentDescription: String = stringResource(R.string.common_send)
+    confirmContentDescription: String = stringResource(R.string.common_send),
+    rootTestTag: String? = null,
+    searchTestTag: String? = null,
+    candidateTestTagPrefix: String? = null,
+    candidateActionTestTagPrefix: String? = null,
+    confirmTestTag: String? = null,
+    dismissTestTag: String? = null,
 ) {
     ConversationCandidatePickerDialogContent(
         state = state,
@@ -424,6 +430,12 @@ fun ConversationCandidatePickerDialog(
         selectionSummary = selectionSummary,
         confirmIcon = confirmIcon,
         confirmContentDescription = confirmContentDescription,
+        rootTestTag = rootTestTag,
+        searchTestTag = searchTestTag,
+        candidateTestTagPrefix = candidateTestTagPrefix,
+        candidateActionTestTagPrefix = candidateActionTestTagPrefix,
+        confirmTestTag = confirmTestTag,
+        dismissTestTag = dismissTestTag,
     )
 }
 

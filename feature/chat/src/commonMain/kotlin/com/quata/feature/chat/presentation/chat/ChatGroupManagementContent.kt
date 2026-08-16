@@ -60,6 +60,8 @@ const val ChatGroupMemberRemoveTestTagPrefix = "chat.group.member.remove."
 const val ChatGroupParticipantPickerRootTestTag = "chat.group.participants.root"
 const val ChatGroupParticipantPickerSearchTestTag = "chat.group.participants.search"
 const val ChatGroupParticipantPickerCandidateTestTagPrefix = "chat.group.participants.candidate."
+const val ChatGroupParticipantPickerCandidateActionTestTagPrefix = "chat.group.participants.candidate.action."
+const val ChatGroupParticipantPickerCandidateToggleTestTagPrefix = "chat.group.participants.candidate.toggle."
 const val ChatGroupParticipantPickerLoadMoreTestTag = "chat.group.participants.loadMore"
 const val ChatGroupParticipantPickerConfirmTestTag = "chat.group.participants.confirm"
 const val ChatGroupParticipantPickerCancelTestTag = "chat.group.participants.cancel"
@@ -379,6 +381,7 @@ private fun ChatParticipantsPickerContent(
                         Checkbox(
                             checked = candidate.profileId in state.selectedParticipantIds,
                             onCheckedChange = { onEvent(ChatUiEvent.ParticipantSelectionToggled(candidate.profileId)) },
+                            modifier = Modifier.semantics { testTag = ChatGroupParticipantPickerCandidateToggleTestTagPrefix + candidate.profileId },
                         )
                         Text(
                             candidate.displayName,

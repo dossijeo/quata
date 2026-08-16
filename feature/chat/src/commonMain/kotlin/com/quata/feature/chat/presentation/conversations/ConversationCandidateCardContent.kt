@@ -23,6 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -42,7 +44,8 @@ fun ConversationCandidateCardContent(
     onToggleSelection: (() -> Unit)?,
     onOpen: () -> Unit,
     avatar: @Composable () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    actionTestTag: String? = null,
 ) {
     val template = quataTheme()
     val isSelectionMode = onToggleSelection != null
@@ -95,7 +98,7 @@ fun ConversationCandidateCardContent(
                         contentColor = template.colors.accentContent
                     ),
                     shape = CircleShape,
-                    modifier = Modifier
+                    modifier = (actionTestTag?.let { tag -> Modifier.semantics { testTag = tag } } ?: Modifier)
                         .align(Alignment.CenterEnd)
                         .size(42.dp)
                         .compactButtonMinSize(),

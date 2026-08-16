@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import com.quata.core.common.AppDispatchers
+import com.quata.core.model.Conversation
 import com.quata.core.model.MessageDeliveryState
 import com.quata.core.model.Message
 import com.quata.feature.chat.domain.ChatRepository
@@ -692,6 +693,8 @@ class ChatViewModel(
 
     private fun addParticipants() = scope.launch {
         val selectedIds = _uiState.value.selectedParticipantIds
+        val selectedCandidates = _uiState.value.participantConversationCandidates
+            .filter { it.profileId in selectedIds }
         _uiState.value = _uiState.value.copy(
             isConversationActionInProgress = true,
             isAddParticipantsOpen = false,
@@ -700,9 +703,38 @@ class ChatViewModel(
         )
         repository.addParticipants(conversationId, selectedIds)
             .onSuccess {
-                _uiState.value = _uiState.value.copy(isConversationActionInProgress = false)
+                _uiState.value = _uiState.value.copy(
+                    conversation = _uiState.value.conversation
+                        ?.withAddedParticipants(selectedIds, selectedCandidates),
+                    participantConversationCandidates = _uiState.value.participantConversationCandidates
+                        .filterNot { it.profileId in selectedIds },
+                    isConversationActionInProgress = false
+                )
             }
             .onFailure { _uiState.value = _uiState.value.copy(isConversationActionInProgress = false, error = text(ChatText.AddParticipants)) }
+    }
+
+    private fun Conversation.withAddedParticipants(
+        participantIdsToAdd: List<String>,
+        selectedCandidates: List<com.quata.feature.chat.domain.ChatConversationCandidate>
+    ): Conversation {
+        if (participantIdsToAdd.isEmpty()) return this
+        val candidatesById = selectedCandidates.associateBy { it.profileId }
+        val nameById = participantIds.zip(participantNames).toMap().toMutableMap()
+        val avatarById = participantIds.zip(participantAvatarUrls).toMap().toMutableMap()
+        participantIdsToAdd.forEach { id ->
+            val candidate = candidatesById[id]
+            if (candidate != null) {
+                nameById[id] = candidate.displayName
+                avatarById[id] = candidate.avatarUrl
+            }
+        }
+        val updatedIds = (participantIds + participantIdsToAdd).distinct()
+        return copy(
+            participantIds = updatedIds,
+            participantNames = updatedIds.map { nameById[it] ?: it },
+            participantAvatarUrls = updatedIds.map { avatarById[it] }
+        )
     }
 
     private fun hideConversation() = scope.launch {

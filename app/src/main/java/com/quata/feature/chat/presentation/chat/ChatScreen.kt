@@ -1010,7 +1010,13 @@ fun ChatScreen(
             title = stringResource(R.string.conversation_add_participants_title),
             actionIcon = Icons.Filled.PersonAdd,
             actionContentDescription = stringResource(R.string.conversation_add_participants),
-            excludedProfileIds = state.conversation?.participantIds.orEmpty().toSet()
+            excludedProfileIds = state.conversation?.participantIds.orEmpty().toSet(),
+            rootTestTag = ChatGroupParticipantPickerRootTestTag,
+            searchTestTag = ChatGroupParticipantPickerSearchTestTag,
+            candidateTestTagPrefix = ChatGroupParticipantPickerCandidateTestTagPrefix,
+            candidateActionTestTagPrefix = ChatGroupParticipantPickerCandidateActionTestTagPrefix,
+            confirmTestTag = ChatGroupParticipantPickerConfirmTestTag,
+            dismissTestTag = ChatGroupParticipantPickerCancelTestTag,
         )
     }
 
@@ -1366,6 +1372,9 @@ private fun ChatHeader(
                             onDismissRequest = { menuExpanded = false }
                         ) {
                             DropdownMenuItem(
+                                modifier = Modifier.semantics {
+                                    testTag = if (conversation?.isMuted == true) ChatGroupMenuUnmuteTestTag else ChatGroupMenuMuteTestTag
+                                },
                                 text = { Text(if (conversation?.isMuted == true) stringResource(R.string.conversation_reactivate_notifications) else stringResource(R.string.conversation_mute)) },
                                 leadingIcon = {
                                     CompactIcon(
@@ -1379,6 +1388,7 @@ private fun ChatHeader(
                                 }
                             )
                             DropdownMenuItem(
+                                modifier = Modifier.semantics { testTag = ChatGroupMenuAllowInvitesTestTag },
                                 text = { Text(stringResource(R.string.conversation_enable_member_invites)) },
                                 leadingIcon = {
                                     Checkbox(
@@ -1393,6 +1403,7 @@ private fun ChatHeader(
                                 }
                             )
                             DropdownMenuItem(
+                                modifier = Modifier.semantics { testTag = ChatGroupMenuAddParticipantsTestTag },
                                 text = { Text(stringResource(R.string.conversation_add_participants)) },
                                 leadingIcon = { CompactIcon(Icons.Filled.PersonAdd, contentDescription = null) },
                                 enabled = canInvite,
@@ -1402,6 +1413,7 @@ private fun ChatHeader(
                                 }
                             )
                             DropdownMenuItem(
+                                modifier = Modifier.semantics { testTag = ChatGroupMenuLeaveTestTag },
                                 text = { Text(stringResource(R.string.conversation_leave)) },
                                 leadingIcon = { CompactIcon(Icons.Filled.PersonRemove, contentDescription = null) },
                                 onClick = {
@@ -1410,6 +1422,7 @@ private fun ChatHeader(
                                 }
                             )
                             DropdownMenuItem(
+                                modifier = Modifier.semantics { testTag = ChatGroupMenuDeleteTestTag },
                                 text = { Text(stringResource(R.string.conversation_delete)) },
                                 leadingIcon = { CompactIcon(Icons.Filled.Delete, contentDescription = null) },
                                 onClick = {
@@ -1432,7 +1445,10 @@ private fun ChatHeader(
                 ) {
                     items(members, key = { it.id }) { member ->
                         var memberMenuExpanded by rememberSaveable(member.id) { mutableStateOf(false) }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.semantics { testTag = ChatGroupMemberRowTestTagPrefix + member.id },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             if (member.canOpenProfile) {
                                 ClickableProfileAvatar(
                                     name = member.name,
@@ -1459,7 +1475,10 @@ private fun ChatHeader(
                             }
                             if (isModerator && member.id != currentUser?.id) {
                                 Box {
-                                    CompactIconButton(onClick = { memberMenuExpanded = true }) {
+                                    CompactIconButton(
+                                        onClick = { memberMenuExpanded = true },
+                                        modifier = Modifier.semantics { testTag = ChatGroupMemberManageTestTagPrefix + member.id },
+                                    ) {
                                         CompactIcon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.common_open))
                                     }
                                     DropdownMenu(
@@ -1468,6 +1487,7 @@ private fun ChatHeader(
                                     ) {
                                         val isMemberModerator = member.id in conversation.moderatorIds
                                         DropdownMenuItem(
+                                            modifier = Modifier.semantics { testTag = ChatGroupMemberPromoteDemoteTestTagPrefix + member.id },
                                             text = {
                                                 Text(
                                                     if (isMemberModerator) {
@@ -1490,6 +1510,7 @@ private fun ChatHeader(
                                             }
                                         )
                                         DropdownMenuItem(
+                                            modifier = Modifier.semantics { testTag = ChatGroupMemberBlockTestTagPrefix + member.id },
                                             text = { Text(stringResource(R.string.conversation_block_user)) },
                                             leadingIcon = { CompactIcon(Icons.Filled.Block, contentDescription = null) },
                                             onClick = {
@@ -1498,6 +1519,7 @@ private fun ChatHeader(
                                             }
                                         )
                                         DropdownMenuItem(
+                                            modifier = Modifier.semantics { testTag = ChatGroupMemberRemoveTestTagPrefix + member.id },
                                             text = { Text(stringResource(R.string.conversation_remove_participant)) },
                                             leadingIcon = { CompactIcon(Icons.Filled.PersonRemove, contentDescription = null) },
                                             onClick = {

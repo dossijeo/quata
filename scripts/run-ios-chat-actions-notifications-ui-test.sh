@@ -15,6 +15,7 @@ set -euo pipefail
 : "${QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_GROUP_SOS_UI_E2E:=0}"
+: "${QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E:=0}"
 : "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_INCLUDE_UNMUTE:=1}"
 : "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UNMUTE_ONLY:=0}"
 if [[ "$QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E" == "1" ]]; then
@@ -60,11 +61,14 @@ elif [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]; then
   : "${QUATA_IOS_CHAT_E2E_REPLY_MARKER:=attachments-audio}"
   : "${QUATA_IOS_CHAT_E2E_EDIT_MARKER:=attachments-audio}"
   : "${QUATA_IOS_CHAT_E2E_FORWARD_QUERY:=attachments-audio}"
-elif [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" == "1" || "$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" == "1" || "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" == "1" || "$QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E" == "1" || "$QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E" == "1" || "$QUATA_IOS_CHAT_GROUP_SOS_UI_E2E" == "1" ]]; then
+elif [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" == "1" || "$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" == "1" || "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" == "1" || "$QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E" == "1" || "$QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E" == "1" || "$QUATA_IOS_CHAT_GROUP_SOS_UI_E2E" == "1" || "$QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E" == "1" ]]; then
   : "${QUATA_IOS_CHAT_E2E_MESSAGE_ID:?Set QUATA_IOS_CHAT_E2E_MESSAGE_ID.}"
   : "${QUATA_IOS_CHAT_E2E_MARKER_PROBE:?Set QUATA_IOS_CHAT_E2E_MARKER_PROBE.}"
   : "${QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE:?Set QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE.}"
   : "${QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID:?Set QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID.}"
+  : "${QUATA_IOS_CHAT_GROUP_ADMIN_PROFILE_ID:=profile-only}"
+  : "${QUATA_IOS_CHAT_GROUP_ADMIN_DISPLAY_NAME:=profile-only}"
+  : "${QUATA_IOS_CHAT_GROUP_ADMIN_SEARCH_QUERY:=profile-only}"
   : "${QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID:=profile-only}"
   : "${QUATA_IOS_CHAT_E2E_EDITABLE_MARKER:=profile-only}"
   : "${QUATA_IOS_CHAT_E2E_COMPOSER_MARKER:=keyboard-menu-probe}"
@@ -159,9 +163,9 @@ if [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]; then
     > "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/microphone-permission.log" 2>&1
 fi
 
-/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID" "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E:-0}" "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E:-0}" "${QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E:-0}" "${QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E:-0}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_SOS_UI_E2E:-0}" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" "$QUATA_IOS_CHAT_E2E_FORWARD_QUERY" "$QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE" "${QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME:-}" "${QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME:-}" "$QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE" "${QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID:-}" "${QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID:-}" "${QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER:-}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT:-profile-content}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME:-success}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_REASON:-attachment_picker_e2e_failure}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER:-}" <<'PY'
+/usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" "$QUATA_IOS_CHAT_E2E_CONVERSATION_ID" "$QUATA_IOS_CHAT_E2E_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE" "$QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID" "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E:-0}" "${QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E:-0}" "${QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E:-0}" "${QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E:-0}" "${QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E:-0}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_SOS_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E:-0}" "${QUATA_IOS_CHAT_GROUP_ADMIN_PROFILE_ID:-profile-only}" "${QUATA_IOS_CHAT_GROUP_ADMIN_DISPLAY_NAME:-profile-only}" "${QUATA_IOS_CHAT_GROUP_ADMIN_SEARCH_QUERY:-profile-only}" "$QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID" "$QUATA_IOS_CHAT_E2E_EDITABLE_MARKER" "$QUATA_IOS_CHAT_E2E_COMPOSER_MARKER" "$QUATA_IOS_CHAT_E2E_REPLY_MARKER" "$QUATA_IOS_CHAT_E2E_EDIT_MARKER" "$QUATA_IOS_CHAT_E2E_FORWARD_QUERY" "$QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE" "${QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME:-}" "${QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME:-}" "$QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE" "$QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE" "${QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID:-}" "${QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID:-}" "${QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER:-}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID:-profile-content}" "${QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT:-profile-content}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_OUTCOME:-success}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_REASON:-attachment_picker_e2e_failure}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_PATH:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_NAME:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME:-}" "${QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER:-}" <<'PY'
 import plistlib, sys
-path, credentials, conversation, message, marker, profile_marker, profile_id, profile_follow, profile_lists, profile_content, profile_roles_safety, menu_surface, keyboard_menu, attachments_audio, attachment_picker, group_sos, editable_message, editable_marker, composer, reply, edit, forward_query, attachment_document, attachment_audio, attachment_audio_name, attachment_next_audio_name, attachment_image, attachment_video, attachment_image_message, attachment_video_message, audio_recording_marker, profile_content_post, profile_content_comment, profile_content_attachment, profile_content_ui_comment, picker_opt_in, picker_source, picker_outcome, picker_reason, picker_path, picker_name, picker_mime, picker_marker = sys.argv[1:]
+path, credentials, conversation, message, marker, profile_marker, profile_id, profile_follow, profile_lists, profile_content, profile_roles_safety, menu_surface, keyboard_menu, attachments_audio, attachment_picker, group_sos, group_admin, group_admin_profile_id, group_admin_display_name, group_admin_search_query, editable_message, editable_marker, composer, reply, edit, forward_query, attachment_document, attachment_audio, attachment_audio_name, attachment_next_audio_name, attachment_image, attachment_video, attachment_image_message, attachment_video_message, audio_recording_marker, profile_content_post, profile_content_comment, profile_content_attachment, profile_content_ui_comment, picker_opt_in, picker_source, picker_outcome, picker_reason, picker_path, picker_name, picker_mime, picker_marker = sys.argv[1:]
 with open(path, 'rb') as f:
     data = plistlib.load(f)
 matched = set()
@@ -183,6 +187,10 @@ def patch_target(target, hint=''):
         env['QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E'] = attachments_audio
         env['QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E'] = attachment_picker
         env['QUATA_IOS_CHAT_GROUP_SOS_UI_E2E'] = group_sos
+        env['QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E'] = group_admin
+        env['QUATA_IOS_CHAT_GROUP_ADMIN_PROFILE_ID'] = group_admin_profile_id
+        env['QUATA_IOS_CHAT_GROUP_ADMIN_DISPLAY_NAME'] = group_admin_display_name
+        env['QUATA_IOS_CHAT_GROUP_ADMIN_SEARCH_QUERY'] = group_admin_search_query
         env['QUATA_IOS_CHAT_E2E_CONVERSATION_ID'] = conversation
         env['QUATA_IOS_CHAT_E2E_MESSAGE_ID'] = message
         env['QUATA_IOS_CHAT_E2E_MARKER_PROBE'] = marker
@@ -241,6 +249,7 @@ keyboard_menu='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITe
 attachments_audio='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testAttachmentsAndAudioExposeSharedAnchors'
 attachment_picker='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testAttachmentPickerFixtureUsesSharedComposerAnchors'
 group_sos='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testGroupMenuAndSosMessagesExposeSharedAnchors'
+group_admin='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testGroupAdminPromotesParticipantThroughSharedMemberMenu'
 ui='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testComposerReplyEditAndSelectedActionsUseSharedChatSurface'
 profile_method='testProfileEntryFromChatOpensPublicProfileAndReturns'
 profile_lists_method='testProfileFollowListsFromChatOpenAndReturn'
@@ -252,6 +261,7 @@ keyboard_menu_method='testKeyboardAndSelectedActionBarUseSharedChatChrome'
 attachments_audio_method='testAttachmentsAndAudioExposeSharedAnchors'
 attachment_picker_method='testAttachmentPickerFixtureUsesSharedComposerAnchors'
 group_sos_method='testGroupMenuAndSosMessagesExposeSharedAnchors'
+group_admin_method='testGroupAdminPromotesParticipantThroughSharedMemberMenu'
 ui_method='testComposerReplyEditAndSelectedActionsUseSharedChatSurface'
 
 run_and_require() {
@@ -289,6 +299,8 @@ elif [[ "$QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E" == "1" ]]; then
   run_and_require "$attachment_picker" "$attachment_picker_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/attachment-picker.log"
 elif [[ "$QUATA_IOS_CHAT_GROUP_SOS_UI_E2E" == "1" ]]; then
   run_and_require "$group_sos" "$group_sos_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/group-sos.log"
+elif [[ "$QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E" == "1" ]]; then
+  run_and_require "$group_admin" "$group_admin_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/group-admin.log"
 elif [[ "$QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E" == "1" ]]; then
   run_and_require "$profile_lists" "$profile_lists_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile-lists.log"
 elif [[ "$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" == "1" ]]; then
@@ -300,7 +312,7 @@ elif [[ "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" == "1" ]]; then
 else
   run_and_require "$profile" "$profile_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile.log"
 fi
-if [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" != "1" && "$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" != "1" && "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" != "1" && "$QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E" != "1" && "$QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E" != "1" && "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" != "1" && "$QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E" != "1" && "$QUATA_IOS_CHAT_GROUP_SOS_UI_E2E" != "1" ]]; then
+if [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" != "1" && "$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" != "1" && "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" != "1" && "$QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E" != "1" && "$QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E" != "1" && "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" != "1" && "$QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E" != "1" && "$QUATA_IOS_CHAT_GROUP_SOS_UI_E2E" != "1" && "$QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E" != "1" ]]; then
   run_and_require "$ui" "$ui_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/ui.log"
 fi
 echo "CHAT_ACTIONS_NOTIFICATIONS_IOS_UI_GATE_PASSED" >&2

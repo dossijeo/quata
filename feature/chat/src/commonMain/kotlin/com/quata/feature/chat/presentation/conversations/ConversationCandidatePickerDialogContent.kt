@@ -41,6 +41,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -101,6 +103,12 @@ fun ConversationCandidatePickerDialogContent(
     groupTitle: String = "",
     onGroupTitleChange: (String) -> Unit = {},
     groupTitlePlaceholder: String = "Nombre del grupo (opcional)",
+    rootTestTag: String? = null,
+    searchTestTag: String? = null,
+    candidateTestTagPrefix: String? = null,
+    candidateActionTestTagPrefix: String? = null,
+    confirmTestTag: String? = null,
+    dismissTestTag: String? = null,
 ) {
     val labels = CandidateDisplayLabels(strings.contacts, strings.following, strings.followers, strings.recent, strings.otherNeighborhoods, strings.unknownNeighborhood)
     val displayItems = remember(state.conversationCandidates, state.candidateActorNeighborhood, excludedProfileIds, labels) {
@@ -122,6 +130,7 @@ fun ConversationCandidatePickerDialogContent(
             onRequestInviteContactsPermission, { pendingInvite = it },
             groupTitle, onGroupTitleChange, groupTitlePlaceholder,
             panelModifier.padding(start = 20.dp, top = if (isLandscape) 18.dp else 10.dp, end = 20.dp, bottom = if (isLandscape) 18.dp else 24.dp),
+            rootTestTag, searchTestTag, candidateTestTagPrefix, candidateActionTestTagPrefix, confirmTestTag, dismissTestTag,
         )
     }
     pendingInvite?.let { contact -> inviteSheet?.invoke(contact, clipboardService) { pendingInvite = null } }
@@ -136,17 +145,21 @@ private fun CandidatePickerPanel(
     avatar: @Composable (ChatConversationCandidate, Modifier) -> Unit, inviteAvatar: @Composable (ChatInviteContact, Modifier) -> Unit,
     showInvites: Boolean, inviteEnabled: Boolean, onRequestPermission: (() -> Unit)?, onInvite: (ChatInviteContact) -> Unit,
     groupTitle: String, onGroupTitleChange: (String) -> Unit, groupTitlePlaceholder: String, modifier: Modifier,
+    rootTestTag: String?, searchTestTag: String?, candidateTestTagPrefix: String?, candidateActionTestTagPrefix: String?, confirmTestTag: String?, dismissTestTag: String?,
 ) {
     val template = quataTheme()
     val filteredInvites = remember(state.inviteContacts, state.candidateQuery) { filterPickerInviteContacts(state.inviteContacts, state.candidateQuery) }
     val hasInvites = showInvites && !state.candidateHasMore && (filteredInvites.isNotEmpty() || state.isInviteContactsLoading || !inviteEnabled || state.inviteContactsError != null)
-    Column(modifier) {
+    val taggedModifier = rootTestTag?.let { tag -> modifier.semantics { testTag = tag } } ?: modifier
+    Column(taggedModifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-            CompactIconButton(onClick = onDismiss) { CompactIcon(Icons.Filled.Close, strings.cancel, tint = template.colors.textPrimary) }
+            val dismissModifier = dismissTestTag?.let { tag -> Modifier.semantics { testTag = tag } } ?: Modifier
+            CompactIconButton(onClick = onDismiss, modifier = dismissModifier) { CompactIcon(Icons.Filled.Close, strings.cancel, tint = template.colors.textPrimary) }
         }
         Spacer(Modifier.padding(top = 10.dp))
-        OutlinedTextField(state.candidateQuery, onSearch, placeholder = { Text(strings.searchPlaceholder) }, leadingIcon = { CompactIcon(Icons.Filled.Search, null, tint = template.colors.textSecondary) }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp))
+        val searchModifier = searchTestTag?.let { tag -> Modifier.fillMaxWidth().semantics { testTag = tag } } ?: Modifier.fillMaxWidth()
+        OutlinedTextField(state.candidateQuery, onSearch, placeholder = { Text(strings.searchPlaceholder) }, leadingIcon = { CompactIcon(Icons.Filled.Search, null, tint = template.colors.textSecondary) }, singleLine = true, modifier = searchModifier, shape = RoundedCornerShape(16.dp))
         state.candidateError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp)) }
         Spacer(Modifier.padding(top = 12.dp))
         when {
@@ -157,7 +170,13 @@ private fun CandidatePickerPanel(
                     when (item) {
                         is CandidateDisplayItem.SectionHeader -> PickerSectionHeader(item.title)
                         is CandidateDisplayItem.NeighborhoodHeader -> PickerNeighborhoodHeader(item.title)
-                        is CandidateDisplayItem.CandidateRow -> ConversationCandidateCardContent(item.candidate.displayName, item.candidate.neighborhood, state.openingCandidateProfileId == item.candidate.profileId, actionIcon, actionDescription, item.candidate.profileId in selectedIds, onToggle?.let { toggle -> { toggle(item.candidate) } }, { onOpen(item.candidate) }, { avatar(item.candidate, Modifier.size(48.dp)) })
+                        is CandidateDisplayItem.CandidateRow -> {
+                            val candidateModifier = candidateTestTagPrefix
+                                ?.let { prefix -> Modifier.semantics { testTag = prefix + item.candidate.profileId } }
+                                ?: Modifier
+                            val actionTestTag = candidateActionTestTagPrefix?.let { prefix -> prefix + item.candidate.profileId }
+                            ConversationCandidateCardContent(item.candidate.displayName, item.candidate.neighborhood, state.openingCandidateProfileId == item.candidate.profileId, actionIcon, actionDescription, item.candidate.profileId in selectedIds, onToggle?.let { toggle -> { toggle(item.candidate) } }, { onOpen(item.candidate) }, { avatar(item.candidate, Modifier.size(48.dp)) }, candidateModifier, actionTestTag)
+                        }
                     }
                 }
                 if (state.isCandidatePageLoading) item("candidate-loading") { Box(Modifier.fillMaxWidth().padding(10.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = template.colors.accent, modifier = Modifier.size(24.dp)) } }
@@ -179,7 +198,10 @@ private fun CandidatePickerPanel(
             }
             Row(Modifier.fillMaxWidth().border(1.dp, template.colors.divider, RoundedCornerShape(18.dp)).background(template.colors.surface.copy(alpha = 0.76f), RoundedCornerShape(18.dp)).padding(start = 14.dp, top = 10.dp, end = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(summary.ifBlank { strings.noneSelected }, maxLines = 1, overflow = TextOverflow.Ellipsis, color = template.colors.textPrimary.copy(alpha = if (selectedIds.isEmpty()) .54f else .94f), modifier = Modifier.weight(1f))
-                Button(onClick = confirm, enabled = confirmEnabled, colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent), shape = CircleShape, modifier = Modifier.size(46.dp).compactButtonMinSize(), contentPadding = PaddingValues(0.dp)) { CompactIcon(confirmIcon, confirmDescription, tint = template.colors.accentContent) }
+                val confirmModifier = (confirmTestTag?.let { tag -> Modifier.semantics { testTag = tag } } ?: Modifier)
+                    .size(46.dp)
+                    .compactButtonMinSize()
+                Button(onClick = confirm, enabled = confirmEnabled, colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent), shape = CircleShape, modifier = confirmModifier, contentPadding = PaddingValues(0.dp)) { CompactIcon(confirmIcon, confirmDescription, tint = template.colors.accentContent) }
             }
         }
     }
