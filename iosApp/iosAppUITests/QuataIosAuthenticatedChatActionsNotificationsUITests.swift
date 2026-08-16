@@ -1041,9 +1041,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         for _ in 0..<8 {
             let media = mediaElement()
             if media.waitForExistence(timeout: 1), media.isHittable {
-                if openResolvedMedia(media, context: context, in: app) {
-                    return true
-                }
+                return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
             }
             app.swipeDown()
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
@@ -1052,9 +1050,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         for _ in 0..<6 {
             let media = mediaElement()
             if media.waitForExistence(timeout: 1), media.isHittable {
-                if openResolvedMedia(media, context: context, in: app) {
-                    return true
-                }
+                return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
             }
             app.swipeUp()
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))

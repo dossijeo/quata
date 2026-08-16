@@ -111,7 +111,7 @@ test("attachment picker, pending surface and attachment cards expose stable comm
         assert.match(sourceText, /testTag = semanticAnchor/);
         assert.match(sourceText, /contentDescription = semanticAnchor/);
         assert.match(sourceText, /role = Role\.Button/);
-        assert.match(sourceText, /onClick\(label = semanticAnchor\)/);
+        assert.match(sourceText, /onClick\(label = if \(kind == ChatAttachmentKind\.Video\) playVideoLabel else semanticAnchor\)/);
         assert.match(sourceText, /ChatAttachmentKind\.Video -> ChatVideoAttachmentContentDescription/);
         assert.match(sourceText, /ChatAttachmentKind\.Image -> ChatImageAttachmentContentDescription/);
       }
@@ -141,6 +141,17 @@ test("iOS media attachment evidence replays resolved semantic media before relat
   assert.match(openResolvedMedia, /tapResolvedMedia\(media\)/);
   assert.match(openResolvedMedia, /tapResolvedMediaFallback\(media\)/);
   assert.doesNotMatch(openResolvedMedia, /app\.coordinate\(withNormalizedOffset:/);
+  const openChatMediaAttachment = iosUiTest.slice(
+    iosUiTest.indexOf("private func openChatMediaAttachment"),
+    iosUiTest.indexOf("private func openResolvedMedia"),
+  );
+  assert.match(openChatMediaAttachment, /return openResolvedMedia\(media, context: context, in: app, failOnMiss: true\)/);
+  assert.doesNotMatch(openChatMediaAttachment, /if openResolvedMedia\(media, context: context, in: app\)/);
+});
+
+test("media attachment icon does not duplicate the stable button accessibility anchor", () => {
+  assert.match(commonAttachmentPresentation, /contentDescription = null/);
+  assert.doesNotMatch(commonAttachmentPresentation, /contentDescription = if \(kind == ChatAttachmentKind\.Video\) playVideoLabel else semanticAnchor/);
 });
 
 test("audio attachment player exposes stable common playback anchors", () => {
