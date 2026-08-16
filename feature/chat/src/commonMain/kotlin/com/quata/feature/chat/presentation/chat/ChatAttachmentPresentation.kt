@@ -1,9 +1,9 @@
 package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,8 +14,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -88,32 +89,44 @@ fun ChatMediaAttachmentContent(
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onOpen)
-            .semantics {
-                testTag = semanticAnchor
-                contentDescription = semanticAnchor
-                role = Role.Button
-                onClick(label = semanticAnchor) {
-                    onOpen()
-                    true
-                }
-            },
+            .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
         media(file, kind, Modifier.fillMaxSize())
-        if (kind == ChatAttachmentKind.Video) {
-            Surface(
-                color = Color.Black.copy(alpha = 0.38f),
+        Button(
+            onClick = onOpen,
+            modifier = Modifier
+                .fillMaxSize()
+                .semantics {
+                    testTag = semanticAnchor
+                    contentDescription = semanticAnchor
+                    role = Role.Button
+                    onClick(label = semanticAnchor) {
+                        onOpen()
+                        true
+                    }
+                },
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent,
                 contentColor = Color.White,
-                shape = CircleShape,
-                modifier = Modifier.size(62.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = playVideoLabel,
-                    modifier = Modifier.padding(12.dp).size(38.dp),
-                )
+            ),
+            elevation = null,
+            contentPadding = PaddingValues(0.dp),
+        ) {
+            if (kind == ChatAttachmentKind.Video) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.38f),
+                    contentColor = Color.White,
+                    shape = CircleShape,
+                    modifier = Modifier.size(62.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = playVideoLabel,
+                        modifier = Modifier.padding(12.dp).size(38.dp),
+                    )
+                }
             }
         }
     }
