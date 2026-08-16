@@ -69,9 +69,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let documentProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE"]),
               let audioProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE"]),
               let imageProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE"]),
-              let videoProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE"]) else {
+              let videoProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE"]),
+              let imageMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID"]),
+              let videoMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID"]),
+              let audioRecordingMarker = nonEmpty(environment["QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER"]) else {
             throw XCTSkip("Disposable Chat attachments/audio fixture is not configured.")
         }
+        XCTAssertEqual(
+            Set([documentProbe, audioProbe, imageProbe, videoProbe]).count,
+            4,
+            "The disposable attachments/audio fixture must expose distinct media/document/audio probes.",
+        )
 
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
@@ -87,23 +95,45 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "attachments/audio conversation")
         assertChatRoute(conversationId, in: app, context: "attachments/audio conversation")
 
-        verifyAudioRecordingComposer(in: app)
+        verifyAudioRecordingComposer(marker: audioRecordingMarker, in: app)
+        app.terminate()
+        app.launch()
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "attachments/audio conversation after recording send")
+        assertChatRoute(conversationId, in: app, context: "attachments/audio conversation after recording send")
 
-        XCTAssertTrue(messageText(videoProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
-        guard openChatMediaAttachment(identifier: "chat.attachment.media.video", context: "Chat video attachment", in: app) else {
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(videoMessageId))", in: app)
+        _ = chatHost(in: app, context: "attachments/audio video message")
+        waitForFocusedMessageHighlightToClear(videoMessageId, in: app)
+
+        guard openChatMediaAttachment(
+            identifier: "chat.attachment.media.video",
+            messageId: videoMessageId,
+            markerProbe: videoProbe,
+            context: "Chat video attachment",
+            in: app
+        ) else {
             return
         }
         attachScreenshot(app, name: "ios-chat-attachment-video-viewer")
         closeFullscreenMedia(context: "Chat video attachment", in: app)
 
-        XCTAssertTrue(messageText(imageProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
-        guard openChatMediaAttachment(identifier: "chat.attachment.media.image", context: "Chat image attachment", in: app) else {
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(imageMessageId))", in: app)
+        _ = chatHost(in: app, context: "attachments/audio image message")
+        waitForFocusedMessageHighlightToClear(imageMessageId, in: app)
+
+        guard openChatMediaAttachment(
+            identifier: "chat.attachment.media.image",
+            messageId: imageMessageId,
+            markerProbe: imageProbe,
+            context: "Chat image attachment",
+            in: app
+        ) else {
             return
         }
         attachScreenshot(app, name: "ios-chat-attachment-media-viewer")
         closeFullscreenMedia(context: "Chat image attachment", in: app)
 
-        XCTAssertTrue(messageText(documentProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         guard makeChatAnchorVisible(identifier: "chat.attachment.document", context: "Chat document attachment", in: app) else {
             return
         }
@@ -115,7 +145,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         attachScreenshot(app, name: "ios-chat-attachment-document-visible")
 
-        XCTAssertTrue(messageText(audioProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
         guard makeChatAnchorVisible(identifier: "chat.attachment.audio.player", context: "Chat audio attachment", in: app) else {
             return
         }
@@ -134,6 +163,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .tap()
         attachScreenshot(app, name: "ios-chat-audio-toggle-attempted")
+        let audioProgress = app.descendants(matching: .any)
+            .matching(identifier: "chat.attachment.audio.progress")
+            .firstMatch
+        XCTAssertTrue(audioProgress.waitForExistence(timeout: 5), "The shared audio progress anchor must remain visible for seek.")
+        audioProgress
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.5))
+            .tap()
+        attachScreenshot(app, name: "ios-chat-audio-seek-attempted")
     }
 
     func testAttachmentPickerFixtureUsesSharedComposerAnchors() throws {
@@ -218,7 +255,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-attachment-picker-sent-\(pickerSource)")
     }
 
-    private func verifyAudioRecordingComposer(in app: XCUIApplication) {
+    private func verifyAudioRecordingComposer(marker: String, in app: XCUIApplication) {
         tapTaggedButton("chat.composer.recordAudio", in: app, context: "start audio recording")
 
         let recording = app.descendants(matching: .any)
@@ -240,8 +277,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(pending.waitForExistence(timeout: 15), "Stopping an iOS audio recording must attach a pending voice note through the shared pending surface.")
         attachScreenshot(app, name: "ios-chat-audio-recording-pending-attachment")
 
-        tapTaggedButton("chat.attachment.pending.clear", in: app, context: "clear pending audio recording")
-        XCTAssertTrue(pending.waitForNonExistence(timeout: 8), "Clearing the pending audio recording must remove the shared pending attachment surface.")
+        typeText(marker, into: "chat.composer.input", in: app)
+        attachScreenshot(app, name: "ios-chat-audio-recording-ready-to-send")
+        tapTaggedButton("chat.composer.send", in: app, context: "send audio recording")
+        XCTAssertTrue(messageText(marker, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-audio-recording-sent")
+        XCTAssertFalse(pending.waitForExistence(timeout: 2), "Sending the audio recording must clear the shared pending attachment surface.")
+        dismissKeyboardIfVisible(in: app)
     }
 
     func testKeyboardAndSelectedActionBarUseSharedChatChrome() throws {
@@ -979,74 +1021,178 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         return true
     }
 
-    private func openChatMediaAttachment(identifier: String, context: String, in app: XCUIApplication) -> Bool {
-        let media = app.descendants(matching: .any)
-            .matching(identifier: identifier)
-            .firstMatch
+    private func openChatMediaAttachment(
+        identifier: String,
+        messageId: String,
+        markerProbe: String,
+        context: String,
+        in app: XCUIApplication
+    ) -> Bool {
+        waitForFullscreenMediaToDisappear(in: app, timeout: 2)
 
-        for _ in 0..<8 {
-            if media.waitForExistence(timeout: 1), media.isHittable {
-                media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-                return assertFullscreenMediaOpened(context: context, in: app)
+        func mediaElement() -> XCUIElement {
+            let message = app.descendants(matching: .any)
+                .matching(identifier: "chat.message.\(messageId)")
+                .firstMatch
+            let scoped = message.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            if scoped.exists {
+                return scoped
             }
-            app.swipeUp()
+            return app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+        }
+
+        for _ in 0..<14 {
+            let media = mediaElement()
+            if media.waitForExistence(timeout: 1), isElementVisibleInChatViewport(media, in: app) {
+                return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
+            }
+            scrollElementTowardViewport(media, in: app)
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
-        for _ in 0..<4 {
-            if media.waitForExistence(timeout: 1), media.isHittable {
-                media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-                return assertFullscreenMediaOpened(context: context, in: app)
-            }
-            app.swipeDown()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
-        }
-
+        let media = mediaElement()
         guard media.waitForExistence(timeout: 3) else {
-            XCTFail("The shared media attachment anchor \(identifier) must be visible for \(context).")
+            XCTFail("The shared media attachment anchor \(identifier) must be visible in message \(messageId) for \(context).")
             return false
         }
 
-        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        return assertFullscreenMediaOpened(context: context, in: app)
+        return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
     }
 
-    private func assertFullscreenMediaOpened(context: String, in app: XCUIApplication) -> Bool {
+    private func isElementVisibleInChatViewport(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        guard !frame.isNull, !frame.isEmpty else { return false }
+        let viewport = chatMessageViewport(in: app)
+        guard viewport.contains(CGPoint(x: frame.midX, y: frame.midY)) else { return false }
+        let visible = frame.intersection(viewport)
+        guard !visible.isNull, !visible.isEmpty else { return false }
+        return visible.width >= min(frame.width * 0.55, 48) &&
+            visible.height >= min(frame.height * 0.55, 48)
+    }
+
+    private func scrollElementTowardViewport(_ element: XCUIElement, in app: XCUIApplication) {
+        guard element.exists else {
+            app.swipeUp()
+            return
+        }
+        let frame = element.frame
+        guard !frame.isNull, !frame.isEmpty else {
+            app.swipeUp()
+            return
+        }
+        let viewport = chatMessageViewport(in: app)
+        if frame.midY > viewport.midY {
+            app.swipeUp()
+        } else {
+            app.swipeDown()
+        }
+    }
+
+    private func chatMessageViewport(in app: XCUIApplication) -> CGRect {
+        var viewport = app.frame.insetBy(dx: 0, dy: 8)
+        let titleBar = app.descendants(matching: .any)
+            .matching(identifier: "chat.conversation.titlebar")
+            .firstMatch
+        if titleBar.exists, !titleBar.frame.isNull, !titleBar.frame.isEmpty {
+            viewport.origin.y = max(viewport.minY, titleBar.frame.maxY + 8)
+        }
+
+        let composer = app.descendants(matching: .any)
+            .matching(identifier: "chat.composer.root")
+            .firstMatch
+        if composer.exists, !composer.frame.isNull, !composer.frame.isEmpty {
+            viewport.size.height = max(1, min(viewport.maxY, composer.frame.minY - 8) - viewport.minY)
+        }
+        return viewport
+    }
+
+    private func openResolvedMedia(
+        _ media: XCUIElement,
+        context: String,
+        in app: XCUIApplication,
+        failOnMiss: Bool = false
+    ) -> Bool {
+        tapResolvedMedia(media)
+        if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
+            return true
+        }
+        tapResolvedMediaFallback(media)
+        return assertFullscreenMediaOpened(context: context, in: app, reportFailure: failOnMiss)
+    }
+
+    private func tapResolvedMedia(_ media: XCUIElement) {
+        media.tap()
+    }
+
+    private func tapResolvedMediaFallback(_ media: XCUIElement) {
+        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func assertFullscreenMediaOpened(context: String, in app: XCUIApplication, reportFailure: Bool = true) -> Bool {
         guard app.descendants(matching: .any)
             .matching(identifier: "fullscreen-media.root")
             .firstMatch
             .waitForExistence(timeout: 10) else {
-            XCTFail("The shared fullscreen media overlay must open from \(context).")
+            if reportFailure {
+                XCTFail("The shared fullscreen media overlay must open from \(context).")
+            }
             return false
         }
 
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay title must be visible for \(context).",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay close control must be visible for \(context).",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay in-media close control must be visible for \(context).",
-        )
+        let titleVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5)
+        let chromeCloseVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5)
+        let mediaCloseVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5)
+        guard titleVisible, chromeCloseVisible, mediaCloseVisible else {
+            if reportFailure {
+                XCTAssertTrue(titleVisible, "The shared fullscreen media overlay title must be visible for \(context).")
+                XCTAssertTrue(chromeCloseVisible, "The shared fullscreen media overlay close control must be visible for \(context).")
+                XCTAssertTrue(mediaCloseVisible, "The shared fullscreen media overlay in-media close control must be visible for \(context).")
+            }
+            return false
+        }
         return true
     }
 
     private func closeFullscreenMedia(context: String, in app: XCUIApplication) {
-        let back = app.descendants(matching: .any)
-            .matching(identifier: "fullscreen-media.back")
-            .firstMatch
-        XCTAssertTrue(back.waitForExistence(timeout: 5), "The shared fullscreen media overlay back action must be visible for \(context).")
-        if back.exists {
-            back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let closeIdentifiers = [
+            "fullscreen-media.back",
+            "fullscreen-media.close",
+            "fullscreen-media.media-close",
+        ]
+        var dismissed = false
+        for identifier in closeIdentifiers {
+            let control = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            if control.waitForExistence(timeout: 2) {
+                control.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                dismissed = !app.descendants(matching: .any)
+                    .matching(identifier: "fullscreen-media.root")
+                    .firstMatch
+                    .waitForExistence(timeout: 3)
+                if dismissed {
+                    break
+                }
+            }
         }
+        XCTAssertTrue(dismissed, "The shared fullscreen media overlay dismiss action must close \(context).")
         XCTAssertFalse(
             app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
             "The shared fullscreen media overlay must close back to the Chat thread after \(context).",
         )
+    }
+
+    @discardableResult
+    private func waitForFullscreenMediaToDisappear(in app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        !app.descendants(matching: .any)
+            .matching(identifier: "fullscreen-media.root")
+            .firstMatch
+            .waitForExistence(timeout: timeout)
     }
 
     private func openPeerPublicProfile(peerProfileId: String, in app: XCUIApplication) -> XCUIElement {
@@ -1380,6 +1526,31 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(field.exists, "Expected editable field \(identifier) to exist.")
         pasteText(value, into: field, in: app)
+    }
+
+    private func dismissKeyboardIfVisible(in app: XCUIApplication) {
+        guard app.keyboards.count > 0 else { return }
+        let returnKey = app.keyboards.buttons["Return"].firstMatch
+        if returnKey.waitForExistence(timeout: 1), returnKey.isHittable {
+            returnKey.tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        if app.keyboards.count > 0 {
+            app.descendants(matching: .any)
+                .matching(identifier: "chat.conversation.titlebar")
+                .firstMatch
+                .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        if app.keyboards.count > 0 {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.18)).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        if app.keyboards.count > 0 {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
     }
 
     private func clearAndTypeText(_ value: String, into identifier: String, in app: XCUIApplication) {

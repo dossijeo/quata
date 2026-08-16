@@ -98,8 +98,11 @@ const evidenceFiles = [
   "android-chat-attachment-document-visible.png",
   "android-chat-audio-recording-active.png",
   "android-chat-audio-recording-pending-attachment.png",
+  "android-chat-audio-recording-ready-to-send.png",
+  "android-chat-audio-recording-sent.png",
   "android-chat-audio-player-visible.png",
   "android-chat-audio-toggle-attempted.png",
+  "android-chat-audio-seek-attempted.png",
   "android-chat-attachment-picker-pending-document.png",
   "android-chat-attachment-picker-sent-document.png",
   "android-chat-attachment-picker-pending-gallery.png",
@@ -476,7 +479,16 @@ function messageAttachments(row) {
     row?.files,
     row?.attachment ? [row.attachment] : null,
   ].filter(Boolean).flat();
-  return candidates.filter((entry) => entry && typeof entry === "object");
+  return candidates
+    .filter((entry) => entry && typeof entry === "object")
+    .map((attachment) => ({
+      ...attachment,
+      id: Number(attachment?.id ?? attachment?.file_id ?? attachment?.attachment_id),
+      name: attachment?.name ?? attachment?.display_name,
+      storagePath: attachment?.storage_path ?? attachment?.storagePath,
+      bucket: attachment?.storage_bucket ?? attachment?.storageBucket,
+      mimeType: attachment?.mime_type ?? attachment?.mimeType,
+    }));
 }
 
 function isMuted(row) {
@@ -670,7 +682,7 @@ async function logicalCleanup(config, state) {
     });
     actions.push("favorite_removed");
   }
-  const messageIds = [state.message, state.peerMessage, state.editedMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.video?.messageId, state.attachmentsAudio?.image?.messageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId, ...state.uiMessages]
+  const messageIds = [state.message, state.peerMessage, state.editedMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.video?.messageId, state.attachmentsAudio?.image?.messageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId, state.attachmentsAudio?.nextAudio?.messageId, ...state.uiMessages]
     .filter((id, index, all) => Number.isInteger(Number(id)) && all.indexOf(id) === index);
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
@@ -1348,6 +1360,7 @@ try {
       "-e", "quataChatActionsAudioProbe", state.attachmentsAudio?.audio?.markerProbe ?? "",
       "-e", "quataChatActionsImageProbe", state.attachmentsAudio?.image?.markerProbe ?? "",
       "-e", "quataChatActionsVideoProbe", state.attachmentsAudio?.video?.markerProbe ?? "",
+      "-e", "quataChatActionsAudioRecordingMarker", state.attachmentsAudio?.recordingMarker ?? "",
       "-e", "quataChatActionsAttachmentPickerSource", options.attachmentPickerSource,
       "-e", "quataChatActionsAttachmentPickerOutcome", options.attachmentPickerOutcome,
       "-e", "quataChatActionsAttachmentPickerName", attachmentPickerName,
@@ -1424,9 +1437,35 @@ try {
       image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
       document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
       audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
+      nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next"),
+      recordingMarker: `chat-audio-recording-android-${randomUUID()}`,
     };
-    report.steps.push("video_image_document_and_audio_attachment_messages_seeded");
+    report.steps.push("video_image_document_and_consecutive_audio_attachment_messages_seeded");
     assertInstrumentationPassed("attachments-audio", await runInstrumentationStage("attachments-audio"));
+    const recordingMessage = await pollMessage(
+      config,
+      state.a,
+      state.thread,
+      (message) => messageText(message) === state.attachmentsAudio.recordingMarker && messageAttachments(message).some((attachment) => /^audio\//i.test(attachment.mimeType ?? "")),
+      60_000,
+    );
+    const recordingAttachment = messageAttachments(recordingMessage).find((attachment) => /^audio\//i.test(attachment.mimeType ?? ""));
+    if (!recordingAttachment) throw new Error("audio_recording_sent_attachment_missing");
+    const recordingMessageId = messageId(recordingMessage);
+    state.uiMessages.push(recordingMessageId);
+    state.cleanupRegistry.trackStorageObject({
+      bucket: recordingAttachment.bucket || "chat-attachments",
+      storagePath: recordingAttachment.storagePath,
+      name: recordingAttachment.name || "recorded-audio",
+    });
+    report.evidence.audioRecordingSent = {
+      markerSha256: sha256(state.attachmentsAudio.recordingMarker),
+      messageId: recordingMessageId,
+      attachmentId: recordingAttachment.id,
+      mimeType: recordingAttachment.mimeType,
+      storagePathSha256: recordingAttachment.storagePath ? sha256(recordingAttachment.storagePath) : null,
+    };
+    report.steps.push("android_audio_recording_sent_by_shared_composer_and_verified_by_rpc");
     await rm(evidenceDir, { recursive: true, force: true });
     await mkdir(evidenceDir, { recursive: true });
     for (const file of evidenceFiles.filter((name) => name.includes("attachment") || name.includes("audio") || name.endsWith("evidence.json"))) {
@@ -1442,15 +1481,21 @@ try {
       imageMessageId: state.attachmentsAudio.image.messageId,
       documentMessageId: state.attachmentsAudio.document.messageId,
       audioMessageId: state.attachmentsAudio.audio.messageId,
+      nextAudioMessageId: state.attachmentsAudio.nextAudio.messageId,
       videoAttachmentId: state.attachmentsAudio.video.id,
       imageAttachmentId: state.attachmentsAudio.image.id,
       documentAttachmentId: state.attachmentsAudio.document.id,
       audioAttachmentId: state.attachmentsAudio.audio.id,
+      nextAudioAttachmentId: state.attachmentsAudio.nextAudio.id,
+      recordingMarkerSha256: sha256(state.attachmentsAudio.recordingMarker),
+      recordingMessageId: report.evidence.audioRecordingSent.messageId,
+      recordingAttachmentId: report.evidence.audioRecordingSent.attachmentId,
       markerSha256: sha256(marker),
       videoMarkerSha256: sha256(state.attachmentsAudio.video.marker),
       imageMarkerSha256: sha256(state.attachmentsAudio.image.marker),
       documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
       audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
+      nextAudioMarkerSha256: sha256(state.attachmentsAudio.nextAudio.marker),
     };
     throw new Error("attachments_audio_only_completed");
   }

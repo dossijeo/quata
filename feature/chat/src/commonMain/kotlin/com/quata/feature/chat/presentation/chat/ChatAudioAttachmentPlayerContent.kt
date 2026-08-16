@@ -66,10 +66,12 @@ fun ChatAudioAttachmentPlayerContent(
     modifier: Modifier = Modifier,
 ) {
     var scrubberSize by remember { mutableStateOf(IntSize.Zero) }
+    val boundedProgress = progress.coerceIn(0f, 1f)
+    val progressPercent = (boundedProgress * 100f).toInt().coerceIn(0, 100)
     val toggleDescription = "$playPauseDescription $displayText"
     fun seekToX(x: Float) {
         val width = scrubberSize.width.toFloat().coerceAtLeast(1f)
-        onSeekToFraction(x / width)
+        onSeekToFraction((x / width).coerceIn(0f, 1f))
     }
 
     Surface(
@@ -127,10 +129,10 @@ fun ChatAudioAttachmentPlayerContent(
                     contentAlignment = Alignment.Center,
                 ) {
                     LinearProgressIndicator(
-                        progress = { progress.coerceIn(0f, 1f) },
+                        progress = { boundedProgress },
                         modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(999.dp)).semantics {
                             testTag = ChatAudioAttachmentProgressTestTag
-                            contentDescription = "$ChatAudioAttachmentProgressTestTag $displayText"
+                            contentDescription = "$ChatAudioAttachmentProgressTestTag $displayText $progressPercent%"
                         },
                         color = textColor.copy(alpha = 0.78f),
                         trackColor = textColor.copy(alpha = 0.18f),

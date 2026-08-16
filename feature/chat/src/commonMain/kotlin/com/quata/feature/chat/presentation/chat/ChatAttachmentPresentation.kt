@@ -3,6 +3,7 @@ package com.quata.feature.chat.presentation.chat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,9 +14,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,7 +27,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
@@ -57,11 +63,19 @@ private fun chatAttachmentKindFromExtension(value: String): ChatAttachmentKind =
 data class ChatMediaPlatformSlots(
     val preview: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
     val viewer: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
+    val nativeClose: @Composable BoxScope.(onDismiss: () -> Unit) -> Unit = {},
 )
 
 const val ChatMediaAttachmentTestTag = "chat.attachment.media"
 const val ChatImageAttachmentContentDescription = "chat.attachment.media.image"
 const val ChatVideoAttachmentContentDescription = "chat.attachment.media.video"
+
+private fun chatMediaAttachmentSemanticAnchor(kind: ChatAttachmentKind): String =
+    when (kind) {
+        ChatAttachmentKind.Video -> ChatVideoAttachmentContentDescription
+        ChatAttachmentKind.Image -> ChatImageAttachmentContentDescription
+        else -> ChatMediaAttachmentTestTag
+    }
 
 @Composable
 fun ChatMediaAttachmentContent(
@@ -72,42 +86,47 @@ fun ChatMediaAttachmentContent(
     playVideoLabel: String,
     modifier: Modifier = Modifier,
 ) {
+    val semanticAnchor = chatMediaAttachmentSemanticAnchor(kind)
     Box(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
+            .semantics(mergeDescendants = true) {
+                testTag = semanticAnchor
+                contentDescription = semanticAnchor
+                role = Role.Button
+                onClick(label = semanticAnchor) {
+                    onOpen()
+                    true
+                }
+            }
+            .clickable(onClick = onOpen)
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
         media(file, kind, Modifier.fillMaxSize())
-        if (kind == ChatAttachmentKind.Video) {
+        if (kind == ChatAttachmentKind.Video || kind == ChatAttachmentKind.Image) {
             Surface(
                 color = Color.Black.copy(alpha = 0.38f),
                 contentColor = Color.White,
                 shape = CircleShape,
-                modifier = Modifier.size(62.dp),
+                modifier = Modifier
+                    .size(62.dp),
             ) {
-                Icon(
-                    imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = playVideoLabel,
-                    modifier = Modifier.padding(12.dp).size(38.dp),
-                )
+                IconButton(
+                    onClick = onOpen,
+                    modifier = Modifier
+                        .fillMaxSize(),
+                ) {
+                    Icon(
+                        imageVector = if (kind == ChatAttachmentKind.Video) Icons.Filled.PlayArrow else Icons.Filled.OpenInFull,
+                        contentDescription = null,
+                        modifier = Modifier.padding(12.dp).size(38.dp),
+                    )
+                }
             }
         }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .semantics {
-                    testTag = ChatMediaAttachmentTestTag
-                    contentDescription = when (kind) {
-                        ChatAttachmentKind.Video -> ChatVideoAttachmentContentDescription
-                        ChatAttachmentKind.Image -> ChatImageAttachmentContentDescription
-                        else -> ChatMediaAttachmentTestTag
-                    }
-                }
-                .clickable(onClick = onOpen),
-        )
     }
 }
 

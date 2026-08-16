@@ -36,14 +36,17 @@ subflujos a GO completo: faltan administración UI profunda de grupo y retorno/e
 mapa SOS.
 `FLOW-TRANSLATOR` sigue fuera de Chat.
 
-**Candidato actual:** `e2b69601e740e9c91450036a3f0fd7b89882fe6b` reduce `CHAT-ATTACHMENTS` y
+**Candidato actual:** `67823d4ed7fbc142e0cd3d5a7ea6652b3c3836f2` reduce `CHAT-ATTACHMENTS` y
 `CHAT-AUDIO` con descarga/compartir ancladas en común, visor fullscreen común desde adjuntos de
 imagen/vídeo y revalidación de documento/audio/grabación en Web/Wasm, Android e iOS. El indicador
 visible de progreso de audio expone ahora la ancla común `chat.attachment.audio.progress`, de modo
-que XCTest/AX resuelve el mismo objetivo que Web/Android sin fallback geométrico. Evidencias finales
-del mismo Product/Evidence SHA: Web/Wasm `build-reports/web/chat-attachment-download-share-e2b69601.json`,
-Android `build-reports/android/chat-attachment-download-share-e2b69601.json` e iOS
-`build-reports/ios/chat-attachment-download-share-e2b69601.json`; iOS exporta attachments XCTest
+que XCTest/AX resuelve el mismo objetivo que Web/Android sin fallback geométrico; Web/Wasm convierte
+explicitamente el `Long` de seek a `Number` antes de operar con segundos en JS para evitar el fault
+`Cannot mix BigInt and other types`, y los runners Web/Android estabilizan el replay visual tras la
+grabación de audio sin cambiar producto. Evidencias finales del mismo Product/Evidence SHA:
+Web/Wasm `build-reports/web/chat-actions-notifications-evidence.json`, Android
+`build-reports/android/chat-actions-notifications-evidence.json` e iOS
+`build-reports/ios/chat-attachments-audio-evidence.json`; iOS exporta attachments XCTest
 `ios-chat-attachment-document-visible`, `ios-chat-attachment-media-viewer`,
 `ios-chat-attachment-video-viewer`, `ios-chat-audio-player-visible`,
 `ios-chat-audio-toggle-attempted`, `ios-chat-audio-recording-active` e

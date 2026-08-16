@@ -95,6 +95,7 @@ const state = {
   sosUnavailableMarker: null,
   sosWithLocationMessage: null,
   sosUnavailableMessage: null,
+  uiMessages: [],
   cleanupRegistry: createCleanupRegistry(),
 };
 
@@ -316,8 +317,10 @@ bash scripts/run-ios-chat-translation-ui-test.sh
         image: await createChatAttachmentMessage(config, state.a, state.thread, runId, "image"),
         document: await createChatAttachmentMessage(config, state.a, state.thread, runId, "document"),
         audio: await createChatAttachmentMessage(config, state.a, state.thread, runId, "audio"),
+        nextAudio: await createChatAttachmentMessage(config, state.a, state.thread, `${runId}-next`, "audio", "-next"),
+        recordingMarker: `chat-audio-recording-ios-${randomUUID()}`,
       };
-      report.steps.push("video_image_document_and_audio_attachment_messages_seeded");
+      report.steps.push("video_image_document_and_consecutive_audio_attachment_messages_seeded");
     }
     if (groupSosOnly) {
       state.sosWithLocationMarker = "[SOS:kind=update;name=Gabrielo;lat=3.7523;lng=8.7741;age_ms=45000;accuracy_m=18;speed_kmh=0]";
@@ -387,6 +390,9 @@ export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE=${shellQuote(state.attachmentsAu
 export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE=${shellQuote(state.attachmentsAudio?.audio?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE=${shellQuote(state.attachmentsAudio?.image?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE=${shellQuote(state.attachmentsAudio?.video?.markerProbe ?? "attachments-audio")}
+export QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.image?.messageId ?? "attachments-audio"))}
+export QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.video?.messageId ?? "attachments-audio"))}
+export QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER=${shellQuote(state.attachmentsAudio?.recordingMarker ?? "attachments-audio")}
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_INCLUDE_UNMUTE=${menuSurfaceOnly ? "0" : "1"}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MESSAGE_ID=${shellQuote(String(state.editableMessage ?? "profile-only"))}
 export QUATA_IOS_CHAT_E2E_EDITABLE_MARKER=${shellQuote(state.editableMarker ?? "profile-only")}
@@ -508,6 +514,34 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("keyboard_header_and_selected_action_bar_captured");
     }
 
+    if (attachmentsAudioOnly) {
+      const recordingMessage = await pollMessage(
+        config,
+        state.a,
+        state.thread,
+        (message) => messageText(message) === state.attachmentsAudio.recordingMarker && messageAttachments(message).some((attachment) => /^audio\//i.test(attachment.mimeType ?? "")),
+        "audio recording sent message",
+        60_000,
+      );
+      const recordingAttachment = messageAttachments(recordingMessage).find((attachment) => /^audio\//i.test(attachment.mimeType ?? ""));
+      if (!recordingAttachment) throw new Error("audio_recording_sent_attachment_missing");
+      const recordingMessageId = messageId(recordingMessage);
+      state.uiMessages.push(recordingMessageId);
+      state.cleanupRegistry.trackStorageObject({
+        bucket: recordingAttachment.bucket || "chat-attachments",
+        storagePath: recordingAttachment.storagePath,
+        name: recordingAttachment.name || "recorded-audio",
+      });
+      report.evidence.audioRecordingSent = {
+        markerSha256: sha256(state.attachmentsAudio.recordingMarker),
+        messageId: recordingMessageId,
+        attachmentId: recordingAttachment.id,
+        mimeType: recordingAttachment.mimeType,
+        storagePathSha256: recordingAttachment.storagePath ? sha256(recordingAttachment.storagePath) : null,
+      };
+      report.steps.push("ios_audio_recording_sent_by_shared_composer_and_verified_by_rpc");
+    }
+
     if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly && !attachmentPickerOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
@@ -552,14 +586,20 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           imageMessageId: state.attachmentsAudio.image.messageId,
           documentMessageId: state.attachmentsAudio.document.messageId,
           audioMessageId: state.attachmentsAudio.audio.messageId,
+          nextAudioMessageId: state.attachmentsAudio.nextAudio.messageId,
           videoAttachmentId: state.attachmentsAudio.video.id,
           imageAttachmentId: state.attachmentsAudio.image.id,
           documentAttachmentId: state.attachmentsAudio.document.id,
           audioAttachmentId: state.attachmentsAudio.audio.id,
+          nextAudioAttachmentId: state.attachmentsAudio.nextAudio.id,
+          recordingMarkerSha256: sha256(state.attachmentsAudio.recordingMarker),
+          recordingMessageId: report.evidence.audioRecordingSent?.messageId ?? null,
+          recordingAttachmentId: report.evidence.audioRecordingSent?.attachmentId ?? null,
           videoMarkerSha256: sha256(state.attachmentsAudio.video.marker),
           imageMarkerSha256: sha256(state.attachmentsAudio.image.marker),
           documentMarkerSha256: sha256(state.attachmentsAudio.document.marker),
           audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
+          nextAudioMarkerSha256: sha256(state.attachmentsAudio.nextAudio.marker),
         } : null,
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
         profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
@@ -635,6 +675,12 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     } catch (error) {
       cleanupFailed = true;
       cleanup.error = safeFailure(error);
+      try {
+        await state.cleanupRegistry.cleanupStorageObjects({ config, session: state.a, storageRequest, verifyStorageObjectAbsent, actions: cleanup.actions });
+        cleanup.actions.push("storage_cleanup_attempted_after_logical_cleanup_failure");
+      } catch (storageError) {
+        cleanup.storageCleanupAfterLogicalFailure = safeFailure(storageError);
+      }
     }
     if (state.profileFollow && state.a && state.b) {
       try {
@@ -650,6 +696,17 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         cleanup.hardCleanup = await hardDeleteTemporaryThread(state.thread, state.uniqueKey);
         cleanup.actions.push("hard_deleted_temporary_thread");
         cleanup.actions.push("cleanup_verified_physical_residue_absent");
+        if (
+          cleanupFailed
+          && cleanup.error?.startsWith("cleanup_residue_detected:")
+          && !cleanup.storageCleanupAfterLogicalFailure
+          && Object.values(cleanup.hardCleanup.residueCounts ?? {}).every((count) => Number(count) === 0)
+        ) {
+          cleanup.logicalCleanupErrorResolvedByHardCleanup = cleanup.error;
+          delete cleanup.error;
+          cleanupFailed = false;
+          cleanup.actions.push("logical_cleanup_residue_resolved_by_verified_hard_cleanup");
+        }
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);
@@ -1312,7 +1369,21 @@ async function logicalCleanup(config, state) {
     });
     actions.push("seed_favorite_removed");
   }
-  const messageIds = [state.seedMessage, state.peerMessage, state.editableMessage, state.composerMessage, state.replyMessage, state.profileContent?.attachmentMessageId, state.attachmentsAudio?.video?.messageId, state.attachmentsAudio?.image?.messageId, state.attachmentsAudio?.document?.messageId, state.attachmentsAudio?.audio?.messageId, state.attachmentPicker?.messageId].filter((value) => Number.isSafeInteger(value));
+  const messageIds = [
+    state.seedMessage,
+    state.peerMessage,
+    state.editableMessage,
+    state.composerMessage,
+    state.replyMessage,
+    state.profileContent?.attachmentMessageId,
+    state.attachmentsAudio?.video?.messageId,
+    state.attachmentsAudio?.image?.messageId,
+    state.attachmentsAudio?.document?.messageId,
+    state.attachmentsAudio?.audio?.messageId,
+    state.attachmentsAudio?.nextAudio?.messageId,
+    state.attachmentPicker?.messageId,
+    ...state.uiMessages,
+  ].filter((value, index, all) => Number.isSafeInteger(value) && all.indexOf(value) === index);
   if (state.thread && messageIds.length && state.a) {
     await rpc(config, state.a, "quata_chat_delete_messages", {
       p_actor_profile_id: state.a.profileId,
@@ -1331,7 +1402,7 @@ async function logicalCleanup(config, state) {
   }
   const deletedStalePrivateMarkers = await deletePrivateChatTestMarkers(config, state);
   if (deletedStalePrivateMarkers > 0) actions.push(`stale_profile_private_chat_markers_deleted:${deletedStalePrivateMarkers}`);
-  const markers = [state.seedMarker, state.peerMarker, state.editableMarker, state.composerMarker, state.replyMarker, state.editMarker, state.attachmentPicker?.marker];
+  const markers = [state.seedMarker, state.peerMarker, state.editableMarker, state.composerMarker, state.replyMarker, state.editMarker, state.attachmentPicker?.marker, state.attachmentsAudio?.recordingMarker];
   if (state.thread && state.a && await threadContainsAnyMarker(config, state.a, state.thread, markers)) {
     throw new Error("cleanup_residue_detected:message_a");
   }

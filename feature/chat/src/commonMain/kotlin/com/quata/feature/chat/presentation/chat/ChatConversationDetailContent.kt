@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Message
+import com.quata.core.platform.PlatformFile
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
@@ -226,12 +227,18 @@ private fun ChatConversationMessageContent(
         selected = isSelected
         stateDescription = if (isSelected) "selected" else "not selected"
     }
+    val mediaAttachmentOwnsTap = message.mediaAttachmentKind()?.let {
+        it == ChatAttachmentKind.Image || it == ChatAttachmentKind.Video
+    } == true
     ChatMessageBubbleLayoutContent(
         isMine = message.isMine,
         isSelected = isSelected,
         showSenderAvatar = showSenderAvatar,
         avatar = avatar,
-        bubbleModifier = translatableTextModifier(message, bubbleSemantics.clickable(onClick = onClick)),
+        bubbleModifier = translatableTextModifier(
+            message,
+            if (mediaAttachmentOwnsTap) bubbleSemantics else bubbleSemantics.clickable(onClick = onClick),
+        ),
     ) {
         ChatMessageBubbleContent(
             header = {
@@ -304,4 +311,9 @@ private fun ChatConversationMessageContent(
 private fun Message.accessibleActionLabel(): String {
     val body = text.takeIf { it.isNotBlank() } ?: replyToText?.takeIf { it.isNotBlank() } ?: id
     return "${senderName.ifBlank { "Mensaje" }}: $body"
+}
+
+private fun Message.mediaAttachmentKind(): ChatAttachmentKind? {
+    val reference = attachmentUri?.takeIf { it.isNotBlank() } ?: return null
+    return chatAttachmentKind(PlatformFile(reference, attachmentName, attachmentMimeType))
 }

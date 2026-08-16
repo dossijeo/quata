@@ -8,6 +8,7 @@ const [
   packageJson,
   inventory,
   commonHost,
+  commonConversationDetail,
   commonComposer,
   commonQuickPanel,
   commonPendingAttachment,
@@ -18,6 +19,7 @@ const [
   androidHost,
   webHost,
   iosHost,
+  iosMediaBridge,
   androidUiTest,
   iosUiTest,
   iosWrapper,
@@ -35,6 +37,7 @@ const [
   source("package.json"),
   source("docs/SCREEN_MIGRATION_INVENTORY_V2.md"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatBrowserHostContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConversationDetailContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatComposerAndActionsContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAttachmentQuickPanelContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatPendingAttachmentOverlayContent.kt"),
@@ -45,6 +48,7 @@ const [
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
+  source("iosApp/iosApp/IosChatMediaBridge.swift"),
   source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
   source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
   source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
@@ -101,16 +105,64 @@ test("attachment picker, pending surface and attachment cards expose stable comm
   ]) {
     for (const [constant, tag] of anchors) {
       assert.match(sourceText, new RegExp(`${constant} = "${tag.replaceAll(".", "\\.")}"`));
-      if (constant.endsWith("TestTag")) {
+      if (constant.endsWith("TestTag") && constant !== "ChatMediaAttachmentTestTag") {
         assert.match(sourceText, new RegExp(`testTag = ${constant}`));
       }
       if (constant === "ChatMediaAttachmentTestTag") {
-        assert.match(sourceText, /contentDescription = when \(kind\)/);
+        assert.match(sourceText, /chatMediaAttachmentSemanticAnchor/);
+        assert.match(sourceText, /testTag = semanticAnchor/);
+        assert.match(sourceText, /contentDescription = semanticAnchor/);
+        assert.match(sourceText, /role = Role\.Button/);
+        assert.match(sourceText, /onClick\(label = semanticAnchor\)/);
         assert.match(sourceText, /ChatAttachmentKind\.Video -> ChatVideoAttachmentContentDescription/);
         assert.match(sourceText, /ChatAttachmentKind\.Image -> ChatImageAttachmentContentDescription/);
       }
     }
   }
+});
+
+test("media attachments own the primary tap instead of the whole message bubble", () => {
+  assert.match(commonConversationDetail, /val mediaAttachmentOwnsTap = message\.mediaAttachmentKind\(\)\?\.let/);
+  assert.match(commonConversationDetail, /it == ChatAttachmentKind\.Image \|\| it == ChatAttachmentKind\.Video/);
+  assert.match(commonConversationDetail, /private fun Message\.mediaAttachmentKind\(\): ChatAttachmentKind\?/);
+  assert.match(commonConversationDetail, /chatAttachmentKind\(PlatformFile\(reference, attachmentName, attachmentMimeType\)\)/);
+  assert.match(
+    commonConversationDetail,
+    /if \(mediaAttachmentOwnsTap\) bubbleSemantics else bubbleSemantics\.clickable\(onClick = onClick\)/,
+  );
+});
+
+test("iOS media attachment evidence replays resolved semantic media before relative fallback", () => {
+  assert.match(iosUiTest, /private func tapResolvedMedia\(_ media: XCUIElement\) \{\s*media\.tap\(\)\s*\}/);
+  assert.match(iosUiTest, /private func tapResolvedMediaFallback\(_ media: XCUIElement\)/);
+  assert.match(iosUiTest, /media\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
+  const openResolvedMedia = iosUiTest.slice(
+    iosUiTest.indexOf("private func openResolvedMedia"),
+    iosUiTest.indexOf("private func tapResolvedMedia("),
+  );
+  assert.match(openResolvedMedia, /tapResolvedMedia\(media\)/);
+  assert.match(openResolvedMedia, /tapResolvedMediaFallback\(media\)/);
+  assert.doesNotMatch(openResolvedMedia, /app\.coordinate\(withNormalizedOffset:/);
+  const openChatMediaAttachment = iosUiTest.slice(
+    iosUiTest.indexOf("private func openChatMediaAttachment"),
+    iosUiTest.indexOf("private func openResolvedMedia"),
+  );
+  assert.match(openChatMediaAttachment, /return openResolvedMedia\(media, context: context, in: app, failOnMiss: true\)/);
+  assert.doesNotMatch(openChatMediaAttachment, /if openResolvedMedia\(media, context: context, in: app\)/);
+});
+
+test("iOS media overlay close is exposed through a native accessibility anchor", () => {
+  assert.match(commonAttachmentPresentation, /nativeClose: @Composable BoxScope\.\(onDismiss: \(\) -> Unit\) -> Unit = \{\}/);
+  assert.match(commonHost, /nativeClose = \{ dismiss -> mediaSlots\.nativeClose\(this, dismiss\) \}/);
+  assert.match(commonAttachmentPresentation, /testTag = semanticAnchor/);
+  assert.match(iosHost, /iosChatMediaPlatformSlots\(/);
+  assert.match(iosMediaBridge, /func createCloseButton\(/);
+  assert.match(iosMediaBridge, /accessibilityIdentifier = accessibilityIdentifier/);
+  assert.match(iosMediaBridge, /accessibilityLabel = accessibilityIdentifier/);
+  assert.match(iosMediaBridge, /isAccessibilityElement = true/);
+  assert.match(iosMediaBridge, /button\.addTarget\(target, action: #selector\(IosChatNativeMediaCloseTarget\.close\), for: \.touchUpInside\)/);
+  assert.match(iosUiTest, /fullscreen-media\.close/);
+  assert.match(iosUiTest, /fullscreen-media\.media-close/);
 });
 
 test("audio attachment player exposes stable common playback anchors", () => {
@@ -129,6 +181,9 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /if \(hasError\) errorText else displayText/);
   assert.match(commonAudioPlayer, /onTogglePlayback/);
   assert.match(commonAudioPlayer, /onSeekToFraction/);
+  assert.match(commonAudioPlayer, /val boundedProgress = progress\.coerceIn\(0f, 1f\)/);
+  assert.match(commonAudioPlayer, /val progressPercent = \(boundedProgress \* 100f\)\.toInt\(\)\.coerceIn\(0, 100\)/);
+  assert.match(commonAudioPlayer, /contentDescription = "\$ChatAudioAttachmentProgressTestTag \$displayText \$progressPercent%"/);
 });
 
 test("chat composer exposes stable common audio recording anchors", () => {
@@ -257,8 +312,8 @@ test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evid
 
 test("Android and iOS runners expose an opt-in attachments/audio evidence stage", () => {
   assert.match(androidUiTest, /val videoProbe = optionalArgument\("quataChatActionsVideoProbe"\)/);
-  assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, audioProbe, imageProbe, videoProbe\)/);
-  assert.match(androidUiTest, /"attachments-audio" -> runAttachmentsAudioStage\(documentProbe\.orEmpty\(\), audioProbe\.orEmpty\(\), imageProbe\.orEmpty\(\), videoProbe\.orEmpty\(\)\)/);
+  assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, audioProbe, imageProbe, videoProbe, audioRecordingMarker\)/);
+  assert.match(androidUiTest, /"attachments-audio" -> runAttachmentsAudioStage\(documentProbe\.orEmpty\(\), audioProbe\.orEmpty\(\), imageProbe\.orEmpty\(\), videoProbe\.orEmpty\(\), audioRecordingMarker\.orEmpty\(\)\)/);
   assert.match(androidUiTest, /ChatVideoAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatImageAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatDocumentAttachmentTestTag/);
@@ -281,13 +336,23 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /android-chat-attachment-document-visible/);
   assert.match(androidRunner, /android-chat-audio-recording-active\.png/);
   assert.match(androidRunner, /android-chat-audio-recording-pending-attachment\.png/);
+  assert.match(androidRunner, /android-chat-audio-recording-ready-to-send\.png/);
+  assert.match(androidRunner, /android-chat-audio-recording-sent\.png/);
+  assert.match(androidRunner, /android-chat-audio-seek-attempted\.png/);
   assert.match(androidUiTest, /android-chat-audio-toggle-attempted/);
+  assert.match(androidUiTest, /quataChatActionsAudioRecordingMarker/);
+  assert.match(androidUiTest, /android-chat-audio-recording-ready-to-send/);
+  assert.match(androidUiTest, /android-chat-audio-recording-sent/);
+  assert.match(androidUiTest, /android-chat-audio-seek-attempted/);
+  assert.match(androidRunner, /android_audio_recording_sent_by_shared_composer_and_verified_by_rpc/);
 
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID/);
   assert.match(iosUiTest, /chat\.attachment\.media/);
   assert.match(iosUiTest, /chat\.attachment\.media\.video/);
   assert.match(iosUiTest, /chat\.attachment\.document/);
@@ -297,22 +362,31 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /chat\.attachment\.audio\.player/);
   assert.match(iosUiTest, /chat\.attachment\.audio\.toggle/);
   assert.match(iosUiTest, /chat\.attachment\.audio\.progress/);
-  assert.match(iosUiTest, /verifyAudioRecordingComposer\(in: app\)/);
+  assert.match(iosUiTest, /verifyAudioRecordingComposer\(marker: audioRecordingMarker, in: app\)/);
   assert.match(iosUiTest, /chat\.composer\.record/);
   assert.match(iosUiTest, /chat\.composer\.recording/);
   assert.match(iosUiTest, /chat\.composer\.recording\.stop/);
   assert.match(iosUiTest, /ios-chat-audio-recording-active/);
   assert.match(iosUiTest, /ios-chat-audio-recording-pending-attachment/);
+  assert.match(iosUiTest, /ios-chat-audio-recording-ready-to-send/);
+  assert.match(iosUiTest, /ios-chat-audio-recording-sent/);
+  assert.match(iosUiTest, /dismissKeyboardIfVisible\(in: app\)/);
+  assert.match(iosUiTest, /ios-chat-audio-seek-attempted/);
   assert.match(iosUiTest, /chat\.attachment\.pending/);
-  assert.match(iosUiTest, /chat\.attachment\.pending\.clear/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER/);
+  assert.match(iosUiTest, /chat\.composer\.send/);
   assert.match(iosUiTest, /ios-chat-attachment-media-viewer/);
   assert.match(iosUiTest, /ios-chat-attachment-video-viewer/);
   assert.match(iosUiTest, /ios-chat-attachment-document-visible/);
   assert.match(iosUiTest, /ios-chat-audio-toggle-attempted/);
-  assert.match(iosUiTest, /messageText\(imageProbe, in: app\)/);
-  assert.match(iosUiTest, /messageText\(videoProbe, in: app\)/);
-  assert.match(iosUiTest, /messageText\(documentProbe, in: app\)/);
-  assert.match(iosUiTest, /messageText\(audioProbe, in: app\)/);
+  assert.match(iosUiTest, /Set\(\[documentProbe, audioProbe, imageProbe, videoProbe\]\)\.count/);
+  assert.match(iosUiTest, /app\.terminate\(\)[\s\S]*?openDeepLink\("quata:\/\/egquata\.com\/#chat-/);
+  assert.match(iosUiTest, /openChatMediaAttachment\([\s\S]*identifier: "chat\.attachment\.media\.video"[\s\S]*messageId: videoMessageId[\s\S]*markerProbe: videoProbe/);
+  assert.match(iosUiTest, /waitForFocusedMessageHighlightToClear\(videoMessageId, in: app\)/);
+  assert.match(iosUiTest, /waitForFocusedMessageHighlightToClear\(imageMessageId, in: app\)/);
+  assert.match(iosUiTest, /matching\(identifier: "chat\.message\.[^"]*messageId[^"]*"\)/);
+  assert.match(iosUiTest, /if scoped\.exists[\s\S]*return scoped[\s\S]*return app\.descendants\(matching: \.any\)[\s\S]*\.matching\(identifier: identifier\)/);
+  assert.match(iosUiTest, /guard makeChatAnchorVisible\(identifier: "chat\.attachment\.audio\.player"/);
   assert.match(iosUiTest, /testAttachmentPickerFixtureUsesSharedComposerAnchors/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN/);
@@ -328,14 +402,22 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
   assert.match(iosWrapper, /simctl privacy "\$QUATA_IOS_SIMULATOR_UDID" grant microphone com\.quata\.ios/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID'\] = attachment_image_message/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID'\] = attachment_video_message/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E'\] = attachments_audio/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE'\] = attachment_document/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE'\] = attachment_audio/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE'\] = attachment_image/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE'\] = attachment_video/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER'\] = audio_recording_marker/);
   assert.match(iosWrapper, /testAttachmentsAndAudioExposeSharedAnchors/);
   assert.match(iosWrapper, /attachments-audio\.log/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E/);
@@ -418,7 +500,11 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(sharedFixtures, /validMp4Fixture/);
   assert.match(androidRunner, /runInstrumentationStage\("attachments-audio"\)/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=\$\{attachmentsAudioOnly \? "1" : "0"\}/);
+  assert.match(iosRunner, /storage_cleanup_attempted_after_logical_cleanup_failure/);
+  assert.match(iosRunner, /logical_cleanup_residue_resolved_by_verified_hard_cleanup/);
   assert.match(webRunner, /verifyAttachmentsAudioWeb/);
+  assert.match(webRunner, /waitMessageVisibleNearCurrentPosition\(page, fixtures\.image\.marker, "image_attachment_message_not_visible"\)/);
+  assert.match(webRunner, /async function waitMessageVisibleNearCurrentPosition\(page, marker, error, timeout = 45_000\)/);
   assert.match(webRunner, /verifyDocumentAttachmentActionsWeb/);
   assert.match(webRunner, /acceptDownloads: true/);
   assert.match(webRunner, /__quataSharePayloads/);
@@ -469,7 +555,11 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /Quitar adjunto/);
   assert.match(webRunner, /webAudioRecordingAnchorResolution/);
   assert.doesNotMatch(webRunner, /audio_recording_start_anchor_not_clickable[\s\S]*?page\.mouse\.click\(382/);
-  assert.match(webRunner, /web_audio_recording_composer_start_stop_and_blob_cleanup_verified/);
+  assert.match(webRunner, /web_audio_recording_composer_start_stop_and_sent/);
+  assert.match(webRunner, /web_audio_recording_sent_by_shared_composer_and_verified_by_rpc/);
+  assert.match(webRunner, /audioRecordingSent/);
+  assert.match(webRunner, /seekAudioProgressWeb/);
+  assert.match(webRunner, /audioSeekObserved/);
   assert.match(webRunner, /--use-fake-device-for-media-stream/);
   assert.match(webRunner, /grantPermissions\(\["microphone"\]/);
   assert.match(webRunner, /waitConsecutiveAudioPlaybackObserved/);
@@ -535,6 +625,7 @@ test("Web audio player loads remote attachments through local Blob URLs under CO
   assert.match(browserAudioPlayer, /if \(completed \|\| !playableSource\) return/);
   assert.match(browserAudioPlayer, /if \(completed\) return;\s*cleanup\(\)/);
   assert.match(browserAudioPlayer, /element\.src = playableSource/);
+  assert.match(browserAudioPlayer, /const targetMillis = Number\(positionMillis\)/);
   assert.match(browserAudioPlayer, /element\.ended && durationMillis > 0 \? durationMillis/);
   assert.match(browserAudioPlayer, /revokeObjectURL/);
   assert.doesNotMatch(browserAudioPlayer, /element\.src = source/);
