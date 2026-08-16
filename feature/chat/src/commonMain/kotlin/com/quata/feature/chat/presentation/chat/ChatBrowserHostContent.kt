@@ -118,6 +118,7 @@ fun ChatProductHostContent(
     compactHeader: Boolean = false,
     trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     onOpenTranslator: (() -> Unit)? = null,
+    groupMembersInitiallyExpanded: Boolean = false,
     messageInputOverride: (@Composable (
         String,
         (String) -> Unit,
@@ -166,6 +167,7 @@ fun ChatProductHostContent(
             compactHeader = compactHeader,
             trailingActions = trailingActions,
             onOpenTranslator = onOpenTranslator,
+            groupMembersInitiallyExpanded = groupMembersInitiallyExpanded,
             messageInputOverride = messageInputOverride,
             sendButtonOverride = sendButtonOverride,
         )
@@ -212,6 +214,7 @@ private fun ChatCommonConversationHost(
     compactHeader: Boolean,
     trailingActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
     onOpenTranslator: (() -> Unit)?,
+    groupMembersInitiallyExpanded: Boolean,
     messageInputOverride: (@Composable (
         String,
         (String) -> Unit,
@@ -357,6 +360,7 @@ private fun ChatCommonConversationHost(
         onFocusedMessageVisible = onFocusedMessageVisible,
         onFocusedMessageHandled = onFocusedMessageHandled,
         modifier = modifier,
+        groupMembersInitiallyExpanded = groupMembersInitiallyExpanded,
         model = viewModel,
         slots = ChatScreenHostSlots(
             chromeStrings = chromeStrings,

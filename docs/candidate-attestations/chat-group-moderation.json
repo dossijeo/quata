@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "units": [
+    "CHAT-GROUP"
+  ],
+  "productSha": "c65eec1ba45468193ce833ab812738797108c6ca",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "c65eec1ba45468193ce833ab812738797108c6ca",
+      "report": "build-reports/web/chat-group-moderation-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "c65eec1ba45468193ce833ab812738797108c6ca",
+      "report": "build-reports/android/chat-group-moderation-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "c65eec1ba45468193ce833ab812738797108c6ca",
+      "report": "build-reports/ios/chat-group-moderation-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "Web/Wasm, Android and iOS exercise the shared group moderation UI by adding two temporary participants from the common picker, removing one participant from the shared member menu, blocking another participant from the shared member menu, verifying removal through chat_participants.left_at, verifying blocking through chat_profile_blocks, and verifying physical cleanup residue remains zero.",
+    "Android and iOS use the shared semantic anchors for picker, member rows, member actions and confirmation. Compose/Wasm records missing DOM/ARIA exposure for some common member-list anchors, uses the opt-in localhost E2E expanded-member-list query plus visual row-local fallbacks, and relies on backend state plus screenshots for pass/fail."
+  ]
+}

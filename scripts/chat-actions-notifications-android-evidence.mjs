@@ -40,6 +40,7 @@ const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
 const attachmentPickerOnly = process.argv.includes("--attachment-picker-only");
 const groupSosOnly = process.argv.includes("--group-sos-only");
 const groupAdminOnly = process.argv.includes("--group-admin-only");
+const groupModerationOnly = process.argv.includes("--group-moderation-only");
 const useAdjacentAuthorizedProfile = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_USE_ADJACENT_AUTHORIZED_PROFILE === "1";
 const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/chat-actions-notifications-credentials.json";
@@ -120,6 +121,12 @@ const evidenceFiles = [
   "android-chat-group-admin-member-list.png",
   "android-chat-group-admin-member-menu.png",
   "android-chat-group-admin-member-promoted.png",
+  "android-chat-group-moderation-remove-participant-picker.png",
+  "android-chat-group-moderation-remove-member-list.png",
+  "android-chat-group-moderation-member-removed.png",
+  "android-chat-group-moderation-block-participant-picker.png",
+  "android-chat-group-moderation-block-member-list.png",
+  "android-chat-group-moderation-member-blocked.png",
   "android-chat-actions-notifications-evidence.json",
 ];
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
@@ -142,6 +149,11 @@ function parseArgs(argv) {
     if (key === "--group-admin-only") {
       result.output = join("build-reports", "android", "chat-group-admin-evidence.json");
       result.evidenceDir = join("build-reports", "android", "chat-group-admin-evidence");
+      continue;
+    }
+    if (key === "--group-moderation-only") {
+      result.output = join("build-reports", "android", "chat-group-moderation-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "chat-group-moderation-evidence");
       continue;
     }
     if (key === "--attachment-picker-source") {
@@ -797,6 +809,7 @@ async function hardDeleteTemporaryThread(thread, uniqueKey) {
         (select count(*)::int from public.chat_participants where thread_id = $1) as chat_participants,
         (select count(*)::int from public.chat_attachments where thread_id = $1) as chat_attachments,
         (select count(*)::int from public.chat_message_states where thread_id = $1) as chat_message_states,
+        (select count(*)::int from public.chat_profile_blocks where thread_id = $1) as chat_profile_blocks,
         (select count(*)::int from public.chat_events where thread_id = $1) as chat_events,
         (select count(*)::int from public.conversation_user_state where conversation_id = $1) as conversation_user_state`,
       [thread, uniqueKey],
@@ -907,9 +920,9 @@ async function pollProfileFollowEdge(actorProfileId, targetProfileId, expected, 
   throw new Error(`profile_follow_backend_poll_timeout:${expected ? "created" : "removed"}`);
 }
 
-async function createTemporaryForwardProfile(runId) {
+async function createTemporaryForwardProfile(runId, phoneSuffix = "") {
   const id = randomUUID();
-  const phoneLocal = `999${Date.now().toString().slice(-6)}`;
+  const phoneLocal = `999${Date.now().toString().slice(-5)}${phoneSuffix}`;
   const displayName = `QADATA Forward ${phoneLocal}`;
   await withDatabase(async (client) => {
     await client.query("begin");
@@ -1142,6 +1155,23 @@ async function pollParticipant(thread, profileId, role, left = false, timeout = 
   return lastSnapshot;
 }
 
+async function pollThreadBlock(thread, blockerProfileId, blockedProfileId, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => await client.query(
+      `select count(*)::int as count
+         from public.chat_profile_blocks
+        where thread_id = $1
+          and blocker_profile_id = $2::uuid
+          and blocked_profile_id = $3::uuid`,
+      [thread, blockerProfileId, blockedProfileId],
+    ));
+    if (Number(result.rows[0]?.count ?? 0) > 0) return true;
+    await delay(750);
+  }
+  throw new Error("chat_group_thread_block_state_not_persisted");
+}
+
 async function openTemporaryProfileHashWindow(users) {
   if (process.env[tempProfileHashAuthorizationEnvironment]?.trim() !== tempProfileHashAuthorizationValue) {
     return { state: "not_requested", restored: true, restore: async () => {} };
@@ -1245,7 +1275,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = options.evidenceDir;
@@ -1277,7 +1307,12 @@ try {
     state.forwardProfile = state.groupAdminProfile;
     report.steps.push("temporary_group_admin_participant_profile_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !attachmentPickerOnly && !groupSosOnly && !groupAdminOnly) {
+  if (groupModerationOnly) {
+    state.groupRemoveProfile = await createTemporaryForwardProfile(`${runId}-remove`, "1");
+    state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
+    report.steps.push("temporary_group_moderation_participant_profiles_created");
+  }
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !attachmentPickerOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1347,7 +1382,7 @@ try {
   }
   report.steps.push("isolated_thread_and_own_message_ready");
 
-  if (groupAdminOnly) {
+  if (groupAdminOnly || groupModerationOnly) {
     await withDatabase(async (client) => {
       const result = await client.query(
         `update public.chat_participants
@@ -1444,6 +1479,12 @@ try {
       "-e", "quataChatGroupAdminProfileId", state.groupAdminProfile?.id ?? "",
       "-e", "quataChatGroupAdminDisplayName", state.groupAdminProfile?.displayName ?? "",
       "-e", "quataChatGroupAdminSearchQuery", state.groupAdminProfile?.phoneLocal ?? "",
+      "-e", "quataChatGroupRemoveProfileId", state.groupRemoveProfile?.id ?? "",
+      "-e", "quataChatGroupRemoveDisplayName", state.groupRemoveProfile?.displayName ?? "",
+      "-e", "quataChatGroupRemoveSearchQuery", state.groupRemoveProfile?.phoneLocal ?? "",
+      "-e", "quataChatGroupBlockProfileId", state.groupBlockProfile?.id ?? "",
+      "-e", "quataChatGroupBlockDisplayName", state.groupBlockProfile?.displayName ?? "",
+      "-e", "quataChatGroupBlockSearchQuery", state.groupBlockProfile?.phoneLocal ?? "",
       "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
     ].map(adbShellQuote).join(" "),
   ]);
@@ -1715,6 +1756,31 @@ try {
     throw new Error("group_admin_only_completed");
   }
 
+  if (groupModerationOnly) {
+    assertInstrumentationPassed("group-moderation", await runInstrumentationStage("group-moderation"));
+    await pollParticipant(state.thread, state.groupRemoveProfile.id, "member", true);
+    await pollThreadBlock(state.thread, state.a.profileId, state.groupBlockProfile.id);
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((name) => name.includes("group-moderation") || name.endsWith("evidence.json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
+    }
+    report.status = "passed";
+    report.steps.push("group_participant_removed_from_shared_member_menu_and_verified_by_db");
+    report.steps.push("group_participant_blocked_from_shared_member_menu_and_verified_by_db");
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      seedMessageId: state.message,
+      peerMessageId: state.peerMessage,
+      removeProfileIdSha256: sha256(state.groupRemoveProfile.id),
+      blockProfileIdSha256: sha256(state.groupBlockProfile.id),
+      markerSha256: sha256(marker),
+    };
+    throw new Error("group_moderation_only_completed");
+  }
+
   if (state.b.accessToken) {
     if (profileFollowOnly) {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
@@ -1899,6 +1965,7 @@ try {
     error?.message === "attachment_picker_only_completed" ||
     error?.message === "group_sos_only_completed" ||
     error?.message === "group_admin_only_completed" ||
+    error?.message === "group_moderation_only_completed" ||
     error?.message === "profile_only_completed" ||
     error?.message === "profile_follow_only_completed" ||
     error?.message === "profile_lists_only_completed" ||

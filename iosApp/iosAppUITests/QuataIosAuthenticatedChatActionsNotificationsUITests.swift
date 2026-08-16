@@ -71,6 +71,128 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-group-admin-member-promoted")
     }
 
+    func testGroupModerationRemovesAndBlocksParticipantsThroughSharedMemberMenu() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_GROUP_MODERATION_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat group moderation UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let seedMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]),
+              let removeProfileId = nonEmpty(environment["QUATA_IOS_CHAT_GROUP_REMOVE_PROFILE_ID"]),
+              let removeDisplayName = nonEmpty(environment["QUATA_IOS_CHAT_GROUP_REMOVE_DISPLAY_NAME"]),
+              let removeSearchQuery = nonEmpty(environment["QUATA_IOS_CHAT_GROUP_REMOVE_SEARCH_QUERY"]),
+              let blockProfileId = nonEmpty(environment["QUATA_IOS_CHAT_GROUP_BLOCK_PROFILE_ID"]),
+              let blockDisplayName = nonEmpty(environment["QUATA_IOS_CHAT_GROUP_BLOCK_DISPLAY_NAME"]),
+              let blockSearchQuery = nonEmpty(environment["QUATA_IOS_CHAT_GROUP_BLOCK_SEARCH_QUERY"]) else {
+            throw XCTSkip("Disposable Chat group moderation fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))", in: app)
+        _ = chatHost(in: app, context: "group moderation conversation")
+        assertChatRoute(conversationId, in: app, context: "group moderation conversation")
+        XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+
+        addGroupParticipant(
+            profileId: removeProfileId,
+            searchQuery: removeSearchQuery,
+            screenshotPrefix: "ios-chat-group-moderation-remove",
+            in: app,
+        )
+        performGroupMemberAction(
+            profileId: removeProfileId,
+            displayName: removeDisplayName,
+            actionIdentifier: "chat.group.member.remove.\(removeProfileId)",
+            screenshotPrefix: "ios-chat-group-moderation-remove",
+            in: app,
+        )
+        attachScreenshot(app, name: "ios-chat-group-moderation-member-removed")
+
+        addGroupParticipant(
+            profileId: blockProfileId,
+            searchQuery: blockSearchQuery,
+            screenshotPrefix: "ios-chat-group-moderation-block",
+            in: app,
+        )
+        performGroupMemberAction(
+            profileId: blockProfileId,
+            displayName: blockDisplayName,
+            actionIdentifier: "chat.group.member.block.\(blockProfileId)",
+            screenshotPrefix: "ios-chat-group-moderation-block",
+            in: app,
+        )
+        attachScreenshot(app, name: "ios-chat-group-moderation-member-blocked")
+    }
+
+    private func addGroupParticipant(
+        profileId: String,
+        searchQuery: String,
+        screenshotPrefix: String,
+        in app: XCUIApplication
+    ) {
+        openOptionsMenu(in: app, expectedIdentifier: "chat.group.menu.addParticipants", expectedText: "Añadir participantes", context: "\(screenshotPrefix) menu")
+        tapTaggedButton("chat.group.menu.addParticipants", in: app, context: "\(screenshotPrefix) add participants")
+        typeDirectText(searchQuery, into: "chat.group.participants.search", in: app, context: "\(screenshotPrefix) participant search")
+        dismissKeyboardWithoutLeavingPanel(in: app)
+        attachScreenshot(app, name: "\(screenshotPrefix)-participant-picker")
+
+        let candidateIdentifier = "chat.group.participants.candidate.\(profileId)"
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: candidateIdentifier).firstMatch.waitForExistence(timeout: 10),
+            "The shared participant picker must expose the candidate row before adding.",
+        )
+        tapVisibleIdentifier("chat.group.participants.candidate.toggle.\(profileId)", in: app, context: "\(screenshotPrefix) participant checkbox")
+        tapTaggedButton("chat.group.participants.confirm", in: app, context: "\(screenshotPrefix) participant confirm")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "chat.group.participants.root").firstMatch.waitForNonExistence(timeout: 20),
+            "The shared participant picker must close after adding the selected profile.",
+        )
+    }
+
+    private func performGroupMemberAction(
+        profileId: String,
+        displayName: String,
+        actionIdentifier: String,
+        screenshotPrefix: String,
+        in app: XCUIApplication
+    ) {
+        expandGroupMemberListIfNeeded(in: app, context: "\(screenshotPrefix) member list")
+        let memberRow = waitForVisibleIdentifier("chat.group.member.\(profileId)", in: app, context: "\(screenshotPrefix) member row")
+        XCTAssertTrue(memberRow.label.contains(displayName) || menuText(displayName, in: app).exists, "The member name must be visible in the shared member list.")
+        attachScreenshot(app, name: "\(screenshotPrefix)-member-list")
+
+        tapVisibleIdentifier("chat.group.member.manage.\(profileId)", in: app, context: "\(screenshotPrefix) member manage")
+        let action = waitForVisibleIdentifier(actionIdentifier, in: app, context: "\(screenshotPrefix) member action")
+        action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "quata.confirmation.dialog").firstMatch.waitForExistence(timeout: 10),
+            "The shared confirmation dialog must appear before applying member moderation.",
+        )
+        tapTaggedButton("quata.confirmation.confirm", in: app, context: "\(screenshotPrefix) confirmation")
+    }
+
+    private func expandGroupMemberListIfNeeded(in app: XCUIApplication, context: String) {
+        let visibleMemberRows = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "chat.group.member."))
+        if visibleMemberRows.firstMatch.waitForExistence(timeout: 1) {
+            return
+        }
+        tapTaggedButton("chat.conversation.titlebar", in: app, context: context)
+        XCTAssertTrue(
+            visibleMemberRows.firstMatch.waitForExistence(timeout: 10),
+            "The shared group member list must expand before \(context).",
+        )
+    }
+
     func testGroupMenuAndSosMessagesExposeSharedAnchors() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_GROUP_SOS_UI_E2E"] == "1" else {

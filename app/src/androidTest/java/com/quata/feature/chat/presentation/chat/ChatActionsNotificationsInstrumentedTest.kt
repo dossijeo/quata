@@ -97,6 +97,12 @@ class ChatActionsNotificationsInstrumentedTest {
         val groupAdminProfileId = optionalArgument("quataChatGroupAdminProfileId")
         val groupAdminDisplayName = optionalArgument("quataChatGroupAdminDisplayName")
         val groupAdminSearchQuery = optionalArgument("quataChatGroupAdminSearchQuery")
+        val groupRemoveProfileId = optionalArgument("quataChatGroupRemoveProfileId")
+        val groupRemoveDisplayName = optionalArgument("quataChatGroupRemoveDisplayName")
+        val groupRemoveSearchQuery = optionalArgument("quataChatGroupRemoveSearchQuery")
+        val groupBlockProfileId = optionalArgument("quataChatGroupBlockProfileId")
+        val groupBlockDisplayName = optionalArgument("quataChatGroupBlockDisplayName")
+        val groupBlockSearchQuery = optionalArgument("quataChatGroupBlockSearchQuery")
         val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
         val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
@@ -112,6 +118,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             "group-admin" -> listOf(chatUrl, ownProbe, groupAdminProfileId, groupAdminDisplayName, groupAdminSearchQuery).all { !it.isNullOrBlank() }
+            "group-moderation" -> listOf(chatUrl, ownProbe, groupRemoveProfileId, groupRemoveDisplayName, groupRemoveSearchQuery, groupBlockProfileId, groupBlockDisplayName, groupBlockSearchQuery).all { !it.isNullOrBlank() }
             else -> listOf(chatUrl, ownProbe, composerMarker, replyMarker, editMarker).all { !it.isNullOrBlank() }
         }
         assumeTrue(
@@ -164,6 +171,15 @@ class ChatActionsNotificationsInstrumentedTest {
                     profileId = groupAdminProfileId.orEmpty(),
                     displayName = groupAdminDisplayName.orEmpty(),
                     searchQuery = groupAdminSearchQuery.orEmpty(),
+                )
+                "group-moderation" -> runGroupModerationStage(
+                    ownProbe = ownProbe.orEmpty(),
+                    removeProfileId = groupRemoveProfileId.orEmpty(),
+                    removeDisplayName = groupRemoveDisplayName.orEmpty(),
+                    removeSearchQuery = groupRemoveSearchQuery.orEmpty(),
+                    blockProfileId = groupBlockProfileId.orEmpty(),
+                    blockDisplayName = groupBlockDisplayName.orEmpty(),
+                    blockSearchQuery = groupBlockSearchQuery.orEmpty(),
                 )
                 "profile-content" -> {
                     openProfileFromPeerMessage(peerProbe.orEmpty(), profileId.orEmpty())
@@ -737,6 +753,94 @@ class ChatActionsNotificationsInstrumentedTest {
         clickStableTag(QuataConfirmationDialogConfirmTestTag)
         SystemClock.sleep(1_500)
         saveScreenshot("android-chat-group-admin-member-promoted")
+    }
+
+    private fun runGroupModerationStage(
+        ownProbe: String,
+        removeProfileId: String,
+        removeDisplayName: String,
+        removeSearchQuery: String,
+        blockProfileId: String,
+        blockDisplayName: String,
+        blockSearchQuery: String,
+    ) {
+        waitForMarker(ownProbe, "group moderation initial chat thread")
+        addGroupParticipantFromPicker(
+            profileId = removeProfileId,
+            searchQuery = removeSearchQuery,
+            screenshotPrefix = "android-chat-group-moderation-remove",
+        )
+        openGroupMemberMenu(removeProfileId, removeDisplayName, "android-chat-group-moderation-remove")
+        clickStableTag(ChatGroupMemberRemoveTestTagPrefix + removeProfileId)
+        waitForTag(QuataConfirmationDialogTestTag, "group moderation remove confirmation", timeoutMillis = 10_000)
+        clickStableTag(QuataConfirmationDialogConfirmTestTag)
+        SystemClock.sleep(1_500)
+        saveScreenshot("android-chat-group-moderation-member-removed")
+
+        addGroupParticipantFromPicker(
+            profileId = blockProfileId,
+            searchQuery = blockSearchQuery,
+            screenshotPrefix = "android-chat-group-moderation-block",
+        )
+        openGroupMemberMenu(blockProfileId, blockDisplayName, "android-chat-group-moderation-block")
+        clickStableTag(ChatGroupMemberBlockTestTagPrefix + blockProfileId)
+        waitForTag(QuataConfirmationDialogTestTag, "group moderation block confirmation", timeoutMillis = 10_000)
+        clickStableTag(QuataConfirmationDialogConfirmTestTag)
+        SystemClock.sleep(1_500)
+        saveScreenshot("android-chat-group-moderation-member-blocked")
+    }
+
+    private fun addGroupParticipantFromPicker(
+        profileId: String,
+        searchQuery: String,
+        screenshotPrefix: String,
+    ) {
+        openOptionsMenu()
+        clickStableTag(ChatGroupMenuAddParticipantsTestTag)
+        waitForTag(ChatGroupParticipantPickerSearchTestTag, "group participant picker search")
+        compose.onNodeWithTag(ChatGroupParticipantPickerSearchTestTag, useUnmergedTree = true)
+            .performTextReplacement(searchQuery)
+        compose.waitForIdle()
+        device.pressBack()
+        compose.waitForIdle()
+        val candidateTag = ChatGroupParticipantPickerCandidateTestTagPrefix + profileId
+        compose.waitUntil(20_000) { nodeWithTagVisible(candidateTag) }
+        saveScreenshot("$screenshotPrefix-participant-picker")
+        compose.onNodeWithTag(candidateTag, useUnmergedTree = true)
+            .performTouchInput { click(Offset(24f, center.y)) }
+        compose.waitForIdle()
+        compose.onNodeWithTag(ChatGroupParticipantPickerConfirmTestTag, useUnmergedTree = true)
+            .performClick()
+        compose.waitUntil(30_000) {
+            runCatching {
+                compose.onNodeWithTag(ChatGroupParticipantPickerRootTestTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isFailure
+        }
+    }
+
+    private fun openGroupMemberMenu(
+        profileId: String,
+        displayName: String,
+        screenshotPrefix: String,
+    ) {
+        val memberRowTag = ChatGroupMemberRowTestTagPrefix + profileId
+        SystemClock.sleep(1_500)
+        for (attempt in 0 until 4) {
+            compose.onNodeWithTag(ChatConversationTitleBarTestTag, useUnmergedTree = true)
+                .performClick()
+            compose.waitForIdle()
+            if (nodeWithTagVisible(memberRowTag) || waitForText(displayName, displayName, timeoutMillis = 750) != null) {
+                break
+            }
+            if (attempt < 3) SystemClock.sleep(750)
+        }
+        saveScreenshot("$screenshotPrefix-member-list")
+        waitForTag(memberRowTag, "group moderation member row")
+        waitForText(displayName, displayName, timeoutMillis = 10_000)
+            ?: error("group_moderation_member_name_not_visible")
+        compose.onNodeWithTag(ChatGroupMemberManageTestTagPrefix + profileId, useUnmergedTree = true)
+            .performTouchInput { click(center) }
     }
 
     private fun openOptionsMenu() {
