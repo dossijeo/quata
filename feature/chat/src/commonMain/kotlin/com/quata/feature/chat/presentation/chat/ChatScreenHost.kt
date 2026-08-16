@@ -52,6 +52,7 @@ fun ChatScreenHost(
     onFocusedMessageVisible: (String) -> Unit = {},
     onFocusedMessageHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
+    groupMembersInitiallyExpanded: Boolean = false,
     model: ChatViewModel = remember(repository, conversationId) {
         ChatViewModel(conversationId = conversationId, repository = repository, text = text)
     },
@@ -127,6 +128,7 @@ fun ChatScreenHost(
                     }, onOpenProfile = slots.onOpenUserProfile,
                     onLoadMoreParticipants = model::loadMoreParticipantCandidates,
                     onEvent = model::onEvent,
+                    membersInitiallyExpanded = groupMembersInitiallyExpanded,
                 )
             }
             state.notice?.let { notice ->

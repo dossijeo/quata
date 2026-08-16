@@ -120,9 +120,10 @@ fun ChatGroupManagementContent(
     onOpenProfile: (String) -> Unit,
     onLoadMoreParticipants: () -> Unit,
     onEvent: (ChatUiEvent) -> Unit,
+    membersInitiallyExpanded: Boolean = false,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    var membersExpanded by remember { mutableStateOf(false) }
+    var membersExpanded by remember(conversation?.id, membersInitiallyExpanded) { mutableStateOf(membersInitiallyExpanded) }
     var confirmation by remember { mutableStateOf<ChatManagementConfirmation?>(null) }
     val template = quataTheme()
     val isModerator = canManageChatMembers(conversation, state.currentUser)

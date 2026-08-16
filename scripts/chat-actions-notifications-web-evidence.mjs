@@ -59,6 +59,7 @@ function parseArgs(argv) {
     attachmentPickerOutcome: "success",
     groupSosOnly: false,
     groupAdminOnly: false,
+    groupModerationOnly: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -132,6 +133,12 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/web/chat-group-admin-evidence");
       continue;
     }
+    if (key === "--group-moderation-only") {
+      result.groupModerationOnly = true;
+      result.output = resolve("build-reports/web/chat-group-moderation-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-group-moderation-evidence");
+      continue;
+    }
     const value = argv[++index];
     if (!["--dist", "--chrome", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
       throw new Error("invalid_arguments");
@@ -181,7 +188,8 @@ function isFullEvidenceMode(options) {
     !options.attachmentsAudioOnly &&
     !options.attachmentPickerOnly &&
     !options.groupSosOnly &&
-    !options.groupAdminOnly;
+    !options.groupAdminOnly &&
+    !options.groupModerationOnly;
 }
 
 async function runSilent(command, args, options = {}) {
@@ -1056,8 +1064,9 @@ async function openAuthenticatedChatPage(browser, origin, session, conversationI
   return { context, page };
 }
 
-async function openAuthenticatedChatRoute(page, origin, conversationId) {
-  await page.goto(`${origin}/#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
+async function openAuthenticatedChatRoute(page, origin, conversationId, options = {}) {
+  const query = options.membersExpanded === true ? "?quata-chat-members-expanded-e2e=1" : "";
+  await page.goto(`${origin}/${query}#chat-${encodeURIComponent(conversationId)}`, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
     (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
     `chat/${conversationId}`,
@@ -2747,6 +2756,23 @@ async function pollParticipant(thread, profileId, role, left = false, timeout = 
   return snapshot;
 }
 
+async function pollThreadBlock(thread, blockerProfileId, blockedProfileId, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => await client.query(
+      `select count(*)::int as count
+         from public.chat_profile_blocks
+        where thread_id = $1
+          and blocker_profile_id = $2::uuid
+          and blocked_profile_id = $3::uuid`,
+      [thread, blockerProfileId, blockedProfileId],
+    ));
+    if (Number(result.rows[0]?.count ?? 0) > 0) return true;
+    await delay(750);
+  }
+  throw new Error("chat_group_thread_block_state_not_persisted");
+}
+
 async function clickGroupParticipantCandidate(page, profile) {
   const tag = `chat.group.participants.candidate.${profile.id}`;
   const tagged = await visibleAriaLocator(page, [new RegExp(escapeRegExp(tag))], 3_000);
@@ -2824,15 +2850,16 @@ async function confirmGroupParticipantSelection(page, report) {
 
 async function openGroupMemberManage(page, profile, report) {
   const memberManageTag = `chat.group.member.manage.${profile.id}`;
-  const manage = await visibleAriaLocator(page, [new RegExp(escapeRegExp(memberManageTag)), /Gestionar|Manage|Opciones|Options/i], 2_000);
+  const manage = await visibleAriaLocator(page, [new RegExp(escapeRegExp(memberManageTag))], 2_000);
   if (manage) {
     await manage.click({ timeout: 10_000, force: true });
     await delay(500);
-    return;
+    return null;
   }
   const viewport = page.viewportSize() ?? { width: 430, height: 932 };
   const memberTextBox = await visibleTextBox(page, profile.displayName);
-  const rowLikeTextBox = memberTextBox && memberTextBox.y > 120 && memberTextBox.y < 340 && memberTextBox.height <= 80
+  const useKnownTemporaryGroupRow = profile.displayName?.startsWith("QADATA Forward ") === true;
+  const rowLikeTextBox = !useKnownTemporaryGroupRow && memberTextBox && memberTextBox.y > 120 && memberTextBox.y < 340 && memberTextBox.height <= 80
     ? memberTextBox
     : null;
   const targetY = rowLikeTextBox
@@ -2844,6 +2871,14 @@ async function openGroupMemberManage(page, profile, report) {
   report.diagnostics.groupMemberManageAnchor =
     "Compose/Wasm rendered the shared member row visually but did not expose chat.group.member.manage as a native/ARIA target; replay used the visible member text row to target the row-local manage button and verified the role mutation afterwards.";
   report.steps.push("group_member_manage_used_visual_fallback");
+  return targetY;
+}
+
+async function visibleGroupMemberRowBox(page, profile) {
+  const memberTextBox = await visibleTextBox(page, profile.displayName);
+  return memberTextBox && memberTextBox.y > 120 && memberTextBox.y < 340 && memberTextBox.height <= 80
+    ? memberTextBox
+    : null;
 }
 
 async function expandGroupMembers(page) {
@@ -2852,9 +2887,34 @@ async function expandGroupMembers(page) {
     await titleBar.click({ timeout: 5_000, force: true });
   } else {
     const viewport = page.viewportSize() ?? { width: 430, height: 932 };
-    await page.mouse.click(Math.round(viewport.width * 0.42), 84);
+    await page.mouse.click(Math.round(viewport.width * 0.50), 104);
   }
   await delay(750);
+}
+
+async function expandGroupMembersUntilProfileVisible(page, profile, report) {
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  const attempts = [
+    async () => expandGroupMembers(page),
+    async () => {
+      await page.mouse.click(Math.round(viewport.width * 0.50), 104);
+      await delay(750);
+    },
+    async () => {
+      await page.mouse.click(Math.round(viewport.width * 0.22), 104);
+      await delay(750);
+    },
+  ];
+  for (const attempt of attempts) {
+    await attempt();
+    await delay(500);
+    const row = await visibleGroupMemberRowBox(page, profile);
+    if (row) return row;
+  }
+  report.diagnostics ??= {};
+  report.diagnostics.groupMemberListAnchor =
+    "Compose/Wasm did not expose an inspectable member list state; the replay requires the target participant row to be visibly expanded near the chat header before using row-local action fallbacks.";
+  return null;
 }
 
 async function verifyChatGroupAdminWeb(page, state, evidenceDir, report) {
@@ -2897,6 +2957,83 @@ async function verifyChatGroupAdminWeb(page, state, evidenceDir, report) {
   await pollParticipant(state.thread, profile.id, "moderator");
   report.evidence.groupMemberPromoted = await attachScreenshot(page, evidenceDir, "web-chat-group-admin-member-promoted");
   report.steps.push("group_participant_promoted_from_shared_member_menu_and_verified_by_db");
+}
+
+async function addGroupParticipantFromPicker(page, profile, evidenceDir, report, evidencePrefix) {
+  await clickOptionsMenu(page);
+  await clickTaggedOrLabeled(
+    page,
+    "chat.group.menu.addParticipants",
+    [/A(?:ñ|n)adir(?: nuevos)? participantes|Add participants/i],
+    "chat_group_add_participants_action_not_visible",
+  );
+  await fillGroupParticipantSearch(page, profile.phoneLocal, report);
+  await delay(1_500);
+  await clickGroupParticipantCandidate(page, profile);
+  report.evidence[`${evidencePrefix}ParticipantPicker`] = await attachScreenshot(page, evidenceDir, `${evidencePrefix}-participant-picker`);
+  await confirmGroupParticipantSelection(page, report);
+  await pollParticipant(state.thread, profile.id, "member");
+}
+
+async function openGroupMemberListForProfile(page, profile, evidenceDir, report, evidencePrefix) {
+  await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`, { membersExpanded: true });
+  await delay(4_000);
+  const rowBox = await visibleGroupMemberRowBox(page, profile);
+  const memberRowTag = `chat.group.member.${profile.id}`;
+  const row = await visibleAriaLocator(page, [new RegExp(escapeRegExp(memberRowTag)), new RegExp(escapeRegExp(profile.displayName))], 10_000);
+  if (!row && !rowBox) {
+    report.diagnostics ??= {};
+    report.diagnostics.groupMemberVisualOnlyAnchor =
+      "The member list is visually expanded in Compose/Wasm screenshots, but the target row text/testTag is not exposed to DOM/ARIA. The runner keeps this as a missing-stable-anchor diagnostic and uses the row-local manage fallback, with backend verification deciding pass/fail.";
+    report.steps.push("group_member_list_used_visual_only_fallback");
+  }
+  report.evidence[`${evidencePrefix}MemberList`] = await attachScreenshot(page, evidenceDir, `${evidencePrefix}-member-list`);
+}
+
+async function clickGroupMemberAction(page, profile, action, report) {
+  const tag = action === "remove"
+    ? `chat.group.member.remove.${profile.id}`
+    : `chat.group.member.block.${profile.id}`;
+  const labels = action === "remove"
+    ? [/Expulsar participante|Expulser participant|Remove participant/i]
+    : [/Bloquear usuario|Bloquer utilisateur|Block user/i];
+  const rowY = await openGroupMemberManage(page, profile, report);
+  try {
+    await clickTaggedOrLabeled(page, tag, labels, `chat_group_member_${action}_action_not_visible`);
+  } catch (error) {
+    if (!String(error?.message ?? "").includes(`chat_group_member_${action}_action_not_visible`) || rowY == null) throw error;
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    const menuItemOffset = action === "block" ? 104 : 151;
+    await page.mouse.click(Math.round(viewport.width * 0.27), Math.min(Math.round(rowY + menuItemOffset), viewport.height - 160));
+    await delay(500);
+    report.diagnostics ??= {};
+    report.diagnostics[`groupMember${action[0].toUpperCase()}${action.slice(1)}ActionAnchor`] =
+      `Compose/Wasm did not expose ${tag} as a native/ARIA target; replay used a row-relative menu-item fallback and verifies the backend participant state afterwards.`;
+    report.steps.push(`group_member_${action}_used_visual_fallback`);
+  }
+  await clickLabel(page, [/Confirmar|Confirm/i], `chat_group_member_${action}_confirm_not_visible`);
+}
+
+async function verifyChatGroupModerationWeb(page, state, evidenceDir, report) {
+  const removeProfile = state.groupRemoveProfile;
+  const blockProfile = state.groupBlockProfile;
+  if (!removeProfile?.id || !blockProfile?.id) throw new Error("chat_group_moderation_profiles_missing");
+
+  await addGroupParticipantFromPicker(page, removeProfile, evidenceDir, report, "web-chat-group-moderation-remove");
+  report.steps.push("group_remove_participant_added_from_shared_picker_and_verified_by_db");
+  await openGroupMemberListForProfile(page, removeProfile, evidenceDir, report, "web-chat-group-moderation-remove");
+  await clickGroupMemberAction(page, removeProfile, "remove", report);
+  await pollParticipant(state.thread, removeProfile.id, "member", true);
+  report.evidence.groupParticipantRemoved = await attachScreenshot(page, evidenceDir, "web-chat-group-moderation-member-removed");
+  report.steps.push("group_participant_removed_from_shared_member_menu_and_verified_by_db");
+
+  await addGroupParticipantFromPicker(page, blockProfile, evidenceDir, report, "web-chat-group-moderation-block");
+  report.steps.push("group_block_participant_added_from_shared_picker_and_verified_by_db");
+  await openGroupMemberListForProfile(page, blockProfile, evidenceDir, report, "web-chat-group-moderation-block");
+  await clickGroupMemberAction(page, blockProfile, "block", report);
+  await pollThreadBlock(state.thread, state.b.accessToken ? state.b.profileId : state.a.profileId, blockProfile.id);
+  report.evidence.groupParticipantBlocked = await attachScreenshot(page, evidenceDir, "web-chat-group-moderation-member-blocked");
+  report.steps.push("group_participant_blocked_from_shared_member_menu_and_verified_by_db");
 }
 
 async function clickTranslatorOverlayMessage(page, marker) {
@@ -3480,6 +3617,7 @@ async function hardDeleteTemporaryThread(thread, uniqueKey) {
         (select count(*)::int from public.chat_participants where thread_id = $1) as chat_participants,
         (select count(*)::int from public.chat_attachments where thread_id = $1) as chat_attachments,
         (select count(*)::int from public.chat_message_states where thread_id = $1) as chat_message_states,
+        (select count(*)::int from public.chat_profile_blocks where thread_id = $1) as chat_profile_blocks,
         (select count(*)::int from public.chat_events where thread_id = $1) as chat_events,
         (select count(*)::int from public.conversation_user_state where conversation_id = $1) as conversation_user_state`,
       [thread, uniqueKey],
@@ -3590,9 +3728,9 @@ async function pollProfileFollowEdge(actorProfileId, targetProfileId, expected, 
   throw new Error(`profile_follow_backend_poll_timeout:${expected ? "created" : "removed"}`);
 }
 
-async function createTemporaryForwardProfile(runId) {
+async function createTemporaryForwardProfile(runId, phoneSuffix = "") {
   const id = randomUUID();
-  const phoneLocal = `999${Date.now().toString().slice(-6)}`;
+  const phoneLocal = `999${Date.now().toString().slice(-5)}${phoneSuffix}`;
   const displayName = `QADATA Forward ${phoneLocal}`;
   await withDatabase(async (client) => {
     await client.query("begin");
@@ -3927,7 +4065,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, groupAdminProfile: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, cleanupRegistry: createCleanupRegistry() };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -3964,6 +4102,11 @@ try {
     state.forwardProfile = state.groupAdminProfile;
     report.steps.push("temporary_group_admin_participant_profile_created");
   }
+  if (options.groupModerationOnly) {
+    state.groupRemoveProfile = await createTemporaryForwardProfile(`${runId}-remove`, "1");
+    state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
+    report.steps.push("temporary_group_moderation_participant_profiles_created");
+  }
   state.thread = threadId(await rpc(config, state.a, "quata_chat_start_thread", {
     p_actor_profile_id: state.a.profileId,
     p_recipient_profile_ids: [state.b.profileId],
@@ -3973,7 +4116,7 @@ try {
     p_unique_key: state.uniqueKey,
     p_community_id: null,
   }));
-  if (options.groupAdminOnly) {
+  if (options.groupAdminOnly || options.groupModerationOnly) {
     const groupAdminActor = state.b.accessToken ? state.b : state.a;
     await withDatabase(async (client) => {
       const result = await client.query(
@@ -4052,8 +4195,8 @@ try {
       ...(options.attachmentsAudioOnly ? ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] : []),
     ],
   });
-  const uiSession = options.groupAdminOnly && state.b.accessToken ? state.b : state.a;
-  if (options.groupAdminOnly && uiSession === state.b) {
+  const uiSession = (options.groupAdminOnly || options.groupModerationOnly) && state.b.accessToken ? state.b : state.a;
+  if ((options.groupAdminOnly || options.groupModerationOnly) && uiSession === state.b) {
     report.steps.push("group_admin_ui_session_opened_as_peer_moderator");
   }
   pageContext = await openAuthenticatedChatPage(browser, server.origin, uiSession, `sb:${state.thread}`, faults, {
@@ -4103,6 +4246,31 @@ try {
       ownMessageId: state.ownMessage,
       peerMessageId: state.peerMessage,
       tempProfileIdSha256: sha256(state.groupAdminProfile.id),
+      uniqueKeySha256: sha256(state.uniqueKey),
+      ownMarkerSha256: sha256(ownMarker),
+      peerMarkerSha256: sha256(peerMarker),
+    };
+    throw new EvidenceCompleted();
+  }
+  if (options.groupModerationOnly) {
+    await waitMessageVisible(page, ownMarker, "message_not_visible:group_moderation_own");
+    if (state.peerMessage) {
+      await waitMessageVisible(page, peerMarker, "message_not_visible:group_moderation_peer");
+    }
+    report.evidence.threadInitial = await attachScreenshot(page, options.evidenceDir, "web-chat-group-moderation-thread-initial");
+    await verifyChatGroupModerationWeb(page, state, options.evidenceDir, report);
+    if (faults.length) {
+      report.diagnostics = { ...(report.diagnostics ?? {}), browserRuntimeFaults: faults.slice() };
+      throw new Error("browser_runtime_fault");
+    }
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      ownMessageId: state.ownMessage,
+      peerMessageId: state.peerMessage,
+      removeProfileIdSha256: sha256(state.groupRemoveProfile.id),
+      blockProfileIdSha256: sha256(state.groupBlockProfile.id),
       uniqueKeySha256: sha256(state.uniqueKey),
       ownMarkerSha256: sha256(ownMarker),
       peerMarkerSha256: sha256(peerMarker),

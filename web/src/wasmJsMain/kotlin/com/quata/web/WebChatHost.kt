@@ -77,6 +77,7 @@ fun WebChatHost(
     }
     val scope = rememberCoroutineScope()
     val languageTag = browserChatLanguageTag()
+    val groupMembersInitiallyExpanded = remember(conversationId) { browserChatMembersExpandedE2eEnabled() }
     val chatText = remember(languageTag) { { value: com.quata.feature.chat.presentation.chat.ChatText -> chatTextForLanguage(value, languageTag) } }
     val conversationsModel = remember(repository, languageTag) {
         ConversationsViewModel(repository = repository, text = chatText)
@@ -149,6 +150,7 @@ fun WebChatHost(
         translationDirection = chatTranslationDirectionForLanguage(languageTag),
         languageTag = languageTag,
         text = chatText,
+        groupMembersInitiallyExpanded = groupMembersInitiallyExpanded,
         conversationList = { listModifier ->
             ConversationsScreenHost(
                 padding = PaddingValues(),
@@ -223,6 +225,9 @@ private fun isSafeWebAvatarUrl(value: String): Boolean =
 
 @JsFun("() => globalThis.navigator?.language || globalThis.document?.documentElement?.lang || 'en'")
 private external fun browserChatLanguageTag(): String
+
+@JsFun("() => new URLSearchParams(globalThis.location?.search || '').get('quata-chat-members-expanded-e2e') === '1'")
+private external fun browserChatMembersExpandedE2eEnabled(): Boolean
 
 @JsFun("() => Date.now()")
 private external fun webChatNowMillisAsDouble(): Double

@@ -60,8 +60,10 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(runner, /--profile-follow-only/);
   assert.match(runner, /--menu-surface-only/);
   assert.match(runner, /--group-sos-only/);
+  assert.match(runner, /--group-moderation-only/);
   assert.match(runner, /assertInstrumentationPassed\("menu-surface", await runInstrumentationStage\("menu-surface"\)\)/);
   assert.match(runner, /assertInstrumentationPassed\("group-sos", await runInstrumentationStage\("group-sos"\)\)/);
+  assert.match(runner, /assertInstrumentationPassed\("group-moderation", await runInstrumentationStage\("group-moderation"\)\)/);
   assert.match(runner, /android-chat-options-menu-surface/);
   assert.match(runner, /android-chat-group-menu-shared-anchors/);
   assert.match(runner, /android-chat-sos-location-shared-anchors/);
@@ -95,6 +97,9 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(testSource, /ChatGroupMenuOptionsTestTag/);
   assert.match(testSource, /runMenuSurfaceStage/);
   assert.match(testSource, /runGroupSosStage/);
+  assert.match(testSource, /runGroupModerationStage/);
+  assert.match(testSource, /ChatGroupMemberRemoveTestTagPrefix/);
+  assert.match(testSource, /ChatGroupMemberBlockTestTagPrefix/);
   assert.match(testSource, /android-chat-options-menu-surface/);
   assert.match(testSource, /ChatGroupMenuAllowInvitesTestTag/);
   assert.match(testSource, /ChatSosLocationMapPreviewTestTag/);
@@ -132,12 +137,15 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(runner, /--profile-private-chat-only/);
   assert.match(runner, /--menu-surface-only/);
   assert.match(runner, /--group-sos-only/);
+  assert.match(runner, /--group-moderation-only/);
   assert.match(runner, /QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E/);
   assert.match(runner, /QUATA_IOS_CHAT_GROUP_SOS_UI_E2E/);
+  assert.match(runner, /QUATA_IOS_CHAT_GROUP_MODERATION_UI_E2E/);
   assert.match(runner, /options_menu_surface_visible_from_shared_ui/);
   assert.match(runner, /ios_xctest_group_menu_and_sos_shared_anchors_verified/);
   assert.match(wrapper, /testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface/);
   assert.match(wrapper, /testGroupMenuAndSosMessagesExposeSharedAnchors/);
+  assert.match(wrapper, /testGroupModerationRemovesAndBlocksParticipantsThroughSharedMemberMenu/);
   assert.match(wrapper, /group-sos\.log/);
   assert.match(testSource, /dismissOptionsMenu/);
   assert.match(testSource, /The group options menu must be dismissed before validating SOS anchors/);
@@ -183,6 +191,10 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(testSource, /chat\.group\.menu\.allowInvites/);
   assert.match(testSource, /chat\.sos\.location\.mapPreview/);
   assert.match(testSource, /ios-chat-sos-location-shared-anchors/);
+  assert.match(testSource, /chat\.group\.member\.remove\.\\\(removeProfileId\)/);
+  assert.match(testSource, /chat\.group\.member\.block\.\\\(blockProfileId\)/);
+  assert.match(testSource, /ios-chat-group-moderation-member-removed/);
+  assert.match(testSource, /ios-chat-group-moderation-member-blocked/);
   assert.match(testSource, /testKeyboardAndSelectedActionBarUseSharedChatChrome/);
   assert.match(testSource, /assertConversationHeaderVisibleWithKeyboard\(in: app\)/);
   assert.match(testSource, /ios-chat-keyboard-header-visible/);
@@ -217,6 +229,9 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /--menu-surface-only/);
   assert.match(runner, /--group-sos-only/);
   assert.match(runner, /--group-admin-only/);
+  assert.match(runner, /--group-moderation-only/);
+  assert.match(runner, /group_participant_removed_from_shared_member_menu_and_verified_by_db/);
+  assert.match(runner, /group_participant_blocked_from_shared_member_menu_and_verified_by_db/);
   assert.match(runner, /async function verifyChatOptionsMenuSurface\(page, config, state, evidenceDir, report\)/);
   assert.match(runner, /async function verifyChatGroupSosWeb\(page, evidenceDir, report\)/);
   assert.match(runner, /async function verifyChatGroupAdminWeb\(page, state, evidenceDir, report\)/);

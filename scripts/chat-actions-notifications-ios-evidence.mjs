@@ -47,6 +47,7 @@ const attachmentsAudioOnly = options.attachmentsAudioOnly;
 const groupSosOnly = options.groupSosOnly;
 const attachmentPickerOnly = options.attachmentPickerOnly;
 const groupAdminOnly = options.groupAdminOnly;
+const groupModerationOnly = options.groupModerationOnly;
 const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly;
 const report = {
   check,
@@ -91,6 +92,8 @@ const state = {
   profileRolesSafety: null,
   profilePrivateChatMarkerMessage: null,
   groupAdminProfile: null,
+  groupRemoveProfile: null,
+  groupBlockProfile: null,
   attachmentsAudio: null,
   attachmentPicker: null,
   sosWithLocationMarker: null,
@@ -133,6 +136,10 @@ try {
     state.groupAdminProfile = await createTemporaryForwardProfile(runId);
     state.forwardProfile = state.groupAdminProfile;
     report.steps.push("temporary_group_admin_participant_profile_created");
+  } else if (groupModerationOnly) {
+    state.groupRemoveProfile = await createTemporaryForwardProfile(`${runId}-remove`, "1");
+    state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
+    report.steps.push("temporary_group_moderation_participant_profiles_created");
   } else if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly && !attachmentPickerOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
@@ -141,10 +148,10 @@ try {
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
   state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
-  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
-  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
+  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
+  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -181,7 +188,7 @@ try {
       state.profilePrivateChatMarkerMessage = messageId(privateMessage);
       report.steps.push("profile_private_chat_seed_message_ready");
     }
-    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly) {
+    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
         p_thread_id: state.thread,
@@ -353,7 +360,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.sosUnavailableMessage = messageId(sosUnavailableMessage);
       report.steps.push("sos_location_and_unavailable_messages_seeded");
     }
-    if (groupAdminOnly) {
+    if (groupAdminOnly || groupModerationOnly) {
       await withDatabase(async (client) => {
         const result = await client.query(
           `update public.chat_participants
@@ -407,9 +414,16 @@ export QUATA_IOS_CHAT_ATTACHMENT_PICKER_MIME=${shellQuote(state.attachmentPicker
 export QUATA_IOS_CHAT_ATTACHMENT_PICKER_MARKER=${shellQuote(state.attachmentPicker?.marker ?? "attachment-picker")}
 export QUATA_IOS_CHAT_GROUP_SOS_UI_E2E=${groupSosOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E=${groupAdminOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_GROUP_MODERATION_UI_E2E=${groupModerationOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_GROUP_ADMIN_PROFILE_ID=${shellQuote(state.groupAdminProfile?.id ?? "group-admin")}
 export QUATA_IOS_CHAT_GROUP_ADMIN_DISPLAY_NAME=${shellQuote(state.groupAdminProfile?.displayName ?? "group-admin")}
 export QUATA_IOS_CHAT_GROUP_ADMIN_SEARCH_QUERY=${shellQuote(state.groupAdminProfile?.phoneLocal ?? "group-admin")}
+export QUATA_IOS_CHAT_GROUP_REMOVE_PROFILE_ID=${shellQuote(state.groupRemoveProfile?.id ?? "group-moderation")}
+export QUATA_IOS_CHAT_GROUP_REMOVE_DISPLAY_NAME=${shellQuote(state.groupRemoveProfile?.displayName ?? "group-moderation")}
+export QUATA_IOS_CHAT_GROUP_REMOVE_SEARCH_QUERY=${shellQuote(state.groupRemoveProfile?.phoneLocal ?? "group-moderation")}
+export QUATA_IOS_CHAT_GROUP_BLOCK_PROFILE_ID=${shellQuote(state.groupBlockProfile?.id ?? "group-moderation")}
+export QUATA_IOS_CHAT_GROUP_BLOCK_DISPLAY_NAME=${shellQuote(state.groupBlockProfile?.displayName ?? "group-moderation")}
+export QUATA_IOS_CHAT_GROUP_BLOCK_SEARCH_QUERY=${shellQuote(state.groupBlockProfile?.phoneLocal ?? "group-moderation")}
 export QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE=${shellQuote(state.attachmentsAudio?.document?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE=${shellQuote(state.attachmentsAudio?.audio?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME=${shellQuote(state.attachmentsAudio?.audio?.name ?? "attachments-audio.wav")}
@@ -442,6 +456,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? "ios_xctest_group_menu_and_sos_shared_anchors_verified"
       : groupAdminOnly
       ? "ios_xctest_group_participant_promoted_from_shared_member_menu"
+      : groupModerationOnly
+      ? "ios_xctest_group_participant_removed_and_blocked_from_shared_member_menu"
       : profileListsOnly
       ? "ios_xctest_profile_followers_and_following_lists_verified"
       : profileContentOnly
@@ -574,8 +590,14 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       await pollParticipant(state.thread, state.groupAdminProfile.id, "moderator");
       report.steps.push("group_participant_promoted_from_shared_member_menu_and_verified_by_db");
     }
+    if (groupModerationOnly) {
+      await pollParticipant(state.thread, state.groupRemoveProfile.id, "member", true);
+      await pollThreadBlock(state.thread, state.a.profileId, state.groupBlockProfile.id);
+      report.steps.push("group_participant_removed_from_shared_member_menu_and_verified_by_db");
+      report.steps.push("group_participant_blocked_from_shared_member_menu_and_verified_by_db");
+    }
 
-    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly) {
+    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -593,7 +615,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     await copyRemoteEvidence(options);
     report.status = "passed";
-    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly)
+    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly)
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -608,8 +630,11 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         attachmentPickerOnly,
         groupSosOnly,
         groupAdminOnly,
+        groupModerationOnly,
         groupAdminProfileIdSha256: state.groupAdminProfile ? sha256(state.groupAdminProfile.id) : null,
         groupAdminDisplayNameSha256: state.groupAdminProfile ? sha256(state.groupAdminProfile.displayName) : null,
+        groupRemoveProfileIdSha256: state.groupRemoveProfile ? sha256(state.groupRemoveProfile.id) : null,
+        groupBlockProfileIdSha256: state.groupBlockProfile ? sha256(state.groupBlockProfile.id) : null,
         attachmentPicker: state.attachmentPicker ? {
           source: state.attachmentPicker.source,
           name: state.attachmentPicker.name,
@@ -846,6 +871,7 @@ function parseArgs(argv) {
     attachmentPickerOutcome: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENT_PICKER_OUTCOME?.trim() || "success",
     groupSosOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_GROUP_SOS_ONLY === "1",
     groupAdminOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_GROUP_ADMIN_ONLY === "1",
+    groupModerationOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_GROUP_MODERATION_ONLY === "1",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -952,6 +978,14 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/chat-group-admin-evidence");
       result.remoteLogDir = "build/reports/ios/chat-group-admin";
       result.remoteResultBundleDir = "build/reports/ios/chat-group-admin/xcresults";
+      continue;
+    }
+    if (key === "--group-moderation-only") {
+      result.groupModerationOnly = true;
+      result.output = resolve("build-reports/ios/chat-group-moderation-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/chat-group-moderation-evidence");
+      result.remoteLogDir = "build/reports/ios/chat-group-moderation";
+      result.remoteResultBundleDir = "build/reports/ios/chat-group-moderation/xcresults";
       continue;
     }
     if (!["--host", "--project", "--derived-data", "--simulator", "--remote-log-dir", "--remote-result-bundle-dir", "--remote-java-home", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) {
@@ -1441,6 +1475,23 @@ async function pollParticipant(thread, profileId, role, left = false, timeout = 
   return lastSnapshot;
 }
 
+async function pollThreadBlock(thread, blockerProfileId, blockedProfileId, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => await client.query(
+      `select count(*)::int as count
+         from public.chat_profile_blocks
+        where thread_id = $1
+          and blocker_profile_id = $2::uuid
+          and blocked_profile_id = $3::uuid`,
+      [thread, blockerProfileId, blockedProfileId],
+    ));
+    if (Number(result.rows[0]?.count ?? 0) > 0) return true;
+    await delay(750);
+  }
+  throw new Error("chat_group_thread_block_state_not_persisted");
+}
+
 async function logicalCleanup(config, state) {
   const actions = [];
   if (state.thread && state.seedMessage && state.a) {
@@ -1576,6 +1627,7 @@ async function hardDeleteTemporaryThread(thread, uniqueKey) {
         (select count(*)::int from public.chat_participants where thread_id = $1) as chat_participants,
         (select count(*)::int from public.chat_attachments where thread_id = $1) as chat_attachments,
         (select count(*)::int from public.chat_message_states where thread_id = $1) as chat_message_states,
+        (select count(*)::int from public.chat_profile_blocks where thread_id = $1) as chat_profile_blocks,
         (select count(*)::int from public.chat_events where thread_id = $1) as chat_events,
         (select count(*)::int from public.conversation_user_state where conversation_id = $1) as conversation_user_state`,
       [thread, uniqueKey],
@@ -1592,9 +1644,9 @@ async function hardDeleteTemporaryThread(thread, uniqueKey) {
   }
 }
 
-async function createTemporaryForwardProfile(runId) {
+async function createTemporaryForwardProfile(runId, phoneSuffix = "") {
   const id = randomUUID();
-  const phoneLocal = `999${Date.now().toString().slice(-6)}`;
+  const phoneLocal = `999${Date.now().toString().slice(-5)}${phoneSuffix}`;
   const displayName = `QADATA Forward ${phoneLocal}`;
   await withDatabase(async (client) => {
     await client.query("begin");
