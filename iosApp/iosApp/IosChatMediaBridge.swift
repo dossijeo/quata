@@ -11,6 +11,41 @@ final class IosChatNativeMediaFactory: NSObject, IosChatMediaViewerFactory {
     func create(localUrl: String, isVideo: Bool) -> any IosChatMediaViewerSurface {
         IosChatNativeMediaSurface(localURL: URL(string: localUrl), video: isVideo)
     }
+
+    func createCloseButton(
+        action: any IosChatMediaOverlayCloseAction,
+        accessibilityIdentifier: String
+    ) -> UIView {
+        let button = IosChatNativeMediaCloseButton(type: .system)
+        let target = IosChatNativeMediaCloseTarget(action: action)
+        button.closeTarget = target
+        button.accessibilityIdentifier = accessibilityIdentifier
+        button.accessibilityLabel = accessibilityIdentifier
+        button.isAccessibilityElement = true
+        button.setTitle("x", for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        button.backgroundColor = UIColor.black.withAlphaComponent(0.62)
+        button.layer.cornerRadius = 22
+        button.addTarget(target, action: #selector(IosChatNativeMediaCloseTarget.close), for: .touchUpInside)
+        return button
+    }
+}
+
+private final class IosChatNativeMediaCloseButton: UIButton {
+    var closeTarget: IosChatNativeMediaCloseTarget?
+}
+
+private final class IosChatNativeMediaCloseTarget: NSObject {
+    private let action: any IosChatMediaOverlayCloseAction
+
+    init(action: any IosChatMediaOverlayCloseAction) {
+        self.action = action
+        super.init()
+    }
+
+    @objc func close() {
+        action.close()
+    }
 }
 
 private final class IosChatNativeMediaSurface: NSObject, IosChatMediaViewerSurface {

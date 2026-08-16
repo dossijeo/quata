@@ -19,6 +19,7 @@ const [
   androidHost,
   webHost,
   iosHost,
+  iosMediaBridge,
   androidUiTest,
   iosUiTest,
   iosWrapper,
@@ -47,6 +48,7 @@ const [
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
+  source("iosApp/iosApp/IosChatMediaBridge.swift"),
   source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
   source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
   source("scripts/run-ios-chat-actions-notifications-ui-test.sh"),
@@ -147,6 +149,20 @@ test("iOS media attachment evidence replays resolved semantic media before relat
   );
   assert.match(openChatMediaAttachment, /return openResolvedMedia\(media, context: context, in: app, failOnMiss: true\)/);
   assert.doesNotMatch(openChatMediaAttachment, /if openResolvedMedia\(media, context: context, in: app\)/);
+});
+
+test("iOS media overlay close is exposed through a native accessibility anchor", () => {
+  assert.match(commonAttachmentPresentation, /nativeClose: @Composable BoxScope\.\(onDismiss: \(\) -> Unit\) -> Unit = \{\}/);
+  assert.match(commonHost, /nativeClose = \{ dismiss -> mediaSlots\.nativeClose\(this, dismiss\) \}/);
+  assert.match(commonAttachmentPresentation, /testTag = semanticAnchor/);
+  assert.match(iosHost, /iosChatMediaPlatformSlots\(/);
+  assert.match(iosMediaBridge, /func createCloseButton\(/);
+  assert.match(iosMediaBridge, /accessibilityIdentifier = accessibilityIdentifier/);
+  assert.match(iosMediaBridge, /accessibilityLabel = accessibilityIdentifier/);
+  assert.match(iosMediaBridge, /isAccessibilityElement = true/);
+  assert.match(iosMediaBridge, /button\.addTarget\(target, action: #selector\(IosChatNativeMediaCloseTarget\.close\), for: \.touchUpInside\)/);
+  assert.match(iosUiTest, /fullscreen-media\.close/);
+  assert.match(iosUiTest, /fullscreen-media\.media-close/);
 });
 
 test("audio attachment player exposes stable common playback anchors", () => {
@@ -366,7 +382,10 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /Set\(\[documentProbe, audioProbe, imageProbe, videoProbe\]\)\.count/);
   assert.match(iosUiTest, /app\.terminate\(\)[\s\S]*?openDeepLink\("quata:\/\/egquata\.com\/#chat-/);
   assert.match(iosUiTest, /openChatMediaAttachment\([\s\S]*identifier: "chat\.attachment\.media\.video"[\s\S]*messageId: videoMessageId[\s\S]*markerProbe: videoProbe/);
-  assert.match(iosUiTest, /messageWithId\(messageId, containing: markerProbe, in: app\)/);
+  assert.match(iosUiTest, /waitForFocusedMessageHighlightToClear\(videoMessageId, in: app\)/);
+  assert.match(iosUiTest, /waitForFocusedMessageHighlightToClear\(imageMessageId, in: app\)/);
+  assert.match(iosUiTest, /matching\(identifier: "chat\.message\.[^"]*messageId[^"]*"\)/);
+  assert.match(iosUiTest, /if scoped\.exists[\s\S]*return scoped[\s\S]*return app\.descendants\(matching: \.any\)[\s\S]*\.matching\(identifier: identifier\)/);
   assert.match(iosUiTest, /guard makeChatAnchorVisible\(identifier: "chat\.attachment\.audio\.player"/);
   assert.match(iosUiTest, /testAttachmentPickerFixtureUsesSharedComposerAnchors/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E/);

@@ -3,6 +3,7 @@ package com.quata.feature.chat.presentation.chat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -62,6 +63,7 @@ private fun chatAttachmentKindFromExtension(value: String): ChatAttachmentKind =
 data class ChatMediaPlatformSlots(
     val preview: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
     val viewer: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
+    val nativeClose: @Composable BoxScope.(onDismiss: () -> Unit) -> Unit = {},
 )
 
 const val ChatMediaAttachmentTestTag = "chat.attachment.media"
@@ -90,6 +92,15 @@ fun ChatMediaAttachmentContent(
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
+            .semantics(mergeDescendants = true) {
+                testTag = semanticAnchor
+                contentDescription = semanticAnchor
+                role = Role.Button
+                onClick(label = semanticAnchor) {
+                    onOpen()
+                    true
+                }
+            }
             .clickable(onClick = onOpen)
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
@@ -106,16 +117,7 @@ fun ChatMediaAttachmentContent(
                 IconButton(
                     onClick = onOpen,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .semantics {
-                            testTag = semanticAnchor
-                            contentDescription = semanticAnchor
-                            role = Role.Button
-                            onClick(label = semanticAnchor) {
-                                onOpen()
-                                true
-                            }
-                        },
+                        .fillMaxSize(),
                 ) {
                     Icon(
                         imageVector = if (kind == ChatAttachmentKind.Video) Icons.Filled.PlayArrow else Icons.Filled.OpenInFull,

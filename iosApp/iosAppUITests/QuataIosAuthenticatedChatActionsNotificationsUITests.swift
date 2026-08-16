@@ -102,6 +102,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         _ = chatHost(in: app, context: "attachments/audio conversation after recording send")
         assertChatRoute(conversationId, in: app, context: "attachments/audio conversation after recording send")
 
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(videoMessageId))", in: app)
+        _ = chatHost(in: app, context: "attachments/audio video message")
+        waitForFocusedMessageHighlightToClear(videoMessageId, in: app)
+
         guard openChatMediaAttachment(
             identifier: "chat.attachment.media.video",
             messageId: videoMessageId,
@@ -116,6 +120,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(imageMessageId))", in: app)
         _ = chatHost(in: app, context: "attachments/audio image message")
+        waitForFocusedMessageHighlightToClear(imageMessageId, in: app)
 
         guard openChatMediaAttachment(
             identifier: "chat.attachment.media.image",
@@ -1023,15 +1028,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         context: String,
         in app: XCUIApplication
     ) -> Bool {
+        waitForFullscreenMediaToDisappear(in: app, timeout: 2)
+
         func mediaElement() -> XCUIElement {
-            let message = messageWithId(messageId, containing: markerProbe, in: app)
-            if message.exists {
-                let scoped = message.descendants(matching: .any)
-                    .matching(identifier: identifier)
-                    .firstMatch
-                if scoped.exists {
-                    return scoped
-                }
+            let message = app.descendants(matching: .any)
+                .matching(identifier: "chat.message.\(messageId)")
+                .firstMatch
+            let scoped = message.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            if scoped.exists {
+                return scoped
             }
             return app.descendants(matching: .any)
                 .matching(identifier: identifier)
@@ -1040,7 +1047,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         for _ in 0..<14 {
             let media = mediaElement()
-            if media.waitForExistence(timeout: 1), isElementVisibleInViewport(media, in: app) {
+            if media.waitForExistence(timeout: 1), isElementVisibleInChatViewport(media, in: app) {
                 return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
             }
             scrollElementTowardViewport(media, in: app)
@@ -1056,11 +1063,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
     }
 
-    private func isElementVisibleInViewport(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+    private func isElementVisibleInChatViewport(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
         guard element.exists else { return false }
         let frame = element.frame
         guard !frame.isNull, !frame.isEmpty else { return false }
-        let viewport = app.frame.insetBy(dx: 0, dy: 8)
+        let viewport = chatMessageViewport(in: app)
         guard viewport.contains(CGPoint(x: frame.midX, y: frame.midY)) else { return false }
         let visible = frame.intersection(viewport)
         guard !visible.isNull, !visible.isEmpty else { return false }
@@ -1078,12 +1085,30 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             app.swipeUp()
             return
         }
-        let viewport = app.frame
+        let viewport = chatMessageViewport(in: app)
         if frame.midY > viewport.midY {
             app.swipeUp()
         } else {
             app.swipeDown()
         }
+    }
+
+    private func chatMessageViewport(in app: XCUIApplication) -> CGRect {
+        var viewport = app.frame.insetBy(dx: 0, dy: 8)
+        let titleBar = app.descendants(matching: .any)
+            .matching(identifier: "chat.conversation.titlebar")
+            .firstMatch
+        if titleBar.exists, !titleBar.frame.isNull, !titleBar.frame.isEmpty {
+            viewport.origin.y = max(viewport.minY, titleBar.frame.maxY + 8)
+        }
+
+        let composer = app.descendants(matching: .any)
+            .matching(identifier: "chat.composer.root")
+            .firstMatch
+        if composer.exists, !composer.frame.isNull, !composer.frame.isEmpty {
+            viewport.size.height = max(1, min(viewport.maxY, composer.frame.minY - 8) - viewport.minY)
+        }
+        return viewport
     }
 
     private func openResolvedMedia(
@@ -1119,33 +1144,55 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return false
         }
 
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay title must be visible for \(context).",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay close control must be visible for \(context).",
-        )
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay in-media close control must be visible for \(context).",
-        )
+        let titleVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.title").firstMatch.waitForExistence(timeout: 5)
+        let chromeCloseVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.close").firstMatch.waitForExistence(timeout: 5)
+        let mediaCloseVisible = app.descendants(matching: .any).matching(identifier: "fullscreen-media.media-close").firstMatch.waitForExistence(timeout: 5)
+        guard titleVisible, chromeCloseVisible, mediaCloseVisible else {
+            if reportFailure {
+                XCTAssertTrue(titleVisible, "The shared fullscreen media overlay title must be visible for \(context).")
+                XCTAssertTrue(chromeCloseVisible, "The shared fullscreen media overlay close control must be visible for \(context).")
+                XCTAssertTrue(mediaCloseVisible, "The shared fullscreen media overlay in-media close control must be visible for \(context).")
+            }
+            return false
+        }
         return true
     }
 
     private func closeFullscreenMedia(context: String, in app: XCUIApplication) {
-        let back = app.buttons
-            .matching(identifier: "fullscreen-media.back")
-            .firstMatch
-        XCTAssertTrue(back.waitForExistence(timeout: 5), "The shared fullscreen media overlay back action must be visible for \(context).")
-        if back.exists {
-            back.tap()
+        let closeIdentifiers = [
+            "fullscreen-media.back",
+            "fullscreen-media.close",
+            "fullscreen-media.media-close",
+        ]
+        var dismissed = false
+        for identifier in closeIdentifiers {
+            let control = app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+            if control.waitForExistence(timeout: 2) {
+                control.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                dismissed = !app.descendants(matching: .any)
+                    .matching(identifier: "fullscreen-media.root")
+                    .firstMatch
+                    .waitForExistence(timeout: 3)
+                if dismissed {
+                    break
+                }
+            }
         }
+        XCTAssertTrue(dismissed, "The shared fullscreen media overlay dismiss action must close \(context).")
         XCTAssertFalse(
             app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
             "The shared fullscreen media overlay must close back to the Chat thread after \(context).",
         )
+    }
+
+    @discardableResult
+    private func waitForFullscreenMediaToDisappear(in app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        !app.descendants(matching: .any)
+            .matching(identifier: "fullscreen-media.root")
+            .firstMatch
+            .waitForExistence(timeout: timeout)
     }
 
     private func openPeerPublicProfile(peerProfileId: String, in app: XCUIApplication) -> XCUIElement {

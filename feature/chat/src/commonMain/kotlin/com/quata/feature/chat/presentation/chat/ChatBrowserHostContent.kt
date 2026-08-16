@@ -666,6 +666,7 @@ private fun ChatCommonConversationHost(
         QuataFullscreenMediaOverlayContent(
             title = file.displayName ?: chromeStrings.attachment,
             onDismiss = { viewedMedia = null },
+            nativeClose = { dismiss -> mediaSlots.nativeClose(this, dismiss) },
         ) { mediaModifier ->
             mediaSlots.viewer(file, kind, mediaModifier)
         }
