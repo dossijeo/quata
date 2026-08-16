@@ -198,6 +198,8 @@ test("common chat group management exposes stable cross-platform evidence anchor
     assert.match(groupManagement, new RegExp(`ChatGroup${constant}TestTagPrefix = "${tag.replaceAll(".", "\\.")}"`));
     assert.match(groupManagement, new RegExp(`testTag = ChatGroup${constant}TestTagPrefix \\+ member\\.id`));
   }
+  assert.match(groupManagement, /import androidx\.compose\.ui\.text\.style\.TextOverflow/);
+  assert.match(groupManagement, /maxLines = 1,\s+overflow = TextOverflow\.Ellipsis/);
 
   const pickerAnchors = {
     Root: "chat.group.participants.root",

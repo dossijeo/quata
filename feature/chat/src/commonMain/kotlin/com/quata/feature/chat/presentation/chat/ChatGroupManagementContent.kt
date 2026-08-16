@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.Conversation
 import com.quata.core.model.User
@@ -235,6 +236,8 @@ fun ChatGroupManagementContent(
                             append(strings.memberLabel(member.name, member.isSelf))
                             if (member.isModerator) append(" · ${strings.moderator}")
                         },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f).clickable(
                             enabled = member.canOpenProfile,
                             onClick = { onOpenProfile(member.id) },
