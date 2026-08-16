@@ -230,11 +230,14 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /chat\.group\.member\.manage\./);
   assert.match(runner, /group_member_manage_used_visual_fallback/);
   assert.match(runner, /chat\.group\.member\.role\./);
+  assert.match(runner, /Ascender a moderador/);
+  assert.match(runner, /async function visibleTextBoxMatching\(page, patterns\)/);
   assert.match(runner, /group_participant_added_from_shared_picker_and_verified_by_db/);
   assert.match(runner, /group_participant_promoted_from_shared_member_menu_and_verified_by_db/);
   assert.match(runner, /web-chat-options-menu-surface/);
   assert.match(runner, /web-chat-group-menu-shared-anchors/);
   assert.match(runner, /web-chat-group-admin-participant-picker/);
+  assert.match(runner, /web-chat-group-admin-member-menu/);
   assert.match(runner, /web-chat-group-admin-member-promoted/);
   assert.match(runner, /web-chat-sos-location-shared-anchors/);
   assert.match(runner, /missing_stable_anchor/);

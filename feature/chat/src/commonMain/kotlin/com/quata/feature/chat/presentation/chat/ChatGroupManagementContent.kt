@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Conversation
 import com.quata.core.model.User
 import com.quata.core.ui.components.CompactIcon
@@ -121,6 +122,7 @@ fun ChatGroupManagementContent(
     var menuExpanded by remember { mutableStateOf(false) }
     var membersExpanded by remember { mutableStateOf(false) }
     var confirmation by remember { mutableStateOf<ChatManagementConfirmation?>(null) }
+    val template = quataTheme()
     val isModerator = canManageChatMembers(conversation, state.currentUser)
     val canInvite = canInviteToChat(conversation, state.currentUser)
 
@@ -248,7 +250,7 @@ fun ChatGroupManagementContent(
                             onClick = { memberMenuExpanded = true },
                             modifier = Modifier.semantics { testTag = ChatGroupMemberManageTestTagPrefix + member.id },
                         ) {
-                            CompactIcon(Icons.Filled.MoreVert, strings.manageMember(member.name))
+                            CompactIcon(Icons.Filled.MoreVert, strings.manageMember(member.name), tint = template.colors.textPrimary)
                         }
                         ChatOpaqueOptionsMenuContent(
                             expanded = memberMenuExpanded,

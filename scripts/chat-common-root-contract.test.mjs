@@ -199,7 +199,11 @@ test("common chat group management exposes stable cross-platform evidence anchor
     assert.match(groupManagement, new RegExp(`testTag = ChatGroup${constant}TestTagPrefix \\+ member\\.id`));
   }
   assert.match(groupManagement, /import androidx\.compose\.ui\.text\.style\.TextOverflow/);
+  assert.match(groupManagement, /import com\.quata\.core\.designsystem\.theme\.quataTheme/);
   assert.match(groupManagement, /maxLines = 1,\s+overflow = TextOverflow\.Ellipsis/);
+  assert.match(groupManagement, /CompactIcon\(Icons\.Filled\.MoreVert, strings\.manageMember\(member\.name\), tint = template\.colors\.textPrimary\)/);
+  assert.match(viewModel, /conversation = conversations\.firstOrNull \{ it\.id == conversationId \},\s+currentUser = repository\.currentUser\(\)/);
+  assert.match(viewModel, /currentUser = repository\.currentUser\(\),\s+hasReceivedMessageSnapshot = true/);
 
   const pickerAnchors = {
     Root: "chat.group.participants.root",

@@ -105,7 +105,10 @@ private fun JsonObject.toChatRpcConversation(
     val threadId = longAt("thread_id") ?: longAt("id") ?: 0L
     val type = stringAt("type").orEmpty()
     val participantIds = arrayAt("participants").mapNotNull { it.stringOrNull() }.distinct()
-    val otherProfiles = participantIds.filterNot { it == currentProfileId }.mapNotNull(profiles::get)
+    val participantProfiles = participantIds.map { profiles[it] }
+    val otherProfiles = participantIds.zip(participantProfiles)
+        .filterNot { (id, _) -> id == currentProfileId }
+        .mapNotNull { (_, profile) -> profile }
     val participantTitle = otherProfiles.map(ChatRpcProfile::resolvedDisplayName).distinct().joinToString(", ")
     val backendTitle = stringAt("title")?.takeIf { it.isNotBlank() }
     val explicitGroupTitle = stringAt("subject")?.takeIf { it.isNotBlank() }
@@ -124,8 +127,10 @@ private fun JsonObject.toChatRpcConversation(
         updatedAt = stringAt("last_message_at") ?: stringAt("updated_at").orEmpty(),
         updatedAtMillis = longAt("last_time_millis") ?: longAt("updated_at_millis"),
         participantIds = participantIds,
-        participantNames = otherProfiles.map(ChatRpcProfile::resolvedDisplayName),
-        participantAvatarUrls = otherProfiles.map(ChatRpcProfile::avatarUrl),
+        participantNames = participantIds.zip(participantProfiles).map { (id, profile) ->
+            profile?.resolvedDisplayName() ?: id
+        },
+        participantAvatarUrls = participantProfiles.map { it?.avatarUrl },
         isGroup = type != "private" || participantIds.size > 2,
         isEmergency = type == "sos",
         communityName = title.takeIf { type == "wall" },

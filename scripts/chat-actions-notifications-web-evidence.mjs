@@ -1134,6 +1134,12 @@ async function clickLabel(page, patterns, error) {
     await locator.click({ timeout: 10_000, force: true });
     return;
   }
+  const box = await visibleTextBoxMatching(page, patterns);
+  if (box) {
+    await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+    await delay(250);
+    return;
+  }
   throw new Error(error);
 }
 
@@ -2768,6 +2774,12 @@ async function clickTaggedOrLabeled(page, tag, patterns, error) {
     await delay(500);
     return;
   }
+  const box = await visibleTextBoxMatching(page, patterns);
+  if (box) {
+    await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+    await delay(500);
+    return;
+  }
   throw new Error(error);
 }
 
@@ -2819,11 +2831,18 @@ async function openGroupMemberManage(page, profile, report) {
     return;
   }
   const viewport = page.viewportSize() ?? { width: 430, height: 932 };
-  await page.mouse.click(Math.round(viewport.width * 0.94), Math.round(viewport.height * 0.235));
+  const memberTextBox = await visibleTextBox(page, profile.displayName);
+  const rowLikeTextBox = memberTextBox && memberTextBox.y > 120 && memberTextBox.y < 340 && memberTextBox.height <= 80
+    ? memberTextBox
+    : null;
+  const targetY = rowLikeTextBox
+    ? Math.round(rowLikeTextBox.y + rowLikeTextBox.height / 2)
+    : Math.round(viewport.height * 0.285);
+  await page.mouse.click(Math.round(viewport.width * 0.92), targetY);
   await delay(750);
   report.diagnostics ??= {};
   report.diagnostics.groupMemberManageAnchor =
-    "Compose/Wasm rendered the shared member row visually but did not expose chat.group.member.manage as a native/ARIA target; replay used the visible profile row and verified the role mutation afterwards.";
+    "Compose/Wasm rendered the shared member row visually but did not expose chat.group.member.manage as a native/ARIA target; replay used the visible member text row to target the row-local manage button and verified the role mutation afterwards.";
   report.steps.push("group_member_manage_used_visual_fallback");
 }
 
@@ -2856,20 +2875,22 @@ async function verifyChatGroupAdminWeb(page, state, evidenceDir, report) {
   await pollParticipant(state.thread, profile.id, "member");
   report.steps.push("group_participant_added_from_shared_picker_and_verified_by_db");
   await openAuthenticatedChatRoute(page, server.origin, `sb:${state.thread}`);
-  await delay(1_500);
+  await delay(4_000);
   report.steps.push("group_thread_reopened_after_participant_add_for_fresh_membership");
 
   await expandGroupMembers(page);
+  await delay(2_000);
   const memberRowTag = `chat.group.member.${profile.id}`;
   const memberManageTag = `chat.group.member.manage.${profile.id}`;
   const row = await visibleAriaLocator(page, [new RegExp(escapeRegExp(memberRowTag)), new RegExp(escapeRegExp(profile.displayName))], 10_000);
   if (!row && !(await visibleTextIncludes(page, profile.displayName))) throw new Error("chat_group_member_row_not_visible");
   report.evidence.groupMembers = await attachScreenshot(page, evidenceDir, "web-chat-group-admin-member-list");
   await openGroupMemberManage(page, profile, report);
+  report.evidence.groupMemberMenu = await attachScreenshot(page, evidenceDir, "web-chat-group-admin-member-menu");
   await clickTaggedOrLabeled(
     page,
     `chat.group.member.role.${profile.id}`,
-    [/Nombrar administrador|Promote|administrador/i],
+    [/Ascender a moderador|Nommer modérateur|Promote to moderator|Promote|moderador|modérateur|moderator/i],
     "chat_group_member_role_action_not_visible",
   );
   await clickLabel(page, [/Confirmar|Confirm/i], "chat_group_member_role_confirm_not_visible");
@@ -2971,6 +2992,47 @@ async function visibleTextBox(page, probe) {
         }
       : null;
   }, probe);
+}
+
+async function visibleTextBoxMatching(page, patterns) {
+  const serializablePatterns = patterns.map((pattern) => ({
+    source: pattern.source,
+    flags: pattern.flags,
+  }));
+  return await page.evaluate((patternSpecs) => {
+    const patterns = patternSpecs.map(({ source, flags }) => new RegExp(source, flags));
+    const collect = (root, entries) => {
+      for (const element of root.querySelectorAll("*")) {
+        const text = element.textContent ?? "";
+        if (patterns.some((pattern) => pattern.test(text))) {
+          const rect = element.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            entries.push({
+              x: rect.x,
+              y: rect.y,
+              width: rect.width,
+              height: rect.height,
+              area: rect.width * rect.height,
+              textLength: text.length,
+            });
+          }
+        }
+        if (element.shadowRoot) collect(element.shadowRoot, entries);
+      }
+      return entries;
+    };
+    const matches = collect(document, [])
+      .sort((left, right) => left.area - right.area || left.textLength - right.textLength || left.y - right.y);
+    const match = matches[0];
+    return match
+      ? {
+          x: Math.round(match.x),
+          y: Math.round(match.y),
+          width: Math.round(match.width),
+          height: Math.round(match.height),
+        }
+      : null;
+  }, serializablePatterns);
 }
 
 async function visibleTextIncludes(page, probe) {
@@ -3912,14 +3974,15 @@ try {
     p_community_id: null,
   }));
   if (options.groupAdminOnly) {
+    const groupAdminActor = state.b.accessToken ? state.b : state.a;
     await withDatabase(async (client) => {
       const result = await client.query(
         `update public.chat_participants
             set role = 'moderator'
           where thread_id = $1
             and profile_id = $2
-            and role = 'owner'`,
-        [state.thread, state.a.profileId],
+            and role in ('owner', 'member')`,
+        [state.thread, groupAdminActor.profileId],
       );
       if (result.rowCount !== 1) throw new Error("chat_group_admin_actor_role_seed_failed");
     });
