@@ -664,7 +664,7 @@ private fun ChatCommonConversationHost(
                         speed = sos.speed,
                         isUpdate = sos.isUpdate,
                         isUnavailable = sos.isUnavailable,
-                        unavailableLabel = sosStrings.locationUnavailable,
+                        unavailableLabel = sos.unavailableLabel,
                         openMapsLabel = sosStrings.openMaps,
                         textColor = textColor,
                         accentColor = accentColor,

@@ -135,6 +135,7 @@ import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
 import com.quata.core.session.AuthState
 import com.quata.core.text.SosShortcodeKind
+import com.quata.core.text.SosLocationUnavailableReason
 import com.quata.core.text.buildSosShortcode
 import com.quata.core.ui.components.LocalQuataNetworkImageState
 import com.quata.core.ui.components.QuataBottomBar
@@ -1831,7 +1832,12 @@ private fun AuthenticatedGlobalSosButton(
         1f
     }
 
-    fun buildSosMessage(profile: UserProfile, location: Location?, isLocationUpdate: Boolean = false): String =
+    fun buildSosMessage(
+        profile: UserProfile,
+        location: Location?,
+        isLocationUpdate: Boolean = false,
+        unavailableReason: SosLocationUnavailableReason? = null,
+    ): String =
         buildSosShortcode(
             kind = if (isLocationUpdate) SosShortcodeKind.LocationUpdate else SosShortcodeKind.Alert,
             senderName = profile.displayName,
@@ -1840,10 +1846,11 @@ private fun AuthenticatedGlobalSosButton(
             longitude = location?.longitude,
             ageMillis = location?.sosAgeMillis(),
             accuracyMeters = location?.takeIf { it.hasAccuracy() }?.accuracy?.toDouble(),
-            speedKmh = location?.takeIf { it.hasSpeed() }?.speed?.times(3.6f)?.toDouble()
+            speedKmh = location?.takeIf { it.hasSpeed() }?.speed?.times(3.6f)?.toDouble(),
+            locationUnavailableReason = if (location == null) unavailableReason ?: SosLocationUnavailableReason.Unavailable else null,
         )
 
-    fun sendSos(profile: UserProfile, location: Location?) {
+    fun sendSos(profile: UserProfile, location: Location?, unavailableReason: SosLocationUnavailableReason? = null) {
         if (isSendingSos) return
         if (QuataProximityState.isNear()) {
             Toast.makeText(context, context.getString(R.string.sos_blocked_by_proximity), Toast.LENGTH_SHORT).show()
@@ -1865,7 +1872,7 @@ private fun AuthenticatedGlobalSosButton(
             )
             container.chatRepository.sendSosMessage(
                 contactIds = profile.emergencyContactIds,
-                text = buildSosMessage(profile, location),
+                text = buildSosMessage(profile, location, unavailableReason = unavailableReason),
                 lat = location?.latitude,
                 lng = location?.longitude,
                 accuracy = location?.takeIf { it.hasAccuracy() }?.accuracy?.toDouble()
@@ -1901,10 +1908,22 @@ private fun AuthenticatedGlobalSosButton(
     fun requestLocation(profile: UserProfile) {
         pendingProfile = profile
         scope.launch {
-            val locationGranted =
-                container.permissionService.status(PlatformPermission.Location) == PermissionStatus.Granted ||
-                    container.permissionService.request(PlatformPermission.Location) == PermissionStatus.Granted
-            sendSos(profile, if (locationGranted) context.quataLastLocation() else null)
+            val initialStatus = container.permissionService.status(PlatformPermission.Location)
+            val resolvedStatus = if (initialStatus == PermissionStatus.Granted) {
+                initialStatus
+            } else {
+                container.permissionService.request(PlatformPermission.Location)
+            }
+            val locationGranted = resolvedStatus == PermissionStatus.Granted
+            val location = if (locationGranted) context.quataLastLocation() else null
+            val unavailableReason = when {
+                location != null -> null
+                locationGranted -> SosLocationUnavailableReason.Unavailable
+                resolvedStatus == PermissionStatus.Denied || resolvedStatus == PermissionStatus.PermanentlyDenied -> SosLocationUnavailableReason.PermissionDenied
+                resolvedStatus == PermissionStatus.Unavailable -> SosLocationUnavailableReason.Unavailable
+                else -> SosLocationUnavailableReason.Failed
+            }
+            sendSos(profile, location, unavailableReason)
             pendingProfile = null
         }
     }

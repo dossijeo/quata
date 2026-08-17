@@ -94,6 +94,26 @@ test("candidate manifest metadata alone is attestation-only", () => withReposito
   assert.equal(result.ok, true);
 }));
 
+test("rebased equivalent product SHA fails closed until evidence is rerun", () => withRepository((directory) => {
+  write(directory, "feature/chat/src/commonMain/kotlin/Chat.kt", "product\n");
+  const productSha = commit(directory, "product evidence");
+  write(directory, "docs/candidate-attestations/chat.json", manifest(productSha));
+  commit(directory, "attest original evidence");
+  git(directory, ["checkout", "--orphan", "rebased"]);
+  write(directory, "feature/chat/src/commonMain/kotlin/Chat.kt", "product\n");
+  const rebasedProductSha = commit(directory, "rebased equivalent product");
+  write(directory, "docs/candidate-attestations/chat.json", manifest(productSha));
+  write(directory, "docs/SCREEN_MIGRATION_INVENTORY_V2.md", `stale product ${productSha}\n`);
+  const head = commit(directory, "reuse stale attestation");
+
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+
+  assert.notEqual(rebasedProductSha, productSha);
+  assert.equal(result.ok, false);
+  assert.equal(result.productShaIsAncestor, false);
+  assert.match(result.invalidatingFiles.join("\n"), /candidate-product-sha-not-ancestor/);
+}));
+
 test("missing or dirty evidence entries fail closed", () => withRepository((directory) => {
   write(directory, "README.md", "base\n");
   const productSha = commit(directory, "product evidence");

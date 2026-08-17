@@ -719,7 +719,15 @@ class ChatActionsNotificationsInstrumentedTest {
         }
         waitForMarker(ownProbe, "group/SOS chat after map return")
         waitForTag(ChatSosLocationUnavailableTestTag, "SOS unavailable message")
-        waitForText("Ubicacion no disponible", "Location unavailable", timeoutMillis = 2_000)
+        if (!waitForAnyComposeText(
+            "Ubicacion no disponible: permiso denegado",
+            "Ubicación no disponible: permiso denegado",
+            "Location unavailable: permission denied",
+            timeoutMillis = 2_000,
+        )) {
+            saveScreenshot("android-chat-sos-location-unavailable-reason-missing")
+            error("sos_permission_denied_reason_not_visible")
+        }
         saveScreenshot("android-chat-sos-location-map-return")
     }
 

@@ -4,11 +4,11 @@
     "CHAT-GROUP",
     "CHAT-LOCATION-SOS"
   ],
-  "productSha": "045e8836634e98264c5adc4cea40ab1adfca0803",
+  "productSha": "b9283da697e7949be4d3144ea9b35fe017bd56f6",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "045e8836634e98264c5adc4cea40ab1adfca0803",
+      "sha": "b9283da697e7949be4d3144ea9b35fe017bd56f6",
       "report": "build-reports/web/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -17,7 +17,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "045e8836634e98264c5adc4cea40ab1adfca0803",
+      "sha": "b9283da697e7949be4d3144ea9b35fe017bd56f6",
       "report": "build-reports/android/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -26,7 +26,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "045e8836634e98264c5adc4cea40ab1adfca0803",
+      "sha": "b9283da697e7949be4d3144ea9b35fe017bd56f6",
       "report": "build-reports/ios/chat-group-sos-evidence.json",
       "cleanup": {
         "verified": true,
@@ -38,7 +38,9 @@
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
     "Backend group RPC evidence remains reused from 566a97e9 because this candidate does not change backend fixtures, schema, RPC calls, permissions or storage cleanup contracts.",
-    "This candidate adds a shared ChatMapOpenResult contract, pre-open map feedback in commonMain, stable SOS open-maps anchors, Android safe ACTION_VIEW handling, Web window.open mapping and iOS external opener result wiring so Android, Web/Wasm and iOS all show the same return feedback after the real map/open action.",
-    "Web/Wasm production distribution passed before evidence. Web, Android and iOS group SOS evidence all passed on 045e8836 after rebasing over main 94ea188c, with workingTreeDirty=false and hard cleanup physical residue zero."
+    "This candidate includes the shared ChatMapOpenResult contract, pre-open map feedback in commonMain, stable SOS open-maps anchors, Android safe ACTION_VIEW handling, Web window.open mapping and iOS external opener result wiring so Android, Web/Wasm and iOS all show the same return feedback after the real map/open action.",
+    "This candidate adds a common SOS location-unavailable reason contract. Shortcodes preserve reason=permission_denied, common presentation renders the permission-denied copy, Android maps denied location state to the shared reason, and Web/Wasm, Android and iOS show the same visible unavailable reason.",
+    "Web/Wasm production distribution passed before evidence and its quata-source-revision.txt contains b9283da697e7949be4d3144ea9b35fe017bd56f6. Web, Android and iOS group SOS evidence all passed on b9283da697e7949be4d3144ea9b35fe017bd56f6 with workingTreeDirty=false and hard cleanup physical residue zero.",
+    "The candidate also fixes validate-candidate-attestation so a stale Product/Evidence SHA that is no longer an ancestor of HEAD fails closed after stacked-branch rebases."
   ]
 }

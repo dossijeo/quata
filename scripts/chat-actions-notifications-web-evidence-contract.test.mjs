@@ -257,6 +257,8 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /web-chat-group-admin-member-menu/);
   assert.match(runner, /web-chat-group-admin-member-promoted/);
   assert.match(runner, /web-chat-sos-location-map-return/);
+  assert.match(runner, /reason=permission_denied/);
+  assert.match(runner, /sos_permission_denied_reason_not_visible/);
   assert.match(runner, /async function closeOptionsMenu\(page, report, context\)/);
   assert.match(runner, /await page\.reload\(\{ waitUntil: "domcontentloaded" \}\)/);
   assert.match(runner, /group_sos_options_menu_reset_by_route_after_anchor_evidence/);
