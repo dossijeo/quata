@@ -67,10 +67,13 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
     assert.match(source, /public-profile\.comments\.row\./);
     assert.match(source, /public-profile\.comments\.input/);
     assert.match(source, /public-profile\.comments\.send/);
+    assert.match(source, /public-profile\.comments\.emoji/);
+    assert.match(source, /community\.emoji\.panel/);
+    assert.match(source, /community\.emoji\.cell\.frequent\.0/);
     assert.match(source, /public-profile\.attachments/);
     assert.match(source, /public-profile\.attachments\.item\./);
   }
-  assert.match(androidUiTest, /performTextReplacement\(uiComment\)/);
+  assert.match(androidUiTest, /performTextInput\(uiComment\.removePrefix\("😀"\)\)/);
   assert.match(androidUiTest, /public-profile\.attachments\.item\.sb:\$attachmentId/);
   assert.match(iosUiTest, /public-profile\.attachments\.item\.sb:\\\(attachmentId\)/);
   assert.ok(
@@ -85,10 +88,11 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(webRunner, /isProfileCommentsComposerOpen\(page\)/);
   assert.match(webRunner, /Cerrar comentarios\|Close comments/);
   assert.match(webRunner, /throw new Error\("profile_content_comments_input_not_visible"\)/);
-  assert.match(webRunner, /else if \(await isProfileCommentsComposerOpen\(page\)\) \{\s+await page\.mouse\.click\(panelFallback\.inputX, panelFallback\.inputY\)/);
+  assert.match(webRunner, /bottomVisibleNativeControl\(page, sendPatterns/);
+  assert.match(webRunner, /throw new Error\("profile_content_comments_input_not_editable"\)/);
   assert.match(androidUiTest, /"profile-content" -> \{\s*openProfileFromPeerMessage\(peerProbe\.orEmpty\(\), profileId\.orEmpty\(\)\)/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT/);
-  assert.match(iosUiTest, /typeText\(uiComment, into: "public-profile\.comments\.input", in: app\)/);
+  assert.match(iosUiTest, /typeText\(String\(uiComment\.dropFirst\(\)\), into: "public-profile\.comments\.input", in: app\)/);
   assert.match(iosUiTest, /public-profile\.comments\.close/);
   assert.match(iosUiTest, /dismissProfileCommentsPanel\(in: app\)/);
   assert.match(iosUiTest, /tapPublicProfileBackOrDismiss\(in: app\)/);
@@ -101,6 +105,10 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E/);
   assert.match(iosWrapper, /testProfileContentFromChatUsesSharedPublicProfileSurface/);
   assert.match(iosWrapper, /profile-content\.log/);
+  assert.match(iosRunner, /acceptRemoteXcodeResultIoError/);
+  assert.match(iosRunner, /CASTreeDataStructure\/Importer\.swift:131/);
+  assert.match(iosRunner, /check-ios-xctest-executed\.py/);
+  assert.match(iosRunner, /testProfileContentFromChatUsesSharedPublicProfileSurface/);
   assert.match(iosWrapper, /elif \[\[ "\$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" == "1" \]\]; then\s+run_and_require "\$profile_content" "\$profile_content_method"/);
   assert.match(iosWrapper, /"\$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" != "1"/);
 });

@@ -1006,16 +1006,24 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "public-profile.comments.panel",
             "public-profile.comments.list",
             "public-profile.comments.row.\(commentId)",
+            "public-profile.comments.emoji",
             "public-profile.comments.input",
             "public-profile.comments.send",
         ] {
             _ = profileElement(identifier, in: app, context: "profile comments")
         }
+        profileElement("public-profile.comments.emoji", in: app, context: "profile comments emoji")
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        _ = profileElement("community.emoji.panel", in: app, context: "profile comments emoji panel")
+        profileElement("community.emoji.cell.frequent.0", in: app, context: "profile comments first frequent emoji")
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
         let input = app.descendants(matching: .any)
             .matching(identifier: "public-profile.comments.input")
             .firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 10), "The shared profile comment input must be visible before typing.")
-        typeText(uiComment, into: "public-profile.comments.input", in: app)
+        typeText(String(uiComment.dropFirst()), into: "public-profile.comments.input", in: app)
         app.descendants(matching: .any)
             .matching(identifier: "public-profile.comments.send")
             .firstMatch

@@ -1139,6 +1139,18 @@ async function visibleNativeControl(page, patterns, timeout = 5_000) {
   return null;
 }
 
+async function bottomVisibleNativeControl(page, patterns, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const controls = await visibleNativeControls(page);
+    const matches = controls.filter((control) => patterns.some((pattern) => pattern.test(control.label ?? "")));
+    matches.sort((left, right) => (right.y - left.y) || (right.height - left.height));
+    if (matches[0]) return matches[0];
+    await delay(250);
+  }
+  return null;
+}
+
 async function clickNativeControlCenter(page, control, error) {
   if (!control || control.width <= 0 || control.height <= 0) throw new Error(error);
   await page.mouse.click(control.x + (control.width / 2), control.y + (control.height / 2));
@@ -1915,13 +1927,25 @@ async function assertVisibleTagOrText(page, tag, patterns, errorPrefix = "profil
   throw new Error(`${errorPrefix}:${tag}`);
 }
 
-async function scrollProfileContentGalleryIntoView(page) {
+async function scrollProfileContentGalleryIntoView(page, fixture, report) {
   const viewport = page.viewportSize() ?? { width: 430, height: 932 };
-  for (let index = 0; index < 6; index += 1) {
-    await page.mouse.wheel(0, 360).catch(() => {});
+  const postPatterns = [
+    new RegExp(escapeRegExp(`public-profile.post.action.comments.${fixture.postId}`)),
+    new RegExp(escapeRegExp(`public-profile.post.media.open.${fixture.postId}`)),
+    new RegExp(escapeRegExp(`public-profile.post.preview.${fixture.postId}`)),
+    /qadata-profile-content/i,
+  ];
+  for (let index = 0; index < 32; index += 1) {
+    if (await visibleAriaLocator(page, postPatterns, 250) || await visibleTextMatches(page, /qadata-profile-content/i)) {
+      report.steps.push(`profile_content_post_scrolled_into_view:${index}`);
+      break;
+    }
+    await page.mouse.wheel(0, 420).catch(() => {});
     await delay(250);
   }
   return {
+    mediaX: Math.round(viewport.width * 0.5),
+    mediaY: Math.round(viewport.height * 0.52),
     commentsX: Math.round(viewport.width * 0.28),
     commentsY: Math.round(viewport.height * 0.79),
     inputX: Math.round(viewport.width * 0.45),
@@ -2000,13 +2024,21 @@ async function openProfileContentCommentsPanel(page, postId, fallbackPoints) {
   throw new Error("profile_content_comments_input_not_visible");
 }
 
-async function openAndCloseProfileContentMediaViewer(page, postId, evidenceDir, report) {
+async function openAndCloseProfileContentMediaViewer(page, postId, fallbackPoints, evidenceDir, report) {
   const openTag = `public-profile.post.media.open.${postId}`;
   const openPatterns = [new RegExp(escapeRegExp(openTag))];
   const openerControl = await visibleNativeControl(page, openPatterns, 5_000);
   const opener = openerControl ? null : await visibleAriaLocator(page, openPatterns, 2_000);
-  if (!openerControl && !opener) throw new Error(`profile_content_media_open_anchor_missing:${openTag}`);
-  if (openerControl) {
+  if (!openerControl && !opener) {
+    report.diagnostics ??= {};
+    report.diagnostics.profileContentMediaOpenFallback =
+      "Compose/Wasm did not expose the public-profile.post.media.open anchor; replay used the captured gallery media fallback point and still requires the shared fullscreen overlay title/back anchors.";
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    await page.mouse.click(
+      fallbackPoints?.mediaX ?? Math.round(viewport.width * 0.5),
+      fallbackPoints?.mediaY ?? Math.round(viewport.height * 0.46),
+    );
+  } else if (openerControl) {
     await clickNativeControlCenter(page, openerControl, `profile_content_media_open_anchor_not_clickable:${openTag}`);
   } else {
     await clickLocatorCenter(page, opener, `profile_content_media_open_anchor_not_clickable:${openTag}`);
@@ -2087,6 +2119,51 @@ async function openAndCloseProfileContentMediaViewer(page, postId, evidenceDir, 
   report.steps.push("profile_content_media_viewer_opened_and_closed");
 }
 
+async function selectProfileContentCommentEmoji(page, fallbackPoints) {
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  const panelFallback = {
+    emojiX: Math.round(viewport.width * 0.15),
+    emojiY: Math.round(viewport.height * 0.342),
+    cellX: Math.round(viewport.width * 0.17),
+    cellY: Math.round(viewport.height * 0.272),
+  };
+  const emojiPatterns = [
+    new RegExp(escapeRegExp("public-profile.comments.emoji")),
+    /Mostrar emojis|Show emojis|Afficher emojis|Afficher les emojis/i,
+  ];
+  const panelPatterns = [new RegExp(escapeRegExp("community.emoji.panel"))];
+  const emojiButton = await visibleAriaLocator(page, emojiPatterns, 2_000);
+  const emojiControl = await visibleNativeControl(page, emojiPatterns, 2_000);
+  const attempts = [];
+  if (emojiButton) attempts.push(async () => { await emojiButton.click({ timeout: 2_000, force: true }); await delay(350); });
+  if (emojiButton) attempts.push(async () => { await clickLocatorCenter(page, emojiButton, "profile_content_comments_emoji_button_not_clickable"); });
+  if (emojiControl) attempts.push(async () => { await clickNativeControlCenter(page, emojiControl, "profile_content_comments_emoji_button_not_clickable"); });
+  if (await isProfileCommentsComposerOpen(page)) {
+    attempts.push(async () => {
+      await page.mouse.click(fallbackPoints?.emojiX ?? panelFallback.emojiX, fallbackPoints?.emojiY ?? panelFallback.emojiY);
+      await delay(350);
+    });
+  }
+  if (attempts.length === 0) {
+    throw new Error("profile_content_comments_emoji_button_not_visible");
+  }
+  let panel = null;
+  for (const attempt of attempts) {
+    await attempt();
+    panel = await visibleAriaLocator(page, panelPatterns, 1_500);
+    if (panel) break;
+  }
+  if (!panel) {
+    throw new Error("profile_content_comments_emoji_panel_not_visible");
+  }
+  const firstFrequent = await visibleAriaLocator(page, [new RegExp(escapeRegExp("community.emoji.cell.frequent.0"))], 5_000);
+  if (firstFrequent) {
+    await clickLocatorCenter(page, firstFrequent, "profile_content_comments_first_emoji_not_clickable");
+  } else {
+    await page.mouse.click(fallbackPoints?.cellX ?? panelFallback.cellX, fallbackPoints?.cellY ?? panelFallback.cellY);
+  }
+}
+
 async function fillProfileContentComment(page, fallbackPoints, value) {
   const viewport = page.viewportSize() ?? { width: 430, height: 932 };
   const panelFallback = {
@@ -2095,25 +2172,66 @@ async function fillProfileContentComment(page, fallbackPoints, value) {
     sendX: Math.round(viewport.width * 0.85),
     sendY: Math.round(viewport.height * 0.342),
   };
-  const input = await visibleAriaLocator(page, [new RegExp(escapeRegExp("public-profile.comments.input"))], 2_000);
-  if (input) {
-    await input.fill(value, { timeout: 10_000 });
+  await selectProfileContentCommentEmoji(page, fallbackPoints);
+  const sendPatterns = [new RegExp(escapeRegExp("public-profile.comments.send")), /Enviar|Send|Envoyer/i];
+  const tail = value.replace(/^😀/, "");
+  const focusAndType = async (points) => {
+    for (const point of points) {
+      await page.mouse.click(point.x, point.y);
+      await delay(120);
+      await page.keyboard.insertText(tail);
+      await delay(300);
+      if (await visibleTextContentIncludes(page, tail)) return true;
+    }
+    return false;
+  };
+  await delay(500);
+  const input = await visibleAriaLocator(page, [
+    new RegExp(escapeRegExp("public-profile.comments.input")),
+    /Escribe un comentario|Write a comment|Écrire un commentaire/i,
+  ], 2_000);
+  let typed = false;
+  const sendForInput = await bottomVisibleNativeControl(page, sendPatterns, 1_500);
+  if (sendForInput) {
+    const centerY = Math.round(sendForInput.y + (sendForInput.height / 2));
+    typed = await focusAndType([
+      { x: Math.max(84, Math.round(sendForInput.x - Math.min(220, viewport.width * 0.52))), y: centerY },
+      { x: Math.max(84, Math.round(sendForInput.x - Math.min(150, viewport.width * 0.35))), y: centerY },
+      { x: Math.round(viewport.width * 0.5), y: centerY },
+    ]);
+  } else if (input) {
+    const box = await input.boundingBox().catch(() => null);
+    if (box) {
+      typed = await focusAndType([
+        { x: Math.round(box.x + (box.width * 0.44)), y: Math.round(box.y + (box.height / 2)) },
+        { x: Math.round(box.x + (box.width * 0.62)), y: Math.round(box.y + (box.height / 2)) },
+      ]);
+    }
   } else {
     const inputBox = await visibleCommentInputBox(page);
     if (inputBox) {
-      await page.mouse.click(inputBox.x + Math.min(24, inputBox.width / 2), inputBox.y + (inputBox.height / 2));
+      typed = await focusAndType([
+        { x: Math.round(inputBox.x + Math.min(44, inputBox.width / 2)), y: Math.round(inputBox.y + (inputBox.height / 2)) },
+        { x: Math.round(inputBox.x + (inputBox.width * 0.45)), y: Math.round(inputBox.y + (inputBox.height / 2)) },
+      ]);
     } else if (await isProfileCommentsComposerOpen(page)) {
-      await page.mouse.click(panelFallback.inputX, panelFallback.inputY);
+      typed = await focusAndType([{ x: panelFallback.inputX, y: panelFallback.inputY }]);
     } else {
       throw new Error("profile_content_comments_input_not_visible");
     }
-    await page.keyboard.type(value, { delay: 8 });
-    await delay(300);
+  }
+  if (!typed) {
+    throw new Error("profile_content_comments_input_not_editable");
   }
 
-  const send = await visibleAriaLocator(page, [new RegExp(escapeRegExp("public-profile.comments.send")), /Enviar|Send/i], 2_000);
+  const sendControl = await visibleNativeControl(page, sendPatterns, 2_000);
+  const send = sendControl ? null : await visibleAriaLocator(page, sendPatterns, 2_000);
+  if (sendControl) {
+    await clickNativeControlCenter(page, sendControl, "profile_content_comments_send_not_clickable");
+    return;
+  }
   if (send) {
-    await send.click({ timeout: 10_000, force: true });
+    await clickLocatorCenter(page, send, "profile_content_comments_send_not_clickable");
     return;
   }
   const sendBox = await page.evaluate(() => {
@@ -2152,7 +2270,7 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
   } else {
     await page.getByText(/Publicaciones|Posts/i).first().click({ timeout: 2_000, force: true }).catch(() => {});
   }
-  const fallbackPoints = await scrollProfileContentGalleryIntoView(page);
+  const fallbackPoints = await scrollProfileContentGalleryIntoView(page, fixture, report);
   report.evidence.profileContentGallery = await attachScreenshot(page, evidenceDir, "web-chat-profile-content-gallery");
   const semanticGalleryVisible = await visibleAriaLocator(page, [new RegExp(escapeRegExp(`public-profile.gallery.post.${fixture.postId}`))], 1_000);
   if (semanticGalleryVisible) {
@@ -2172,13 +2290,13 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
     ];
     report.steps.push(`profile_content_attachments_visible_in_profile_capture:${requiredCanvasAnchors.join(",")}`);
   }
-  await openAndCloseProfileContentMediaViewer(page, fixture.postId, evidenceDir, report);
+  await openAndCloseProfileContentMediaViewer(page, fixture.postId, fallbackPoints, evidenceDir, report);
   if (semanticGalleryVisible) {
     await openProfileContentCommentsPanel(page, fixture.postId, fallbackPoints);
   } else {
     await openProfileContentCommentsPanel(page, fixture.postId, fallbackPoints);
   }
-  const uiCommentMarker = `${fixture.marker} ui comment`;
+  const uiCommentMarker = `😀 ${fixture.marker} ui comment`;
   await fillProfileContentComment(page, fallbackPoints, uiCommentMarker);
   report.evidence.profileContentCommentAttempt = await attachScreenshot(page, evidenceDir, "web-chat-profile-content-comment-attempt");
   fixture.uiCommentId = await pollProfileContentComment(fixture, uiCommentMarker);

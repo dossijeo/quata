@@ -23,6 +23,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
@@ -1276,14 +1277,21 @@ class ChatActionsNotificationsInstrumentedTest {
             "public-profile.comments.panel",
             "public-profile.comments.list",
             "public-profile.comments.row.$commentId",
+            "public-profile.comments.emoji",
             "public-profile.comments.input",
             "public-profile.comments.send",
         ).forEach { tag ->
             compose.onNodeWithTag(tag, useUnmergedTree = true)
                 .fetchSemanticsNode()
         }
+        compose.onNodeWithTag("public-profile.comments.emoji", useUnmergedTree = true)
+            .performClick()
+        compose.onNodeWithTag("community.emoji.panel", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        compose.onNodeWithTag("community.emoji.cell.frequent.0", useUnmergedTree = true)
+            .performClick()
         compose.onNodeWithTag("public-profile.comments.input", useUnmergedTree = true)
-            .performTextReplacement(uiComment)
+            .performTextInput(uiComment.removePrefix("😀"))
         compose.onNodeWithTag("public-profile.comments.send", useUnmergedTree = true)
             .performClick()
     }
