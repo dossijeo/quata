@@ -122,8 +122,13 @@ test("public profile content exposes common comments anchors", async () => {
 });
 
 test("public profile content evidence exercises the common emoji picker before typing", () => {
-  for (const runner of [webEvidence, androidTest, iosTest]) {
+  assert.match(webEvidence, /selectProfileContentCommentEmoji/);
+  assert.match(webEvidence, /selectEmojiCommentEmoji/);
+  assert.match(webEvidence, /prefix: "public-profile\.comments"/);
+  for (const runner of [androidTest, iosTest]) {
     assert.match(runner, /public-profile\.comments\.emoji/);
+  }
+  for (const runner of [webEvidence, androidTest, iosTest]) {
     assert.match(runner, /community\.emoji\.panel/);
     assert.match(runner, /community\.emoji\.cell\.frequent\.0/);
   }
