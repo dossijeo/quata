@@ -1042,9 +1042,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             _ = profileElement(identifier, in: app, context: "profile content")
         }
         let mediaOpen = profileElement("public-profile.post.media.open.\(postId)", in: app, context: "profile media open")
-        mediaOpen.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        mediaOpen.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.1)).tap()
+        let fullscreenRoot = app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch
+        if !fullscreenRoot.waitForExistence(timeout: 5) {
+            mediaOpen.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
         XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 10),
+            fullscreenRoot.waitForExistence(timeout: 10),
             "The shared fullscreen media overlay must open from the public profile post media action.",
         )
         XCTAssertTrue(
