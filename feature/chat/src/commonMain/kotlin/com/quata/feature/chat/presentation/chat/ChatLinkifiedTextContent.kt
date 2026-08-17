@@ -16,8 +16,10 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
+import com.quata.core.ui.components.QuataEmojiStaticText
 
 private const val UrlAnnotationTag = "url"
 private val UrlRegex = Regex("""(https?://[^\s]+|www\.[^\s]+)""")
@@ -26,7 +28,16 @@ private val UrlRegex = Regex("""(https?://[^\s]+|www\.[^\s]+)""")
 fun ChatLinkifiedTextContent(text: String, color: Color, linkColor: Color, onOpenLink: (String) -> Unit, modifier: Modifier = Modifier) {
     val annotatedText = remember(text, linkColor) { text.toChatLinkAnnotatedString(linkColor) }
     if (annotatedText.getStringAnnotations(UrlAnnotationTag, 0, annotatedText.length).isEmpty()) {
-        Text(text, color = color, modifier = modifier)
+        QuataEmojiStaticText(
+            value = text,
+            color = color,
+            fontSize = 14.sp,
+            lineHeight = 18.sp,
+            maxLines = Int.MAX_VALUE,
+            overflow = TextOverflow.Clip,
+            fontWeight = null,
+            modifier = modifier,
+        )
     } else {
         var layoutResult by remember(annotatedText) { mutableStateOf<TextLayoutResult?>(null) }
         BasicText(annotatedText, style = TextStyle(color = color, fontSize = 14.sp), modifier = modifier.pointerInput(annotatedText) {

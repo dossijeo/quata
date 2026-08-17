@@ -45,6 +45,7 @@ const [
   pendingAttachmentOverlay,
   documentAttachment,
   audioAttachmentPlayer,
+  chatLinkifiedText,
   chatBrowserHostContent,
   communityProfileHost,
   communityProfileHeader,
@@ -76,6 +77,7 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatPendingAttachmentOverlayContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatDocumentAttachmentContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentPlayerContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatLinkifiedTextContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatBrowserHostContent.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileHeaderContent.kt"),
@@ -316,6 +318,16 @@ test("common chat composer exposes stable cross-platform evidence anchors", () =
   assert.doesNotMatch(webHost, /sendButtonOverride = \{/);
   assert.doesNotMatch(webHost, /WebNativeButton\("Enviar"/);
   assert.match(iosHost, /ChatProductHostContent\([\s\S]*?audioRecordingConfiguration = dependencies\.audioRecordingConfiguration/);
+});
+
+test("common chat message text renders catalog emoji without losing link handling", () => {
+  assert.match(chatLinkifiedText, /import com\.quata\.core\.ui\.components\.QuataEmojiStaticText/);
+  assert.match(chatLinkifiedText, /if \(annotatedText\.getStringAnnotations\(UrlAnnotationTag, 0, annotatedText\.length\)\.isEmpty\(\)\) \{/);
+  assert.match(chatLinkifiedText, /QuataEmojiStaticText\([\s\S]*?value = text/);
+  assert.doesNotMatch(chatLinkifiedText, /if \(annotatedText\.getStringAnnotations\(UrlAnnotationTag, 0, annotatedText\.length\)\.isEmpty\(\)\) \{\s*Text\(text/);
+  assert.match(chatLinkifiedText, /BasicText\(annotatedText/);
+  assert.match(chatLinkifiedText, /detectTapGestures/);
+  assert.match(chatLinkifiedText, /onOpenLink/);
 });
 
 test("common chat forward picker exposes stable cross-platform evidence anchors", () => {
