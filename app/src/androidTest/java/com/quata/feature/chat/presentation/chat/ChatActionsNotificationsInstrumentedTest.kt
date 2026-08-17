@@ -110,6 +110,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
         val feedComment = optionalArgument("quataChatActionsFeedComment")
         val officialComment = optionalArgument("quataChatActionsOfficialComment")
+        val actorProfileId = optionalArgument("quataChatActionsActorProfileId")
         val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
@@ -119,8 +120,8 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
-            "feed-official-comments" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
-            "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment).all { !it.isNullOrBlank() }
+            "feed-official-comments" -> listOf(postId, officialPostId, feedComment, officialComment, actorProfileId).all { !it.isNullOrBlank() }
+            "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, actorProfileId).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
@@ -164,6 +165,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 officialPostId = officialPostId.orEmpty(),
                 feedComment = feedComment.orEmpty(),
                 officialComment = officialComment.orEmpty(),
+                actorProfileId = actorProfileId.orEmpty(),
             )
             writeReport(
                 JSONObject()
@@ -205,7 +207,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 )
                 "profile-content" -> {
                     openProfileFromPeerMessage(peerProbe.orEmpty(), profileId.orEmpty())
-                    assertProfileContentStage(profileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty())
+                    assertProfileContentStage(profileId.orEmpty(), actorProfileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty())
                     closePublicProfile(peerProbe.orEmpty())
                     saveScreenshot("android-chat-profile-return")
                 }
@@ -332,6 +334,7 @@ class ChatActionsNotificationsInstrumentedTest {
         officialPostId: String,
         feedComment: String,
         officialComment: String,
+        actorProfileId: String,
     ) {
         ActivityScenario.launch<MainActivity>(chatIntent(quataPostUrl(feedPostId))).use {
             sendEmojiCommentFromOpenPost(
@@ -340,6 +343,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 emojiTag = "feed.comments.emoji",
                 sendTag = "feed.comments.send",
                 comment = feedComment,
+                authorTag = "feed.comments.author.$actorProfileId",
                 beforeScreenshot = "android-feed-comments-emoji-before",
                 afterScreenshot = "android-feed-comments-emoji-after",
             )
@@ -351,6 +355,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 emojiTag = "official.comments.emoji",
                 sendTag = "official.comments.send",
                 comment = officialComment,
+                authorTag = "official.comments.author.$actorProfileId",
                 beforeScreenshot = "android-official-comments-emoji-before",
                 afterScreenshot = "android-official-comments-emoji-after",
             )
@@ -363,6 +368,7 @@ class ChatActionsNotificationsInstrumentedTest {
         emojiTag: String,
         sendTag: String,
         comment: String,
+        authorTag: String,
         beforeScreenshot: String,
         afterScreenshot: String,
     ) {
@@ -403,7 +409,14 @@ class ChatActionsNotificationsInstrumentedTest {
                 )
         }
         assertTrue("The submitted comments text must be visible: $visibleCommentText.", visible)
+        waitForTag(authorTag, "comment author profile anchor $authorTag", 20_000)
         saveScreenshot(afterScreenshot)
+        openProfileFromAuthorTag(
+            tag = authorTag,
+            openScreenshot = "$afterScreenshot-author-profile",
+            returnScreenshot = "$afterScreenshot-author-profile-return",
+            requireReturnTag = false,
+        )
     }
 
     private fun waitForFeedOfficialActionTag(actionTag: String, screenshotPrefix: String, timeoutMillis: Long) {
@@ -432,7 +445,12 @@ class ChatActionsNotificationsInstrumentedTest {
             .trim('.')
             .ifBlank { "unknown" }
 
-    private fun openProfileFromAuthorTag(tag: String, openScreenshot: String, returnScreenshot: String) {
+    private fun openProfileFromAuthorTag(
+        tag: String,
+        openScreenshot: String,
+        returnScreenshot: String,
+        requireReturnTag: Boolean = true,
+    ) {
         waitForTag(tag, "profile entry source $tag", 45_000)
         saveScreenshot("$openScreenshot-source")
         clickStableTag(tag)
@@ -445,7 +463,11 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         if (!closedByCommonBack) device.pressBack()
-        waitForTag(tag, "profile entry return $tag", 20_000)
+        if (requireReturnTag) {
+            waitForTag(tag, "profile entry return $tag", 20_000)
+        } else {
+            compose.waitUntil(20_000) { !publicProfileVisible(profileId) }
+        }
         saveScreenshot(returnScreenshot)
     }
 
@@ -1355,7 +1377,7 @@ class ChatActionsNotificationsInstrumentedTest {
         device.wait(Until.gone(visibleTitle), 5_000)
     }
 
-    private fun assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String) {
+    private fun assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String) {
         compose.onNodeWithTag("public-profile.kpi.posts.$profileId", useUnmergedTree = true)
             .performClick()
         saveScreenshot("android-chat-profile-content")
@@ -1396,6 +1418,8 @@ class ChatActionsNotificationsInstrumentedTest {
             "public-profile.comments.panel",
             "public-profile.comments.list",
             "public-profile.comments.row.$commentId",
+            "public-profile.comments.author.$actorProfileId",
+            "public-profile.comments.translator",
             "public-profile.comments.emoji",
             "public-profile.comments.input",
             "public-profile.comments.send",

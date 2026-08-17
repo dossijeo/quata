@@ -43,7 +43,7 @@ fun QuataCommentInputContent(
             placeholder = { Text(strings.placeholder) },
             leadingIcon = leadingAction,
             trailingIcon = {
-                CompactIconButton(enabled = draft.text.isNotBlank(), testTag = sendTestTag, onClick = {
+                CompactIconButton(enabled = draft.text.isNotBlank(), testTag = sendTestTag, contentDescription = strings.send, onClick = {
                     if (canParticipate) {
                         val now = timestamp()
                         onAddComment(PostComment(

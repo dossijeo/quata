@@ -37,6 +37,7 @@ fun CommunityProfileCommentsPanelContent(
     title: String,
     closeContentDescription: String,
     onDismiss: () -> Unit,
+    translatorAction: (@Composable (Modifier) -> Unit)? = null,
     commentRow: @Composable (PostComment) -> Unit,
     input: @Composable () -> Unit
 ) {
@@ -51,6 +52,11 @@ fun CommunityProfileCommentsPanelContent(
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 18.sp,
                     modifier = Modifier.padding(end = 48.dp)
+                )
+                translatorAction?.invoke(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(end = 48.dp),
                 )
                 CompactIconButton(
                     onClick = onDismiss,

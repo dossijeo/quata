@@ -65,6 +65,8 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
     assert.match(source, /public-profile\.comments\.panel/);
     assert.match(source, /public-profile\.comments\.list/);
     assert.match(source, /public-profile\.comments\.row\./);
+    assert.match(source, /public-profile\.comments\.author\./);
+    assert.match(source, /public-profile\.comments\.translator/);
     assert.match(source, /public-profile\.comments\.input/);
     assert.match(source, /public-profile\.comments\.send/);
     assert.match(source, /public-profile\.comments\.emoji/);
@@ -89,6 +91,8 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
     assert.match(source, /public-profile\.comments\.panel/);
     assert.match(source, /public-profile\.comments\.list/);
     assert.match(source, /public-profile\.comments\.row\./);
+    assert.match(source, /public-profile\.comments\.author\./);
+    assert.match(source, /public-profile\.comments\.translator/);
     assert.match(source, /public-profile\.comments\.input/);
     assert.match(source, /community\.emoji\.panel/);
     assert.match(source, /community\.emoji\.cell\.frequent\.0/);
@@ -99,6 +103,8 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(webRunner, /selectEmojiCommentEmoji/);
   assert.match(webRunner, /fillEmojiComment/);
   assert.match(webRunner, /prefix: "public-profile\.comments"/);
+  assert.match(webRunner, /public-profile\.comments\.author\.\$\{fixture\.actorSession\.profileId\}/);
+  assert.match(webRunner, /public-profile\.comments\.translator/);
   assert.match(webRunner, /\$\{prefix\}\.emoji/);
   assert.match(webRunner, /\$\{prefix\}\.input/);
   assert.match(webRunner, /\$\{prefix\}\.send/);
@@ -121,7 +127,11 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(webRunner, /errorPrefix: "profile_content_comments"/);
   assert.match(webRunner, /\$\{errorPrefix\}_input_not_editable/);
   assert.match(androidUiTest, /"profile-content" -> \{\s*openProfileFromPeerMessage\(peerProbe\.orEmpty\(\), profileId\.orEmpty\(\)\)/);
+  assert.match(androidUiTest, /quataChatActionsActorProfileId/);
+  assert.match(androidUiTest, /public-profile\.comments\.author\.\$actorProfileId/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_ACTOR_PROFILE_ID/);
+  assert.ok(iosUiTest.includes('public-profile.comments.author.\\(actorProfileId)'));
   assert.match(iosUiTest, /typeText\(String\(uiComment\.dropFirst\(\)\), into: "public-profile\.comments\.input", in: app\)/);
   assert.match(iosUiTest, /public-profile\.comments\.close/);
   assert.match(iosUiTest, /dismissProfileCommentsPanel\(in: app\)/);
@@ -133,6 +143,7 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(commonProfileHost, /QuataFullscreenMediaOverlayContent/);
   assert.match(iosUiTest, /profile comment submitted from iOS must remain visible/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ACTOR_PROFILE_ID/);
   assert.match(iosWrapper, /testProfileContentFromChatUsesSharedPublicProfileSurface/);
   assert.match(iosWrapper, /profile-content\.log/);
   assert.match(iosRunner, /acceptRemoteXcodeResultIoError/);

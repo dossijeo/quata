@@ -77,6 +77,7 @@ fun OfficialCommentsPanelContent(
     onAuthRequired: () -> Unit,
     onAddComment: (PostComment) -> Unit,
     onReportComment: (PostComment) -> Unit,
+    onOpenUserProfile: (String) -> Unit,
     onDismiss: () -> Unit,
     translatorTrigger: @Composable (String, Modifier, () -> Unit, Boolean) -> Unit,
     translatorGateway: QuataTranslatorGateway?,
@@ -135,6 +136,8 @@ fun OfficialCommentsPanelContent(
                 text = comment.message,
                 displayText = displayText,
             ),
+            authorProfileTestTagPrefix = "official.comments.author.",
+            onOpenAuthorProfile = onOpenUserProfile,
             onReply = { replyTo = comment },
             onReport = { if (canParticipate) onReportComment(comment) else onAuthRequired() },
         )
@@ -155,6 +158,7 @@ fun OfficialCommentsPanelContent(
                     onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) },
                     modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState),
                     testTag = "official.comments.emoji",
+                    contentDescription = strings.showEmojis,
                 ) {
                     CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C))
                 }

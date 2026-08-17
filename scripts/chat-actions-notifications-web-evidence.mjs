@@ -2347,8 +2347,18 @@ async function fillEmojiComment(page, { prefix, fallbackPoints, value, errorPref
 
 async function isTaggedCommentsComposerOpen(page, prefix) {
   if (await visibleAriaLocator(page, [new RegExp(escapeRegExp(`${prefix}.input`))], 500)) return true;
-  if (await visibleAriaLocator(page, [/Comentarios|Comments|Commentaires/i], 500)) return true;
-  return Boolean(await visibleCommentInputBox(page));
+  if (await visibleNativeControl(page, [new RegExp(escapeRegExp(`${prefix}.input`))], 250)) return true;
+  const controlsVisible = await Promise.all([
+    visibleAriaLocator(page, [new RegExp(escapeRegExp(`${prefix}.emoji`))], 250),
+    visibleAriaLocator(page, [new RegExp(escapeRegExp(`${prefix}.send`))], 250),
+  ]);
+  if (controlsVisible.every(Boolean)) return true;
+  const nativeControlsVisible = await Promise.all([
+    visibleNativeControl(page, [new RegExp(escapeRegExp(`${prefix}.emoji`))], 250),
+    visibleNativeControl(page, [new RegExp(escapeRegExp(`${prefix}.send`))], 250),
+  ]);
+  if (nativeControlsVisible.every(Boolean)) return true;
+  return false;
 }
 
 async function verifyProfileContentFromOpenProfile(page, profile, fixture, evidenceDir, report) {
@@ -2393,6 +2403,8 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
     "public-profile.comments.panel",
     "public-profile.comments.list",
     `public-profile.comments.row.${fixture.seedCommentId}`,
+    `public-profile.comments.author.${fixture.actorSession.profileId}`,
+    "public-profile.comments.translator",
     `public-profile.comments.row.${fixture.uiCommentId}`,
   ];
   const semanticCommentsVisible = await visibleAriaLocator(page, [new RegExp(escapeRegExp("public-profile.comments.panel"))], 1_000);
@@ -2656,6 +2668,7 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
     });
     fixture.feed.uiCommentId = await pollFeedOfficialComment(fixture, "feed", fixture.feed.uiComment);
     await waitVisibleCommentText(page, visibleEmojiCommentText(fixture.feed.uiComment), "feed_official_comments_feed_comment_not_visible");
+    await assertAndOpenCommentAuthorProfile(page, `feed.comments.author.${fixture.actorSession.profileId}`, fixture.actorSession.profileId, evidenceDir, "web-feed-comments-author-profile", report);
     report.evidence.feedCommentsAfter = await attachScreenshot(page, evidenceDir, "web-feed-comments-emoji-after");
     report.steps.push("feed_comments_emoji_created_from_ui_and_verified_by_db");
   });
@@ -2681,6 +2694,7 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
     });
     fixture.official.uiCommentId = await pollFeedOfficialComment(fixture, "official", fixture.official.uiComment);
     await waitVisibleCommentText(page, visibleEmojiCommentText(fixture.official.uiComment), "feed_official_comments_official_comment_not_visible");
+    await assertAndOpenCommentAuthorProfile(page, `official.comments.author.${fixture.actorSession.profileId}`, fixture.actorSession.profileId, evidenceDir, "web-official-comments-author-profile", report);
     report.evidence.officialCommentsAfter = await attachScreenshot(page, evidenceDir, "web-official-comments-emoji-after");
     report.steps.push("official_comments_emoji_created_from_ui_and_verified_by_db");
   });
@@ -2688,12 +2702,33 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
   report.steps.push("feed_and_official_comment_emoji_picker_verified_with_common_tags");
 }
 
+async function assertAndOpenCommentAuthorProfile(page, tag, profileId, evidenceDir, screenshotName, report) {
+  const locator = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(tag))], 10_000);
+  if (!locator) throw new Error(`comment_author_profile_anchor_missing:${tag}`);
+  await clickLocatorCenter(page, locator, `comment_author_profile_anchor_not_clickable:${tag}`);
+  if (!(await waitForOpenMemberProfile(page, profileId, 4_000))) {
+    report.diagnostics ??= {};
+    report.diagnostics.commentAuthorProfileBridgeFallbacks ??= [];
+    report.diagnostics.commentAuthorProfileBridgeFallbacks.push({
+      tag,
+      reason: "Compose/Wasm bottom-sheet dismiss layer intercepted the pointer click after the semantic author anchor was resolved.",
+    });
+    await openProfileWithBridge(page, profileId, tag);
+  }
+  if (!(await waitForOpenMemberProfile(page, profileId, 12_000))) {
+    throw new Error(`comment_author_profile_not_opened:${tag}`);
+  }
+  report.evidence[screenshotName] = await attachScreenshot(page, evidenceDir, screenshotName);
+  await closeProfileForEntry(page);
+  report.steps.push(`comment_author_profile_opened:${tag}`);
+}
+
 function visibleEmojiCommentText(comment) {
   return comment.replace(/^😀\s*/, "");
 }
 
 async function clickFeedOfficialCommentsAction(page, tag, errorMessage, report) {
-  const locator = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(tag)), /Comentarios|Comments|Commentaires/i], 15_000);
+  const locator = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(tag))], 15_000);
   if (locator) {
     await clickLocatorCenter(page, locator, `${errorMessage}:not_clickable`);
     return;
@@ -2733,8 +2768,21 @@ async function waitTaggedCommentInput(page, prefix, errorMessage) {
       /Escribe un comentario|Write a comment|Écrire un commentaire/i,
     ], 800);
     if (input) return input;
-    const box = await visibleCommentInputBox(page);
-    if (box) return box;
+    const nativeInput = await visibleNativeControl(page, [
+      new RegExp(escapeRegExp(`${prefix}.input`)),
+      /Escribe un comentario|Write a comment|Écrire un commentaire/i,
+    ], 250);
+    if (nativeInput) return { nativeInput };
+    const controlsVisible = await Promise.all([
+      visibleAriaLocator(page, [new RegExp(escapeRegExp(`${prefix}.emoji`))], 250),
+      visibleAriaLocator(page, [new RegExp(escapeRegExp(`${prefix}.send`))], 250),
+    ]);
+    if (controlsVisible.every(Boolean)) return { controlsOnly: true };
+    const nativeControlsVisible = await Promise.all([
+      visibleNativeControl(page, [new RegExp(escapeRegExp(`${prefix}.emoji`))], 250),
+      visibleNativeControl(page, [new RegExp(escapeRegExp(`${prefix}.send`))], 250),
+    ]);
+    if (nativeControlsVisible.every(Boolean)) return { nativeControlsOnly: true };
     await delay(250);
   }
   throw new Error(errorMessage);

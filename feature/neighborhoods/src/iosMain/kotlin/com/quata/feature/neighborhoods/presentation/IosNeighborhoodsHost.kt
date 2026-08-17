@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.model.PostComment
 import com.quata.core.designsystem.theme.QuataTheme
+import com.quata.core.language.FangTranslationService
+import com.quata.core.language.IosFastTextLanguageIdentifier
+import com.quata.core.language.IosTranslationHttpTransport
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PlatformFile
@@ -35,6 +38,9 @@ import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
+import com.quata.designsystem.translation.FangTextTranslatorGateway
+import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
+import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
@@ -206,6 +212,13 @@ fun QuataCommunityProfileViewController(
                 onBack = dependencies.onClose,
             )
         } else {
+            val commentsTranslationGateway = remember(dependencies.languageCode) {
+                FangTextTranslatorGateway(
+                    identifier = IosFastTextLanguageIdentifier,
+                    translator = FangTranslationService(transport = IosTranslationHttpTransport()),
+                    preferredLanguage = quataTranslatorPreferredLanguage(dependencies.languageCode),
+                )
+            }
             CommunityProfileScreenHost(
                 profile = profile,
                 currentUserId = dependencies.currentUserId,
@@ -264,6 +277,8 @@ fun QuataCommunityProfileViewController(
                             )
                         }
                     },
+                    commentsTranslationGateway = commentsTranslationGateway,
+                    commentsTranslatorStrings = quataTranslatorStringsForLanguage(dependencies.languageCode),
                 ),
                 isOpeningChat = state.openingPrivateChatUserId != null,
                 isRefreshingProfile = state.refreshingProfileUserId == profile.user.id ||

@@ -108,7 +108,7 @@ fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileSt
             galleryTitle = "Fotos y vídeos",
             emptyGallery = "No hay publicaciones visibles.",
             back = "Volver",
-            comments = CommunityProfileCommentsDialogStrings("Comentarios", "Cerrar comentarios", "Escribe un comentario", "Enviar", "Mostrar emojis", CommunityEmojiLabels()),
+            comments = CommunityProfileCommentsDialogStrings("Comentarios", "Cerrar comentarios", "Escribe un comentario", "Enviar", "Mostrar emojis", CommunityEmojiLabels(), "Traductor Fang"),
         )
         "fr" -> CommunityProfileStrings(
             posts = "Publications",
@@ -145,7 +145,7 @@ fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileSt
                 foodDrink = "Cuisine et boissons",
                 objectsSymbols = "Objets et symboles",
                 flags = "Drapeaux",
-            )),
+            ), "Traducteur Fang"),
         )
         else -> CommunityProfileStrings(
             posts = "Posts",
@@ -182,6 +182,6 @@ fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileSt
                 foodDrink = "Food and drink",
                 objectsSymbols = "Objects and symbols",
                 flags = "Flags",
-            )),
+            ), "Fang translator"),
         )
     }

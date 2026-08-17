@@ -389,6 +389,10 @@ fun FeedScreenHost(
             strings = strings,
             onAuthRequired = onAuthRequired,
             onReportComment = onReportComment,
+            onOpenUserProfile = { profileId ->
+                commentsPostId = null
+                onOpenUserProfile(profileId)
+            },
             onAddComment = { viewModel.onEvent(FeedUiEvent.AddComment(post.id, it)) },
             onDismiss = { commentsPostId = null },
         )
@@ -441,6 +445,7 @@ private fun FeedCommentsDialog(
     strings: FeedScreenStrings,
     onAuthRequired: () -> Unit,
     onReportComment: (String) -> Unit,
+    onOpenUserProfile: (String) -> Unit,
     onAddComment: (PostComment) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -475,17 +480,17 @@ private fun FeedCommentsDialog(
     slots.standardFloatingPanel(onDismiss) { panelModifier, landscape ->
         if (!landscape) QuataCommentsPanelPortraitContent(
                 header = { QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { modifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, modifier, ::openTranslator, translatorEnabled) }) },
-                comments = { modifier -> LazyColumn(modifier.heightIn(min = 180.dp), state = commentsListState, contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(24.dp)) } } },
+                comments = { modifier -> LazyColumn(modifier.heightIn(min = 180.dp), state = commentsListState, contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, onOpenUserProfile, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(24.dp)) } } },
                 replyTarget = replyTo?.let { { QuataReplyTargetBannerContent(it, strings.replyingTo(it.authorName), strings.cancelReply) { replyTo = null } } },
                 emojiPanel = if (isEmojiPickerVisible) {{ CommunityEmojiPanelContent(communityEmojiSections(strings.emojiLabels), { draft = draft.insertAtSelection(it) }, Modifier.trackCommunityEmojiPanelBounds(emojiDismissState), gridMaxHeight = emojiGridMaxHeight) }} else null,
-                input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState), testTag = "feed.comments.emoji") { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier.fillMaxWidth(), inputTestTag = "feed.comments.input", sendTestTag = "feed.comments.send") },
+                input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState), testTag = "feed.comments.emoji", contentDescription = strings.showEmojis) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier.fillMaxWidth(), inputTestTag = "feed.comments.input", sendTestTag = "feed.comments.send") },
             modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
         ) else QuataCommentsPanelLandscapeContent(
             header = { modifier -> QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { actionModifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, actionModifier, ::openTranslator, translatorEnabled) }, modifier) },
             closeAction = { CompactIconButton(onClick = onDismiss) { CompactIcon(Icons.Filled.Close, strings.close) } },
-            comments = { modifier -> LazyColumn(modifier, state = commentsListState, contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(12.dp)) } } },
+            comments = { modifier -> LazyColumn(modifier, state = commentsListState, contentPadding = PaddingValues(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { items(post.comments, key = { it.id }) { comment -> FeedCommentRow(comment, strings, slots.commentRowModifier, onOpenUserProfile, { replyTo = comment }, { if (canParticipate) onReportComment(comment.id) else onAuthRequired() }) }; item { Spacer(Modifier.height(12.dp)) } } },
             replyTarget = replyTo?.let { { QuataReplyTargetBannerContent(it, strings.replyingTo(it.authorName), strings.cancelReply) { replyTo = null } } },
-            input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState), testTag = "feed.comments.emoji") { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier, inputTestTag = "feed.comments.input", sendTestTag = "feed.comments.send") },
+            input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState), testTag = "feed.comments.emoji", contentDescription = strings.showEmojis) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier, inputTestTag = "feed.comments.input", sendTestTag = "feed.comments.send") },
             emojiPanel = if (isEmojiPickerVisible) {{ CommunityEmojiPanelContent(communityEmojiSections(strings.emojiLabels), { draft = draft.insertAtSelection(it) }, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 84.dp, start = 24.dp).fillMaxWidth(0.62f).trackCommunityEmojiPanelBounds(emojiDismissState), gridMaxHeight = emojiGridMaxHeight) }} else null,
             modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
         )
@@ -509,6 +514,7 @@ private fun FeedCommentRow(
     comment: PostComment,
     strings: FeedScreenStrings,
     rowModifier: (PostComment, String) -> Modifier,
+    onOpenAuthorProfile: (String) -> Unit,
     onReply: () -> Unit,
     onReport: () -> Unit,
 ) {
@@ -523,6 +529,8 @@ private fun FeedCommentRow(
         timestamp = timestamp,
         strings = QuataCommentRowStrings(strings.replyTo, strings.moderationReport, strings.reply),
         modifier = rowModifier(comment, displayText),
+        authorProfileTestTagPrefix = "feed.comments.author.",
+        onOpenAuthorProfile = onOpenAuthorProfile,
         onReply = onReply,
         onReport = onReport,
     )

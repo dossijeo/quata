@@ -128,7 +128,8 @@ fun QuataFeedOverflowActionButton(
 @Composable
 internal fun FeedIconAction(icon: ImageVector, description: String, count: String? = null, tint: Color = Color.White, background: Color = Color.Black.copy(alpha = .42f), testTag: String? = null, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(48.dp).clip(CircleShape).background(background).clickable(onClick = onClick).semantics { contentDescription = description }.then(testTag?.let { Modifier.testTag(it) } ?: Modifier), Alignment.Center) {
+        val accessibleDescription = listOfNotNull(description, testTag).joinToString(" ")
+        Box(Modifier.size(48.dp).clip(CircleShape).background(background).clickable(onClick = onClick).semantics { contentDescription = accessibleDescription }.then(testTag?.let { Modifier.testTag(it) } ?: Modifier), Alignment.Center) {
             if (count == null) Icon(icon, null, modifier = Modifier.size(24.dp), tint = tint) else Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(icon, null, modifier = Modifier.size(21.dp), tint = tint)
                 Text(count, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 10.sp, maxLines = 1)

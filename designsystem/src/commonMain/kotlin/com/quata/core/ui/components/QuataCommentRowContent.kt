@@ -2,6 +2,7 @@ package com.quata.core.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -19,6 +20,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,6 +39,8 @@ fun QuataCommentRowContent(
     timestamp: String,
     strings: QuataCommentRowStrings,
     modifier: Modifier = Modifier,
+    authorProfileTestTagPrefix: String? = null,
+    onOpenAuthorProfile: (String) -> Unit = {},
     onReply: () -> Unit,
     onReport: () -> Unit
 ) {
@@ -44,7 +50,21 @@ fun QuataCommentRowContent(
             if (comment.replyToAuthorName != null) { Box(Modifier.fillMaxHeight().width(2.dp).background(template.colors.accent)); Spacer(Modifier.width(14.dp)) }
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.Top) {
-                    Text(comment.authorName, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = template.colors.textPrimary, modifier = Modifier.weight(1f))
+                    val authorId = comment.authorId?.takeIf(String::isNotBlank)
+                    val authorProfileTag = authorId?.let { id -> authorProfileTestTagPrefix?.let { prefix -> prefix + id } }
+                    val authorModifier = Modifier.weight(1f).then(
+                        if (authorId != null) {
+                            Modifier
+                                .semantics {
+                                    authorProfileTag?.let { testTag = it }
+                                    contentDescription = listOfNotNull("${comment.authorName} profile", authorProfileTag).joinToString(" ")
+                                }
+                                .clickable { onOpenAuthorProfile(authorId) }
+                        } else {
+                            Modifier
+                        }
+                    )
+                    Text(comment.authorName, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = template.colors.textPrimary, modifier = authorModifier)
                     Text(timestamp, color = template.colors.textSecondary, fontSize = 13.sp)
                 }
                 comment.replyToAuthorName?.let { author ->
