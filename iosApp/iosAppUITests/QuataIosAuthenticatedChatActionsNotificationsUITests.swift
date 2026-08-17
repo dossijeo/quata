@@ -945,7 +945,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         assertProfileContentStage(profileId: peerProfileId, actorProfileId: actorProfileId, postId: postId, commentId: commentId, attachmentId: attachmentId, uiComment: uiComment, replyComment: replyComment, in: app)
 
         closePublicProfile(in: app)
-        XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after checking content.")
+        XCTAssertTrue(waitForPublicProfileClosed(profileId: peerProfileId, in: app, timeout: 10), "The public profile sheet must close after checking content.")
         XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 20), "Closing the profile content view must return to the same Chat conversation.")
         attachScreenshot(app, name: "ios-chat-profile-content-return")
     }
@@ -1754,13 +1754,36 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: openScreenshot)
 
         closePublicProfile(in: app)
-        XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close for \(sourceIdentifier).")
+        XCTAssertTrue(waitForPublicProfileClosed(profileId: peerProfileId, in: app, timeout: 10), "The public profile sheet must close for \(sourceIdentifier).")
         XCTAssertTrue(source.waitForExistence(timeout: 20), "Closing the profile must restore the origin for \(sourceIdentifier).")
         attachScreenshot(app, name: returnScreenshot)
     }
 
     private func closePublicProfile(in app: XCUIApplication) {
-        tapPublicProfileBackOrDismiss(in: app)
+        for _ in 0..<3 {
+            tapPublicProfileBackOrDismiss(in: app)
+            if waitForPublicProfileClosed(profileId: nil, in: app, timeout: 4) {
+                return
+            }
+        }
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.88))
+        start.press(forDuration: 0.1, thenDragTo: end)
+        XCTAssertTrue(waitForPublicProfileClosed(profileId: nil, in: app, timeout: 8), "The public profile sheet must close after shared dismiss fallbacks.")
+    }
+
+    private func waitForPublicProfileClosed(profileId: String?, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        let rootGone = !app.descendants(matching: .any)
+            .matching(identifier: "public-profile.root")
+            .firstMatch
+            .waitForExistence(timeout: timeout)
+        guard rootGone, let profileId else {
+            return rootGone
+        }
+        return !app.descendants(matching: .any)
+            .matching(identifier: "public-profile.user.\(profileId)")
+            .firstMatch
+            .waitForExistence(timeout: 1)
     }
 
     private func tapPublicProfileBackOrDismiss(in app: XCUIApplication) {
