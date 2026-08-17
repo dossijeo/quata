@@ -547,6 +547,20 @@ test('public Official composition explicitly keeps its Kotlin bootstrap bearer-f
   );
 });
 
+test('iOS authenticated chat host wires the common map opener contract', async () => {
+  const swift = await readFile(iosAppSource, 'utf8');
+  const chatHost = swift.match(
+    /func installAuthenticatedChat\([\s\S]*?private func presentRemoteAttachmentUnavailableNotice/,
+  )?.[0];
+
+  assert.ok(chatHost, 'authenticated chat installer must remain present');
+  assert.match(
+    chatHost,
+    /onOpenExternalLink:[\s\S]*?onOpenMapLink:\s*\{[\s\S]*?URL\(string:\s*value\)[\s\S]*?ChatMapOpenResult\.unsupported[\s\S]*?UIApplication\.shared\.open\(url\)[\s\S]*?ChatMapOpenResult\.opened[\s\S]*?onOpenAvatar:/,
+    'Swift must pass the Kotlin-exported onOpenMapLink callback and map native open results to common ChatMapOpenResult values',
+  );
+});
+
 test('iOS Profile appearance state is mandatory, persisted by Swift and applied by Compose', async () => {
   const [swift, host, bootstrap] = await Promise.all([
     readFile(iosAppSource, 'utf8'),

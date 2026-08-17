@@ -2001,6 +2001,17 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                           ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { return }
                     UIApplication.shared.open(url)
                 },
+                onOpenMapLink: { value in
+                    guard let url = URL(string: value),
+                          ["https", "http"].contains(url.scheme?.lowercased() ?? "") else {
+                        return ChatMapOpenResult.unsupported
+                    }
+                    guard UIApplication.shared.canOpenURL(url) else {
+                        return ChatMapOpenResult.unsupported
+                    }
+                    UIApplication.shared.open(url)
+                    return ChatMapOpenResult.opened
+                },
                 onOpenAvatar: { profileId in
                     DispatchQueue.main.async { onOpenProfile(profileId) }
                 },

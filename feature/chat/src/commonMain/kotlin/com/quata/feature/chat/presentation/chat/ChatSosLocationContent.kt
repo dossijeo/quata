@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
@@ -104,11 +105,15 @@ fun ChatSosLocationContent(
                 openMapsLabel,
                 color = accentColor,
                 fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.clickable { onOpenMaps(url) }.semantics {
+                modifier = Modifier.semantics(mergeDescendants = true) {
                     testTag = ChatSosLocationOpenMapsTestTag
                     contentDescription = openMapsLabel
                     role = Role.Button
-                },
+                    onClick(label = openMapsLabel) {
+                        onOpenMaps(url)
+                        true
+                    }
+                }.clickable { onOpenMaps(url) },
             )
         }
     }

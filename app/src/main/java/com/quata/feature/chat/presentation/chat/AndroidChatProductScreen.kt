@@ -129,7 +129,8 @@ fun AndroidChatProductScreen(
                     ),
                 )
             },
-            onOpenExternalLink = context::openSafeChatExternalLink,
+            onOpenExternalLink = { value -> context.openSafeChatExternalLink(value) },
+            onOpenMapLink = { value -> context.openSafeChatMapLink(value) },
             onOpenUserProfile = onOpenUserProfile,
             openingProfileUserId = openingProfileUserId,
             onCopyMessage = { value -> scope.launch { clipboardService.writeText(value) } },
@@ -189,9 +190,16 @@ private fun PlatformFile.toAttachmentPreview(fallbackName: String): AttachmentPr
 )
 
 private fun Context.openSafeChatExternalLink(value: String) {
-    val uri = runCatching { value.toUri() }.getOrNull() ?: return
-    if (uri.scheme?.lowercase() !in setOf("http", "https")) return
-    runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+    openSafeChatMapLink(value)
+}
+
+private fun Context.openSafeChatMapLink(value: String): ChatMapOpenResult {
+    val uri = runCatching { value.toUri() }.getOrNull() ?: return ChatMapOpenResult.Unsupported
+    if (uri.scheme?.lowercase() !in setOf("http", "https")) return ChatMapOpenResult.Unsupported
+    return runCatching {
+        startActivity(Intent(Intent.ACTION_VIEW, uri))
+        ChatMapOpenResult.Opened
+    }.getOrElse { ChatMapOpenResult.Failed }
 }
 
 private suspend fun Context.saveChatAttachmentToDownloads(

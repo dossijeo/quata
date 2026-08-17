@@ -679,8 +679,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 .fetchSemanticsNode()
         }
         saveScreenshot("android-chat-group-menu-shared-anchors")
-        device.pressBack()
-        compose.waitForIdle()
+        closeGroupOptionsMenuForSos()
 
         waitForText("Actualizacion de ubicacion SOS", "SOS location update", timeoutMillis = 20_000)
             ?: error("sos_location_title_not_visible")
@@ -692,9 +691,36 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.onNodeWithTag(tag, useUnmergedTree = true)
                 .fetchSemanticsNode()
         }
+        compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+            .performScrollToNode(hasTestTag(ChatSosLocationOpenMapsTestTag))
+        compose.waitForIdle()
+        compose.onNodeWithTag(ChatSosLocationOpenMapsTestTag, useUnmergedTree = true)
+            .performClick()
+        if (waitForPackageToLeaveApp(timeoutMillis = 8_000)) {
+            repeat(5) {
+                if (device.currentPackageName == targetContext.packageName) return@repeat
+                device.pressBack()
+                waitForPackageToReturnToApp(timeoutMillis = 1_500)
+            }
+        }
+        compose.waitForIdle()
+        val mapFeedbackVisible = waitForAnyComposeText(
+            "Abriendo ubicación en mapas",
+            "Opening location in maps",
+            "No se pudo abrir la ubicación",
+            "The location could not be opened",
+            "No hay una aplicación de mapas disponible",
+            "No maps app is available",
+            timeoutMillis = 12_000,
+        )
+        if (!mapFeedbackVisible) {
+            saveScreenshot("android-chat-sos-location-map-feedback-missing")
+            error("sos_map_open_feedback_not_visible")
+        }
+        waitForMarker(ownProbe, "group/SOS chat after map return")
         waitForTag(ChatSosLocationUnavailableTestTag, "SOS unavailable message")
         waitForText("Ubicacion no disponible", "Location unavailable", timeoutMillis = 2_000)
-        saveScreenshot("android-chat-sos-location-shared-anchors")
+        saveScreenshot("android-chat-sos-location-map-return")
     }
 
     private fun runGroupAdminStage(
@@ -1569,6 +1595,53 @@ class ChatActionsNotificationsInstrumentedTest {
             SystemClock.sleep(250)
         }
         return null
+    }
+
+    private fun waitForPackageToLeaveApp(timeoutMillis: Long = 2_000): Boolean {
+        val deadline = SystemClock.uptimeMillis() + timeoutMillis
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (device.currentPackageName != targetContext.packageName) return true
+            SystemClock.sleep(100)
+        }
+        return false
+    }
+
+    private fun waitForPackageToReturnToApp(timeoutMillis: Long = 8_000): Boolean {
+        val deadline = SystemClock.uptimeMillis() + timeoutMillis
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (device.currentPackageName == targetContext.packageName) return true
+            SystemClock.sleep(100)
+        }
+        return false
+    }
+
+    private fun closeGroupOptionsMenuForSos() {
+        device.pressBack()
+        compose.waitForIdle()
+        if (!nodeWithTagVisible(ChatGroupMenuAllowInvitesTestTag)) return
+        val muteToggleTag = when {
+            nodeWithTagVisible(ChatGroupMenuMuteTestTag) -> ChatGroupMenuMuteTestTag
+            nodeWithTagVisible(ChatGroupMenuUnmuteTestTag) -> ChatGroupMenuUnmuteTestTag
+            else -> error("group_options_menu_close_action_missing")
+        }
+        compose.onNodeWithTag(muteToggleTag, useUnmergedTree = true).performClick()
+        compose.waitUntil(5_000) { !nodeWithTagVisible(ChatGroupMenuAllowInvitesTestTag) }
+    }
+
+    private fun waitForAnyComposeText(vararg candidates: String, timeoutMillis: Long = 10_000): Boolean {
+        val deadline = SystemClock.uptimeMillis() + timeoutMillis
+        while (SystemClock.uptimeMillis() < deadline) {
+            val visible = candidates.any { candidate ->
+                runCatching {
+                    compose.onAllNodes(hasText(candidate, substring = true), useUnmergedTree = true)
+                        .fetchSemanticsNodes()
+                        .isNotEmpty()
+                }.getOrDefault(false)
+            }
+            if (visible) return true
+            SystemClock.sleep(250)
+        }
+        return false
     }
 
     private fun waitForMarker(markerProbe: String, context: String, timeoutMillis: Long = 45_000) {

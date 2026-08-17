@@ -521,12 +521,12 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "305db909a3aceab06345c143b8731dc965c2fe9174324f802cd1b0f20e51ccf1",
+              "sha256": "a5112d121acefd54525dc3807749d113c57f27cf11deb9981b4e9793ec522cf2",
               "role": "composition"
             },
             {
               "path": "feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatRuntimeBootstrap.kt",
-              "sha256": "19917143a6e1acebd59c7c597b972ba8fb11b2123709bc96cff3df21b59740c2",
+              "sha256": "9a6efe32a4594edb372afaf8746cf4155cd7cd4b13a3101cb094215daa023337",
               "role": "runtime-bootstrap"
             },
             {
@@ -594,12 +594,12 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "305db909a3aceab06345c143b8731dc965c2fe9174324f802cd1b0f20e51ccf1",
+              "sha256": "a5112d121acefd54525dc3807749d113c57f27cf11deb9981b4e9793ec522cf2",
               "role": "composition"
             },
             {
               "path": "feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/IosChatRuntimeBootstrap.kt",
-              "sha256": "19917143a6e1acebd59c7c597b972ba8fb11b2123709bc96cff3df21b59740c2",
+              "sha256": "9a6efe32a4594edb372afaf8746cf4155cd7cd4b13a3101cb094215daa023337",
               "role": "runtime-bootstrap"
             },
             {
@@ -662,7 +662,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "305db909a3aceab06345c143b8731dc965c2fe9174324f802cd1b0f20e51ccf1",
+              "sha256": "a5112d121acefd54525dc3807749d113c57f27cf11deb9981b4e9793ec522cf2",
               "role": "composition"
             },
             {
@@ -844,7 +844,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "305db909a3aceab06345c143b8731dc965c2fe9174324f802cd1b0f20e51ccf1",
+              "sha256": "a5112d121acefd54525dc3807749d113c57f27cf11deb9981b4e9793ec522cf2",
               "role": "composition"
             },
             {
