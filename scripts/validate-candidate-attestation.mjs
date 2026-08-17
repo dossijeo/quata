@@ -45,6 +45,15 @@ function diffEntries(base, head, cwd = process.cwd()) {
   ], cwd, "buffer"));
 }
 
+function isAncestor(base, head, cwd = process.cwd()) {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", base, head], { cwd, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function changedPaths(entries) {
   return entries.flatMap((entry) => entry.paths).map(normalize);
 }
@@ -60,6 +69,8 @@ export function validateAttestation({ manifestPath = DEFAULT_MANIFEST, head = "H
   const entries = diffEntries(productSha, headSha, cwd);
   const files = changedPaths(entries);
   const invalid = files.filter((path) => !isAttestationPath(path));
+  const productShaIsAncestor = isAncestor(productSha, headSha, cwd);
+  if (!productShaIsAncestor) invalid.push("candidate-product-sha-not-ancestor");
   for (const entry of entries) {
     if (UNTRUSTED_STATUS.has(entry.status)) invalid.push(`untrusted-git-status:${entry.status}`);
   }
@@ -74,6 +85,7 @@ export function validateAttestation({ manifestPath = DEFAULT_MANIFEST, head = "H
     ok: invalid.length === 0 && incompleteEvidence.length === 0,
     productSha,
     headSha,
+    productShaIsAncestor,
     attestationOnlyCommits: Number(git(["rev-list", "--count", `${productSha}..${headSha}`], cwd).trim()),
     changedFiles: files,
     invalidatingFiles: invalid,
