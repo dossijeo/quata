@@ -9,14 +9,17 @@ import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import {
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
+  cleanupFeedOfficialCommentsFixture as cleanupSharedFeedOfficialCommentsFixture,
   createCleanupRegistry,
   cleanupProfileRolesSafetyFixture as cleanupSharedProfileRolesSafetyFixture,
+  pollFeedOfficialComment as pollSharedFeedOfficialComment,
   pollProfileGlobalBlock,
   pollProfileReport,
   pollProfileContentComment as pollSharedProfileContentComment,
   pollProfileRoles,
   prepareProfileRolesSafetyFixture,
   seedChatAttachmentFixture,
+  seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
   validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
@@ -38,6 +41,7 @@ const profileOnly = options.profileOnly;
 const profileFollowOnly = options.profileFollowOnly;
 const profileListsOnly = options.profileListsOnly;
 const profileContentOnly = options.profileContentOnly;
+const feedOfficialCommentsOnly = options.feedOfficialCommentsOnly;
 const profileEntryOnly = options.profileEntryOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const profileRolesSafetyOnly = options.profileRolesSafetyOnly;
@@ -48,7 +52,7 @@ const groupSosOnly = options.groupSosOnly;
 const attachmentPickerOnly = options.attachmentPickerOnly;
 const groupAdminOnly = options.groupAdminOnly;
 const groupModerationOnly = options.groupModerationOnly;
-const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly;
+const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly;
 const report = {
   check,
   status: "failed",
@@ -87,6 +91,7 @@ const state = {
   profileFollow: null,
   profileListEdges: null,
   profileContent: null,
+  feedOfficialComments: null,
   profileEntry: null,
   profilePrivateChat: null,
   profileRolesSafety: null,
@@ -295,6 +300,15 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.profileContent = state.profileEntry.profileContent;
       report.steps.push("profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared");
     }
+    if (feedOfficialCommentsOnly) {
+      state.feedOfficialComments = {
+        marker: `qadata-feed-official-comments-${runId}`,
+        actorSession: state.a,
+        targetSession: state.b,
+      };
+      await prepareFeedOfficialCommentsFixture(state.feedOfficialComments);
+      report.steps.push("feed_official_comments_fixture_prepared");
+    }
     if (profileRolesSafetyOnly) {
       state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
         actorSession: state.a,
@@ -389,6 +403,7 @@ export QUATA_IOS_CHAT_PROFILE_ONLY=${profileEvidenceOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E=${profileListsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E=${profileContentOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E=${feedOfficialCommentsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesSafetyOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
@@ -398,6 +413,10 @@ export QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID=${shellQuote(state.profileContent?
 export QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID=${shellQuote(state.profileContent?.seedCommentId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID=${shellQuote(state.profileContent?.attachmentId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT=${shellQuote(state.profileContent?.uiCommentMarker ?? "profile-only")}
+export QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID=${shellQuote(state.feedOfficialComments?.feed?.postId ?? "feed-official-comments")}
+export QUATA_IOS_CHAT_FEED_COMMENTS_UI_COMMENT=${shellQuote(state.feedOfficialComments?.feed?.uiComment ?? "feed-official-comments")}
+export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID=${shellQuote(state.feedOfficialComments?.official?.postId ?? "feed-official-comments")}
+export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_UI_COMMENT=${shellQuote(state.feedOfficialComments?.official?.uiComment ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E=${profilePrivateChatOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE=${shellQuote(state.privateMarker?.slice(0, 28) ?? "profile-only")}
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E=${menuSurfaceOnly ? "1" : "0"}
@@ -454,6 +473,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         groupModerationOnly,
         profileListsOnly,
         profileContentOnly,
+        feedOfficialCommentsOnly,
         profileEntryOnly,
         profileRolesSafetyOnly,
         profilePrivateChatOnly,
@@ -480,6 +500,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? "ios_xctest_profile_followers_and_following_lists_verified"
       : profileContentOnly
         ? "ios_xctest_profile_content_gallery_comments_and_attachments_verified"
+      : feedOfficialCommentsOnly
+        ? "ios_xctest_feed_and_official_comments_emoji_picker_verified"
       : profileEntryOnly
           ? "ios_xctest_profile_entry_feed_official_communities_conversations_and_chat_verified"
         : profileRolesSafetyOnly
@@ -544,6 +566,12 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     if (profileContentOnly) {
       state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
       report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
+    }
+    if (feedOfficialCommentsOnly) {
+      state.feedOfficialComments.feed.uiCommentId = await pollFeedOfficialComment(state.feedOfficialComments, "feed", state.feedOfficialComments.feed.uiComment);
+      state.feedOfficialComments.official.uiCommentId = await pollFeedOfficialComment(state.feedOfficialComments, "official", state.feedOfficialComments.official.uiComment);
+      report.steps.push("feed_comments_emoji_created_from_ui_and_verified_by_db");
+      report.steps.push("official_comments_emoji_created_from_ui_and_verified_by_db");
     }
     if (profileRolesSafetyOnly) {
       report.evidence.profileRolesPersisted = await pollProfileRoles({
@@ -690,6 +718,13 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           attachmentId: state.profileContent.attachmentId,
           attachmentMessageId: state.profileContent.attachmentMessageId,
         } : null,
+        feedOfficialComments: state.feedOfficialComments ? {
+          markerSha256: sha256(state.feedOfficialComments.marker),
+          feedPostId: state.feedOfficialComments.feed?.postId ?? null,
+          feedUiCommentId: state.feedOfficialComments.feed?.uiCommentId ?? null,
+          officialPostId: state.feedOfficialComments.official?.postId ?? null,
+          officialUiCommentId: state.feedOfficialComments.official?.uiCommentId ?? null,
+        } : null,
         profileEntry: state.profileEntry ? {
           officialPostId: state.profileEntry.official.id,
           officialMarkerSha256: sha256(state.profileEntry.official.marker),
@@ -811,6 +846,16 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         cleanup.error = safeFailure(error);
       }
     }
+    if (state.feedOfficialComments) {
+      try {
+        cleanup.feedOfficialComments = await cleanupFeedOfficialCommentsFixture(state.feedOfficialComments);
+        cleanup.actions.push("feed_official_comments_fixture_deleted");
+        cleanup.actions.push("cleanup_verified_feed_official_comments_residue_absent");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
     if (state.profileRolesSafety) {
       try {
         cleanup.profileRolesSafety = await cleanupProfileRolesSafetyFixture(state.profileRolesSafety);
@@ -878,6 +923,7 @@ function parseArgs(argv) {
     profileFollowOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_FOLLOW_ONLY === "1",
     profileListsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_LISTS_ONLY === "1",
     profileContentOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_ONLY === "1",
+    feedOfficialCommentsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_ONLY === "1",
     profileEntryOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
     profileRolesSafetyOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ROLES_SAFETY_ONLY === "1",
@@ -920,6 +966,14 @@ function parseArgs(argv) {
     }
     if (key === "--profile-content-only") {
       result.profileContentOnly = true;
+      continue;
+    }
+    if (key === "--feed-official-comments-only") {
+      result.feedOfficialCommentsOnly = true;
+      result.output = resolve("build-reports/ios/feed-official-comments-emoji-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/feed-official-comments-emoji-evidence");
+      result.remoteLogDir = "build/reports/ios/feed-official-comments-emoji";
+      result.remoteResultBundleDir = "build/reports/ios/feed-official-comments-emoji/xcresults";
       continue;
     }
     if (key === "--profile-entry-only") {
@@ -1794,12 +1848,24 @@ async function cleanupProfileContentFixture(fixture) {
   return cleanupSharedProfileContentFixture({ fixture, withDatabase });
 }
 
+async function prepareFeedOfficialCommentsFixture(fixture) {
+  return seedFeedOfficialCommentsFixture({ fixture, withDatabase });
+}
+
+async function cleanupFeedOfficialCommentsFixture(fixture) {
+  return cleanupSharedFeedOfficialCommentsFixture({ fixture, withDatabase });
+}
+
 async function cleanupProfileRolesSafetyFixture(fixture) {
   return cleanupSharedProfileRolesSafetyFixture({ fixture, withDatabase });
 }
 
 async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   return pollSharedProfileContentComment({ fixture, marker, withDatabase, delay, timeout });
+}
+
+async function pollFeedOfficialComment(fixture, surface, marker, timeout = 45_000) {
+  return pollSharedFeedOfficialComment({ fixture, surface, marker, withDatabase, delay, timeout });
 }
 
 async function prepareProfileEntryFixture(runId) {
@@ -2138,6 +2204,7 @@ function selectedIosXctestForMode(mode) {
   if (mode.groupModerationOnly) return { method: "testGroupModerationRemovesAndBlocksParticipantsThroughSharedMemberMenu", log: "group-moderation.log" };
   if (mode.profileListsOnly) return { method: "testProfileFollowersAndFollowingListsUseSharedPublicProfileSurface", log: "profile-lists.log" };
   if (mode.profileContentOnly) return { method: "testProfileContentFromChatUsesSharedPublicProfileSurface", log: "profile-content.log" };
+  if (mode.feedOfficialCommentsOnly) return { method: "testFeedAndOfficialCommentsUseSharedEmojiPicker", log: "feed-official-comments.log" };
   if (mode.profileEntryOnly) return { method: "testProfileEntryFromFeedOfficialCommunitiesConversationsAndChat", log: "profile-entry.log" };
   if (mode.profileRolesSafetyOnly) return { method: "testProfileRolesSafetyReportAndBlockUseSharedSurface", log: "profile-roles-safety.log" };
   if (mode.profilePrivateChatOnly) return { method: "testProfilePrimaryActionOpensPrivateChat", log: "profile-private-chat.log" };

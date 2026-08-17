@@ -49,7 +49,7 @@ test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
 });
 
 test("PROF-CONTENT evidence uses common public-profile content anchors on every platform", () => {
-  for (const source of [webRunner, androidUiTest, iosUiTest]) {
+  for (const source of [androidUiTest, iosUiTest]) {
     assert.match(source, /public-profile\.kpi\.posts\./);
     assert.match(source, /public-profile\.gallery\.header\./);
     assert.match(source, /public-profile\.gallery\./);
@@ -73,6 +73,35 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
     assert.match(source, /public-profile\.attachments/);
     assert.match(source, /public-profile\.attachments\.item\./);
   }
+  for (const source of [webRunner, androidUiTest, iosUiTest]) {
+    assert.match(source, /public-profile\.kpi\.posts\./);
+    assert.match(source, /public-profile\.gallery\.header\./);
+    assert.match(source, /public-profile\.gallery\./);
+    assert.match(source, /public-profile\.gallery\.post\./);
+    assert.match(source, /public-profile\.post\.preview\./);
+    assert.match(source, /public-profile\.post\.media\.open\./);
+    assert.match(source, /public-profile\.post\.action\.comments\./);
+    assert.match(source, /fullscreen-media\.root/);
+    assert.match(source, /fullscreen-media\.title/);
+    assert.match(source, /fullscreen-media\.back/);
+    assert.match(source, /fullscreen-media\.close/);
+    assert.match(source, /fullscreen-media\.media-close/);
+    assert.match(source, /public-profile\.comments\.panel/);
+    assert.match(source, /public-profile\.comments\.list/);
+    assert.match(source, /public-profile\.comments\.row\./);
+    assert.match(source, /public-profile\.comments\.input/);
+    assert.match(source, /community\.emoji\.panel/);
+    assert.match(source, /community\.emoji\.cell\.frequent\.0/);
+    assert.match(source, /public-profile\.attachments/);
+    assert.match(source, /public-profile\.attachments\.item\./);
+  }
+  assert.match(webRunner, /selectProfileContentCommentEmoji/);
+  assert.match(webRunner, /selectEmojiCommentEmoji/);
+  assert.match(webRunner, /fillEmojiComment/);
+  assert.match(webRunner, /prefix: "public-profile\.comments"/);
+  assert.match(webRunner, /\$\{prefix\}\.emoji/);
+  assert.match(webRunner, /\$\{prefix\}\.input/);
+  assert.match(webRunner, /\$\{prefix\}\.send/);
   assert.match(androidUiTest, /performTextInput\(uiComment\.removePrefix\("😀"\)\)/);
   assert.match(androidUiTest, /public-profile\.attachments\.item\.sb:\$attachmentId/);
   assert.match(iosUiTest, /public-profile\.attachments\.item\.sb:\\\(attachmentId\)/);
@@ -89,7 +118,8 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(webRunner, /Cerrar comentarios\|Close comments/);
   assert.match(webRunner, /throw new Error\("profile_content_comments_input_not_visible"\)/);
   assert.match(webRunner, /bottomVisibleNativeControl\(page, sendPatterns/);
-  assert.match(webRunner, /throw new Error\("profile_content_comments_input_not_editable"\)/);
+  assert.match(webRunner, /errorPrefix: "profile_content_comments"/);
+  assert.match(webRunner, /\$\{errorPrefix\}_input_not_editable/);
   assert.match(androidUiTest, /"profile-content" -> \{\s*openProfileFromPeerMessage\(peerProbe\.orEmpty\(\), profileId\.orEmpty\(\)\)/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT/);
   assert.match(iosUiTest, /typeText\(String\(uiComment\.dropFirst\(\)\), into: "public-profile\.comments\.input", in: app\)/);

@@ -55,5 +55,6 @@ fun OfficialPostActionRailContent(
         onDelete = onDelete,
         onPublish = onCreate,
         modifier = modifier,
+        actionTestTagPrefix = "official.action",
     )
 }

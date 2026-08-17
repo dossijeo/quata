@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +46,7 @@ fun QuataFeedActionRail(
     showReport: Boolean = false, showDelete: Boolean = false, showPublish: Boolean = true,
     onLike: () -> Unit, onOpenComments: () -> Unit, onShare: () -> Unit, onOpenLive: () -> Unit,
     onReport: () -> Unit = {}, onDelete: () -> Unit = {}, onPublish: () -> Unit, modifier: Modifier = Modifier,
+    actionTestTagPrefix: String? = null,
 ) {
     Column(
         modifier = modifier,
@@ -55,12 +57,12 @@ fun QuataFeedActionRail(
             FeedTextAction(QuataFeedEmoji.Rank, rankLabel, postRank.toString(), onClick = onOpenLive)
             FeedTextAction(liveLabel, liveLabel, onClick = onOpenLive)
         }
-        FeedIconAction(if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, likeLabel, likes.toString(), if (isLiked) Color(0xFFFF7EA8) else Color.White, onClick = onLike)
-        FeedIconAction(Icons.Filled.ChatBubble, commentsLabel, comments.toString(), onClick = onOpenComments)
-        FeedIconAction(Icons.Filled.Share, shareLabel, onClick = onShare)
-        if (!isLandscape && showReport && reportLabel != null) FeedIconAction(Icons.Filled.Flag, reportLabel, tint = if (isReported) QuataOrange else Color.White, onClick = onReport)
-        if (showDelete && deleteLabel != null) FeedIconAction(Icons.Filled.Delete, deleteLabel, onClick = onDelete)
-        if (showPublish) FeedIconAction(Icons.Filled.Add, publishLabel, tint = Color.White, background = QuataOrange, onClick = onPublish)
+        FeedIconAction(if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, likeLabel, likes.toString(), if (isLiked) Color(0xFFFF7EA8) else Color.White, onClick = onLike, testTag = actionTestTagPrefix?.let { "$it.like" })
+        FeedIconAction(Icons.Filled.ChatBubble, commentsLabel, comments.toString(), onClick = onOpenComments, testTag = actionTestTagPrefix?.let { "$it.comments" })
+        FeedIconAction(Icons.Filled.Share, shareLabel, onClick = onShare, testTag = actionTestTagPrefix?.let { "$it.share" })
+        if (!isLandscape && showReport && reportLabel != null) FeedIconAction(Icons.Filled.Flag, reportLabel, tint = if (isReported) QuataOrange else Color.White, onClick = onReport, testTag = actionTestTagPrefix?.let { "$it.report" })
+        if (showDelete && deleteLabel != null) FeedIconAction(Icons.Filled.Delete, deleteLabel, onClick = onDelete, testTag = actionTestTagPrefix?.let { "$it.delete" })
+        if (showPublish) FeedIconAction(Icons.Filled.Add, publishLabel, tint = Color.White, background = QuataOrange, onClick = onPublish, testTag = actionTestTagPrefix?.let { "$it.publish" })
     }
 }
 
@@ -124,9 +126,9 @@ fun QuataFeedOverflowActionButton(
 }
 
 @Composable
-internal fun FeedIconAction(icon: ImageVector, description: String, count: String? = null, tint: Color = Color.White, background: Color = Color.Black.copy(alpha = .42f), onClick: () -> Unit) {
+internal fun FeedIconAction(icon: ImageVector, description: String, count: String? = null, tint: Color = Color.White, background: Color = Color.Black.copy(alpha = .42f), testTag: String? = null, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(48.dp).clip(CircleShape).background(background).semantics { contentDescription = description }.clickable(onClick = onClick), Alignment.Center) {
+        Box(Modifier.size(48.dp).clip(CircleShape).background(background).clickable(onClick = onClick).semantics { contentDescription = description }.then(testTag?.let { Modifier.testTag(it) } ?: Modifier), Alignment.Center) {
             if (count == null) Icon(icon, null, modifier = Modifier.size(24.dp), tint = tint) else Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(icon, null, modifier = Modifier.size(21.dp), tint = tint)
                 Text(count, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 10.sp, maxLines = 1)

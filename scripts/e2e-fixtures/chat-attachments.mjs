@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { randomUUID } from "node:crypto";
 
 export const chatAttachmentsBucket = "chat-attachments";
 
@@ -543,6 +544,214 @@ export async function pollProfileReport({
     await delay(1_000);
   }
   throw new Error("profile_report_not_persisted");
+}
+
+export async function seedFeedOfficialCommentsFixture({
+  fixture,
+  withDatabase,
+}) {
+  if (!fixture?.marker?.startsWith("qadata-feed-official-comments-")) throw new Error("feed_official_comments_fixture_marker_invalid");
+  if (!uuid.test(fixture.actorSession?.profileId ?? "")) throw new Error("feed_official_comments_fixture_invalid_actor");
+  if (!uuid.test(fixture.targetSession?.profileId ?? "")) throw new Error("feed_official_comments_fixture_invalid_target");
+  if (fixture.prepared) return fixture;
+  const marker = fixture.marker;
+  fixture.feed = {
+    postId: randomUUID(),
+    seedCommentId: randomUUID(),
+    uiComment: `😀 ${marker} feed ui comment`,
+  };
+  fixture.official = {
+    postId: randomUUID(),
+    translationGroupId: randomUUID(),
+    seedCommentId: randomUUID(),
+    uiComment: `😀 ${marker} official ui comment`,
+    title: `QADATA official comments ${marker.slice(-12)}`,
+  };
+  await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const feedPost = await client.query(
+        `with selected_wall as (
+           select wall_id as id
+           from public.community_members
+           where profile_id = $1::uuid
+           order by created_at desc
+           limit 1
+         ), fallback_wall as (
+           select id
+           from public.community_walls_stats
+           where is_active = true
+           order by sort_order asc
+           limit 1
+         ), wall as (
+           select id from selected_wall
+           union all
+           select id from fallback_wall
+           limit 1
+         )
+         insert into public.community_posts(id, wall_id, profile_id, body)
+         select $2::uuid, wall.id, $1::uuid, $3
+         from wall
+         returning id`,
+        [fixture.targetSession.profileId, fixture.feed.postId, `${marker} feed post body`],
+      );
+      if (feedPost.rowCount !== 1) throw new Error("feed_official_comments_fixture_wall_unavailable");
+      await client.query(
+        `insert into public.community_comments(id, post_id, profile_id, body)
+         values ($1::uuid, $2::uuid, $3::uuid, $4)`,
+        [fixture.feed.seedCommentId, fixture.feed.postId, fixture.actorSession.profileId, `${marker} feed seed comment`],
+      );
+      await client.query(
+        `insert into public.official_posts(
+           id, profile_id, title, summary, post_type, content_html,
+           read_more_label, language, translation_group_id, media_url,
+           media_type, link_url, is_live, is_published, published_at
+         ) values (
+           $1::uuid, $2::uuid, $3, $4, 'news', $5,
+           'Leer mas', 'es', $6::uuid, null,
+           null, null, false, true, now()
+         )`,
+        [
+          fixture.official.postId,
+          fixture.targetSession.profileId,
+          fixture.official.title,
+          `Fixture reversible de comentarios oficiales ${marker}`,
+          `<p>Fixture reversible de comentarios oficiales ${marker}</p>`,
+          fixture.official.translationGroupId,
+        ],
+      );
+      await client.query(
+        `insert into public.official_post_comments(id, official_post_id, profile_id, body)
+         values ($1::uuid, $2::uuid, $3::uuid, $4)`,
+        [fixture.official.seedCommentId, fixture.official.postId, fixture.actorSession.profileId, `${marker} official seed comment`],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  fixture.prepared = true;
+  return fixture;
+}
+
+export async function cleanupFeedOfficialCommentsFixture({
+  fixture,
+  withDatabase,
+}) {
+  if (!fixture?.marker) return null;
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      await client.query(
+        `delete from public.community_post_likes
+         where post_id = $1::uuid`,
+        [fixture.feed?.postId ?? nilUuid],
+      );
+      await client.query(
+        `delete from public.community_comments
+         where post_id = $1::uuid or body like $2`,
+        [fixture.feed?.postId ?? nilUuid, `%${fixture.marker}%`],
+      );
+      await client.query(
+        `delete from public.community_posts
+         where (id = $1::uuid or body like $2) and profile_id = $3::uuid`,
+        [fixture.feed?.postId ?? nilUuid, `%${fixture.marker}%`, fixture.targetSession?.profileId ?? nilUuid],
+      );
+      await client.query(
+        `delete from public.official_post_likes
+         where official_post_id = $1::uuid`,
+        [fixture.official?.postId ?? nilUuid],
+      );
+      await client.query(
+        `delete from public.official_post_comments
+         where official_post_id = $1::uuid or body like $2`,
+        [fixture.official?.postId ?? nilUuid, `%${fixture.marker}%`],
+      );
+      await client.query(
+        `delete from public.official_posts
+         where (id = $1::uuid or translation_group_id = $2::uuid or title like $3)
+           and profile_id = $4::uuid`,
+        [
+          fixture.official?.postId ?? nilUuid,
+          fixture.official?.translationGroupId ?? nilUuid,
+          `%${fixture.marker}%`,
+          fixture.targetSession?.profileId ?? nilUuid,
+        ],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+    const residue = await client.query(
+      `select
+        (select count(*)::int from public.community_posts where id = $1::uuid or body like $3) as community_posts,
+        (select count(*)::int from public.community_comments where post_id = $1::uuid or body like $3) as community_comments,
+        (select count(*)::int from public.community_post_likes where post_id = $1::uuid) as community_post_likes,
+        (select count(*)::int from public.official_posts where id = $2::uuid or translation_group_id = $4::uuid or title like $3) as official_posts,
+        (select count(*)::int from public.official_post_comments where official_post_id = $2::uuid or body like $3) as official_post_comments,
+        (select count(*)::int from public.official_post_likes where official_post_id = $2::uuid) as official_post_likes`,
+      [
+        fixture.feed?.postId ?? nilUuid,
+        fixture.official?.postId ?? nilUuid,
+        `%${fixture.marker}%`,
+        fixture.official?.translationGroupId ?? nilUuid,
+      ],
+    );
+    const counts = residue.rows[0] ?? {};
+    if (Object.values(counts).some((count) => Number(count) !== 0)) throw new Error("cleanup_residue_detected:feed_official_comments");
+    return {
+      status: "cleanup_verified_feed_official_comments_residue_absent",
+      feedPostId: fixture.feed?.postId ?? null,
+      officialPostId: fixture.official?.postId ?? null,
+      residueCounts: counts,
+    };
+  });
+}
+
+export async function pollFeedOfficialComment({
+  fixture,
+  surface,
+  marker,
+  withDatabase,
+  delay,
+  timeout = 45_000,
+}) {
+  const deadline = Date.now() + timeout;
+  const markerProbe = marker.replace(/^😀\s*/, "");
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => {
+      if (surface === "feed") {
+        return await client.query(
+          `select id, body
+             from public.community_comments
+            where post_id = $1::uuid and profile_id = $2::uuid and body like $3
+            order by created_at desc
+            limit 1`,
+          [fixture.feed?.postId, fixture.actorSession.profileId, `%${markerProbe}%`],
+        );
+      }
+      if (surface === "official") {
+        return await client.query(
+          `select id, body
+             from public.official_post_comments
+            where official_post_id = $1::uuid and profile_id = $2::uuid and body like $3
+            order by created_at desc
+            limit 1`,
+          [fixture.official?.postId, fixture.actorSession.profileId, `%${markerProbe}%`],
+        );
+      }
+      throw new Error(`feed_official_comments_unknown_surface:${surface}`);
+    });
+    const id = result.rows[0]?.id;
+    if (uuid.test(id ?? "")) {
+      fixture[surface].persistedUiComment = result.rows[0]?.body ?? null;
+      return id;
+    }
+    await delay(1_000);
+  }
+  throw new Error(`feed_official_${surface}_comment_not_persisted`);
 }
 
 export async function cleanupProfileRolesSafetyFixture({
