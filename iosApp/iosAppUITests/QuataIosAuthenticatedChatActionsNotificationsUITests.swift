@@ -948,6 +948,56 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-content-return")
     }
 
+    func testFeedAndOfficialCommentsUseSharedEmojiPicker() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Feed/Official comments emoji UI gate is opt-in.")
+        }
+        guard let feedPostId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID"]),
+              let feedComment = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_UI_COMMENT"]),
+              let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID"]),
+              let officialComment = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_UI_COMMENT"]) else {
+            throw XCTSkip("Disposable Feed/Official comments fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
+        sendEmojiCommentFromTaggedSurface(
+            actionIdentifier: "feed.action.comments",
+            panelIdentifier: "feed.comments.panel",
+            inputIdentifier: "feed.comments.input",
+            emojiIdentifier: "feed.comments.emoji",
+            sendIdentifier: "feed.comments.send",
+            comment: feedComment,
+            beforeScreenshot: "ios-feed-comments-emoji-before",
+            afterScreenshot: "ios-feed-comments-emoji-after",
+            context: "Feed comments",
+            in: app,
+        )
+
+        openDeepLink("quata://egquata.com/#official-\(encodedFragment(officialPostId))", in: app)
+        sendEmojiCommentFromTaggedSurface(
+            actionIdentifier: "official.action.comments",
+            panelIdentifier: "official.comments.panel",
+            inputIdentifier: "official.comments.input",
+            emojiIdentifier: "official.comments.emoji",
+            sendIdentifier: "official.comments.send",
+            comment: officialComment,
+            beforeScreenshot: "ios-official-comments-emoji-before",
+            afterScreenshot: "ios-official-comments-emoji-after",
+            context: "Official comments",
+            in: app,
+        )
+    }
+
     private func assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, in app: XCUIApplication) {
         let posts = app.descendants(matching: .any)
             .matching(identifier: "public-profile.kpi.posts.\(profileId)")
@@ -1035,6 +1085,146 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(persistedComment.waitForExistence(timeout: 15), "The profile comment submitted from iOS must remain visible after the optimistic write resolves.")
         attachScreenshot(app, name: "ios-chat-profile-content")
         dismissProfileCommentsPanel(in: app)
+    }
+
+    private func sendEmojiCommentFromTaggedSurface(
+        actionIdentifier: String,
+        panelIdentifier: String,
+        inputIdentifier: String,
+        emojiIdentifier: String,
+        sendIdentifier: String,
+        comment: String,
+        beforeScreenshot: String,
+        afterScreenshot: String,
+        context: String,
+        in app: XCUIApplication,
+    ) {
+        tapTaggedButton(actionIdentifier, in: app, context: "\(context) action")
+        let panel = app.descendants(matching: .any)
+            .matching(identifier: panelIdentifier)
+            .firstMatch
+        if !panel.waitForExistence(timeout: 15) {
+            let emojiVisible = app.descendants(matching: .any)
+                .matching(identifier: emojiIdentifier)
+                .firstMatch
+                .waitForExistence(timeout: 2)
+            let inputVisible = waitForCommentInput(inputIdentifier, in: app, timeout: 2, required: false).exists
+            let sendVisible = app.descendants(matching: .any)
+                .matching(identifier: sendIdentifier)
+                .firstMatch
+                .waitForExistence(timeout: 2)
+            XCTAssertTrue(emojiVisible || inputVisible || sendVisible, "\(context) must open the shared comments panel or expose its common controls.")
+        }
+        for identifier in [
+            emojiIdentifier,
+            inputIdentifier,
+            sendIdentifier,
+        ] {
+            if identifier == inputIdentifier {
+                _ = waitForCommentInput(inputIdentifier, in: app, timeout: 10, required: true)
+            } else {
+                _ = app.descendants(matching: .any)
+                    .matching(identifier: identifier)
+                    .firstMatch
+                    .waitForExistence(timeout: 10)
+                XCTAssertTrue(
+                    app.descendants(matching: .any).matching(identifier: identifier).firstMatch.exists,
+                    "\(context) must expose \(identifier).",
+                )
+            }
+        }
+        let inputFrameBeforeEmoji = waitForCommentInput(inputIdentifier, in: app, timeout: 5, required: true).frame
+        let sendFrameBeforeEmoji = app.descendants(matching: .any)
+            .matching(identifier: sendIdentifier)
+            .firstMatch
+            .frame
+        attachScreenshot(app, name: beforeScreenshot)
+
+        tapTaggedButton(emojiIdentifier, in: app, context: "\(context) emoji")
+        let emojiPanel = app.descendants(matching: .any)
+            .matching(identifier: "community.emoji.panel")
+            .firstMatch
+        XCTAssertTrue(emojiPanel.waitForExistence(timeout: 10), "\(context) must show the shared emoji panel.")
+        tapTaggedButton("community.emoji.cell.frequent.0", in: app, context: "\(context) first frequent emoji")
+
+        _ = waitForCommentInput(inputIdentifier, in: app, timeout: 3, required: false)
+        typeText(String(comment.dropFirst()), intoCommentInput: inputIdentifier, fallbackFrame: inputFrameBeforeEmoji, in: app)
+        tapTaggedButton(sendIdentifier, fallbackFrame: sendFrameBeforeEmoji, in: app, context: "\(context) send")
+
+        let visibleComment = String(comment.dropFirst())
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: " ")
+            .first
+            .map(String.init) ?? String(comment.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+        let persistedComment = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "(label CONTAINS %@ OR value CONTAINS %@) AND identifier != %@", visibleComment, visibleComment, inputIdentifier))
+            .firstMatch
+        XCTAssertTrue(persistedComment.waitForExistence(timeout: 20), "\(context) submitted from iOS must remain visible after the optimistic write resolves.")
+        attachScreenshot(app, name: afterScreenshot)
+    }
+
+    private func waitForCommentInput(_ identifier: String, in app: XCUIApplication, timeout: TimeInterval, required: Bool) -> XCUIElement {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let input = commentInput(identifier, in: app)
+            if input.exists {
+                return input
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        let input = commentInput(identifier, in: app)
+        if required {
+            XCTAssertTrue(input.exists, "Expected editable comment field \(identifier) to exist.")
+        }
+        return input
+    }
+
+    private func commentInput(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let tagged = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        if tagged.exists {
+            return tagged
+        }
+        let localized = NSPredicate(format: "label CONTAINS[c] %@ OR value CONTAINS[c] %@ OR placeholderValue CONTAINS[c] %@", "comentario", "comentario", "comentario")
+        let textView = app.textViews.matching(localized).firstMatch
+        if textView.exists {
+            return textView
+        }
+        let textField = app.textFields.matching(localized).firstMatch
+        if textField.exists {
+            return textField
+        }
+        if let lowerTextView = app.textViews.allElementsBoundByIndex.first(where: { $0.exists && $0.frame.midY > app.frame.height * 0.45 }) {
+            return lowerTextView
+        }
+        return tagged
+    }
+
+    private func typeText(_ value: String, intoCommentInput identifier: String, fallbackFrame: CGRect?, in app: XCUIApplication) {
+        for attempt in 0..<12 {
+            let field = commentInput(identifier, in: app)
+            if field.waitForExistence(timeout: 1), field.isHittable {
+                field.tap()
+                pasteText(value, into: field, in: app)
+                return
+            }
+            if attempt < 6 {
+                app.swipeDown()
+            } else {
+                app.swipeUp()
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        if let frame = fallbackFrame, frame.width > 0, frame.height > 0 {
+            let coordinate = app.coordinate(withNormalizedOffset: CGVector(
+                dx: max(0.05, min(0.95, frame.midX / app.frame.width)),
+                dy: max(0.05, min(0.95, frame.midY / app.frame.height)),
+            ))
+            pasteText(value, at: coordinate, in: app)
+            return
+        }
+        let field = commentInput(identifier, in: app)
+        XCTAssertTrue(field.exists, "Expected editable comment field \(identifier) to exist.")
+        pasteText(value, into: field, in: app)
     }
 
     func testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls() throws {
@@ -1666,7 +1856,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertFalse(pending.exists, "Expected \(context) to finish before ending the UI gate.")
     }
 
-    private func tapTaggedButton(_ identifier: String, in app: XCUIApplication, context: String) {
+    private func tapTaggedButton(_ identifier: String, fallbackFrame: CGRect? = nil, in app: XCUIApplication, context: String) {
         let button = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         for _ in 0..<8 {
             if button.waitForExistence(timeout: 1), button.isHittable {
@@ -1675,6 +1865,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             }
             app.swipeUp()
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        if let frame = fallbackFrame, frame.width > 0, frame.height > 0 {
+            app.coordinate(withNormalizedOffset: CGVector(
+                dx: max(0.05, min(0.95, frame.midX / app.frame.width)),
+                dy: max(0.05, min(0.95, frame.midY / app.frame.height)),
+            )).tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            return
         }
         XCTAssertTrue(button.exists, "Expected \(identifier) for \(context).")
         button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
@@ -1965,6 +2163,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return
         }
         typeIntoFocusedElement(value, fallback: field, in: app)
+    }
+
+    private func pasteText(_ value: String, at coordinate: XCUICoordinate, in app: XCUIApplication) {
+        UIPasteboard.general.string = value
+        coordinate.tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+        coordinate.press(forDuration: 0.7)
+        let paste = app.menuItems.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Paste", "Pegar")).firstMatch
+        if paste.waitForExistence(timeout: 3) {
+            paste.tap()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+            return
+        }
+        if app.keyboards.count > 0 {
+            app.typeText(value)
+        }
     }
 
     private func typeIntoFocusedElement(_ value: String, fallback: XCUIElement, in app: XCUIApplication) {

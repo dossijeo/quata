@@ -8,14 +8,17 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import {
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
+  cleanupFeedOfficialCommentsFixture as cleanupSharedFeedOfficialCommentsFixture,
   createCleanupRegistry,
   cleanupProfileRolesSafetyFixture as cleanupSharedProfileRolesSafetyFixture,
+  pollFeedOfficialComment as pollSharedFeedOfficialComment,
   pollProfileGlobalBlock,
   pollProfileReport,
   pollProfileContentComment as pollSharedProfileContentComment,
   pollProfileRoles,
   prepareProfileRolesSafetyFixture,
   seedChatAttachmentFixture,
+  seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
@@ -32,6 +35,7 @@ const profileOnly = process.argv.includes("--profile-only");
 const profileFollowOnly = process.argv.includes("--profile-follow-only");
 const profileListsOnly = process.argv.includes("--profile-lists-only");
 const profileContentOnly = process.argv.includes("--profile-content-only");
+const feedOfficialCommentsOnly = process.argv.includes("--feed-official-comments-only");
 const profileEntryOnly = process.argv.includes("--profile-entry-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-only");
@@ -97,6 +101,18 @@ const evidenceFiles = [
   "android-profile-entry-communities.png",
   "android-profile-entry-communities-return.png",
   "android-profile-entry-chat-return.png",
+  "android-feed-comments-emoji-before.png",
+  "android-feed-comments-emoji-before-missing-action.png",
+  "android-feed-comments-emoji-before-semantics.txt",
+  "android-feed-comments-emoji-after.png",
+  "android-feed-comments-emoji-after-missing-comment.png",
+  "android-feed-comments-emoji-after-semantics.txt",
+  "android-official-comments-emoji-before.png",
+  "android-official-comments-emoji-before-missing-action.png",
+  "android-official-comments-emoji-before-semantics.txt",
+  "android-official-comments-emoji-after.png",
+  "android-official-comments-emoji-after-missing-comment.png",
+  "android-official-comments-emoji-after-semantics.txt",
   "android-chat-attachment-document-visible.png",
   "android-chat-audio-recording-active.png",
   "android-chat-audio-recording-pending-attachment.png",
@@ -216,6 +232,18 @@ async function cleanupProfileContentFixture(fixture) {
 
 async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   return pollSharedProfileContentComment({ fixture, marker, withDatabase, delay, timeout });
+}
+
+async function prepareFeedOfficialCommentsFixture(fixture) {
+  return seedFeedOfficialCommentsFixture({ fixture, withDatabase });
+}
+
+async function cleanupFeedOfficialCommentsFixture(fixture) {
+  return cleanupSharedFeedOfficialCommentsFixture({ fixture, withDatabase });
+}
+
+async function pollFeedOfficialComment(fixture, surface, marker, timeout = 45_000) {
+  return pollSharedFeedOfficialComment({ fixture, surface, marker, withDatabase, delay, timeout });
 }
 
 async function cleanupProfileRolesSafetyFixture(fixture) {
@@ -1276,7 +1304,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = options.evidenceDir;
@@ -1313,7 +1341,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !attachmentPickerOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !attachmentPickerOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1461,11 +1489,13 @@ try {
       "-e", "quataChatActionsReplyMarker", replyMarker,
       "-e", "quataChatActionsEditMarker", editMarker,
       "-e", "quataChatActionsForwardQuery", state.forwardProfile?.phoneLocal ?? "translation-only",
-      "-e", "quataChatActionsPostId", state.profileContent?.postId ?? "",
-      "-e", "quataChatActionsOfficialPostId", state.profileEntry?.official?.id ?? "",
+      "-e", "quataChatActionsPostId", state.feedOfficialComments?.feed?.postId ?? state.profileContent?.postId ?? "",
+      "-e", "quataChatActionsOfficialPostId", state.feedOfficialComments?.official?.postId ?? state.profileEntry?.official?.id ?? "",
       "-e", "quataChatActionsCommentId", state.profileContent?.seedCommentId ?? "",
       "-e", "quataChatActionsAttachmentId", String(state.profileContent?.attachmentId ?? ""),
       "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
+      "-e", "quataChatActionsFeedComment", state.feedOfficialComments?.feed?.uiComment ?? "",
+      "-e", "quataChatActionsOfficialComment", state.feedOfficialComments?.official?.uiComment ?? "",
       "-e", "quataChatActionsDocumentProbe", state.attachmentsAudio?.document?.markerProbe ?? "",
       "-e", "quataChatActionsAudioProbe", state.attachmentsAudio?.audio?.markerProbe ?? "",
       "-e", "quataChatActionsAudioName", state.attachmentsAudio?.audio?.name ?? "",
@@ -1795,6 +1825,14 @@ try {
       state.profileEntry = await prepareProfileEntryFixture(config, runId);
       state.profileContent = state.profileEntry.profileContent;
       report.steps.push("profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared");
+    } else if (feedOfficialCommentsOnly) {
+      state.feedOfficialComments = {
+        marker: `qadata-feed-official-comments-${runId}`,
+        actorSession: state.a,
+        targetSession: state.b,
+      };
+      await prepareFeedOfficialCommentsFixture(state.feedOfficialComments);
+      report.steps.push("feed_official_comments_fixture_prepared");
     } else if (profileRolesSafetyOnly) {
       state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
         actorSession: state.a,
@@ -1814,7 +1852,7 @@ try {
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
     }
-    const profileStage = profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
+    const profileStage = feedOfficialCommentsOnly ? "feed-official-comments" : profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
@@ -1824,6 +1862,8 @@ try {
       ? "peer_public_profile_followers_and_following_lists_opened_and_returned"
       : profileContentOnly
         ? "profile_content_gallery_comments_and_attachments_verified"
+        : feedOfficialCommentsOnly
+          ? "feed_and_official_comments_emoji_picker_verified_with_common_tags"
         : profileEntryOnly
           ? "profile_entry_feed_official_communities_conversations_and_chat_opened_common_profile_and_returned"
         : profilePrivateChatOnly
@@ -1832,6 +1872,12 @@ try {
     if (profileContentOnly) {
       state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
       report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
+    }
+    if (feedOfficialCommentsOnly) {
+      state.feedOfficialComments.feed.uiCommentId = await pollFeedOfficialComment(state.feedOfficialComments, "feed", state.feedOfficialComments.feed.uiComment);
+      state.feedOfficialComments.official.uiCommentId = await pollFeedOfficialComment(state.feedOfficialComments, "official", state.feedOfficialComments.official.uiComment);
+      report.steps.push("feed_comments_emoji_created_from_ui_and_verified_by_db");
+      report.steps.push("official_comments_emoji_created_from_ui_and_verified_by_db");
     }
     if (profileRolesSafetyOnly) {
       report.evidence.profileRolesPersisted = await pollProfileRoles({
@@ -1855,10 +1901,11 @@ try {
     }
   }
 
-  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly) {
+  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly) {
     await rm(evidenceDir, { recursive: true, force: true });
     await mkdir(evidenceDir, { recursive: true });
-    for (const file of evidenceFiles.filter((name) => name.includes("profile") || name.endsWith("evidence.json"))) {
+    const focalEvidencePrefix = feedOfficialCommentsOnly ? /(feed-comments|official-comments)/ : /profile/;
+    for (const file of evidenceFiles.filter((name) => focalEvidencePrefix.test(name) || name.endsWith("evidence.json"))) {
       await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file));
     }
     report.status = "passed";
@@ -1883,6 +1930,15 @@ try {
         attachmentId: state.profileContent.attachmentId,
         attachmentMessageId: state.profileContent.attachmentMessageId,
       } : null,
+      feedOfficialComments: state.feedOfficialComments ? {
+        markerSha256: sha256(state.feedOfficialComments.marker),
+        feedPostId: state.feedOfficialComments.feed?.postId ?? null,
+        feedUiCommentId: state.feedOfficialComments.feed?.uiCommentId ?? null,
+        feedPersistedUiComment: state.feedOfficialComments.feed?.persistedUiComment ?? null,
+        officialPostId: state.feedOfficialComments.official?.postId ?? null,
+        officialUiCommentId: state.feedOfficialComments.official?.uiCommentId ?? null,
+        officialPersistedUiComment: state.feedOfficialComments.official?.persistedUiComment ?? null,
+      } : null,
       profileEntry: state.profileEntry ? {
         officialPostId: state.profileEntry.official.id,
         officialMarkerSha256: sha256(state.profileEntry.official.marker),
@@ -1896,7 +1952,7 @@ try {
         hadProfileReport: Boolean(state.profileRolesSafety.previousReport),
       } : null,
     };
-    throw new Error(profileRolesSafetyOnly ? "profile_roles_safety_only_completed" : profilePrivateChatOnly ? "profile_private_chat_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
+    throw new Error(feedOfficialCommentsOnly ? "feed_official_comments_only_completed" : profileRolesSafetyOnly ? "profile_roles_safety_only_completed" : profilePrivateChatOnly ? "profile_private_chat_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));
@@ -1972,6 +2028,7 @@ try {
     error?.message === "profile_lists_only_completed" ||
     error?.message === "profile_entry_only_completed" ||
     error?.message === "profile_content_only_completed" ||
+    error?.message === "feed_official_comments_only_completed" ||
     error?.message === "profile_private_chat_only_completed" ||
     error?.message === "profile_roles_safety_only_completed"
   ) {
@@ -2060,6 +2117,16 @@ try {
         cleanup.profileEntryOfficial = await cleanupOfficialProfileEntryPost(state.profileEntry.official);
         cleanup.actions.push("profile_entry_official_post_deleted");
         cleanup.actions.push("cleanup_verified_profile_entry_official_residue_absent");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (config && state.feedOfficialComments) {
+      try {
+        cleanup.feedOfficialComments = await cleanupFeedOfficialCommentsFixture(state.feedOfficialComments);
+        cleanup.actions.push("feed_official_comments_fixture_deleted");
+        cleanup.actions.push("cleanup_verified_feed_official_comments_residue_absent");
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);

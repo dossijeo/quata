@@ -46,6 +46,7 @@ class FeedViewModel(
         when (event) {
             FeedUiEvent.Refresh -> refresh()
             FeedUiEvent.LoadOlderPage -> loadOlderPage()
+            is FeedUiEvent.FocusPost -> focusPost(event.postId)
             is FeedUiEvent.PostDisplayed -> loadDisplayedPostDetails(event.postId, event.nextPostId)
             is FeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
             is FeedUiEvent.ReportPost -> updatePostFromRepository { repository.reportPost(event.postId) }
@@ -155,6 +156,38 @@ class FeedViewModel(
         nextPostId
             ?.takeIf { it != postId }
             ?.let { loadPostDetails(it, reportErrors = false) }
+    }
+
+    private fun focusPost(postId: String) {
+        if (postId in loadingDetailPostIds) return
+        if (_uiState.value.posts.any { it.id == postId }) {
+            loadPostDetails(postId, reportErrors = true)
+            return
+        }
+        loadingDetailPostIds += postId
+        scope.launch {
+            repository.refreshPost(postId)
+                .onSuccess { post ->
+                    if (post != null) {
+                        _uiState.value = _uiState.value.copy(
+                            posts = feedStore.prependIfMissing(post),
+                            isLoading = false,
+                            isRefreshing = false,
+                            error = null,
+                        )
+                        loadedDetailPostIds += postId
+                    }
+                    loadingDetailPostIds -= postId
+                }
+                .onFailure { error ->
+                    loadingDetailPostIds -= postId
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        error = error.message ?: _uiState.value.error,
+                    )
+                }
+        }
     }
 
     private fun refreshCurrentUser() = scope.launch {

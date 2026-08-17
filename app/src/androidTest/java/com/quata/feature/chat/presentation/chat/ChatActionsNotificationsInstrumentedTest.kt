@@ -18,6 +18,7 @@ import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -26,6 +27,7 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.longClick
 import androidx.test.core.app.ActivityScenario
@@ -55,6 +57,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.math.roundToInt
 
 @RunWith(AndroidJUnit4::class)
 class ChatActionsNotificationsInstrumentedTest {
@@ -105,6 +108,8 @@ class ChatActionsNotificationsInstrumentedTest {
         val groupBlockDisplayName = optionalArgument("quataChatGroupBlockDisplayName")
         val groupBlockSearchQuery = optionalArgument("quataChatGroupBlockSearchQuery")
         val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
+        val feedComment = optionalArgument("quataChatActionsFeedComment")
+        val officialComment = optionalArgument("quataChatActionsOfficialComment")
         val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
         val credentials = credentialsFile?.let(::credentialsFromFile)
@@ -114,6 +119,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
+            "feed-official-comments" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
@@ -143,6 +149,21 @@ class ChatActionsNotificationsInstrumentedTest {
                 chatUrl = chatUrl.orEmpty(),
                 peerProbe = peerProbe.orEmpty(),
                 profileNeighborhood = profileNeighborhood.orEmpty(),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "feed-official-comments") {
+            runFeedOfficialCommentsStage(
+                feedPostId = postId.orEmpty(),
+                officialPostId = officialPostId.orEmpty(),
+                feedComment = feedComment.orEmpty(),
+                officialComment = officialComment.orEmpty(),
             )
             writeReport(
                 JSONObject()
@@ -304,6 +325,104 @@ class ChatActionsNotificationsInstrumentedTest {
             closePublicProfile(peerProbe)
             saveScreenshot("android-profile-entry-chat-return")
         }
+    }
+
+    private fun runFeedOfficialCommentsStage(
+        feedPostId: String,
+        officialPostId: String,
+        feedComment: String,
+        officialComment: String,
+    ) {
+        ActivityScenario.launch<MainActivity>(chatIntent(quataPostUrl(feedPostId))).use {
+            sendEmojiCommentFromOpenPost(
+                actionTag = "feed.action.comments",
+                inputTag = "feed.comments.input",
+                emojiTag = "feed.comments.emoji",
+                sendTag = "feed.comments.send",
+                comment = feedComment,
+                beforeScreenshot = "android-feed-comments-emoji-before",
+                afterScreenshot = "android-feed-comments-emoji-after",
+            )
+        }
+        ActivityScenario.launch<MainActivity>(chatIntent(quataOfficialPostUrl(officialPostId))).use {
+            sendEmojiCommentFromOpenPost(
+                actionTag = "official.action.comments",
+                inputTag = "official.comments.input",
+                emojiTag = "official.comments.emoji",
+                sendTag = "official.comments.send",
+                comment = officialComment,
+                beforeScreenshot = "android-official-comments-emoji-before",
+                afterScreenshot = "android-official-comments-emoji-after",
+            )
+        }
+    }
+
+    private fun sendEmojiCommentFromOpenPost(
+        actionTag: String,
+        inputTag: String,
+        emojiTag: String,
+        sendTag: String,
+        comment: String,
+        beforeScreenshot: String,
+        afterScreenshot: String,
+    ) {
+        waitForFeedOfficialActionTag(actionTag, beforeScreenshot, timeoutMillis = 90_000)
+        saveScreenshot(beforeScreenshot)
+        clickStableTag(actionTag)
+        waitForTag(inputTag, "comments input $inputTag", 20_000)
+        compose.onNodeWithTag(emojiTag, useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        waitForTag("community.emoji.panel", "comments emoji panel", 10_000)
+        compose.onNodeWithTag("community.emoji.cell.frequent.0", useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        compose.onNodeWithTag(inputTag, useUnmergedTree = true)
+            .performTextInput(comment.removePrefix("😀").trimStart())
+        compose.onNodeWithTag(sendTag, useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        val visibleCommentText = comment.removePrefix("😀").trimStart()
+        val visible = runCatching {
+            compose.waitUntil(45_000) {
+                runCatching {
+                    compose.onAllNodes(hasText(visibleCommentText, substring = true), useUnmergedTree = true)
+                        .fetchSemanticsNodes()
+                        .isNotEmpty()
+                }.getOrDefault(false)
+            }
+            true
+        }.getOrDefault(false)
+        if (!visible) {
+            saveScreenshot("$afterScreenshot-missing-comment")
+            File(evidenceDir(), "$afterScreenshot-semantics.txt")
+                .writeText(
+                    runCatching {
+                        compose.onRoot(useUnmergedTree = true)
+                            .printToString(maxDepth = 20)
+                    }.getOrElse { error ->
+                        error.stackTraceToString()
+                    },
+                )
+        }
+        assertTrue("The submitted comments text must be visible: $visibleCommentText.", visible)
+        saveScreenshot(afterScreenshot)
+    }
+
+    private fun waitForFeedOfficialActionTag(actionTag: String, screenshotPrefix: String, timeoutMillis: Long) {
+        val visible = runCatching {
+            compose.waitUntil(timeoutMillis) { nodeWithTagVisible(actionTag) }
+            true
+        }.getOrDefault(false)
+        if (visible) return
+        saveScreenshot("$screenshotPrefix-missing-action")
+        File(evidenceDir(), "$screenshotPrefix-semantics.txt")
+            .writeText(
+                runCatching {
+                    compose.onRoot(useUnmergedTree = true)
+                        .printToString(maxDepth = 20)
+                }.getOrElse { error ->
+                    error.stackTraceToString()
+                },
+            )
+        assertTrue("The feed/official comments action tag must be visible: $actionTag.", false)
     }
 
     private fun String.toNeighborhoodTagSuffix(): String =
@@ -1699,6 +1818,12 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun clickStableTag(tag: String) {
+        val visibleNode = visibleTaggedNodes(tag).firstOrNull()
+        if (visibleNode != null) {
+            val center = visibleNode.boundsInRoot.center
+            check(device.click(center.x.roundToInt(), center.y.roundToInt())) { "stable_tag_visible_tap_failed:$tag" }
+            return
+        }
         val clickedByCompose = runCatching {
             compose.onNodeWithTag(tag, useUnmergedTree = true)
                 .performClick()
@@ -1760,10 +1885,22 @@ class ChatActionsNotificationsInstrumentedTest {
         }.isSuccess
 
     private fun nodeWithTagVisible(tag: String): Boolean =
+        visibleTaggedNodes(tag).isNotEmpty()
+
+    private fun visibleTaggedNodes(tag: String) =
         runCatching {
-            compose.onNodeWithTag(tag, useUnmergedTree = true)
-                .fetchSemanticsNode()
-        }.isSuccess
+            compose.onAllNodes(hasTestTag(tag), useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .filter { node ->
+                    val bounds = node.boundsInRoot
+                    bounds.width > 0f &&
+                        bounds.height > 0f &&
+                        bounds.right > 0f &&
+                        bounds.bottom > 0f &&
+                        bounds.left < device.displayWidth &&
+                        bounds.top < device.displayHeight
+                }
+        }.getOrDefault(emptyList())
 
     private fun translatorNodeVisible(markerProbe: String): Boolean =
         runCatching {

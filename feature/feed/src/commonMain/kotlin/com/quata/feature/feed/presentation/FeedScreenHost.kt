@@ -249,7 +249,7 @@ fun FeedScreenHost(
     DisposableEffect(Unit) { onDispose { onCommentsVisibilityChanged(false) } }
 
     LaunchedEffect(focusedPostId) {
-        if (focusedPostId != null && focusedPostId != handledFocus) viewModel.onEvent(FeedUiEvent.Refresh)
+        if (focusedPostId != null && focusedPostId != handledFocus) viewModel.onEvent(FeedUiEvent.FocusPost(focusedPostId))
     }
     LaunchedEffect(networkReconnectToken) {
         if (networkReconnectToken != 0L) viewModel.onEvent(FeedUiEvent.Refresh)

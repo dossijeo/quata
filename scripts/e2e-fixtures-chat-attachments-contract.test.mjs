@@ -5,7 +5,10 @@ import {
   attachmentStorageFixtures,
   chatAttachmentsBucket,
   createCleanupRegistry,
+  cleanupFeedOfficialCommentsFixture,
   cleanupProfileContentFixture,
+  pollFeedOfficialComment,
+  seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
   seedChatAttachmentFixture,
   validMp4Fixture,
@@ -340,4 +343,112 @@ test("shared profile content cleanup fails closed on residue", async () => {
       },
     }),
   }), /cleanup_residue_detected:profile_content/);
+});
+
+test("shared feed/official comments fixture seeds both surfaces with reversible IDs", async () => {
+  const queries = [];
+  const fixture = await seedFeedOfficialCommentsFixture({
+    fixture: {
+      marker: "qadata-feed-official-comments-12345678-1234-1234-1234-123456789abc",
+      actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+      targetSession: { profileId: "22222222-2222-2222-2222-222222222222" },
+    },
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        if (/insert into public\.community_posts/.test(sql)) return { rows: [{ id: params[1] }], rowCount: 1 };
+        return { rows: [], rowCount: 1 };
+      },
+    }),
+  });
+  assert.match(fixture.feed.postId, /^[0-9a-f-]{36}$/);
+  assert.match(fixture.official.postId, /^[0-9a-f-]{36}$/);
+  assert.match(fixture.feed.uiComment, /^😀 qadata-feed-official-comments-/);
+  assert.match(fixture.official.uiComment, /^😀 qadata-feed-official-comments-/);
+  assert.ok(queries.some((entry) => /insert into public\.community_posts/.test(entry.sql)));
+  assert.ok(queries.some((entry) => /insert into public\.community_comments/.test(entry.sql)));
+  assert.ok(queries.some((entry) => /insert into public\.official_posts/.test(entry.sql)));
+  assert.ok(queries.some((entry) => /insert into public\.official_post_comments/.test(entry.sql)));
+});
+
+test("shared feed/official comments cleanup deletes both surfaces and verifies residue", async () => {
+  const queries = [];
+  const summary = await cleanupFeedOfficialCommentsFixture({
+    fixture: {
+      marker: "qadata-feed-official-comments-12345678-1234-1234-1234-123456789abc",
+      actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+      targetSession: { profileId: "22222222-2222-2222-2222-222222222222" },
+      feed: { postId: "33333333-3333-3333-3333-333333333333" },
+      official: {
+        postId: "44444444-4444-4444-4444-444444444444",
+        translationGroupId: "55555555-5555-5555-5555-555555555555",
+      },
+    },
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        if (/select\s+\(select count\(\*\)::int from public\.community_posts/.test(sql)) {
+          return { rows: [{
+            community_posts: 0,
+            community_comments: 0,
+            community_post_likes: 0,
+            official_posts: 0,
+            official_post_comments: 0,
+            official_post_likes: 0,
+          }] };
+        }
+        return { rows: [], rowCount: 1 };
+      },
+    }),
+  });
+  assert.equal(summary.status, "cleanup_verified_feed_official_comments_residue_absent");
+  assert.ok(queries.some((entry) => /delete from public\.community_comments/.test(entry.sql)));
+  assert.ok(queries.some((entry) => /delete from public\.community_posts/.test(entry.sql)));
+  assert.ok(queries.some((entry) => /delete from public\.official_post_comments/.test(entry.sql)));
+  assert.ok(queries.some((entry) => /delete from public\.official_posts/.test(entry.sql)));
+});
+
+test("shared feed/official comments cleanup fails closed on residue", async () => {
+  await assert.rejects(cleanupFeedOfficialCommentsFixture({
+    fixture: {
+      marker: "qadata-feed-official-comments-12345678-1234-1234-1234-123456789abc",
+      targetSession: { profileId: "22222222-2222-2222-2222-222222222222" },
+      feed: { postId: "33333333-3333-3333-3333-333333333333" },
+      official: { postId: "44444444-4444-4444-4444-444444444444", translationGroupId: "55555555-5555-5555-5555-555555555555" },
+    },
+    withDatabase: async (callback) => callback({
+      query: async (sql) => {
+        if (/select\s+\(select count\(\*\)::int from public\.community_posts/.test(sql)) {
+          return { rows: [{
+            community_posts: 0,
+            community_comments: 0,
+            community_post_likes: 0,
+            official_posts: 1,
+            official_post_comments: 0,
+            official_post_likes: 0,
+          }] };
+        }
+        return { rows: [], rowCount: 0 };
+      },
+    }),
+  }), /cleanup_residue_detected:feed_official_comments/);
+});
+
+test("shared feed/official comments poll reads the platform-neutral surface table", async () => {
+  const calls = [];
+  const fixture = {
+    actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+    feed: { postId: "33333333-3333-3333-3333-333333333333" },
+    official: { postId: "44444444-4444-4444-4444-444444444444" },
+  };
+  const withDatabase = async (callback) => callback({
+    query: async (sql, params = []) => {
+      calls.push({ sql, params });
+      return { rows: [{ id: "66666666-6666-6666-6666-666666666666" }] };
+    },
+  });
+  assert.equal(await pollFeedOfficialComment({ fixture, surface: "feed", marker: "feed", withDatabase, delay: async () => {} }), "66666666-6666-6666-6666-666666666666");
+  assert.equal(await pollFeedOfficialComment({ fixture, surface: "official", marker: "official", withDatabase, delay: async () => {} }), "66666666-6666-6666-6666-666666666666");
+  assert.match(calls[0].sql, /public\.community_comments/);
+  assert.match(calls[1].sql, /public\.official_post_comments/);
 });

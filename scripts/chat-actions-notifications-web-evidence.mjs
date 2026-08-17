@@ -10,14 +10,17 @@ import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import {
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
+  cleanupFeedOfficialCommentsFixture as cleanupSharedFeedOfficialCommentsFixture,
   createCleanupRegistry,
   cleanupProfileRolesSafetyFixture as cleanupSharedProfileRolesSafetyFixture,
   pollProfileGlobalBlock,
   pollProfileReport,
+  pollFeedOfficialComment as pollSharedFeedOfficialComment,
   pollProfileContentComment as pollSharedProfileContentComment,
   pollProfileRoles,
   prepareProfileRolesSafetyFixture,
   seedChatAttachmentFixture,
+  seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
   validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
@@ -50,6 +53,7 @@ function parseArgs(argv) {
     profileListsOnly: false,
     profileContentOnly: false,
     profileEntryOnly: false,
+    feedOfficialCommentsOnly: false,
     profilePrivateChatOnly: false,
     profileRolesSafetyOnly: false,
     menuSurfaceOnly: false,
@@ -86,6 +90,12 @@ function parseArgs(argv) {
     }
     if (key === "--profile-entry-only") {
       result.profileEntryOnly = true;
+      continue;
+    }
+    if (key === "--feed-official-comments-only") {
+      result.feedOfficialCommentsOnly = true;
+      result.output = resolve("build-reports/web/feed-official-comments-emoji-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/feed-official-comments-emoji-evidence");
       continue;
     }
     if (key === "--profile-private-chat-only") {
@@ -183,6 +193,7 @@ function isProfileFocalMode(options) {
     options.profileFollowOnly ||
     options.profileListsOnly ||
     options.profileContentOnly ||
+    options.feedOfficialCommentsOnly ||
     options.profileEntryOnly ||
     options.profilePrivateChatOnly ||
     options.profileRolesSafetyOnly;
@@ -1578,6 +1589,18 @@ async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   return pollSharedProfileContentComment({ fixture, marker, withDatabase: withPoolerClient, delay, timeout });
 }
 
+async function prepareFeedOfficialCommentsFixture(fixture) {
+  return seedFeedOfficialCommentsFixture({ fixture, withDatabase: withPoolerClient });
+}
+
+async function cleanupFeedOfficialCommentsFixture(fixture) {
+  return cleanupSharedFeedOfficialCommentsFixture({ fixture, withDatabase: withPoolerClient });
+}
+
+async function pollFeedOfficialComment(fixture, surface, marker, timeout = 45_000) {
+  return pollSharedFeedOfficialComment({ fixture, surface, marker, withDatabase: withPoolerClient, delay, timeout });
+}
+
 async function cleanupProfileRolesSafetyFixture(fixture) {
   return cleanupSharedProfileRolesSafetyFixture({ fixture, withDatabase: withPoolerClient });
 }
@@ -1959,14 +1982,43 @@ async function visibleCommentInputBox(page) {
   return await page.evaluate(() => {
     const root = document.querySelector("#quata-root");
     const scope = root?.shadowRoot ?? root ?? document;
-    const candidates = [...scope.querySelectorAll("textarea, input")]
+    const inputPattern = /coment|comment|public-profile\.comments\.input|feed\.comments\.input|official\.comments\.input/i;
+    const visible = (rect) => rect.width > 0 && rect.height > 0;
+    const betterContainer = (element) => {
+      let selected = element;
+      for (let current = element.parentElement, depth = 0; current && depth < 4; current = current.parentElement, depth += 1) {
+        const rect = current.getBoundingClientRect();
+        if (rect.width >= 160 && rect.height >= 32 && rect.height <= 96 && rect.y >= (window.innerHeight * 0.52)) {
+          selected = current;
+        }
+      }
+      return selected;
+    };
+    const candidates = [...scope.querySelectorAll("textarea, input, [contenteditable='true'], [role='textbox'], [aria-label], [placeholder], div, span")]
       .map((element) => {
-        const rect = element.getBoundingClientRect();
-        const placeholder = element.getAttribute("placeholder") ?? "";
-        const label = element.getAttribute("aria-label") ?? "";
-        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, placeholder, label };
+        const role = element.getAttribute("role") ?? "";
+        const contentEditable = element.getAttribute("contenteditable") ?? "";
+        const text = [
+          element.getAttribute("placeholder") ?? "",
+          element.getAttribute("aria-label") ?? "",
+          element.textContent ?? "",
+          role,
+          contentEditable,
+        ].join(" ");
+        if (!inputPattern.test(text) && role !== "textbox" && contentEditable !== "true") return null;
+        const container = betterContainer(element);
+        const rect = container.getBoundingClientRect();
+        return {
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          text: text.slice(0, 120),
+          role,
+          contentEditable,
+        };
       })
-      .filter((item) => item.width > 0 && item.height > 0 && /coment|comment|public-profile\.comments\.input/i.test(`${item.placeholder} ${item.label}`));
+      .filter((item) => item && visible(item) && item.y >= (window.innerHeight * 0.45) && item.width >= 30 && item.height <= 120);
     candidates.sort((left, right) => (right.y - left.y) || (right.width - left.width));
     return candidates[0] ?? null;
   });
@@ -2120,6 +2172,16 @@ async function openAndCloseProfileContentMediaViewer(page, postId, fallbackPoint
 }
 
 async function selectProfileContentCommentEmoji(page, fallbackPoints) {
+  return selectEmojiCommentEmoji(page, {
+    prefix: "public-profile.comments",
+    fallbackPoints,
+    errorPrefix: "profile_content_comments",
+    labelPatterns: [/Mostrar emojis|Show emojis|Afficher emojis|Afficher les emojis/i],
+    composerOpen: isProfileCommentsComposerOpen,
+  });
+}
+
+async function selectEmojiCommentEmoji(page, { prefix, fallbackPoints, errorPrefix, labelPatterns, composerOpen }) {
   const viewport = page.viewportSize() ?? { width: 430, height: 932 };
   const panelFallback = {
     emojiX: Math.round(viewport.width * 0.15),
@@ -2128,24 +2190,24 @@ async function selectProfileContentCommentEmoji(page, fallbackPoints) {
     cellY: Math.round(viewport.height * 0.272),
   };
   const emojiPatterns = [
-    new RegExp(escapeRegExp("public-profile.comments.emoji")),
-    /Mostrar emojis|Show emojis|Afficher emojis|Afficher les emojis/i,
+    new RegExp(escapeRegExp(`${prefix}.emoji`)),
+    ...labelPatterns,
   ];
   const panelPatterns = [new RegExp(escapeRegExp("community.emoji.panel"))];
   const emojiButton = await visibleAriaLocator(page, emojiPatterns, 2_000);
   const emojiControl = await visibleNativeControl(page, emojiPatterns, 2_000);
   const attempts = [];
   if (emojiButton) attempts.push(async () => { await emojiButton.click({ timeout: 2_000, force: true }); await delay(350); });
-  if (emojiButton) attempts.push(async () => { await clickLocatorCenter(page, emojiButton, "profile_content_comments_emoji_button_not_clickable"); });
-  if (emojiControl) attempts.push(async () => { await clickNativeControlCenter(page, emojiControl, "profile_content_comments_emoji_button_not_clickable"); });
-  if (await isProfileCommentsComposerOpen(page)) {
+  if (emojiButton) attempts.push(async () => { await clickLocatorCenter(page, emojiButton, `${errorPrefix}_emoji_button_not_clickable`); });
+  if (emojiControl) attempts.push(async () => { await clickNativeControlCenter(page, emojiControl, `${errorPrefix}_emoji_button_not_clickable`); });
+  if (await composerOpen(page)) {
     attempts.push(async () => {
       await page.mouse.click(fallbackPoints?.emojiX ?? panelFallback.emojiX, fallbackPoints?.emojiY ?? panelFallback.emojiY);
       await delay(350);
     });
   }
   if (attempts.length === 0) {
-    throw new Error("profile_content_comments_emoji_button_not_visible");
+    throw new Error(`${errorPrefix}_emoji_button_not_visible`);
   }
   let panel = null;
   for (const attempt of attempts) {
@@ -2154,17 +2216,32 @@ async function selectProfileContentCommentEmoji(page, fallbackPoints) {
     if (panel) break;
   }
   if (!panel) {
-    throw new Error("profile_content_comments_emoji_panel_not_visible");
+    throw new Error(`${errorPrefix}_emoji_panel_not_visible`);
   }
   const firstFrequent = await visibleAriaLocator(page, [new RegExp(escapeRegExp("community.emoji.cell.frequent.0"))], 5_000);
   if (firstFrequent) {
-    await clickLocatorCenter(page, firstFrequent, "profile_content_comments_first_emoji_not_clickable");
+    await clickLocatorCenter(page, firstFrequent, `${errorPrefix}_first_emoji_not_clickable`);
   } else {
     await page.mouse.click(fallbackPoints?.cellX ?? panelFallback.cellX, fallbackPoints?.cellY ?? panelFallback.cellY);
   }
 }
 
 async function fillProfileContentComment(page, fallbackPoints, value) {
+  return fillEmojiComment(page, {
+    prefix: "public-profile.comments",
+    fallbackPoints,
+    value,
+    errorPrefix: "profile_content_comments",
+    labelPatterns: {
+      emoji: [/Mostrar emojis|Show emojis|Afficher emojis|Afficher les emojis/i],
+      send: [/Enviar|Send|Envoyer/i],
+      input: [/Escribe un comentario|Write a comment|Écrire un commentaire/i],
+    },
+    composerOpen: isProfileCommentsComposerOpen,
+  });
+}
+
+async function fillEmojiComment(page, { prefix, fallbackPoints, value, errorPrefix, labelPatterns, composerOpen }) {
   const viewport = page.viewportSize() ?? { width: 430, height: 932 };
   const panelFallback = {
     inputX: Math.round(viewport.width * 0.39),
@@ -2172,8 +2249,14 @@ async function fillProfileContentComment(page, fallbackPoints, value) {
     sendX: Math.round(viewport.width * 0.85),
     sendY: Math.round(viewport.height * 0.342),
   };
-  await selectProfileContentCommentEmoji(page, fallbackPoints);
-  const sendPatterns = [new RegExp(escapeRegExp("public-profile.comments.send")), /Enviar|Send|Envoyer/i];
+  await selectEmojiCommentEmoji(page, {
+    prefix,
+    fallbackPoints,
+    errorPrefix,
+    labelPatterns: labelPatterns.emoji,
+    composerOpen,
+  });
+  const sendPatterns = [new RegExp(escapeRegExp(`${prefix}.send`)), ...labelPatterns.send];
   const tail = value.replace(/^😀/, "");
   const focusAndType = async (points) => {
     for (const point of points) {
@@ -2187,8 +2270,8 @@ async function fillProfileContentComment(page, fallbackPoints, value) {
   };
   await delay(500);
   const input = await visibleAriaLocator(page, [
-    new RegExp(escapeRegExp("public-profile.comments.input")),
-    /Escribe un comentario|Write a comment|Écrire un commentaire/i,
+    new RegExp(escapeRegExp(`${prefix}.input`)),
+    ...labelPatterns.input,
   ], 2_000);
   let typed = false;
   const sendForInput = await bottomVisibleNativeControl(page, sendPatterns, 1_500);
@@ -2214,24 +2297,24 @@ async function fillProfileContentComment(page, fallbackPoints, value) {
         { x: Math.round(inputBox.x + Math.min(44, inputBox.width / 2)), y: Math.round(inputBox.y + (inputBox.height / 2)) },
         { x: Math.round(inputBox.x + (inputBox.width * 0.45)), y: Math.round(inputBox.y + (inputBox.height / 2)) },
       ]);
-    } else if (await isProfileCommentsComposerOpen(page)) {
+    } else if (await composerOpen(page)) {
       typed = await focusAndType([{ x: panelFallback.inputX, y: panelFallback.inputY }]);
     } else {
-      throw new Error("profile_content_comments_input_not_visible");
+      throw new Error(`${errorPrefix}_input_not_visible`);
     }
   }
   if (!typed) {
-    throw new Error("profile_content_comments_input_not_editable");
+    throw new Error(`${errorPrefix}_input_not_editable`);
   }
 
   const sendControl = await visibleNativeControl(page, sendPatterns, 2_000);
   const send = sendControl ? null : await visibleAriaLocator(page, sendPatterns, 2_000);
   if (sendControl) {
-    await clickNativeControlCenter(page, sendControl, "profile_content_comments_send_not_clickable");
+    await clickNativeControlCenter(page, sendControl, `${errorPrefix}_send_not_clickable`);
     return;
   }
   if (send) {
-    await clickLocatorCenter(page, send, "profile_content_comments_send_not_clickable");
+    await clickLocatorCenter(page, send, `${errorPrefix}_send_not_clickable`);
     return;
   }
   const sendBox = await page.evaluate(() => {
@@ -2243,7 +2326,7 @@ async function fillProfileContentComment(page, fallbackPoints, value) {
         const text = `${element.getAttribute("aria-label") ?? ""} ${element.textContent ?? ""}`;
         return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, text };
       })
-      .filter((item) => item.width > 0 && item.height > 0 && /Enviar|Send|public-profile\.comments\.send/i.test(item.text));
+      .filter((item) => item.width > 0 && item.height > 0 && /Enviar|Send|comments\.send/i.test(item.text));
     candidates.sort((left, right) => (right.y - left.y) || (right.width - left.width));
     return candidates[0] ?? null;
   });
@@ -2260,6 +2343,12 @@ async function fillProfileContentComment(page, fallbackPoints, value) {
     }
     await page.keyboard.press("Enter").catch(() => {});
   }
+}
+
+async function isTaggedCommentsComposerOpen(page, prefix) {
+  if (await visibleAriaLocator(page, [new RegExp(escapeRegExp(`${prefix}.input`))], 500)) return true;
+  if (await visibleAriaLocator(page, [/Comentarios|Comments|Commentaires/i], 500)) return true;
+  return Boolean(await visibleCommentInputBox(page));
 }
 
 async function verifyProfileContentFromOpenProfile(page, profile, fixture, evidenceDir, report) {
@@ -2544,6 +2633,124 @@ async function verifyProfileEntryWeb(page, origin, fixture, profile, evidenceDir
   });
   assertNoBrowserFaults(report, faults, "profile_entry_web_conversations_fault");
   report.steps.push("feed_official_communities_and_conversations_profile_entry_anchors_opened_common_profile");
+}
+
+async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenceDir, report, faults) {
+  await feedOfficialCommentsStep("feed", async () => {
+    report.steps.push("feed_official_comments_web_feed_route_start");
+    await openAuthenticatedRoute(page, origin, `post-${encodeURIComponent(fixture.feed.postId)}`, `post/${fixture.feed.postId}`);
+    await clickFeedOfficialCommentsAction(page, "feed.action.comments", "feed_official_comments_feed_action_missing", report);
+    await waitTaggedCommentInput(page, "feed.comments", "feed_official_comments_feed_input_missing");
+    report.evidence.feedCommentsBefore = await attachScreenshot(page, evidenceDir, "web-feed-comments-emoji-before");
+    await fillEmojiComment(page, {
+      prefix: "feed.comments",
+      fallbackPoints: null,
+      value: fixture.feed.uiComment,
+      errorPrefix: "feed_official_comments_feed",
+      labelPatterns: {
+        emoji: [/Mostrar emojis|Show emojis|Afficher emojis|Afficher les emojis/i],
+        send: [/Enviar|Send|Envoyer/i],
+        input: [/Escribe un comentario|Write a comment|Écrire un commentaire/i],
+      },
+      composerOpen: (targetPage) => isTaggedCommentsComposerOpen(targetPage, "feed.comments"),
+    });
+    fixture.feed.uiCommentId = await pollFeedOfficialComment(fixture, "feed", fixture.feed.uiComment);
+    await waitVisibleCommentText(page, visibleEmojiCommentText(fixture.feed.uiComment), "feed_official_comments_feed_comment_not_visible");
+    report.evidence.feedCommentsAfter = await attachScreenshot(page, evidenceDir, "web-feed-comments-emoji-after");
+    report.steps.push("feed_comments_emoji_created_from_ui_and_verified_by_db");
+  });
+  assertNoBrowserFaults(report, faults, "feed_official_comments_web_feed_fault");
+
+  await feedOfficialCommentsStep("official", async () => {
+    report.steps.push("feed_official_comments_web_official_route_start");
+    await openAuthenticatedRoute(page, origin, `official-${encodeURIComponent(fixture.official.postId)}`, `official/${fixture.official.postId}`);
+    await clickFeedOfficialCommentsAction(page, "official.action.comments", "feed_official_comments_official_action_missing", report);
+    await waitTaggedCommentInput(page, "official.comments", "feed_official_comments_official_input_missing");
+    report.evidence.officialCommentsBefore = await attachScreenshot(page, evidenceDir, "web-official-comments-emoji-before");
+    await fillEmojiComment(page, {
+      prefix: "official.comments",
+      fallbackPoints: null,
+      value: fixture.official.uiComment,
+      errorPrefix: "feed_official_comments_official",
+      labelPatterns: {
+        emoji: [/Mostrar emojis|Show emojis|Afficher emojis|Afficher les emojis/i],
+        send: [/Enviar|Send|Envoyer/i],
+        input: [/Escribe un comentario|Write a comment|Écrire un commentaire/i],
+      },
+      composerOpen: (targetPage) => isTaggedCommentsComposerOpen(targetPage, "official.comments"),
+    });
+    fixture.official.uiCommentId = await pollFeedOfficialComment(fixture, "official", fixture.official.uiComment);
+    await waitVisibleCommentText(page, visibleEmojiCommentText(fixture.official.uiComment), "feed_official_comments_official_comment_not_visible");
+    report.evidence.officialCommentsAfter = await attachScreenshot(page, evidenceDir, "web-official-comments-emoji-after");
+    report.steps.push("official_comments_emoji_created_from_ui_and_verified_by_db");
+  });
+  assertNoBrowserFaults(report, faults, "feed_official_comments_web_official_fault");
+  report.steps.push("feed_and_official_comment_emoji_picker_verified_with_common_tags");
+}
+
+function visibleEmojiCommentText(comment) {
+  return comment.replace(/^😀\s*/, "");
+}
+
+async function clickFeedOfficialCommentsAction(page, tag, errorMessage, report) {
+  const locator = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(tag)), /Comentarios|Comments|Commentaires/i], 15_000);
+  if (locator) {
+    await clickLocatorCenter(page, locator, `${errorMessage}:not_clickable`);
+    return;
+  }
+  const fallback = await feedOfficialCommentsActionFallbackPoint(page, tag);
+  if (fallback) {
+    report.diagnostics ??= {};
+    report.diagnostics.feedOfficialCommentsMissingStableWebAnchors ??= [];
+    report.diagnostics.feedOfficialCommentsMissingStableWebAnchors.push({
+      tag,
+      fallback,
+      reason: "Compose/Wasm did not expose the visible action rail button as an aria/testTag node.",
+    });
+    await page.mouse.click(fallback.x, fallback.y);
+    await delay(500);
+    return;
+  }
+  throw new Error(errorMessage);
+}
+
+async function feedOfficialCommentsActionFallbackPoint(page, tag) {
+  if (tag !== "official.action.comments") return null;
+  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  return {
+    x: Math.round(viewport.width * 0.89),
+    y: Math.round(viewport.height * 0.78),
+    relativeX: 0.89,
+    relativeY: 0.78,
+  };
+}
+
+async function waitTaggedCommentInput(page, prefix, errorMessage) {
+  const deadline = Date.now() + 12_000;
+  while (Date.now() < deadline) {
+    const input = await visibleAriaLocator(page, [
+      new RegExp(escapeRegExp(`${prefix}.input`)),
+      /Escribe un comentario|Write a comment|Écrire un commentaire/i,
+    ], 800);
+    if (input) return input;
+    const box = await visibleCommentInputBox(page);
+    if (box) return box;
+    await delay(250);
+  }
+  throw new Error(errorMessage);
+}
+
+async function waitVisibleCommentText(page, text, errorMessage) {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    if (await visibleTextContentIncludes(page, text)) return;
+    await delay(500);
+  }
+  throw new Error(errorMessage);
+}
+
+async function feedOfficialCommentsStep(label, action) {
+  return await withTimeout(action(), 90_000, `feed_official_comments_step_${label}`);
 }
 
 function assertNoBrowserFaults(report, faults, label) {
@@ -4600,11 +4807,28 @@ try {
   }
 
   if (state.peerMessage && state.b.accessToken && !options.composerEmojiOnly) {
-    if (options.profileFollowOnly) {
+    if (options.feedOfficialCommentsOnly) {
+      state.feedOfficialComments = {
+        marker: `qadata-feed-official-comments-${runId}`,
+        actorSession: state.a,
+        targetSession: state.b,
+      };
+      await prepareFeedOfficialCommentsFixture(state.feedOfficialComments);
+      report.steps.push("feed_official_comments_fixture_prepared");
+      await verifyFeedOfficialCommentsEmojiWeb(page, server.origin, state.feedOfficialComments, options.evidenceDir, report, faults);
+    } else if (options.profileFollowOnly) {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
-    }
-    if (options.profileListsOnly) {
+      await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
+      await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
+      report.steps.push("profile_follow_toggled_and_verified_by_db");
+      if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
+      await closeProfileSheetIfVisible(page);
+      await delay(1_000);
+      if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
+      report.evidence.profileReturn = await attachScreenshot(page, options.evidenceDir, "web-chat-profile-return");
+      report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
+    } else if (options.profileListsOnly) {
       state.profileListEdges = await prepareProfileListEdges(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_list_edges_prepared_reversibly");
       await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile-lists");
@@ -4646,21 +4870,11 @@ try {
         await reopenPeerProfileFromChat(page, server.origin, `sb:${state.thread}`, peerMarker, state.b);
       });
       report.steps.push("profile_roles_safety_roles_report_and_block_verified_by_db");
-    } else if (options.profileFollowOnly) {
-      await openPeerProfileFromMessageWithoutReturn(page, peerMarker, state.b, options.evidenceDir, report, "web-chat-profile");
-      await toggleFollowFromOpenProfile(page, { actorProfileId: state.a.profileId, profileId: state.b.profileId }, options.evidenceDir, report);
-      report.steps.push("profile_follow_toggled_and_verified_by_db");
-      if (!(await clickProfileBack(page))) throw new Error("profile_state_not_opened:profile_back_not_clickable");
-      await closeProfileSheetIfVisible(page);
-      await delay(1_000);
-      if (!(await waitForChatProfileReturn(page))) throw new Error("profile_state_not_opened:chat_return_not_visible");
-      report.evidence.profileReturn = await attachScreenshot(page, options.evidenceDir, "web-chat-profile-return");
-      report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     } else {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly) {
       const blockingFaults = faults.filter((fault) => !isNonBlockingProfileEntryWasmFault(fault));
       if (faults.length) {
         report.diagnostics = {
@@ -4698,6 +4912,13 @@ try {
           privateThreadId: state.profileEntry.privateChat.threadId,
           officialMarkerSha256: sha256(state.profileEntry.official.marker),
         } : null,
+        feedOfficialComments: state.feedOfficialComments ? {
+          markerSha256: sha256(state.feedOfficialComments.marker),
+          feedPostId: state.feedOfficialComments.feed?.postId ?? null,
+          feedUiCommentId: state.feedOfficialComments.feed?.uiCommentId ?? null,
+          officialPostId: state.feedOfficialComments.official?.postId ?? null,
+          officialUiCommentId: state.feedOfficialComments.official?.uiCommentId ?? null,
+        } : null,
         profilePrivateChatThreadId: state.profilePrivateChat?.threadId ?? null,
         profileRolesSafety: state.profileRolesSafety ? {
           targetProfileIdSha256: sha256(state.profileRolesSafety.targetProfileId),
@@ -4712,9 +4933,10 @@ try {
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       if (options.profileEntryOnly) throw new ProfileEntryOnlyCompleted();
       if (options.profileRolesSafetyOnly) throw new ProfileRolesSafetyOnlyCompleted();
+      if (options.feedOfficialCommentsOnly) throw new EvidenceCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
@@ -4869,6 +5091,14 @@ try {
         ...(report.diagnostics ?? {}),
         unexpectedErrorName: typeof error?.name === "string" ? error.name : "Error",
         unexpectedErrorMessage: typeof error?.message === "string" ? error.message : "unknown",
+        unexpectedErrorStackPrefix: typeof error?.stack === "string" ? error.stack.slice(0, 1200) : null,
+        unexpectedAggregateErrors: Array.isArray(error?.errors)
+          ? error.errors.slice(0, 5).map((item) => ({
+            name: typeof item?.name === "string" ? item.name : "Error",
+            message: typeof item?.message === "string" ? item.message : String(item ?? "unknown"),
+            stackPrefix: typeof item?.stack === "string" ? item.stack.slice(0, 600) : null,
+          }))
+          : null,
       };
     }
   }
@@ -4939,6 +5169,16 @@ try {
         cleanup.profileEntryOfficial = await cleanupOfficialProfileEntryPost(state.profileEntry.official);
         cleanup.actions.push("profile_entry_official_post_deleted");
         cleanup.actions.push("cleanup_verified_profile_entry_official_residue_absent");
+      } catch (error) {
+        cleanupFailed = true;
+        cleanup.error = safeFailure(error);
+      }
+    }
+    if (state.feedOfficialComments) {
+      try {
+        cleanup.feedOfficialComments = await cleanupFeedOfficialCommentsFixture(state.feedOfficialComments);
+        cleanup.actions.push("feed_official_comments_fixture_deleted");
+        cleanup.actions.push("cleanup_verified_feed_official_comments_residue_absent");
       } catch (error) {
         cleanupFailed = true;
         cleanup.error = safeFailure(error);
