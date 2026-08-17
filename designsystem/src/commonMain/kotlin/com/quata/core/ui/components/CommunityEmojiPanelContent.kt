@@ -31,6 +31,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +54,16 @@ import quata.designsystem.generated.resources.quata_community_emoji_atlas_recent
 
 data class QuataEmojiSection(val key: String, val label: String, val emojis: List<String>)
 
+const val CommunityEmojiPanelRootTestTag = "community.emoji.panel"
+const val CommunityEmojiPanelSectionTestTagPrefix = "community.emoji.section."
+const val CommunityEmojiPanelCellTestTagPrefix = "community.emoji.cell."
+
+fun communityEmojiSectionTestTag(sectionKey: String): String =
+    CommunityEmojiPanelSectionTestTagPrefix + sectionKey
+
+fun communityEmojiCellTestTag(sectionKey: String, index: Int): String =
+    "$CommunityEmojiPanelCellTestTagPrefix$sectionKey.$index"
+
 @Composable
 fun CommunityEmojiPanelContent(
     sections: List<QuataEmojiSection>,
@@ -67,7 +80,11 @@ fun CommunityEmojiPanelContent(
         color = template.colors.surfaceRaised,
         contentColor = template.colors.textPrimary,
         shape = RoundedCornerShape(20.dp),
-        modifier = modifier.fillMaxWidth().border(1.dp, template.colors.accent.copy(alpha = .62f), RoundedCornerShape(20.dp))
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(CommunityEmojiPanelRootTestTag)
+            .semantics { contentDescription = CommunityEmojiPanelRootTestTag }
+            .border(1.dp, template.colors.accent.copy(alpha = .62f), RoundedCornerShape(20.dp))
     ) {
         Column(Modifier.padding(14.dp)) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -75,7 +92,10 @@ fun CommunityEmojiPanelContent(
                     Surface(
                         color = if (section.key == selectedSectionKey) template.colors.accent else Color.Transparent,
                         shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.clickable { selectedSectionKey = section.key }
+                        modifier = Modifier
+                            .testTag(communityEmojiSectionTestTag(section.key))
+                            .semantics { contentDescription = communityEmojiSectionTestTag(section.key) }
+                            .clickable(role = Role.Button) { selectedSectionKey = section.key }
                     ) {
                         Text(section.label, color = if (section.key == selectedSectionKey) template.colors.accentContent else template.colors.textSecondary, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
                     }
@@ -97,7 +117,11 @@ fun CommunityEmojiPanelContent(
                             .clip(RoundedCornerShape(14.dp))
                             .background(template.colors.surfaceAlt)
                             .border(1.dp, template.colors.divider, RoundedCornerShape(14.dp))
-                            .clickable { onEmojiClick(emoji) },
+                            .testTag(communityEmojiCellTestTag(selectedSection.key, index))
+                            .semantics {
+                                contentDescription = communityEmojiCellTestTag(selectedSection.key, index)
+                            }
+                            .clickable(role = Role.Button) { onEmojiClick(emoji) },
                         contentAlignment = Alignment.Center,
                     ) {
                         CommunityEmojiAtlasCell(selectedAtlas, selectedAtlasLayout, index)

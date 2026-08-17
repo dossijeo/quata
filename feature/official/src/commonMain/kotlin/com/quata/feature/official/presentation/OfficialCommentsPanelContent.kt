@@ -154,6 +154,7 @@ fun OfficialCommentsPanelContent(
                 CompactIconButton(
                     onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) },
                     modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState),
+                    testTag = "official.comments.emoji",
                 ) {
                     CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C))
                 }
@@ -169,6 +170,8 @@ fun OfficialCommentsPanelContent(
             },
             onFocused = { if (isEmojiPickerVisible) setEmojiPickerVisible(false) },
             modifier = modifier,
+            inputTestTag = "official.comments.input",
+            sendTestTag = "official.comments.send",
         )
     }
 
