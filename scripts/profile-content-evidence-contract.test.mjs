@@ -134,8 +134,8 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(commonProfileKpi, /Modifier\.semantics \{ this\.testTag = tag \}/);
   assert.match(commonProfileKpi, /\.then\(interactiveModifier\)\s*\.then\(semanticsModifier\)/);
   assert.match(commonProfilePostAction, /\.clickable\(enabled = enabled, onClick = onClick\)\s*\.then\(modifier\)/);
-  assert.match(commonProfilePostPreview, /testTag = PublicProfilePostMediaTestTagPrefix \+ post\.id/);
-  assert.match(commonProfilePostPreview, /contentDescription = PublicProfilePostOpenMediaTestTagPrefix \+ post\.id/);
+  assert.match(commonProfilePostPreview, /testTag = PublicProfilePostOpenMediaTestTagPrefix \+ post\.id/);
+  assert.doesNotMatch(commonProfilePostPreview, /testTag = PublicProfilePostMediaTestTagPrefix \+ post\.id/);
   assert.match(commonProfileHost, /testTag = PublicProfilePostsKpiTestTagPrefix \+ profile\.user\.id/);
   assert.doesNotMatch(commonProfileHost, /Modifier\.weight\(1f\)\.semantics \{ testTag = PublicProfilePostsKpiTestTagPrefix/);
   assert.match(iosUiTest, /public-profile\.attachments\.item\.sb:\\\(attachmentId\)/);
