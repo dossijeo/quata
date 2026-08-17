@@ -23,6 +23,8 @@ import com.quata.core.navigation.quataChatUrl
 import com.quata.core.navigation.quataOfficialPostIdOrNull
 import com.quata.core.navigation.quataPostIdOrNull
 import com.quata.core.navigation.quataPostUrl
+import com.quata.core.language.BrowserTranslationHttpTransport
+import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.ui.components.QuataPrimaryBottomNavigation
@@ -46,6 +48,9 @@ import com.quata.feature.neighborhoods.presentation.neighborhoodsScreenStringsFo
 import com.quata.feature.neighborhoods.presentation.communityProfileStringsForLanguage
 import com.quata.feature.neighborhoods.presentation.CommunityProfilePlatformSlots
 import com.quata.feature.neighborhoods.presentation.ProfileAttachmentRowContent
+import com.quata.designsystem.translation.FangTextTranslatorGateway
+import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
+import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.whatsnew.domain.WhatsNewRepository
 import com.quata.feature.auth.presentation.AuthProductDestination
 import kotlinx.browser.document
@@ -1113,6 +1118,11 @@ private const val WebThemeModeKey = "quata_web_theme_mode"
 private const val WebTouchFlowEnabledKey = "quata_web_touch_flow_enabled"
 
 private val webNeighborhoodsScreenStrings = neighborhoodsScreenStringsForLanguage("es")
+private val webCommunityProfileCommentsTranslationGateway = FangTextTranslatorGateway(
+    identifier = BrowserFastTextLanguageIdentifier,
+    translator = FangTranslationService(transport = BrowserTranslationHttpTransport()),
+    preferredLanguage = quataTranslatorPreferredLanguage("es"),
+)
 
 private val webNeighborhoodsStrings = WebNeighborhoodsStrings(
     list = webNeighborhoodsScreenStrings.list,
@@ -1185,6 +1195,8 @@ private val webNeighborhoodsSlots = WebNeighborhoodsSlots(
         },
         openAttachment = { attachment -> openWebCommunityResource(attachment.uri) },
         sharePost = { post -> openWebCommunityResource(quataPostUrl(post.id)) },
+        commentsTranslationGateway = webCommunityProfileCommentsTranslationGateway,
+        commentsTranslatorStrings = quataTranslatorStringsForLanguage("es"),
     ),
 )
 

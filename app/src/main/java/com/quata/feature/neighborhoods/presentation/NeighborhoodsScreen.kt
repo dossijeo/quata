@@ -103,6 +103,9 @@ import com.quata.core.ui.components.findQuataTextureView
 import com.quata.core.ui.components.openAttachmentWithDocumentReaderOrChooser
 import com.quata.core.ui.components.readQuataVideoRotation
 import com.quata.core.ui.textCanvasBrush
+import com.quata.core.translation.FangTranslatorIconButton
+import com.quata.core.translation.LocalQuataTranslatorModeController
+import com.quata.designsystem.translation.QuataTranslatorOverlaySource
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
@@ -220,6 +223,7 @@ fun CommunityProfileScreen(
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
+    val translatorModeController = LocalQuataTranslatorModeController.current
     val template = quataTheme()
     var selectedProfileAttachment by remember { mutableStateOf<AttachmentPreview?>(null) }
     CommunityProfileScreenHost(
@@ -286,6 +290,7 @@ fun CommunityProfileScreen(
                     objectsSymbols = stringResource(R.string.emoji_objects_symbols),
                     flags = stringResource(R.string.emoji_flags),
                 ),
+                translatorContentDescription = stringResource(R.string.translator_button_content_description),
             ),
         ),
         slots = CommunityProfilePlatformSlots(
@@ -320,6 +325,14 @@ fun CommunityProfileScreen(
                 }
             },
             sharePost = context::shareProfilePost,
+            commentsTranslatorTrigger = { _, modifier, _, _ ->
+                FangTranslatorIconButton(
+                    onClick = { view ->
+                        translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
+                    },
+                    modifier = modifier,
+                )
+            },
         ),
         isOpeningChat = isOpeningChat,
         isRefreshingProfile = isRefreshingProfile,

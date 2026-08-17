@@ -42,6 +42,7 @@ fun CommunityProfileCommentInputContent(
                 CompactIconButton(
                     enabled = value.text.isNotBlank(),
                     testTag = PublicProfileCommentsSendTestTag,
+                    contentDescription = sendLabel,
                     onClick = onSend,
                 ) {
                     CompactIcon(Icons.AutoMirrored.Filled.Send, sendLabel)

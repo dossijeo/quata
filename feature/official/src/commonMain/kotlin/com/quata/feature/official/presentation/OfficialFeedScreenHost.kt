@@ -381,6 +381,10 @@ fun OfficialFeedScreenHost(
             onAuthRequired = onAuthRequired,
             onAddComment = add,
             onReportComment = report,
+            onOpenUserProfile = { profileId ->
+                commentsPost = null
+                onOpenUserProfile(profileId)
+            },
             onDismiss = dismiss,
             translatorTrigger = slots.commentsTranslatorTrigger,
                 translatorGateway = slots.commentsTranslationGateway,

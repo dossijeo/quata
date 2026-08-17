@@ -7,10 +7,15 @@ const source = (path) => readFileSync(new URL(path, root), "utf8");
 
 test("shared action rail exposes stable comments anchors for Feed and Official", () => {
   const rail = source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataFeedActionRail.kt");
+  const compactControls = source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/CompactControls.kt");
   const feed = source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelPostContent.kt");
   const official = source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostActionRailContent.kt");
   assert.match(rail, /actionTestTagPrefix/);
   assert.match(rail, /\$it\.comments/);
+  assert.match(rail, /accessibleDescription = listOfNotNull\(description, testTag\)\.joinToString\(" "\)/);
+  assert.match(rail, /contentDescription = accessibleDescription/);
+  assert.match(compactControls, /contentDescription: String\? = null/);
+  assert.match(compactControls, /accessibleDescription = listOfNotNull\(contentDescription, testTag\)\.joinToString\(" "\)/);
   assert.match(feed, /actionTestTagPrefix = "feed\.action"/);
   assert.match(official, /actionTestTagPrefix = "official\.action"/);
 });
@@ -20,10 +25,12 @@ test("Feed and Official comments use the common emoji picker and common comment 
   const feedEvents = source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedUiEvent.kt");
   const feedViewModel = source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedViewModel.kt");
   const official = source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialCommentsPanelContent.kt");
+  const officialHost = source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt");
   for (const [label, content, prefix] of [["feed", feed, "feed"], ["official", official, "official"]]) {
     assert.match(content, /CommunityEmojiPanelContent/, `${label}:picker`);
     assert.match(content, /insertAtSelection/, `${label}:insert`);
     assert.match(content, new RegExp(`${prefix}\\.comments\\.emoji`), `${label}:emoji_tag`);
+    assert.match(content, /contentDescription = strings\.showEmojis/, `${label}:emoji_accessible_tag`);
     assert.match(content, new RegExp(`${prefix}\\.comments\\.input`), `${label}:input_tag`);
     assert.match(content, new RegExp(`${prefix}\\.comments\\.send`), `${label}:send_tag`);
   }
@@ -31,6 +38,8 @@ test("Feed and Official comments use the common emoji picker and common comment 
   assert.match(feed, /FeedUiEvent\.FocusPost\(focusedPostId\)/);
   assert.match(feedViewModel, /repository\.refreshPost\(postId\)/);
   assert.match(feedViewModel, /feedStore\.prependIfMissing\(post\)/);
+  assert.match(feed, /commentsPostId = null[\s\S]*onOpenUserProfile\(profileId\)/);
+  assert.match(officialHost, /commentsPost = null[\s\S]*onOpenUserProfile\(profileId\)/);
 });
 
 test("shared Feed/Official comments fixtures centralize SQL, cleanup and polling", () => {
@@ -50,6 +59,15 @@ test("Web runner records a real Feed and Official emoji-comment flow", () => {
   assert.match(runner, /seedFeedOfficialCommentsFixture/);
   assert.match(runner, /feed\.action\.comments/);
   assert.match(runner, /official\.action\.comments/);
+  assert.match(runner, /feed\.comments\.author\.\$\{fixture\.actorSession\.profileId\}/);
+  assert.match(runner, /official\.comments\.author\.\$\{fixture\.actorSession\.profileId\}/);
+  assert.match(runner, /comment_author_profile_opened/);
+  assert.match(runner, /commentAuthorProfileBridgeFallbacks/);
+  assert.match(runner, /bottom-sheet dismiss layer intercepted/);
+  assert.match(runner, /visibleAriaLocator\(page, \[new RegExp\(escapeRegExp\(`\$\{prefix\}\.emoji`\)\)\]/);
+  assert.match(runner, /visibleNativeControl\(page, \[new RegExp\(escapeRegExp\(`\$\{prefix\}\.emoji`\)\)\]/);
+  assert.match(runner, /nativeControlsOnly/);
+  assert.doesNotMatch(runner, /visibleAriaLocator\(page, \[\/Comentarios\|Comments\|Commentaires\/i\]/);
   assert.match(runner, /prefix: "feed\.comments"/);
   assert.match(runner, /prefix: "official\.comments"/);
   assert.match(runner, /feed_comments_emoji_created_from_ui_and_verified_by_db/);
@@ -63,10 +81,16 @@ test("Android runner records the same Feed and Official emoji-comment flow", () 
   assert.match(runner, /--feed-official-comments-only/);
   assert.match(runner, /seedFeedOfficialCommentsFixture/);
   assert.match(runner, /pollFeedOfficialComment/);
+  assert.match(runner, /quataChatActionsActorProfileId/);
   assert.match(runner, /cleanup_verified_feed_official_comments_residue_absent/);
   assert.match(uiTest, /"feed-official-comments"/);
   assert.match(uiTest, /feed\.action\.comments/);
   assert.match(uiTest, /official\.action\.comments/);
+  assert.match(uiTest, /feed\.comments\.author\.\$actorProfileId/);
+  assert.match(uiTest, /official\.comments\.author\.\$actorProfileId/);
+  assert.match(uiTest, /openProfileFromAuthorTag/);
+  assert.match(uiTest, /requireReturnTag = false/);
+  assert.match(uiTest, /requireReturnTag: Boolean = true/);
   assert.match(uiTest, /feed\.comments\.emoji/);
   assert.match(uiTest, /official\.comments\.emoji/);
   assert.match(uiTest, /community\.emoji\.cell\.frequent\.0/);
@@ -78,6 +102,7 @@ test("iOS runner records the same Feed and Official emoji-comment flow", () => {
   const uiTest = source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift");
   assert.match(runner, /--feed-official-comments-only/);
   assert.match(runner, /QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E/);
+  assert.match(runner, /QUATA_IOS_CHAT_ACTOR_PROFILE_ID/);
   assert.match(runner, /seedFeedOfficialCommentsFixture/);
   assert.match(runner, /pollFeedOfficialComment/);
   assert.match(runner, /cleanup_verified_feed_official_comments_residue_absent/);
@@ -87,6 +112,9 @@ test("iOS runner records the same Feed and Official emoji-comment flow", () => {
   assert.match(uiTest, /func testFeedAndOfficialCommentsUseSharedEmojiPicker/);
   assert.match(uiTest, /feed\.action\.comments/);
   assert.match(uiTest, /official\.action\.comments/);
+  assert.ok(uiTest.includes('feed.comments.author.\\(actorProfileId)'));
+  assert.ok(uiTest.includes('official.comments.author.\\(actorProfileId)'));
+  assert.match(uiTest, /comment author anchor must open the shared public profile/);
   assert.match(uiTest, /feed\.comments\.emoji/);
   assert.match(uiTest, /official\.comments\.emoji/);
   assert.match(uiTest, /community\.emoji\.cell\.frequent\.0/);

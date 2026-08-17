@@ -1484,6 +1484,7 @@ try {
       "-e", "quataChatActionsPeerProbe", peerProbe,
       "-e", "quataChatActionsPrivateProbe", privateProbe,
       "-e", "quataChatActionsProfileId", state.b.profileId,
+      "-e", "quataChatActionsActorProfileId", state.a.profileId,
       "-e", "quataChatActionsProfileNeighborhood", state.b.neighborhood || "Bovano",
       "-e", "quataChatActionsComposerMarker", composerMarker,
       "-e", "quataChatActionsReplyMarker", replyMarker,

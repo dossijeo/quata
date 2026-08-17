@@ -37,6 +37,10 @@ import com.quata.core.model.PostComment
 import com.quata.core.ui.components.QuataFullscreenMediaOverlayContent
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+import com.quata.designsystem.translation.FangTranslatorTriggerContent
+import com.quata.designsystem.translation.QuataTranslatorGateway
+import com.quata.designsystem.translation.QuataTranslatorStrings
+import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
 import com.quata.feature.neighborhoods.domain.CommunityUserProfile
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.ProfileAttachment
@@ -97,6 +101,11 @@ class CommunityProfilePlatformSlots(
     val nativeMediaClose: @Composable BoxScope.(onDismiss: () -> Unit) -> Unit = {},
     val openAttachment: (ProfileAttachment) -> Unit,
     val sharePost: (Post) -> Unit,
+    val commentsTranslatorTrigger: @Composable (String, Modifier, () -> Unit, Boolean) -> Unit = { contentDescription, modifier, onClick, enabled ->
+        FangTranslatorTriggerContent(contentDescription = contentDescription, onClick = onClick, enabled = enabled, modifier = modifier)
+    },
+    val commentsTranslationGateway: QuataTranslatorGateway? = null,
+    val commentsTranslatorStrings: QuataTranslatorStrings = quataTranslatorStringsForLanguage(null),
 )
 
 /**
@@ -343,7 +352,11 @@ fun CommunityProfileScreenHost(
                                         onAuthRequired = onAuthRequired,
                                         createComment = { draft -> createComment(post, draft) },
                                         onAddComment = addComment,
+                                        onOpenUserProfile = onOpenUserProfile,
                                         onDismiss = dismiss,
+                                        translatorTrigger = slots.commentsTranslatorTrigger,
+                                        translatorGateway = slots.commentsTranslationGateway,
+                                        translatorStrings = slots.commentsTranslatorStrings,
                                     )
                                 },
                             )

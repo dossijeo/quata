@@ -1,6 +1,7 @@
 package com.quata.feature.neighborhoods.presentation
 
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -21,12 +23,14 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.PostComment
 
 const val PublicProfileCommentRowTestTagPrefix = "public-profile.comments.row."
+const val PublicProfileCommentAuthorTestTagPrefix = "public-profile.comments.author."
 
 /** Portable comment-card structure for the Community profile comments panel. */
 @Composable
 fun CommunityProfileCommentRowContent(
     comment: PostComment,
     modifier: Modifier = Modifier,
+    onOpenAuthorProfile: (String) -> Unit = {},
 ) {
     val template = quataTheme()
     Card(
@@ -38,7 +42,22 @@ fun CommunityProfileCommentRowContent(
             .border(1.dp, template.colors.divider, RoundedCornerShape(16.dp)),
     ) {
         Column(Modifier.padding(12.dp)) {
-            Text(comment.authorName, fontWeight = FontWeight.Bold)
+            val authorId = comment.authorId?.takeIf(String::isNotBlank)
+            val authorProfileTag = authorId?.let { PublicProfileCommentAuthorTestTagPrefix + it }
+            Text(
+                comment.authorName,
+                fontWeight = FontWeight.Bold,
+                modifier = if (authorId != null) {
+                    Modifier
+                        .semantics {
+                            authorProfileTag?.let { testTag = it }
+                            contentDescription = listOfNotNull("${comment.authorName} profile", authorProfileTag).joinToString(" ")
+                        }
+                        .clickable { onOpenAuthorProfile(authorId) }
+                } else {
+                    Modifier
+                },
+            )
             Spacer(Modifier.height(6.dp))
             Text(comment.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

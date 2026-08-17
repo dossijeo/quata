@@ -917,6 +917,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
               let peerMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE"]),
               let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]),
+              let actorProfileId = nonEmpty(environment["QUATA_IOS_CHAT_ACTOR_PROFILE_ID"]),
               let postId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID"]),
               let commentId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID"]),
               let attachmentId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID"]),
@@ -940,7 +941,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-content-thread-initial")
 
         let profile = openPeerPublicProfile(peerProfileId: peerProfileId, in: app)
-        assertProfileContentStage(profileId: peerProfileId, postId: postId, commentId: commentId, attachmentId: attachmentId, uiComment: uiComment, in: app)
+        assertProfileContentStage(profileId: peerProfileId, actorProfileId: actorProfileId, postId: postId, commentId: commentId, attachmentId: attachmentId, uiComment: uiComment, in: app)
 
         closePublicProfile(in: app)
         XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after checking content.")
@@ -956,7 +957,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard let feedPostId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID"]),
               let feedComment = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_UI_COMMENT"]),
               let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID"]),
-              let officialComment = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_UI_COMMENT"]) else {
+              let officialComment = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_UI_COMMENT"]),
+              let actorProfileId = nonEmpty(environment["QUATA_IOS_CHAT_ACTOR_PROFILE_ID"]) else {
             throw XCTSkip("Disposable Feed/Official comments fixture is not configured.")
         }
 
@@ -977,8 +979,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             emojiIdentifier: "feed.comments.emoji",
             sendIdentifier: "feed.comments.send",
             comment: feedComment,
+            authorIdentifier: "feed.comments.author.\(actorProfileId)",
+            authorProfileId: actorProfileId,
             beforeScreenshot: "ios-feed-comments-emoji-before",
             afterScreenshot: "ios-feed-comments-emoji-after",
+            authorScreenshot: "ios-feed-comments-author-profile",
             context: "Feed comments",
             in: app,
         )
@@ -991,14 +996,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             emojiIdentifier: "official.comments.emoji",
             sendIdentifier: "official.comments.send",
             comment: officialComment,
+            authorIdentifier: "official.comments.author.\(actorProfileId)",
+            authorProfileId: actorProfileId,
             beforeScreenshot: "ios-official-comments-emoji-before",
             afterScreenshot: "ios-official-comments-emoji-after",
+            authorScreenshot: "ios-official-comments-author-profile",
             context: "Official comments",
             in: app,
         )
     }
 
-    private func assertProfileContentStage(profileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, in app: XCUIApplication) {
+    private func assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, in app: XCUIApplication) {
         let posts = app.descendants(matching: .any)
             .matching(identifier: "public-profile.kpi.posts.\(profileId)")
             .firstMatch
@@ -1056,6 +1064,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "public-profile.comments.panel",
             "public-profile.comments.list",
             "public-profile.comments.row.\(commentId)",
+            "public-profile.comments.author.\(actorProfileId)",
+            "public-profile.comments.translator",
             "public-profile.comments.emoji",
             "public-profile.comments.input",
             "public-profile.comments.send",
@@ -1094,8 +1104,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         emojiIdentifier: String,
         sendIdentifier: String,
         comment: String,
+        authorIdentifier: String,
+        authorProfileId: String,
         beforeScreenshot: String,
         afterScreenshot: String,
+        authorScreenshot: String,
         context: String,
         in app: XCUIApplication,
     ) {
@@ -1161,6 +1174,17 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(persistedComment.waitForExistence(timeout: 20), "\(context) submitted from iOS must remain visible after the optimistic write resolves.")
         attachScreenshot(app, name: afterScreenshot)
+        let author = app.descendants(matching: .any)
+            .matching(identifier: authorIdentifier)
+            .firstMatch
+        XCTAssertTrue(author.waitForExistence(timeout: 10), "\(context) must expose a stable comment author profile anchor.")
+        author.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let profile = app.descendants(matching: .any)
+            .matching(identifier: "public-profile.user.\(authorProfileId)")
+            .firstMatch
+        XCTAssertTrue(profile.waitForExistence(timeout: 20), "\(context) comment author anchor must open the shared public profile.")
+        attachScreenshot(app, name: authorScreenshot)
+        closePublicProfile(in: app)
     }
 
     private func waitForCommentInput(_ identifier: String, in app: XCUIApplication, timeout: TimeInterval, required: Bool) -> XCUIElement {
