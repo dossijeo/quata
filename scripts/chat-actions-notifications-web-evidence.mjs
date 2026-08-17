@@ -2698,6 +2698,7 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
   await feedOfficialCommentsStep("feed", async () => {
     report.steps.push("feed_official_comments_web_feed_route_start");
     await openAuthenticatedRoute(page, origin, `post-${encodeURIComponent(fixture.feed.postId)}`, `post/${fixture.feed.postId}`);
+    await waitVisibleSeededSurfaceText(page, `${fixture.marker} feed post body`, "feed_official_comments_feed_post_marker_missing");
     await openFeedOfficialCommentsPanel(page, {
       actionTag: "feed.action.comments",
       prefix: "feed.comments",
@@ -2746,6 +2747,7 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
   await feedOfficialCommentsStep("official", async () => {
     report.steps.push("feed_official_comments_web_official_route_start");
     await openAuthenticatedRoute(page, origin, `official-${encodeURIComponent(fixture.official.postId)}`, `official/${fixture.official.postId}`);
+    await waitVisibleSeededSurfaceText(page, fixture.official.title, "feed_official_comments_official_post_marker_missing");
     await openFeedOfficialCommentsPanel(page, {
       actionTag: "official.action.comments",
       prefix: "official.comments",
@@ -2797,6 +2799,16 @@ async function assertCommentAuthorAnchorVisible(page, tag, report) {
   const locator = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(tag))], 10_000);
   if (!locator) throw new Error(`comment_author_profile_anchor_missing:${tag}`);
   report.steps.push(`comment_author_profile_anchor_visible:${tag}`);
+}
+
+async function waitVisibleSeededSurfaceText(page, text, errorMessage, timeout = 15_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await visibleTextContentIncludes(page, text).catch(() => false)) return;
+    await wheelChatViewport(page, 420);
+    await delay(300);
+  }
+  throw new Error(errorMessage);
 }
 
 function visibleEmojiCommentText(comment) {
