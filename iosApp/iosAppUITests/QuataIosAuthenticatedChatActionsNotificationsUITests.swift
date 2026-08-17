@@ -1060,15 +1060,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "The shared fullscreen media overlay in-media close control must be visible.",
         )
         attachScreenshot(app, name: "ios-chat-profile-media-viewer")
-        app.descendants(matching: .any)
-            .matching(identifier: "fullscreen-media.back")
-            .firstMatch
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .tap()
-        XCTAssertFalse(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay must close back to the public profile.",
-        )
+        closeFullscreenMedia(context: "public profile media viewer", in: app)
         let commentsAction = profileElement("public-profile.post.action.comments.\(postId)", in: app, context: "profile content comments action")
         commentsAction.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         for identifier in [
