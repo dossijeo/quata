@@ -165,6 +165,8 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.ok(iosUiTest.includes('public-profile.comments.author.\\(actorProfileId)'));
   assert.ok(iosUiTest.includes('public-profile.comments.reply.\\(commentId)'));
   assert.match(iosUiTest, /sendReplyCommentFromTaggedSurface/);
+  assert.match(iosUiTest, /tapTaggedButton\("community\.emoji\.cell\.frequent\.0", in: app, context: "profile comments first frequent emoji"\)/);
+  assert.doesNotMatch(iosUiTest, /profileElement\("community\.emoji\.cell\.frequent\.0", in: app, context: "profile comments first frequent emoji"\)/);
   assert.match(iosUiTest, /typeText\(String\(uiComment\.dropFirst\(\)\), into: "public-profile\.comments\.input", in: app\)/);
   assert.match(iosUiTest, /public-profile\.comments\.close/);
   assert.match(iosUiTest, /dismissProfileCommentsPanel\(in: app\)/);

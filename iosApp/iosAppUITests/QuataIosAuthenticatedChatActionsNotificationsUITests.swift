@@ -1099,9 +1099,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .tap()
         _ = profileElement("community.emoji.panel", in: app, context: "profile comments emoji panel")
-        profileElement("community.emoji.cell.frequent.0", in: app, context: "profile comments first frequent emoji")
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .tap()
+        tapTaggedButton("community.emoji.cell.frequent.0", in: app, context: "profile comments first frequent emoji")
         let input = app.descendants(matching: .any)
             .matching(identifier: "public-profile.comments.input")
             .firstMatch
