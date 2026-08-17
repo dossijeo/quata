@@ -3883,13 +3883,24 @@ async function visibleTextContentIncludes(page, probe) {
 async function visibleAriaLocator(page, patterns, timeout) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
     const controls = page.locator("[aria-label]");
     const count = await controls.count().catch(() => 0);
     for (let index = 0; index < count; index += 1) {
       const locator = controls.nth(index);
       const label = await locator.getAttribute("aria-label").catch(() => "");
       if (!patterns.some((pattern) => pattern.test(label ?? ""))) continue;
-      const visible = await locator.boundingBox().then((box) => Boolean(box && box.width > 0 && box.height > 0)).catch(() => false);
+      const visible = await locator.boundingBox()
+        .then((box) => Boolean(
+          box &&
+          box.width > 0 &&
+          box.height > 0 &&
+          box.x + box.width > 0 &&
+          box.y + box.height > 0 &&
+          box.x < viewport.width &&
+          box.y < viewport.height,
+        ))
+        .catch(() => false);
       if (visible) return locator;
     }
     await delay(250);

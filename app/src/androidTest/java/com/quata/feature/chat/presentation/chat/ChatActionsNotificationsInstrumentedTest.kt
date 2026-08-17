@@ -450,6 +450,8 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         if (visible) return
+        val scrolled = scrollFeedOfficialActionIntoView(actionTag)
+        if (scrolled) return
         saveScreenshot("$screenshotPrefix-missing-action")
         File(evidenceDir(), "$screenshotPrefix-semantics.txt")
             .writeText(
@@ -461,6 +463,25 @@ class ChatActionsNotificationsInstrumentedTest {
                 },
             )
         assertTrue("The feed/official comments action tag must be visible: $actionTag.", false)
+    }
+
+    private fun scrollFeedOfficialActionIntoView(actionTag: String): Boolean {
+        val postId = actionTag.substringAfterLast('.', missingDelimiterValue = "")
+        val containers = when {
+            actionTag.startsWith("feed.action.") -> listOf("feed.post.$postId", "feed.reel", "feed.pager")
+            actionTag.startsWith("official.action.") -> listOf("official-post-card-$postId", "official.feed", "official.pager")
+            else -> emptyList()
+        } + listOf(ChatConversationMessagesListTestTag)
+        for (container in containers.distinct()) {
+            val scrolled = runCatching {
+                compose.onNodeWithTag(container, useUnmergedTree = true)
+                    .performScrollToNode(hasTestTag(actionTag))
+                compose.waitUntil(5_000) { nodeWithTagVisible(actionTag) }
+                true
+            }.getOrDefault(false)
+            if (scrolled) return true
+        }
+        return false
     }
 
     private fun String.toNeighborhoodTagSuffix(): String =
