@@ -2747,7 +2747,7 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
   await feedOfficialCommentsStep("official", async () => {
     report.steps.push("feed_official_comments_web_official_route_start");
     await openAuthenticatedRoute(page, origin, `official-${encodeURIComponent(fixture.official.postId)}`, `official/${fixture.official.postId}`);
-    await waitVisibleSeededSurfaceText(page, fixture.official.title, "feed_official_comments_official_post_marker_missing");
+    await waitVisibleSeededSurfaceText(page, fixture.marker, "feed_official_comments_official_post_marker_missing");
     await openFeedOfficialCommentsPanel(page, {
       actionTag: "official.action.comments",
       prefix: "official.comments",

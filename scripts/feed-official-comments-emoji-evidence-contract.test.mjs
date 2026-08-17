@@ -76,7 +76,7 @@ test("Web runner records a real Feed and Official emoji-comment flow", () => {
   assert.match(runner, /official_comments_emoji_created_from_ui_and_verified_by_db/);
   assert.match(runner, /sendReplyFromCommentTag/);
   assert.match(runner, /waitVisibleSeededSurfaceText\(page, `\$\{fixture\.marker\} feed post body`, "feed_official_comments_feed_post_marker_missing"\)/);
-  assert.match(runner, /waitVisibleSeededSurfaceText\(page, fixture\.official\.title, "feed_official_comments_official_post_marker_missing"\)/);
+  assert.match(runner, /waitVisibleSeededSurfaceText\(page, fixture\.marker, "feed_official_comments_official_post_marker_missing"\)/);
   assert.match(runner, /pollFeedOfficialReplyComment/);
   assert.match(runner, /feed_comments_reply_created_from_ui_and_verified_by_db/);
   assert.match(runner, /official_comments_reply_created_from_ui_and_verified_by_db/);
