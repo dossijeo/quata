@@ -14,6 +14,7 @@ const commonProfileHost = await readFile(new URL("../feature/neighborhoods/src/c
 const commonProfileDetails = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileDetailsContent.kt", import.meta.url), "utf8");
 const commonProfileKpi = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileKpiContent.kt", import.meta.url), "utf8");
 const commonProfilePostAction = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfilePostActionContent.kt", import.meta.url), "utf8");
+const commonProfilePostPreview = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfilePostPreviewContent.kt", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
@@ -133,6 +134,8 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(commonProfileKpi, /Modifier\.semantics \{ this\.testTag = tag \}/);
   assert.match(commonProfileKpi, /\.then\(interactiveModifier\)\s*\.then\(semanticsModifier\)/);
   assert.match(commonProfilePostAction, /\.clickable\(enabled = enabled, onClick = onClick\)\s*\.then\(modifier\)/);
+  assert.match(commonProfilePostPreview, /testTag = PublicProfilePostMediaTestTagPrefix \+ post\.id/);
+  assert.match(commonProfilePostPreview, /contentDescription = PublicProfilePostOpenMediaTestTagPrefix \+ post\.id/);
   assert.match(commonProfileHost, /testTag = PublicProfilePostsKpiTestTagPrefix \+ profile\.user\.id/);
   assert.doesNotMatch(commonProfileHost, /Modifier\.weight\(1f\)\.semantics \{ testTag = PublicProfilePostsKpiTestTagPrefix/);
   assert.match(iosUiTest, /public-profile\.attachments\.item\.sb:\\\(attachmentId\)/);
