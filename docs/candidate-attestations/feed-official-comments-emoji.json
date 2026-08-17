@@ -4,11 +4,11 @@
     "FLOW-EMOJI",
     "OVR-COMMENTS"
   ],
-  "productSha": "d4b89eaecd84986761152f4f05da228709a24923",
+  "productSha": "f6eb73b85a68d6ff29fe81b9dbaadaa5f8750283",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "d4b89eaecd84986761152f4f05da228709a24923",
+      "sha": "f6eb73b85a68d6ff29fe81b9dbaadaa5f8750283",
       "report": "build-reports/web/feed-official-comments-emoji-evidence.json",
       "screenshots": [
         "build-reports/web/feed-official-comments-emoji-evidence/web-feed-comments-emoji-before.png",
@@ -23,7 +23,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "d4b89eaecd84986761152f4f05da228709a24923",
+      "sha": "f6eb73b85a68d6ff29fe81b9dbaadaa5f8750283",
       "report": "build-reports/android/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -32,7 +32,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "d4b89eaecd84986761152f4f05da228709a24923",
+      "sha": "f6eb73b85a68d6ff29fe81b9dbaadaa5f8750283",
       "report": "build-reports/ios/feed-official-comments-emoji-evidence.json",
       "cleanup": {
         "verified": true,
@@ -46,6 +46,7 @@
     "This candidate reduces FLOW-EMOJI and OVR-COMMENTS by exercising the real common CommunityEmojiPanelContent picker inside Feed and Official comment panels in Web/Wasm, Android and iOS, with reversible Feed and Official comments created from UI and verified by database polling.",
     "Feed and Official action rails now expose common actionTestTagPrefix anchors where the platform accessibility bridge supports them. Android and iOS resolve feed.action.comments and official.action.comments semantically.",
     "Web/Wasm still records a controlled relative fallback for official.action.comments because Compose/Wasm did not expose the visible action rail button as a stable DOM/ARIA node. The fallback is diagnostic and is followed by common comment input anchors, database verification and cleanup residue checks.",
+    "Product/Evidence SHA f6eb73b85a68d6ff29fe81b9dbaadaa5f8750283 repeats Web/Wasm, Android and iOS evidence after fixing the Wave2 profile emoji contracts that previously expected Web literals instead of the shared prefix-based helper.",
     "This does not declare full FLOW-EMOJI or OVR-COMMENTS GO: comments replies, pagination, profile-from-comment, translator inside comments, mixed emoji plus links, forced error/rollback paths and full visual comparison remain pending."
   ]
 }
