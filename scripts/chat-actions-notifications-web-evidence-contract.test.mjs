@@ -229,6 +229,12 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /const ownMarker = options\.translationOnly \? "Mbolo" : `chat-actions-own-\$\{runId\}`/);
   assert.match(runner, /--translation-only/);
   assert.match(runner, /--menu-surface-only/);
+  assert.match(runner, /--composer-emoji-only/);
+  assert.match(runner, /build-reports\/web\/chat-composer-emoji-evidence\.json/);
+  assert.match(runner, /composer_emoji_marker_sent_by_shared_ui_and_verified_by_rpc/);
+  assert.match(runner, /if \(options\.composerEmojiOnly\) \{/);
+  assert.match(runner, /!\s*options\.composerEmojiOnly/);
+  assert.match(runner, /state\.peerMessage && state\.b\.accessToken && !options\.composerEmojiOnly/);
   assert.match(runner, /--group-sos-only/);
   assert.match(runner, /--group-admin-only/);
   assert.match(runner, /--group-moderation-only/);
@@ -351,6 +357,9 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /page\.mouse\.click\(Math\.max\(1, box\.x - 12\), box\.y \+ \(box\.height \/ 2\)\)/);
   assert.match(runner, /const textBox = await visibleTextBox\(page, probe\)/);
   assert.match(runner, /sort\(\(left, right\) => left\.area - right\.area \|\| left\.textLength - right\.textLength \|\| left\.y - right\.y\)/);
+  assert.match(runner, /const composerMarker = `chat-composer-ui-\$\{runId\}-😀`/);
+  assert.match(await source("scripts/chat-actions-notifications-android-evidence.mjs"), /const composerMarker = `chat-compose-ui-android-\$\{randomUUID\(\)\}-😀`/);
+  assert.match(await source("scripts/chat-actions-notifications-ios-evidence.mjs"), /state\.composerMarker = [\s\S]*?`chat-actions-ios-send-\$\{randomUUID\(\)\}-😀`/);
   assert.match(runner, /fillComposerAndSend\(page, composerMarker\)/);
   assert.match(runner, /await waitMessageVisible\(page, composerMarker, "composer_message_not_visible"\)/);
   assert.match(runner, /const input = await visibleAriaLocator\(page, \[\/Mensaje\|Message\|Composer\/i\], 10_000\)/);

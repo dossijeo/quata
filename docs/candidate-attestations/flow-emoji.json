@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-EMOJI",
+    "CHAT-COMPOSER"
+  ],
+  "productSha": "378e4e0cdc325321f2e052ea084b59742f12f58e",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "378e4e0cdc325321f2e052ea084b59742f12f58e",
+      "report": "build-reports/web/chat-composer-emoji-evidence.json",
+      "screenshot": "build-reports/web/chat-composer-emoji-evidence/web-chat-composer-sent.png",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "378e4e0cdc325321f2e052ea084b59742f12f58e",
+      "report": "build-reports/android/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "378e4e0cdc325321f2e052ea084b59742f12f58e",
+      "report": "build-reports/ios/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate reduces FLOW-EMOJI by moving the catalog picker surface to common stable semantic anchors, rendering Chat message emoji through the shared atlas path for non-link messages, and exercising a real Chat composer emoji marker in Web/Wasm, Android and iOS.",
+    "Web/Wasm evidence uses the focal --composer-emoji-only lane so the current non-deterministic Fang translation failure does not block FLOW-EMOJI; the full translation lane remains required for CHAT-TRANSLATION/FLOW-TRANSLATOR evidence.",
+    "This does not declare full FLOW-EMOJI GO: runtime picker insertion and visual parity for Feed, Official and comments remain pending."
+  ]
+}

@@ -1333,7 +1333,7 @@ try {
   const privateMarker = `chat-profile-private-android-${randomUUID()}`;
   state.privateMarker = privateMarker;
   const privateProbe = privateMarker.slice(0, 28);
-  const composerMarker = `chat-compose-ui-android-${randomUUID()}`;
+  const composerMarker = `chat-compose-ui-android-${randomUUID()}-😀`;
   const replyMarker = `chat-reply-ui-android-${randomUUID()}`;
   const editMarker = `chat-edit-ui-android-${randomUUID()}`;
   const attachmentPickerMarker = `chat-attachment-picker-android-${randomUUID()}`;

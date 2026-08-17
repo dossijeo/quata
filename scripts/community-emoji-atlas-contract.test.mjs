@@ -27,5 +27,12 @@ for (const section of Object.values(manifest.sections)) {
 assert.match(panel, /imageResource\(selectedAtlasLayout\.resource\)/);
 assert.match(panel, /drawImage\(/);
 assert.doesNotMatch(panel, /Text\(emoji[,) ]/);
-assert.match(panel, /clickable \{ onEmojiClick\(emoji\) \}/);
+assert.match(panel, /CommunityEmojiPanelRootTestTag/);
+assert.match(panel, /import androidx\.compose\.ui\.semantics\.contentDescription/);
+assert.match(panel, /communityEmojiSectionTestTag\(section\.key\)/);
+assert.match(panel, /communityEmojiCellTestTag\(selectedSection\.key, index\)/);
+assert.match(panel, /clickable\(role = Role\.Button\)/);
+assert.match(panel, /contentDescription = communityEmojiSectionTestTag\(section\.key\)/);
+assert.match(panel, /contentDescription = communityEmojiCellTestTag\(selectedSection\.key, index\)/);
+assert.match(panel, /clickable\(role = Role\.Button\) \{ onEmojiClick\(emoji\) \}/);
 console.log('Community emoji atlas contract passed.');
