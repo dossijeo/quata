@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-EMOJI",
+    "OVR-COMMENTS"
+  ],
+  "productSha": "d4b89eaecd84986761152f4f05da228709a24923",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "d4b89eaecd84986761152f4f05da228709a24923",
+      "report": "build-reports/web/feed-official-comments-emoji-evidence.json",
+      "screenshots": [
+        "build-reports/web/feed-official-comments-emoji-evidence/web-feed-comments-emoji-before.png",
+        "build-reports/web/feed-official-comments-emoji-evidence/web-feed-comments-emoji-after.png",
+        "build-reports/web/feed-official-comments-emoji-evidence/web-official-comments-emoji-before.png",
+        "build-reports/web/feed-official-comments-emoji-evidence/web-official-comments-emoji-after.png"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "d4b89eaecd84986761152f4f05da228709a24923",
+      "report": "build-reports/android/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "d4b89eaecd84986761152f4f05da228709a24923",
+      "report": "build-reports/ios/feed-official-comments-emoji-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate reduces FLOW-EMOJI and OVR-COMMENTS by exercising the real common CommunityEmojiPanelContent picker inside Feed and Official comment panels in Web/Wasm, Android and iOS, with reversible Feed and Official comments created from UI and verified by database polling.",
+    "Feed and Official action rails now expose common actionTestTagPrefix anchors where the platform accessibility bridge supports them. Android and iOS resolve feed.action.comments and official.action.comments semantically.",
+    "Web/Wasm still records a controlled relative fallback for official.action.comments because Compose/Wasm did not expose the visible action rail button as a stable DOM/ARIA node. The fallback is diagnostic and is followed by common comment input anchors, database verification and cleanup residue checks.",
+    "This does not declare full FLOW-EMOJI or OVR-COMMENTS GO: comments replies, pagination, profile-from-comment, translator inside comments, mixed emoji plus links, forced error/rollback paths and full visual comparison remain pending."
+  ]
+}
