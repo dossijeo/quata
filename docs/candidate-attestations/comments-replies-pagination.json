@@ -5,11 +5,11 @@
     "FLOW-EMOJI",
     "PROF-CONTENT"
   ],
-  "productSha": "fb5281a20cf1d5452198dc7df283313f8f4f1d16",
+  "productSha": "21047158af6c240ac23e33d4049d196640d37c19",
   "evidence": {
     "web_feed_official": {
       "status": "passed",
-      "sha": "fb5281a20cf1d5452198dc7df283313f8f4f1d16",
+      "sha": "21047158af6c240ac23e33d4049d196640d37c19",
       "report": "build-reports/web/feed-official-comments-emoji-evidence.json",
       "cleanup": {
         "verified": true,
@@ -18,7 +18,7 @@
     },
     "web_profile_content": {
       "status": "passed",
-      "sha": "fb5281a20cf1d5452198dc7df283313f8f4f1d16",
+      "sha": "21047158af6c240ac23e33d4049d196640d37c19",
       "report": "build-reports/web/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -27,7 +27,7 @@
     },
     "android_feed_official": {
       "status": "passed",
-      "sha": "fb5281a20cf1d5452198dc7df283313f8f4f1d16",
+      "sha": "21047158af6c240ac23e33d4049d196640d37c19",
       "report": "build-reports/android/feed-official-comments-emoji-evidence.json",
       "cleanup": {
         "verified": true,
@@ -36,7 +36,7 @@
     },
     "android_profile_content": {
       "status": "passed",
-      "sha": "fb5281a20cf1d5452198dc7df283313f8f4f1d16",
+      "sha": "21047158af6c240ac23e33d4049d196640d37c19",
       "report": "build-reports/android/profile-content-replies-evidence.json",
       "cleanup": {
         "verified": true,
@@ -45,7 +45,7 @@
     },
     "ios_feed_official": {
       "status": "passed",
-      "sha": "fb5281a20cf1d5452198dc7df283313f8f4f1d16",
+      "sha": "21047158af6c240ac23e33d4049d196640d37c19",
       "report": "build-reports/ios/feed-official-comments-emoji-evidence.json",
       "cleanup": {
         "verified": true,
@@ -54,7 +54,7 @@
     },
     "ios_profile_content": {
       "status": "passed",
-      "sha": "fb5281a20cf1d5452198dc7df283313f8f4f1d16",
+      "sha": "21047158af6c240ac23e33d4049d196640d37c19",
       "report": "build-reports/ios/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
