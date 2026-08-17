@@ -28,6 +28,7 @@ assert.match(panel, /imageResource\(selectedAtlasLayout\.resource\)/);
 assert.match(panel, /drawImage\(/);
 assert.doesNotMatch(panel, /Text\(emoji[,) ]/);
 assert.match(panel, /CommunityEmojiPanelRootTestTag/);
+assert.match(panel, /import androidx\.compose\.ui\.semantics\.contentDescription/);
 assert.match(panel, /communityEmojiSectionTestTag\(section\.key\)/);
 assert.match(panel, /communityEmojiCellTestTag\(selectedSection\.key, index\)/);
 assert.match(panel, /clickable\(role = Role\.Button\)/);
