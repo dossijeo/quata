@@ -4592,7 +4592,7 @@ try {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
-  const composerMarker = `chat-composer-ui-${runId}`;
+  const composerMarker = `chat-composer-ui-${runId}-😀`;
   await fillComposerAndSend(page, composerMarker);
   const composerMessage = await pollMessage(
     config,

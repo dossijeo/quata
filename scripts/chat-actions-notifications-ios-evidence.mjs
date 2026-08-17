@@ -149,7 +149,7 @@ try {
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
   state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
   state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-send-${randomUUID()}`;
+  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-send-${randomUUID()}-😀`;
   state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
   state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
