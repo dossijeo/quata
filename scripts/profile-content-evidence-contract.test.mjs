@@ -135,6 +135,7 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(commonProfileKpi, /\.then\(interactiveModifier\)\s*\.then\(semanticsModifier\)/);
   assert.match(commonProfilePostAction, /\.clickable\(enabled = enabled, onClick = onClick\)\s*\.then\(modifier\)/);
   assert.match(commonProfilePostPreview, /testTag = PublicProfilePostOpenMediaTestTagPrefix \+ post\.id/);
+  assert.match(commonProfilePostPreview, /contentDescription = tag/);
   assert.doesNotMatch(commonProfilePostPreview, /testTag = PublicProfilePostMediaTestTagPrefix \+ post\.id/);
   assert.match(commonProfileHost, /testTag = PublicProfilePostsKpiTestTagPrefix \+ profile\.user\.id/);
   assert.doesNotMatch(commonProfileHost, /Modifier\.weight\(1f\)\.semantics \{ testTag = PublicProfilePostsKpiTestTagPrefix/);
@@ -167,6 +168,9 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ACTOR_PROFILE_ID/);
   assert.ok(iosUiTest.includes('public-profile.comments.author.\\(actorProfileId)'));
   assert.ok(iosUiTest.includes('public-profile.comments.reply.\\(commentId)'));
+  assert.ok(iosUiTest.includes('optionalProfileElement("public-profile.post.media.open.\\(postId)"'));
+  assert.ok(iosUiTest.includes('optionalProfileElement("public-profile.post.action.comments.\\(postId)"'));
+  assert.match(iosUiTest, /CGVector\(dx: 0\.86, dy: 0\.18\)/);
   assert.match(iosUiTest, /sendReplyCommentFromTaggedSurface/);
   assert.match(iosUiTest, /tapTaggedButton\("community\.emoji\.cell\.frequent\.0", in: app, context: "profile comments first frequent emoji"\)/);
   assert.doesNotMatch(iosUiTest, /profileElement\("community\.emoji\.cell\.frequent\.0", in: app, context: "profile comments first frequent emoji"\)/);

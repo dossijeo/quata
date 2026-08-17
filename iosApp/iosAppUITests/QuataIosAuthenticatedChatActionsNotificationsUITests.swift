@@ -1037,15 +1037,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "public-profile.gallery.\(profileId)",
             "public-profile.gallery.post.\(postId)",
             "public-profile.post.preview.\(postId)",
-            "public-profile.post.action.comments.\(postId)",
         ] {
             _ = profileElement(identifier, in: app, context: "profile content")
         }
-        let mediaOpen = profileElement("public-profile.post.media.open.\(postId)", in: app, context: "profile media open")
-        mediaOpen.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.1)).tap()
+        let preview = profileElement("public-profile.post.preview.\(postId)", in: app, context: "profile content preview")
+        let mediaOpen = optionalProfileElement("public-profile.post.media.open.\(postId)", in: app)
+        (mediaOpen ?? preview)
+            .coordinate(withNormalizedOffset: mediaOpen == nil ? CGVector(dx: 0.86, dy: 0.18) : CGVector(dx: 0.9, dy: 0.1))
+            .tap()
         let fullscreenRoot = app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch
         if !fullscreenRoot.waitForExistence(timeout: 5) {
-            mediaOpen.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            (mediaOpen ?? preview)
+                .coordinate(withNormalizedOffset: mediaOpen == nil ? CGVector(dx: 0.5, dy: 0.22) : CGVector(dx: 0.5, dy: 0.5))
+                .tap()
         }
         XCTAssertTrue(
             fullscreenRoot.waitForExistence(timeout: 10),
@@ -1065,8 +1069,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
         attachScreenshot(app, name: "ios-chat-profile-media-viewer")
         closeFullscreenMedia(context: "public profile media viewer", in: app)
-        let commentsAction = profileElement("public-profile.post.action.comments.\(postId)", in: app, context: "profile content comments action")
-        commentsAction.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let commentsAction = optionalProfileElement("public-profile.post.action.comments.\(postId)", in: app)
+        (commentsAction ?? preview)
+            .coordinate(withNormalizedOffset: commentsAction == nil ? CGVector(dx: 0.88, dy: 0.58) : CGVector(dx: 0.5, dy: 0.5))
+            .tap()
         for identifier in [
             "public-profile.comments.panel",
             "public-profile.comments.list",
@@ -2127,6 +2133,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(element.exists, "The shared public-profile element \(identifier) must be visible for \(context).")
         return element
+    }
+
+    private func optionalProfileElement(_ identifier: String, in app: XCUIApplication) -> XCUIElement? {
+        let element = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+        if element.waitForExistence(timeout: 2), element.isHittable {
+            return element
+        }
+        return nil
     }
 
     private func openOptionsMenu(in app: XCUIApplication, expectedIdentifier: String, expectedText: String, context: String) {

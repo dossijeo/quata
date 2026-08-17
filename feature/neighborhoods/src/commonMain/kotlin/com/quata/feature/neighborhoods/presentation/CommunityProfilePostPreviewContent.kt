@@ -92,7 +92,11 @@ fun CommunityProfilePostPreviewContent(
                             enabled = post.imageUrl != null || (post.videoUrl != null && isVideoLoaded),
                             onClick = onOpenMedia,
                         )
-                        .semantics { testTag = PublicProfilePostOpenMediaTestTagPrefix + post.id },
+                        .semantics {
+                            val tag = PublicProfilePostOpenMediaTestTagPrefix + post.id
+                            testTag = tag
+                            contentDescription = tag
+                        },
                 ) {
                     media(isVideoLoaded) { isVideoLoaded = true }
                     if (shouldShowProfileVideoStart(post, isVideoLoaded)) {
