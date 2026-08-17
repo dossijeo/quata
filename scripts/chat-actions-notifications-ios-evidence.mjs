@@ -311,7 +311,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
         targetSession: state.b,
         threadId: state.thread,
       };
-      state.profileContent.uiCommentMarker = `${state.profileContent.marker} ios ui comment`;
+      state.profileContent.uiCommentMarker = `😀 ${state.profileContent.marker} ios ui comment`;
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
       const sharedAttachments = await sharedAttachmentIds(config, state.a, state.a.profileId, state.b.profileId);
@@ -443,7 +443,25 @@ export QUATA_IOS_CHAT_E2E_FORWARD_QUERY=${shellQuote(state.forwardProfile?.phone
 export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR=${shellQuote(options.remoteLogDir)}
 export QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_RESULT_BUNDLE_DIR=${shellQuote(options.remoteResultBundleDir)}
 bash scripts/run-ios-chat-actions-notifications-ui-test.sh
-`, 30 * 60 * 1000);
+`, 30 * 60 * 1000).catch(async (error) => {
+      const selectedXctest = selectedIosXctestForMode({
+        menuSurfaceOnly,
+        keyboardMenuOnly,
+        attachmentsAudioOnly,
+        attachmentPickerOnly,
+        groupSosOnly,
+        groupAdminOnly,
+        groupModerationOnly,
+        profileListsOnly,
+        profileContentOnly,
+        profileEntryOnly,
+        profileRolesSafetyOnly,
+        profilePrivateChatOnly,
+      });
+      if (!selectedXctest || !(await acceptRemoteXcodeResultIoError(selectedXctest, error))) {
+        throw error;
+      }
+    });
     report.steps.push(menuSurfaceOnly
       ? "ios_xctest_options_menu_surface_visible_and_mute_toggled"
       : keyboardMenuOnly
@@ -2108,6 +2126,45 @@ function sha256(value) {
 
 function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
+function selectedIosXctestForMode(mode) {
+  if (mode.menuSurfaceOnly) return { method: "testOptionsMenuSurfaceShowsCommonActionsAndTogglesMute", log: "menu-surface.log" };
+  if (mode.keyboardMenuOnly) return { method: "testKeyboardHeaderAndSelectedActionBarStayVisible", log: "keyboard-menu.log" };
+  if (mode.attachmentsAudioOnly) return { method: "testAttachmentsAndAudioExposeSharedAnchors", log: "attachments-audio.log" };
+  if (mode.attachmentPickerOnly) return { method: "testAttachmentPickerFixtureUsesSharedComposerAnchors", log: "attachment-picker.log" };
+  if (mode.groupSosOnly) return { method: "testGroupMenuAndSosMessagesExposeSharedAnchors", log: "group-sos.log" };
+  if (mode.groupAdminOnly) return { method: "testGroupAdminPromotesParticipantThroughSharedMemberMenu", log: "group-admin.log" };
+  if (mode.groupModerationOnly) return { method: "testGroupModerationRemovesAndBlocksParticipantsThroughSharedMemberMenu", log: "group-moderation.log" };
+  if (mode.profileListsOnly) return { method: "testProfileFollowersAndFollowingListsUseSharedPublicProfileSurface", log: "profile-lists.log" };
+  if (mode.profileContentOnly) return { method: "testProfileContentFromChatUsesSharedPublicProfileSurface", log: "profile-content.log" };
+  if (mode.profileEntryOnly) return { method: "testProfileEntryFromFeedOfficialCommunitiesConversationsAndChat", log: "profile-entry.log" };
+  if (mode.profileRolesSafetyOnly) return { method: "testProfileRolesSafetyReportAndBlockUseSharedSurface", log: "profile-roles-safety.log" };
+  if (mode.profilePrivateChatOnly) return { method: "testProfilePrimaryActionOpensPrivateChat", log: "profile-private-chat.log" };
+  return { method: "testComposerReplyEditAndSelectedActionsUseSharedChatSurface", log: "ui.log" };
+}
+
+async function acceptRemoteXcodeResultIoError(selectedXctest, originalError) {
+  const remoteLog = `${options.project}/${options.remoteLogDir}/${selectedXctest.log}`;
+  const script = `
+set -euo pipefail
+log=${shellQuote(remoteLog)}
+grep -F 'CASTreeDataStructure/Importer.swift:131: Fatal error: FIXME: Unable to write data for' "$log" >/dev/null
+grep -F 'system.logarchive/logdata.LiveData.tracev3 due to ioError' "$log" >/dev/null
+/usr/bin/python3 ${shellQuote(`${options.project}/scripts/check-ios-xctest-executed.py`)} --method ${shellQuote(selectedXctest.method)} --log "$log" --require-terminal-success-marker
+`;
+  try {
+    await run("ssh", [options.host, "bash", "-s"], { input: script, timeoutMs: 60 * 1000 });
+    report.steps.push("ios_xctest_success_accepted_after_xcode_xcresult_ioerror");
+    report.evidence.xcodeResultIoErrorAccepted = {
+      method: selectedXctest.method,
+      log: `${options.remoteLogDir}/${selectedXctest.log}`,
+      originalFailure: safeFailure(originalError),
+    };
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function runSshScript(host, script, timeoutMs = 15 * 60 * 1000) {

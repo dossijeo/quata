@@ -18,6 +18,11 @@ const [
   commentsRow,
   fullscreenOverlay,
   postAction,
+  webEvidence,
+  androidTest,
+  androidRunner,
+  iosTest,
+  iosRunner,
 ] = await Promise.all([
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileAttachmentsContent.kt"),
@@ -28,6 +33,11 @@ const [
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileCommentRowContent.kt"),
   source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataFullscreenMediaOverlayContent.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfilePostActionContent.kt"),
+  source("scripts/chat-actions-notifications-web-evidence.mjs"),
+  source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
+  source("scripts/chat-actions-notifications-android-evidence.mjs"),
+  source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift"),
+  source("scripts/chat-actions-notifications-ios-evidence.mjs"),
 ]);
 
 test("public profile content exposes common gallery anchors", () => {
@@ -96,12 +106,30 @@ test("public profile media opens through the shared fullscreen overlay", () => {
   assert.match(fullscreenOverlay, /contentDescription = QuataFullscreenMediaOverlayTitleTestTag/);
 });
 
-test("public profile content exposes common comments anchors", () => {
+test("public profile content exposes common comments anchors", async () => {
   assert.match(commentsPanel, /PublicProfileCommentsPanelTestTag = "public-profile\.comments\.panel"/);
   assert.match(commentsPanel, /PublicProfileCommentsListTestTag = "public-profile\.comments\.list"/);
   assert.match(commentsPanel, /PublicProfileCommentsCloseTestTag = "public-profile\.comments\.close"/);
   assert.match(commentsInput, /PublicProfileCommentsInputTestTag = "public-profile\.comments\.input"/);
   assert.match(commentsInput, /PublicProfileCommentsSendTestTag = "public-profile\.comments\.send"/);
+  assert.match(commentsInput, /PublicProfileCommentsEmojiTestTag = "public-profile\.comments\.emoji"/);
+  assert.match(commentsInput, /QuataEmojiCommentTextField/);
+  assert.match(await source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileCommentsDialogContent.kt"), /CommunityEmojiPanelContent/);
+  assert.match(await source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileCommentsDialogContent.kt"), /communityEmojiSections\(strings\.emojiLabels\)/);
+  assert.match(await source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileCommentsDialogContent.kt"), /PublicProfileCommentsEmojiTestTag/);
   assert.match(commentsRow, /PublicProfileCommentRowTestTagPrefix = "public-profile\.comments\.row\."/);
   assert.match(commentsRow, /testTag = PublicProfileCommentRowTestTagPrefix \+ comment\.id/);
+});
+
+test("public profile content evidence exercises the common emoji picker before typing", () => {
+  for (const runner of [webEvidence, androidTest, iosTest]) {
+    assert.match(runner, /public-profile\.comments\.emoji/);
+    assert.match(runner, /community\.emoji\.panel/);
+    assert.match(runner, /community\.emoji\.cell\.frequent\.0/);
+  }
+  assert.match(webEvidence, /😀 \$\{fixture\.marker\} ui comment/);
+  assert.match(androidRunner, /😀 \$\{state\.profileContent\.marker\} android ui comment/);
+  assert.match(iosRunner, /😀 \$\{state\.profileContent\.marker\} ios ui comment/);
+  assert.match(androidTest, /performTextInput\(uiComment\.removePrefix\("😀"\)\)/);
+  assert.match(iosTest, /typeText\(String\(uiComment\.dropFirst\(\)\)/);
 });

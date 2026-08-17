@@ -94,6 +94,7 @@ import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentThumbnail
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.ClickableProfileAvatar
+import com.quata.core.ui.components.CommunityEmojiLabels
 import com.quata.core.ui.components.ProfileAvatarWithLoadingHalo
 import com.quata.core.ui.components.QuataScreen
 import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
@@ -274,6 +275,17 @@ fun CommunityProfileScreen(
                 closeContentDescription = stringResource(R.string.common_close),
                 placeholder = stringResource(R.string.comments_placeholder),
                 sendLabel = stringResource(R.string.common_send),
+                showEmojis = stringResource(R.string.comments_show_emojis),
+                emojiLabels = CommunityEmojiLabels(
+                    recent = stringResource(R.string.emoji_recent),
+                    frequent = stringResource(R.string.emoji_frequent),
+                    gestures = stringResource(R.string.emoji_gestures),
+                    people = stringResource(R.string.emoji_people),
+                    animalsNature = stringResource(R.string.emoji_animals_nature),
+                    foodDrink = stringResource(R.string.emoji_food_drink),
+                    objectsSymbols = stringResource(R.string.emoji_objects_symbols),
+                    flags = stringResource(R.string.emoji_flags),
+                ),
             ),
         ),
         slots = CommunityProfilePlatformSlots(

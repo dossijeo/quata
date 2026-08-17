@@ -1810,7 +1810,7 @@ try {
         targetSession: state.b,
         threadId: state.thread,
       };
-      state.profileContent.uiCommentMarker = `${state.profileContent.marker} android ui comment`;
+      state.profileContent.uiCommentMarker = `😀 ${state.profileContent.marker} android ui comment`;
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
     }

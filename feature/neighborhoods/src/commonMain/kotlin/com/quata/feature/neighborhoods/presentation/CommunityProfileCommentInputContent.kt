@@ -1,58 +1,57 @@
 package com.quata.feature.neighborhoods.presentation
 
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.testTag
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import com.quata.core.designsystem.theme.quataTheme
+import com.quata.core.ui.components.CompactIcon
+import com.quata.core.ui.components.CompactIconButton
+import com.quata.core.ui.components.QuataEmojiCommentTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 
 const val PublicProfileCommentsInputTestTag = "public-profile.comments.input"
 const val PublicProfileCommentsSendTestTag = "public-profile.comments.send"
+const val PublicProfileCommentsEmojiTestTag = "public-profile.comments.emoji"
 
 /** Shared comment composer row; hosts retain authorization and comment persistence in onSend. */
 @Composable
 fun CommunityProfileCommentInputContent(
-    value: String,
+    value: TextFieldValue,
     placeholder: String,
     sendLabel: String,
-    onValueChange: (String) -> Unit,
+    leadingAction: @Composable () -> Unit,
+    onValueChange: (TextFieldValue) -> Unit,
+    onFocused: () -> Unit,
     onSend: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val template = quataTheme()
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(
+        QuataEmojiCommentTextField(
             value = value,
             onValueChange = onValueChange,
             placeholder = { Text(placeholder) },
-            singleLine = true,
+            leadingIcon = leadingAction,
+            trailingIcon = {
+                CompactIconButton(
+                    enabled = value.text.isNotBlank(),
+                    testTag = PublicProfileCommentsSendTestTag,
+                    onClick = onSend,
+                ) {
+                    CompactIcon(Icons.AutoMirrored.Filled.Send, sendLabel)
+                }
+            },
+            onFocused = onFocused,
             modifier = Modifier
                 .weight(1f)
                 .heightIn(min = 58.dp)
-                .semantics { testTag = PublicProfileCommentsInputTestTag }
+                .testTag(PublicProfileCommentsInputTestTag),
         )
-        Spacer(Modifier.width(8.dp))
-        Button(
-            enabled = value.isNotBlank(),
-            onClick = onSend,
-            modifier = Modifier.semantics { testTag = PublicProfileCommentsSendTestTag },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = template.colors.accent,
-                contentColor = template.colors.accentContent
-            )
-        ) {
-            Text(sendLabel)
-        }
     }
 }

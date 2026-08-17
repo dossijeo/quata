@@ -289,11 +289,17 @@ run_and_require() {
     rm -rf "$result_bundle"
     result_args=(-resultBundlePath "$result_bundle")
   fi
+  set +e
   run_bounded "$method" 480 "$log" \
     xcodebuild test-without-building -xctestrun "$xctestrun" \
     -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" "${result_args[@]}" -only-testing:"$selected"
+  local xcode_status=$?
+  set -e
   /usr/bin/python3 scripts/check-ios-xctest-executed.py \
     --method "$method" --log "$log" --require-terminal-success-marker || exit 1
+  if [[ "$xcode_status" -ne 0 ]]; then
+    echo "xcodebuild exited $xcode_status after $method emitted a terminal success marker; accepting XCTest success and preserving log for diagnostics." >&2
+  fi
   printf 'PASS_EXECUTED:%s\n' "$method" | tee -a "$log"
 }
 

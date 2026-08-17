@@ -1,5 +1,7 @@
 package com.quata.feature.neighborhoods.presentation
 
+import com.quata.core.ui.components.CommunityEmojiLabels
+
 /** Localized copy shared by non-Android hosts; Android continues to consume its resources. */
 fun neighborhoodsScreenStringsForLanguage(languageTag: String?): NeighborhoodsScreenStrings =
     when (languageTag?.substringBefore('-')?.lowercase()) {
@@ -106,7 +108,7 @@ fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileSt
             galleryTitle = "Fotos y vídeos",
             emptyGallery = "No hay publicaciones visibles.",
             back = "Volver",
-            comments = CommunityProfileCommentsDialogStrings("Comentarios", "Cerrar comentarios", "Escribe un comentario", "Enviar"),
+            comments = CommunityProfileCommentsDialogStrings("Comentarios", "Cerrar comentarios", "Escribe un comentario", "Enviar", "Mostrar emojis", CommunityEmojiLabels()),
         )
         "fr" -> CommunityProfileStrings(
             posts = "Publications",
@@ -134,7 +136,16 @@ fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileSt
             galleryTitle = "Photos et vidéos",
             emptyGallery = "Aucune publication visible.",
             back = "Retour",
-            comments = CommunityProfileCommentsDialogStrings("Commentaires", "Fermer les commentaires", "Écrire un commentaire", "Envoyer"),
+            comments = CommunityProfileCommentsDialogStrings("Commentaires", "Fermer les commentaires", "Écrire un commentaire", "Envoyer", "Afficher les emojis", CommunityEmojiLabels(
+                recent = "Récents",
+                frequent = "Fréquents",
+                gestures = "Gestes",
+                people = "Personnes",
+                animalsNature = "Animaux et nature",
+                foodDrink = "Cuisine et boissons",
+                objectsSymbols = "Objets et symboles",
+                flags = "Drapeaux",
+            )),
         )
         else -> CommunityProfileStrings(
             posts = "Posts",
@@ -162,6 +173,15 @@ fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileSt
             galleryTitle = "Photos and videos",
             emptyGallery = "No visible posts.",
             back = "Back",
-            comments = CommunityProfileCommentsDialogStrings("Comments", "Close comments", "Write a comment", "Send"),
+            comments = CommunityProfileCommentsDialogStrings("Comments", "Close comments", "Write a comment", "Send", "Show emojis", CommunityEmojiLabels(
+                recent = "Recent",
+                frequent = "Frequent",
+                gestures = "Gestures",
+                people = "People",
+                animalsNature = "Animals and nature",
+                foodDrink = "Food and drink",
+                objectsSymbols = "Objects and symbols",
+                flags = "Flags",
+            )),
         )
     }
