@@ -7,11 +7,11 @@
     "CHAT-PROFILE",
     "PROF-CONTENT"
   ],
-  "productSha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+  "productSha": "44a455b0fbf43748054c3d8f0b772af85fc0fe4b",
   "evidence": {
     "web_feed_official": {
       "status": "passed",
-      "sha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+      "sha": "44a455b0fbf43748054c3d8f0b772af85fc0fe4b",
       "report": "build-reports/web/feed-official-comments-author-evidence.json",
       "cleanup": {
         "verified": true,
@@ -20,7 +20,7 @@
     },
     "web_profile_content": {
       "status": "passed",
-      "sha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+      "sha": "44a455b0fbf43748054c3d8f0b772af85fc0fe4b",
       "report": "build-reports/web/profile-content-comments-translator-evidence.json",
       "cleanup": {
         "verified": true,
@@ -29,7 +29,7 @@
     },
     "android_feed_official": {
       "status": "passed",
-      "sha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+      "sha": "44a455b0fbf43748054c3d8f0b772af85fc0fe4b",
       "report": "build-reports/android/feed-official-comments-author-evidence.json",
       "cleanup": {
         "verified": true,
@@ -38,7 +38,7 @@
     },
     "android_profile_content": {
       "status": "passed",
-      "sha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+      "sha": "44a455b0fbf43748054c3d8f0b772af85fc0fe4b",
       "report": "build-reports/android/profile-content-comments-translator-evidence.json",
       "cleanup": {
         "verified": true,
@@ -47,7 +47,7 @@
     },
     "ios_feed_official": {
       "status": "passed",
-      "sha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+      "sha": "44a455b0fbf43748054c3d8f0b772af85fc0fe4b",
       "report": "build-reports/ios/feed-official-comments-author-evidence.json",
       "cleanup": {
         "verified": true,
@@ -56,7 +56,7 @@
     },
     "ios_profile_content": {
       "status": "passed",
-      "sha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+      "sha": "44a455b0fbf43748054c3d8f0b772af85fc0fe4b",
       "report": "build-reports/ios/profile-content-comments-translator-evidence.json",
       "cleanup": {
         "verified": true,
@@ -66,6 +66,7 @@
   },
   "preflight": [
     "node --test scripts/feed-official-comments-emoji-evidence-contract.test.mjs scripts/comments-translator-trigger-parity-contract.test.mjs scripts/profile-content-evidence-contract.test.mjs scripts/comments-input-tags-contract.test.mjs",
+    "node --test scripts/capability-matrix-contract.test.mjs",
     "./gradlew.bat :app:compileDebugAndroidTestKotlin :app:compileDebugKotlin --stacktrace",
     "./gradlew.bat :web:wasmJsBrowserDistribution --stacktrace"
   ],
