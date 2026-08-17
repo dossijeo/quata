@@ -21,6 +21,7 @@ import com.quata.core.ui.components.CommunityEmojiLabels
 import com.quata.core.ui.components.CommunityEmojiPanelContent
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+import com.quata.core.ui.components.QuataReplyTargetBannerContent
 import com.quata.core.ui.components.communityEmojiSections
 import com.quata.core.ui.components.insertAtSelection
 import com.quata.designsystem.translation.LocalQuataTranslatableTextRegistry
@@ -53,6 +54,7 @@ fun CommunityProfileCommentsDialogContent(
     translatorStrings: QuataTranslatorStrings,
 ) {
     var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
+    var replyTo by remember(post.id) { mutableStateOf<PostComment?>(null) }
     var isEmojiPickerVisible by rememberSaveable(post.id) { mutableStateOf(false) }
     val inheritedTranslatorRegistry = LocalQuataTranslatableTextRegistry.current
     val translatorRegistry = inheritedTranslatorRegistry ?: remember(post.id) { QuataTranslatableTextRegistry() }
@@ -73,6 +75,8 @@ fun CommunityProfileCommentsDialogContent(
         commentRow = { comment ->
             val displayText = buildString {
                 append(comment.authorName)
+                comment.replyToAuthorName?.let { append('\n').append(strings.replyTo(it)) }
+                comment.replyToMessage?.takeIf(String::isNotBlank)?.let { append('\n').append(it) }
                 comment.message.takeIf(String::isNotBlank)?.let { append('\n').append(it) }
             }
             CommunityProfileCommentRowContent(
@@ -83,7 +87,22 @@ fun CommunityProfileCommentsDialogContent(
                     displayText = displayText,
                 ),
                 onOpenAuthorProfile = onOpenUserProfile,
+                replyLabel = strings.reply,
+                replyToLabel = strings.replyTo,
+                onReply = { replyTo = comment },
             )
+        },
+        replyTarget = replyTo?.let { target ->
+            {
+                QuataReplyTargetBannerContent(
+                    comment = target,
+                    replyingTo = strings.replyingTo(target.authorName),
+                    cancelDescription = strings.cancelReply,
+                    onClear = { replyTo = null },
+                    targetTestTag = "public-profile.comments.replyTarget.${target.id}",
+                    cancelTestTag = "public-profile.comments.replyCancel.${target.id}",
+                )
+            }
         },
         input = {
             if (isEmojiPickerVisible) {
@@ -110,8 +129,16 @@ fun CommunityProfileCommentsDialogContent(
                 onFocused = { if (isEmojiPickerVisible) isEmojiPickerVisible = false },
                 onSend = {
                     if (canParticipate) {
-                        onAddComment(createComment(draft.text.trim()))
+                        val target = replyTo
+                        onAddComment(
+                            createComment(draft.text.trim()).copy(
+                                replyToAuthorName = target?.authorName,
+                                replyToMessage = target?.message,
+                                replyToCommentId = target?.id,
+                            ),
+                        )
                         draft = TextFieldValue()
+                        replyTo = null
                         isEmojiPickerVisible = false
                     } else {
                         onAuthRequired()
@@ -142,4 +169,8 @@ data class CommunityProfileCommentsDialogStrings(
     val showEmojis: String,
     val emojiLabels: CommunityEmojiLabels,
     val translatorContentDescription: String = "Traductor Fang",
+    val reply: String = "Responder",
+    val replyingTo: (String) -> String = { "Respondiendo a $it" },
+    val cancelReply: String = "Cancelar respuesta",
+    val replyTo: (String) -> String = { "En respuesta a $it" },
 )

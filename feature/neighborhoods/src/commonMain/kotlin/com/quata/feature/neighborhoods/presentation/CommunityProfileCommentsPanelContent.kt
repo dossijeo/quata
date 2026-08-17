@@ -39,6 +39,7 @@ fun CommunityProfileCommentsPanelContent(
     onDismiss: () -> Unit,
     translatorAction: (@Composable (Modifier) -> Unit)? = null,
     commentRow: @Composable (PostComment) -> Unit,
+    replyTarget: (@Composable () -> Unit)? = null,
     input: @Composable () -> Unit
 ) {
     QuataFloatingPanelContent(
@@ -76,6 +77,10 @@ fun CommunityProfileCommentsPanelContent(
                 items(comments, key = { it.id }) { comment -> commentRow(comment) }
             }
             Spacer(Modifier.height(14.dp))
+            replyTarget?.let {
+                it()
+                Spacer(Modifier.height(12.dp))
+            }
             input()
         }
     }

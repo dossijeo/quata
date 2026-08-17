@@ -69,6 +69,7 @@ const val PublicProfileRolesLoadingTestTagPrefix = "public-profile.roles.loading
 const val PublicProfileModerationDialogTestTagPrefix = "public-profile.safety.dialog."
 const val PublicProfileModerationDialogConfirmTestTagPrefix = "public-profile.safety.dialog.confirm."
 const val PublicProfileModerationDialogCancelTestTag = "public-profile.safety.dialog.cancel"
+const val PublicProfileCommentsPendingTestTagPrefix = "public-profile.comments.pending."
 
 data class CommunityProfileStrings(
     val posts: String,
@@ -241,17 +242,20 @@ fun CommunityProfileScreenHost(
                                 ProfileKpiContent(
                                     profile.user.postsCount,
                                     strings.posts,
-                                    Modifier.weight(1f).semantics { testTag = PublicProfilePostsKpiTestTagPrefix + profile.user.id },
+                                    Modifier.weight(1f),
+                                    testTag = PublicProfilePostsKpiTestTagPrefix + profile.user.id,
                                 ) { showPosts = true }
                                 ProfileKpiContent(
                                     profile.user.followersCount,
                                     strings.followers,
-                                    Modifier.weight(1f).semantics { testTag = PublicProfileFollowersKpiTestTagPrefix + profile.user.id },
+                                    Modifier.weight(1f),
+                                    testTag = PublicProfileFollowersKpiTestTagPrefix + profile.user.id,
                                 ) { userList = ProfileUserList.Followers }
                                 ProfileKpiContent(
                                     profile.user.followingCount,
                                     strings.following,
-                                    Modifier.weight(1f).semantics { testTag = PublicProfileFollowingKpiTestTagPrefix + profile.user.id },
+                                    Modifier.weight(1f),
+                                    testTag = PublicProfileFollowingKpiTestTagPrefix + profile.user.id,
                                 ) { userList = ProfileUserList.Following }
                             }
                         },
@@ -344,20 +348,29 @@ fun CommunityProfileScreenHost(
                                     )
                                 },
                                 commentsDialog = { post, addComment, dismiss ->
-                                    CommunityProfileCommentsDialogContent(
-                                        post = post,
-                                        localComments = emptyList(),
-                                        canParticipate = currentUserId != null,
-                                        strings = strings.comments,
-                                        onAuthRequired = onAuthRequired,
-                                        createComment = { draft -> createComment(post, draft) },
-                                        onAddComment = addComment,
-                                        onOpenUserProfile = onOpenUserProfile,
-                                        onDismiss = dismiss,
-                                        translatorTrigger = slots.commentsTranslatorTrigger,
-                                        translatorGateway = slots.commentsTranslationGateway,
-                                        translatorStrings = slots.commentsTranslatorStrings,
-                                    )
+                                    Box {
+                                        CommunityProfileCommentsDialogContent(
+                                            post = post,
+                                            localComments = emptyList(),
+                                            canParticipate = currentUserId != null,
+                                            strings = strings.comments,
+                                            onAuthRequired = onAuthRequired,
+                                            createComment = { draft -> createComment(post, draft) },
+                                            onAddComment = addComment,
+                                            onOpenUserProfile = onOpenUserProfile,
+                                            onDismiss = dismiss,
+                                            translatorTrigger = slots.commentsTranslatorTrigger,
+                                            translatorGateway = slots.commentsTranslationGateway,
+                                            translatorStrings = slots.commentsTranslatorStrings,
+                                        )
+                                        if (commentingPostId == post.id) {
+                                            Box(
+                                                Modifier
+                                                    .size(1.dp)
+                                                    .semantics { testTag = PublicProfileCommentsPendingTestTagPrefix + post.id },
+                                            )
+                                        }
+                                    }
                                 },
                             )
                         }

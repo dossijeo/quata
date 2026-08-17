@@ -108,7 +108,19 @@ fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileSt
             galleryTitle = "Fotos y vídeos",
             emptyGallery = "No hay publicaciones visibles.",
             back = "Volver",
-            comments = CommunityProfileCommentsDialogStrings("Comentarios", "Cerrar comentarios", "Escribe un comentario", "Enviar", "Mostrar emojis", CommunityEmojiLabels(), "Traductor Fang"),
+            comments = CommunityProfileCommentsDialogStrings(
+                "Comentarios",
+                "Cerrar comentarios",
+                "Escribe un comentario",
+                "Enviar",
+                "Mostrar emojis",
+                CommunityEmojiLabels(),
+                "Traductor Fang",
+                reply = "Responder",
+                replyingTo = { "Respondiendo a $it" },
+                cancelReply = "Cancelar respuesta",
+                replyTo = { "En respuesta a $it" },
+            ),
         )
         "fr" -> CommunityProfileStrings(
             posts = "Publications",
@@ -145,7 +157,12 @@ fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileSt
                 foodDrink = "Cuisine et boissons",
                 objectsSymbols = "Objets et symboles",
                 flags = "Drapeaux",
-            ), "Traducteur Fang"),
+            ), "Traducteur Fang",
+                reply = "Répondre",
+                replyingTo = { "Réponse à $it" },
+                cancelReply = "Annuler la réponse",
+                replyTo = { "Réponse à $it" },
+            ),
         )
         else -> CommunityProfileStrings(
             posts = "Posts",
@@ -182,6 +199,11 @@ fun communityProfileStringsForLanguage(languageTag: String?): CommunityProfileSt
                 foodDrink = "Food and drink",
                 objectsSymbols = "Objects and symbols",
                 flags = "Flags",
-            ), "Fang translator"),
+            ), "Fang translator",
+                reply = "Reply",
+                replyingTo = { "Replying to $it" },
+                cancelReply = "Cancel reply",
+                replyTo = { "Reply to $it" },
+            ),
         )
     }

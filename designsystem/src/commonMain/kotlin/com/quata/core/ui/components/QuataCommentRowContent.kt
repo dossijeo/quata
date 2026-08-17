@@ -40,6 +40,9 @@ fun QuataCommentRowContent(
     strings: QuataCommentRowStrings,
     modifier: Modifier = Modifier,
     authorProfileTestTagPrefix: String? = null,
+    replyTestTagPrefix: String? = null,
+    reportTestTagPrefix: String? = null,
+    replyQuoteTestTagPrefix: String? = null,
     onOpenAuthorProfile: (String) -> Unit = {},
     onReply: () -> Unit,
     onReport: () -> Unit
@@ -55,11 +58,11 @@ fun QuataCommentRowContent(
                     val authorModifier = Modifier.weight(1f).then(
                         if (authorId != null) {
                             Modifier
+                                .clickable { onOpenAuthorProfile(authorId) }
                                 .semantics {
                                     authorProfileTag?.let { testTag = it }
                                     contentDescription = listOfNotNull("${comment.authorName} profile", authorProfileTag).joinToString(" ")
                                 }
-                                .clickable { onOpenAuthorProfile(authorId) }
                         } else {
                             Modifier
                         }
@@ -68,13 +71,40 @@ fun QuataCommentRowContent(
                     Text(timestamp, color = template.colors.textSecondary, fontSize = 13.sp)
                 }
                 comment.replyToAuthorName?.let { author ->
-                    Spacer(Modifier.height(8.dp)); Text(strings.replyTo(author), color = template.colors.accent, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                    val replyQuoteTag = replyQuoteTestTagPrefix?.let { it + comment.id }
+                    Spacer(Modifier.height(8.dp)); Text(
+                        strings.replyTo(author),
+                        color = template.colors.accent,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.semantics {
+                            replyQuoteTag?.let { testTag = it }
+                            contentDescription = listOfNotNull(strings.replyTo(author), replyQuoteTag).joinToString(" ")
+                        },
+                    )
                     comment.replyToMessage?.takeIf { it.isNotBlank() }?.let { quoted ->
                         Spacer(Modifier.height(4.dp)); QuataEmojiStaticText(quoted, template.colors.textSecondary, 13.sp, TextUnit.Unspecified, 2, TextOverflow.Ellipsis)
                     }
                 }
                 Spacer(Modifier.height(12.dp)); QuataEmojiStaticText(comment.message, template.colors.textPrimary, 16.sp, 21.sp, Int.MAX_VALUE, TextOverflow.Clip, modifier = Modifier.fillMaxWidth())
-                Row(Modifier.align(Alignment.End)) { TextButton(onClick = onReport) { Text(strings.report, color = template.colors.textSecondary) }; TextButton(onClick = onReply) { Text(strings.reply, color = template.colors.accent, fontWeight = FontWeight.ExtraBold) } }
+                Row(Modifier.align(Alignment.End)) {
+                    val reportTag = reportTestTagPrefix?.let { it + comment.id }
+                    val replyTag = replyTestTagPrefix?.let { it + comment.id }
+                    TextButton(
+                        onClick = onReport,
+                        modifier = Modifier.semantics {
+                            reportTag?.let { testTag = it }
+                            contentDescription = listOfNotNull(strings.report, reportTag).joinToString(" ")
+                        },
+                    ) { Text(strings.report, color = template.colors.textSecondary) }
+                    TextButton(
+                        onClick = onReply,
+                        modifier = Modifier.semantics {
+                            replyTag?.let { testTag = it }
+                            contentDescription = listOfNotNull(strings.reply, replyTag).joinToString(" ")
+                        },
+                    ) { Text(strings.reply, color = template.colors.accent, fontWeight = FontWeight.ExtraBold) }
+                }
             }
         }
     }

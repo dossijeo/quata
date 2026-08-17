@@ -8,6 +8,8 @@ import {
   cleanupFeedOfficialCommentsFixture,
   cleanupProfileContentFixture,
   pollFeedOfficialComment,
+  pollFeedOfficialReplyComment,
+  pollProfileContentReplyComment,
   seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
   seedChatAttachmentFixture,
@@ -369,6 +371,52 @@ test("shared feed/official comments fixture seeds both surfaces with reversible 
   assert.ok(queries.some((entry) => /insert into public\.community_comments/.test(entry.sql)));
   assert.ok(queries.some((entry) => /insert into public\.official_posts/.test(entry.sql)));
   assert.ok(queries.some((entry) => /insert into public\.official_post_comments/.test(entry.sql)));
+});
+
+test("shared comment reply pollers require remote reply shortcodes", async () => {
+  const profileReplyId = "66666666-6666-6666-6666-666666666666";
+  const feedReplyId = "77777777-7777-7777-7777-777777777777";
+  const queries = [];
+  const delay = async () => {};
+  const profileResult = await pollProfileContentReplyComment({
+    fixture: {
+      postId: "33333333-3333-3333-3333-333333333333",
+      actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+    },
+    marker: "😀 reply marker",
+    replyToCommentId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    delay,
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        return { rows: [{ id: profileReplyId, body: "[reply:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:Ana] reply marker" }], rowCount: 1 };
+      },
+    }),
+  });
+  const feedResult = await pollFeedOfficialReplyComment({
+    fixture: {
+      actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+      feed: { postId: "33333333-3333-3333-3333-333333333333" },
+    },
+    surface: "feed",
+    marker: "😀 feed reply marker",
+    replyToCommentId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    delay,
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        return { rows: [{ id: feedReplyId, body: "[reply:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:Ana] feed reply marker" }], rowCount: 1 };
+      },
+    }),
+  });
+  assert.equal(profileResult, profileReplyId);
+  assert.equal(feedResult, feedReplyId);
+  assert.ok(queries.some((entry) => entry.params.includes("[reply:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:%")));
+  assert.ok(queries.some((entry) => entry.params.includes("[reply:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:%")));
+  assert.ok(queries.some((entry) => entry.params.includes("%reply marker%")));
+  assert.ok(queries.some((entry) => entry.params.includes("%feed reply marker%")));
+  assert.ok(!queries.some((entry) => entry.params.includes("%😀 reply marker%")));
+  assert.ok(!queries.some((entry) => entry.params.includes("%😀 feed reply marker%")));
 });
 
 test("shared feed/official comments cleanup deletes both surfaces and verifies residue", async () => {

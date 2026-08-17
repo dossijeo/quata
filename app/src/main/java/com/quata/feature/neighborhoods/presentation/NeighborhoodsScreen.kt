@@ -291,6 +291,10 @@ fun CommunityProfileScreen(
                     flags = stringResource(R.string.emoji_flags),
                 ),
                 translatorContentDescription = stringResource(R.string.translator_button_content_description),
+                reply = stringResource(R.string.comments_reply_button),
+                replyingTo = { resources.getString(R.string.comments_replying_to, it) },
+                cancelReply = stringResource(R.string.comments_cancel_reply),
+                replyTo = { resources.getString(R.string.comments_reply_to, it) },
             ),
         ),
         slots = CommunityProfilePlatformSlots(

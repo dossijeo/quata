@@ -12,6 +12,7 @@ import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
 import com.quata.core.session.SessionManager
+import com.quata.core.text.toRemoteCommentBody
 import com.quata.data.supabase.CommunityComment
 import com.quata.data.supabase.CommunityPost
 import com.quata.data.supabase.CommunityPostLike
@@ -193,7 +194,7 @@ class NeighborhoodRepositoryImpl(
             MockData.addComment(postId, comment)
         } else {
             val session = sessionManager.currentSession() ?: error("No hay sesion activa")
-            supabaseApi.addComment(postId, session.userId, comment.message)
+            supabaseApi.addComment(postId, session.userId, comment.toRemoteCommentBody())
                 ?: error("No se pudo publicar el comentario")
             null
         }

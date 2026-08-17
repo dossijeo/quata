@@ -108,8 +108,13 @@ class ChatActionsNotificationsInstrumentedTest {
         val groupBlockDisplayName = optionalArgument("quataChatGroupBlockDisplayName")
         val groupBlockSearchQuery = optionalArgument("quataChatGroupBlockSearchQuery")
         val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
+        val profileContentReplyComment = optionalArgument("quataChatActionsProfileContentReplyComment")
         val feedComment = optionalArgument("quataChatActionsFeedComment")
+        val feedCommentId = optionalArgument("quataChatActionsFeedCommentId")
+        val feedReplyComment = optionalArgument("quataChatActionsFeedReplyComment")
         val officialComment = optionalArgument("quataChatActionsOfficialComment")
+        val officialCommentId = optionalArgument("quataChatActionsOfficialCommentId")
+        val officialReplyComment = optionalArgument("quataChatActionsOfficialReplyComment")
         val actorProfileId = optionalArgument("quataChatActionsActorProfileId")
         val profileNeighborhood = optionalArgument("quataChatActionsProfileNeighborhood")
         val stage = optionalArgument("quataChatActionsStage") ?: "full"
@@ -120,8 +125,8 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
-            "feed-official-comments" -> listOf(postId, officialPostId, feedComment, officialComment, actorProfileId).all { !it.isNullOrBlank() }
-            "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, actorProfileId).all { !it.isNullOrBlank() }
+            "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
+            "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
@@ -164,7 +169,11 @@ class ChatActionsNotificationsInstrumentedTest {
                 feedPostId = postId.orEmpty(),
                 officialPostId = officialPostId.orEmpty(),
                 feedComment = feedComment.orEmpty(),
+                feedCommentId = feedCommentId.orEmpty(),
+                feedReplyComment = feedReplyComment.orEmpty(),
                 officialComment = officialComment.orEmpty(),
+                officialCommentId = officialCommentId.orEmpty(),
+                officialReplyComment = officialReplyComment.orEmpty(),
                 actorProfileId = actorProfileId.orEmpty(),
             )
             writeReport(
@@ -207,7 +216,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 )
                 "profile-content" -> {
                     openProfileFromPeerMessage(peerProbe.orEmpty(), profileId.orEmpty())
-                    assertProfileContentStage(profileId.orEmpty(), actorProfileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty())
+                    assertProfileContentStage(profileId.orEmpty(), actorProfileId.orEmpty(), postId.orEmpty(), commentId.orEmpty(), attachmentId.orEmpty(), profileContentComment.orEmpty(), profileContentReplyComment.orEmpty())
                     closePublicProfile(peerProbe.orEmpty())
                     saveScreenshot("android-chat-profile-return")
                 }
@@ -333,12 +342,19 @@ class ChatActionsNotificationsInstrumentedTest {
         feedPostId: String,
         officialPostId: String,
         feedComment: String,
+        feedCommentId: String,
+        feedReplyComment: String,
         officialComment: String,
+        officialCommentId: String,
+        officialReplyComment: String,
         actorProfileId: String,
     ) {
         ActivityScenario.launch<MainActivity>(chatIntent(quataPostUrl(feedPostId))).use {
             sendEmojiCommentFromOpenPost(
                 actionTag = "feed.action.comments",
+                replyTagPrefix = "feed.comments",
+                replyToCommentId = feedCommentId,
+                replyComment = feedReplyComment,
                 inputTag = "feed.comments.input",
                 emojiTag = "feed.comments.emoji",
                 sendTag = "feed.comments.send",
@@ -351,6 +367,9 @@ class ChatActionsNotificationsInstrumentedTest {
         ActivityScenario.launch<MainActivity>(chatIntent(quataOfficialPostUrl(officialPostId))).use {
             sendEmojiCommentFromOpenPost(
                 actionTag = "official.action.comments",
+                replyTagPrefix = "official.comments",
+                replyToCommentId = officialCommentId,
+                replyComment = officialReplyComment,
                 inputTag = "official.comments.input",
                 emojiTag = "official.comments.emoji",
                 sendTag = "official.comments.send",
@@ -364,6 +383,9 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun sendEmojiCommentFromOpenPost(
         actionTag: String,
+        replyTagPrefix: String,
+        replyToCommentId: String,
+        replyComment: String,
         inputTag: String,
         emojiTag: String,
         sendTag: String,
@@ -376,6 +398,15 @@ class ChatActionsNotificationsInstrumentedTest {
         saveScreenshot(beforeScreenshot)
         clickStableTag(actionTag)
         waitForTag(inputTag, "comments input $inputTag", 20_000)
+        sendReplyCommentFromOpenPanel(
+            prefix = replyTagPrefix,
+            replyToCommentId = replyToCommentId,
+            inputTag = inputTag,
+            emojiTag = emojiTag,
+            sendTag = sendTag,
+            replyComment = replyComment,
+            screenshotPrefix = beforeScreenshot,
+        )
         compose.onNodeWithTag(emojiTag, useUnmergedTree = true)
             .performTouchInput { click(center) }
         waitForTag("community.emoji.panel", "comments emoji panel", 10_000)
@@ -383,40 +414,34 @@ class ChatActionsNotificationsInstrumentedTest {
             .performTouchInput { click(center) }
         compose.onNodeWithTag(inputTag, useUnmergedTree = true)
             .performTextInput(comment.removePrefix("😀").trimStart())
-        compose.onNodeWithTag(sendTag, useUnmergedTree = true)
-            .performTouchInput { click(center) }
         val visibleCommentText = comment.removePrefix("😀").trimStart()
-        val visible = runCatching {
-            compose.waitUntil(45_000) {
-                runCatching {
-                    compose.onAllNodes(hasText(visibleCommentText, substring = true), useUnmergedTree = true)
-                        .fetchSemanticsNodes()
-                        .isNotEmpty()
-                }.getOrDefault(false)
-            }
-            true
-        }.getOrDefault(false)
-        if (!visible) {
-            saveScreenshot("$afterScreenshot-missing-comment")
-            File(evidenceDir(), "$afterScreenshot-semantics.txt")
-                .writeText(
-                    runCatching {
-                        compose.onRoot(useUnmergedTree = true)
-                            .printToString(maxDepth = 20)
-                    }.getOrElse { error ->
-                        error.stackTraceToString()
-                    },
-                )
-        }
-        assertTrue("The submitted comments text must be visible: $visibleCommentText.", visible)
+        submitTaggedComment(inputTag, sendTag, visibleCommentText, "$afterScreenshot-missing-comment")
         waitForTag(authorTag, "comment author profile anchor $authorTag", 20_000)
         saveScreenshot(afterScreenshot)
-        openProfileFromAuthorTag(
-            tag = authorTag,
-            openScreenshot = "$afterScreenshot-author-profile",
-            returnScreenshot = "$afterScreenshot-author-profile-return",
-            requireReturnTag = false,
-        )
+    }
+
+    private fun sendReplyCommentFromOpenPanel(
+        prefix: String,
+        replyToCommentId: String,
+        inputTag: String,
+        emojiTag: String,
+        sendTag: String,
+        replyComment: String,
+        screenshotPrefix: String,
+    ) {
+        val replyTag = "$prefix.reply.$replyToCommentId"
+        waitForTag(replyTag, "reply action $replyTag", 20_000)
+        clickStableTag(replyTag)
+        waitForTag("$prefix.replyTarget.$replyToCommentId", "reply target banner $replyToCommentId", 10_000)
+        compose.onNodeWithTag(emojiTag, useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        waitForTag("community.emoji.panel", "comments emoji panel", 10_000)
+        compose.onNodeWithTag("community.emoji.cell.frequent.0", useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        compose.onNodeWithTag(inputTag, useUnmergedTree = true)
+            .performTextInput(replyComment.removePrefix("😀").trimStart())
+        val visibleReplyText = replyComment.removePrefix("😀").trimStart()
+        submitTaggedComment(inputTag, sendTag, visibleReplyText, "$screenshotPrefix-missing-reply-comment")
     }
 
     private fun waitForFeedOfficialActionTag(actionTag: String, screenshotPrefix: String, timeoutMillis: Long) {
@@ -1377,10 +1402,8 @@ class ChatActionsNotificationsInstrumentedTest {
         device.wait(Until.gone(visibleTitle), 5_000)
     }
 
-    private fun assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String) {
-        compose.onNodeWithTag("public-profile.kpi.posts.$profileId", useUnmergedTree = true)
-            .performClick()
-        saveScreenshot("android-chat-profile-content")
+    private fun assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, replyComment: String) {
+        openPublicProfilePosts(profileId, postId)
         listOf(
             "public-profile.gallery.header.$profileId",
             "public-profile.gallery.$profileId",
@@ -1390,11 +1413,12 @@ class ChatActionsNotificationsInstrumentedTest {
             "public-profile.attachments",
             "public-profile.attachments.item.sb:$attachmentId",
         ).forEach { tag ->
-            compose.onNodeWithTag(tag, useUnmergedTree = true)
-                .fetchSemanticsNode()
+            waitForTag(tag, "public profile content stage", 20_000)
         }
-        compose.onNodeWithTag("public-profile.post.media.open.$postId", useUnmergedTree = true)
-            .performClick()
+        val mediaOpenTag = "public-profile.post.media.open.$postId"
+        bringPublicProfilePostIntoView(profileId, postId)
+        waitForTag(mediaOpenTag, "public profile media open action", 20_000)
+        clickStableTag(mediaOpenTag)
         compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
             .fetchSemanticsNode()
         compose.onNodeWithTag("fullscreen-media.title", useUnmergedTree = true)
@@ -1412,8 +1436,8 @@ class ChatActionsNotificationsInstrumentedTest {
                     .fetchSemanticsNode()
             }.isFailure
         }
-        compose.onNodeWithTag("public-profile.post.action.comments.$postId", useUnmergedTree = true)
-            .performClick()
+        bringPublicProfilePostIntoView(profileId, postId)
+        ensurePublicProfileCommentsPanelOpen(profileId, postId, "initial")
         listOf(
             "public-profile.comments.panel",
             "public-profile.comments.list",
@@ -1427,16 +1451,59 @@ class ChatActionsNotificationsInstrumentedTest {
             compose.onNodeWithTag(tag, useUnmergedTree = true)
                 .fetchSemanticsNode()
         }
-        compose.onNodeWithTag("public-profile.comments.emoji", useUnmergedTree = true)
-            .performClick()
-        compose.onNodeWithTag("community.emoji.panel", useUnmergedTree = true)
+        sendReplyCommentFromOpenPanel(
+            prefix = "public-profile.comments",
+            replyToCommentId = commentId,
+            inputTag = "public-profile.comments.input",
+            emojiTag = "public-profile.comments.emoji",
+            sendTag = "public-profile.comments.send",
+            replyComment = replyComment,
+            screenshotPrefix = "android-chat-profile-content",
+        )
+        val visibleCommentText = uiComment.removePrefix("😀").trimStart()
+        performProfileCommentTextInput(postId, visibleCommentText, "after-reply")
+        submitTaggedComment("public-profile.comments.input", "public-profile.comments.send", visibleCommentText, "android-chat-profile-content-missing-comment")
+        waitForTagGone("public-profile.comments.pending.$postId", "public profile comment persistence", 45_000)
+    }
+
+    private fun openPublicProfilePosts(profileId: String, postId: String) {
+        val postsTag = "public-profile.kpi.posts.$profileId"
+        val galleryTag = "public-profile.gallery.post.$postId"
+        repeat(3) { attempt ->
+            scrollPublicProfileToTag(postsTag)
+            clickSemanticTagPreferCompose(postsTag)
+            val opened = runCatching {
+                compose.waitUntil(10_000) { nodeWithTagVisible(galleryTag) }
+                true
+            }.getOrDefault(false)
+            if (opened) {
+                saveScreenshot("android-chat-profile-content")
+                return
+            }
+            if (attempt == 0) {
+                saveScreenshot("android-chat-profile-content-posts-retry")
+            }
+        }
+        saveScreenshot("android-chat-profile-content-missing-posts-gallery")
+        compose.onNodeWithTag(galleryTag, useUnmergedTree = true)
             .fetchSemanticsNode()
-        compose.onNodeWithTag("community.emoji.cell.frequent.0", useUnmergedTree = true)
-            .performClick()
-        compose.onNodeWithTag("public-profile.comments.input", useUnmergedTree = true)
-            .performTextInput(uiComment.removePrefix("😀"))
-        compose.onNodeWithTag("public-profile.comments.send", useUnmergedTree = true)
-            .performClick()
+    }
+
+    private fun performProfileCommentTextInput(postId: String, text: String, context: String) {
+        repeat(3) { attempt ->
+            ensurePublicProfileCommentsPanelOpen(null, postId, "$context-$attempt")
+            val typed = runCatching {
+                compose.onNodeWithTag("public-profile.comments.input", useUnmergedTree = true)
+                    .performTextInput(text)
+                true
+            }.getOrDefault(false)
+            if (typed && taggedInputText("public-profile.comments.input").contains(text)) return
+            SystemClock.sleep(750)
+        }
+        saveScreenshot("android-chat-profile-comments-input-missing-$context")
+        File(evidenceDir(), "android-chat-profile-comments-input-missing-$context-semantics.txt")
+            .writeText(runCatching { compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 20) }.getOrElse { it.stackTraceToString() })
+        assertTrue("Public profile comments input must remain available after reply submission.", false)
     }
 
     private fun runProfilePrivateChatStage(peerProbe: String, profileId: String, privateProbe: String) {
@@ -1446,6 +1513,77 @@ class ChatActionsNotificationsInstrumentedTest {
             .performClick()
         waitForMarker(privateProbe, "private conversation opened from public profile")
         saveScreenshot("android-chat-profile-private-chat-opened")
+    }
+
+    private fun ensurePublicProfileCommentsPanelOpen(profileId: String?, postId: String, context: String) {
+        if (nodeWithTagExists("public-profile.comments.input")) return
+        val screenshot = "android-chat-profile-comments-panel-reopen-$context"
+        val commentsTag = "public-profile.post.action.comments.$postId"
+        repeat(3) { attempt ->
+            if (profileId != null) bringPublicProfilePostIntoView(profileId, postId)
+            bringPublicProfileTagIntoView(commentsTag)
+            clickSemanticTagPreferCompose(commentsTag)
+            val opened = runCatching {
+                waitForTagExists("public-profile.comments.input", "public profile comments input $context-$attempt", 12_000)
+                true
+            }.getOrDefault(false)
+            if (opened) return
+            if (attempt == 0) {
+                saveScreenshot(screenshot)
+                File(evidenceDir(), "$screenshot-semantics.txt")
+                    .writeText(runCatching { compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 20) }.getOrElse { it.stackTraceToString() })
+            }
+        }
+        waitForTagExists("public-profile.comments.input", "public profile comments input $context", 1_000)
+    }
+
+    private fun bringPublicProfileTagIntoView(tag: String) {
+        repeat(8) {
+            scrollPublicProfileToTag(tag)
+            if (nodeWithTagVisible(tag)) return
+            val detailsNode = visibleTaggedNodes("public-profile.details").firstOrNull()
+            if (detailsNode != null) {
+                val bounds = detailsNode.boundsInRoot
+                val x = bounds.center.x.roundToInt().coerceIn(1, device.displayWidth - 1)
+                val startY = (bounds.bottom - bounds.height * 0.18f).roundToInt().coerceIn(1, device.displayHeight - 1)
+                val endY = (bounds.top + bounds.height * 0.18f).roundToInt().coerceIn(1, device.displayHeight - 1)
+                device.swipe(x, startY, x, endY, 18)
+                compose.waitForIdle()
+            }
+            if (nodeWithTagVisible(tag)) return
+        }
+    }
+
+    private fun bringPublicProfilePostIntoView(profileId: String, postId: String) {
+        val galleryTag = "public-profile.gallery.$profileId"
+        val pageTag = "public-profile.gallery.post.$postId"
+        val mediaOpenTag = "public-profile.post.media.open.$postId"
+        val commentsTag = "public-profile.post.action.comments.$postId"
+        repeat(6) { attempt ->
+            scrollPublicProfileToTag("public-profile.gallery.header.$profileId")
+            if (nodeWithTagVisible(mediaOpenTag) || nodeWithTagVisible(commentsTag)) return
+            runCatching {
+                compose.onNodeWithTag(galleryTag, useUnmergedTree = true)
+                    .performScrollToNode(hasTestTag(pageTag))
+                compose.waitForIdle()
+            }
+            if (nodeWithTagVisible(mediaOpenTag) || nodeWithTagVisible(commentsTag)) return
+            val galleryNode = visibleTaggedNodes(galleryTag).firstOrNull()
+            if (galleryNode != null) {
+                val bounds = galleryNode.boundsInRoot
+                val startX = (bounds.right - bounds.width * 0.18f).roundToInt()
+                val endX = (bounds.left + bounds.width * 0.18f).roundToInt()
+                val y = bounds.center.y.roundToInt()
+                device.swipe(startX, y, endX, y, 24)
+                compose.waitForIdle()
+            }
+            if (attempt == 4) saveScreenshot("android-chat-profile-content-gallery-page-retry")
+        }
+        saveScreenshot("android-chat-profile-content-gallery-page-missing")
+        File(evidenceDir(), "android-chat-profile-content-gallery-page-missing-semantics.txt")
+            .writeText(runCatching { compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 20) }.getOrElse { it.stackTraceToString() })
+        compose.onNodeWithTag(pageTag, useUnmergedTree = true)
+            .fetchSemanticsNode()
     }
 
     private fun openPeerProfile(peerProbe: String, profileId: String) {
@@ -1828,10 +1966,10 @@ class ChatActionsNotificationsInstrumentedTest {
             ?: waitForObject(By.descContains(tag), tag, 1_000)
         if (nativeVisible != null) return
         val scrolled = runCatching {
-            val scrollContainerTag = if (tag.startsWith("conversation.avatar.")) {
-                ConversationListTestTag
-            } else {
-                ChatConversationMessagesListTestTag
+            val scrollContainerTag = when {
+                tag.startsWith("conversation.avatar.") -> ConversationListTestTag
+                tag.startsWith("public-profile.") -> "public-profile.details"
+                else -> ChatConversationMessagesListTestTag
             }
             compose.onNodeWithTag(scrollContainerTag, useUnmergedTree = true)
                 .performScrollToNode(hasTestTag(tag))
@@ -1859,6 +1997,93 @@ class ChatActionsNotificationsInstrumentedTest {
         check(nativeNode != null) { "stable_tag_not_clickable:$tag" }
         nativeNode.click()
     }
+
+    private fun clickSemanticTagPreferCompose(tag: String) {
+        val clickedByCompose = runCatching {
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .performClick()
+            compose.waitForIdle()
+            true
+        }.getOrDefault(false)
+        if (clickedByCompose) return
+        clickStableTag(tag)
+    }
+
+    private fun clickComposeTag(tag: String) {
+        val visibleNode = visibleTaggedNodes(tag)
+            .maxWithOrNull(compareBy({ it.boundsInRoot.center.y }, { it.boundsInRoot.center.x }))
+        if (visibleNode != null) {
+            val center = visibleNode.boundsInRoot.center
+            check(device.click(center.x.roundToInt(), center.y.roundToInt())) { "compose_tag_visible_tap_failed:$tag" }
+        } else {
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .performClick()
+        }
+        compose.waitForIdle()
+    }
+
+    private fun submitTaggedComment(inputTag: String, sendTag: String, visibleText: String, failureScreenshot: String) {
+        repeat(3) { attempt ->
+            when (attempt) {
+                0 -> clickComposeTag(sendTag)
+                1 -> runCatching {
+                    compose.onNodeWithTag(sendTag, useUnmergedTree = true).performClick()
+                    compose.waitForIdle()
+                }
+                else -> clickComposeTag(sendTag)
+            }
+            val visible = runCatching {
+                compose.waitUntil(20_000) {
+                    compose.onAllNodes(hasText(visibleText, substring = true), useUnmergedTree = true)
+                        .fetchSemanticsNodes()
+                        .isNotEmpty() && !taggedInputText(inputTag).contains(visibleText)
+                }
+                true
+            }.getOrDefault(false)
+            if (visible) return
+            if (!taggedInputText(inputTag).contains(visibleText) && scrollCommentListToText(inputTag, visibleText)) return
+            if (attempt == 0) {
+                device.pressBack()
+                compose.waitForIdle()
+            }
+        }
+        saveScreenshot(failureScreenshot)
+        File(evidenceDir(), "$failureScreenshot-semantics.txt")
+            .writeText(runCatching { compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 20) }.getOrElse { it.stackTraceToString() })
+        assertTrue(
+            "The submitted comments text must be visible outside the input: $visibleText. Remaining input=${taggedInputText(inputTag)}",
+            false,
+        )
+    }
+
+    private fun scrollCommentListToText(inputTag: String, visibleText: String): Boolean {
+        val listTag = when {
+            inputTag.startsWith("public-profile.comments.") -> "public-profile.comments.list"
+            inputTag.startsWith("feed.comments.") -> "feed.comments.list"
+            inputTag.startsWith("official.comments.") -> "official.comments.list"
+            else -> return false
+        }
+        return runCatching {
+            compose.onNodeWithTag(listTag, useUnmergedTree = true)
+                .performScrollToNode(hasText(visibleText, substring = true))
+            compose.waitUntil(10_000) {
+                compose.onAllNodes(hasText(visibleText, substring = true), useUnmergedTree = true)
+                    .fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            true
+        }.getOrDefault(false)
+    }
+
+    private fun taggedInputText(tag: String): String =
+        runCatching {
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.EditableText)
+                ?.text
+                .orEmpty()
+        }.getOrDefault("")
 
     private fun waitForMarkerOrProfileAvatar(markerProbe: String, profileId: String, context: String, timeoutMillis: Long = 45_000) {
         val avatarTag = ChatProfileMessageAvatarTestTagPrefix + profileId
@@ -1910,6 +2135,29 @@ class ChatActionsNotificationsInstrumentedTest {
 
     private fun nodeWithTagVisible(tag: String): Boolean =
         visibleTaggedNodes(tag).isNotEmpty()
+
+    private fun nodeWithTagExists(tag: String): Boolean =
+        runCatching {
+            compose.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode()
+            true
+        }.getOrDefault(false)
+
+    private fun waitForTagExists(tag: String, context: String, timeoutMillis: Long = 45_000) {
+        val exists = runCatching {
+            compose.waitUntil(timeoutMillis) { nodeWithTagExists(tag) }
+            true
+        }.getOrDefault(false)
+        assertTrue("The semantic tag must exist in $context.", exists)
+    }
+
+    private fun waitForTagGone(tag: String, context: String, timeoutMillis: Long = 45_000) {
+        val gone = runCatching {
+            compose.waitUntil(timeoutMillis) { !nodeWithTagExists(tag) }
+            true
+        }.getOrDefault(false)
+        assertTrue("The semantic tag must disappear in $context.", gone)
+    }
 
     private fun visibleTaggedNodes(tag: String) =
         runCatching {

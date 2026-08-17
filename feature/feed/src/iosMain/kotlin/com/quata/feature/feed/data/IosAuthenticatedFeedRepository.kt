@@ -3,6 +3,7 @@ package com.quata.feature.feed.data
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
+import com.quata.core.text.toRemoteCommentBody
 import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.flow.Flow
 
@@ -32,7 +33,7 @@ class IosAuthenticatedFeedRepository(
     }
     override suspend fun addComment(postId: String, comment: PostComment): Result<Post?> = runCatching {
         val userId = transport.currentUserId().getOrThrow() ?: error("ios_feed_session_missing")
-        transport.mutate("community_comments", "POST", body = "{\"post_id\":\"$postId\",\"profile_id\":\"$userId\",\"body\":${comment.message.iosJsonString()}}").getOrThrow()
+        transport.mutate("community_comments", "POST", body = "{\"post_id\":\"$postId\",\"profile_id\":\"$userId\",\"body\":${comment.toRemoteCommentBody().iosJsonString()}}").getOrThrow()
         refreshPost(postId).getOrThrow()
     }
     override suspend fun deletePost(postId: String): Result<Unit> = runCatching {

@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -12,9 +12,11 @@ import {
   createCleanupRegistry,
   cleanupProfileRolesSafetyFixture as cleanupSharedProfileRolesSafetyFixture,
   pollFeedOfficialComment as pollSharedFeedOfficialComment,
+  pollFeedOfficialReplyComment as pollSharedFeedOfficialReplyComment,
   pollProfileGlobalBlock,
   pollProfileReport,
   pollProfileContentComment as pollSharedProfileContentComment,
+  pollProfileContentReplyComment as pollSharedProfileContentReplyComment,
   pollProfileRoles,
   prepareProfileRolesSafetyFixture,
   seedChatAttachmentFixture,
@@ -50,6 +52,9 @@ const deviceCredentialsPath = "app-internal:chat-actions-notifications-credentia
 const deviceTempCredentialsPath = "/data/local/tmp/chat-actions-notifications-credentials.json";
 const deviceEvidencePath = "files/chat-actions-notifications-evidence";
 const adbCommand = resolveAdbCommand();
+const androidEvidenceLockPath = join("build-reports", "android", ".chat-actions-notifications.lock");
+const androidEvidenceLockTimeoutMs = Number.parseInt(process.env.QUATA_ANDROID_EVIDENCE_LOCK_TIMEOUT_MS ?? "600000", 10);
+const androidEvidenceLockStaleMs = Number.parseInt(process.env.QUATA_ANDROID_EVIDENCE_LOCK_STALE_MS ?? "1800000", 10);
 const evidenceFiles = [
   "android-chat-translation-before.png",
   "android-chat-translation-overlay.png",
@@ -81,6 +86,17 @@ const evidenceFiles = [
   "android-chat-profile-list-following.png",
   "android-chat-profile-lists-return.png",
   "android-chat-profile-content.png",
+  "android-chat-profile-content-gallery-page-retry.png",
+  "android-chat-profile-content-gallery-page-missing.png",
+  "android-chat-profile-content-gallery-page-missing-semantics.txt",
+  "android-chat-profile-content-missing-comment.png",
+  "android-chat-profile-content-missing-comment-semantics.txt",
+  "android-chat-profile-comments-panel-reopen-initial.png",
+  "android-chat-profile-comments-panel-reopen-initial-semantics.txt",
+  "android-chat-profile-comments-input-missing-after-reply.png",
+  "android-chat-profile-comments-input-missing-after-reply-semantics.txt",
+  "android-chat-profile-comments-panel-reopen-after-reply.png",
+  "android-chat-profile-comments-panel-reopen-after-reply-semantics.txt",
   "android-chat-profile-roles-safety-initial.png",
   "android-chat-profile-roles-safety-role-updating.png",
   "android-chat-profile-safety-report-dialog.png",
@@ -234,6 +250,10 @@ async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   return pollSharedProfileContentComment({ fixture, marker, withDatabase, delay, timeout });
 }
 
+async function pollProfileContentReplyComment(fixture, marker, replyToCommentId, timeout = 45_000) {
+  return pollSharedProfileContentReplyComment({ fixture, marker, replyToCommentId, withDatabase, delay, timeout });
+}
+
 async function prepareFeedOfficialCommentsFixture(fixture) {
   return seedFeedOfficialCommentsFixture({ fixture, withDatabase });
 }
@@ -244,6 +264,10 @@ async function cleanupFeedOfficialCommentsFixture(fixture) {
 
 async function pollFeedOfficialComment(fixture, surface, marker, timeout = 45_000) {
   return pollSharedFeedOfficialComment({ fixture, surface, marker, withDatabase, delay, timeout });
+}
+
+async function pollFeedOfficialReplyComment(fixture, surface, marker, replyToCommentId, timeout = 45_000) {
+  return pollSharedFeedOfficialReplyComment({ fixture, surface, marker, replyToCommentId, withDatabase, delay, timeout });
 }
 
 async function cleanupProfileRolesSafetyFixture(fixture) {
@@ -715,7 +739,20 @@ async function collectAvailableDeviceEvidence(destination) {
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
   const copied = [];
-  for (const file of evidenceFiles) {
+  const deviceFiles = await runSilent(adbCommand, [
+    "shell",
+    "run-as",
+    "com.quata",
+    "sh",
+    "-c",
+    `ls ${deviceEvidencePath} 2>/dev/null || true`,
+  ]).catch(() => "");
+  const discoveredFiles = deviceFiles
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .filter((entry) => /^(android-|ios-|web-).*\.(png|txt|json)$/.test(entry));
+  const files = Array.from(new Set([...evidenceFiles, ...discoveredFiles]));
+  for (const file of files) {
     try {
       const localFile = join(destination, file);
       await adbRunAsCat(`${deviceEvidencePath}/${file}`, localFile);
@@ -1295,6 +1332,42 @@ function sanitizedDiagnosticError(error) {
 
 class EvidenceCompleted extends Error {}
 
+async function acquireAndroidEvidenceLock() {
+  const started = Date.now();
+  await mkdir(dirname(androidEvidenceLockPath), { recursive: true });
+  while (true) {
+    try {
+      const handle = await open(androidEvidenceLockPath, "wx", 0o600);
+      const payload = {
+        pid: process.pid,
+        startedAt: new Date().toISOString(),
+        argv: process.argv.slice(2),
+      };
+      await handle.writeFile(`${JSON.stringify(payload)}\n`);
+      await handle.close();
+      return async () => {
+        await rm(androidEvidenceLockPath, { force: true });
+      };
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+      let ageMs = 0;
+      try {
+        const lockStat = await stat(androidEvidenceLockPath);
+        ageMs = Date.now() - lockStat.mtimeMs;
+      } catch {}
+      if (ageMs > androidEvidenceLockStaleMs) {
+        console.warn(`Removing stale Android evidence lock after ${Math.round(ageMs / 1000)}s: ${androidEvidenceLockPath}`);
+        await rm(androidEvidenceLockPath, { force: true });
+        continue;
+      }
+      if (Date.now() - started > androidEvidenceLockTimeoutMs) {
+        throw new Error(`android_evidence_lock_timeout:${androidEvidenceLockPath}`);
+      }
+      await delay(1_000);
+    }
+  }
+}
+
 const report = {
   check: "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001",
   status: "failed",
@@ -1308,6 +1381,7 @@ const state = { a: null, b: null, thread: null, message: null, peerMessage: null
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = options.evidenceDir;
+const releaseAndroidEvidenceLock = await acquireAndroidEvidenceLock();
 try {
   const config = await publicBackendConfig();
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.baseUrl)) throw new Error("invalid_public_supabase_url");
@@ -1495,8 +1569,13 @@ try {
       "-e", "quataChatActionsCommentId", state.profileContent?.seedCommentId ?? "",
       "-e", "quataChatActionsAttachmentId", String(state.profileContent?.attachmentId ?? ""),
       "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
+      "-e", "quataChatActionsProfileContentReplyComment", state.profileContent?.uiReplyCommentMarker ?? "",
       "-e", "quataChatActionsFeedComment", state.feedOfficialComments?.feed?.uiComment ?? "",
+      "-e", "quataChatActionsFeedCommentId", state.feedOfficialComments?.feed?.seedCommentId ?? "",
+      "-e", "quataChatActionsFeedReplyComment", state.feedOfficialComments?.feed?.uiReplyComment ?? "",
       "-e", "quataChatActionsOfficialComment", state.feedOfficialComments?.official?.uiComment ?? "",
+      "-e", "quataChatActionsOfficialCommentId", state.feedOfficialComments?.official?.seedCommentId ?? "",
+      "-e", "quataChatActionsOfficialReplyComment", state.feedOfficialComments?.official?.uiReplyComment ?? "",
       "-e", "quataChatActionsDocumentProbe", state.attachmentsAudio?.document?.markerProbe ?? "",
       "-e", "quataChatActionsAudioProbe", state.attachmentsAudio?.audio?.markerProbe ?? "",
       "-e", "quataChatActionsAudioName", state.attachmentsAudio?.audio?.name ?? "",
@@ -1833,6 +1912,8 @@ try {
         targetSession: state.b,
       };
       await prepareFeedOfficialCommentsFixture(state.feedOfficialComments);
+      state.feedOfficialComments.feed.uiReplyComment = `😀 ${state.feedOfficialComments.marker} feed reply comment`;
+      state.feedOfficialComments.official.uiReplyComment = `😀 ${state.feedOfficialComments.marker} official reply comment`;
       report.steps.push("feed_official_comments_fixture_prepared");
     } else if (profileRolesSafetyOnly) {
       state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
@@ -1850,6 +1931,7 @@ try {
         threadId: state.thread,
       };
       state.profileContent.uiCommentMarker = `😀 ${state.profileContent.marker} android ui comment`;
+      state.profileContent.uiReplyCommentMarker = `😀 ${state.profileContent.marker} android reply comment`;
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
     }
@@ -1871,12 +1953,18 @@ try {
           ? "profile_private_chat_opened_from_common_profile_action_and_verified_by_rpc"
         : "peer_avatar_opened_public_profile_and_returned_to_chat");
     if (profileContentOnly) {
+      state.profileContent.uiReplyCommentId = await pollProfileContentReplyComment(state.profileContent, state.profileContent.uiReplyCommentMarker, state.profileContent.seedCommentId);
       state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
+      report.steps.push("profile_content_reply_created_from_ui_and_verified_by_db");
       report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
     }
     if (feedOfficialCommentsOnly) {
+      state.feedOfficialComments.feed.uiReplyCommentId = await pollFeedOfficialReplyComment(state.feedOfficialComments, "feed", state.feedOfficialComments.feed.uiReplyComment, state.feedOfficialComments.feed.seedCommentId);
+      state.feedOfficialComments.official.uiReplyCommentId = await pollFeedOfficialReplyComment(state.feedOfficialComments, "official", state.feedOfficialComments.official.uiReplyComment, state.feedOfficialComments.official.seedCommentId);
       state.feedOfficialComments.feed.uiCommentId = await pollFeedOfficialComment(state.feedOfficialComments, "feed", state.feedOfficialComments.feed.uiComment);
       state.feedOfficialComments.official.uiCommentId = await pollFeedOfficialComment(state.feedOfficialComments, "official", state.feedOfficialComments.official.uiComment);
+      report.steps.push("feed_comments_reply_created_from_ui_and_verified_by_db");
+      report.steps.push("official_comments_reply_created_from_ui_and_verified_by_db");
       report.steps.push("feed_comments_emoji_created_from_ui_and_verified_by_db");
       report.steps.push("official_comments_emoji_created_from_ui_and_verified_by_db");
     }
@@ -2162,6 +2250,7 @@ try {
     }
   }
   report.cleanup = cleanup;
+  try { await releaseAndroidEvidenceLock(); } catch {}
   if (report.status === "passed") delete report.error;
   report.finishedAt = new Date().toISOString();
   const output = options.output;
