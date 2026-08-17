@@ -57,6 +57,7 @@ function parseArgs(argv) {
     attachmentPickerOnly: false,
     attachmentPickerSource: "document",
     attachmentPickerOutcome: "success",
+    composerEmojiOnly: false,
     groupSosOnly: false,
     groupAdminOnly: false,
     groupModerationOnly: false,
@@ -123,6 +124,12 @@ function parseArgs(argv) {
       result.attachmentPickerOutcome = argv[index];
       continue;
     }
+    if (key === "--composer-emoji-only") {
+      result.composerEmojiOnly = true;
+      result.output = resolve("build-reports/web/chat-composer-emoji-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/chat-composer-emoji-evidence");
+      continue;
+    }
     if (key === "--group-sos-only") {
       result.groupSosOnly = true;
       continue;
@@ -187,6 +194,7 @@ function isFullEvidenceMode(options) {
     !options.menuSurfaceOnly &&
     !options.attachmentsAudioOnly &&
     !options.attachmentPickerOnly &&
+    !options.composerEmojiOnly &&
     !options.groupSosOnly &&
     !options.groupAdminOnly &&
     !options.groupModerationOnly;
@@ -4606,6 +4614,20 @@ try {
   await waitMessageVisible(page, composerMarker, "composer_message_not_visible");
   report.evidence.composerSent = await attachScreenshot(page, options.evidenceDir, "web-chat-composer-sent");
   report.steps.push("composer_text_sent_by_shared_ui_and_verified_by_rpc");
+
+  if (options.composerEmojiOnly) {
+    if (faults.length) throw new Error("browser_runtime_fault");
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      composerMessageId,
+      composerMarkerSha256: sha256(composerMarker),
+      uniqueKeySha256: sha256(state.uniqueKey),
+    };
+    report.steps.push("composer_emoji_marker_sent_by_shared_ui_and_verified_by_rpc");
+    throw new EvidenceCompleted();
+  }
 
   const replyTargetMarker = state.peerMessage ? peerMarker : ownMarker;
   const replyTargetMessageId = state.peerMessage ?? state.ownMessage;

@@ -229,6 +229,11 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /const ownMarker = options\.translationOnly \? "Mbolo" : `chat-actions-own-\$\{runId\}`/);
   assert.match(runner, /--translation-only/);
   assert.match(runner, /--menu-surface-only/);
+  assert.match(runner, /--composer-emoji-only/);
+  assert.match(runner, /build-reports\/web\/chat-composer-emoji-evidence\.json/);
+  assert.match(runner, /composer_emoji_marker_sent_by_shared_ui_and_verified_by_rpc/);
+  assert.match(runner, /if \(options\.composerEmojiOnly\) \{/);
+  assert.match(runner, /!\s*options\.composerEmojiOnly/);
   assert.match(runner, /--group-sos-only/);
   assert.match(runner, /--group-admin-only/);
   assert.match(runner, /--group-moderation-only/);
