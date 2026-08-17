@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-EMOJI",
+    "OVR-COMMENTS",
+    "PROF-CONTENT"
+  ],
+  "productSha": "8536668d3305e66c1ad829caa03a50b9af6a4f80",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "8536668d3305e66c1ad829caa03a50b9af6a4f80",
+      "report": "build-reports/web/chat-actions-notifications-evidence.json",
+      "screenshot": "build-reports/web/chat-actions-notifications-evidence/web-chat-profile-content-comment-attempt.png",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "8536668d3305e66c1ad829caa03a50b9af6a4f80",
+      "report": "build-reports/android/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "8536668d3305e66c1ad829caa03a50b9af6a4f80",
+      "report": "build-reports/ios/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate exercises the common emoji picker at runtime from the public profile comments composer reached through Chat on Web/Wasm, Android and iOS, then persists the UI-created comment and verifies it by database poll with reversible fixture cleanup.",
+    "Web/Wasm resolves the comments composer through stable visible controls plus capture-backed fallback where Compose/Wasm does not expose a DOM text input; the product anchors remain common: public-profile.comments.*, community.emoji.panel and community.emoji.cell.*.",
+    "This does not declare full FLOW-EMOJI GO: Feed and Official comments, mixed emoji/link rendering outside this lane, visual comparison of the complete picker and selector error states remain pending."
+  ]
+}
