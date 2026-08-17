@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-COMMENTS",
+    "FLOW-TRANSLATOR",
+    "FLOW-EMOJI",
+    "CHAT-PROFILE",
+    "PROF-CONTENT"
+  ],
+  "productSha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+  "evidence": {
+    "web_feed_official": {
+      "status": "passed",
+      "sha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+      "report": "build-reports/web/feed-official-comments-author-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "web_profile_content": {
+      "status": "passed",
+      "sha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+      "report": "build-reports/web/profile-content-comments-translator-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android_feed_official": {
+      "status": "passed",
+      "sha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+      "report": "build-reports/android/feed-official-comments-author-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android_profile_content": {
+      "status": "passed",
+      "sha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+      "report": "build-reports/android/profile-content-comments-translator-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios_feed_official": {
+      "status": "passed",
+      "sha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+      "report": "build-reports/ios/feed-official-comments-author-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios_profile_content": {
+      "status": "passed",
+      "sha": "8b92d9578e03863f80cf372d5829421dc2cc7178",
+      "report": "build-reports/ios/profile-content-comments-translator-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "preflight": [
+    "node --test scripts/feed-official-comments-emoji-evidence-contract.test.mjs scripts/comments-translator-trigger-parity-contract.test.mjs scripts/profile-content-evidence-contract.test.mjs scripts/comments-input-tags-contract.test.mjs",
+    "./gradlew.bat :app:compileDebugAndroidTestKotlin :app:compileDebugKotlin --stacktrace",
+    "./gradlew.bat :web:wasmJsBrowserDistribution --stacktrace"
+  ],
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate adds stable common author profile anchors for Feed, Official and public profile comments, and opens the shared public profile from comment authors in Web/Wasm, Android and iOS.",
+    "Feed and Official comment author profile entry closes the comment sheet before opening the shared profile to avoid Web/Wasm profile content being hidden behind the sheet; Android runner preserves strict return checks for other profile-entry flows and relaxes this case only.",
+    "Public profile comments now expose the common translator trigger and reuse the existing FastText-based language identification path on Web/Wasm and iOS; Android keeps its native translator controller while sharing common comments UI.",
+    "Web/Wasm records a controlled bridge fallback when the Compose bottom-sheet dismiss layer intercepts a resolved semantic author anchor. The fallback is diagnostic, occurs after resolving the stable anchor, and is followed by profile visibility checks, database verification and cleanup residue checks.",
+    "This does not declare full OVR-COMMENTS, FLOW-TRANSLATOR or FLOW-EMOJI GO: replies, pagination, forced error/rollback paths, mixed emoji-plus-link rendering and full visual comparison remain pending."
+  ]
+}
