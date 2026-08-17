@@ -6,6 +6,7 @@ import com.quata.feature.neighborhoods.domain.FollowUserResult
 import com.quata.feature.neighborhoods.domain.NeighborhoodCommunity
 import com.quata.feature.neighborhoods.domain.NeighborhoodUser
 import com.quata.feature.neighborhoods.domain.NeighborhoodRepository
+import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +29,7 @@ class NeighborhoodsViewModel(
     private var communitiesJob: Job? = null
     private var profileJob: Job? = null
     private val profileBackStack = mutableListOf<String>()
+    private val pendingProfileCommentCounts = mutableMapOf<String, Int>()
 
     override fun startObservingCommunities() {
         if (communitiesJob?.isActive == true) return
@@ -233,11 +235,15 @@ class NeighborhoodsViewModel(
     }
 
     fun addProfileComment(postId: String, comment: PostComment) {
-        if (_uiState.value.commentingPostId != null) return
         val before = _uiState.value.selectedProfile ?: return
         val optimistic = before.copy(posts = before.posts.map { post ->
-            if (post.id == postId) post.copy(comments = post.comments + comment) else post
+            if (post.id == postId && post.comments.none { it.id == comment.id }) {
+                post.copy(comments = post.comments + comment)
+            } else {
+                post
+            }
         })
+        pendingProfileCommentCounts[postId] = (pendingProfileCommentCounts[postId] ?: 0) + 1
         _uiState.value = _uiState.value.copy(
             selectedProfile = optimistic,
             commentingPostId = postId,
@@ -247,21 +253,51 @@ class NeighborhoodsViewModel(
             repository.addProfileComment(postId, comment)
                 .onSuccess { persisted ->
                     val current = _uiState.value.selectedProfile
-                    _uiState.value = _uiState.value.copy(
+                    completeProfileComment(
+                        postId = postId,
                         selectedProfile = if (persisted == null || current == null) current else current.copy(
-                            posts = current.posts.map { if (it.id == postId) persisted else it },
+                            posts = current.posts.map { if (it.id == postId) mergePersistedProfilePost(persisted, it) else it },
                         ),
-                        commentingPostId = null,
+                        error = null,
                     )
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        selectedProfile = before,
-                        commentingPostId = null,
+                    val current = _uiState.value.selectedProfile
+                    completeProfileComment(
+                        postId = postId,
+                        selectedProfile = current?.copy(
+                            posts = current.posts.map { post ->
+                                if (post.id == postId) post.copy(comments = post.comments.filterNot { it.id == comment.id }) else post
+                            },
+                        ) ?: before,
                         error = error.message ?: "No se pudo publicar el comentario",
                     )
                 }
         }
+    }
+
+    private fun completeProfileComment(
+        postId: String,
+        selectedProfile: CommunityUserProfile?,
+        error: String?,
+    ) {
+        val remaining = (pendingProfileCommentCounts[postId] ?: 1) - 1
+        if (remaining > 0) {
+            pendingProfileCommentCounts[postId] = remaining
+        } else {
+            pendingProfileCommentCounts.remove(postId)
+        }
+        _uiState.value = _uiState.value.copy(
+            selectedProfile = selectedProfile,
+            commentingPostId = pendingProfileCommentCounts.keys.firstOrNull(),
+            error = error,
+        )
+    }
+
+    private fun mergePersistedProfilePost(persisted: Post, current: Post): Post {
+        val persistedCommentIds = persisted.comments.mapTo(mutableSetOf()) { it.id }
+        val pendingComments = current.comments.filterNot { it.id in persistedCommentIds }
+        return persisted.copy(comments = persisted.comments + pendingComments)
     }
 
     fun toggleProfilePostLike(postId: String) {

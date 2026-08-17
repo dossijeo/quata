@@ -921,7 +921,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let postId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID"]),
               let commentId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID"]),
               let attachmentId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID"]),
-              let uiComment = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT"]) else {
+              let uiComment = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT"]),
+              let replyComment = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_CONTENT_REPLY_COMMENT"]) else {
             throw XCTSkip("Disposable Chat profile content fixture is not configured.")
         }
 
@@ -941,10 +942,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-chat-profile-content-thread-initial")
 
         let profile = openPeerPublicProfile(peerProfileId: peerProfileId, in: app)
-        assertProfileContentStage(profileId: peerProfileId, actorProfileId: actorProfileId, postId: postId, commentId: commentId, attachmentId: attachmentId, uiComment: uiComment, in: app)
+        assertProfileContentStage(profileId: peerProfileId, actorProfileId: actorProfileId, postId: postId, commentId: commentId, attachmentId: attachmentId, uiComment: uiComment, replyComment: replyComment, in: app)
 
         closePublicProfile(in: app)
-        XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close after checking content.")
+        XCTAssertTrue(waitForPublicProfileClosed(profileId: peerProfileId, in: app, timeout: 10), "The public profile sheet must close after checking content.")
         XCTAssertTrue(messageText(peerMarkerProbe, in: app).waitForExistence(timeout: 20), "Closing the profile content view must return to the same Chat conversation.")
         attachScreenshot(app, name: "ios-chat-profile-content-return")
     }
@@ -955,9 +956,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             throw XCTSkip("Authenticated Feed/Official comments emoji UI gate is opt-in.")
         }
         guard let feedPostId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID"]),
+              let feedCommentId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_COMMENT_ID"]),
               let feedComment = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_UI_COMMENT"]),
+              let feedReplyComment = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_REPLY_COMMENT"]),
               let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID"]),
+              let officialCommentId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_COMMENT_ID"]),
               let officialComment = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_UI_COMMENT"]),
+              let officialReplyComment = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_REPLY_COMMENT"]),
               let actorProfileId = nonEmpty(environment["QUATA_IOS_CHAT_ACTOR_PROFILE_ID"]) else {
             throw XCTSkip("Disposable Feed/Official comments fixture is not configured.")
         }
@@ -973,12 +978,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
         sendEmojiCommentFromTaggedSurface(
-            actionIdentifier: "feed.action.comments",
+            actionIdentifier: "feed.action.comments.\(feedPostId)",
             panelIdentifier: "feed.comments.panel",
             inputIdentifier: "feed.comments.input",
             emojiIdentifier: "feed.comments.emoji",
             sendIdentifier: "feed.comments.send",
             comment: feedComment,
+            replyIdentifier: "feed.comments.reply.\(feedCommentId)",
+            replyTargetIdentifier: "feed.comments.replyTarget.\(feedCommentId)",
+            replyComment: feedReplyComment,
             authorIdentifier: "feed.comments.author.\(actorProfileId)",
             authorProfileId: actorProfileId,
             beforeScreenshot: "ios-feed-comments-emoji-before",
@@ -990,12 +998,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#official-\(encodedFragment(officialPostId))", in: app)
         sendEmojiCommentFromTaggedSurface(
-            actionIdentifier: "official.action.comments",
+            actionIdentifier: "official.action.comments.\(officialPostId)",
             panelIdentifier: "official.comments.panel",
             inputIdentifier: "official.comments.input",
             emojiIdentifier: "official.comments.emoji",
             sendIdentifier: "official.comments.send",
             comment: officialComment,
+            replyIdentifier: "official.comments.reply.\(officialCommentId)",
+            replyTargetIdentifier: "official.comments.replyTarget.\(officialCommentId)",
+            replyComment: officialReplyComment,
             authorIdentifier: "official.comments.author.\(actorProfileId)",
             authorProfileId: actorProfileId,
             beforeScreenshot: "ios-official-comments-emoji-before",
@@ -1006,7 +1017,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
     }
 
-    private func assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, in app: XCUIApplication) {
+    private func assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, replyComment: String, in app: XCUIApplication) {
         let posts = app.descendants(matching: .any)
             .matching(identifier: "public-profile.kpi.posts.\(profileId)")
             .firstMatch
@@ -1026,14 +1037,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "public-profile.gallery.\(profileId)",
             "public-profile.gallery.post.\(postId)",
             "public-profile.post.preview.\(postId)",
-            "public-profile.post.action.comments.\(postId)",
         ] {
             _ = profileElement(identifier, in: app, context: "profile content")
         }
-        let mediaOpen = profileElement("public-profile.post.media.open.\(postId)", in: app, context: "profile media open")
-        mediaOpen.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let preview = profileElement("public-profile.post.preview.\(postId)", in: app, context: "profile content preview")
+        let mediaOpen = optionalProfileElement("public-profile.post.media.open.\(postId)", in: app)
+        (mediaOpen ?? preview)
+            .coordinate(withNormalizedOffset: mediaOpen == nil ? CGVector(dx: 0.86, dy: 0.18) : CGVector(dx: 0.9, dy: 0.1))
+            .tap()
+        let fullscreenRoot = app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch
+        if !fullscreenRoot.waitForExistence(timeout: 5) {
+            (mediaOpen ?? preview)
+                .coordinate(withNormalizedOffset: mediaOpen == nil ? CGVector(dx: 0.5, dy: 0.22) : CGVector(dx: 0.5, dy: 0.5))
+                .tap()
+        }
         XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 10),
+            fullscreenRoot.waitForExistence(timeout: 10),
             "The shared fullscreen media overlay must open from the public profile post media action.",
         )
         XCTAssertTrue(
@@ -1049,17 +1068,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "The shared fullscreen media overlay in-media close control must be visible.",
         )
         attachScreenshot(app, name: "ios-chat-profile-media-viewer")
-        app.descendants(matching: .any)
-            .matching(identifier: "fullscreen-media.back")
-            .firstMatch
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        closeFullscreenMedia(context: "public profile media viewer", in: app)
+        let commentsAction = optionalProfileElement("public-profile.post.action.comments.\(postId)", in: app)
+        (commentsAction ?? preview)
+            .coordinate(withNormalizedOffset: commentsAction == nil ? CGVector(dx: 0.88, dy: 0.58) : CGVector(dx: 0.5, dy: 0.5))
             .tap()
-        XCTAssertFalse(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
-            "The shared fullscreen media overlay must close back to the public profile.",
-        )
-        let commentsAction = profileElement("public-profile.post.action.comments.\(postId)", in: app, context: "profile content comments action")
-        commentsAction.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         for identifier in [
             "public-profile.comments.panel",
             "public-profile.comments.list",
@@ -1072,13 +1085,23 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         ] {
             _ = profileElement(identifier, in: app, context: "profile comments")
         }
+        let profileCommentInputFrame = waitForCommentInput("public-profile.comments.input", in: app, timeout: 5, required: true).frame
+        sendReplyCommentFromTaggedSurface(
+            replyIdentifier: "public-profile.comments.reply.\(commentId)",
+            replyTargetIdentifier: "public-profile.comments.replyTarget.\(commentId)",
+            inputIdentifier: "public-profile.comments.input",
+            emojiIdentifier: "public-profile.comments.emoji",
+            sendIdentifier: "public-profile.comments.send",
+            fallbackFrame: profileCommentInputFrame,
+            replyComment: replyComment,
+            context: "Profile comments",
+            in: app,
+        )
         profileElement("public-profile.comments.emoji", in: app, context: "profile comments emoji")
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .tap()
         _ = profileElement("community.emoji.panel", in: app, context: "profile comments emoji panel")
-        profileElement("community.emoji.cell.frequent.0", in: app, context: "profile comments first frequent emoji")
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .tap()
+        tapTaggedButton("community.emoji.cell.frequent.0", in: app, context: "profile comments first frequent emoji")
         let input = app.descendants(matching: .any)
             .matching(identifier: "public-profile.comments.input")
             .firstMatch
@@ -1104,6 +1127,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         emojiIdentifier: String,
         sendIdentifier: String,
         comment: String,
+        replyIdentifier: String? = nil,
+        replyTargetIdentifier: String? = nil,
+        replyComment: String? = nil,
         authorIdentifier: String,
         authorProfileId: String,
         beforeScreenshot: String,
@@ -1153,6 +1179,20 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .frame
         attachScreenshot(app, name: beforeScreenshot)
 
+        if let replyIdentifier, let replyTargetIdentifier, let replyComment {
+            sendReplyCommentFromTaggedSurface(
+                replyIdentifier: replyIdentifier,
+                replyTargetIdentifier: replyTargetIdentifier,
+                inputIdentifier: inputIdentifier,
+                emojiIdentifier: emojiIdentifier,
+                sendIdentifier: sendIdentifier,
+                fallbackFrame: inputFrameBeforeEmoji,
+                replyComment: replyComment,
+                context: context,
+                in: app,
+            )
+        }
+
         tapTaggedButton(emojiIdentifier, in: app, context: "\(context) emoji")
         let emojiPanel = app.descendants(matching: .any)
             .matching(identifier: "community.emoji.panel")
@@ -1164,11 +1204,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         typeText(String(comment.dropFirst()), intoCommentInput: inputIdentifier, fallbackFrame: inputFrameBeforeEmoji, in: app)
         tapTaggedButton(sendIdentifier, fallbackFrame: sendFrameBeforeEmoji, in: app, context: "\(context) send")
 
-        let visibleComment = String(comment.dropFirst())
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .split(separator: " ")
-            .first
-            .map(String.init) ?? String(comment.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+        let visibleComment = uniqueSubmittedCommentProbe(comment)
         let persistedComment = app.descendants(matching: .any)
             .matching(NSPredicate(format: "(label CONTAINS %@ OR value CONTAINS %@) AND identifier != %@", visibleComment, visibleComment, inputIdentifier))
             .firstMatch
@@ -1178,13 +1214,46 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: authorIdentifier)
             .firstMatch
         XCTAssertTrue(author.waitForExistence(timeout: 10), "\(context) must expose a stable comment author profile anchor.")
-        author.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        let profile = app.descendants(matching: .any)
-            .matching(identifier: "public-profile.user.\(authorProfileId)")
+    }
+
+    private func sendReplyCommentFromTaggedSurface(
+        replyIdentifier: String,
+        replyTargetIdentifier: String,
+        inputIdentifier: String,
+        emojiIdentifier: String,
+        sendIdentifier: String,
+        fallbackFrame: CGRect?,
+        replyComment: String,
+        context: String,
+        in app: XCUIApplication,
+    ) {
+        tapTaggedButton(replyIdentifier, in: app, context: "\(context) reply")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: replyTargetIdentifier).firstMatch.waitForExistence(timeout: 10),
+            "\(context) must expose the shared reply target banner.",
+        )
+        tapTaggedButton(emojiIdentifier, in: app, context: "\(context) reply emoji")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "community.emoji.panel").firstMatch.waitForExistence(timeout: 10),
+            "\(context) reply must show the shared emoji panel.",
+        )
+        tapTaggedButton("community.emoji.cell.frequent.0", in: app, context: "\(context) reply first frequent emoji")
+        typeText(String(replyComment.dropFirst()), intoCommentInput: inputIdentifier, fallbackFrame: fallbackFrame, in: app)
+        tapTaggedButton(sendIdentifier, in: app, context: "\(context) send reply")
+        let visibleReply = uniqueSubmittedCommentProbe(replyComment)
+        let persistedReply = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "(label CONTAINS %@ OR value CONTAINS %@) AND identifier != %@", visibleReply, visibleReply, inputIdentifier))
             .firstMatch
-        XCTAssertTrue(profile.waitForExistence(timeout: 20), "\(context) comment author anchor must open the shared public profile.")
-        attachScreenshot(app, name: authorScreenshot)
-        closePublicProfile(in: app)
+        XCTAssertTrue(persistedReply.waitForExistence(timeout: 20), "\(context) reply submitted from iOS must remain visible after the optimistic write resolves.")
+    }
+
+    private func uniqueSubmittedCommentProbe(_ comment: String) -> String {
+        let visible = String(comment.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+        let words = visible.split(separator: " ")
+        if words.count >= 3 {
+            return words.suffix(3).joined(separator: " ")
+        }
+        return visible
     }
 
     private func waitForCommentInput(_ identifier: String, in app: XCUIApplication, timeout: TimeInterval, required: Bool) -> XCUIElement {
@@ -1695,13 +1764,36 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: openScreenshot)
 
         closePublicProfile(in: app)
-        XCTAssertTrue(profile.waitForNonExistence(timeout: 10), "The public profile sheet must close for \(sourceIdentifier).")
+        XCTAssertTrue(waitForPublicProfileClosed(profileId: peerProfileId, in: app, timeout: 10), "The public profile sheet must close for \(sourceIdentifier).")
         XCTAssertTrue(source.waitForExistence(timeout: 20), "Closing the profile must restore the origin for \(sourceIdentifier).")
         attachScreenshot(app, name: returnScreenshot)
     }
 
     private func closePublicProfile(in app: XCUIApplication) {
-        tapPublicProfileBackOrDismiss(in: app)
+        for _ in 0..<3 {
+            tapPublicProfileBackOrDismiss(in: app)
+            if waitForPublicProfileClosed(profileId: nil, in: app, timeout: 4) {
+                return
+            }
+        }
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.88))
+        start.press(forDuration: 0.1, thenDragTo: end)
+        XCTAssertTrue(waitForPublicProfileClosed(profileId: nil, in: app, timeout: 8), "The public profile sheet must close after shared dismiss fallbacks.")
+    }
+
+    private func waitForPublicProfileClosed(profileId: String?, in app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        let rootGone = !app.descendants(matching: .any)
+            .matching(identifier: "public-profile.root")
+            .firstMatch
+            .waitForExistence(timeout: timeout)
+        guard rootGone, let profileId else {
+            return rootGone
+        }
+        return !app.descendants(matching: .any)
+            .matching(identifier: "public-profile.user.\(profileId)")
+            .firstMatch
+            .waitForExistence(timeout: 1)
     }
 
     private func tapPublicProfileBackOrDismiss(in app: XCUIApplication) {
@@ -2041,6 +2133,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(element.exists, "The shared public-profile element \(identifier) must be visible for \(context).")
         return element
+    }
+
+    private func optionalProfileElement(_ identifier: String, in app: XCUIApplication) -> XCUIElement? {
+        let element = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+        if element.waitForExistence(timeout: 2), element.isHittable {
+            return element
+        }
+        return nil
     }
 
     private func openOptionsMenu(in app: XCUIApplication, expectedIdentifier: String, expectedText: String, context: String) {

@@ -47,6 +47,7 @@ fun QuataFeedActionRail(
     onLike: () -> Unit, onOpenComments: () -> Unit, onShare: () -> Unit, onOpenLive: () -> Unit,
     onReport: () -> Unit = {}, onDelete: () -> Unit = {}, onPublish: () -> Unit, modifier: Modifier = Modifier,
     actionTestTagPrefix: String? = null,
+    actionTestTagSuffix: String? = null,
 ) {
     Column(
         modifier = modifier,
@@ -57,13 +58,18 @@ fun QuataFeedActionRail(
             FeedTextAction(QuataFeedEmoji.Rank, rankLabel, postRank.toString(), onClick = onOpenLive)
             FeedTextAction(liveLabel, liveLabel, onClick = onOpenLive)
         }
-        FeedIconAction(if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, likeLabel, likes.toString(), if (isLiked) Color(0xFFFF7EA8) else Color.White, onClick = onLike, testTag = actionTestTagPrefix?.let { "$it.like" })
-        FeedIconAction(Icons.Filled.ChatBubble, commentsLabel, comments.toString(), onClick = onOpenComments, testTag = actionTestTagPrefix?.let { "$it.comments" })
-        FeedIconAction(Icons.Filled.Share, shareLabel, onClick = onShare, testTag = actionTestTagPrefix?.let { "$it.share" })
-        if (!isLandscape && showReport && reportLabel != null) FeedIconAction(Icons.Filled.Flag, reportLabel, tint = if (isReported) QuataOrange else Color.White, onClick = onReport, testTag = actionTestTagPrefix?.let { "$it.report" })
-        if (showDelete && deleteLabel != null) FeedIconAction(Icons.Filled.Delete, deleteLabel, onClick = onDelete, testTag = actionTestTagPrefix?.let { "$it.delete" })
-        if (showPublish) FeedIconAction(Icons.Filled.Add, publishLabel, tint = Color.White, background = QuataOrange, onClick = onPublish, testTag = actionTestTagPrefix?.let { "$it.publish" })
+        FeedIconAction(if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, likeLabel, likes.toString(), if (isLiked) Color(0xFFFF7EA8) else Color.White, onClick = onLike, testTag = quataFeedActionTestTag(actionTestTagPrefix, "like", actionTestTagSuffix))
+        FeedIconAction(Icons.Filled.ChatBubble, commentsLabel, comments.toString(), onClick = onOpenComments, testTag = quataFeedActionTestTag(actionTestTagPrefix, "comments", actionTestTagSuffix))
+        FeedIconAction(Icons.Filled.Share, shareLabel, onClick = onShare, testTag = quataFeedActionTestTag(actionTestTagPrefix, "share", actionTestTagSuffix))
+        if (!isLandscape && showReport && reportLabel != null) FeedIconAction(Icons.Filled.Flag, reportLabel, tint = if (isReported) QuataOrange else Color.White, onClick = onReport, testTag = quataFeedActionTestTag(actionTestTagPrefix, "report", actionTestTagSuffix))
+        if (showDelete && deleteLabel != null) FeedIconAction(Icons.Filled.Delete, deleteLabel, onClick = onDelete, testTag = quataFeedActionTestTag(actionTestTagPrefix, "delete", actionTestTagSuffix))
+        if (showPublish) FeedIconAction(Icons.Filled.Add, publishLabel, tint = Color.White, background = QuataOrange, onClick = onPublish, testTag = quataFeedActionTestTag(actionTestTagPrefix, "publish", actionTestTagSuffix))
     }
+}
+
+internal fun quataFeedActionTestTag(prefix: String?, action: String, suffix: String? = null): String? {
+    val base = prefix?.takeIf(String::isNotBlank)?.let { "$it.$action" } ?: return null
+    return suffix?.takeIf(String::isNotBlank)?.let { "$base.$it" } ?: base
 }
 
 @Composable

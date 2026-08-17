@@ -31,10 +31,11 @@ fun ProfilePostActionContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            modifier = modifier
+            modifier = Modifier
                 .size(42.dp)
                 .background(Color.Black.copy(alpha = 0.42f), CircleShape)
-                .clickable(enabled = enabled, onClick = onClick),
+                .clickable(enabled = enabled, onClick = onClick)
+                .then(modifier),
             contentAlignment = Alignment.Center
         ) {
             Icon(

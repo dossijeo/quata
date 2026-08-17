@@ -18,6 +18,7 @@ import com.quata.feature.feed.data.RemoteFeedReadRepository
 import com.quata.feature.feed.domain.ReadOnlyFeedRepository
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
+import com.quata.core.text.toRemoteCommentBody
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
@@ -125,7 +126,7 @@ class IosNeighborhoodsReadRepository(
         feedTransport.mutate(
             table = "community_comments",
             method = "POST",
-            body = "{\"post_id\":${targetId.toIosNeighborhoodJsonString()},\"profile_id\":${actorId.toIosNeighborhoodJsonString()},\"body\":${comment.message.toIosNeighborhoodJsonString()}}",
+            body = "{\"post_id\":${targetId.toIosNeighborhoodJsonString()},\"profile_id\":${actorId.toIosNeighborhoodJsonString()},\"body\":${comment.toRemoteCommentBody().toIosNeighborhoodJsonString()}}",
         ).getOrThrow()
         RemoteFeedReadRepository(feedTransport).refreshPost(targetId).getOrThrow()
     }

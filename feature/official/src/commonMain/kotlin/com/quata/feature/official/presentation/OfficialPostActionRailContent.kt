@@ -56,5 +56,6 @@ fun OfficialPostActionRailContent(
         onPublish = onCreate,
         modifier = modifier,
         actionTestTagPrefix = "official.action",
+        actionTestTagSuffix = post.id,
     )
 }

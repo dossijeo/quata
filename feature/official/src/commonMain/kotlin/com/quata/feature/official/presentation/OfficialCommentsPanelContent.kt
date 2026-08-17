@@ -137,6 +137,9 @@ fun OfficialCommentsPanelContent(
                 displayText = displayText,
             ),
             authorProfileTestTagPrefix = "official.comments.author.",
+            replyTestTagPrefix = "official.comments.reply.",
+            reportTestTagPrefix = "official.comments.report.",
+            replyQuoteTestTagPrefix = "official.comments.replyTo.",
             onOpenAuthorProfile = onOpenUserProfile,
             onReply = { replyTo = comment },
             onReport = { if (canParticipate) onReportComment(comment) else onAuthRequired() },
@@ -202,7 +205,16 @@ fun OfficialCommentsPanelContent(
                     }
                 },
                 replyTarget = replyTo?.let { target ->
-                    { QuataReplyTargetBannerContent(target, strings.replyingTo(target.authorName), strings.cancelReply) { replyTo = null } }
+                    {
+                        QuataReplyTargetBannerContent(
+                            comment = target,
+                            replyingTo = strings.replyingTo(target.authorName),
+                            cancelDescription = strings.cancelReply,
+                            onClear = { replyTo = null },
+                            targetTestTag = "official.comments.replyTarget.${target.id}",
+                            cancelTestTag = "official.comments.replyCancel.${target.id}",
+                        )
+                    }
                 },
                 emojiPanel = if (isEmojiPickerVisible) {
                     {
@@ -242,7 +254,16 @@ fun OfficialCommentsPanelContent(
                     }
                 },
                 replyTarget = replyTo?.let { target ->
-                    { QuataReplyTargetBannerContent(target, strings.replyingTo(target.authorName), strings.cancelReply) { replyTo = null } }
+                    {
+                        QuataReplyTargetBannerContent(
+                            comment = target,
+                            replyingTo = strings.replyingTo(target.authorName),
+                            cancelDescription = strings.cancelReply,
+                            onClear = { replyTo = null },
+                            targetTestTag = "official.comments.replyTarget.${target.id}",
+                            cancelTestTag = "official.comments.replyCancel.${target.id}",
+                        )
+                    }
                 },
                 input = { modifier -> commentInput(modifier) },
                 emojiPanel = if (isEmojiPickerVisible) {

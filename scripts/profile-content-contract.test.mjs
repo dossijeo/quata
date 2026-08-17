@@ -52,13 +52,17 @@ test("public profile content exposes common gallery anchors", () => {
 test("public profile content exposes common post preview and action anchors", () => {
   for (const constant of [
     "PublicProfilePostPreviewTestTagPrefix",
-    "PublicProfilePostMediaTestTagPrefix",
-    "PublicProfilePostOpenMediaTestTagPrefix",
     "PublicProfilePostTextFallbackTestTagPrefix",
   ]) {
     assert.match(preview, new RegExp(`${constant} = "public-profile\\.`));
     assert.match(preview, new RegExp(`testTag = ${constant} \\+ post\\.id`));
   }
+  assert.match(preview, /PublicProfilePostMediaTestTagPrefix = "public-profile\.post\.media\."/);
+  assert.doesNotMatch(preview, /testTag = PublicProfilePostMediaTestTagPrefix \+ post\.id/);
+  assert.match(preview, /PublicProfilePostOpenMediaTestTagPrefix = "public-profile\.post\.media\.open\."/);
+  assert.match(preview, /val tag = PublicProfilePostOpenMediaTestTagPrefix \+ post\.id[\s\S]*testTag = tag[\s\S]*contentDescription = tag/);
+  assert.match(preview, /semantics \{ testTag = PublicProfilePostOpenMediaTestTagPrefix \+ post\.id \}/);
+  assert.match(preview, /contentDescription = PublicProfilePostOpenMediaTestTagPrefix \+ post\.id/);
   for (const constant of [
     "PublicProfilePostLikeActionTestTagPrefix",
     "PublicProfilePostCommentsActionTestTagPrefix",
@@ -69,7 +73,7 @@ test("public profile content exposes common post preview and action anchors", ()
     assert.match(preview, new RegExp(`val tag = ${constant} \\+ post\\.id[\\s\\S]*testTag = tag[\\s\\S]*contentDescription = tag`));
   }
   assert.match(preview, /contentDescription = tag/);
-  assert.match(postAction, /modifier = modifier\s+\.size\(42\.dp\)[\s\S]*\.clickable\(enabled = enabled, onClick = onClick\)/);
+  assert.match(postAction, /modifier = Modifier\s+\.size\(42\.dp\)[\s\S]*\.clickable\(enabled = enabled, onClick = onClick\)[\s\S]*\.then\(modifier\)/);
 });
 
 test("public profile content exposes common attachment anchors", () => {
@@ -135,6 +139,8 @@ test("public profile content evidence exercises the common emoji picker before t
   assert.match(webEvidence, /😀 \$\{fixture\.marker\} ui comment/);
   assert.match(androidRunner, /😀 \$\{state\.profileContent\.marker\} android ui comment/);
   assert.match(iosRunner, /😀 \$\{state\.profileContent\.marker\} ios ui comment/);
-  assert.match(androidTest, /performTextInput\(uiComment\.removePrefix\("😀"\)\)/);
+  assert.match(androidTest, /performProfileCommentTextInput\(postId, visibleCommentText, "after-reply"\)/);
+  assert.match(androidTest, /val visibleCommentText = uiComment\.removePrefix\("😀"\)\.trimStart\(\)/);
+  assert.match(androidTest, /performTextInput\(text\)/);
   assert.match(iosTest, /typeText\(String\(uiComment\.dropFirst\(\)\)/);
 });

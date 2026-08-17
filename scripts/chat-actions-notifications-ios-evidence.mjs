@@ -13,9 +13,11 @@ import {
   createCleanupRegistry,
   cleanupProfileRolesSafetyFixture as cleanupSharedProfileRolesSafetyFixture,
   pollFeedOfficialComment as pollSharedFeedOfficialComment,
+  pollFeedOfficialReplyComment as pollSharedFeedOfficialReplyComment,
   pollProfileGlobalBlock,
   pollProfileReport,
   pollProfileContentComment as pollSharedProfileContentComment,
+  pollProfileContentReplyComment as pollSharedProfileContentReplyComment,
   pollProfileRoles,
   prepareProfileRolesSafetyFixture,
   seedChatAttachmentFixture,
@@ -307,6 +309,8 @@ bash scripts/run-ios-chat-translation-ui-test.sh
         targetSession: state.b,
       };
       await prepareFeedOfficialCommentsFixture(state.feedOfficialComments);
+      state.feedOfficialComments.feed.uiReplyComment = `😀 ${state.feedOfficialComments.marker} feed reply comment`;
+      state.feedOfficialComments.official.uiReplyComment = `😀 ${state.feedOfficialComments.marker} official reply comment`;
       report.steps.push("feed_official_comments_fixture_prepared");
     }
     if (profileRolesSafetyOnly) {
@@ -326,6 +330,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
         threadId: state.thread,
       };
       state.profileContent.uiCommentMarker = `😀 ${state.profileContent.marker} ios ui comment`;
+      state.profileContent.uiReplyCommentMarker = `😀 ${state.profileContent.marker} ios reply comment`;
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
       const sharedAttachments = await sharedAttachmentIds(config, state.a, state.a.profileId, state.b.profileId);
@@ -414,10 +419,15 @@ export QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID=${shellQuote(state.profileContent?
 export QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID=${shellQuote(state.profileContent?.seedCommentId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID=${shellQuote(state.profileContent?.attachmentId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT=${shellQuote(state.profileContent?.uiCommentMarker ?? "profile-only")}
+export QUATA_IOS_CHAT_PROFILE_CONTENT_REPLY_COMMENT=${shellQuote(state.profileContent?.uiReplyCommentMarker ?? "profile-only")}
 export QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID=${shellQuote(state.feedOfficialComments?.feed?.postId ?? "feed-official-comments")}
+export QUATA_IOS_CHAT_FEED_COMMENTS_COMMENT_ID=${shellQuote(state.feedOfficialComments?.feed?.seedCommentId ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_FEED_COMMENTS_UI_COMMENT=${shellQuote(state.feedOfficialComments?.feed?.uiComment ?? "feed-official-comments")}
+export QUATA_IOS_CHAT_FEED_COMMENTS_REPLY_COMMENT=${shellQuote(state.feedOfficialComments?.feed?.uiReplyComment ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID=${shellQuote(state.feedOfficialComments?.official?.postId ?? "feed-official-comments")}
+export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_COMMENT_ID=${shellQuote(state.feedOfficialComments?.official?.seedCommentId ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_UI_COMMENT=${shellQuote(state.feedOfficialComments?.official?.uiComment ?? "feed-official-comments")}
+export QUATA_IOS_CHAT_OFFICIAL_COMMENTS_REPLY_COMMENT=${shellQuote(state.feedOfficialComments?.official?.uiReplyComment ?? "feed-official-comments")}
 export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_UI_E2E=${profilePrivateChatOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE=${shellQuote(state.privateMarker?.slice(0, 28) ?? "profile-only")}
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E=${menuSurfaceOnly ? "1" : "0"}
@@ -565,12 +575,18 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("profile_follow_toggled_and_verified_by_db");
     }
     if (profileContentOnly) {
+      state.profileContent.uiReplyCommentId = await pollProfileContentReplyComment(state.profileContent, state.profileContent.uiReplyCommentMarker, state.profileContent.seedCommentId);
       state.profileContent.uiCommentId = await pollProfileContentComment(state.profileContent, state.profileContent.uiCommentMarker);
+      report.steps.push("profile_content_reply_created_from_ui_and_verified_by_db");
       report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
     }
     if (feedOfficialCommentsOnly) {
+      state.feedOfficialComments.feed.uiReplyCommentId = await pollFeedOfficialReplyComment(state.feedOfficialComments, "feed", state.feedOfficialComments.feed.uiReplyComment, state.feedOfficialComments.feed.seedCommentId);
+      state.feedOfficialComments.official.uiReplyCommentId = await pollFeedOfficialReplyComment(state.feedOfficialComments, "official", state.feedOfficialComments.official.uiReplyComment, state.feedOfficialComments.official.seedCommentId);
       state.feedOfficialComments.feed.uiCommentId = await pollFeedOfficialComment(state.feedOfficialComments, "feed", state.feedOfficialComments.feed.uiComment);
       state.feedOfficialComments.official.uiCommentId = await pollFeedOfficialComment(state.feedOfficialComments, "official", state.feedOfficialComments.official.uiComment);
+      report.steps.push("feed_comments_reply_created_from_ui_and_verified_by_db");
+      report.steps.push("official_comments_reply_created_from_ui_and_verified_by_db");
       report.steps.push("feed_comments_emoji_created_from_ui_and_verified_by_db");
       report.steps.push("official_comments_emoji_created_from_ui_and_verified_by_db");
     }
@@ -722,8 +738,12 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         feedOfficialComments: state.feedOfficialComments ? {
           markerSha256: sha256(state.feedOfficialComments.marker),
           feedPostId: state.feedOfficialComments.feed?.postId ?? null,
+          feedReplyCommentId: state.feedOfficialComments.feed?.uiReplyCommentId ?? null,
+          feedReplyDiagnostic: state.feedOfficialComments.feed?.replyPollDiagnostic ?? null,
           feedUiCommentId: state.feedOfficialComments.feed?.uiCommentId ?? null,
           officialPostId: state.feedOfficialComments.official?.postId ?? null,
+          officialReplyCommentId: state.feedOfficialComments.official?.uiReplyCommentId ?? null,
+          officialReplyDiagnostic: state.feedOfficialComments.official?.replyPollDiagnostic ?? null,
           officialUiCommentId: state.feedOfficialComments.official?.uiCommentId ?? null,
         } : null,
         profileEntry: state.profileEntry ? {
@@ -894,6 +914,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
   if (remoteAttachmentPickerFixture) await run("ssh", [options.host, "rm", "-f", remoteAttachmentPickerFixture]).catch(() => {});
   if (localCredentials) await rm(dirname(localCredentials), { recursive: true, force: true }).catch(() => {});
   if (localAttachmentPickerFixture) await rm(dirname(localAttachmentPickerFixture), { recursive: true, force: true }).catch(() => {});
+  if (state.feedOfficialComments) {
+    report.evidence.feedOfficialComments = feedOfficialCommentsEvidenceSummary(state.feedOfficialComments);
+  }
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
@@ -905,6 +928,24 @@ if (report.status !== "passed") {
   process.exitCode = 1;
 } else {
   console.log("Chat actions/notifications iOS evidence passed.");
+}
+
+function feedOfficialCommentsEvidenceSummary(fixture) {
+  return {
+    markerSha256: fixture.marker ? sha256(fixture.marker) : null,
+    feedPostId: fixture.feed?.postId ?? null,
+    feedReplyCommentId: fixture.feed?.uiReplyCommentId ?? null,
+    feedReplyDiagnostic: fixture.feed?.replyPollDiagnostic ?? null,
+    feedPersistedReplyCommentPrefix: fixture.feed?.persistedReplyComment ? String(fixture.feed.persistedReplyComment).slice(0, 80) : null,
+    feedUiCommentId: fixture.feed?.uiCommentId ?? null,
+    feedPersistedUiCommentPrefix: fixture.feed?.persistedUiComment ? String(fixture.feed.persistedUiComment).slice(0, 80) : null,
+    officialPostId: fixture.official?.postId ?? null,
+    officialReplyCommentId: fixture.official?.uiReplyCommentId ?? null,
+    officialReplyDiagnostic: fixture.official?.replyPollDiagnostic ?? null,
+    officialPersistedReplyCommentPrefix: fixture.official?.persistedReplyComment ? String(fixture.official.persistedReplyComment).slice(0, 80) : null,
+    officialUiCommentId: fixture.official?.uiCommentId ?? null,
+    officialPersistedUiCommentPrefix: fixture.official?.persistedUiComment ? String(fixture.official.persistedUiComment).slice(0, 80) : null,
+  };
 }
 
 function parseArgs(argv) {
@@ -1865,8 +1906,16 @@ async function pollProfileContentComment(fixture, marker, timeout = 45_000) {
   return pollSharedProfileContentComment({ fixture, marker, withDatabase, delay, timeout });
 }
 
+async function pollProfileContentReplyComment(fixture, marker, replyToCommentId, timeout = 45_000) {
+  return pollSharedProfileContentReplyComment({ fixture, marker, replyToCommentId, withDatabase, delay, timeout });
+}
+
 async function pollFeedOfficialComment(fixture, surface, marker, timeout = 45_000) {
   return pollSharedFeedOfficialComment({ fixture, surface, marker, withDatabase, delay, timeout });
+}
+
+async function pollFeedOfficialReplyComment(fixture, surface, marker, replyToCommentId, timeout = 45_000) {
+  return pollSharedFeedOfficialReplyComment({ fixture, surface, marker, replyToCommentId, withDatabase, delay, timeout });
 }
 
 async function prepareProfileEntryFixture(runId) {

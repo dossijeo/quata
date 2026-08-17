@@ -3,6 +3,7 @@ package com.quata.web
 import com.quata.core.model.Post
 import com.quata.core.model.PostComment
 import com.quata.core.model.User
+import com.quata.core.text.toRemoteCommentBody
 import com.quata.feature.feed.data.FeedReadTransport
 import com.quata.feature.feed.data.FeedRemoteComment
 import com.quata.feature.feed.data.FeedRemoteLike
@@ -71,7 +72,7 @@ class WebFeedRepository(
     }
     override suspend fun addComment(postId: String, comment: PostComment): Result<Post?> = runCatching {
         val userId = authRepository.restoreLocalSession()?.userId ?: error("web_session_missing")
-        client.post("community_comments", "{\"post_id\":\"$postId\",\"profile_id\":\"$userId\",\"body\":${comment.message.webJsonString()}}").requireWebSuccess()
+        client.post("community_comments", "{\"post_id\":\"$postId\",\"profile_id\":\"$userId\",\"body\":${comment.toRemoteCommentBody().webJsonString()}}").requireWebSuccess()
         refreshPost(postId).getOrThrow()
     }
     override suspend fun deletePost(postId: String): Result<Unit> = runCatching {

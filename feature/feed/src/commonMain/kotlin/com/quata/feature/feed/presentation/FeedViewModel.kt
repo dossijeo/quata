@@ -3,6 +3,7 @@ package com.quata.feature.feed.presentation
 import com.quata.core.common.AppDispatchers
 import com.quata.core.feed.QuataPagedFeedStore
 import com.quata.core.model.Post
+import com.quata.core.model.PostComment
 import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
@@ -50,7 +51,7 @@ class FeedViewModel(
             is FeedUiEvent.PostDisplayed -> loadDisplayedPostDetails(event.postId, event.nextPostId)
             is FeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
             is FeedUiEvent.ReportPost -> updatePostFromRepository { repository.reportPost(event.postId) }
-            is FeedUiEvent.AddComment -> updatePostFromRepository { repository.addComment(event.postId, event.comment) }
+            is FeedUiEvent.AddComment -> addComment(event.postId, event.comment)
             is FeedUiEvent.DeletePost -> deletePost(event.postId)
         }
     }
@@ -65,7 +66,7 @@ class FeedViewModel(
             repository.observeFeed().collect { result ->
                 result
                     .onSuccess { posts ->
-                        val mergedPosts = feedStore.setRealtime(posts)
+                        val mergedPosts = feedStore.setRealtime(posts.withLocalPendingComments())
                         loadedDetailPostIds += posts.map { it.id }
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
@@ -96,7 +97,7 @@ class FeedViewModel(
             )
             repository.refreshFeed()
                 .onSuccess { posts ->
-                    val mergedPosts = feedStore.replaceInitialPage(posts)
+                    val mergedPosts = feedStore.replaceInitialPage(posts.withLocalPendingComments())
                     loadedDetailPostIds.clear()
                     loadingDetailPostIds.clear()
                     loadedDetailPostIds += posts.map { it.id }
@@ -133,7 +134,7 @@ class FeedViewModel(
             _uiState.value = _uiState.value.copy(isLoadingOlder = true, error = null)
             repository.loadOlderFeedPage(beforeCreatedAt = beforeCreatedAt, limit = FeedPageSize)
                 .onSuccess { posts ->
-                    val mergedPosts = feedStore.appendOlder(posts)
+                    val mergedPosts = feedStore.appendOlder(posts.withLocalPendingComments())
                     loadedDetailPostIds += posts.map { it.id }
                     _uiState.value = _uiState.value.copy(
                         isLoadingOlder = false,
@@ -223,9 +224,15 @@ class FeedViewModel(
     }
 
     private fun replacePost(updated: Post) {
+        val reconciled = updated.withLocalPendingCommentsFrom(_uiState.value.posts.firstOrNull { it.id == updated.id })
         _uiState.value = _uiState.value.copy(
-            posts = feedStore.replace(updated)
+            posts = feedStore.replace(reconciled)
         )
+    }
+
+    private fun addComment(postId: String, comment: PostComment) {
+        appendLocalPendingComment(postId, comment)
+        updatePostFromRepository { repository.addComment(postId, comment) }
     }
 
     private fun updatePostFromRepository(action: suspend () -> Result<Post?>) = scope.launch {
@@ -239,6 +246,23 @@ class FeedViewModel(
             .onFailure { error ->
                 _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
             }
+    }
+
+    private fun appendLocalPendingComment(postId: String, comment: PostComment) {
+        _uiState.value = _uiState.value.copy(
+            posts = _uiState.value.posts.map { post ->
+                if (post.id == postId && post.comments.none { it.id == comment.id }) {
+                    post.copy(comments = post.comments + comment)
+                } else {
+                    post
+                }
+            }
+        )
+    }
+
+    private fun List<Post>.withLocalPendingComments(): List<Post> {
+        val existingById = _uiState.value.posts.associateBy(Post::id)
+        return map { post -> post.withLocalPendingCommentsFrom(existingById[post.id]) }
     }
 
     private fun deletePost(postId: String) = scope.launch {
@@ -263,3 +287,17 @@ class FeedViewModel(
         const val FeedPageSize = 50
     }
 }
+
+internal fun Post.withLocalPendingCommentsFrom(existing: Post?): Post {
+    val pending = existing?.comments.orEmpty()
+        .filter { it.isLocalPendingComment() }
+        .filterNot { pending -> comments.any { it.matchesLocalPendingComment(pending) } }
+    return if (pending.isEmpty()) this else copy(comments = comments + pending)
+}
+
+private fun PostComment.isLocalPendingComment(): Boolean = id.startsWith("local_")
+
+private fun PostComment.matchesLocalPendingComment(pending: PostComment): Boolean =
+    message.trim() == pending.message.trim() &&
+        replyToCommentId == pending.replyToCommentId &&
+        replyToAuthorName == pending.replyToAuthorName

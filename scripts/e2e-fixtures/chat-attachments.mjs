@@ -382,20 +382,54 @@ export async function pollProfileContentComment({
   timeout = 45_000,
 }) {
   const deadline = Date.now() + timeout;
+  const markerProbe = marker.replace(/^😀\s*/, "");
   while (Date.now() < deadline) {
     const result = await withDatabase(async (client) => await client.query(
       `select id
          from public.community_comments
-        where post_id = $1 and profile_id = $2 and body = $3
+        where post_id = $1 and profile_id = $2 and body like $3
         order by created_at desc
         limit 1`,
-      [fixture.postId, fixture.actorSession.profileId, marker],
+      [fixture.postId, fixture.actorSession.profileId, `%${markerProbe}%`],
     ));
     const id = result.rows[0]?.id;
     if (uuid.test(id ?? "")) return id;
     await delay(1_000);
   }
   throw new Error("profile_content_comment_not_persisted");
+}
+
+export async function pollProfileContentReplyComment({
+  fixture,
+  marker,
+  replyToCommentId,
+  withDatabase,
+  delay,
+  timeout = 45_000,
+}) {
+  const deadline = Date.now() + timeout;
+  const replyPrefix = `[reply:${replyToCommentId}:`;
+  const markerProbe = marker.replace(/^😀\s*/, "");
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => await client.query(
+      `select id, body
+         from public.community_comments
+        where post_id = $1
+          and profile_id = $2
+          and body like $3
+          and body like $4
+        order by created_at desc
+        limit 1`,
+      [fixture.postId, fixture.actorSession.profileId, `${replyPrefix}%`, `%${markerProbe}%`],
+    ));
+    const row = result.rows[0];
+    if (uuid.test(row?.id ?? "")) {
+      fixture.profileReplyBody = row.body ?? null;
+      return row.id;
+    }
+    await delay(1_000);
+  }
+  throw new Error("profile_content_reply_comment_not_persisted");
 }
 
 export async function prepareProfileRolesSafetyFixture({
@@ -752,6 +786,94 @@ export async function pollFeedOfficialComment({
     await delay(1_000);
   }
   throw new Error(`feed_official_${surface}_comment_not_persisted`);
+}
+
+export async function pollFeedOfficialReplyComment({
+  fixture,
+  surface,
+  marker,
+  replyToCommentId,
+  withDatabase,
+  delay,
+  timeout = 45_000,
+}) {
+  const deadline = Date.now() + timeout;
+  const replyPrefix = `[reply:${replyToCommentId}:`;
+  const markerProbe = marker.replace(/^😀\s*/, "");
+  let lastMarkerOnlyRow = null;
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => {
+      if (surface === "feed") {
+        return await client.query(
+          `select id, body
+             from public.community_comments
+            where post_id = $1::uuid
+              and profile_id = $2::uuid
+              and body like $3
+              and body like $4
+            order by created_at desc
+            limit 1`,
+          [fixture.feed?.postId, fixture.actorSession.profileId, `${replyPrefix}%`, `%${markerProbe}%`],
+        );
+      }
+      if (surface === "official") {
+        return await client.query(
+          `select id, body
+             from public.official_post_comments
+            where official_post_id = $1::uuid
+              and profile_id = $2::uuid
+              and body like $3
+              and body like $4
+            order by created_at desc
+            limit 1`,
+          [fixture.official?.postId, fixture.actorSession.profileId, `${replyPrefix}%`, `%${markerProbe}%`],
+        );
+      }
+      throw new Error(`feed_official_comments_unknown_surface:${surface}`);
+    });
+    const row = result.rows[0];
+    if (uuid.test(row?.id ?? "")) {
+      fixture[surface].persistedReplyComment = row.body ?? null;
+      return row.id;
+    }
+    const markerOnly = await withDatabase(async (client) => {
+      if (surface === "feed") {
+        return await client.query(
+          `select id, body
+             from public.community_comments
+            where post_id = $1::uuid
+              and profile_id = $2::uuid
+              and body like $3
+            order by created_at desc
+            limit 1`,
+          [fixture.feed?.postId, fixture.actorSession.profileId, `%${markerProbe}%`],
+        );
+      }
+      if (surface === "official") {
+        return await client.query(
+          `select id, body
+             from public.official_post_comments
+            where official_post_id = $1::uuid
+              and profile_id = $2::uuid
+              and body like $3
+            order by created_at desc
+            limit 1`,
+          [fixture.official?.postId, fixture.actorSession.profileId, `%${markerProbe}%`],
+        );
+      }
+      throw new Error(`feed_official_comments_unknown_surface:${surface}`);
+    });
+    if (uuid.test(markerOnly.rows[0]?.id ?? "")) {
+      lastMarkerOnlyRow = {
+        id: markerOnly.rows[0].id,
+        hasReplyPrefix: String(markerOnly.rows[0].body ?? "").startsWith(replyPrefix),
+        bodyPrefix: String(markerOnly.rows[0].body ?? "").slice(0, 80),
+      };
+    }
+    await delay(1_000);
+  }
+  if (lastMarkerOnlyRow) fixture[surface].replyPollDiagnostic = lastMarkerOnlyRow;
+  throw new Error(`feed_official_${surface}_reply_comment_not_persisted`);
 }
 
 export async function cleanupProfileRolesSafetyFixture({

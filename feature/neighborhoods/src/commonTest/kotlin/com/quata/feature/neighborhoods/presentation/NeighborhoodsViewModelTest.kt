@@ -124,6 +124,40 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `consecutive profile comments keep optimistic state until all requests finish`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        val model = model(repository)
+        model.openUserProfile("a")
+        advanceUntilIdle()
+        val firstResult = CompletableDeferred<Result<Post?>>()
+        val secondResult = CompletableDeferred<Result<Post?>>()
+        repository.commentResults += firstResult
+        repository.commentResults += secondResult
+        val first = PostComment("c1", "You", "first", "Now")
+        val second = PostComment("c2", "You", "second", "Now")
+
+        model.addProfileComment("post-a", first)
+        model.addProfileComment("post-a", second)
+        runCurrent()
+
+        assertEquals(listOf(first, second), model.uiState.value.selectedProfile?.posts?.single()?.comments)
+        assertEquals("post-a", model.uiState.value.commentingPostId)
+
+        firstResult.complete(Result.success(Post("post-a", User("a", "", "a"), "post", comments = listOf(first), createdAt = "now")))
+        advanceUntilIdle()
+
+        assertEquals(listOf(first, second), model.uiState.value.selectedProfile?.posts?.single()?.comments)
+        assertEquals("post-a", model.uiState.value.commentingPostId)
+
+        secondResult.complete(Result.success(Post("post-a", User("a", "", "a"), "post", comments = listOf(first, second), createdAt = "now")))
+        advanceUntilIdle()
+
+        assertEquals(listOf(first, second), model.uiState.value.selectedProfile?.posts?.single()?.comments)
+        assertEquals(null, model.uiState.value.commentingPostId)
+        model.close()
+    }
+
+    @Test
     fun `profile post like is optimistic and rolls back on backend failure`() = runTest {
         val repository = FakeNeighborhoodRepository()
         val model = model(repository)
@@ -155,6 +189,7 @@ class NeighborhoodsViewModelTest {
 private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var followResult = CompletableDeferred(Result.success(FollowUserResult("a", true, user("me"))))
     var commentResult = CompletableDeferred<Result<Post?>>(Result.success(null))
+    val commentResults = mutableListOf<CompletableDeferred<Result<Post?>>>()
     var likeResult = CompletableDeferred<Result<Post?>>(Result.success(null))
     var profileOverride: CommunityUserProfile? = null
 
@@ -162,7 +197,14 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     override suspend fun openNeighborhoodChat(neighborhood: String) = Result.success("community")
     override suspend fun toggleFollowUser(userId: String) = followResult.await()
     override suspend fun toggleProfilePostLike(postId: String) = likeResult.await()
-    override suspend fun addProfileComment(postId: String, comment: PostComment) = commentResult.await()
+    override suspend fun addProfileComment(postId: String, comment: PostComment): Result<Post?> {
+        val queued = commentResults.firstOrNull()
+        if (queued != null) {
+            commentResults.removeAt(0)
+            return queued.await()
+        }
+        return commentResult.await()
+    }
     override suspend fun reportPost(postId: String) = Result.success(Unit)
     override suspend fun reportProfile(userId: String) = Result.success(Unit)
     override suspend fun setProfileBlocked(userId: String, blocked: Boolean) = Result.success(blocked)

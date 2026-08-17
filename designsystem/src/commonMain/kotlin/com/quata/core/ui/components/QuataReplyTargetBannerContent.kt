@@ -19,6 +19,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -27,15 +30,43 @@ import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.PostComment
 
 @Composable
-fun QuataReplyTargetBannerContent(comment: PostComment, replyingTo: String, cancelDescription: String, onClear: () -> Unit) {
+fun QuataReplyTargetBannerContent(
+    comment: PostComment,
+    replyingTo: String,
+    cancelDescription: String,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier,
+    targetTestTag: String? = null,
+    cancelTestTag: String? = null,
+) {
     val template = quataTheme()
-    Surface(color = template.colors.accent.copy(alpha = .08f), contentColor = template.colors.textPrimary, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().border(1.dp, template.colors.accent.copy(alpha = .34f), RoundedCornerShape(18.dp))) {
+    Surface(
+        color = template.colors.accent.copy(alpha = .08f),
+        contentColor = template.colors.textPrimary,
+        shape = RoundedCornerShape(18.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics {
+                targetTestTag?.let { testTag = it }
+                contentDescription = listOfNotNull(replyingTo, targetTestTag).joinToString(" ")
+            }
+            .border(1.dp, template.colors.accent.copy(alpha = .34f), RoundedCornerShape(18.dp)),
+    ) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(replyingTo, color = template.colors.textPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                 Spacer(Modifier.height(6.dp)); Text(comment.message, color = template.colors.textSecondary, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            CompactIconButton(onClick = onClear, modifier = Modifier.size(42.dp).background(template.colors.surfaceAlt, CircleShape)) { CompactIcon(Icons.Filled.Close, cancelDescription) }
+            CompactIconButton(
+                onClick = onClear,
+                modifier = Modifier
+                    .size(42.dp)
+                    .background(template.colors.surfaceAlt, CircleShape)
+                    .semantics {
+                        cancelTestTag?.let { testTag = it }
+                        contentDescription = listOfNotNull(cancelDescription, cancelTestTag).joinToString(" ")
+                    },
+            ) { CompactIcon(Icons.Filled.Close, cancelDescription) }
         }
     }
 }

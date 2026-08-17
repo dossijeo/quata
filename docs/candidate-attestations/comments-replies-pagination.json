@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-COMMENTS",
+    "FLOW-EMOJI",
+    "PROF-CONTENT"
+  ],
+  "productSha": "21047158af6c240ac23e33d4049d196640d37c19",
+  "evidence": {
+    "web_feed_official": {
+      "status": "passed",
+      "sha": "21047158af6c240ac23e33d4049d196640d37c19",
+      "report": "build-reports/web/feed-official-comments-emoji-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "web_profile_content": {
+      "status": "passed",
+      "sha": "21047158af6c240ac23e33d4049d196640d37c19",
+      "report": "build-reports/web/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android_feed_official": {
+      "status": "passed",
+      "sha": "21047158af6c240ac23e33d4049d196640d37c19",
+      "report": "build-reports/android/feed-official-comments-emoji-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android_profile_content": {
+      "status": "passed",
+      "sha": "21047158af6c240ac23e33d4049d196640d37c19",
+      "report": "build-reports/android/profile-content-replies-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios_feed_official": {
+      "status": "passed",
+      "sha": "21047158af6c240ac23e33d4049d196640d37c19",
+      "report": "build-reports/ios/feed-official-comments-emoji-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios_profile_content": {
+      "status": "passed",
+      "sha": "21047158af6c240ac23e33d4049d196640d37c19",
+      "report": "build-reports/ios/chat-actions-notifications-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/feed-official-comments-emoji-evidence-contract.test.mjs scripts/profile-content-evidence-contract.test.mjs scripts/comments-input-tags-contract.test.mjs",
+    "./gradlew.bat :app:compileDebugAndroidTestKotlin",
+    "./gradlew.bat :web:wasmJsBrowserDistribution",
+    "ssh quata-mac \"cd /Users/gabriel/StudioProjects/quata-auth-recovery-parity-v1 && bash scripts/build-ios-intel-simulator-signed.sh\""
+  ],
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate reduces the comments replies and shallow pagination slice for Feed, Official and public profile comments by using common reply targets, post-specific action anchors, pagination-state copy and shared backend fixture polling across Web/Wasm, Android and iOS.",
+    "Feed and Official comment evidence keeps the common emoji picker path and also replies to the seeded comment before verifying persistence and cleanup.",
+    "Public profile content evidence opens the shared profile from Chat, verifies gallery/media, sends a reply to the seeded profile comment, sends a new top-level comment afterward, verifies the shared attachment and returns to Chat.",
+    "The common Feed and Official ViewModels now preserve local pending comments optimistically until an equivalent backend comment arrives, preventing a stale feed refresh from hiding the just-submitted comment before evidence and users can observe it.",
+    "Android Feed/Official evidence scrolls semantically to the post-specific action anchor when the selected post is outside the current viewport; Web/Wasm filters ARIA candidates to the visible viewport before clicking.",
+    "iOS evidence ran on the Mac Hyper-V simulator UDID 48950F56-C309-4AA7-921F-D76C6042AC2C after materializing the exact product SHA in Git and building the SimulatorSigned lane.",
+    "This does not declare full OVR-COMMENTS or FLOW-EMOJI GO: forced error/rollback paths, selector error states, emoji mixed with links and broad visual comparison remain pending."
+  ]
+}

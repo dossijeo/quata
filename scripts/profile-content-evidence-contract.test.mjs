@@ -12,6 +12,9 @@ const iosUiTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthen
 const iosNeighborhoodsHost = await readFile(new URL("../feature/neighborhoods/src/iosMain/kotlin/com/quata/feature/neighborhoods/presentation/IosNeighborhoodsHost.kt", import.meta.url), "utf8");
 const commonProfileHost = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt", import.meta.url), "utf8");
 const commonProfileDetails = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileDetailsContent.kt", import.meta.url), "utf8");
+const commonProfileKpi = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfileKpiContent.kt", import.meta.url), "utf8");
+const commonProfilePostAction = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/ProfilePostActionContent.kt", import.meta.url), "utf8");
+const commonProfilePostPreview = await readFile(new URL("../feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfilePostPreviewContent.kt", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
 test("PROF-CONTENT evidence mode is opt-in, redacted and reversible", () => {
@@ -108,8 +111,34 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(webRunner, /\$\{prefix\}\.emoji/);
   assert.match(webRunner, /\$\{prefix\}\.input/);
   assert.match(webRunner, /\$\{prefix\}\.send/);
-  assert.match(androidUiTest, /performTextInput\(uiComment\.removePrefix\("😀"\)\)/);
+  assert.match(androidUiTest, /performProfileCommentTextInput\(postId, visibleCommentText, "after-reply"\)/);
+  assert.match(androidUiTest, /compose\.onNodeWithTag\("public-profile\.comments\.input", useUnmergedTree = true\)\s*\.performTextInput\(text\)/);
+  assert.match(androidUiTest, /Public profile comments input must remain available after reply submission/);
+  assert.match(androidUiTest, /waitForTagGone\("public-profile\.comments\.pending\.\$postId", "public profile comment persistence", 45_000\)/);
   assert.match(androidUiTest, /public-profile\.attachments\.item\.sb:\$attachmentId/);
+  assert.match(androidUiTest, /val mediaOpenTag = "public-profile\.post\.media\.open\.\$postId"/);
+  assert.match(androidUiTest, /waitForTag\(mediaOpenTag, "public profile media open action", 20_000\)/);
+  assert.match(androidUiTest, /clickStableTag\(mediaOpenTag\)/);
+  assert.match(androidUiTest, /bringPublicProfilePostIntoView\(profileId, postId\)/);
+  assert.match(androidUiTest, /performScrollToNode\(hasTestTag\(pageTag\)\)/);
+  assert.match(androidUiTest, /android-chat-profile-content-gallery-page-missing-semantics\.txt/);
+  assert.match(androidRunner, /android-chat-profile-content-gallery-page-missing-semantics\.txt/);
+  assert.match(androidRunner, /android-chat-profile-comments-panel-reopen-initial-semantics\.txt/);
+  assert.match(androidUiTest, /ensurePublicProfileCommentsPanelOpen\(profileId, postId, "initial"\)/);
+  assert.match(androidUiTest, /private fun bringPublicProfileTagIntoView\(tag: String\)/);
+  assert.match(androidUiTest, /val commentsTag = "public-profile\.post\.action\.comments\.\$postId"\s*repeat\(3\) \{ attempt ->\s*if \(profileId != null\) bringPublicProfilePostIntoView\(profileId, postId\)\s*bringPublicProfileTagIntoView\(commentsTag\)\s*clickSemanticTagPreferCompose\(commentsTag\)/);
+  assert.match(androidUiTest, /device\.swipe\(x, startY, x, endY, 18\)/);
+  assert.match(androidUiTest, /clickSemanticTagPreferCompose\(postsTag\)/);
+  assert.doesNotMatch(androidUiTest, /clickSemanticTagPreferCompose\("public-profile\.post\.action\.comments\.\$postId"\)/);
+  assert.match(commonProfileKpi, /testTag: String\? = null/);
+  assert.match(commonProfileKpi, /Modifier\.semantics \{ this\.testTag = tag \}/);
+  assert.match(commonProfileKpi, /\.then\(interactiveModifier\)\s*\.then\(semanticsModifier\)/);
+  assert.match(commonProfilePostAction, /\.clickable\(enabled = enabled, onClick = onClick\)\s*\.then\(modifier\)/);
+  assert.match(commonProfilePostPreview, /testTag = PublicProfilePostOpenMediaTestTagPrefix \+ post\.id/);
+  assert.match(commonProfilePostPreview, /contentDescription = tag/);
+  assert.doesNotMatch(commonProfilePostPreview, /testTag = PublicProfilePostMediaTestTagPrefix \+ post\.id/);
+  assert.match(commonProfileHost, /testTag = PublicProfilePostsKpiTestTagPrefix \+ profile\.user\.id/);
+  assert.doesNotMatch(commonProfileHost, /Modifier\.weight\(1f\)\.semantics \{ testTag = PublicProfilePostsKpiTestTagPrefix/);
   assert.match(iosUiTest, /public-profile\.attachments\.item\.sb:\\\(attachmentId\)/);
   assert.ok(
     iosUiTest.indexOf('"public-profile.attachments.item.sb:\\(attachmentId)"') <
@@ -126,12 +155,25 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(webRunner, /bottomVisibleNativeControl\(page, sendPatterns/);
   assert.match(webRunner, /errorPrefix: "profile_content_comments"/);
   assert.match(webRunner, /\$\{errorPrefix\}_input_not_editable/);
+  assert.match(webRunner, /pollProfileContentReplyComment/);
+  assert.match(webRunner, /profile_content_reply_created_from_ui_and_verified_by_db/);
   assert.match(androidUiTest, /"profile-content" -> \{\s*openProfileFromPeerMessage\(peerProbe\.orEmpty\(\), profileId\.orEmpty\(\)\)/);
   assert.match(androidUiTest, /quataChatActionsActorProfileId/);
   assert.match(androidUiTest, /public-profile\.comments\.author\.\$actorProfileId/);
+  assert.match(androidUiTest, /quataChatActionsProfileContentReplyComment/);
+  assert.match(androidUiTest, /\$prefix\.reply\.\$replyToCommentId/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_COMMENT/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_PROFILE_CONTENT_REPLY_COMMENT/);
+  assert.match(iosRunner, /pollProfileContentReplyComment/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ACTOR_PROFILE_ID/);
   assert.ok(iosUiTest.includes('public-profile.comments.author.\\(actorProfileId)'));
+  assert.ok(iosUiTest.includes('public-profile.comments.reply.\\(commentId)'));
+  assert.ok(iosUiTest.includes('optionalProfileElement("public-profile.post.media.open.\\(postId)"'));
+  assert.ok(iosUiTest.includes('optionalProfileElement("public-profile.post.action.comments.\\(postId)"'));
+  assert.match(iosUiTest, /CGVector\(dx: 0\.86, dy: 0\.18\)/);
+  assert.match(iosUiTest, /sendReplyCommentFromTaggedSurface/);
+  assert.match(iosUiTest, /tapTaggedButton\("community\.emoji\.cell\.frequent\.0", in: app, context: "profile comments first frequent emoji"\)/);
+  assert.doesNotMatch(iosUiTest, /profileElement\("community\.emoji\.cell\.frequent\.0", in: app, context: "profile comments first frequent emoji"\)/);
   assert.match(iosUiTest, /typeText\(String\(uiComment\.dropFirst\(\)\), into: "public-profile\.comments\.input", in: app\)/);
   assert.match(iosUiTest, /public-profile\.comments\.close/);
   assert.match(iosUiTest, /dismissProfileCommentsPanel\(in: app\)/);
@@ -144,6 +186,7 @@ test("PROF-CONTENT evidence uses common public-profile content anchors on every 
   assert.match(iosUiTest, /profile comment submitted from iOS must remain visible/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ACTOR_PROFILE_ID/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_PROFILE_CONTENT_REPLY_COMMENT/);
   assert.match(iosWrapper, /testProfileContentFromChatUsesSharedPublicProfileSurface/);
   assert.match(iosWrapper, /profile-content\.log/);
   assert.match(iosRunner, /acceptRemoteXcodeResultIoError/);
