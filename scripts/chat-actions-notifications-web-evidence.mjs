@@ -4481,7 +4481,7 @@ try {
     throw new EvidenceCompleted();
   }
 
-  if (state.peerMessage && state.b.accessToken) {
+  if (state.peerMessage && state.b.accessToken && !options.composerEmojiOnly) {
     if (options.profileFollowOnly) {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
