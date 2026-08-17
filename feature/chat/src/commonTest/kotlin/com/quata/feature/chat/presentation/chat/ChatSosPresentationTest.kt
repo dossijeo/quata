@@ -1,7 +1,11 @@
 package com.quata.feature.chat.presentation.chat
 
 import com.quata.core.text.SosShortcodeKind
+import com.quata.core.text.SosLocationUnavailableReason
 import com.quata.core.text.buildSosShortcode
+import com.quata.core.text.SosPreviewCatalog
+import com.quata.core.text.parseSosShortcode
+import com.quata.core.text.resolveLocalizedSosPreview
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -63,5 +67,51 @@ class ChatSosPresentationTest {
         assertEquals("Mise a jour de position SOS", french.title)
         assertEquals("Age de la position : moins d'1 minute", french.age)
         assertEquals("Vitesse : 4.3 km/h", french.speed)
+    }
+
+    @Test
+    fun shortcodePreservesUnavailableReasonForPermissionAndFallbackSurfaces() {
+        val raw = buildSosShortcode(
+            kind = SosShortcodeKind.Alert,
+            senderName = "Lucía",
+            customMessage = "Necesito ayuda",
+            locationUnavailableReason = SosLocationUnavailableReason.PermissionDenied,
+        )
+
+        val parsed = assertNotNull(raw.parseSosShortcode())
+        assertFalse(parsed.hasLocation)
+        assertEquals(SosLocationUnavailableReason.PermissionDenied, parsed.locationUnavailableReason)
+
+        val presentation = assertNotNull(resolveChatSosPresentation(raw, chatSosStringsForLanguage("es")))
+        assertTrue(presentation.isUnavailable)
+        assertEquals("📍 Ubicación no disponible: permiso denegado", presentation.unavailableLabel)
+        assertEquals(
+            "📍 Ubicación no disponible: permiso denegado",
+            resolveLocalizedSosPreview(raw, SosPreviewCatalog.Spanish),
+        )
+    }
+
+    @Test
+    fun unavailableReasonsAreLocalizedWithoutChangingMessagesThatHaveCoordinates() {
+        val denied = buildSosShortcode(
+            kind = SosShortcodeKind.Alert,
+            senderName = "Lucía",
+            locationUnavailableReason = SosLocationUnavailableReason.Timeout,
+        )
+        val withCoordinates = buildSosShortcode(
+            kind = SosShortcodeKind.Alert,
+            senderName = "Lucía",
+            latitude = 3.7523,
+            longitude = 8.7741,
+            locationUnavailableReason = SosLocationUnavailableReason.PermissionDenied,
+        )
+
+        val english = assertNotNull(resolveChatSosPresentation(denied, chatSosStringsForLanguage("en")))
+        assertEquals("📍 Location unavailable: timed out", english.unavailableLabel)
+
+        assertFalse(withCoordinates.contains("reason="))
+        val located = assertNotNull(withCoordinates.parseSosShortcode())
+        assertTrue(located.hasLocation)
+        assertEquals(null, located.locationUnavailableReason)
     }
 }

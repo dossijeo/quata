@@ -8,6 +8,13 @@ enum class SosShortcodeKind {
     LocationUpdate,
 }
 
+enum class SosLocationUnavailableReason {
+    PermissionDenied,
+    Timeout,
+    Unavailable,
+    Failed,
+}
+
 data class SosShortcodeMessage(
     val kind: SosShortcodeKind,
     val senderName: String,
@@ -17,6 +24,7 @@ data class SosShortcodeMessage(
     val ageMillis: Long?,
     val accuracyMeters: Double?,
     val speedKmh: Double?,
+    val locationUnavailableReason: SosLocationUnavailableReason?,
 ) {
     val hasLocation: Boolean = latitude != null && longitude != null
     val mapsUrl: String? = if (hasLocation) "https://maps.google.com/?q=$latitude,$longitude" else null
@@ -31,6 +39,7 @@ fun buildSosShortcode(
     ageMillis: Long? = null,
     accuracyMeters: Double? = null,
     speedKmh: Double? = null,
+    locationUnavailableReason: SosLocationUnavailableReason? = null,
 ): String = buildString {
     append("[SOS:kind=")
     append(if (kind == SosShortcodeKind.LocationUpdate) "update" else "alert")
@@ -42,6 +51,9 @@ fun buildSosShortcode(
     ageMillis?.let { append(";age_ms=").append(it.coerceAtLeast(0L)) }
     accuracyMeters?.let { append(";accuracy_m=").append(it.sosNumber()) }
     speedKmh?.let { append(";speed_kmh=").append(it.sosNumber()) }
+    if (latitude == null || longitude == null) {
+        locationUnavailableReason?.let { append(";reason=").append(it.shortcodeValue) }
+    }
     append(']')
 }
 
@@ -67,8 +79,26 @@ fun String.parseSosShortcode(): SosShortcodeMessage? {
         ageMillis = values["age_ms"]?.toLongOrNull(),
         accuracyMeters = values["accuracy_m"]?.toDoubleOrNull(),
         speedKmh = values["speed_kmh"]?.toDoubleOrNull(),
+        locationUnavailableReason = values["reason"]?.toLocationUnavailableReason(),
     )
 }
+
+private val SosLocationUnavailableReason.shortcodeValue: String
+    get() = when (this) {
+        SosLocationUnavailableReason.PermissionDenied -> "permission_denied"
+        SosLocationUnavailableReason.Timeout -> "timeout"
+        SosLocationUnavailableReason.Unavailable -> "unavailable"
+        SosLocationUnavailableReason.Failed -> "failed"
+    }
+
+private fun String.toLocationUnavailableReason(): SosLocationUnavailableReason? =
+    when (lowercase()) {
+        "permission_denied", "denied" -> SosLocationUnavailableReason.PermissionDenied
+        "timeout", "timed_out" -> SosLocationUnavailableReason.Timeout
+        "unavailable", "not_available" -> SosLocationUnavailableReason.Unavailable
+        "failed", "error" -> SosLocationUnavailableReason.Failed
+        else -> null
+    }
 
 private fun String.sosEncode(): String = buildString {
     this@sosEncode.encodeToByteArray().forEach { byte ->

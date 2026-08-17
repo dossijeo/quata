@@ -39,6 +39,8 @@ const [
   chatTranslatorOverlay,
   groupManagement,
   sosLocation,
+  sosPresentation,
+  sosShortcodes,
   attachmentQuickPanel,
   pendingAttachmentOverlay,
   documentAttachment,
@@ -68,6 +70,8 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatTranslatorOverlayContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatGroupManagementContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatSosLocationContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatSosPresentation.kt"),
+  source("core/src/commonMain/kotlin/com/quata/core/text/SosShortcodes.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAttachmentQuickPanelContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatPendingAttachmentOverlayContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatDocumentAttachmentContent.kt"),
@@ -247,6 +251,12 @@ test("common SOS location messages expose map/open evidence anchors", () => {
     assert.match(sosLocation, new RegExp(`testTag = ChatSosLocation${constant}TestTag`));
   }
   assert.match(sosLocation, /onOpenMaps: \(String\) -> Unit/);
+  assert.match(sosShortcodes, /enum class SosLocationUnavailableReason/);
+  assert.match(sosShortcodes, /PermissionDenied -> "permission_denied"/);
+  assert.match(sosShortcodes, /if \(latitude == null \|\| longitude == null\)[\s\S]*?append\(";reason="\)/);
+  assert.match(sosPresentation, /val unavailableLabel: String/);
+  assert.match(sosPresentation, /locationPermissionDenied = "📍 Ubicación no disponible: permiso denegado"/);
+  assert.match(sosPresentation, /SosLocationUnavailableReason\.PermissionDenied -> locationPermissionDenied/);
   assert.match(sosLocation, /modifier = Modifier\.semantics\(mergeDescendants = true\) \{[\s\S]*?testTag = ChatSosLocationOpenMapsTestTag[\s\S]*?contentDescription = openMapsLabel[\s\S]*?role = Role\.Button[\s\S]*?onClick\(label = openMapsLabel\)[\s\S]*?onOpenMaps\(url\)[\s\S]*?true[\s\S]*?\}\.clickable \{ onOpenMaps\(url\) \}/);
   assert.match(chatBrowserHostContent, /ChatSosLocationContent\(/);
   assert.match(chatBrowserHostContent, /onOpenMapLink: \(String\) -> ChatMapOpenResult/);

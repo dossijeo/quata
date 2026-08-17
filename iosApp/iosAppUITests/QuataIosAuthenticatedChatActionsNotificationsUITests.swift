@@ -250,7 +250,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         app.activate()
         XCTAssertTrue(menuText("Abriendo ubicación en mapas.", in: app).waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertTrue(menuText("Ubicación no disponible", in: app).waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(menuText("Ubicación no disponible: permiso denegado", in: app).waitForExistence(timeout: 10), app.debugDescription)
         attachScreenshot(app, name: "ios-chat-sos-location-map-return")
     }
 

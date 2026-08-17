@@ -2788,6 +2788,7 @@ async function verifyChatGroupSosWeb(page, evidenceDir, report) {
   ]).catch(() => false);
   if (!mapFeedbackVisible) throw new Error("sos_map_open_feedback_not_visible");
   await waitMessageVisible(page, state.sosWithLocationMarker.slice(0, 28), "sos_chat_not_visible_after_map_return", 10_000);
+  await waitMessageVisible(page, "Ubicación no disponible: permiso denegado", "sos_permission_denied_reason_not_visible", 10_000);
   report.evidence.sosLocation = await attachScreenshot(page, evidenceDir, "web-chat-sos-location-map-return");
   report.diagnostics = {
     ...(report.diagnostics ?? {}),
@@ -4232,7 +4233,7 @@ try {
 
   if (options.groupSosOnly) {
     state.sosWithLocationMarker = `[SOS:kind=update;name=Gabrielo;lat=3.7523;lng=8.7741;age_ms=45000;accuracy_m=18;speed_kmh=0]`;
-    state.sosUnavailableMarker = `[SOS:kind=alert;name=Gabrielo;custom=Necesito%20ayuda]`;
+    state.sosUnavailableMarker = `[SOS:kind=alert;name=Gabrielo;custom=Necesito%20ayuda;reason=permission_denied]`;
     await rpc(config, state.a, "quata_chat_send_message", {
       p_actor_profile_id: state.a.profileId,
       p_thread_id: state.thread,

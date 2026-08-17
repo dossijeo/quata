@@ -1400,7 +1400,7 @@ try {
 
   if (groupSosOnly) {
     state.sosWithLocationMarker = "[SOS:kind=update;name=Gabrielo;lat=3.7523;lng=8.7741;age_ms=45000;accuracy_m=18;speed_kmh=0]";
-    state.sosUnavailableMarker = "[SOS:kind=alert;name=Gabrielo;custom=Necesito%20ayuda]";
+    state.sosUnavailableMarker = "[SOS:kind=alert;name=Gabrielo;custom=Necesito%20ayuda;reason=permission_denied]";
     await rpc(config, state.a, "quata_chat_send_message", {
       p_actor_profile_id: state.a.profileId,
       p_thread_id: state.thread,
