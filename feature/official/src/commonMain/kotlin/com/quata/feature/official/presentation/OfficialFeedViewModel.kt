@@ -2,6 +2,7 @@ package com.quata.feature.official.presentation
 
 import com.quata.core.common.AppDispatchers
 import com.quata.core.feed.QuataPagedFeedStore
+import com.quata.core.model.PostComment
 import com.quata.feature.official.domain.OfficialPostItem
 import com.quata.feature.official.domain.OfficialRepository
 import kotlinx.coroutines.Job
@@ -46,7 +47,7 @@ class OfficialFeedViewModel(
                 createdPostId = null
             )
             is OfficialFeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
-            is OfficialFeedUiEvent.AddComment -> updatePostFromRepository { repository.addComment(event.postId, event.comment) }
+            is OfficialFeedUiEvent.AddComment -> addComment(event.postId, event.comment)
             is OfficialFeedUiEvent.ReportComment -> reportComment(event.commentId)
             is OfficialFeedUiEvent.DeletePost -> deletePost(event.postId)
             is OfficialFeedUiEvent.CreatePost -> createPost(event.draft)
@@ -71,7 +72,7 @@ class OfficialFeedViewModel(
             repository.observeOfficialFeed().collect { result ->
                 result
                     .onSuccess { posts ->
-                        val mergedPosts = feedStore.setRealtime(posts.withExactLoadedPosts())
+                        val mergedPosts = feedStore.setRealtime(posts.withExactLoadedPosts().withLocalPendingComments())
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             isRefreshing = false,
@@ -102,7 +103,7 @@ class OfficialFeedViewModel(
             )
             repository.refreshOfficialFeed()
                 .onSuccess { posts ->
-                    val mergedPosts = feedStore.replaceInitialPage(posts.withExactLoadedPosts())
+                    val mergedPosts = feedStore.replaceInitialPage(posts.withExactLoadedPosts().withLocalPendingComments())
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isRefreshing = false,
@@ -135,7 +136,7 @@ class OfficialFeedViewModel(
             _uiState.value = _uiState.value.copy(isLoadingOlder = true, error = null)
             repository.loadOlderOfficialFeedPage(beforePublishedAt = beforePublishedAt, limit = OfficialFeedPageSize)
                 .onSuccess { posts ->
-                    val mergedPosts = feedStore.appendOlder(posts)
+                    val mergedPosts = feedStore.appendOlder(posts.withLocalPendingComments())
                     _uiState.value = _uiState.value.copy(
                         isLoadingOlder = false,
                         hasMoreOlderPosts = feedStore.hasMoreOlderItems,
@@ -230,6 +231,11 @@ class OfficialFeedViewModel(
         }
     }
 
+    private fun addComment(postId: String, comment: PostComment) {
+        appendLocalPendingComment(postId, comment)
+        updatePostFromRepository { repository.addComment(postId, comment) }
+    }
+
     private fun updatePostFromRepository(action: suspend () -> Result<OfficialPostItem?>) = scope.launch {
         action()
             .onSuccess { updated ->
@@ -241,14 +247,35 @@ class OfficialFeedViewModel(
     }
 
     private fun replacePost(updated: OfficialPostItem) {
-        exactLoadedPosts = if (updated.id in exactLoadedPosts) exactLoadedPosts + (updated.id to updated) else exactLoadedPosts
+        val reconciled = updated.withLocalPendingCommentsFrom(_uiState.value.posts.firstOrNull { it.id == updated.id })
+        exactLoadedPosts = if (reconciled.id in exactLoadedPosts) exactLoadedPosts + (reconciled.id to reconciled) else exactLoadedPosts
         _uiState.value = _uiState.value.copy(
-            posts = feedStore.replace(updated)
+            posts = feedStore.replace(reconciled)
         )
     }
 
     private fun List<OfficialPostItem>.withExactLoadedPosts(): List<OfficialPostItem> =
         (this + exactLoadedPosts.values).distinctBy(OfficialPostItem::id)
+
+    private fun appendLocalPendingComment(postId: String, comment: PostComment) {
+        _uiState.value = _uiState.value.copy(
+            posts = _uiState.value.posts.map { post ->
+                if (post.id == postId && post.comments.none { it.id == comment.id }) {
+                    post.copy(
+                        comments = post.comments + comment,
+                        commentsCount = (post.commentsCount + 1).coerceAtLeast(post.comments.size + 1),
+                    )
+                } else {
+                    post
+                }
+            }
+        )
+    }
+
+    private fun List<OfficialPostItem>.withLocalPendingComments(): List<OfficialPostItem> {
+        val existingById = _uiState.value.posts.associateBy(OfficialPostItem::id)
+        return map { post -> post.withLocalPendingCommentsFrom(existingById[post.id]) }
+    }
 
     companion object {
         private const val OfficialFeedPageSize = 50
@@ -264,3 +291,24 @@ class OfficialFeedViewModel(
         scope.coroutineContext.cancel()
     }
 }
+
+internal fun OfficialPostItem.withLocalPendingCommentsFrom(existing: OfficialPostItem?): OfficialPostItem {
+    val pending = existing?.comments.orEmpty()
+        .filter { it.isLocalPendingComment() }
+        .filterNot { pending -> comments.any { it.matchesLocalPendingComment(pending) } }
+    return if (pending.isEmpty()) {
+        this
+    } else {
+        copy(
+            comments = comments + pending,
+            commentsCount = commentsCount.coerceAtLeast(comments.size + pending.size),
+        )
+    }
+}
+
+private fun PostComment.isLocalPendingComment(): Boolean = id.startsWith("local_")
+
+private fun PostComment.matchesLocalPendingComment(pending: PostComment): Boolean =
+    message.trim() == pending.message.trim() &&
+        replyToCommentId == pending.replyToCommentId &&
+        replyToAuthorName == pending.replyToAuthorName
