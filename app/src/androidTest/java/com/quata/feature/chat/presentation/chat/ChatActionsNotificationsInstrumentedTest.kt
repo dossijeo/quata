@@ -351,7 +351,7 @@ class ChatActionsNotificationsInstrumentedTest {
     ) {
         ActivityScenario.launch<MainActivity>(chatIntent(quataPostUrl(feedPostId))).use {
             sendEmojiCommentFromOpenPost(
-                actionTag = "feed.action.comments",
+                actionTag = "feed.action.comments.$feedPostId",
                 replyTagPrefix = "feed.comments",
                 replyToCommentId = feedCommentId,
                 replyComment = feedReplyComment,
@@ -366,7 +366,7 @@ class ChatActionsNotificationsInstrumentedTest {
         }
         ActivityScenario.launch<MainActivity>(chatIntent(quataOfficialPostUrl(officialPostId))).use {
             sendEmojiCommentFromOpenPost(
-                actionTag = "official.action.comments",
+                actionTag = "official.action.comments.$officialPostId",
                 replyTagPrefix = "official.comments",
                 replyToCommentId = officialCommentId,
                 replyComment = officialReplyComment,

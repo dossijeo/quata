@@ -2700,7 +2700,7 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
     await openAuthenticatedRoute(page, origin, `post-${encodeURIComponent(fixture.feed.postId)}`, `post/${fixture.feed.postId}`);
     await waitVisibleSeededSurfaceText(page, `${fixture.marker} feed post body`, "feed_official_comments_feed_post_marker_missing");
     await openFeedOfficialCommentsPanel(page, {
-      actionTag: "feed.action.comments",
+      actionTag: `feed.action.comments.${fixture.feed.postId}`,
       prefix: "feed.comments",
       errorPrefix: "feed_official_comments_feed",
       report,
@@ -2749,7 +2749,7 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
     await openAuthenticatedRoute(page, origin, `official-${encodeURIComponent(fixture.official.postId)}`, `official/${fixture.official.postId}`);
     await waitVisibleSeededSurfaceText(page, fixture.marker, "feed_official_comments_official_post_marker_missing");
     await openFeedOfficialCommentsPanel(page, {
-      actionTag: "official.action.comments",
+      actionTag: `official.action.comments.${fixture.official.postId}`,
       prefix: "official.comments",
       errorPrefix: "feed_official_comments_official",
       report,
@@ -2893,7 +2893,7 @@ async function clickFeedOfficialCommentsAction(page, tag, errorMessage, report) 
 }
 
 async function feedOfficialCommentsActionFallbackPoint(page, tag) {
-  if (tag !== "official.action.comments") return null;
+  if (!tag.startsWith("official.action.comments.")) return null;
   const viewport = page.viewportSize() ?? { width: 430, height: 932 };
   return {
     x: Math.round(viewport.width * 0.89),

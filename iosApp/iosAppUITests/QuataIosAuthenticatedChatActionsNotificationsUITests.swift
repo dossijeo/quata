@@ -978,7 +978,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
         sendEmojiCommentFromTaggedSurface(
-            actionIdentifier: "feed.action.comments",
+            actionIdentifier: "feed.action.comments.\(feedPostId)",
             panelIdentifier: "feed.comments.panel",
             inputIdentifier: "feed.comments.input",
             emojiIdentifier: "feed.comments.emoji",
@@ -998,7 +998,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
         openDeepLink("quata://egquata.com/#official-\(encodedFragment(officialPostId))", in: app)
         sendEmojiCommentFromTaggedSurface(
-            actionIdentifier: "official.action.comments",
+            actionIdentifier: "official.action.comments.\(officialPostId)",
             panelIdentifier: "official.comments.panel",
             inputIdentifier: "official.comments.input",
             emojiIdentifier: "official.comments.emoji",

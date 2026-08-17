@@ -110,6 +110,7 @@ fun FeedReelPostContent(
                 onDelete = onDelete,
                 onPublish = onCreatePost,
                 actionTestTagPrefix = "feed.action",
+                actionTestTagSuffix = post.id,
             )
         },
         overflowAction = {
