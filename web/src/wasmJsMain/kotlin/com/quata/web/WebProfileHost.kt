@@ -139,6 +139,15 @@ internal fun WebProfileHost(
                 )
             },
             emergencyContactRow = { contact, selected, toggle -> EmergencyUserRowContent(contact, selected, "Añadir", "Quitar", avatar = { BrowserRemoteAvatar(contact.displayName, contact.id, contact.avatarUrl, false, null, Modifier.size(46.dp)) }, onToggle = toggle) },
+            sosE2eBridge = { openSos, closeSos ->
+                DisposableEffect(openSos, closeSos) {
+                    val uninstall = installWebProfileSosE2eBridge(openSos, closeSos)
+                    onDispose { uninstall() }
+                }
+            },
+            onSosTabChanged = { tab ->
+                updateWebProfileSosE2eTab(tab?.name?.lowercase())
+            },
         ),
     )
     QuataDocumentViewerStatusContent(

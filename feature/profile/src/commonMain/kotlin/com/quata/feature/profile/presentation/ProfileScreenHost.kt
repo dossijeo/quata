@@ -154,6 +154,18 @@ fun ProfileScreenHost(
                 },
             )
         }
+        slots.sosE2eBridge?.invoke(
+            {
+                showSos = true
+            },
+            {
+                showSos = false
+                viewModel.onEvent(ProfileUiEvent.ClearMessages)
+            },
+        )
+        SideEffect {
+            if (!showSos) slots.onSosTabChanged(null)
+        }
         if (showSos && profile != null) {
             EmergencyContactsDialogContent(
                 layoutPadding = PaddingValues(),
@@ -174,6 +186,7 @@ fun ProfileScreenHost(
                         OutlinedTextField(value = value, onValueChange = change, modifier = fieldModifier, minLines = minLines, maxLines = maxLines ?: Int.MAX_VALUE)
                     },
                     contactActions = slots.emergencyContactActions,
+                    onTabChanged = slots.onSosTabChanged,
                 ),
             )
         }
@@ -296,6 +309,8 @@ data class ProfileScreenSlots(
     val onProfileSaved: () -> Unit = {},
     val onBackFromOverview: () -> Unit = {},
     val backDispatcher: ProfileBackDispatcher? = null,
+    val sosE2eBridge: (@Composable (openSos: () -> Unit, closeSos: () -> Unit) -> Unit)? = null,
+    val onSosTabChanged: (EmergencyContactsTab?) -> Unit = {},
 )
 
 /** Platform-neutral back bridge. Hosts install their native back callback as a thin adapter. */

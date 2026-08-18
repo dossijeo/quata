@@ -6,8 +6,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.ui.components.QuataScreen
+
+const val ProfileSosRootTestTag = "profile.sos.root"
 
 /**
  * Shared full-screen frame for the SOS contact editor. Platform hosts keep their IME, contacts
@@ -23,6 +28,10 @@ fun EmergencyContactsDialogFrameContent(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .semantics {
+                    testTag = ProfileSosRootTestTag
+                    contentDescription = ProfileSosRootTestTag
+                }
                 .padding(
                     start = if (isLandscapeLayout) 16.dp else 18.dp,
                     end = if (isLandscapeLayout) 16.dp else 18.dp

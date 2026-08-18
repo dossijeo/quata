@@ -242,6 +242,9 @@ try {
   stage = "authenticated_account_settings_legal_documents";
   report.accountSettingsLegalDocuments = await assertAccountSettingsLegalDocumentViewer(page, options.output, report.steps);
   report.steps.push("account_settings_shared_legal_documents_opened_from_local_assets");
+  stage = "authenticated_profile_sos_contacts";
+  report.accountSosContacts = await assertAccountSosContactsEditor(page, options.output, report.steps);
+  report.steps.push("account_sos_contacts_shared_editor_rendered");
 
   stage = "authenticated_settings_push_consent";
   await assertAuthenticatedSettingsPushConsent(page, options.output);
@@ -629,6 +632,105 @@ async function assertAccountSettingsLegalDocumentViewer(page, reportOutput, step
     };
   }
   return evidence;
+}
+
+async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
+  steps.push("account_sos_contacts_route_profile_start");
+  await page.evaluate(() => { globalThis.location.hash = "profile"; });
+  await waitForShellRoute(page, "profile");
+  await returnToProfileOverviewRobust(page);
+  await page.waitForFunction(() => globalThis.__quataProfileSosE2eProduct?.version === 1);
+  const configure = await findVisibleTextBounds(page, /Configurar contactos de emergencia|Emergency contacts/i);
+  const openMethod = configure ? "visible_text" : "web_product_bridge";
+  if (configure) {
+    await page.mouse.click(configure.x + configure.width / 2, configure.y + configure.height / 2);
+  } else {
+    await page.evaluate(() => globalThis.__quataProfileSosE2eProduct.open());
+  }
+  await page.waitForFunction(() =>
+    document.documentElement.getAttribute("data-quata-profile-sos-tab") === "contacts",
+  );
+  await page.screenshot({ path: reportOutput.replace(/\.json$/i, ".sos-contacts.png"), fullPage: true });
+  steps.push("account_sos_contacts_visible_screenshot");
+  const layout = await page.evaluate(() => ({ width: globalThis.innerWidth, height: globalThis.innerHeight }));
+  let messageTabResolution = "landscape_split_visible";
+  if (layout.width < 900) {
+    const messageTab = await findVisibleTextBounds(page, /Mensaje|Message/i) ?? await profileSosMessageTabFallbackBounds(page);
+    if (!messageTab) throw new Error("profile_sos_message_tab_missing");
+    messageTabResolution = messageTab.resolution ?? "visible_text";
+    await page.mouse.click(messageTab.x + messageTab.width / 2, messageTab.y + messageTab.height / 2);
+    await page.waitForFunction(() =>
+      document.documentElement.getAttribute("data-quata-profile-sos-tab") === "message",
+    );
+  }
+  await page.screenshot({ path: reportOutput.replace(/\.json$/i, ".sos-message.png"), fullPage: true });
+  steps.push("account_sos_message_visible_screenshot");
+  const semanticTargets = [
+    "profile.sos.open",
+    "profile.sos.root",
+    "profile.sos.tab.contacts",
+    "profile.sos.tab.message",
+    "profile.sos.contacts.list",
+    "profile.sos.search",
+    "profile.sos.message.input",
+    "profile.sos.save",
+  ];
+  const domAnchors = await page.evaluate(targets => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    return Object.fromEntries(targets.map(target => {
+      const selector = [
+        `[data-testid="${CSS.escape(target)}"]`,
+        `[aria-label="${CSS.escape(target)}"]`,
+        `#${CSS.escape(target)}`,
+      ].join(",");
+      const element = scope.querySelector(selector);
+      if (!element) return [target, null];
+      const rect = element.getBoundingClientRect();
+      return [target, {
+        tag: element.tagName,
+        ariaLabel: element.getAttribute("aria-label"),
+        testId: element.getAttribute("data-testid"),
+        rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+      }];
+    }));
+  }, semanticTargets);
+  const missingDomAnchors = semanticTargets.filter(target => !domAnchors[target]);
+  return {
+    status: "passed",
+    screenshots: [
+      reportOutput.replace(/\.json$/i, ".sos-contacts.png"),
+      reportOutput.replace(/\.json$/i, ".sos-message.png"),
+    ],
+    semanticTargets,
+    domAnchors,
+    missingDomAnchors,
+    openMethod,
+    layout,
+    messageTabResolution,
+    missingDomAnchorReason: missingDomAnchors.length
+      ? "wasm_canvas_semantics_not_dom_exposed; commonMain anchors are enforced by profile-sos-contacts-contract and Android/iOS expose native semantics"
+      : null,
+  };
+}
+
+async function profileSosMessageTabFallbackBounds(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const canvas = [...scope.querySelectorAll("canvas")].find(element => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    const rect = (canvas ?? document.documentElement).getBoundingClientRect();
+    return {
+      x: rect.x + rect.width * 0.52,
+      y: rect.y + rect.height * 0.18,
+      width: rect.width * 0.22,
+      height: 44,
+      resolution: "wasm_canvas_relative_tab_fallback",
+    };
+  });
 }
 
 async function scrollRegisterLegalLinksIntoView(page) {

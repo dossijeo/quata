@@ -18,6 +18,7 @@ class EmergencyContactsDialogSlots(
      * this empty (as Android does while it uses its existing source) or expose a native picker.
      */
     val contactActions: (@Composable () -> Unit)? = null,
+    val onTabChanged: (EmergencyContactsTab) -> Unit = {},
 )
 
 /**
@@ -59,5 +60,6 @@ fun EmergencyContactsDialogContent(
         userRow = slots.contactRow,
         messageInput = slots.messageInput,
         contactActions = slots.contactActions,
+        onTabChanged = slots.onTabChanged,
     )
 }

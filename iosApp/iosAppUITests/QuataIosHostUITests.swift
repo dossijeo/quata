@@ -475,6 +475,59 @@ final class QuataIosHostUITests: XCTestCase {
         )
     }
 
+    func testProfileSosFixtureRendersSharedContactsEditorAnchors() {
+        let app = fixtureApp("profile-legal", spanishLocale: true)
+        app.launch()
+
+        let openSos = app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.open")
+            .firstMatch
+        XCTAssertTrue(
+            openSos.waitForExistence(timeout: 15),
+            "The real shared Cuenta fixture must expose the SOS settings action.",
+        )
+        XCTAssertTrue(openSos.isHittable, "The shared SOS action must be tappable.")
+        openSos.tap()
+
+        for identifier in [
+            "profile.sos.root",
+            "profile.sos.tab.contacts",
+            "profile.sos.tab.message",
+            "profile.sos.contacts.list",
+            "profile.sos.search",
+            "profile.sos.contact.gabrielu-fixture",
+            "profile.sos.contact.toggle.gabrielu-fixture",
+        ] {
+            XCTAssertTrue(
+                app.descendants(matching: .any)
+                    .matching(identifier: identifier)
+                    .firstMatch
+                    .waitForExistence(timeout: 10),
+                "The shared SOS semantic \(identifier) must be available in the iOS Cuenta fixture.",
+            )
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "profile-sos-contacts")
+
+        app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.contact.toggle.gabrielu-fixture")
+            .firstMatch
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.tab.message")
+            .firstMatch
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "profile.sos.message.input")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared SOS message input must be exposed after switching tabs.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "profile-sos-message")
+    }
+
     func testWhatsNewFixtureRendersMarksSeenAndDoesNotRepeat() {
         let app = fixtureApp("whats-new-real", spanishLocale: true, resetWhatsNew: true)
         app.launch()

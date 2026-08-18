@@ -12,10 +12,16 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.feature.profile.domain.EmergencyContactCandidate
+
+const val ProfileSosContactsListTestTag = "profile.sos.contacts.list"
+const val ProfileSosSearchTestTag = "profile.sos.search"
 
 /**
  * Portable contacts-tab body for the SOS editor. Platform hosts provide the avatar-backed
@@ -42,7 +48,12 @@ fun EmergencyContactsSelectionContent(
     val template = quataTheme()
     val visibleUsers = filterEmergencyContactCandidates(candidates, selectedIds, query)
     LazyColumn(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics {
+                testTag = ProfileSosContactsListTestTag
+                contentDescription = ProfileSosContactsListTestTag
+            },
         state = listState,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -61,7 +72,12 @@ fun EmergencyContactsSelectionContent(
                 onValueChange = onQueryChange,
                 placeholder = { Text(searchPlaceholder) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        testTag = ProfileSosSearchTestTag
+                        contentDescription = ProfileSosSearchTestTag
+                    },
             )
             Spacer(Modifier.height(10.dp))
             Text(
