@@ -148,6 +148,9 @@ internal fun WebProfileHost(
             onSosTabChanged = { tab ->
                 updateWebProfileSosE2eTab(tab?.name?.lowercase())
             },
+            onSosSelectionChanged = { selectedCount, candidateCount ->
+                updateWebProfileSosE2eSelectionState(selectedCount, candidateCount)
+            },
         ),
     )
     QuataDocumentViewerStatusContent(

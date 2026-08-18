@@ -164,7 +164,15 @@ fun ProfileScreenHost(
             },
         )
         SideEffect {
-            if (!showSos) slots.onSosTabChanged(null)
+            if (showSos) {
+                slots.onSosSelectionChanged(
+                    profile?.emergencyContactIds.orEmpty().distinct().size,
+                    state.emergencyCandidates.size,
+                )
+            } else {
+                slots.onSosTabChanged(null)
+                slots.onSosSelectionChanged(0, state.emergencyCandidates.size)
+            }
         }
         if (showSos && profile != null) {
             EmergencyContactsDialogContent(
@@ -311,6 +319,7 @@ data class ProfileScreenSlots(
     val backDispatcher: ProfileBackDispatcher? = null,
     val sosE2eBridge: (@Composable (openSos: () -> Unit, closeSos: () -> Unit) -> Unit)? = null,
     val onSosTabChanged: (EmergencyContactsTab?) -> Unit = {},
+    val onSosSelectionChanged: (selectedCount: Int, candidateCount: Int) -> Unit = { _, _ -> },
 )
 
 /** Platform-neutral back bridge. Hosts install their native back callback as a thin adapter. */

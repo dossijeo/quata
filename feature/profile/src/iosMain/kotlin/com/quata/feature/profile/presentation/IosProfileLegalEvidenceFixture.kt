@@ -87,15 +87,15 @@ private object IosProfileLegalEvidenceRepository : ProfileRepository {
         config = ProfileEditConfig(
             countryPrefixes = listOf(CountryPrefix("240", "+240 - Guinea Ecuatorial")),
             secretQuestions = listOf(SecretQuestionOption("", "Mantener pregunta actual")),
-            emergencyCandidates = listOf(
+            emergencyCandidates = (1..6).map { index ->
                 EmergencyContactCandidate(
-                    id = "gabrielu-fixture",
-                    displayName = "Gabrielu",
-                    email = "gabrielu@example.invalid",
+                    id = "sos-fixture-$index",
+                    displayName = if (index == 1) "Gabrielu" else "Contacto SOS $index",
+                    email = "sos-$index@example.invalid",
                     neighborhood = "Bovano",
-                    phone = "+240680242608",
-                ),
-            ),
+                    phone = "+24068024260$index",
+                )
+            },
         ),
     )
 

@@ -62,6 +62,7 @@ test("SOS contacts save path stays common and normalized before platform gateway
   assert.match(loaded.repository, /emergencyMessages\.save\(session\.profileId, message, messageIsDefault\)/);
   assert.match(loaded.repository, /internal fun normalizeEmergencyContactIds\(contactIds: List<String>\): List<String> =/);
   assert.match(loaded.repository, /\.distinct\(\)\.take\(MaxEmergencyContacts\)/);
+  assert.match(loaded.host, /onSosSelectionChanged/);
 });
 
 test("SOS contacts gateways remain implemented on Android, Web and iOS", () => {
@@ -77,9 +78,14 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.match(loaded.androidEvidence, /ProfileSosRootTestTag/);
   assert.match(loaded.androidEvidence, /ProfileSosContactToggleTestTagPrefix/);
   assert.match(loaded.androidEvidence, /ProfileSosMessageInputTestTag/);
+  assert.match(loaded.androidEvidence, /toggleEmergencyContactSelection\(selectedIds, contact\.id\)/);
   assert.match(loaded.iosEvidence, /testProfileSosFixtureRendersSharedContactsEditorAnchors/);
-  assert.match(loaded.iosEvidence, /"profile\.sos\.contact\.toggle\.gabrielu-fixture"/);
+  assert.match(loaded.iosEvidence, /"profile\.sos\.contact\.toggle\.sos-fixture-6"/);
+  assert.match(loaded.iosEvidence, /app\.staticTexts\["5 selected"\]/);
   assert.match(loaded.iosEvidence, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)/);
+  assert.match(loaded.webEvidence, /PROFILE_SOS_CANDIDATES/);
+  assert.match(loaded.webEvidence, /selectFiveProfileSosContacts/);
+  assert.match(loaded.webEvidence, /data-quata-profile-sos-selected-count/);
   assert.match(loaded.webEvidence, /assertAccountSosContactsEditor/);
   assert.match(loaded.webEvidence, /report\.accountSosContacts = await assertAccountSosContactsEditor/);
   assert.match(loaded.webEvidence, /missingDomAnchorReason/);
@@ -88,6 +94,7 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.match(loaded.webEvidence, /landscape_split_visible/);
   assert.match(loaded.webEvidence, /wasm_canvas_relative_tab_fallback/);
   assert.match(loaded.webSosBridge, /data-quata-profile-sos-tab/);
+  assert.match(loaded.webSosBridge, /data-quata-profile-sos-selected-count/);
 });
 
 test("SOS contacts contract is part of local fast contract suites", () => {

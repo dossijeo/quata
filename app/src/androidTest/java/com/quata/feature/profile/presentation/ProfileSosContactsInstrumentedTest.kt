@@ -64,7 +64,7 @@ class ProfileSosContactsInstrumentedTest {
                     strings = evidenceStrings(),
                     onMessageChange = { message = it },
                     onToggleContact = { contact ->
-                        selectedIds = selectedIds.toggleForEvidence(contact.id)
+                        selectedIds = toggleEmergencyContactSelection(selectedIds, contact.id)
                     },
                     onDismiss = {},
                     onSave = {
@@ -152,7 +152,7 @@ class ProfileSosContactsInstrumentedTest {
                     strings = evidenceStrings(),
                     onMessageChange = { message = it },
                     onToggleContact = { contact ->
-                        selectedIds = selectedIds.toggleForEvidence(contact.id)
+                        selectedIds = toggleEmergencyContactSelection(selectedIds, contact.id)
                     },
                     onDismiss = {},
                     onSave = {
@@ -218,16 +218,6 @@ class ProfileSosContactsInstrumentedTest {
         savePortrait = "Guardar SOS",
         saveLandscape = "Guardar",
     )
-
-    private fun List<String>.toggleForEvidence(contactId: String): List<String> {
-        val selected = distinct().take(5).toMutableList()
-        if (contactId in selected) {
-            selected.remove(contactId)
-        } else if (selected.size < 5) {
-            selected += contactId
-        }
-        return selected
-    }
 
     private fun tapContactToggle(contactId: String) {
         val tag = "$ProfileSosContactToggleTestTagPrefix$contactId"

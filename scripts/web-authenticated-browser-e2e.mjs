@@ -39,6 +39,13 @@ const FIXTURE = Object.freeze({
   refreshToken: "fixture-refresh-token",
   webSessionToken: "fixture-web-session-token",
 });
+const PROFILE_SOS_CANDIDATES = Object.freeze(Array.from({ length: 6 }, (_, index) => ({
+  id: `sos-fixture-${index + 1}`,
+  display_name: `Contacto SOS ${index + 1}`,
+  neighborhood: "Bovano",
+  country_code: FIXTURE.countryCode,
+  phone_local: `68024260${index + 1}`,
+})));
 const PRIMARY_NAVIGATION_STRESS_SEQUENCES = Object.freeze([
   { name: "browser_back_forward", fragments: ["communities", "chat", "official", "", "profile"] },
   { name: "primary_forward", fragments: ["communities", "chat", "official", "", "profile", "communities"] },
@@ -434,13 +441,22 @@ async function startServer(distribution, state, configuration) {
       if (url.pathname === "/rest/v1/community_profiles") {
         if (request.method !== "GET") return json(response, 405, { error: "fixture_product_mutation_forbidden" });
         state.profileReads += 1;
+        if (url.searchParams.has("id")) {
+          return json(response, 200, [{
+            id: FIXTURE.profileId,
+            display_name: "Fixture User",
+            neighborhood: "Fixture District",
+            country_code: FIXTURE.countryCode,
+            phone_local: FIXTURE.phone,
+          }]);
+        }
         return json(response, 200, [{
           id: FIXTURE.profileId,
           display_name: "Fixture User",
           neighborhood: "Fixture District",
           country_code: FIXTURE.countryCode,
           phone_local: FIXTURE.phone,
-        }]);
+        }, ...PROFILE_SOS_CANDIDATES]);
       }
       if (url.pathname === "/rest/v1/rpc/quata_chat_get_inbox") {
         const body = await jsonBody(request);
@@ -650,6 +666,10 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
   await page.waitForFunction(() =>
     document.documentElement.getAttribute("data-quata-profile-sos-tab") === "contacts",
   );
+  await page.waitForFunction(() =>
+    Number(document.documentElement.getAttribute("data-quata-profile-sos-candidate-count") || "0") >= 6,
+  );
+  const limitSelection = await selectFiveProfileSosContacts(page);
   await page.screenshot({ path: reportOutput.replace(/\.json$/i, ".sos-contacts.png"), fullPage: true });
   steps.push("account_sos_contacts_visible_screenshot");
   const layout = await page.evaluate(() => ({ width: globalThis.innerWidth, height: globalThis.innerHeight }));
@@ -706,12 +726,58 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
     domAnchors,
     missingDomAnchors,
     openMethod,
+    limitSelection,
     layout,
     messageTabResolution,
     missingDomAnchorReason: missingDomAnchors.length
       ? "wasm_canvas_semantics_not_dom_exposed; commonMain anchors are enforced by profile-sos-contacts-contract and Android/iOS expose native semantics"
       : null,
   };
+}
+
+async function selectFiveProfileSosContacts(page) {
+  const canvas = await profileSosCanvasBounds(page);
+  const points = [0.405, 0.515, 0.625, 0.735, 0.845, 0.955].map((relativeY) => ({
+    x: canvas.x + canvas.width * 0.49,
+    y: canvas.y + canvas.height * relativeY,
+  }));
+  const attempts = [];
+  for (const point of points) {
+    await page.mouse.click(point.x, point.y);
+    await page.waitForTimeout(120);
+    const selectedCount = await page.evaluate(() =>
+      Number(document.documentElement.getAttribute("data-quata-profile-sos-selected-count") || "0"),
+    );
+    attempts.push({ resolution: "wasm_canvas_relative_contact_toggle_fallback", selectedCount });
+    if (selectedCount >= 5) break;
+  }
+  const finalCount = await page.evaluate(() =>
+    Number(document.documentElement.getAttribute("data-quata-profile-sos-selected-count") || "0"),
+  );
+  const candidateCount = await page.evaluate(() =>
+    Number(document.documentElement.getAttribute("data-quata-profile-sos-candidate-count") || "0"),
+  );
+  if (finalCount !== 5) throw new Error(`profile_sos_limit_selection_failed:${finalCount}`);
+  return {
+    status: "passed",
+    candidateCount,
+    selectedCount: finalCount,
+    attempts,
+    missingStableAnchor: "Compose/Wasm canvas does not expose contact toggle testTags as DOM/ARIA; Android/iOS validate native semantic anchors.",
+  };
+}
+
+async function profileSosCanvasBounds(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const canvas = [...scope.querySelectorAll("canvas")].find(element => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    const rect = (canvas ?? document.documentElement).getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  });
 }
 
 async function profileSosMessageTabFallbackBounds(page) {
