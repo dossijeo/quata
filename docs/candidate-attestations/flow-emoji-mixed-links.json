@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-EMOJI",
+    "CHAT-COMPOSER"
+  ],
+  "productSha": "35e176067f919f2e4aa2e1fe61d508aac36994c3",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "35e176067f919f2e4aa2e1fe61d508aac36994c3",
+      "report": "build-reports/web/flow-emoji-mixed-links-web-chat-evidence-35e17606.json",
+      "screenshot": "build-reports/web/flow-emoji-mixed-links-web-chat-evidence-35e17606/web-chat-composer-sent.png",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "35e176067f919f2e4aa2e1fe61d508aac36994c3",
+      "report": "build-reports/android/flow-emoji-mixed-links-android-composer-evidence-35e17606.json",
+      "screenshot": "build-reports/android/flow-emoji-mixed-links-android-composer-evidence-35e17606/android-chat-composer-sent.png",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "35e176067f919f2e4aa2e1fe61d508aac36994c3",
+      "report": "build-reports/ios/flow-emoji-mixed-links-ios-chat-evidence-35e17606.json",
+      "screenshot": "build-reports/ios/flow-emoji-mixed-links-ios-chat-evidence-35e17606/exported-attachments/ios-chat-composer-sent.png",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate reduces FLOW-EMOJI by routing Chat mixed catalog emoji plus URLs through QuataEmojiLinkifiedText from commonMain. Android and iOS render the shared inline content directly; Web/Wasm preserves the same annotated string and paints an overlay for emoji placeholders where Compose/Wasm does not reliably draw inline children.",
+    "Web/Wasm, Android and iOS each send a reversible mixed emoji + www.quata.test/chat marker from the real Chat composer, verify the exact persisted message by backend poll, capture the rendered UI and finish with hard cleanup physical residue zero.",
+    "This does not declare full FLOW-EMOJI GO: visual parity of the complete picker panel and selector states/errors/rollback remain pending."
+  ]
+}
