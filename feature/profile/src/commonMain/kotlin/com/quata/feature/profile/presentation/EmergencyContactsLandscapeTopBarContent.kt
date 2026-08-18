@@ -15,6 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,7 +40,13 @@ fun EmergencyContactsLandscapeTopBarContent(
 ) {
     val template = quataTheme()
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        CompactIconButton(onClick = onDismiss) {
+        CompactIconButton(
+            onClick = onDismiss,
+            modifier = Modifier.semantics {
+                testTag = ProfileSosBackTestTag
+                contentDescription = ProfileSosBackTestTag
+            },
+        ) {
             CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backLabel)
         }
         Spacer(Modifier.width(6.dp))
@@ -52,7 +61,13 @@ fun EmergencyContactsLandscapeTopBarContent(
             enabled = !isSaving,
             colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.height(42.dp).width(196.dp)
+            modifier = Modifier
+                .height(42.dp)
+                .width(196.dp)
+                .semantics {
+                    testTag = ProfileSosSaveTestTag
+                    contentDescription = ProfileSosSaveTestTag
+                }
         ) {
             Text(saveLabel, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

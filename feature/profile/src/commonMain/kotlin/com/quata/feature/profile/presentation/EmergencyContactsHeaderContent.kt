@@ -18,6 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,6 +29,10 @@ import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 
 enum class EmergencyContactsTab { Contacts, Message }
+
+const val ProfileSosBackTestTag = "profile.sos.back"
+const val ProfileSosContactsTabTestTag = "profile.sos.tab.contacts"
+const val ProfileSosMessageTabTestTag = "profile.sos.tab.message"
 
 data class EmergencyContactsHeaderStrings(
     val back: String,
@@ -45,7 +52,13 @@ fun EmergencyContactsHeaderContent(
 ) {
     val template = quataTheme()
     Row(verticalAlignment = Alignment.CenterVertically) {
-        CompactIconButton(onClick = onDismiss) {
+        CompactIconButton(
+            onClick = onDismiss,
+            modifier = Modifier.semantics {
+                testTag = ProfileSosBackTestTag
+                contentDescription = ProfileSosBackTestTag
+            },
+        ) {
             CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.back)
         }
         Spacer(Modifier.width(6.dp))
@@ -63,12 +76,14 @@ fun EmergencyContactsHeaderContent(
             text = strings.contactsTab,
             selected = selectedTab == EmergencyContactsTab.Contacts,
             onClick = { onTabSelected(EmergencyContactsTab.Contacts) },
+            testTag = ProfileSosContactsTabTestTag,
             modifier = Modifier.weight(1f)
         )
         EmergencyContactsTabButton(
             text = strings.messageTab,
             selected = selectedTab == EmergencyContactsTab.Message,
             onClick = { onTabSelected(EmergencyContactsTab.Message) },
+            testTag = ProfileSosMessageTabTestTag,
             modifier = Modifier.weight(1f)
         )
     }
@@ -79,6 +94,7 @@ private fun EmergencyContactsTabButton(
     text: String,
     selected: Boolean,
     onClick: () -> Unit,
+    testTag: String,
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
@@ -86,7 +102,13 @@ private fun EmergencyContactsTabButton(
         color = if (selected) template.colors.accent else template.colors.surfaceAlt,
         contentColor = if (selected) template.colors.accentContent else template.colors.textPrimary,
         shape = RoundedCornerShape(16.dp),
-        modifier = modifier.height(48.dp).clickable(onClick = onClick)
+        modifier = modifier
+            .height(48.dp)
+            .clickable(onClick = onClick)
+            .semantics {
+                this.testTag = testTag
+                contentDescription = testTag
+            }
     ) {
         Box(contentAlignment = Alignment.Center) { Text(text, fontWeight = FontWeight.ExtraBold) }
     }

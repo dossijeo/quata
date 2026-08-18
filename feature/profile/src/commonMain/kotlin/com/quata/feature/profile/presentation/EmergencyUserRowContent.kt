@@ -15,11 +15,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.feature.profile.domain.EmergencyContactCandidate
+
+const val ProfileSosContactRowTestTagPrefix = "profile.sos.contact."
+const val ProfileSosContactToggleTestTagPrefix = "profile.sos.contact.toggle."
 
 @Composable
 fun EmergencyUserRowContent(
@@ -37,6 +43,11 @@ fun EmergencyUserRowContent(
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
+            .semantics {
+                val tag = ProfileSosContactRowTestTagPrefix + user.id
+                testTag = tag
+                contentDescription = tag
+            }
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -48,7 +59,15 @@ fun EmergencyUserRowContent(
                 Text(user.displayName, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(user.neighborhood, color = template.colors.textSecondary, maxLines = 1)
             }
-            OutlinedButton(onClick = onToggle, shape = RoundedCornerShape(14.dp)) {
+            OutlinedButton(
+                onClick = onToggle,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.semantics {
+                    val tag = ProfileSosContactToggleTestTagPrefix + user.id
+                    testTag = tag
+                    contentDescription = tag
+                },
+            ) {
                 Text(if (selected) removeLabel else addLabel)
             }
         }

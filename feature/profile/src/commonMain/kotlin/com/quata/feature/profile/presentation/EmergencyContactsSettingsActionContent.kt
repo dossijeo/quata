@@ -7,10 +7,15 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.compactButtonMinSize
+
+const val ProfileSosOpenTestTag = "profile.sos.open"
 
 /** Shared SOS-settings entry action for a profile overview. */
 @Composable
@@ -25,7 +30,11 @@ fun EmergencyContactsSettingsActionContent(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .compactButtonMinSize(),
+            .compactButtonMinSize()
+            .semantics {
+                testTag = ProfileSosOpenTestTag
+                contentDescription = ProfileSosOpenTestTag
+            },
         shape = RoundedCornerShape(9.dp),
         contentPadding = CompactButtonContentPadding,
     ) {

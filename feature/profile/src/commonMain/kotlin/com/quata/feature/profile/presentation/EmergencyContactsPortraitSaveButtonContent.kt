@@ -8,9 +8,14 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
+
+const val ProfileSosSaveTestTag = "profile.sos.save"
 
 /** Shared primary action for the portrait SOS editor. */
 @Composable
@@ -29,7 +34,13 @@ fun EmergencyContactsPortraitSaveButtonContent(
             contentColor = template.colors.accentContent
         ),
         shape = RoundedCornerShape(18.dp),
-        modifier = modifier.fillMaxWidth().height(54.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .height(54.dp)
+            .semantics {
+                testTag = ProfileSosSaveTestTag
+                contentDescription = ProfileSosSaveTestTag
+            }
     ) {
         Text(label, fontWeight = FontWeight.ExtraBold)
     }

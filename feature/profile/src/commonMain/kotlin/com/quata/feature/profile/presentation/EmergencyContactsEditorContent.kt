@@ -19,6 +19,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 
@@ -67,6 +71,7 @@ fun EmergencyContactsEditorContent(
     userRow: @Composable (EmergencyContactCandidate, Boolean, () -> Unit) -> Unit,
     messageInput: @Composable (Modifier, String, (String) -> Unit, Int, Int?) -> Unit,
     contactActions: (@Composable () -> Unit)? = null,
+    onTabChanged: (EmergencyContactsTab) -> Unit = {},
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var selectedTab by rememberSaveable { mutableStateOf(EmergencyContactsTab.Contacts) }
@@ -77,6 +82,9 @@ fun EmergencyContactsEditorContent(
     val selectedIdSet = selectedIds.toSet()
     val visibleUsers = filterEmergencyContactCandidates(candidates, selectedIdSet, query)
 
+    SideEffect {
+        onTabChanged(selectedTab)
+    }
     LaunchedEffect(isMessageFocused, isImeVisible) {
         if (isMessageFocused && isImeVisible) messageBringIntoViewRequester.bringIntoView()
     }
@@ -115,13 +123,21 @@ fun EmergencyContactsEditorContent(
                                 onValueChange = { query = it },
                                 placeholder = { Text(strings.searchPlaceholder) },
                                 singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics {
+                                        testTag = ProfileSosSearchTestTag
+                                        contentDescription = ProfileSosSearchTestTag
+                                    },
                                 shape = RoundedCornerShape(18.dp),
                             )
                         },
                         users = { usersModifier ->
                             LazyColumn(
-                                modifier = usersModifier,
+                                modifier = usersModifier.semantics {
+                                    testTag = ProfileSosContactsListTestTag
+                                    contentDescription = ProfileSosContactsListTestTag
+                                },
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 items(visibleUsers, key = EmergencyContactCandidate::id) { user ->
@@ -144,6 +160,10 @@ fun EmergencyContactsEditorContent(
                                 messageInput(
                                     Modifier
                                         .fillMaxWidth()
+                                        .semantics {
+                                            testTag = ProfileSosMessageInputTestTag
+                                            contentDescription = ProfileSosMessageInputTestTag
+                                        }
                                         .bringIntoViewRequester(messageBringIntoViewRequester)
                                         .onFocusChanged { isMessageFocused = it.isFocused },
                                     message,
@@ -191,6 +211,10 @@ fun EmergencyContactsEditorContent(
                                 messageInput(
                                     Modifier
                                         .fillMaxWidth()
+                                        .semantics {
+                                            testTag = ProfileSosMessageInputTestTag
+                                            contentDescription = ProfileSosMessageInputTestTag
+                                        }
                                         .bringIntoViewRequester(messageBringIntoViewRequester)
                                         .onFocusChanged { isMessageFocused = it.isFocused },
                                     message,
@@ -218,3 +242,4 @@ fun EmergencyContactsEditorContent(
         }
     }
 }
+const val ProfileSosMessageInputTestTag = "profile.sos.message.input"
