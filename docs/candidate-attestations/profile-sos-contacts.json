@@ -4,11 +4,11 @@
     "SCR-SOS",
     "SOS-CONTACTS"
   ],
-  "productSha": "4b53c212db624b7067c1d34d171a687bee4f8054",
+  "productSha": "301d19fab5c1c6f221f1deed14513f126d78e7f2",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "4b53c212db624b7067c1d34d171a687bee4f8054",
+      "sha": "301d19fab5c1c6f221f1deed14513f126d78e7f2",
       "report": "build-reports/web/profile-sos-contacts-evidence.json",
       "screenshots": [
         "build-reports/web/profile-sos-contacts-evidence.sos-contacts.png",
@@ -21,14 +21,14 @@
     },
     "android": {
       "status": "passed",
-      "sha": "4b53c212db624b7067c1d34d171a687bee4f8054",
+      "sha": "301d19fab5c1c6f221f1deed14513f126d78e7f2",
       "report": "app/build/outputs/androidTest-results/connected/debug/TEST-Pixel_3(AVD) - 9-_app-.xml",
       "tests": {
         "count": 2,
         "failures": 0,
         "errors": 0,
         "skipped": 0,
-        "timeSeconds": 29.353
+        "timeSeconds": 30.986
       },
       "cleanup": {
         "verified": true,
@@ -37,7 +37,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "4b53c212db624b7067c1d34d171a687bee4f8054",
+      "sha": "301d19fab5c1c6f221f1deed14513f126d78e7f2",
       "report": "build-reports/ios/profile-sos-contacts.xcresult",
       "simulator": {
         "name": "Quata-Raster-iOS-26-ChatCandidate",
@@ -50,7 +50,7 @@
         "failures": 0,
         "errors": 0,
         "skipped": 0,
-        "timeSeconds": 24.691
+        "timeSeconds": 24.801
       },
       "cleanup": {
         "verified": true,
@@ -61,6 +61,7 @@
   "preflight": [
     "git diff --check",
     "node --test scripts/profile-sos-contacts-contract.test.mjs",
+    "node --test scripts/capability-matrix-contract.test.mjs",
     "npm run test:ci-fast-contracts",
     "./gradlew.bat :web:compileKotlinWasmJs",
     "./gradlew.bat :web:wasmJsBrowserDistribution",
@@ -73,6 +74,7 @@
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "Product SHA 301d19fab5c1c6f221f1deed14513f126d78e7f2 includes the reviewed capability-matrix hash update for WebProfileHost.kt and the APNs contract correction that unblocked fast CI.",
     "SOS-CONTACTS now uses commonMain anchors for opening, root, contacts tab, message tab, list, search, contact row, contact toggle, message input and save.",
     "Android and iOS resolve the native Compose/accessibility anchors directly. iOS taps the resolved toggle and message tab using element-relative coordinates because XCTest reports the semantic elements as existing but not always directly hittable.",
     "Web/Wasm renders this surface through Compose canvas in the authenticated browser host, so testTags are not exposed as DOM or ARIA nodes. The Web runner uses a localhost-only product E2E bridge to invoke the same open callback, records missing DOM anchors explicitly, and captures the shared landscape split where Contacts and Message are visible together.",
