@@ -13,6 +13,7 @@ import {
   pollFeedOfficialReplyComment,
   pollPostPublishFixture,
   pollProfileContentReplyComment,
+  selectPostPublishDestinationFixture,
   seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
   seedChatAttachmentFixture,
@@ -537,6 +538,56 @@ test("post publish poll stores exact post and media for cleanup", async () => {
   assert.equal(result.postId, "22222222-2222-2222-2222-222222222222");
   assert.equal(fixture.publishedPostId, "22222222-2222-2222-2222-222222222222");
   assert.equal(fixture.publishedMediaUrls.length, 1);
+});
+
+test("post publish destination fixture selects an eligible active wall", async () => {
+  const actorSession = { profileId: "11111111-1111-1111-1111-111111111111" };
+  const destination = await selectPostPublishDestinationFixture({
+    actorSession,
+    withDatabase: async (callback) => callback({
+      query: async (_sql, params = []) => {
+        assert.deepEqual(params, [actorSession.profileId]);
+        return {
+          rows: [
+            { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", name: "Centro", slug: "centro", is_member: true },
+            { id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", name: "Bata", slug: "bata", is_member: true },
+          ],
+        };
+      },
+    }),
+  });
+
+  assert.equal(destination.wallId, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+  assert.equal(destination.label, "Bata");
+  assert.equal(destination.optionsSeen.length, 2);
+});
+
+test("post publish poll fails closed when selected destination was not used", async () => {
+  const fixture = createPostPublishFixture({
+    actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+    platformLabel: "web",
+    runId: "12345678-1234-1234-1234-123456789abc",
+    destination: { wallId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", label: "Centro" },
+  });
+
+  await assert.rejects(
+    pollPostPublishFixture({
+      fixture,
+      delay: async () => {},
+      withDatabase: async (callback) => callback({
+        query: async () => ({
+          rows: [{
+            id: "22222222-2222-2222-2222-222222222222",
+            wall_id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            body: `body ${fixture.marker}`,
+            image_url: null,
+            video_url: null,
+          }],
+        }),
+      }),
+    }),
+    /post_publish_destination_mismatch/,
+  );
 });
 
 test("post publish cleanup deletes owned rows and verifies residue", async () => {

@@ -8,6 +8,7 @@ import com.quata.feature.postcomposer.data.ComposerPostInsert
 import com.quata.feature.postcomposer.data.ComposerPreparedMedia
 import com.quata.feature.postcomposer.data.ComposerUploadedMedia
 import com.quata.feature.postcomposer.data.composerModerationFields
+import com.quata.feature.postcomposer.domain.PostComposerDestination
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -56,6 +57,33 @@ class WebPostComposerTransport(
         membership ?: postgrest.get(WEB_COMPOSER_WALL_STATS_TABLE, webComposerWallFallbackQuery())
             .webComposerBody().let { Json.parseToJsonElement(it).jsonArray.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull }
             ?: error("composer_wall_unavailable")
+    }
+
+    override suspend fun loadDestinations(actorProfileId: String): Result<List<PostComposerDestination>> = runCatching {
+        val memberWallIds = postgrest.get("community_members", mapOf("select" to "wall_id", "profile_id" to "eq.$actorProfileId"))
+            .webComposerBody()
+            .let { Json.parseToJsonElement(it).jsonArray }
+            .mapNotNull { it.jsonObject["wall_id"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank) }
+            .distinct()
+        val walls = postgrest.get(WEB_COMPOSER_WALL_STATS_TABLE, webComposerDestinationQuery())
+            .webComposerBody()
+            .let { Json.parseToJsonElement(it).jsonArray }
+            .mapNotNull { row ->
+                val obj = row.jsonObject
+                val wallId = obj["id"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                val label = obj["name"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+                    ?: obj["slug"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+                    ?: "Feed"
+                val subtitle = obj["city"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+                    ?: obj["description"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+                PostComposerDestination(wallId, label, subtitle, isDefault = false)
+            }
+        val fallbackId = memberWallIds.firstOrNull() ?: walls.firstOrNull()?.wallId
+        val memberSet = memberWallIds.toSet()
+        walls
+            .filter { it.wallId in memberSet || memberSet.isEmpty() }
+            .map { it.copy(isDefault = it.wallId == fallbackId) }
+            .ifEmpty { fallbackId?.let { listOf(PostComposerDestination(it, "Feed", isDefault = true)) }.orEmpty() }
     }
 
     override suspend fun prepareImage(reference: String): Result<ComposerPreparedMedia> = Result.success(webPrepared(reference, "image/jpeg", "imagen.jpg"))
@@ -113,6 +141,7 @@ internal const val WEB_COMPOSER_WALL_STATS_TABLE = "community_walls_stats"
 internal const val WEB_COMPOSER_POSTS_TABLE = "community_posts"
 internal const val WEB_COMPOSER_PROFILES_TABLE = "community_profiles"
 internal fun webComposerWallFallbackQuery(): Map<String, String> = mapOf("select" to "id", "is_active" to "eq.true", "order" to "sort_order.asc", "limit" to "1")
+internal fun webComposerDestinationQuery(): Map<String, String> = mapOf("select" to "id,slug,name,city,description", "is_active" to "eq.true", "order" to "sort_order.asc,chat_last_at.desc,created_at.desc", "limit" to "250")
 internal fun webComposerProfileDisplayNameQuery(profileId: String) = mapOf("select" to "display_name", "id" to "eq.$profileId", "limit" to "1")
 internal fun webComposerStorageObjectUrl(base: String, path: String) = "${base.trimEnd('/')}/storage/v1/object/community-posts/${webEncodePath(path)}"
 internal fun webComposerStoragePublicUrl(base: String, path: String) = "${base.trimEnd('/')}/storage/v1/object/public/community-posts/${webEncodePath(path)}"

@@ -880,6 +880,7 @@ export function createPostPublishFixture({
   actorSession,
   platformLabel,
   runId = randomUUID(),
+  destination = null,
 }) {
   if (!uuid.test(actorSession?.profileId ?? "")) throw new Error("post_publish_fixture_invalid_actor");
   const cleanPlatform = String(platformLabel ?? "")
@@ -895,9 +896,50 @@ export function createPostPublishFixture({
     platformLabel: cleanPlatform,
     actorSession,
     runId: cleanRunId,
+    destination,
     publishedPostId: null,
     publishedMediaUrls: [],
   };
+}
+
+export async function selectPostPublishDestinationFixture({
+  actorSession,
+  withDatabase,
+}) {
+  if (!uuid.test(actorSession?.profileId ?? "")) throw new Error("post_publish_destination_invalid_actor");
+  return await withDatabase(async (client) => {
+    const result = await client.query(
+      `with memberships as (
+         select wall_id
+           from public.community_members
+          where profile_id = $1::uuid
+          order by created_at desc
+       ), walls as (
+         select id, name, slug, city, description
+           from public.community_walls_stats
+          where is_active = true
+          order by sort_order asc, chat_last_at desc nulls last, created_at desc
+       ), eligible as (
+         select walls.*, exists(select 1 from memberships where memberships.wall_id = walls.id) as is_member
+           from walls
+       )
+       select id, name, slug, city, description, is_member
+         from eligible
+        where is_member = true or not exists(select 1 from memberships)
+        order by is_member desc, name asc nulls last, slug asc nulls last
+        limit 3`,
+      [actorSession.profileId],
+    );
+    const rows = result.rows.filter((row) => uuid.test(row.id ?? ""));
+    const selected = rows[1] ?? rows[0];
+    if (!selected) throw new Error("post_publish_destination_unavailable");
+    return {
+      wallId: selected.id,
+      label: selected.name || selected.slug || "Feed",
+      subtitle: selected.city || selected.description || null,
+      optionsSeen: rows.map((row) => ({ wallId: row.id, label: row.name || row.slug || "Feed" })),
+    };
+  });
 }
 
 export async function pollPostPublishFixture({
@@ -910,7 +952,7 @@ export async function pollPostPublishFixture({
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     const result = await withDatabase(async (client) => await client.query(
-      `select id, body, image_url, video_url
+      `select id, wall_id, body, image_url, video_url
          from public.community_posts
         where profile_id = $1::uuid
           and body like $2
@@ -921,10 +963,15 @@ export async function pollPostPublishFixture({
     const row = result.rows[0];
     if (uuid.test(row?.id ?? "")) {
       fixture.publishedPostId = row.id;
+      fixture.publishedWallId = row.wall_id ?? null;
       fixture.publishedBody = row.body ?? null;
       fixture.publishedMediaUrls = [row.image_url, row.video_url].filter(Boolean);
+      if (fixture.destination?.wallId && row.wall_id !== fixture.destination.wallId) {
+        throw new Error(`post_publish_destination_mismatch:${row.wall_id ?? "missing"}`);
+      }
       return {
         postId: row.id,
+        wallId: row.wall_id ?? null,
         body: row.body ?? null,
         mediaUrls: fixture.publishedMediaUrls,
       };

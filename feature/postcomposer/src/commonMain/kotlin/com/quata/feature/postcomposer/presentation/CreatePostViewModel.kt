@@ -24,6 +24,10 @@ class CreatePostViewModel(
     val uiState: StateFlow<CreatePostUiState> = _uiState.asStateFlow()
     private var submitJob: Job? = null
 
+    init {
+        loadDestinations()
+    }
+
     fun onEvent(event: CreatePostUiEvent) {
         when (event) {
             is CreatePostUiEvent.TextChanged -> _uiState.value = _uiState.value.copy(
@@ -33,6 +37,11 @@ class CreatePostViewModel(
             )
             is CreatePostUiEvent.TextPatternSelected -> _uiState.value = _uiState.value.copy(
                 textPatternId = event.patternId,
+                error = null,
+                successMessage = null
+            )
+            is CreatePostUiEvent.DestinationSelected -> _uiState.value = _uiState.value.copy(
+                selectedDestinationWallId = event.wallId.takeIf(String::isNotBlank),
                 error = null,
                 successMessage = null
             )
@@ -58,15 +67,48 @@ class CreatePostViewModel(
                 error = null,
                 successMessage = null
             )
-            CreatePostUiEvent.ClearDraft -> _uiState.value = CreatePostUiState()
+            CreatePostUiEvent.ClearDraft -> _uiState.value = CreatePostUiState(
+                destinations = _uiState.value.destinations,
+                selectedDestinationWallId = _uiState.value.selectedDestinationWallId,
+            )
             CreatePostUiEvent.Submit -> submit(PostComposerType.Text)
             CreatePostUiEvent.ClearMessage -> _uiState.value = _uiState.value.copy(successMessage = null, error = null)
+        }
+    }
+
+    fun loadDestinations() {
+        _uiState.value = _uiState.value.copy(destinationsLoading = true, destinationsError = null)
+        scope.launch {
+            repository.loadDestinations()
+                .onSuccess { destinations ->
+                    val cleanDestinations = destinations
+                        .filter { it.wallId.isNotBlank() && it.label.isNotBlank() }
+                        .distinctBy { it.wallId }
+                    val current = _uiState.value
+                    val selected = current.selectedDestinationWallId
+                        ?.takeIf { id -> cleanDestinations.any { it.wallId == id } }
+                        ?: cleanDestinations.firstOrNull { it.isDefault }?.wallId
+                        ?: cleanDestinations.firstOrNull()?.wallId
+                    _uiState.value = current.copy(
+                        destinations = cleanDestinations,
+                        selectedDestinationWallId = selected,
+                        destinationsLoading = false,
+                        destinationsError = null,
+                    )
+                }
+                .onFailure { throwable ->
+                    _uiState.value = _uiState.value.copy(
+                        destinationsLoading = false,
+                        destinationsError = throwable.message,
+                    )
+                }
         }
     }
 
     fun submit(type: PostComposerType) {
         if (submitJob?.isActive == true) return
         val state = _uiState.value
+        val destination = state.selectedDestination
         _uiState.value = state.copy(isLoading = true, error = null, successMessage = null)
         submitJob = scope.launch {
             try {
@@ -79,10 +121,19 @@ class CreatePostViewModel(
                         videoUri = state.videoUri,
                         locationLabel = state.locationLabel?.trim()?.takeIf { it.isNotBlank() },
                         latitude = state.latitude,
-                        longitude = state.longitude
+                        longitude = state.longitude,
+                        destinationWallId = destination?.wallId,
+                        destinationLabel = destination?.label,
                     )
                 )
-                    .onSuccess { postId -> _uiState.value = CreatePostUiState(successMessage = messages.created, createdPostId = postId) }
+                    .onSuccess { postId ->
+                        _uiState.value = CreatePostUiState(
+                            destinations = state.destinations,
+                            selectedDestinationWallId = state.selectedDestinationWallId,
+                            successMessage = messages.created,
+                            createdPostId = postId,
+                        )
+                    }
                     .onFailure { throwable ->
                         if (throwable is CancellationException) {
                             _uiState.value = state.copy(isLoading = false)

@@ -10,6 +10,7 @@ import {
   cleanupPostPublishFixture,
   createPostPublishFixture,
   pollPostPublishFixture,
+  selectPostPublishDestinationFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
 const CHECK = "POST-PUBLISH-ANDROID-REAL-001";
@@ -49,10 +50,15 @@ try {
   const backend = await publicConfig();
   const credentials = config.credentials.a;
   const session = await login(backend, credentials, `post-publish-android-${randomUUID()}`);
+  const destination = await selectPostPublishDestinationFixture({
+    actorSession: { profileId: session.userId },
+    withDatabase: (callback) => withPg(config, callback),
+  });
   fixture = createPostPublishFixture({
     actorSession: { profileId: session.userId },
     platformLabel: "android",
     runId: randomUUID(),
+    destination,
   });
   localCredentials = join("build-reports", "android", `post-publish-credentials-${randomUUID()}.json`);
   await mkdir(dirname(localCredentials), { recursive: true });
@@ -83,6 +89,7 @@ try {
     "-e", "class", "com.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest",
     "-e", "quataPostPublishCredentialsFile", deviceCredentialsPath,
     "-e", "quataPostPublishMarker", fixture.marker,
+    "-e", "quataPostPublishDestinationWallId", fixture.destination.wallId,
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
   report.instrumentationTail = redactedTail(instrumentationOutput);
@@ -108,6 +115,8 @@ try {
   report.evidence.published = {
     state: "verified_in_database",
     postId: published.postId,
+    wallId: published.wallId,
+    expectedWallId: fixture.destination.wallId,
     mediaUrls: published.mediaUrls,
   };
   report.cleanup = await cleanupPostPublishFixture({ fixture, withDatabase: (callback) => withPg(config, callback) });

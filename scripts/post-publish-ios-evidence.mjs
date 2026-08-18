@@ -11,6 +11,7 @@ import {
   cleanupPostPublishFixture,
   createPostPublishFixture,
   pollPostPublishFixture,
+  selectPostPublishDestinationFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
 const CHECK = "POST-PUBLISH-IOS-REAL-001";
@@ -40,10 +41,15 @@ try {
   const backend = await publicConfig();
   const credentials = config.credentials.a;
   const session = await login(backend, credentials, `post-publish-ios-${randomUUID()}`);
+  const destination = await selectPostPublishDestinationFixture({
+    actorSession: { profileId: session.userId },
+    withDatabase: (callback) => withPg(config, callback),
+  });
   fixture = createPostPublishFixture({
     actorSession: { profileId: session.userId },
     platformLabel: "ios",
     runId: randomUUID(),
+    destination,
   });
 
   localCredentials = join(await mkdirTemp("quata-ios-post-publish-credentials-"), "credentials.json");
@@ -91,6 +97,7 @@ export QUATA_IOS_POST_PUBLISH_UI_LOG_DIR=${shellQuote(options.remoteLogDir)}
 export QUATA_IOS_POST_PUBLISH_UI_RESULT_BUNDLE_DIR=${shellQuote(options.remoteResultBundleDir)}
 export QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN=${shellQuote(OPT_IN)}
 export QUATA_IOS_POST_PUBLISH_MARKER=${shellQuote(fixture.marker)}
+export QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID=${shellQuote(fixture.destination.wallId)}
 bash scripts/run-ios-post-publish-ui-test.sh
 `);
   report.steps.push("ios_xctest_real_text_post_published_from_common_composer");
@@ -106,6 +113,8 @@ bash scripts/run-ios-post-publish-ui-test.sh
   report.evidence.published = {
     state: "verified_in_database",
     postId: published.postId,
+    wallId: published.wallId,
+    expectedWallId: fixture.destination.wallId,
     mediaUrls: published.mediaUrls,
   };
   report.cleanup = await cleanupPostPublishFixture({ fixture, withDatabase: (callback) => withPg(config, callback) });

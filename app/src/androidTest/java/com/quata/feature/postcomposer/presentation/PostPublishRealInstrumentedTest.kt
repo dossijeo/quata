@@ -44,9 +44,10 @@ class PostPublishRealInstrumentedTest {
     fun authenticatedUserPublishesTextPostFromCommonComposer() = runBlocking {
         val credentialsFile = optionalArgument("quataPostPublishCredentialsFile")
         val marker = optionalArgument("quataPostPublishMarker")
+        val destinationWallId = optionalArgument("quataPostPublishDestinationWallId")
         assumeTrue(
             "POST-PUBLISH-ANDROID-REAL-001 is opt-in and requires local credentials plus marker.",
-            !credentialsFile.isNullOrBlank() && !marker.isNullOrBlank(),
+            !credentialsFile.isNullOrBlank() && !marker.isNullOrBlank() && !destinationWallId.isNullOrBlank(),
         )
         val credentials = credentialsFromFile(credentialsFile.orEmpty())
         val safeMarker = marker.orEmpty()
@@ -73,6 +74,12 @@ class PostPublishRealInstrumentedTest {
             compose.waitUntil(20_000) {
                 runCatching { compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
+            compose.waitUntil(20_000) {
+                runCatching { compose.onNodeWithTag("composer-destination-option.$destinationWallId", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            compose.onNodeWithTag("composer-destination-option.$destinationWallId", useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
             val bodyText = "$safeMarker Publicacion reversible POST-PUBLISH Android"
             compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true)
                 .performClick()
@@ -99,7 +106,7 @@ class PostPublishRealInstrumentedTest {
             saveScreenshot("android-post-publish-published")
         }
 
-        writeReport(safeMarker)
+        writeReport(safeMarker, destinationWallId.orEmpty())
     }
 
     private fun mainIntent(): Intent =
@@ -122,12 +129,13 @@ class PostPublishRealInstrumentedTest {
         }
     }
 
-    private fun writeReport(marker: String) {
+    private fun writeReport(marker: String, destinationWallId: String) {
         File(evidenceDir(), "android-post-publish-evidence.json").writeText(
             JSONObject()
                 .put("check", "POST-PUBLISH-ANDROID-REAL-001")
                 .put("status", "passed")
                 .put("marker", marker)
+                .put("destinationWallId", destinationWallId)
                 .put("evidenceDirectory", evidenceDir().absolutePath)
                 .toString(2) + "\n",
         )

@@ -16,11 +16,15 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         guard let marker = environment["QUATA_IOS_POST_PUBLISH_MARKER"], !marker.isEmpty else {
             throw XCTSkip("Real post publish requires QUATA_IOS_POST_PUBLISH_MARKER.")
         }
+        guard let destinationWallId = environment["QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID"], !destinationWallId.isEmpty else {
+            throw XCTSkip("Real post publish requires QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID.")
+        }
 
         let app = openComposer()
         assertSharedComposerSurface(in: app)
 
         tapTextType(in: app)
+        selectDestination(destinationWallId, in: app)
         typeText(marker, into: "composer-text-input", in: app)
         dismissKeyboardIfPresent(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-composer-filled")
@@ -28,6 +32,23 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         tapPublish(in: app)
         waitForPublishedFeedbackOrClose(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-after-publish")
+    }
+
+    private func selectDestination(_ wallId: String, in app: XCUIApplication) {
+        let destination = app.descendants(matching: .any)
+            .matching(identifier: "composer-destination-option.\(wallId)")
+            .firstMatch
+        for _ in 0..<10 {
+            if destination.waitForExistence(timeout: 1), destination.isHittable {
+                destination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-destination-selected")
+                return
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        XCTAssertTrue(destination.exists, "Expected shared composer destination \(wallId) to exist.")
+        destination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     private func openComposer() -> XCUIApplication {

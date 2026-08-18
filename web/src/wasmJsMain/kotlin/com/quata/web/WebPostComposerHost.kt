@@ -49,12 +49,16 @@ fun WebPostComposerHost(
     val scope = rememberCoroutineScope()
     DisposableEffect(viewModel, canPublish, onAuthRequired) {
         val uninstall = installWebPostComposerE2eBridge(
+            setText = { value -> viewModel.onEvent(CreatePostUiEvent.TextChanged(value)) },
             submitText = { if (canPublish) viewModel.submit(PostComposerType.Text) else onAuthRequired() },
             state = {
                 val state = viewModel.uiState.value
                 buildJsonObject {
                     put("textLength", state.text.length)
                     put("isLoading", state.isLoading)
+                    put("destinationCount", state.destinations.size)
+                    state.selectedDestinationWallId?.let { put("selectedDestinationWallId", it) }
+                    state.selectedDestination?.label?.let { put("selectedDestinationLabel", it) }
                     put("hasError", state.error != null)
                     state.error?.let { put("error", it.take(160)) }
                     put("hasSuccess", state.successMessage != null)
