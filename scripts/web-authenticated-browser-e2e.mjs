@@ -749,10 +749,13 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = [], op
 }
 
 async function assertProfileSosSaveError(page, reportOutput, steps) {
-  await page.evaluate(() => globalThis.__quataProfileSosSaveErrorE2eProbe = globalThis.__quataProfileSosSaveErrorE2eProbe ?? {});
-  await page.waitForFunction(() =>
-    document.documentElement.getAttribute("data-quata-profile-sos-save-error-e2e") === "enabled",
-  );
+  const saveErrorOptIn = await page.evaluate(() => ({
+    bridge: globalThis.__quataProfileSosE2eProduct?.saveErrorE2e === true,
+    marker: document.documentElement.getAttribute("data-quata-profile-sos-save-error-e2e"),
+  }));
+  if (!saveErrorOptIn.bridge || saveErrorOptIn.marker !== "enabled") {
+    throw new Error(`profile_sos_save_error_opt_in_missing:${JSON.stringify(saveErrorOptIn)}`);
+  }
   const save = await findVisibleTextBounds(page, /Guardar SOS|Guardar|Save/i) ?? await profileSosSaveButtonFallbackBounds(page);
   if (!save) throw new Error("profile_sos_save_button_missing");
   await page.mouse.click(save.x + save.width / 2, save.y + save.height / 2);

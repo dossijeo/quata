@@ -12,16 +12,18 @@ internal fun installWebProfileSosE2eBridge(
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1';
       if (!local || !optedIn) return () => {};
+      const query = new URLSearchParams(globalThis.location?.search || '');
+      const saveErrorE2e = query.get('quata-profile-sos-save-error-e2e') === '1';
       const bridge = Object.freeze({
         version: 1,
+        saveErrorE2e,
         open: () => openSos(),
         close: () => closeSos(),
       });
       globalThis.__quataProfileSosE2eProduct = bridge;
       const element = globalThis.document?.documentElement;
       element?.setAttribute('data-quata-profile-sos-bridge', 'ready');
-      const query = new URLSearchParams(globalThis.location?.search || '');
-      if (query.get('quata-profile-sos-save-error-e2e') === '1') {
+      if (saveErrorE2e) {
         element?.setAttribute('data-quata-profile-sos-save-error-e2e', 'enabled');
       }
       return () => {

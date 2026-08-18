@@ -102,6 +102,8 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.match(loaded.webEvidence, /quata-profile-sos-save-error-e2e/);
   assert.match(loaded.webEvidence, /data-quata-profile-sos-error-visible/);
   assert.match(loaded.webEvidence, /data-quata-profile-sos-save-error-e2e/);
+  assert.match(loaded.webEvidence, /profile_sos_save_error_opt_in_missing/);
+  assert.match(loaded.webEvidence, /__quataProfileSosE2eProduct\?\.saveErrorE2e/);
   assert.match(loaded.webEvidence, /profile_sos_candidates_missing/);
   assert.match(loaded.webHost, /webProfileSosSaveErrorE2eEnabled/);
   assert.match(loaded.webHost, /quata-profile-sos-save-error-e2e/);
@@ -118,6 +120,7 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.match(loaded.webSosBridge, /data-quata-profile-sos-selected-count/);
   assert.match(loaded.webSosBridge, /data-quata-profile-sos-error-visible/);
   assert.match(loaded.webSosBridge, /data-quata-profile-sos-save-error-e2e/);
+  assert.match(loaded.webSosBridge, /saveErrorE2e/);
 });
 
 test("SOS contacts contract is part of local fast contract suites", () => {
