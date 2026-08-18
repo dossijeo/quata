@@ -367,7 +367,11 @@ internal fun webProfilePersistenceMode(hasRemoteRepository: Boolean, hasConfigur
       const location = globalThis.location;
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const query = new URLSearchParams(location?.search || '');
-      const enabled = local && query.get('quata-auth-e2e') === '1' && query.get('quata-profile-sos-save-error-e2e') === '1';
+      const e2e = query.get('quata-auth-e2e') === '1' || globalThis.sessionStorage?.getItem('quata.profile.sos.save_error_e2e') === '1';
+      const enabled = local && e2e && (
+        query.get('quata-profile-sos-save-error-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.profile.sos.save_error_e2e') === '1'
+      );
       const element = globalThis.document?.documentElement;
       if (element) {
         if (enabled) element.setAttribute('data-quata-profile-sos-save-error-e2e', 'enabled');

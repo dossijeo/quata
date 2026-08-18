@@ -179,6 +179,9 @@ try {
   });
   if (options.profileSosSaveError) productQuery.set("quata-profile-sos-save-error-e2e", "1");
   await page.goto(`${server.origin}/?${productQuery.toString()}#auth`);
+  if (options.profileSosSaveError) {
+    await page.evaluate(() => sessionStorage.setItem("quata.profile.sos.save_error_e2e", "1"));
+  }
   await page.waitForFunction(() => {
     const root = document.querySelector("#quata-root");
     return globalThis.__quataAuthE2eProduct?.version === 1 && root &&

@@ -13,7 +13,8 @@ internal fun installWebProfileSosE2eBridge(
       const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1';
       if (!local || !optedIn) return () => {};
       const query = new URLSearchParams(globalThis.location?.search || '');
-      const saveErrorE2e = query.get('quata-profile-sos-save-error-e2e') === '1';
+      const saveErrorE2e = query.get('quata-profile-sos-save-error-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.profile.sos.save_error_e2e') === '1';
       const bridge = Object.freeze({
         version: 1,
         saveErrorE2e,
