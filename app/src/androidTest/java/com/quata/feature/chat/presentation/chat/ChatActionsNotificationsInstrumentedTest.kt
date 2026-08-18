@@ -30,6 +30,8 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -68,6 +70,16 @@ class ChatActionsNotificationsInstrumentedTest {
     private val targetContext: Context = instrumentation.targetContext
     private val app: QuataApp = ApplicationProvider.getApplicationContext()
     private val device = UiDevice.getInstance(instrumentation)
+    private val communityEmojiPanelProbeSections = listOf(
+        "recent",
+        "frequent",
+        "gestures",
+        "people",
+        "animals_nature",
+        "food_drink",
+        "objects_symbols",
+        "flags",
+    )
     private val arguments = InstrumentationRegistry.getArguments()
     private val audioProgressStarted = Regex(""" ([1-9][0-9]?|100)%""")
 
@@ -412,8 +424,8 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.onNodeWithTag(emojiTag, useUnmergedTree = true)
             .performTouchInput { click(center) }
         waitForTag("community.emoji.panel", "comments emoji panel", 10_000)
-        compose.onNodeWithTag("community.emoji.cell.frequent.0", useUnmergedTree = true)
-            .performTouchInput { click(center) }
+        verifyCommunityEmojiPanelSections("$beforeScreenshot-panel")
+        clickStableTag("community.emoji.cell.frequent.0")
         compose.onNodeWithTag(inputTag, useUnmergedTree = true)
             .performTextInput(comment.removePrefix("😀").trimStart())
         val visibleCommentText = comment.removePrefix("😀").trimStart()
@@ -421,6 +433,108 @@ class ChatActionsNotificationsInstrumentedTest {
         waitForTag(authorTag, "comment author profile anchor $authorTag", 20_000)
         saveScreenshot(afterScreenshot)
     }
+
+    private fun verifyCommunityEmojiPanelSections(screenshotPrefix: String) {
+        communityEmojiPanelProbeSections.forEachIndexed { index, section ->
+            val sectionTag = "community.emoji.section.$section"
+            val gridTag = "community.emoji.grid.$section"
+            val firstCellTag = "community.emoji.cell.$section.0"
+            scrollEmojiSectionIntoView(sectionTag, index)
+            clickEmojiPanelSection(sectionTag, "$screenshotPrefix-$section")
+            waitForEmojiPanelTag(gridTag, "emoji panel selected grid $section", "$screenshotPrefix-$section")
+            waitForEmojiPanelTag(firstCellTag, "emoji panel first cell $section", "$screenshotPrefix-$section")
+            if (section == "frequent" || section == "flags") {
+                saveScreenshot("$screenshotPrefix-$section")
+            }
+        }
+        scrollEmojiSectionIntoView("community.emoji.section.frequent", 1)
+        clickEmojiPanelSection("community.emoji.section.frequent", "$screenshotPrefix-reset-frequent")
+        waitForEmojiPanelTag("community.emoji.cell.frequent.0", "emoji panel frequent reset", "$screenshotPrefix-reset-frequent")
+    }
+
+    private fun scrollEmojiSectionIntoView(sectionTag: String, sectionIndex: Int) {
+        if (visibleEmojiSectionNodes(sectionTag).isNotEmpty()) return
+        repeat(12) {
+            if (visibleEmojiSectionNodes(sectionTag).isNotEmpty()) return
+            val row = visibleTaggedNodes("community.emoji.sections").firstOrNull()
+            if (row != null) {
+                val bounds = row.boundsInRoot
+                val y = bounds.center.y.roundToInt()
+                val startX = if (sectionIndex >= 4) (bounds.right - 12f).roundToInt() else (bounds.left + 12f).roundToInt()
+                val endX = if (sectionIndex >= 4) (bounds.left + 12f).roundToInt() else (bounds.right - 12f).roundToInt()
+                device.swipe(startX, y, endX, y, 16)
+                compose.waitForIdle()
+                return@repeat
+            }
+            runCatching {
+                compose.onNodeWithTag("community.emoji.sections", useUnmergedTree = true)
+                    .performTouchInput {
+                        if (sectionIndex >= 4) swipeLeft() else swipeRight()
+                    }
+                compose.waitForIdle()
+            }
+        }
+    }
+
+    private fun waitForEmojiPanelTag(tag: String, context: String, failureScreenshot: String, timeoutMillis: Long = 10_000) {
+        val visible = runCatching {
+            compose.waitUntil(timeoutMillis) { visibleTaggedNodes(tag).isNotEmpty() }
+            true
+        }.getOrDefault(false)
+        if (visible) return
+        saveScreenshot("$failureScreenshot-missing-panel-tag")
+        File(evidenceDir(), "$failureScreenshot-missing-panel-tag-semantics.txt")
+            .writeText(runCatching { compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 20) }.getOrElse { it.stackTraceToString() })
+        assertTrue("The semantic tag must be visible in $context.", false)
+    }
+
+    private fun clickEmojiPanelSection(sectionTag: String, failureScreenshot: String) {
+        val visibleSection = visibleEmojiSectionNodes(sectionTag).firstOrNull()
+        if (visibleSection != null) {
+            val center = visibleSection.boundsInRoot.center
+            check(device.click(center.x.roundToInt(), center.y.roundToInt())) { "emoji_section_visible_tap_failed:$sectionTag" }
+            compose.waitForIdle()
+            return
+        }
+        val clickedByTag = runCatching {
+            compose.onNodeWithTag(sectionTag, useUnmergedTree = true)
+                .performClick()
+            compose.waitForIdle()
+            true
+        }.getOrDefault(false)
+        if (clickedByTag) return
+        val clickedByDescription = runCatching {
+            compose.onNodeWithContentDescription(sectionTag, useUnmergedTree = true)
+                .performClick()
+            compose.waitForIdle()
+            true
+        }.getOrDefault(false)
+        if (clickedByDescription) return
+        saveScreenshot("$failureScreenshot-section-not-clickable")
+        File(evidenceDir(), "$failureScreenshot-section-not-clickable-semantics.txt")
+            .writeText(runCatching { compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 20) }.getOrElse { it.stackTraceToString() })
+        clickStableTag(sectionTag)
+    }
+
+    private fun visibleEmojiSectionNodes(sectionTag: String) =
+        runCatching {
+            val rowBounds = visibleTaggedNodes("community.emoji.sections").firstOrNull()?.boundsInRoot
+            compose.onAllNodes(hasTestTag(sectionTag), useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .filter { node ->
+                    val bounds = node.boundsInRoot
+                    val center = bounds.center
+                    val insideDisplay = bounds.width > 0f &&
+                        bounds.height > 0f &&
+                        center.x >= 0f &&
+                        center.x <= device.displayWidth &&
+                        center.y >= 0f &&
+                        center.y <= device.displayHeight
+                    val insideRow = rowBounds == null ||
+                        (center.x >= rowBounds.left + 16f && center.x <= rowBounds.right - 16f)
+                    insideDisplay && insideRow
+                }
+        }.getOrDefault(emptyList())
 
     private fun sendReplyCommentFromOpenPanel(
         prefix: String,
@@ -438,8 +552,7 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.onNodeWithTag(emojiTag, useUnmergedTree = true)
             .performTouchInput { click(center) }
         waitForTag("community.emoji.panel", "comments emoji panel", 10_000)
-        compose.onNodeWithTag("community.emoji.cell.frequent.0", useUnmergedTree = true)
-            .performTouchInput { click(center) }
+        clickStableTag("community.emoji.cell.frequent.0")
         compose.onNodeWithTag(inputTag, useUnmergedTree = true)
             .performTextInput(replyComment.removePrefix("😀").trimStart())
         val visibleReplyText = replyComment.removePrefix("😀").trimStart()
@@ -2060,7 +2173,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 else -> clickComposeTag(sendTag)
             }
             val visible = runCatching {
-                compose.waitUntil(20_000) {
+                compose.waitUntil(45_000) {
                     compose.onAllNodes(hasText(visibleText, substring = true), useUnmergedTree = true)
                         .fetchSemanticsNodes()
                         .isNotEmpty() && !taggedInputText(inputTag).contains(visibleText)

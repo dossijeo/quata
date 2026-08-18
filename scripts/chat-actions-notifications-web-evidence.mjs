@@ -2250,12 +2250,196 @@ async function selectEmojiCommentEmoji(page, { prefix, fallbackPoints, errorPref
   if (!panel) {
     throw new Error(`${errorPrefix}_emoji_panel_not_visible`);
   }
+  if (errorPrefix === "feed_official_comments_feed") {
+    await verifyCommunityEmojiPanelSections(page, {
+      errorPrefix,
+      report,
+      evidenceDir: options.evidenceDir,
+      screenshotPrefix: "web-feed-comments-emoji-panel",
+    });
+  } else if (errorPrefix === "feed_official_comments_official") {
+    await verifyCommunityEmojiPanelSections(page, {
+      errorPrefix,
+      report,
+      evidenceDir: options.evidenceDir,
+      screenshotPrefix: "web-official-comments-emoji-panel",
+    });
+  }
   const firstFrequent = await visibleAriaLocator(page, [new RegExp(escapeRegExp("community.emoji.cell.frequent.0"))], 5_000);
   if (firstFrequent) {
     await clickLocatorCenter(page, firstFrequent, `${errorPrefix}_first_emoji_not_clickable`);
   } else {
     await page.mouse.click(fallbackPoints?.cellX ?? panelFallback.cellX, fallbackPoints?.cellY ?? panelFallback.cellY);
   }
+}
+
+const communityEmojiPanelProbeSections = [
+  "recent",
+  "frequent",
+  "gestures",
+  "people",
+  "animals_nature",
+  "food_drink",
+  "objects_symbols",
+  "flags",
+];
+
+async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, evidenceDir, screenshotPrefix }) {
+  const observed = [];
+  let frequentSectionBounds = null;
+  for (const section of communityEmojiPanelProbeSections) {
+    const sectionTag = `community.emoji.section.${section}`;
+    const gridTag = `community.emoji.grid.${section}`;
+    const cellTag = `community.emoji.cell.${section}.0`;
+    const sectionLocator = await visibleExactAriaLocatorWithHorizontalScroll(page, sectionTag, 4_000);
+    if (!sectionLocator) throw new Error(`${errorPrefix}_emoji_section_anchor_missing:${sectionTag}`);
+    await clickLocatorCenter(page, sectionLocator, `${errorPrefix}_emoji_section_not_clickable:${sectionTag}`);
+    const grid = await visibleExactAriaLocator(page, gridTag, 2_500);
+    if (!grid) throw new Error(`${errorPrefix}_emoji_grid_anchor_missing:${gridTag}`);
+    const firstCell = await visibleExactAriaLocator(page, cellTag, 2_500);
+    if (!firstCell) throw new Error(`${errorPrefix}_emoji_cell_anchor_missing:${cellTag}`);
+    const sectionBox = await sectionLocator.boundingBox().catch(() => null);
+    const gridBox = await grid.boundingBox().catch(() => null);
+    const cellBox = await firstCell.boundingBox().catch(() => null);
+    observed.push({
+      section,
+      sectionTag,
+      gridTag,
+      firstCellTag: cellTag,
+      resolvedBy: "aria-label",
+      sectionBounds: roundedBox(sectionBox),
+      gridBounds: roundedBox(gridBox),
+      firstCellBounds: roundedBox(cellBox),
+    });
+    if (section === "frequent") {
+      frequentSectionBounds = sectionBox;
+    }
+    if (section === "frequent" || section === "flags") {
+      await attachScreenshot(page, evidenceDir, `${screenshotPrefix}-${section}`);
+    }
+  }
+  report.evidence.communityEmojiPanelSections ??= [];
+  report.evidence.communityEmojiPanelSections.push({
+    surface: errorPrefix,
+    sections: observed,
+  });
+  report.steps.push(`${errorPrefix}_emoji_panel_all_sections_verified_by_common_anchors`);
+  const frequent = await visibleExactAriaLocatorWithHorizontalScroll(page, "community.emoji.section.frequent", 4_000);
+  if (frequent) {
+    await clickLocatorCenter(page, frequent, `${errorPrefix}_emoji_section_not_clickable:community.emoji.section.frequent`);
+  } else if (await clickExactAriaLabel(page, "community.emoji.section.frequent")) {
+    report.evidence.communityEmojiPanelSemanticResets ??= [];
+    report.evidence.communityEmojiPanelSemanticResets.push({
+      surface: errorPrefix,
+      sectionTag: "community.emoji.section.frequent",
+      resolvedBy: "exact-aria-label",
+    });
+  } else if (frequentSectionBounds) {
+    report.evidence.communityEmojiPanelResetFallbacks ??= [];
+    report.evidence.communityEmojiPanelResetFallbacks.push({
+      surface: errorPrefix,
+      sectionTag: "community.emoji.section.frequent",
+      reason: "semantic_anchor_was_observed_earlier_but_not_resolved_after_horizontal_scroll",
+      bounds: roundedBox(frequentSectionBounds),
+    });
+    await page.mouse.click(
+      frequentSectionBounds.x + (frequentSectionBounds.width / 2),
+      frequentSectionBounds.y + (frequentSectionBounds.height / 2),
+    );
+    await delay(250);
+  } else {
+    throw new Error(`${errorPrefix}_emoji_section_anchor_missing:community.emoji.section.frequent`);
+  }
+  const frequentCell = await visibleExactAriaLocator(page, "community.emoji.cell.frequent.0", 2_500);
+  if (!frequentCell) throw new Error(`${errorPrefix}_emoji_frequent_reset_cell_missing`);
+}
+
+async function visibleExactAriaLocator(page, label, timeout) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+    const controls = page.locator("[aria-label]");
+    const count = await controls.count().catch(() => 0);
+    for (let index = 0; index < count; index += 1) {
+      const locator = controls.nth(index);
+      const candidate = await locator.getAttribute("aria-label").catch(() => "");
+      if (candidate !== label) continue;
+      const visible = await locator.boundingBox()
+        .then((box) => Boolean(
+          box &&
+          box.width > 0 &&
+          box.height > 0 &&
+          box.x + box.width > 0 &&
+          box.y + box.height > 0 &&
+          box.x < viewport.width &&
+          box.y < viewport.height,
+        ))
+        .catch(() => false);
+      if (visible) return locator;
+    }
+    await delay(250);
+  }
+  return null;
+}
+
+async function clickExactAriaLabel(page, label) {
+  return page.evaluate((targetLabel) => {
+    const visible = (element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 &&
+        rect.height > 0 &&
+        rect.right > 0 &&
+        rect.bottom > 0 &&
+        rect.left < window.innerWidth &&
+        rect.top < window.innerHeight;
+    };
+    const candidates = Array.from(document.querySelectorAll("[aria-label]"))
+      .filter((element) => element.getAttribute("aria-label") === targetLabel && visible(element));
+    const target = candidates.at(-1);
+    if (!target) return false;
+    target.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 1, pointerType: "mouse", isPrimary: true }));
+    target.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 1, pointerType: "mouse", isPrimary: true }));
+    target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    return true;
+  }, label).catch(() => false);
+}
+
+async function visibleAriaLocatorWithHorizontalScroll(page, patterns, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  let direction = 1;
+  while (Date.now() < deadline) {
+    const found = await visibleAriaLocator(page, patterns, 500);
+    if (found) return found;
+    await page.mouse.wheel(420 * direction, 0).catch(() => {});
+    if (Date.now() > deadline - (timeout / 2)) direction = -1;
+    await delay(200);
+  }
+  await page.mouse.wheel(-1600, 0).catch(() => {});
+  return null;
+}
+
+async function visibleExactAriaLocatorWithHorizontalScroll(page, label, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  let direction = 1;
+  while (Date.now() < deadline) {
+    const found = await visibleExactAriaLocator(page, label, 500);
+    if (found) return found;
+    await page.mouse.wheel(420 * direction, 0).catch(() => {});
+    if (Date.now() > deadline - (timeout / 2)) direction = -1;
+    await delay(200);
+  }
+  await page.mouse.wheel(-1600, 0).catch(() => {});
+  return null;
+}
+
+function roundedBox(box) {
+  if (!box) return null;
+  return {
+    x: Math.round(box.x),
+    y: Math.round(box.y),
+    width: Math.round(box.width),
+    height: Math.round(box.height),
+  };
 }
 
 async function fillProfileContentComment(page, fallbackPoints, value) {

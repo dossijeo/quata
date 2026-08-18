@@ -71,6 +71,11 @@ test("Web runner records a real Feed and Official emoji-comment flow", () => {
   assert.doesNotMatch(runner, /bottom-sheet dismiss layer intercepted/);
   assert.match(runner, /visibleAriaLocator\(page, \[new RegExp\(escapeRegExp\(`\$\{prefix\}\.emoji`\)\)\]/);
   assert.match(runner, /visibleNativeControl\(page, \[new RegExp\(escapeRegExp\(`\$\{prefix\}\.emoji`\)\)\]/);
+  assert.match(runner, /verifyCommunityEmojiPanelSections/);
+  assert.match(runner, /communityEmojiPanelProbeSections/);
+  assert.match(runner, /community\.emoji\.section\.\$\{section\}/);
+  assert.match(runner, /community\.emoji\.grid\.\$\{section\}/);
+  assert.match(runner, /community\.emoji\.cell\.\$\{section\}\.0/);
   assert.match(runner, /nativeControlsOnly/);
   assert.doesNotMatch(runner, /visibleAriaLocator\(page, \[\/Comentarios\|Comments\|Commentaires\/i\]/);
   assert.match(runner, /prefix: "feed\.comments"/);
@@ -110,6 +115,10 @@ test("Android runner records the same Feed and Official emoji-comment flow", () 
   assert.match(uiTest, /requireReturnTag: Boolean = true/);
   assert.match(uiTest, /feed\.comments\.emoji/);
   assert.match(uiTest, /official\.comments\.emoji/);
+  assert.match(uiTest, /verifyCommunityEmojiPanelSections/);
+  assert.match(uiTest, /communityEmojiPanelProbeSections/);
+  assert.match(uiTest, /community\.emoji\.sections/);
+  assert.match(uiTest, /community\.emoji\.grid\.\$section/);
   assert.match(uiTest, /community\.emoji\.cell\.frequent\.0/);
   assert.match(uiTest, /sendReplyCommentFromOpenPanel/);
   assert.match(uiTest, /\$prefix\.reply\.\$replyToCommentId/);
@@ -152,6 +161,10 @@ test("iOS runner records the same Feed and Official emoji-comment flow", () => {
   assert.match(uiTest, /must expose a stable comment author profile anchor/);
   assert.match(uiTest, /feed\.comments\.emoji/);
   assert.match(uiTest, /official\.comments\.emoji/);
+  assert.match(uiTest, /verifyCommunityEmojiPanelSections/);
+  assert.match(uiTest, /communityEmojiPanelProbeSections/);
+  assert.match(uiTest, /community\.emoji\.sections/);
+  assert.match(uiTest, /community\.emoji\.grid\.\\\(section\)/);
   assert.match(uiTest, /community\.emoji\.cell\.frequent\.0/);
   assert.match(uiTest, /sendReplyCommentFromTaggedSurface/);
   assert.ok(uiTest.includes('feed.comments.reply.\\(feedCommentId)'));

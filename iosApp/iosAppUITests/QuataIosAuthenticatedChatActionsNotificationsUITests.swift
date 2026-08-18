@@ -5,6 +5,17 @@ import UIKit
 /// The companion runner seeds the Keychain session and disposable backend conversation first.
 @available(iOS 16.4, *)
 final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
+    private let communityEmojiPanelProbeSections = [
+        "recent",
+        "frequent",
+        "gestures",
+        "people",
+        "animals_nature",
+        "food_drink",
+        "objects_symbols",
+        "flags",
+    ]
+
     func testGroupAdminPromotesParticipantThroughSharedMemberMenu() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_GROUP_ADMIN_UI_E2E"] == "1" else {
@@ -1235,6 +1246,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: "community.emoji.panel")
             .firstMatch
         XCTAssertTrue(emojiPanel.waitForExistence(timeout: 10), "\(context) must show the shared emoji panel.")
+        verifyCommunityEmojiPanelSections(context: context, screenshotPrefix: beforeScreenshot + "-panel", in: app)
         tapTaggedButton("community.emoji.cell.frequent.0", in: app, context: "\(context) first frequent emoji")
 
         _ = waitForCommentInput(inputIdentifier, in: app, timeout: 3, required: false)
@@ -1251,6 +1263,64 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: authorIdentifier)
             .firstMatch
         XCTAssertTrue(author.waitForExistence(timeout: 10), "\(context) must expose a stable comment author profile anchor.")
+    }
+
+    private func verifyCommunityEmojiPanelSections(context: String, screenshotPrefix: String, in app: XCUIApplication) {
+        for section in communityEmojiPanelProbeSections {
+            let sectionIdentifier = "community.emoji.section.\(section)"
+            let gridIdentifier = "community.emoji.grid.\(section)"
+            let cellIdentifier = "community.emoji.cell.\(section).0"
+            let sectionButton = scrollEmojiSectionIntoView(sectionIdentifier, in: app)
+            XCTAssertTrue(sectionButton.exists, "\(context) must expose \(sectionIdentifier).")
+            sectionButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: gridIdentifier).firstMatch.waitForExistence(timeout: 5),
+                "\(context) must expose selected emoji grid \(gridIdentifier).",
+            )
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: cellIdentifier).firstMatch.waitForExistence(timeout: 5),
+                "\(context) must expose first emoji cell \(cellIdentifier).",
+            )
+            if section == "frequent" || section == "flags" {
+                attachScreenshot(app, name: "\(screenshotPrefix)-\(section)")
+            }
+        }
+        let frequent = scrollEmojiSectionIntoView("community.emoji.section.frequent", in: app)
+        XCTAssertTrue(frequent.exists, "\(context) must restore the frequent emoji section.")
+        frequent.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "community.emoji.cell.frequent.0").firstMatch.waitForExistence(timeout: 5),
+            "\(context) must restore the frequent emoji cell.",
+        )
+    }
+
+    private func scrollEmojiSectionIntoView(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let target = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        if target.waitForExistence(timeout: 1), target.isHittable {
+            return target
+        }
+        let row = app.descendants(matching: .any).matching(identifier: "community.emoji.sections").firstMatch
+        for _ in 0..<8 {
+            if target.exists, target.isHittable {
+                return target
+            }
+            if row.exists {
+                row.swipeLeft()
+            } else {
+                app.swipeLeft()
+            }
+        }
+        for _ in 0..<8 {
+            if target.exists, target.isHittable {
+                return target
+            }
+            if row.exists {
+                row.swipeRight()
+            } else {
+                app.swipeRight()
+            }
+        }
+        return target
     }
 
     private func sendReplyCommentFromTaggedSurface(
