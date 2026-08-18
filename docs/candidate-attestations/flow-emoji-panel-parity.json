@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-EMOJI",
+    "OVR-COMMENTS"
+  ],
+  "productSha": "f42d8490dfae8b7859b433a034f51821cd6b25e5",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "f42d8490dfae8b7859b433a034f51821cd6b25e5",
+      "report": "build-reports/web/flow-emoji-panel-parity-web-feed-official-f42d8490-20260818-142639.json",
+      "screenshots": [
+        "build-reports/web/flow-emoji-panel-parity-web-feed-official-f42d8490-20260818-142639/web-feed-comments-emoji-panel-frequent.png",
+        "build-reports/web/flow-emoji-panel-parity-web-feed-official-f42d8490-20260818-142639/web-feed-comments-emoji-panel-flags.png",
+        "build-reports/web/flow-emoji-panel-parity-web-feed-official-f42d8490-20260818-142639/web-official-comments-emoji-panel-frequent.png",
+        "build-reports/web/flow-emoji-panel-parity-web-feed-official-f42d8490-20260818-142639/web-official-comments-emoji-panel-flags.png"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "f42d8490dfae8b7859b433a034f51821cd6b25e5",
+      "report": "build-reports/android/flow-emoji-panel-parity-android-feed-official-f42d8490-20260818-142639.json",
+      "screenshots": [
+        "build-reports/android/flow-emoji-panel-parity-android-feed-official-f42d8490-20260818-142639/android-feed-comments-emoji-before-panel-frequent.png",
+        "build-reports/android/flow-emoji-panel-parity-android-feed-official-f42d8490-20260818-142639/android-feed-comments-emoji-before-panel-flags.png",
+        "build-reports/android/flow-emoji-panel-parity-android-feed-official-f42d8490-20260818-142639/android-official-comments-emoji-before-panel-frequent.png",
+        "build-reports/android/flow-emoji-panel-parity-android-feed-official-f42d8490-20260818-142639/android-official-comments-emoji-before-panel-flags.png"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "f42d8490dfae8b7859b433a034f51821cd6b25e5",
+      "report": "build-reports/ios/flow-emoji-panel-parity-ios-feed-official-f42d8490-20260818-142639.json",
+      "uiReportDirectory": "build-reports/ios/flow-emoji-panel-parity-ios-feed-official-f42d8490-20260818-142639/mac-ui-report",
+      "resultBundleDirectory": "build-reports/ios/flow-emoji-panel-parity-ios-feed-official-f42d8490-20260818-142639/xcresults",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate adds common section-row selected-state and active-grid anchors to CommunityEmojiPanelContent: community.emoji.sections, community.emoji.section.<key>, community.emoji.grid.<key> and community.emoji.cell.<key>.0.",
+    "Web/Wasm, Android and iOS open Feed and Official comment sheets, traverse recent, frequent, gestures, people, animals_nature, food_drink, objects_symbols and flags, capture representative frequent/flags panel states, insert emoji comments, verify persisted comments and finish with hard cleanup physical residue zero.",
+    "Web/Wasm resolves the section anchors by aria-label for the primary probe. It records a geometric reset fallback only after the frequent semantic anchor was already observed and the horizontally scrolled row no longer exposed it, which is diagnostic and not the primary replay mechanism.",
+    "This reduces FLOW-EMOJI visual panel parity and OVR-COMMENTS picker coverage. It does not declare full FLOW-EMOJI GO: selector errors and rollback-forced paths remain pending."
+  ]
+}
