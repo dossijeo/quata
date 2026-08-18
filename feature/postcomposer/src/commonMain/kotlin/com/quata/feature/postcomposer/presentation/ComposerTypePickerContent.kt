@@ -158,7 +158,7 @@ private fun ComposerTypeCard(
                 this.selected = selected
                 if (!enabled) disabled()
                 this.traversalIndex = traversalIndex
-                contentDescription = "${control.name}: $label"
+                contentDescription = "${control.name}: $label composer-type-${type.name.lowercase()}"
                 stateDescription = "${control.state(selected, isEnabled = enabled)}; ${control.focus(focused)}"
             }
     } else {

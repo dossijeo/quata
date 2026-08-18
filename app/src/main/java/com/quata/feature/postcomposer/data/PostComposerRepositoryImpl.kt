@@ -46,18 +46,21 @@ class PostComposerRepositoryImpl(
         }
 
         val wallId = resolveWallId(session.userId)
+        var uploadedImageStoragePath: String? = null
         val imageUrl = if (draft.type == PostComposerType.Image) {
             val media = mediaUploadOptimizer.prepareImageUpload(
                 uriString = draft.imageUri ?: error("Selecciona una imagen"),
                 fallbackMimeType = "image/jpeg",
                 fallbackFileNameBase = "imagen"
             )
-            supabaseApi.uploadPostImage(
+            val upload = supabaseApi.uploadPostImage(
                 profileId = session.userId,
                 bytes = media.bytes,
                 extension = media.extension,
                 mimeType = media.mimeType
-            ).publicUrl ?: error("Supabase no devolvio URL de imagen")
+            )
+            uploadedImageStoragePath = upload.key?.takeIf { it.isNotBlank() }
+            upload.publicUrl ?: error("Supabase no devolvio URL de imagen")
         } else {
             null
         }
@@ -110,6 +113,12 @@ class PostComposerRepositoryImpl(
                 runCatching { wordpressClient.deletePostVideoAjax(orphanUrl) }
                     .onFailure { cleanupError ->
                         Log.w(POST_COMPOSER_LOG_TAG, "Could not clean orphan uploaded video: $orphanUrl", cleanupError)
+                    }
+            }
+            uploadedImageStoragePath?.let { orphanPath ->
+                runCatching { supabaseApi.deletePostImageObject(orphanPath) }
+                    .onFailure { cleanupError ->
+                        Log.w(POST_COMPOSER_LOG_TAG, "Could not clean orphan uploaded image: $orphanPath", cleanupError)
                     }
             }
         }.getOrThrow()

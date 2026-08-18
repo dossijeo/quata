@@ -876,6 +876,123 @@ export async function pollFeedOfficialReplyComment({
   throw new Error(`feed_official_${surface}_reply_comment_not_persisted`);
 }
 
+export function createPostPublishFixture({
+  actorSession,
+  platformLabel,
+  runId = randomUUID(),
+}) {
+  if (!uuid.test(actorSession?.profileId ?? "")) throw new Error("post_publish_fixture_invalid_actor");
+  const cleanPlatform = String(platformLabel ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "")
+    .slice(0, 24);
+  if (!cleanPlatform) throw new Error("post_publish_fixture_invalid_platform");
+  const cleanRunId = String(runId).replace(/[^a-z0-9-]/gi, "").slice(0, 36);
+  const marker = `qadata-post-publish-${cleanPlatform}-${cleanRunId}`;
+  return {
+    marker,
+    markerProbe: marker.slice(-24),
+    platformLabel: cleanPlatform,
+    actorSession,
+    runId: cleanRunId,
+    publishedPostId: null,
+    publishedMediaUrls: [],
+  };
+}
+
+export async function pollPostPublishFixture({
+  fixture,
+  withDatabase,
+  delay,
+  timeout = 60_000,
+}) {
+  if (!fixture?.marker?.startsWith("qadata-post-publish-")) throw new Error("post_publish_fixture_marker_invalid");
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const result = await withDatabase(async (client) => await client.query(
+      `select id, body, image_url, video_url
+         from public.community_posts
+        where profile_id = $1::uuid
+          and body like $2
+        order by created_at desc
+        limit 1`,
+      [fixture.actorSession.profileId, `%${fixture.marker}%`],
+    ));
+    const row = result.rows[0];
+    if (uuid.test(row?.id ?? "")) {
+      fixture.publishedPostId = row.id;
+      fixture.publishedBody = row.body ?? null;
+      fixture.publishedMediaUrls = [row.image_url, row.video_url].filter(Boolean);
+      return {
+        postId: row.id,
+        body: row.body ?? null,
+        mediaUrls: fixture.publishedMediaUrls,
+      };
+    }
+    await delay(1_000);
+  }
+  throw new Error("post_publish_post_not_persisted");
+}
+
+export async function cleanupPostPublishFixture({
+  fixture,
+  withDatabase,
+}) {
+  if (!fixture?.marker) return null;
+  return await withDatabase(async (client) => {
+    await client.query("begin");
+    try {
+      const resolved = await client.query(
+        `select id, image_url, video_url
+           from public.community_posts
+          where (id = $1::uuid or body like $2)
+            and profile_id = $3::uuid
+          for update`,
+        [fixture.publishedPostId ?? nilUuid, `%${fixture.marker}%`, fixture.actorSession?.profileId ?? nilUuid],
+      );
+      const ids = [...new Set(resolved.rows.map((row) => row.id).filter(Boolean))];
+      const mediaUrls = [...new Set([
+        ...(fixture.publishedMediaUrls ?? []),
+        ...resolved.rows.flatMap((row) => [row.image_url, row.video_url]).filter(Boolean),
+      ])];
+      if (ids.length) {
+        await client.query("delete from public.community_post_likes where post_id = any($1::uuid[])", [ids]);
+        await client.query("delete from public.community_comments where post_id = any($1::uuid[]) or body like $2", [ids, `%${fixture.marker}%`]);
+        await client.query(
+          `delete from public.community_posts
+            where id = any($1::uuid[])
+              and profile_id = $2::uuid`,
+          [ids, fixture.actorSession?.profileId ?? nilUuid],
+        );
+      }
+      await client.query("commit");
+      const residueIds = ids.length ? ids : [fixture.publishedPostId ?? nilUuid];
+      const residue = await client.query(
+        `select
+          (select count(*)::int from public.community_posts
+            where (id = any($1::uuid[]) or body like $2)
+              and profile_id = $3::uuid) as community_posts,
+          (select count(*)::int from public.community_comments
+            where post_id = any($1::uuid[]) or body like $2) as community_comments,
+          (select count(*)::int from public.community_post_likes
+            where post_id = any($1::uuid[])) as community_post_likes`,
+        [residueIds, `%${fixture.marker}%`, fixture.actorSession?.profileId ?? nilUuid],
+      );
+      const counts = residue.rows[0] ?? {};
+      if (Object.values(counts).some((count) => Number(count) !== 0)) throw new Error("cleanup_residue_detected:post_publish");
+      return {
+        status: "cleanup_verified_post_publish_residue_absent",
+        postIds: ids,
+        mediaUrls,
+        residueCounts: counts,
+      };
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+}
+
 export async function cleanupProfileRolesSafetyFixture({
   fixture,
   withDatabase,

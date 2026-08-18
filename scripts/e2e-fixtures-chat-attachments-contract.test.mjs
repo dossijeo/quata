@@ -6,9 +6,12 @@ import {
   chatAttachmentsBucket,
   createCleanupRegistry,
   cleanupFeedOfficialCommentsFixture,
+  cleanupPostPublishFixture,
   cleanupProfileContentFixture,
+  createPostPublishFixture,
   pollFeedOfficialComment,
   pollFeedOfficialReplyComment,
+  pollPostPublishFixture,
   pollProfileContentReplyComment,
   seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
@@ -499,4 +502,105 @@ test("shared feed/official comments poll reads the platform-neutral surface tabl
   assert.equal(await pollFeedOfficialComment({ fixture, surface: "official", marker: "official", withDatabase, delay: async () => {} }), "66666666-6666-6666-6666-666666666666");
   assert.match(calls[0].sql, /public\.community_comments/);
   assert.match(calls[1].sql, /public\.official_post_comments/);
+});
+
+test("post publish fixture creates stable markers per platform", () => {
+  const fixture = createPostPublishFixture({
+    actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+    platformLabel: "Web/Wasm",
+    runId: "12345678-1234-1234-1234-123456789abc",
+  });
+  assert.equal(fixture.marker, "qadata-post-publish-webwasm-12345678-1234-1234-1234-123456789abc");
+  assert.equal(fixture.markerProbe, "4-1234-1234-123456789abc");
+});
+
+test("post publish poll stores exact post and media for cleanup", async () => {
+  const fixture = createPostPublishFixture({
+    actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+    platformLabel: "android",
+    runId: "12345678-1234-1234-1234-123456789abc",
+  });
+  const result = await pollPostPublishFixture({
+    fixture,
+    delay: async () => {},
+    withDatabase: async (callback) => callback({
+      query: async () => ({
+        rows: [{
+          id: "22222222-2222-2222-2222-222222222222",
+          body: `body ${fixture.marker}`,
+          image_url: "https://project.supabase.co/storage/v1/object/public/community-posts/actor/img.png",
+          video_url: null,
+        }],
+      }),
+    }),
+  });
+  assert.equal(result.postId, "22222222-2222-2222-2222-222222222222");
+  assert.equal(fixture.publishedPostId, "22222222-2222-2222-2222-222222222222");
+  assert.equal(fixture.publishedMediaUrls.length, 1);
+});
+
+test("post publish cleanup deletes owned rows and verifies residue", async () => {
+  const queries = [];
+  const summary = await cleanupPostPublishFixture({
+    fixture: {
+      marker: "qadata-post-publish-ios-12345678-1234-1234-1234-123456789abc",
+      actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+      publishedPostId: "22222222-2222-2222-2222-222222222222",
+      publishedMediaUrls: ["https://project.supabase.co/storage/v1/object/public/community-posts/actor/img.png"],
+    },
+    withDatabase: async (callback) => callback({
+      query: async (sql, params = []) => {
+        queries.push({ sql, params });
+        if (/select id, image_url, video_url/.test(sql)) {
+          return {
+            rows: [{
+              id: "22222222-2222-2222-2222-222222222222",
+              image_url: "https://project.supabase.co/storage/v1/object/public/community-posts/actor/img.png",
+              video_url: null,
+            }],
+          };
+        }
+        if (/select\s+\(select count\(\*\)::int from public\.community_posts/.test(sql)) {
+          return {
+            rows: [{
+              community_posts: 0,
+              community_comments: 0,
+              community_post_likes: 0,
+            }],
+          };
+        }
+        return { rows: [], rowCount: 1 };
+      },
+    }),
+  });
+  assert.equal(summary.status, "cleanup_verified_post_publish_residue_absent");
+  assert.deepEqual(summary.postIds, ["22222222-2222-2222-2222-222222222222"]);
+  assert.equal(summary.mediaUrls.length, 1);
+  assert.ok(queries.some((entry) => /delete from public\.community_post_likes/.test(entry.sql)));
+  assert.ok(queries.some((entry) => /delete from public\.community_comments/.test(entry.sql)));
+  assert.ok(queries.some((entry) => /delete from public\.community_posts/.test(entry.sql)));
+});
+
+test("post publish cleanup fails closed on residue", async () => {
+  await assert.rejects(cleanupPostPublishFixture({
+    fixture: {
+      marker: "qadata-post-publish-web-12345678-1234-1234-1234-123456789abc",
+      actorSession: { profileId: "11111111-1111-1111-1111-111111111111" },
+      publishedPostId: "22222222-2222-2222-2222-222222222222",
+    },
+    withDatabase: async (callback) => callback({
+      query: async (sql) => {
+        if (/select\s+\(select count\(\*\)::int from public\.community_posts/.test(sql)) {
+          return {
+            rows: [{
+              community_posts: 1,
+              community_comments: 0,
+              community_post_likes: 0,
+            }],
+          };
+        }
+        return { rows: [], rowCount: 0 };
+      },
+    }),
+  }), /cleanup_residue_detected:post_publish/);
 });
