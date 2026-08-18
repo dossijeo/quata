@@ -168,7 +168,7 @@ jobs:
         uses: browser-actions/setup-chrome@v1
         with:
           chrome-version: "150"
-          install-dependencies: true
+          install-dependencies: false
 
       - name: Install pinned browser E2E dependencies
         shell: bash

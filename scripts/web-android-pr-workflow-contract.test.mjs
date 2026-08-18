@@ -55,6 +55,8 @@ function assertFastAndFinalLaneContract(yaml) {
     assert.match(block, finalGuard, `${job} must remain gated behind candidate-final on pull requests`);
   }
   assert.match(yaml, /name: Web\/Wasm final distribution and Chrome smoke/);
+  assert.match(yaml, /uses: browser-actions\/setup-chrome@v1[\s\S]*?install-dependencies: false/,
+    'the final Web lane must not depend on setup-chrome apt-get dependency installation');
   const gateStart = yaml.indexOf('  final-certification-gate:');
   assert.ok(gateStart >= 0, 'the final jobs require an always-running aggregate gate');
   const gateBlock = yaml.slice(gateStart);
