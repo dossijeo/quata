@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -19,11 +20,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
+
+const val ComposerTextInputTestTag = "composer-text-input"
 
 /**
  * Shared layout for a text post. System emoji pickers and publication actions are slots so
@@ -48,13 +56,21 @@ fun ComposerTextPostFormContent(
     fun ColumnScope.InputAndEmoji() {
         ComposerTextFormPanelContent(title = contentTitle, highlighted = true) {
             val template = quataTheme()
+            val focusManager = LocalFocusManager.current
             OutlinedTextField(
                 value = textValue,
                 onValueChange = onTextChange,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(force = true) }),
                 placeholder = { Text(placeholder, color = template.colors.textSecondary) },
                 minLines = minLines,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(ComposerTextInputTestTag)
+                    .semantics { contentDescription = "$contentTitle $ComposerTextInputTestTag" },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = template.colors.textPrimary,
                     unfocusedTextColor = template.colors.textPrimary,

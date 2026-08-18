@@ -1135,7 +1135,10 @@ private final class IosAppCompositionRoot {
                     cameraCapture: services.cameraCapture,
                     videoThumbnails: services.videoThumbnails,
                     languageTag: Locale.preferredLanguages.first,
-                    onClose: { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                    onClose: { [weak self] in
+                        self?.authenticatedHost.view.endEditing(true)
+                        self?.authenticatedHost.showFeed(postId: nil)
+                    },
                 ),
             )
         }

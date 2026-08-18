@@ -1019,6 +1019,10 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
         return client.uploadObject(path, bytes, mimeType, upsert = true)
     }
 
+    suspend fun deletePostImageObject(storagePath: String) {
+        client.deleteObject(storagePath)
+    }
+
     suspend fun uploadAvatar(profileId: String, bytes: ByteArray, extension: String = "jpg", mimeType: String = "image/jpeg"): StorageUploadResult {
         val path = "avatars/$profileId/${System.currentTimeMillis()}-${randomToken()}.$extension"
         return client.uploadObject(path, bytes, mimeType, upsert = true)

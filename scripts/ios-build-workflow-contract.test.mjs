@@ -173,6 +173,16 @@ function assertIosWorkflowSelfCoverage(yaml) {
     compilationBlock.includes(':core:iosSimulatorArm64Test \\'),
     'the iOS lane must execute core iosTest contracts on its simulator runtime',
   );
+
+  const linkBlock = yaml.slice(
+    yaml.indexOf('      - name: Link QuataShared simulator framework'),
+    yaml.indexOf('      - name: Assemble QuataShared XCFramework'),
+  );
+  assert.match(
+    linkBlock,
+    /timeout-minutes: 45[\s\S]*run_watchdog 2400 build\/reports\/ios\/framework-link\.log bash \.\/gradlew[\s\S]*:ios-shared:linkDebugFrameworkIosSimulatorArm64/,
+    'the explicit simulator framework link must be watchdog-bounded and emit diagnostics on stalls',
+  );
 }
 
 function assertIosRuntimeFixtureAndUiIsolation(yaml) {

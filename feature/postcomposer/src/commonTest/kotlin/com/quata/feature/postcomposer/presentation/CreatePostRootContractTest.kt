@@ -21,6 +21,15 @@ class CreatePostRootContractTest {
     }
 
     @Test
+    fun postPublishEvidenceAnchorsStayCommon() {
+        assertEquals("composer-text-input", ComposerTextInputTestTag)
+        assertEquals("composer-publish", ComposerPublishButtonTestTag)
+        assertEquals("composer-type-text", "composer-type-${PostComposerType.Text.name.lowercase()}")
+        assertEquals("composer-feedback-error", ComposerFeedbackErrorTestTag)
+        assertEquals("composer-feedback-success", ComposerFeedbackSuccessTestTag)
+    }
+
+    @Test
     fun localeCatalogAndCounterRetainProductContract() {
         assertEquals("Create post", createPostRootCopyForLanguageTag("en-US").title)
         assertEquals("Crear publicación", createPostRootCopyForLanguageTag("es-ES").title)

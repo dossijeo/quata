@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-PUBLISH"
+  ],
+  "productSha": "edfb68deed4805230b43208e8e99d6378fc1b65c",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "edfb68deed4805230b43208e8e99d6378fc1b65c",
+      "report": "build-reports/web/post-publish-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "edfb68deed4805230b43208e8e99d6378fc1b65c",
+      "report": "build-reports/android/post-publish-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "edfb68deed4805230b43208e8e99d6378fc1b65c",
+      "report": "build-reports/ios/post-publish-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate publishes a real authenticated text post from the common CreatePostRoot/Composer form on Web/Wasm, Android and iOS, verifies the exact marker in Supabase, and hard-cleans community_posts plus related comments/likes with residue count zero.",
+    "Web/Wasm still records a controlled viewport fallback for the visible publish button because the Compose canvas host does not expose an actionable DOM node for that control; the product route is first reached visually through the common composer and the mutation is performed through a localhost-only opt-in bridge for evidence."
+  ]
+}

@@ -2,6 +2,7 @@ package com.quata.web
 
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -15,6 +16,8 @@ import com.quata.feature.postcomposer.presentation.CreatePostViewModel
 import com.quata.feature.postcomposer.presentation.createPostRootCopyForLanguageTag
 import com.quata.feature.postcomposer.presentation.viewModelMessages
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 data class WebComposerMediaSlots(
     val pickImage: suspend () -> String?,
@@ -44,6 +47,23 @@ fun WebPostComposerHost(
     val copy = createPostRootCopyForLanguageTag(browserCapabilityLanguageTag())
     val viewModel = remember(repository, copy) { CreatePostViewModel(repository, messages = copy.viewModelMessages()) }
     val scope = rememberCoroutineScope()
+    DisposableEffect(viewModel, canPublish, onAuthRequired) {
+        val uninstall = installWebPostComposerE2eBridge(
+            submitText = { if (canPublish) viewModel.submit(PostComposerType.Text) else onAuthRequired() },
+            state = {
+                val state = viewModel.uiState.value
+                buildJsonObject {
+                    put("textLength", state.text.length)
+                    put("isLoading", state.isLoading)
+                    put("hasError", state.error != null)
+                    state.error?.let { put("error", it.take(160)) }
+                    put("hasSuccess", state.successMessage != null)
+                    put("hasCreatedPostId", !state.createdPostId.isNullOrBlank())
+                }.toString()
+            },
+        )
+        onDispose { uninstall() }
+    }
     CreatePostRoot(
         viewModel = viewModel,
         accessibility = CriticalControlsAccessibilityCatalog.forLanguageTag(browserCapabilityLanguageTag()),

@@ -31,9 +31,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.quata.core.accessibility.CriticalControlsAccessibilityCopy
 import com.quata.core.ui.components.CommunityEmojiPanelContent
@@ -185,6 +186,7 @@ fun CreatePostRoot(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsState()
+    val focusManager = LocalFocusManager.current
     var step by rememberSaveable { mutableStateOf(CreatePostStep.TypePicker) }
     var textValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(state.text)) }
     var emojiOpen by rememberSaveable { mutableStateOf(false) }
@@ -223,6 +225,7 @@ fun CreatePostRoot(
     }
     LaunchedEffect(state.successMessage) {
         if (state.successMessage != null) {
+            focusManager.clearFocus(force = true)
             slots.clearOwnedMedia?.invoke()
             step = CreatePostStep.TypePicker
             textValue = TextFieldValue("")
@@ -311,7 +314,15 @@ fun CreatePostRoot(
                             )
                         })
                     },
-                    publish = { ComposerPublishButtonContent(state.isLoading, copy.publish, copy.publishing, { publish(PostComposerType.Text) }, accessibility = accessibility) },
+                    publish = {
+                        ComposerPublishButtonContent(
+                            state.isLoading,
+                            copy.publish,
+                            copy.publishing,
+                            { publish(PostComposerType.Text) },
+                            accessibility = accessibility,
+                        )
+                    },
                     modifier = Modifier.dismissCommunityEmojiPanelOnOutsideTap(emojiOpen, emojiDismissState),
                 )
                 CreatePostStep.Image -> CommonImageComposerForm(state, slots, copy, accessibility, isLandscapeLayout, locationOpen, { locationOpen = it }, {

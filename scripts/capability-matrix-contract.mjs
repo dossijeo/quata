@@ -32,7 +32,7 @@ const catalog = {
   'communities.mutate': ['mutation', ['toggleFollowUser', 'toggleProfilePostLike', 'addProfileComment', 'reportPost', 'reportProfile', 'setProfileBlocked', 'setUserRoles'], ['implemented', 'implemented', 'implemented']],
   'communities.community-chat.open': ['mutation', ['openNeighborhoodChat'], ['implemented', 'implemented', 'implemented']],
   'communities.private-chat.open': ['mutation', ['openPrivateChat'], ['implemented', 'implemented', 'implemented']],
-  'composer.publish': ['mutation', ['createPost'], ['implemented', 'contract-only', 'blocked']],
+  'composer.publish': ['mutation', ['createPost'], ['implemented', 'implemented', 'implemented']],
   'profile.remote-mutate': ['mutation', ['saveProfile', 'saveEmergencySettings'], ['implemented', 'implemented', 'implemented']],
   'profile.avatar-upload': ['mutation', ['uploadIfNeeded'], ['implemented', 'implemented', 'implemented']],
   'push.delivery': ['flow', ['receiveExternalPush'], ['external', 'external', 'external']],
