@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-SOS",
+    "SOS-CONTACTS",
+    "SB-06"
+  ],
+  "productSha": "da5953db75837edb3ea29ec16d96c5ba20982c8d",
+  "evidence": {
+    "backend": {
+      "status": "passed",
+      "sha": "da5953db75837edb3ea29ec16d96c5ba20982c8d",
+      "report": "build-reports/supabase/sb-06-profile-sos-existing-users-da5953db.json",
+      "mode": "two_approved_existing_profiles_public_key",
+      "cleanup": {
+        "verified": true,
+        "mode": "profile_field_and_contact_snapshot_restored"
+      }
+    },
+    "contracts": {
+      "status": "passed",
+      "sha": "da5953db75837edb3ea29ec16d96c5ba20982c8d",
+      "report": "node --test scripts/profile-sos-contacts-contract.test.mjs scripts/candidate-attestation-contract.test.mjs scripts/supabase-e2e-sb06-contract.test.mjs",
+      "tests": {
+        "count": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "no_remote_mutation"
+      }
+    },
+    "web": {
+      "status": "passed",
+      "sha": "da5953db75837edb3ea29ec16d96c5ba20982c8d",
+      "report": "build-reports/web/profile-sos-contacts-5-limit-evidence-da5953db.json",
+      "mode": "hermetic_local_fixture",
+      "cleanup": {
+        "verified": true,
+        "mode": "sessions_revoked_and_verified"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "da5953db75837edb3ea29ec16d96c5ba20982c8d",
+      "report": "app/build/reports/androidTests/connected/debug/index.html",
+      "mode": "connectedDebugAndroidTest ProfileSosContactsInstrumentedTest",
+      "tests": {
+        "count": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_fixture_no_remote_mutation"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "da5953db75837edb3ea29ec16d96c5ba20982c8d",
+      "report": "build/reports/ios/profile-sos-contacts-5-limit-da5953db.xcresult",
+      "mode": "Mac Hyper-V simulator XCTest testProfileSosFixtureRendersSharedContactsEditorAnchors",
+      "tests": {
+        "count": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_fixture_no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/supabase-e2e-sb06.mjs",
+    "node --test scripts/profile-sos-contacts-contract.test.mjs scripts/candidate-attestation-contract.test.mjs scripts/supabase-e2e-sb06-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution",
+    "node scripts/web-authenticated-browser-e2e.mjs --dist web/build/dist/wasmJs/productionExecutable --out build-reports/web/profile-sos-contacts-5-limit-evidence-da5953db.json",
+    ".\\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.feature.profile.presentation.ProfileSosContactsInstrumentedTest",
+    "bash scripts/build-ios-intel-simulator-signed.sh",
+    "xcodebuild test-without-building -only-testing:QuataIosUITests/QuataIosHostUITests/testProfileSosFixtureRendersSharedContactsEditorAnchors -resultBundlePath build/reports/ios/profile-sos-contacts-5-limit-da5953db.xcresult",
+    "node scripts/supabase-e2e-sb06.mjs --allow-profile-mutation --allow-sos-contact-mutation --out build-reports/supabase/sb-06-profile-sos-existing-users-da5953db.json"
+  ],
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "SB-06 now supports the explicitly approved Gabrielo/Gabrielu lane through QUATA_CHAT_GROUP_CREDENTIALS_FILE without hardcoding or reporting phone numbers, passwords, JWTs, profile IDs, Supabase URL or publishable key.",
+    "The evidence uses only public Supabase configuration plus user JWTs. It rejects service-role keys and does not use SUPABASE_DB_URL, SQL, DDL, RPC, schema changes, grants, migration repair, Edge deploys or user creation.",
+    "The runner snapshots the actor display_name and existing community_emergency_contacts rows, deletes the current SOS set, inserts the normalized replacement set through the same PostgREST table shape as ProfileRemoteGateway, then restores and verifies the exact original snapshot.",
+    "This closes the remote persistence/cleanup slice and the shared visual 5/5 selection limit for SOS-CONTACTS. It does not declare full SCR-SOS GO: permissions/contact picker states and forced UI rollback/error paths remain pending.",
+    "Android and iOS validate native semantic anchors for all six fixture toggles and the shared 5 selected/4 selected states. Web/Wasm validates the same common behavior through the localhost-only bridge and records a canvas-relative fallback because Compose/Wasm does not expose contact toggle testTags as DOM/ARIA."
+  ]
+}

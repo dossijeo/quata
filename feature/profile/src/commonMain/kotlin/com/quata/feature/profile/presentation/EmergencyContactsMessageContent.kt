@@ -8,6 +8,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.ScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
@@ -25,6 +28,7 @@ fun EmergencyContactsMessageContent(
     headerStrings: EmergencyContactsHeaderStrings,
     title: String,
     hint: String,
+    errorMessage: String?,
     onTabSelected: (EmergencyContactsTab) -> Unit,
     onDismiss: () -> Unit,
     messageInput: @Composable () -> Unit,
@@ -50,6 +54,18 @@ fun EmergencyContactsMessageContent(
                 Text(title, fontWeight = FontWeight.ExtraBold)
                 Spacer(Modifier.height(8.dp))
                 Text(hint, color = template.colors.textSecondary)
+                errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = message,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.semantics {
+                            testTag = ProfileSosErrorTestTag
+                            contentDescription = ProfileSosErrorTestTag
+                        },
+                    )
+                }
                 Spacer(Modifier.height(10.dp))
                 messageInput()
             }

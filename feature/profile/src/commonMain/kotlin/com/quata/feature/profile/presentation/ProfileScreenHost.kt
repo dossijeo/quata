@@ -162,9 +162,29 @@ fun ProfileScreenHost(
                 showSos = false
                 viewModel.onEvent(ProfileUiEvent.ClearMessages)
             },
+            { count ->
+                val desiredIds = state.emergencyCandidates.take(count).map { it.id }.toSet()
+                val selectedIds = profile?.emergencyContactIds.orEmpty().toSet()
+                state.emergencyCandidates
+                    .filter { it.id in selectedIds && it.id !in desiredIds }
+                    .forEach { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) }
+                state.emergencyCandidates
+                    .filter { it.id !in selectedIds && it.id in desiredIds }
+                    .forEach { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) }
+            },
         )
         SideEffect {
-            if (!showSos) slots.onSosTabChanged(null)
+            if (showSos) {
+                slots.onSosSelectionChanged(
+                    profile?.emergencyContactIds.orEmpty().distinct().size,
+                    state.emergencyCandidates.size,
+                )
+                slots.onSosErrorChanged(state.errorMessage)
+            } else {
+                slots.onSosTabChanged(null)
+                slots.onSosSelectionChanged(0, state.emergencyCandidates.size)
+                slots.onSosErrorChanged(null)
+            }
         }
         if (showSos && profile != null) {
             EmergencyContactsDialogContent(
@@ -175,6 +195,7 @@ fun ProfileScreenHost(
                 selectedIds = profile.emergencyContactIds,
                 message = profile.emergencyMessage,
                 isSaving = state.isSaving,
+                errorMessage = state.errorMessage,
                 strings = strings.emergency,
                 onMessageChange = { viewModel.onEvent(ProfileUiEvent.EmergencyMessageChanged(it)) },
                 onToggleContact = { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) },
@@ -309,8 +330,10 @@ data class ProfileScreenSlots(
     val onProfileSaved: () -> Unit = {},
     val onBackFromOverview: () -> Unit = {},
     val backDispatcher: ProfileBackDispatcher? = null,
-    val sosE2eBridge: (@Composable (openSos: () -> Unit, closeSos: () -> Unit) -> Unit)? = null,
+    val sosE2eBridge: (@Composable (openSos: () -> Unit, closeSos: () -> Unit, selectFirstContacts: (Int) -> Unit) -> Unit)? = null,
     val onSosTabChanged: (EmergencyContactsTab?) -> Unit = {},
+    val onSosSelectionChanged: (selectedCount: Int, candidateCount: Int) -> Unit = { _, _ -> },
+    val onSosErrorChanged: (String?) -> Unit = {},
 )
 
 /** Platform-neutral back bridge. Hosts install their native back callback as a thin adapter. */

@@ -345,6 +345,16 @@
     <string name="emergency_selected_title">Selected</string>
     <string name="emergency_select_hint">Select up to 5 users from the QUATA network.</string>
     <string name="emergency_network_users">Network users</string>
+    <string name="emergency_import_contacts">Import contacts</string>
+    <string name="emergency_request_contacts_permission">Allow contacts access</string>
+    <string name="emergency_contact_picker_unavailable">Contact import is not available on this platform yet. Use QUATA network contacts below.</string>
+    <string name="emergency_contact_picker_cancelled">Contact import cancelled.</string>
+    <string name="emergency_contact_picker_failed">Could not import contacts.</string>
+    <string name="emergency_contacts_picked">Selected: %1$d. Match them with QUATA users before saving.</string>
+    <string name="emergency_contacts_permission_granted">Contacts access granted.</string>
+    <string name="emergency_contacts_permission_denied">Contacts access denied.</string>
+    <string name="emergency_contacts_permission_permanently_denied">Contacts access is blocked in system settings.</string>
+    <string name="emergency_contacts_permission_unavailable">Contacts access is not available on this platform.</string>
     <string name="emergency_message_title">Emergency message</string>
     <string name="emergency_message_hint">This text will reach your contacts when you press SOS.</string>
     <string name="emergency_save_contacts">Save / update contacts</string>

@@ -38,6 +38,16 @@ data class EmergencyContactsEditorStrings(
     val header: EmergencyContactsHeaderStrings,
     val selectedCount: @Composable (Int) -> String,
     val networkUsers: String,
+    val importContacts: String,
+    val requestContactsPermission: String,
+    val contactPickerUnavailable: String,
+    val contactPickerCancelled: String,
+    val contactPickerFailed: String,
+    val contactsPicked: (Int) -> String,
+    val contactsPermissionGranted: String,
+    val contactsPermissionDenied: String,
+    val contactsPermissionPermanentlyDenied: String,
+    val contactsPermissionUnavailable: String,
     val searchPlaceholder: String,
     val messageTitle: String,
     val messageHint: String,
@@ -63,6 +73,7 @@ fun EmergencyContactsEditorContent(
     selectedIds: List<String>,
     message: String,
     isSaving: Boolean,
+    errorMessage: String?,
     strings: EmergencyContactsEditorStrings,
     onMessageChange: (String) -> Unit,
     onToggleContact: (EmergencyContactCandidate) -> Unit,
@@ -115,6 +126,7 @@ fun EmergencyContactsEditorContent(
                     EmergencyContactsLandscapeContactsSectionContent(
                         title = strings.header.contactsTab,
                         selectedCountLabel = strings.selectedCount(selectedIds.size),
+                        errorMessage = errorMessage,
                         contactActions = contactActions,
                         modifier = modifier,
                         searchInput = {
@@ -156,6 +168,7 @@ fun EmergencyContactsEditorContent(
                         EmergencyContactsLandscapeMessagePanelContent(
                             title = strings.messageTitle,
                             hint = strings.messageHint,
+                            errorMessage = errorMessage,
                             input = {
                                 messageInput(
                                     Modifier
@@ -190,6 +203,7 @@ fun EmergencyContactsEditorContent(
                             headerStrings = strings.header,
                             searchPlaceholder = strings.searchPlaceholder,
                             selectedCountLabel = strings.selectedCount(selectedIds.size),
+                            errorMessage = errorMessage,
                             networkUsersLabel = strings.networkUsers,
                             onTabSelected = { selectedTab = it },
                             onDismiss = onDismiss,
@@ -205,6 +219,7 @@ fun EmergencyContactsEditorContent(
                             headerStrings = strings.header,
                             title = strings.messageTitle,
                             hint = strings.messageHint,
+                            errorMessage = errorMessage,
                             onTabSelected = { selectedTab = it },
                             onDismiss = onDismiss,
                             messageInput = {

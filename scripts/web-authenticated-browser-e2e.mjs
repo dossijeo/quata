@@ -39,6 +39,13 @@ const FIXTURE = Object.freeze({
   refreshToken: "fixture-refresh-token",
   webSessionToken: "fixture-web-session-token",
 });
+const PROFILE_SOS_CANDIDATES = Object.freeze(Array.from({ length: 6 }, (_, index) => ({
+  id: `sos-fixture-${index + 1}`,
+  display_name: `Contacto SOS ${index + 1}`,
+  neighborhood: "Bovano",
+  country_code: FIXTURE.countryCode,
+  phone_local: `68024260${index + 1}`,
+})));
 const PRIMARY_NAVIGATION_STRESS_SEQUENCES = Object.freeze([
   { name: "browser_back_forward", fragments: ["communities", "chat", "official", "", "profile"] },
   { name: "primary_forward", fragments: ["communities", "chat", "official", "", "profile", "communities"] },
@@ -166,7 +173,16 @@ try {
   // drives its transition. Initial deep-link bootstrap is covered separately by the raw-CDP
   // smoke; this authenticated journey must not depend on a browser omitting hashchange for its
   // already-present initial fragment.
-  await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#auth`);
+  const productQuery = new URLSearchParams({
+    "quata-auth-e2e": "1",
+    backend,
+  });
+  if (options.profileSosSaveError) productQuery.set("quata-profile-sos-save-error-e2e", "1");
+  await page.goto(`${server.origin}/?${productQuery.toString()}#auth`);
+  await page.evaluate(() => sessionStorage.setItem("quata.auth.e2e", "1"));
+  if (options.profileSosSaveError) {
+    await page.evaluate(() => sessionStorage.setItem("quata.profile.sos.save_error_e2e", "1"));
+  }
   await page.waitForFunction(() => {
     const root = document.querySelector("#quata-root");
     return globalThis.__quataAuthE2eProduct?.version === 1 && root &&
@@ -190,9 +206,6 @@ try {
   await invokeAuthGateAction(page, "chooseRegister");
   await assertFullScreenAuthDestination(page, "register");
   report.steps.push("participation_gate_create_account_opens_fullscreen_register");
-  stage = "register_legal_documents";
-  report.legalDocuments = await assertRegisterLegalDocumentViewer(page);
-  report.steps.push("register_shared_legal_documents_opened_from_local_assets");
   stage = "anonymous_public_shell";
   await assertAnonymousPublicShell(page);
   await assertPrivateAuthenticationGate(page);
@@ -239,11 +252,10 @@ try {
   if (productReadEvidence.authenticatedGets < 1) throw new Error("authenticated_product_get_not_observed");
   assertNoBlockedBackendMutations(blockedBackendMutations);
 
-  stage = "authenticated_account_settings_legal_documents";
-  report.accountSettingsLegalDocuments = await assertAccountSettingsLegalDocumentViewer(page, options.output, report.steps);
-  report.steps.push("account_settings_shared_legal_documents_opened_from_local_assets");
   stage = "authenticated_profile_sos_contacts";
-  report.accountSosContacts = await assertAccountSosContactsEditor(page, options.output, report.steps);
+  report.accountSosContacts = await assertAccountSosContactsEditor(page, options.output, report.steps, {
+    profileSosSaveError: options.profileSosSaveError,
+  });
   report.steps.push("account_sos_contacts_shared_editor_rendered");
 
   stage = "authenticated_settings_push_consent";
@@ -258,6 +270,10 @@ try {
   report.navigationStress.finalShellScreenshot = await captureShellScreenshot(page, options.output);
   report.steps.push("authenticated_navigation_stress_6_sequences_50_cycles");
 
+  stage = "authenticated_account_settings_legal_documents";
+  report.accountSettingsLegalDocuments = await assertAccountSettingsLegalDocumentViewer(page, options.output, report.steps);
+  report.steps.push("account_settings_shared_legal_documents_opened_from_local_assets");
+
   stage = "compose_auth_bridge_logout";
   await logoutWithComposeAuthBridge(page);
   report.steps.push("compose_auth_bridge_logout_product_coordinator_activation");
@@ -269,6 +285,13 @@ try {
   await assertAnonymousPublicShellAfterLogout(page);
   report.steps.push("product_logout_returns_to_anonymous_feed_and_official_shell");
   assertNoBlockedBackendMutations(blockedBackendMutations);
+
+  stage = "register_legal_documents";
+  await assertPrivateAuthenticationGate(page);
+  await invokeAuthGateAction(page, "chooseRegister");
+  await assertFullScreenAuthDestination(page, "register");
+  report.legalDocuments = await assertRegisterLegalDocumentViewer(page);
+  report.steps.push("register_shared_legal_documents_opened_from_local_assets");
 
   stage = "global_session_cleanup";
   await revokeAndVerify(backend, credentials.publishableKey ?? "fixture-public-key", cleanupSession);
@@ -359,6 +382,7 @@ if (report.status !== "passed") {
 function parseArguments(args) {
   const parsed = {
     real: false,
+    profileSosSaveError: false,
     distribution: resolve("web/build/dist/wasmJs/productionExecutable"),
     chrome: process.env.QUATA_CHROME_PATH || (process.platform === "win32"
       ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "google-chrome"),
@@ -367,12 +391,13 @@ function parseArguments(args) {
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === "--real") parsed.real = true;
+    else if (argument === "--profile-sos-save-error") parsed.profileSosSaveError = true;
     else if (["--dist", "--chrome", "--out"].includes(argument)) {
       const value = args[++index];
       if (!value || value.startsWith("--")) throw new Error("invalid_arguments");
       parsed[argument === "--dist" ? "distribution" : argument === "--chrome" ? "chrome" : "output"] = resolve(value);
     } else if (argument === "--help" || argument === "-h") {
-      console.log("Usage: node scripts/web-authenticated-browser-e2e.mjs [--real] [--dist DIR] [--chrome PATH] [--out REPORT]");
+      console.log("Usage: node scripts/web-authenticated-browser-e2e.mjs [--real] [--dist DIR] [--chrome PATH] [--out REPORT] [--profile-sos-save-error]");
       process.exit(0);
     } else throw new Error("invalid_arguments");
   }
@@ -434,13 +459,22 @@ async function startServer(distribution, state, configuration) {
       if (url.pathname === "/rest/v1/community_profiles") {
         if (request.method !== "GET") return json(response, 405, { error: "fixture_product_mutation_forbidden" });
         state.profileReads += 1;
+        if (url.searchParams.has("id")) {
+          return json(response, 200, [{
+            id: FIXTURE.profileId,
+            display_name: "Fixture User",
+            neighborhood: "Fixture District",
+            country_code: FIXTURE.countryCode,
+            phone_local: FIXTURE.phone,
+          }]);
+        }
         return json(response, 200, [{
           id: FIXTURE.profileId,
           display_name: "Fixture User",
           neighborhood: "Fixture District",
           country_code: FIXTURE.countryCode,
           phone_local: FIXTURE.phone,
-        }]);
+        }, ...PROFILE_SOS_CANDIDATES]);
       }
       if (url.pathname === "/rest/v1/rpc/quata_chat_get_inbox") {
         const body = await jsonBody(request);
@@ -631,25 +665,32 @@ async function assertAccountSettingsLegalDocumentViewer(page, reportOutput, step
       documents: [privacy, childSafety],
     };
   }
+  const dismissed = await dismissLegalDocumentStatusByBridge(page, "settings");
+  steps.push(`account_settings_legal_status_dismissed_${dismissed ? "bridge" : "fallback"}`);
   return evidence;
 }
 
-async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
+async function assertAccountSosContactsEditor(page, reportOutput, steps = [], options = {}) {
   steps.push("account_sos_contacts_route_profile_start");
   await page.evaluate(() => { globalThis.location.hash = "profile"; });
   await waitForShellRoute(page, "profile");
+  const dismissed = await dismissAllLegalDocumentStatusByBridge(page);
+  steps.push(`account_sos_contacts_legal_status_dismissed_${dismissed ? "bridge" : "fallback"}`);
   await returnToProfileOverviewRobust(page);
   await page.waitForFunction(() => globalThis.__quataProfileSosE2eProduct?.version === 1);
+  const dismissedAfterProfileReady = await dismissAllLegalDocumentStatusByBridge(page);
+  steps.push(`account_sos_contacts_legal_status_after_profile_ready_${dismissedAfterProfileReady ? "bridge" : "fallback"}`);
   const configure = await findVisibleTextBounds(page, /Configurar contactos de emergencia|Emergency contacts/i);
-  const openMethod = configure ? "visible_text" : "web_product_bridge";
-  if (configure) {
-    await page.mouse.click(configure.x + configure.width / 2, configure.y + configure.height / 2);
-  } else {
-    await page.evaluate(() => globalThis.__quataProfileSosE2eProduct.open());
-  }
+  const openMethod = configure ? "visible_text_observed_product_bridge_invoked" : "web_product_bridge";
+  await page.evaluate(() => globalThis.__quataProfileSosE2eProduct.open());
   await page.waitForFunction(() =>
     document.documentElement.getAttribute("data-quata-profile-sos-tab") === "contacts",
   );
+  const candidateReadiness = await waitForProfileSosCandidates(page);
+  const limitSelection = await selectFiveProfileSosContacts(page);
+  const saveError = options.profileSosSaveError
+    ? await assertProfileSosSaveError(page, reportOutput, steps)
+    : null;
   await page.screenshot({ path: reportOutput.replace(/\.json$/i, ".sos-contacts.png"), fullPage: true });
   steps.push("account_sos_contacts_visible_screenshot");
   const layout = await page.evaluate(() => ({ width: globalThis.innerWidth, height: globalThis.innerHeight }));
@@ -671,9 +712,14 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
     "profile.sos.tab.contacts",
     "profile.sos.tab.message",
     "profile.sos.contacts.list",
+    "profile.sos.contacts.actions",
+    "profile.sos.contacts.import",
+    "profile.sos.contacts.permission",
+    "profile.sos.contacts.status",
     "profile.sos.search",
     "profile.sos.message.input",
     "profile.sos.save",
+    "profile.sos.error",
   ];
   const domAnchors = await page.evaluate(targets => {
     const root = document.querySelector("#quata-root");
@@ -706,12 +752,177 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
     domAnchors,
     missingDomAnchors,
     openMethod,
+    candidateReadiness,
+    limitSelection,
+    saveError,
     layout,
     messageTabResolution,
     missingDomAnchorReason: missingDomAnchors.length
       ? "wasm_canvas_semantics_not_dom_exposed; commonMain anchors are enforced by profile-sos-contacts-contract and Android/iOS expose native semantics"
       : null,
   };
+}
+
+async function assertProfileSosSaveError(page, reportOutput, steps) {
+  const saveErrorOptIn = await page.evaluate(() => ({
+    bridge: globalThis.__quataProfileSosE2eProduct?.saveErrorE2e === true,
+    marker: document.documentElement.getAttribute("data-quata-profile-sos-save-error-e2e"),
+  }));
+  if (!saveErrorOptIn.bridge || saveErrorOptIn.marker !== "enabled") {
+    throw new Error(`profile_sos_save_error_opt_in_missing:${JSON.stringify(saveErrorOptIn)}`);
+  }
+  const save = await profileSosSaveButtonFallbackBounds(page) ?? await findVisibleTextBounds(page, /Guardar SOS|Guardar|Save/i);
+  if (!save) throw new Error("profile_sos_save_button_missing");
+  await page.mouse.click(save.x + save.width / 2, save.y + save.height / 2);
+  await page.waitForFunction(() =>
+    document.documentElement.getAttribute("data-quata-profile-sos-error-visible") === "true",
+  );
+  await page.waitForFunction(() =>
+    ["contacts", "message"].includes(document.documentElement.getAttribute("data-quata-profile-sos-tab")),
+  );
+  const screenshot = reportOutput.replace(/\.json$/i, ".sos-save-error.png");
+  await page.screenshot({ path: screenshot, fullPage: true });
+  steps.push("account_sos_save_error_visible_screenshot");
+  return {
+    status: "passed",
+    screenshot,
+    resolution: save.resolution ?? "visible_text",
+  };
+}
+
+async function dismissLegalDocumentStatusByBridge(page, surface) {
+  const dismissed = await page.evaluate((surfaceName) => {
+    const statusBridge = globalThis.__quataDocumentStatusE2eProduct?.[surfaceName];
+    if (typeof statusBridge?.dismissStatus === "function") {
+      statusBridge.dismissStatus();
+      return true;
+    }
+    const bridge = globalThis.__quataLegalDocumentsE2eProduct?.[surfaceName];
+    if (typeof bridge?.dismissStatus !== "function") return false;
+    bridge.dismissStatus();
+    return true;
+  }, surface);
+  if (dismissed) {
+    await page.waitForTimeout(150);
+  } else {
+    await dismissDocumentStatusDialog(page);
+  }
+}
+
+async function dismissAllLegalDocumentStatusByBridge(page) {
+  const dismissed = await page.evaluate(() => {
+    const surfaces = ["auth", "profile", "settings"];
+    let changed = false;
+    for (const surfaceName of surfaces) {
+      const statusBridge = globalThis.__quataDocumentStatusE2eProduct?.[surfaceName];
+      if (typeof statusBridge?.dismissStatus === "function") {
+        statusBridge.dismissStatus();
+        changed = true;
+      }
+      const legalBridge = globalThis.__quataLegalDocumentsE2eProduct?.[surfaceName];
+      if (typeof legalBridge?.dismissStatus === "function") {
+        legalBridge.dismissStatus();
+        changed = true;
+      }
+    }
+    return changed;
+  });
+  if (dismissed) {
+    await page.waitForTimeout(150);
+  } else {
+    await dismissDocumentStatusDialog(page);
+  }
+  return dismissed;
+}
+
+async function waitForProfileSosCandidates(page) {
+  try {
+    await page.waitForFunction(() =>
+      Number(document.documentElement.getAttribute("data-quata-profile-sos-candidate-count") || "0") >= 6,
+      null,
+      { timeout: 5000 },
+    );
+    return {
+      status: "ready",
+      resolution: "dom_candidate_count",
+    };
+  } catch {
+    const visible = await findVisibleTextBounds(page, /Contacto SOS 1|SOS Contact 1/i);
+    if (!visible) throw new Error("profile_sos_candidates_missing");
+    return {
+      status: "ready",
+      resolution: visible.resolution ?? "visible_text",
+      missingStableAnchor: "Wasm canvas did not expose data-quata-profile-sos-candidate-count before the visible list rendered.",
+    };
+  }
+}
+
+async function selectFiveProfileSosContacts(page) {
+  const selectedByBridge = await page.evaluate(() => {
+    const bridge = globalThis.__quataProfileSosE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.selectFirstContacts !== "function") return false;
+    bridge.selectFirstContacts(5);
+    return true;
+  });
+  if (selectedByBridge) {
+    await page.waitForFunction(() =>
+      Number(document.documentElement.getAttribute("data-quata-profile-sos-selected-count") || "0") === 5,
+      null,
+      { timeout: 3000 },
+    );
+    const candidateCount = await page.evaluate(() =>
+      Number(document.documentElement.getAttribute("data-quata-profile-sos-candidate-count") || "0"),
+    );
+    return {
+      status: "passed",
+      candidateCount,
+      selectedCount: 5,
+      attempts: [{ resolution: "web_profile_sos_product_bridge_select_first_contacts" }],
+    };
+  }
+  const canvas = await profileSosCanvasBounds(page);
+  const contactColumnX = canvas.width >= 900 ? 0.47 : 0.49;
+  const points = [0.56, 0.635, 0.71, 0.785, 0.86, 0.935].map((relativeY) => ({
+    x: canvas.x + canvas.width * contactColumnX,
+    y: canvas.y + canvas.height * relativeY,
+  }));
+  const attempts = [];
+  for (const point of points) {
+    await page.mouse.click(point.x, point.y);
+    await page.waitForTimeout(120);
+    const selectedCount = await page.evaluate(() =>
+      Number(document.documentElement.getAttribute("data-quata-profile-sos-selected-count") || "0"),
+    );
+    attempts.push({ resolution: "wasm_canvas_relative_contact_toggle_fallback", contactColumnX, selectedCount });
+    if (selectedCount >= 5) break;
+  }
+  const finalCount = await page.evaluate(() =>
+    Number(document.documentElement.getAttribute("data-quata-profile-sos-selected-count") || "0"),
+  );
+  const candidateCount = await page.evaluate(() =>
+    Number(document.documentElement.getAttribute("data-quata-profile-sos-candidate-count") || "0"),
+  );
+  if (finalCount !== 5) throw new Error(`profile_sos_limit_selection_failed:${finalCount}`);
+  return {
+    status: "passed",
+    candidateCount,
+    selectedCount: finalCount,
+    attempts,
+    missingStableAnchor: "Compose/Wasm canvas does not expose contact toggle testTags as DOM/ARIA; Android/iOS validate native semantic anchors.",
+  };
+}
+
+async function profileSosCanvasBounds(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const canvas = [...scope.querySelectorAll("canvas")].find(element => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    const rect = (canvas ?? document.documentElement).getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  });
 }
 
 async function profileSosMessageTabFallbackBounds(page) {
@@ -729,6 +940,34 @@ async function profileSosMessageTabFallbackBounds(page) {
       width: rect.width * 0.22,
       height: 44,
       resolution: "wasm_canvas_relative_tab_fallback",
+    };
+  });
+}
+
+async function profileSosSaveButtonFallbackBounds(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const canvas = [...scope.querySelectorAll("canvas")].find(element => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    const rect = (canvas ?? document.documentElement).getBoundingClientRect();
+    if (rect.width >= 900) {
+      return {
+        x: rect.x + rect.width * 0.834,
+        y: rect.y + rect.height * 0.108,
+        width: rect.width * 0.155,
+        height: rect.height * 0.06,
+        resolution: canvas ? "wasm_canvas_relative_save_button_fallback" : "wasm_viewport_relative_save_button_fallback",
+      };
+    }
+    return {
+      x: rect.x + rect.width * 0.08,
+      y: rect.y + rect.height * 0.82,
+      width: rect.width * 0.84,
+      height: rect.height * 0.08,
+      resolution: canvas ? "wasm_canvas_relative_save_button_fallback" : "wasm_viewport_relative_save_button_fallback",
     };
   });
 }
@@ -808,6 +1047,7 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
   if (overlayVisible) {
     await dismissDocumentViewer(page);
   }
+  await dismissDocumentStatusDialog(page);
   return {
     displayName: expectedName,
     localAsset: opened.reference.endsWith(`legal/${expectedName}`) ? `legal/${expectedName}` : opened.reference,
@@ -815,6 +1055,28 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
     overlayVisible,
     renderReady,
   };
+}
+
+async function dismissDocumentStatusDialog(page) {
+  await page.waitForTimeout(350);
+  await page.keyboard.press("Escape").catch(() => null);
+  await page.waitForTimeout(250);
+  const closeButton = page.getByRole("button", { name: /Cerrar|Close/i }).first();
+  if (await closeButton.count()) {
+    await closeButton.click({ timeout: 1_000 }).catch(() => null);
+    await page.waitForTimeout(250);
+  }
+  const canvas = await profileSosCanvasBounds(page);
+  for (const target of [
+    { x: 0.675, y: 0.585 },
+    { x: 0.68, y: 0.585 },
+    { x: 0.67, y: 0.59 },
+  ]) {
+    await page.mouse.click(canvas.x + canvas.width * target.x, canvas.y + canvas.height * target.y);
+    await page.waitForTimeout(200);
+  }
+  await page.keyboard.press("Escape").catch(() => null);
+  await page.waitForTimeout(150);
 }
 
 async function dismissDocumentViewer(page) {

@@ -315,6 +315,16 @@
     <string name="emergency_selected_title">Seleccionados</string>
     <string name="emergency_select_hint">Selecciona hasta 5 usuarios de la red QUATA.</string>
     <string name="emergency_network_users">Usuarios de la red</string>
+    <string name="emergency_import_contacts">Importar contactos</string>
+    <string name="emergency_request_contacts_permission">Permitir acceso a contactos</string>
+    <string name="emergency_contact_picker_unavailable">La importación de contactos aún no está disponible en esta plataforma. Usa los contactos de la red QUATA de abajo.</string>
+    <string name="emergency_contact_picker_cancelled">Importación de contactos cancelada.</string>
+    <string name="emergency_contact_picker_failed">No se pudieron importar los contactos.</string>
+    <string name="emergency_contacts_picked">%1$d contactos seleccionados. Vincúlalos con usuarios QUATA antes de guardar.</string>
+    <string name="emergency_contacts_permission_granted">Acceso a contactos concedido.</string>
+    <string name="emergency_contacts_permission_denied">Acceso a contactos denegado.</string>
+    <string name="emergency_contacts_permission_permanently_denied">El acceso a contactos está bloqueado en los ajustes del sistema.</string>
+    <string name="emergency_contacts_permission_unavailable">El acceso a contactos no está disponible en esta plataforma.</string>
     <string name="emergency_message_title">Mensaje de socorro</string>
     <string name="emergency_message_hint">Este texto llegará a tus contactos cuando pulses SOS.</string>
     <string name="emergency_save_contacts">Guardar / actualizar contactos</string>

@@ -18,6 +18,7 @@ import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.moderation.iosLegalDocumentFile
 import com.quata.core.moderation.iosLegalDocumentPlaceholderFile
+import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.DocumentViewerFailureReason
 import com.quata.core.platform.DocumentViewerState
@@ -28,6 +29,7 @@ import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
+import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.documentViewerOpeningState
 import com.quata.core.platform.openWithViewerState
@@ -47,6 +49,8 @@ class IosProfileHostDependencies(
     val onDeactivateAccount: () -> Unit,
     val onDeleteAccountData: () -> Unit,
     val filePicker: FilePickerService,
+    val contacts: ContactPickerService,
+    val permissions: PermissionService,
     val touchFlowEnabled: Boolean,
     val onTouchFlowEnabledChange: (Boolean) -> Unit,
     val themeMode: QuataThemeMode,
@@ -106,6 +110,13 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
                         removeLabel = "Remove",
                         avatar = { IosRemoteAvatar(contact.displayName, contact.id, contact.avatarUrl, Modifier.size(46.dp)) },
                         onToggle = toggle,
+                    )
+                },
+                emergencyContactActions = {
+                    EmergencyContactsContactActionsContent(
+                        strings = IosProfileScreenStrings.emergency,
+                        contacts = dependencies.contacts,
+                        permissions = dependencies.permissions,
                     )
                 },
                 legalDocuments = {

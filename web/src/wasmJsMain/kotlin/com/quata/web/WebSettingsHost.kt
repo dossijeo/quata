@@ -66,6 +66,12 @@ fun WebSettingsHost(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successMessage by remember { mutableStateOf<String?>(null) }
     var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
+    DisposableEffect(Unit) {
+        val uninstall = installWebDocumentStatusE2eBridge("settings") {
+            documentViewerState = null
+        }
+        onDispose { uninstall() }
+    }
     val openLegalDocument: (LegalDocument) -> Unit = { document ->
         scope.launch {
             val file = webLegalDocumentFile(document, language)
@@ -79,6 +85,7 @@ fun WebSettingsHost(
             surface = "settings",
             openPrivacy = { openLegalDocument(LegalDocument.Privacy) },
             openChildSafety = { openLegalDocument(LegalDocument.ChildSafety) },
+            dismissStatus = { documentViewerState = null },
         )
         onDispose { uninstall() }
     }

@@ -8,8 +8,12 @@ import com.quata.core.moderation.iosLegalDocumentFile
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.PermissionService
+import com.quata.core.platform.PermissionStatus
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.UnsupportedContactPickerService
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileEditConfig
 import com.quata.feature.profile.domain.ProfileEditModel
@@ -30,13 +34,16 @@ import platform.UIKit.UIViewController
 fun QuataIosProfileLegalEvidenceViewController(
     languageCode: String?,
     onOpened: (String) -> Unit,
+    forceSosSaveError: Boolean = false,
 ): UIViewController = QuataProfileViewController(
     IosProfileHostDependencies(
-        repository = IosProfileLegalEvidenceRepository,
+        repository = IosProfileLegalEvidenceRepository(forceSosSaveError),
         onLogout = {},
         onDeactivateAccount = {},
         onDeleteAccountData = {},
         filePicker = IosProfileLegalEvidenceFilePicker,
+        contacts = UnsupportedContactPickerService,
+        permissions = IosProfileLegalEvidencePermissionService,
         touchFlowEnabled = true,
         onTouchFlowEnabledChange = {},
         themeMode = QuataThemeMode.Light,
@@ -71,7 +78,14 @@ private object IosProfileLegalEvidenceFilePicker : FilePickerService {
         PlatformResult.Unsupported
 }
 
-private object IosProfileLegalEvidenceRepository : ProfileRepository {
+private object IosProfileLegalEvidencePermissionService : PermissionService {
+    override suspend fun status(permission: PlatformPermission): PermissionStatus = PermissionStatus.Unavailable
+    override suspend fun request(permission: PlatformPermission): PermissionStatus = PermissionStatus.Unavailable
+}
+
+private class IosProfileLegalEvidenceRepository(
+    private val forceSosSaveError: Boolean,
+) : ProfileRepository {
     private val model = ProfileEditModel(
         profile = UserProfile(
             displayName = "Gabrielo",
@@ -87,15 +101,15 @@ private object IosProfileLegalEvidenceRepository : ProfileRepository {
         config = ProfileEditConfig(
             countryPrefixes = listOf(CountryPrefix("240", "+240 - Guinea Ecuatorial")),
             secretQuestions = listOf(SecretQuestionOption("", "Mantener pregunta actual")),
-            emergencyCandidates = listOf(
+            emergencyCandidates = (1..6).map { index ->
                 EmergencyContactCandidate(
-                    id = "gabrielu-fixture",
-                    displayName = "Gabrielu",
-                    email = "gabrielu@example.invalid",
+                    id = "sos-fixture-$index",
+                    displayName = if (index == 1) "Gabrielu" else "Contacto SOS $index",
+                    email = "sos-$index@example.invalid",
                     neighborhood = "Bovano",
-                    phone = "+240680242608",
-                ),
-            ),
+                    phone = "+24068024260$index",
+                )
+            },
         ),
     )
 
@@ -112,7 +126,12 @@ private object IosProfileLegalEvidenceRepository : ProfileRepository {
         contactIds: List<String>,
         message: String,
         messageIsDefault: Boolean,
-    ): Result<Unit> = Result.success(Unit)
+    ): Result<Unit> =
+        if (forceSosSaveError) {
+            Result.failure(IllegalStateException("ios_profile_sos_save_failed"))
+        } else {
+            Result.success(Unit)
+        }
 
     override fun defaultEmergencyMessage(displayName: String): String =
         "Avisar a mis contactos de emergencia."

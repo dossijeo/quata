@@ -49,7 +49,7 @@ function prState(number) {
     "view",
     String(number),
     "--json",
-    "id,number,isDraft,headRefOid,labels,statusCheckRollup,mergeStateStatus",
+    "id,number,isDraft,headRefOid,baseRefName,labels,statusCheckRollup,mergeStateStatus",
   ]));
 }
 
@@ -68,6 +68,7 @@ export function validatePromotionState({ pullRequest, repository, frozenSha }) {
   if (!repository?.allow_squash_merge) failures.push("repository_squash_merge_disabled");
   if (pullRequest?.isDraft) failures.push("draft_pr_cannot_be_candidate_final");
   if (pullRequest?.headRefOid !== frozenSha) failures.push(`frozen_sha_mismatch:${pullRequest?.headRefOid ?? "missing"}`);
+  if (pullRequest?.baseRefName !== "main") failures.push(`unexpected_base:${pullRequest?.baseRefName ?? "missing"}`);
   const labels = new Set((pullRequest?.labels ?? []).map((label) => label.name));
   return {
     ok: failures.length === 0,

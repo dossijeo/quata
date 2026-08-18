@@ -7,7 +7,7 @@ package com.quata.feature.profile.presentation
  * state transition used by the responsive Compose editor in commonMain and preserves the
  * existing maximum of five emergency contacts.
  */
-internal fun toggleEmergencyContactSelection(
+fun toggleEmergencyContactSelection(
     selectedIds: List<String>,
     contactId: String,
 ): List<String> {
@@ -20,4 +20,4 @@ internal fun toggleEmergencyContactSelection(
     return selected
 }
 
-internal const val MaxEmergencyContactSelection = 5
+const val MaxEmergencyContactSelection = 5

@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
@@ -15,6 +18,7 @@ import com.quata.core.designsystem.theme.quataTheme
 fun EmergencyContactsLandscapeContactsSectionContent(
     title: String,
     selectedCountLabel: String,
+    errorMessage: String?,
     searchInput: @Composable () -> Unit,
     users: @Composable (Modifier) -> Unit,
     contactActions: (@Composable () -> Unit)? = null,
@@ -27,6 +31,18 @@ fun EmergencyContactsLandscapeContactsSectionContent(
         searchInput()
         Spacer(Modifier.height(8.dp))
         Text(selectedCountLabel, color = template.colors.accent, fontWeight = FontWeight.Bold)
+        errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = message,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.semantics {
+                    testTag = ProfileSosErrorTestTag
+                    contentDescription = ProfileSosErrorTestTag
+                },
+            )
+        }
         contactActions?.let { actions ->
             Spacer(Modifier.height(8.dp))
             actions()

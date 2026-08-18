@@ -61,10 +61,11 @@ class ProfileSosContactsInstrumentedTest {
                     selectedIds = selectedIds,
                     message = message,
                     isSaving = false,
+                    errorMessage = null,
                     strings = evidenceStrings(),
                     onMessageChange = { message = it },
                     onToggleContact = { contact ->
-                        selectedIds = selectedIds.toggleForEvidence(contact.id)
+                        selectedIds = toggleEmergencyContactSelection(selectedIds, contact.id)
                     },
                     onDismiss = {},
                     onSave = {
@@ -149,10 +150,11 @@ class ProfileSosContactsInstrumentedTest {
                     selectedIds = selectedIds,
                     message = message,
                     isSaving = false,
+                    errorMessage = null,
                     strings = evidenceStrings(),
                     onMessageChange = { message = it },
                     onToggleContact = { contact ->
-                        selectedIds = selectedIds.toggleForEvidence(contact.id)
+                        selectedIds = toggleEmergencyContactSelection(selectedIds, contact.id)
                     },
                     onDismiss = {},
                     onSave = {
@@ -201,6 +203,68 @@ class ProfileSosContactsInstrumentedTest {
         saveScreenshot("android-profile-sos-message")
     }
 
+    @Test
+    fun profileSosSaveErrorUsesSharedDialogAnchor() {
+        val candidates = listOf(
+            EmergencyContactCandidate(
+                id = "sos-error-1",
+                displayName = "Contacto error",
+                email = "sos-error-1@example.invalid",
+                neighborhood = "Bovano",
+                phone = "+240680242699",
+            ),
+        )
+        var selectedIds by mutableStateOf(listOf("sos-error-1"))
+        var message by mutableStateOf("Avisar a mis contactos de emergencia.")
+        val error = "No se pudieron guardar los cambios"
+
+        compose.setContent {
+            QuataTheme {
+                EmergencyContactsDialogContent(
+                    layoutPadding = PaddingValues(),
+                    isLandscapeLayout = false,
+                    isImeVisible = false,
+                    candidates = candidates,
+                    selectedIds = selectedIds,
+                    message = message,
+                    isSaving = false,
+                    errorMessage = error,
+                    strings = evidenceStrings(),
+                    onMessageChange = { message = it },
+                    onToggleContact = { contact ->
+                        selectedIds = toggleEmergencyContactSelection(selectedIds, contact.id)
+                    },
+                    onDismiss = {},
+                    onSave = {},
+                    slots = EmergencyContactsDialogSlots(
+                        contactRow = { contact, selected, toggle ->
+                            EmergencyUserRowContent(
+                                user = contact,
+                                selected = selected,
+                                addLabel = "Añadir",
+                                removeLabel = "Quitar",
+                                avatar = { Text(contact.displayName.take(1)) },
+                                onToggle = toggle,
+                            )
+                        },
+                        messageInput = { modifier: Modifier, value, change, minLines, maxLines ->
+                            OutlinedTextField(
+                                value = value,
+                                onValueChange = change,
+                                modifier = modifier,
+                                minLines = minLines,
+                                maxLines = maxLines ?: Int.MAX_VALUE,
+                            )
+                        },
+                    ),
+                )
+            }
+        }
+
+        compose.onNodeWithTag(ProfileSosErrorTestTag, useUnmergedTree = true).fetchSemanticsNode()
+        saveScreenshot("android-profile-sos-save-error")
+    }
+
     private fun evidenceStrings() = EmergencyContactsEditorStrings(
         header = EmergencyContactsHeaderStrings(
             back = "Atrás",
@@ -212,22 +276,22 @@ class ProfileSosContactsInstrumentedTest {
         ),
         selectedCount = { "$it/5 seleccionados" },
         networkUsers = "Contactos disponibles",
+        importContacts = "Importar contactos",
+        requestContactsPermission = "Permitir acceso a contactos",
+        contactPickerUnavailable = "La importación de contactos no está disponible.",
+        contactPickerCancelled = "Importación cancelada.",
+        contactPickerFailed = "No se pudieron importar los contactos.",
+        contactsPicked = { "$it contactos seleccionados." },
+        contactsPermissionGranted = "Acceso concedido.",
+        contactsPermissionDenied = "Acceso denegado.",
+        contactsPermissionPermanentlyDenied = "Acceso bloqueado.",
+        contactsPermissionUnavailable = "Acceso no disponible.",
         searchPlaceholder = "Buscar",
         messageTitle = "Mensaje SOS",
         messageHint = "Este mensaje se enviará con el aviso.",
         savePortrait = "Guardar SOS",
         saveLandscape = "Guardar",
     )
-
-    private fun List<String>.toggleForEvidence(contactId: String): List<String> {
-        val selected = distinct().take(5).toMutableList()
-        if (contactId in selected) {
-            selected.remove(contactId)
-        } else if (selected.size < 5) {
-            selected += contactId
-        }
-        return selected
-    }
 
     private fun tapContactToggle(contactId: String) {
         val tag = "$ProfileSosContactToggleTestTagPrefix$contactId"

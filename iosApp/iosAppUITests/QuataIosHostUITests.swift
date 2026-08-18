@@ -495,8 +495,9 @@ final class QuataIosHostUITests: XCTestCase {
             "profile.sos.tab.message",
             "profile.sos.contacts.list",
             "profile.sos.search",
-            "profile.sos.contact.gabrielu-fixture",
-            "profile.sos.contact.toggle.gabrielu-fixture",
+            "profile.sos.contact.sos-fixture-1",
+            "profile.sos.contact.toggle.sos-fixture-1",
+            "profile.sos.contact.toggle.sos-fixture-6",
         ] {
             XCTAssertTrue(
                 app.descendants(matching: .any)
@@ -508,11 +509,6 @@ final class QuataIosHostUITests: XCTestCase {
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "profile-sos-contacts")
 
-        app.descendants(matching: .any)
-            .matching(identifier: "profile.sos.contact.toggle.gabrielu-fixture")
-            .firstMatch
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .tap()
         app.descendants(matching: .any)
             .matching(identifier: "profile.sos.tab.message")
             .firstMatch
@@ -526,6 +522,43 @@ final class QuataIosHostUITests: XCTestCase {
             "The shared SOS message input must be exposed after switching tabs.",
         )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "profile-sos-message")
+    }
+
+    func testProfileSosSaveFailureKeepsSharedErrorInDialog() {
+        let app = fixtureApp("profile-legal", spanishLocale: true, profileSosSaveError: true)
+        app.launch()
+
+        let openSos = app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.open")
+            .firstMatch
+        XCTAssertTrue(openSos.waitForExistence(timeout: 15))
+        openSos.tap()
+
+        app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.contact.toggle.sos-fixture-1")
+            .firstMatch
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        app.descendants(matching: .any)
+            .matching(identifier: "profile.sos.save")
+            .firstMatch
+            .tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "profile.sos.error")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "A failed SOS save must expose the shared error anchor inside the dialog.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "profile.sos.root")
+                .firstMatch
+                .exists,
+            "A failed SOS save must keep the shared editor open for retry.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "profile-sos-save-error")
     }
 
     func testWhatsNewFixtureRendersMarksSeenAndDoesNotRepeat() {
@@ -670,6 +703,7 @@ final class QuataIosHostUITests: XCTestCase {
         authDestination: String? = nil,
         spanishLocale: Bool = false,
         resetWhatsNew: Bool = false,
+        profileSosSaveError: Bool = false,
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-quata-ui-test-fixture", fixture]
@@ -684,6 +718,7 @@ final class QuataIosHostUITests: XCTestCase {
         if let inAppRoute { app.launchArguments += ["-quata-ui-test-in-app-route", inAppRoute] }
         if let authDestination { app.launchArguments += ["-quata-auth-destination", authDestination] }
         if resetWhatsNew { app.launchArguments += ["-quata-ui-test-reset-whats-new"] }
+        if profileSosSaveError { app.launchArguments += ["-quata-ui-test-profile-sos-save-error"] }
         return app
     }
 
@@ -808,6 +843,7 @@ final class QuataIosHostUITests: XCTestCase {
         }
         XCTAssertTrue(element.isHittable, "Expected \(identifier) to become hittable after dismissing keyboard.")
     }
+
 }
 
 private struct AuthRecoveryUiCredentials: Decodable {

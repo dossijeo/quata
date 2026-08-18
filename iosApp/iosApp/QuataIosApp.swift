@@ -573,6 +573,7 @@ private final class IosAppCompositionRoot {
                             view.addSubview(marker)
                         }
                     },
+                    forceSosSaveError: arguments.contains("-quata-ui-test-profile-sos-save-error"),
                 )
             }
             return container
@@ -954,6 +955,7 @@ private final class IosAppCompositionRoot {
         let filePicker = platformServices.services.filePicker
         let appearancePreferences = self.appearancePreferences
         authenticatedHost.installProfileSosFactory { [weak self] in
+            guard let self else { return UIViewController() }
             // Cuenta mounts the complete shared Compose host. SOS remains its in-context dialog;
             // it is not a substitute route for Profile on iOS.
             let dependencies = profileSosRuntimeBootstrap.profileHostDependencies(
@@ -965,10 +967,12 @@ private final class IosAppCompositionRoot {
                     self?.presentAccountLifecyclePrompt(action: "delete", handler: lifecycleHandler)
                 },
                 filePicker: filePicker,
+                contacts: self.platformServices.services.contacts,
+                permissions: self.platformServices.services.permissions,
                 touchFlowEnabled: appearancePreferences.touchFlowEnabled,
                 themeModeStorageValue: appearancePreferences.themeModeStorageValue,
                 languageCode: Locale.current.languageCode ?? "en",
-                documentOpener: self?.platformServices.services.documentOpener,
+                documentOpener: self.platformServices.services.documentOpener,
                 openLegalDocument: { [weak self] document, opener in
                     guard let bootstrap = self?.whatsNewRuntimeBootstrap else { return }
                     IosWhatsNewRuntimeBootstrapKt.openIosLegalDocumentForSettings(
