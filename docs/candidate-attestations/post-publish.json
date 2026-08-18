@@ -4,11 +4,11 @@
     "SCR-CREATE-POST",
     "POST-PUBLISH"
   ],
-  "productSha": "b76ab91898d77283f5e5de65c9d1e1f9835ec5a2",
+  "productSha": "edfb68deed4805230b43208e8e99d6378fc1b65c",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "b76ab91898d77283f5e5de65c9d1e1f9835ec5a2",
+      "sha": "edfb68deed4805230b43208e8e99d6378fc1b65c",
       "report": "build-reports/web/post-publish-evidence.json",
       "cleanup": {
         "verified": true,
@@ -17,7 +17,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "b76ab91898d77283f5e5de65c9d1e1f9835ec5a2",
+      "sha": "edfb68deed4805230b43208e8e99d6378fc1b65c",
       "report": "build-reports/android/post-publish-evidence.json",
       "cleanup": {
         "verified": true,
@@ -26,7 +26,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "b76ab91898d77283f5e5de65c9d1e1f9835ec5a2",
+      "sha": "edfb68deed4805230b43208e8e99d6378fc1b65c",
       "report": "build-reports/ios/post-publish-evidence.json",
       "cleanup": {
         "verified": true,
