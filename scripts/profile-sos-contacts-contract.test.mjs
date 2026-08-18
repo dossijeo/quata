@@ -98,11 +98,16 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.match(loaded.webEvidence, /assertAccountSosContactsEditor/);
   assert.match(loaded.webEvidence, /--profile-sos-save-error/);
   assert.match(loaded.webEvidence, /assertProfileSosSaveError/);
+  assert.match(loaded.webEvidence, /waitForProfileSosCandidates/);
   assert.match(loaded.webEvidence, /quata-profile-sos-save-error-e2e/);
   assert.match(loaded.webEvidence, /data-quata-profile-sos-error-visible/);
+  assert.match(loaded.webEvidence, /data-quata-profile-sos-save-error-e2e/);
+  assert.match(loaded.webEvidence, /profile_sos_candidates_missing/);
   assert.match(loaded.webHost, /webProfileSosSaveErrorE2eEnabled/);
   assert.match(loaded.webHost, /quata-profile-sos-save-error-e2e/);
+  assert.match(loaded.webHost, /data-quata-profile-sos-save-error-e2e/);
   assert.match(loaded.webHost, /web_profile_sos_save_failed/);
+  assert.match(loaded.webEvidence, /profileSosSaveError: options\.profileSosSaveError/);
   assert.match(loaded.webEvidence, /report\.accountSosContacts = await assertAccountSosContactsEditor/);
   assert.match(loaded.webEvidence, /missingDomAnchorReason/);
   assert.match(loaded.webEvidence, /wasm_canvas_semantics_not_dom_exposed/);

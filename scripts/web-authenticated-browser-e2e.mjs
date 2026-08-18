@@ -255,7 +255,9 @@ try {
   report.accountSettingsLegalDocuments = await assertAccountSettingsLegalDocumentViewer(page, options.output, report.steps);
   report.steps.push("account_settings_shared_legal_documents_opened_from_local_assets");
   stage = "authenticated_profile_sos_contacts";
-  report.accountSosContacts = await assertAccountSosContactsEditor(page, options.output, report.steps);
+  report.accountSosContacts = await assertAccountSosContactsEditor(page, options.output, report.steps, {
+    profileSosSaveError: options.profileSosSaveError,
+  });
   report.steps.push("account_sos_contacts_shared_editor_rendered");
 
   stage = "authenticated_settings_push_consent";
@@ -657,7 +659,7 @@ async function assertAccountSettingsLegalDocumentViewer(page, reportOutput, step
   return evidence;
 }
 
-async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
+async function assertAccountSosContactsEditor(page, reportOutput, steps = [], options = {}) {
   steps.push("account_sos_contacts_route_profile_start");
   await page.evaluate(() => { globalThis.location.hash = "profile"; });
   await waitForShellRoute(page, "profile");
@@ -673,9 +675,7 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
   await page.waitForFunction(() =>
     document.documentElement.getAttribute("data-quata-profile-sos-tab") === "contacts",
   );
-  await page.waitForFunction(() =>
-    Number(document.documentElement.getAttribute("data-quata-profile-sos-candidate-count") || "0") >= 6,
-  );
+  const candidateReadiness = await waitForProfileSosCandidates(page);
   const limitSelection = await selectFiveProfileSosContacts(page);
   const saveError = options.profileSosSaveError
     ? await assertProfileSosSaveError(page, reportOutput, steps)
@@ -737,6 +737,7 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
     domAnchors,
     missingDomAnchors,
     openMethod,
+    candidateReadiness,
     limitSelection,
     saveError,
     layout,
@@ -748,6 +749,10 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
 }
 
 async function assertProfileSosSaveError(page, reportOutput, steps) {
+  await page.evaluate(() => globalThis.__quataProfileSosSaveErrorE2eProbe = globalThis.__quataProfileSosSaveErrorE2eProbe ?? {});
+  await page.waitForFunction(() =>
+    document.documentElement.getAttribute("data-quata-profile-sos-save-error-e2e") === "enabled",
+  );
   const save = await findVisibleTextBounds(page, /Guardar SOS|Guardar|Save/i) ?? await profileSosSaveButtonFallbackBounds(page);
   if (!save) throw new Error("profile_sos_save_button_missing");
   await page.mouse.click(save.x + save.width / 2, save.y + save.height / 2);
@@ -765,6 +770,28 @@ async function assertProfileSosSaveError(page, reportOutput, steps) {
     screenshot,
     resolution: save.resolution ?? "visible_text",
   };
+}
+
+async function waitForProfileSosCandidates(page) {
+  try {
+    await page.waitForFunction(() =>
+      Number(document.documentElement.getAttribute("data-quata-profile-sos-candidate-count") || "0") >= 6,
+      null,
+      { timeout: 5000 },
+    );
+    return {
+      status: "ready",
+      resolution: "dom_candidate_count",
+    };
+  } catch {
+    const visible = await findVisibleTextBounds(page, /Contacto SOS 1|SOS Contact 1/i);
+    if (!visible) throw new Error("profile_sos_candidates_missing");
+    return {
+      status: "ready",
+      resolution: visible.resolution ?? "visible_text",
+      missingStableAnchor: "Wasm canvas did not expose data-quata-profile-sos-candidate-count before the visible list rendered.",
+    };
+  }
 }
 
 async function selectFiveProfileSosContacts(page) {

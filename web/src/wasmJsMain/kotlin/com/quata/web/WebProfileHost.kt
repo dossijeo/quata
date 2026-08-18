@@ -364,9 +364,16 @@ internal fun webProfilePersistenceMode(hasRemoteRepository: Boolean, hasConfigur
 
 @JsFun(
     """() => {
+      const location = globalThis.location;
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const query = new URLSearchParams(location?.search || '');
-      return local && query.get('quata-auth-e2e') === '1' && query.get('quata-profile-sos-save-error-e2e') === '1';
+      const enabled = local && query.get('quata-auth-e2e') === '1' && query.get('quata-profile-sos-save-error-e2e') === '1';
+      const element = globalThis.document?.documentElement;
+      if (element) {
+        if (enabled) element.setAttribute('data-quata-profile-sos-save-error-e2e', 'enabled');
+        else element.removeAttribute('data-quata-profile-sos-save-error-e2e');
+      }
+      return enabled;
     }""",
 )
 private external fun webProfileSosSaveErrorE2eEnabled(): Boolean
