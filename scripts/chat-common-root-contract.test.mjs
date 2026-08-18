@@ -46,6 +46,7 @@ const [
   documentAttachment,
   audioAttachmentPlayer,
   chatLinkifiedText,
+  webChatBrowserE2e,
   chatBrowserHostContent,
   communityProfileHost,
   communityProfileHeader,
@@ -78,6 +79,7 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatDocumentAttachmentContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentPlayerContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatLinkifiedTextContent.kt"),
+  source("scripts/web-chat-browser-e2e.mjs"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatBrowserHostContent.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileScreenHost.kt"),
   source("feature/neighborhoods/src/commonMain/kotlin/com/quata/feature/neighborhoods/presentation/CommunityProfileHeaderContent.kt"),
@@ -321,13 +323,13 @@ test("common chat composer exposes stable cross-platform evidence anchors", () =
 });
 
 test("common chat message text renders catalog emoji without losing link handling", () => {
-  assert.match(chatLinkifiedText, /import com\.quata\.core\.ui\.components\.QuataEmojiStaticText/);
-  assert.match(chatLinkifiedText, /if \(annotatedText\.getStringAnnotations\(UrlAnnotationTag, 0, annotatedText\.length\)\.isEmpty\(\)\) \{/);
-  assert.match(chatLinkifiedText, /QuataEmojiStaticText\([\s\S]*?value = text/);
-  assert.doesNotMatch(chatLinkifiedText, /if \(annotatedText\.getStringAnnotations\(UrlAnnotationTag, 0, annotatedText\.length\)\.isEmpty\(\)\) \{\s*Text\(text/);
-  assert.match(chatLinkifiedText, /BasicText\(annotatedText/);
-  assert.match(chatLinkifiedText, /detectTapGestures/);
+  assert.match(chatLinkifiedText, /import com\.quata\.core\.ui\.components\.QuataEmojiLinkifiedText/);
+  assert.match(chatLinkifiedText, /QuataEmojiLinkifiedText\([\s\S]*?value = text/);
+  assert.doesNotMatch(chatLinkifiedText, /BasicText\(annotatedText/);
+  assert.doesNotMatch(chatLinkifiedText, /QuataEmojiStaticText\(/);
   assert.match(chatLinkifiedText, /onOpenLink/);
+  assert.match(webChatBrowserE2e, /🚨 e2e-chat-b-\$\{crypto\.randomUUID\(\)\} www\.quata\.test\/chat 📝/);
+  assert.match(webChatBrowserE2e, /b_reply_with_catalog_emoji_and_link_received_by_a_via_polling_ui_and_backend_linked/);
 });
 
 test("common chat forward picker exposes stable cross-platform evidence anchors", () => {

@@ -59,9 +59,11 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.doesNotMatch(runner, /spawn\("adb"/);
   assert.match(runner, /--profile-follow-only/);
   assert.match(runner, /--menu-surface-only/);
+  assert.match(runner, /--composer-emoji-only/);
   assert.match(runner, /--group-sos-only/);
   assert.match(runner, /--group-moderation-only/);
   assert.match(runner, /assertInstrumentationPassed\("menu-surface", await runInstrumentationStage\("menu-surface"\)\)/);
+  assert.match(runner, /assertInstrumentationPassed\("composer-emoji", await runInstrumentationStage\("composer-emoji"\)\)/);
   assert.match(runner, /assertInstrumentationPassed\("group-sos", await runInstrumentationStage\("group-sos"\)\)/);
   assert.match(runner, /assertInstrumentationPassed\("group-moderation", await runInstrumentationStage\("group-moderation"\)\)/);
   assert.match(runner, /android-chat-options-menu-surface/);
@@ -69,6 +71,7 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(runner, /android-chat-sos-location-map-return/);
   assert.match(runner, /options_menu_surface_visible_and_mute_toggled_by_shared_ui/);
   assert.match(runner, /group_menu_and_sos_shared_anchors_verified/);
+  assert.match(runner, /composer_emoji_link_marker_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /prepareProfileFollowAbsent/);
   assert.match(runner, /pollProfileFollowEdge/);
   assert.match(runner, /restoreProfileFollowEdge/);
@@ -90,6 +93,9 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(testSource, /ChatTranslatorMessageTestTagPrefix/);
   assert.match(testSource, /android-chat-translation-result/);
   assert.match(testSource, /ChatComposerSendTestTag/);
+  assert.match(testSource, /"composer-emoji" -> listOf\(chatUrl, ownProbe, composerMarker\)\.all/);
+  assert.match(testSource, /"composer-emoji" -> runComposerEmojiStage\(ownProbe\.orEmpty\(\), composerMarker\.orEmpty\(\)\)/);
+  assert.match(testSource, /private suspend fun runComposerEmojiStage\(ownProbe: String, composerMarker: String\)/);
   assert.match(testSource, /chat\.action\.reply/);
   assert.match(testSource, /chat\.action\.edit/);
   assert.match(testSource, /chat\.action\.favorite/);
@@ -136,6 +142,7 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(runner, /--profile-follow-only/);
   assert.match(runner, /--profile-private-chat-only/);
   assert.match(runner, /--menu-surface-only/);
+  assert.match(runner, /--composer-emoji-only/);
   assert.match(runner, /--group-sos-only/);
   assert.match(runner, /--group-moderation-only/);
   assert.match(runner, /QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E/);
@@ -143,9 +150,14 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(runner, /QUATA_IOS_CHAT_GROUP_MODERATION_UI_E2E/);
   assert.match(runner, /options_menu_surface_visible_from_shared_ui/);
   assert.match(runner, /ios_xctest_group_menu_and_sos_shared_anchors_verified/);
+  assert.match(runner, /ios_xctest_composer_emoji_link_marker_sent/);
+  assert.match(runner, /composer_emoji_link_marker_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(wrapper, /testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface/);
   assert.match(wrapper, /testGroupMenuAndSosMessagesExposeSharedAnchors/);
   assert.match(wrapper, /testGroupModerationRemovesAndBlocksParticipantsThroughSharedMemberMenu/);
+  assert.match(wrapper, /QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E/);
+  assert.match(wrapper, /composer_emoji='QuataIosUITests\/QuataIosAuthenticatedChatActionsNotificationsUITests\/testComposerEmojiLinkMarkerUsesSharedChatSurface'/);
+  assert.match(wrapper, /run_and_require "\$composer_emoji" "\$composer_emoji_method"/);
   assert.match(wrapper, /group-sos\.log/);
   assert.match(testSource, /dismissOptionsMenu/);
   assert.match(testSource, /The group options menu must be dismissed before validating SOS anchors/);
@@ -188,6 +200,9 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(testSource, /ios-chat-profile-private-chat-opened/);
   assert.match(testSource, /chat\.menu\.options/);
   assert.match(testSource, /ios-chat-options-menu-surface/);
+  assert.match(testSource, /testComposerEmojiLinkMarkerUsesSharedChatSurface/);
+  assert.match(testSource, /QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E/);
+  assert.match(testSource, /ios-chat-composer-sent/);
   assert.match(testSource, /chat\.group\.menu\.allowInvites/);
   assert.match(testSource, /chat\.sos\.location\.mapPreview/);
   assert.match(testSource, /chat\.group\.member\.remove\.\\\(removeProfileId\)/);
@@ -231,7 +246,7 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /--menu-surface-only/);
   assert.match(runner, /--composer-emoji-only/);
   assert.match(runner, /build-reports\/web\/chat-composer-emoji-evidence\.json/);
-  assert.match(runner, /composer_emoji_marker_sent_by_shared_ui_and_verified_by_rpc/);
+  assert.match(runner, /composer_emoji_link_marker_sent_by_shared_ui_and_verified_by_rpc/);
   assert.match(runner, /if \(options\.composerEmojiOnly\) \{/);
   assert.match(runner, /!\s*options\.composerEmojiOnly/);
   assert.match(runner, /state\.peerMessage && state\.b\.accessToken && !options\.composerEmojiOnly/);
@@ -357,9 +372,9 @@ test("chat actions/notifications web evidence exercises real shared chat control
   assert.match(runner, /page\.mouse\.click\(Math\.max\(1, box\.x - 12\), box\.y \+ \(box\.height \/ 2\)\)/);
   assert.match(runner, /const textBox = await visibleTextBox\(page, probe\)/);
   assert.match(runner, /sort\(\(left, right\) => left\.area - right\.area \|\| left\.textLength - right\.textLength \|\| left\.y - right\.y\)/);
-  assert.match(runner, /const composerMarker = `chat-composer-ui-\$\{runId\}-😀`/);
-  assert.match(await source("scripts/chat-actions-notifications-android-evidence.mjs"), /const composerMarker = `chat-compose-ui-android-\$\{randomUUID\(\)\}-😀`/);
-  assert.match(await source("scripts/chat-actions-notifications-ios-evidence.mjs"), /state\.composerMarker = [\s\S]*?`chat-actions-ios-send-\$\{randomUUID\(\)\}-😀`/);
+  assert.match(runner, /const composerMarker = `🚨 chat-composer-ui-\$\{runId\} www\.quata\.test\/chat 📝`/);
+  assert.match(await source("scripts/chat-actions-notifications-android-evidence.mjs"), /const composerMarker = `🚨 chat-compose-ui-android-\$\{randomUUID\(\)\} www\.quata\.test\/chat 📝`/);
+  assert.match(await source("scripts/chat-actions-notifications-ios-evidence.mjs"), /state\.composerMarker = [\s\S]*?`🚨 chat-actions-ios-send-\$\{randomUUID\(\)\} www\.quata\.test\/chat 📝`/);
   assert.match(runner, /fillComposerAndSend\(page, composerMarker\)/);
   assert.match(runner, /await waitMessageVisible\(page, composerMarker, "composer_message_not_visible"\)/);
   assert.match(runner, /const input = await visibleAriaLocator\(page, \[\/Mensaje\|Message\|Composer\/i\], 10_000\)/);

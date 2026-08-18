@@ -44,6 +44,7 @@ const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-onl
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
 const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
 const attachmentPickerOnly = process.argv.includes("--attachment-picker-only");
+const composerEmojiOnly = process.argv.includes("--composer-emoji-only");
 const groupSosOnly = process.argv.includes("--group-sos-only");
 const groupAdminOnly = process.argv.includes("--group-admin-only");
 const groupModerationOnly = process.argv.includes("--group-moderation-only");
@@ -201,6 +202,11 @@ function parseArgs(argv) {
       if (!value || value.startsWith("--")) throw new Error("invalid_arguments");
       result.attachmentPickerOutcome = value;
       index += 1;
+      continue;
+    }
+    if (key === "--composer-emoji-only") {
+      result.output = join("build-reports", "android", "chat-composer-emoji-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "chat-composer-emoji-evidence");
       continue;
     }
     if (!["--out", "--evidence-dir"].includes(key)) continue;
@@ -1415,7 +1421,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !attachmentPickerOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1435,7 +1441,7 @@ try {
   const privateMarker = `chat-profile-private-android-${randomUUID()}`;
   state.privateMarker = privateMarker;
   const privateProbe = privateMarker.slice(0, 28);
-  const composerMarker = `chat-compose-ui-android-${randomUUID()}-😀`;
+  const composerMarker = `🚨 chat-compose-ui-android-${randomUUID()} www.quata.test/chat 📝`;
   const replyMarker = `chat-reply-ui-android-${randomUUID()}`;
   const editMarker = `chat-edit-ui-android-${randomUUID()}`;
   const attachmentPickerMarker = `chat-attachment-picker-android-${randomUUID()}`;
@@ -1819,6 +1825,30 @@ try {
     throw new Error("attachment_picker_only_completed");
   }
 
+  if (composerEmojiOnly) {
+    assertInstrumentationPassed("composer-emoji", await runInstrumentationStage("composer-emoji"));
+    const composerMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === composerMarker);
+    const composerMessageId = messageId(composerMessage);
+    state.uiMessages.push(composerMessageId);
+    report.steps.push("composer_emoji_link_marker_sent_by_shared_ui_and_verified_by_rpc");
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((name) => name.includes("composer") || name.includes("thread-initial") || name.endsWith("evidence.json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
+    }
+    report.status = "passed";
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      threadId: state.thread,
+      conversationId: `sb:${state.thread}`,
+      seedMessageId: state.message,
+      composerMessageId,
+      markerSha256: sha256(marker),
+      composerMarkerSha256: sha256(composerMarker),
+    };
+    throw new Error("composer_emoji_only_completed");
+  }
+
   if (groupSosOnly) {
     assertInstrumentationPassed("group-sos", await runInstrumentationStage("group-sos"));
     await rm(evidenceDir, { recursive: true, force: true });
@@ -2112,6 +2142,7 @@ try {
     error?.message === "group_sos_only_completed" ||
     error?.message === "group_admin_only_completed" ||
     error?.message === "group_moderation_only_completed" ||
+    error?.message === "composer_emoji_only_completed" ||
     error?.message === "profile_only_completed" ||
     error?.message === "profile_follow_only_completed" ||
     error?.message === "profile_lists_only_completed" ||
