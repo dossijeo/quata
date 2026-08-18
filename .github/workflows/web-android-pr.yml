@@ -636,10 +636,6 @@ jobs:
           if [[ "$EVENT_NAME" == "pull_request" && "$DOCS_ONLY" == "true" ]]; then
             exit 0
           fi
-          if [[ "$EVENT_NAME" == "pull_request" && "$FINAL_CANDIDATE" != "true" ]]; then
-            echo "A pull request must carry candidate-final before final certification can pass." >&2
-            exit 1
-          fi
           verify_lane() {
             local lane="$1"
             local affected="$2"
@@ -647,6 +643,13 @@ jobs:
             if [[ "$affected" != "true" && "$affected" != "false" ]]; then
               echo "Final certification is invalid: '$lane' has affected='$affected'." >&2
               exit 1
+            fi
+            if [[ "$EVENT_NAME" == "pull_request" && "$FINAL_CANDIDATE" != "true" ]]; then
+              if [[ "$result" != "skipped" ]]; then
+                echo "Preparation pull request is invalid: '$lane' final job must be skipped before candidate-final, but was '$result'." >&2
+                exit 1
+              fi
+              return 0
             fi
             local expected_result="skipped"
             [[ "$affected" == "true" ]] && expected_result="success"

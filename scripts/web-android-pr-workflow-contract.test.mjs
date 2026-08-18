@@ -80,7 +80,7 @@ function assertFastAndFinalLaneContract(yaml) {
   }
   assert.match(gateBlock, /set -euo pipefail/);
   assert.match(gateBlock, /\[\[ "\$EVENT_NAME" == "pull_request" && "\$DOCS_ONLY" == "true" \]\]/);
-  assert.match(gateBlock, /A pull request must carry candidate-final before final certification can pass\./);
+  assert.match(gateBlock, /Preparation pull request is invalid: '\$lane' final job must be skipped before candidate-final, but was '\$result'\./);
   assert.match(gateBlock, /verify_lane "web-wasm" "\$WEB_AFFECTED" "\$WEB_FINAL_RESULT"[\s\S]*?verify_lane "web-unit" "\$WEB_AFFECTED" "\$WEB_UNIT_RESULT"[\s\S]*?verify_lane "android-unit" "\$ANDROID_AFFECTED" "\$ANDROID_UNIT_RESULT"[\s\S]*?verify_lane "android-debug" "\$ANDROID_AFFECTED" "\$ANDROID_FINAL_RESULT"/);
 }
 
@@ -192,7 +192,8 @@ test('Web/Wasm workflow supplies its fetched trusted base SHA and deterministic 
 test('Web/Android final gate executes the shared fail-closed shell for every event/result combination', async () => {
   const script = await readFile(finalGateScript, 'utf8');
   for (const [name, input, expected] of [
-    ['unlabelled PR skips all final jobs', { event: 'pull_request', candidateFinal: false, results: ['web:false:skipped', 'android:false:skipped'] }, false],
+    ['unlabelled PR skips all final jobs', { event: 'pull_request', candidateFinal: false, results: ['web:false:skipped', 'android:false:skipped'] }, true],
+    ['unlabelled PR fails if a final job runs', { event: 'pull_request', candidateFinal: false, results: ['web:true:success', 'android:false:skipped'] }, false],
     ['docs-only PR skips all final jobs', { event: 'pull_request', candidateFinal: false, docsOnly: true, results: ['web:false:skipped', 'android:false:skipped'] }, true],
     ['affected Web lane is cancelled', { event: 'pull_request', candidateFinal: true, results: ['web:true:cancelled', 'android:false:skipped'] }, false],
     ['unaffected Android lane unexpectedly runs', { event: 'pull_request', candidateFinal: true, results: ['web:true:success', 'android:false:success'] }, false],

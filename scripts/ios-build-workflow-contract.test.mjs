@@ -79,7 +79,7 @@ function assertIosFastFinalLaneContract(yaml) {
   assert.match(gateBlock, /IOS_FINAL_RESULT: \$\{\{ needs\.compile-ios\.result \}\}/);
   assert.match(gateBlock, /set -euo pipefail/);
   assert.match(gateBlock, /\[\[ "\$EVENT_NAME" == "pull_request" && "\$DOCS_ONLY" == "true" \]\]/);
-  assert.match(gateBlock, /A pull request must carry candidate-final before final certification can pass\./);
+  assert.match(gateBlock, /Preparation pull request is invalid: 'ios' final job must be skipped before candidate-final, but was '\$result'\./);
   assert.match(gateBlock, /if \[\[ "\$result" != "\$expected_result" \]\]; then/);
   assert.match(gateBlock, /Final certification is incomplete: 'ios' expected '\$expected_result' but was '\$result'\./);
 }
@@ -359,7 +359,8 @@ test('iOS workflow separates fast PR coverage from final certification and docum
 test('iOS final gate executes the shared fail-closed shell for every event/result combination', async () => {
   const script = await readFile(finalGateScript, 'utf8');
   for (const [name, input, expected] of [
-    ['unlabelled PR with skipped final job', { event: 'pull_request', candidateFinal: false, results: ['ios:false:skipped'] }, false],
+    ['unlabelled PR with skipped final job', { event: 'pull_request', candidateFinal: false, results: ['ios:false:skipped'] }, true],
+    ['unlabelled PR fails if final job runs', { event: 'pull_request', candidateFinal: false, results: ['ios:true:success'] }, false],
     ['docs-only PR with skipped final job', { event: 'pull_request', candidateFinal: false, docsOnly: true, results: ['ios:false:skipped'] }, true],
     ['labelled affected PR with skipped final job', { event: 'pull_request', candidateFinal: true, results: ['ios:true:skipped'] }, false],
     ['labelled affected PR with cancelled final job', { event: 'pull_request', candidateFinal: true, results: ['ios:true:cancelled'] }, false],
