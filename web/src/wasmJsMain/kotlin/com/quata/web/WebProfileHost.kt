@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package com.quata.web
 
 import androidx.compose.foundation.layout.fillMaxSize
@@ -345,7 +347,12 @@ class WebProfileRepository(
     override fun observeProfileEditModel(): Flow<Result<ProfileEditModel>> = selected().observeProfileEditModel()
     override suspend fun getProfileEditModel(): Result<ProfileEditModel> = selected().getProfileEditModel()
     override suspend fun saveProfile(update: ProfileUpdate): Result<Unit> = selected().saveProfile(update)
-    override suspend fun saveEmergencySettings(contactIds: List<String>, message: String, messageIsDefault: Boolean): Result<Unit> = selected().saveEmergencySettings(contactIds, message, messageIsDefault)
+    override suspend fun saveEmergencySettings(contactIds: List<String>, message: String, messageIsDefault: Boolean): Result<Unit> =
+        if (webProfileSosSaveErrorE2eEnabled()) {
+            Result.failure(IllegalStateException("web_profile_sos_save_failed"))
+        } else {
+            selected().saveEmergencySettings(contactIds, message, messageIsDefault)
+        }
     override fun defaultEmergencyMessage(displayName: String): String = selected().defaultEmergencyMessage(displayName)
     override fun changesSavedMessage(): String = selected().changesSavedMessage()
     override fun emergencyContactsSavedMessage(): String = selected().emergencyContactsSavedMessage()
@@ -354,6 +361,15 @@ class WebProfileRepository(
 enum class WebProfilePersistenceMode { Remote, Unavailable }
 internal fun webProfilePersistenceMode(hasRemoteRepository: Boolean, hasConfiguredAuthenticatedSession: Boolean): WebProfilePersistenceMode =
     if (hasRemoteRepository && hasConfiguredAuthenticatedSession) WebProfilePersistenceMode.Remote else WebProfilePersistenceMode.Unavailable
+
+@JsFun(
+    """() => {
+      const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
+      const query = new URLSearchParams(location?.search || '');
+      return local && query.get('quata-auth-e2e') === '1' && query.get('quata-profile-sos-save-error-e2e') === '1';
+    }""",
+)
+private external fun webProfileSosSaveErrorE2eEnabled(): Boolean
 
 private object UnavailableWebProfileRepository : ProfileRepository {
     private fun unavailable() = IllegalStateException("web_profile_remote_session_unavailable")

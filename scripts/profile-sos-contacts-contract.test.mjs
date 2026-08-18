@@ -14,6 +14,7 @@ const files = {
   repository: "../feature/profile/src/commonMain/kotlin/com/quata/feature/profile/data/KmpProfileRepository.kt",
   androidGateway: "../app/src/main/java/com/quata/feature/profile/data/AndroidProfileKmpAdapters.kt",
   webGateway: "../web/src/wasmJsMain/kotlin/com/quata/web/WebProfileRemoteGateway.kt",
+  webHost: "../web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
   iosGateway: "../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/data/IosProfilePostgrestGateway.kt",
   iosApp: "../iosApp/iosApp/QuataIosApp.swift",
   webSosBridge: "../web/src/wasmJsMain/kotlin/com/quata/web/WebProfileSosE2eBridge.kt",
@@ -95,6 +96,13 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.match(loaded.webEvidence, /selectFiveProfileSosContacts/);
   assert.match(loaded.webEvidence, /data-quata-profile-sos-selected-count/);
   assert.match(loaded.webEvidence, /assertAccountSosContactsEditor/);
+  assert.match(loaded.webEvidence, /--profile-sos-save-error/);
+  assert.match(loaded.webEvidence, /assertProfileSosSaveError/);
+  assert.match(loaded.webEvidence, /quata-profile-sos-save-error-e2e/);
+  assert.match(loaded.webEvidence, /data-quata-profile-sos-error-visible/);
+  assert.match(loaded.webHost, /webProfileSosSaveErrorE2eEnabled/);
+  assert.match(loaded.webHost, /quata-profile-sos-save-error-e2e/);
+  assert.match(loaded.webHost, /web_profile_sos_save_failed/);
   assert.match(loaded.webEvidence, /report\.accountSosContacts = await assertAccountSosContactsEditor/);
   assert.match(loaded.webEvidence, /missingDomAnchorReason/);
   assert.match(loaded.webEvidence, /wasm_canvas_semantics_not_dom_exposed/);

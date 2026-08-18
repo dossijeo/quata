@@ -173,7 +173,12 @@ try {
   // drives its transition. Initial deep-link bootstrap is covered separately by the raw-CDP
   // smoke; this authenticated journey must not depend on a browser omitting hashchange for its
   // already-present initial fragment.
-  await page.goto(`${server.origin}/?quata-auth-e2e=1&backend=${encodeURIComponent(backend)}#auth`);
+  const productQuery = new URLSearchParams({
+    "quata-auth-e2e": "1",
+    backend,
+  });
+  if (options.profileSosSaveError) productQuery.set("quata-profile-sos-save-error-e2e", "1");
+  await page.goto(`${server.origin}/?${productQuery.toString()}#auth`);
   await page.waitForFunction(() => {
     const root = document.querySelector("#quata-root");
     return globalThis.__quataAuthE2eProduct?.version === 1 && root &&
@@ -366,6 +371,7 @@ if (report.status !== "passed") {
 function parseArguments(args) {
   const parsed = {
     real: false,
+    profileSosSaveError: false,
     distribution: resolve("web/build/dist/wasmJs/productionExecutable"),
     chrome: process.env.QUATA_CHROME_PATH || (process.platform === "win32"
       ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "google-chrome"),
@@ -374,12 +380,13 @@ function parseArguments(args) {
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === "--real") parsed.real = true;
+    else if (argument === "--profile-sos-save-error") parsed.profileSosSaveError = true;
     else if (["--dist", "--chrome", "--out"].includes(argument)) {
       const value = args[++index];
       if (!value || value.startsWith("--")) throw new Error("invalid_arguments");
       parsed[argument === "--dist" ? "distribution" : argument === "--chrome" ? "chrome" : "output"] = resolve(value);
     } else if (argument === "--help" || argument === "-h") {
-      console.log("Usage: node scripts/web-authenticated-browser-e2e.mjs [--real] [--dist DIR] [--chrome PATH] [--out REPORT]");
+      console.log("Usage: node scripts/web-authenticated-browser-e2e.mjs [--real] [--dist DIR] [--chrome PATH] [--out REPORT] [--profile-sos-save-error]");
       process.exit(0);
     } else throw new Error("invalid_arguments");
   }
@@ -670,6 +677,9 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
     Number(document.documentElement.getAttribute("data-quata-profile-sos-candidate-count") || "0") >= 6,
   );
   const limitSelection = await selectFiveProfileSosContacts(page);
+  const saveError = options.profileSosSaveError
+    ? await assertProfileSosSaveError(page, reportOutput, steps)
+    : null;
   await page.screenshot({ path: reportOutput.replace(/\.json$/i, ".sos-contacts.png"), fullPage: true });
   steps.push("account_sos_contacts_visible_screenshot");
   const layout = await page.evaluate(() => ({ width: globalThis.innerWidth, height: globalThis.innerHeight }));
@@ -694,6 +704,7 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
     "profile.sos.search",
     "profile.sos.message.input",
     "profile.sos.save",
+    "profile.sos.error",
   ];
   const domAnchors = await page.evaluate(targets => {
     const root = document.querySelector("#quata-root");
@@ -727,11 +738,32 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = []) {
     missingDomAnchors,
     openMethod,
     limitSelection,
+    saveError,
     layout,
     messageTabResolution,
     missingDomAnchorReason: missingDomAnchors.length
       ? "wasm_canvas_semantics_not_dom_exposed; commonMain anchors are enforced by profile-sos-contacts-contract and Android/iOS expose native semantics"
       : null,
+  };
+}
+
+async function assertProfileSosSaveError(page, reportOutput, steps) {
+  const save = await findVisibleTextBounds(page, /Guardar SOS|Guardar|Save/i) ?? await profileSosSaveButtonFallbackBounds(page);
+  if (!save) throw new Error("profile_sos_save_button_missing");
+  await page.mouse.click(save.x + save.width / 2, save.y + save.height / 2);
+  await page.waitForFunction(() =>
+    document.documentElement.getAttribute("data-quata-profile-sos-error-visible") === "true",
+  );
+  await page.waitForFunction(() =>
+    ["contacts", "message"].includes(document.documentElement.getAttribute("data-quata-profile-sos-tab")),
+  );
+  const screenshot = reportOutput.replace(/\.json$/i, ".sos-save-error.png");
+  await page.screenshot({ path: screenshot, fullPage: true });
+  steps.push("account_sos_save_error_visible_screenshot");
+  return {
+    status: "passed",
+    screenshot,
+    resolution: save.resolution ?? "visible_text",
   };
 }
 
@@ -795,6 +827,26 @@ async function profileSosMessageTabFallbackBounds(page) {
       width: rect.width * 0.22,
       height: 44,
       resolution: "wasm_canvas_relative_tab_fallback",
+    };
+  });
+}
+
+async function profileSosSaveButtonFallbackBounds(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    const canvas = [...scope.querySelectorAll("canvas")].find(element => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: rect.x + rect.width * 0.70,
+      y: rect.y + rect.height * 0.92,
+      width: rect.width * 0.24,
+      height: rect.height * 0.08,
+      resolution: "wasm_canvas_relative_save_button_fallback",
     };
   });
 }
