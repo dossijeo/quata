@@ -18,7 +18,12 @@ internal fun installWebProfileSosE2eBridge(
         close: () => closeSos(),
       });
       globalThis.__quataProfileSosE2eProduct = bridge;
-      globalThis.document?.documentElement?.setAttribute('data-quata-profile-sos-bridge', 'ready');
+      const element = globalThis.document?.documentElement;
+      element?.setAttribute('data-quata-profile-sos-bridge', 'ready');
+      const query = new URLSearchParams(globalThis.location?.search || '');
+      if (query.get('quata-profile-sos-save-error-e2e') === '1') {
+        element?.setAttribute('data-quata-profile-sos-save-error-e2e', 'enabled');
+      }
       return () => {
         if (globalThis.__quataProfileSosE2eProduct === bridge) delete globalThis.__quataProfileSosE2eProduct;
         globalThis.document?.documentElement?.removeAttribute('data-quata-profile-sos-bridge');
@@ -26,6 +31,7 @@ internal fun installWebProfileSosE2eBridge(
         globalThis.document?.documentElement?.removeAttribute('data-quata-profile-sos-selected-count');
         globalThis.document?.documentElement?.removeAttribute('data-quata-profile-sos-candidate-count');
         globalThis.document?.documentElement?.removeAttribute('data-quata-profile-sos-error-visible');
+        globalThis.document?.documentElement?.removeAttribute('data-quata-profile-sos-save-error-e2e');
       };
     }""",
 )

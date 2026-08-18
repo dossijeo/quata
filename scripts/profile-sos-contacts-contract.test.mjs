@@ -117,6 +117,7 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.match(loaded.webSosBridge, /data-quata-profile-sos-tab/);
   assert.match(loaded.webSosBridge, /data-quata-profile-sos-selected-count/);
   assert.match(loaded.webSosBridge, /data-quata-profile-sos-error-visible/);
+  assert.match(loaded.webSosBridge, /data-quata-profile-sos-save-error-e2e/);
 });
 
 test("SOS contacts contract is part of local fast contract suites", () => {
