@@ -19,7 +19,7 @@ test('CAPABILITY-DRIFT-001 emits the mandatory operation-complete Web/iOS/Androi
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.private-chat.open').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.read').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
   assert.deepEqual(emitted.find(({ id }) => id === 'communities.mutate').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
-  assert.deepEqual(emitted.find(({ id }) => id === 'composer.publish').platforms, { android: 'implemented', web: 'contract-only', ios: 'blocked' });
+  assert.deepEqual(emitted.find(({ id }) => id === 'composer.publish').platforms, { android: 'implemented', web: 'implemented', ios: 'implemented' });
 });
 
 test('CAPABILITY-DRIFT-001 fails closed for catalogue, state, schema and source drift', async () => {
