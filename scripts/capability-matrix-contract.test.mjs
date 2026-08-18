@@ -73,8 +73,8 @@ test('a no-op APNs lifecycle bridge is detected as iOS push capability drift', a
       if (String(path).endsWith('IosApnsLifecycleBridge.swift')) {
         bridgeExercised = true;
         return Buffer.from(bytes.toString('utf8').replace(
-          'UIApplication.shared.registerForRemoteNotifications()',
-          '// simulated no-op registration bridge',
+          '_ = self?.adapter.requestRegistration()',
+          '// simulated no-op registration request',
         ));
       }
       return bytes;
