@@ -121,12 +121,24 @@ const evidenceFiles = [
   "android-feed-comments-emoji-before.png",
   "android-feed-comments-emoji-before-missing-action.png",
   "android-feed-comments-emoji-before-semantics.txt",
+  "android-feed-comments-emoji-before-panel-frequent.png",
+  "android-feed-comments-emoji-before-panel-flags.png",
+  "android-feed-comments-emoji-before-panel-frequent-section-not-clickable.png",
+  "android-feed-comments-emoji-before-panel-frequent-section-not-clickable-semantics.txt",
+  "android-feed-comments-emoji-before-panel-reset-frequent-section-not-clickable.png",
+  "android-feed-comments-emoji-before-panel-reset-frequent-section-not-clickable-semantics.txt",
   "android-feed-comments-emoji-after.png",
   "android-feed-comments-emoji-after-missing-comment.png",
   "android-feed-comments-emoji-after-semantics.txt",
   "android-official-comments-emoji-before.png",
   "android-official-comments-emoji-before-missing-action.png",
   "android-official-comments-emoji-before-semantics.txt",
+  "android-official-comments-emoji-before-panel-frequent.png",
+  "android-official-comments-emoji-before-panel-flags.png",
+  "android-official-comments-emoji-before-panel-frequent-section-not-clickable.png",
+  "android-official-comments-emoji-before-panel-frequent-section-not-clickable-semantics.txt",
+  "android-official-comments-emoji-before-panel-reset-frequent-section-not-clickable.png",
+  "android-official-comments-emoji-before-panel-reset-frequent-section-not-clickable-semantics.txt",
   "android-official-comments-emoji-after.png",
   "android-official-comments-emoji-after-missing-comment.png",
   "android-official-comments-emoji-after-semantics.txt",
@@ -163,6 +175,24 @@ const evidenceFiles = [
   "android-chat-group-moderation-member-blocked.png",
   "android-chat-actions-notifications-evidence.json",
 ];
+const communityEmojiPanelProbeSections = [
+  "recent",
+  "frequent",
+  "gestures",
+  "people",
+  "animals_nature",
+  "food_drink",
+  "objects_symbols",
+  "flags",
+];
+for (const prefix of ["android-feed-comments-emoji-before-panel", "android-official-comments-emoji-before-panel"]) {
+  for (const section of communityEmojiPanelProbeSections) {
+    evidenceFiles.push(`${prefix}-${section}-missing-panel-tag.png`);
+    evidenceFiles.push(`${prefix}-${section}-missing-panel-tag-semantics.txt`);
+    evidenceFiles.push(`${prefix}-${section}-section-not-clickable.png`);
+    evidenceFiles.push(`${prefix}-${section}-section-not-clickable-semantics.txt`);
+  }
+}
 const translationOnly = process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_TRANSLATION_ONLY === "1";
 let lastThreadSnapshot = null;
 

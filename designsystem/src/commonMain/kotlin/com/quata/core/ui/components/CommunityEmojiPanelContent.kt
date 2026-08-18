@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -56,11 +58,16 @@ import quata.designsystem.generated.resources.quata_community_emoji_atlas_recent
 data class QuataEmojiSection(val key: String, val label: String, val emojis: List<String>)
 
 const val CommunityEmojiPanelRootTestTag = "community.emoji.panel"
+const val CommunityEmojiPanelSectionsRowTestTag = "community.emoji.sections"
 const val CommunityEmojiPanelSectionTestTagPrefix = "community.emoji.section."
+const val CommunityEmojiPanelGridTestTagPrefix = "community.emoji.grid."
 const val CommunityEmojiPanelCellTestTagPrefix = "community.emoji.cell."
 
 fun communityEmojiSectionTestTag(sectionKey: String): String =
     CommunityEmojiPanelSectionTestTagPrefix + sectionKey
+
+fun communityEmojiGridTestTag(sectionKey: String): String =
+    CommunityEmojiPanelGridTestTagPrefix + sectionKey
 
 fun communityEmojiCellTestTag(sectionKey: String, index: Int): String =
     "$CommunityEmojiPanelCellTestTagPrefix$sectionKey.$index"
@@ -88,14 +95,23 @@ fun CommunityEmojiPanelContent(
             .border(1.dp, template.colors.accent.copy(alpha = .62f), RoundedCornerShape(20.dp))
     ) {
         Column(Modifier.padding(14.dp)) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .testTag(CommunityEmojiPanelSectionsRowTestTag)
+                    .semantics { contentDescription = CommunityEmojiPanelSectionsRowTestTag },
+            ) {
                 items(sections) { section ->
                     Surface(
                         color = if (section.key == selectedSectionKey) template.colors.accent else Color.Transparent,
                         shape = RoundedCornerShape(18.dp),
                         modifier = Modifier
                             .testTag(communityEmojiSectionTestTag(section.key))
-                            .semantics { contentDescription = communityEmojiSectionTestTag(section.key) }
+                            .semantics {
+                                contentDescription = communityEmojiSectionTestTag(section.key)
+                                selected = section.key == selectedSectionKey
+                                stateDescription = if (section.key == selectedSectionKey) "selected" else "not selected"
+                            }
                             .clickable(role = Role.Button) { selectedSectionKey = section.key }
                     ) {
                         Text(section.label, color = if (section.key == selectedSectionKey) template.colors.accentContent else template.colors.textSecondary, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
@@ -108,7 +124,11 @@ fun CommunityEmojiPanelContent(
             val selectedAtlas = imageResource(selectedAtlasLayout.resource)
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 44.dp),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp, max = gridMaxHeight),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 96.dp, max = gridMaxHeight)
+                    .testTag(communityEmojiGridTestTag(selectedSection.key))
+                    .semantics { contentDescription = communityEmojiGridTestTag(selectedSection.key) },
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
