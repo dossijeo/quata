@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-TEXT-DESTINATION"
+  ],
+  "productSha": "72f760fc67c58364ce4d1075741e8ca6b80242e2",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "72f760fc67c58364ce4d1075741e8ca6b80242e2",
+      "report": "build-reports/web/post-text-destination-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "72f760fc67c58364ce4d1075741e8ca6b80242e2",
+      "report": "build-reports/android/post-text-destination-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "72f760fc67c58364ce4d1075741e8ca6b80242e2",
+      "report": "build-reports/ios/post-text-destination-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate moves destination selection into commonMain for the shared CreatePostRoot. Android, Web/Wasm and iOS load eligible community walls through platform transports, expose common destination anchors, publish a real authenticated text post to the selected wall, verify the exact wall_id in Supabase, and hard-clean community_posts plus related comments/likes with residue count zero.",
+    "Web/Wasm currently has a single eligible destination for the approved test profile, so the evidence records the common default destination state instead of forcing an unavailable second option. Text submit still uses the localhost-only opt-in bridge after the visual route because Compose/Wasm does not expose a stable DOM text input/action for this canvas control."
+  ]
+}
