@@ -30,9 +30,10 @@ import platform.UIKit.UIViewController
 fun QuataIosProfileLegalEvidenceViewController(
     languageCode: String?,
     onOpened: (String) -> Unit,
+    forceSosSaveError: Boolean = false,
 ): UIViewController = QuataProfileViewController(
     IosProfileHostDependencies(
-        repository = IosProfileLegalEvidenceRepository,
+        repository = IosProfileLegalEvidenceRepository(forceSosSaveError),
         onLogout = {},
         onDeactivateAccount = {},
         onDeleteAccountData = {},
@@ -71,7 +72,9 @@ private object IosProfileLegalEvidenceFilePicker : FilePickerService {
         PlatformResult.Unsupported
 }
 
-private object IosProfileLegalEvidenceRepository : ProfileRepository {
+private class IosProfileLegalEvidenceRepository(
+    private val forceSosSaveError: Boolean,
+) : ProfileRepository {
     private val model = ProfileEditModel(
         profile = UserProfile(
             displayName = "Gabrielo",
@@ -112,7 +115,12 @@ private object IosProfileLegalEvidenceRepository : ProfileRepository {
         contactIds: List<String>,
         message: String,
         messageIsDefault: Boolean,
-    ): Result<Unit> = Result.success(Unit)
+    ): Result<Unit> =
+        if (forceSosSaveError) {
+            Result.failure(IllegalStateException("ios_profile_sos_save_failed"))
+        } else {
+            Result.success(Unit)
+        }
 
     override fun defaultEmergencyMessage(displayName: String): String =
         "Avisar a mis contactos de emergencia."

@@ -15,6 +15,7 @@ const files = {
   androidGateway: "../app/src/main/java/com/quata/feature/profile/data/AndroidProfileKmpAdapters.kt",
   webGateway: "../web/src/wasmJsMain/kotlin/com/quata/web/WebProfileRemoteGateway.kt",
   iosGateway: "../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/data/IosProfilePostgrestGateway.kt",
+  iosApp: "../iosApp/iosApp/QuataIosApp.swift",
   webSosBridge: "../web/src/wasmJsMain/kotlin/com/quata/web/WebProfileSosE2eBridge.kt",
   androidEvidence: "../app/src/androidTest/java/com/quata/feature/profile/presentation/ProfileSosContactsInstrumentedTest.kt",
   iosEvidence: "../iosApp/iosAppUITests/QuataIosHostUITests.swift",
@@ -40,6 +41,7 @@ test("SOS contacts editor exposes shared semantic anchors from commonMain", () =
     [loaded.header, 'ProfileSosMessageTabTestTag = "profile.sos.tab.message"'],
     [loaded.selection, 'ProfileSosContactsListTestTag = "profile.sos.contacts.list"'],
     [loaded.selection, 'ProfileSosSearchTestTag = "profile.sos.search"'],
+    [loaded.selection, 'ProfileSosErrorTestTag = "profile.sos.error"'],
     [loaded.row, 'ProfileSosContactRowTestTagPrefix = "profile.sos.contact."'],
     [loaded.row, 'ProfileSosContactToggleTestTagPrefix = "profile.sos.contact.toggle."'],
     [loaded.editor, 'ProfileSosMessageInputTestTag = "profile.sos.message.input"'],
@@ -63,6 +65,7 @@ test("SOS contacts save path stays common and normalized before platform gateway
   assert.match(loaded.repository, /internal fun normalizeEmergencyContactIds\(contactIds: List<String>\): List<String> =/);
   assert.match(loaded.repository, /\.distinct\(\)\.take\(MaxEmergencyContacts\)/);
   assert.match(loaded.host, /onSosSelectionChanged/);
+  assert.match(loaded.host, /onSosErrorChanged\(state\.errorMessage\)/);
 });
 
 test("SOS contacts gateways remain implemented on Android, Web and iOS", () => {
@@ -78,8 +81,13 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.match(loaded.androidEvidence, /ProfileSosRootTestTag/);
   assert.match(loaded.androidEvidence, /ProfileSosContactToggleTestTagPrefix/);
   assert.match(loaded.androidEvidence, /ProfileSosMessageInputTestTag/);
+  assert.match(loaded.androidEvidence, /ProfileSosErrorTestTag/);
   assert.match(loaded.androidEvidence, /toggleEmergencyContactSelection\(selectedIds, contact\.id\)/);
   assert.match(loaded.iosEvidence, /testProfileSosFixtureRendersSharedContactsEditorAnchors/);
+  assert.match(loaded.iosEvidence, /testProfileSosSaveFailureKeepsSharedErrorInDialog/);
+  assert.match(loaded.iosEvidence, /"profile\.sos\.error"/);
+  assert.match(loaded.iosEvidence, /-quata-ui-test-profile-sos-save-error/);
+  assert.match(loaded.iosApp, /forceSosSaveError: arguments\.contains\("-quata-ui-test-profile-sos-save-error"\)/);
   assert.match(loaded.iosEvidence, /"profile\.sos\.contact\.toggle\.sos-fixture-6"/);
   assert.match(loaded.iosEvidence, /app\.staticTexts\["5 selected"\]/);
   assert.match(loaded.iosEvidence, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)/);
@@ -95,6 +103,7 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.match(loaded.webEvidence, /wasm_canvas_relative_tab_fallback/);
   assert.match(loaded.webSosBridge, /data-quata-profile-sos-tab/);
   assert.match(loaded.webSosBridge, /data-quata-profile-sos-selected-count/);
+  assert.match(loaded.webSosBridge, /data-quata-profile-sos-error-visible/);
 });
 
 test("SOS contacts contract is part of local fast contract suites", () => {

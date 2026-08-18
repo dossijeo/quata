@@ -61,6 +61,7 @@ class ProfileSosContactsInstrumentedTest {
                     selectedIds = selectedIds,
                     message = message,
                     isSaving = false,
+                    errorMessage = null,
                     strings = evidenceStrings(),
                     onMessageChange = { message = it },
                     onToggleContact = { contact ->
@@ -149,6 +150,7 @@ class ProfileSosContactsInstrumentedTest {
                     selectedIds = selectedIds,
                     message = message,
                     isSaving = false,
+                    errorMessage = null,
                     strings = evidenceStrings(),
                     onMessageChange = { message = it },
                     onToggleContact = { contact ->
@@ -199,6 +201,68 @@ class ProfileSosContactsInstrumentedTest {
             "android_sos_custom_message_mismatch:$savedMessages"
         }
         saveScreenshot("android-profile-sos-message")
+    }
+
+    @Test
+    fun profileSosSaveErrorUsesSharedDialogAnchor() {
+        val candidates = listOf(
+            EmergencyContactCandidate(
+                id = "sos-error-1",
+                displayName = "Contacto error",
+                email = "sos-error-1@example.invalid",
+                neighborhood = "Bovano",
+                phone = "+240680242699",
+            ),
+        )
+        var selectedIds by mutableStateOf(listOf("sos-error-1"))
+        var message by mutableStateOf("Avisar a mis contactos de emergencia.")
+        val error = "No se pudieron guardar los cambios"
+
+        compose.setContent {
+            QuataTheme {
+                EmergencyContactsDialogContent(
+                    layoutPadding = PaddingValues(),
+                    isLandscapeLayout = false,
+                    isImeVisible = false,
+                    candidates = candidates,
+                    selectedIds = selectedIds,
+                    message = message,
+                    isSaving = false,
+                    errorMessage = error,
+                    strings = evidenceStrings(),
+                    onMessageChange = { message = it },
+                    onToggleContact = { contact ->
+                        selectedIds = toggleEmergencyContactSelection(selectedIds, contact.id)
+                    },
+                    onDismiss = {},
+                    onSave = {},
+                    slots = EmergencyContactsDialogSlots(
+                        contactRow = { contact, selected, toggle ->
+                            EmergencyUserRowContent(
+                                user = contact,
+                                selected = selected,
+                                addLabel = "Añadir",
+                                removeLabel = "Quitar",
+                                avatar = { Text(contact.displayName.take(1)) },
+                                onToggle = toggle,
+                            )
+                        },
+                        messageInput = { modifier: Modifier, value, change, minLines, maxLines ->
+                            OutlinedTextField(
+                                value = value,
+                                onValueChange = change,
+                                modifier = modifier,
+                                minLines = minLines,
+                                maxLines = maxLines ?: Int.MAX_VALUE,
+                            )
+                        },
+                    ),
+                )
+            }
+        }
+
+        compose.onNodeWithTag(ProfileSosErrorTestTag, useUnmergedTree = true).fetchSemanticsNode()
+        saveScreenshot("android-profile-sos-save-error")
     }
 
     private fun evidenceStrings() = EmergencyContactsEditorStrings(

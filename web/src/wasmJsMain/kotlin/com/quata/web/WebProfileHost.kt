@@ -151,6 +151,9 @@ internal fun WebProfileHost(
             onSosSelectionChanged = { selectedCount, candidateCount ->
                 updateWebProfileSosE2eSelectionState(selectedCount, candidateCount)
             },
+            onSosErrorChanged = { errorMessage ->
+                updateWebProfileSosE2eErrorState(errorMessage)
+            },
         ),
     )
     QuataDocumentViewerStatusContent(

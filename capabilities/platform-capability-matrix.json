@@ -521,7 +521,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "a5112d121acefd54525dc3807749d113c57f27cf11deb9981b4e9793ec522cf2",
+              "sha256": "311f47369a6ce51b98b307b1f3f13ca69e5d166f2461946e03aac81c9531f2c7",
               "role": "composition"
             },
             {
@@ -594,7 +594,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "a5112d121acefd54525dc3807749d113c57f27cf11deb9981b4e9793ec522cf2",
+              "sha256": "311f47369a6ce51b98b307b1f3f13ca69e5d166f2461946e03aac81c9531f2c7",
               "role": "composition"
             },
             {
@@ -662,7 +662,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "a5112d121acefd54525dc3807749d113c57f27cf11deb9981b4e9793ec522cf2",
+              "sha256": "311f47369a6ce51b98b307b1f3f13ca69e5d166f2461946e03aac81c9531f2c7",
               "role": "composition"
             },
             {
@@ -706,7 +706,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
-              "sha256": "f09872f29e951230e594fd66c71036bfdbffabdab46dc5d911a16829e653c1ac",
+              "sha256": "7660051e3348e7c248af69b3f34bd321c0313fb54c3df2c46476d9a19116e4fd",
               "role": "composition"
             },
             {
@@ -769,7 +769,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
-              "sha256": "f09872f29e951230e594fd66c71036bfdbffabdab46dc5d911a16829e653c1ac",
+              "sha256": "7660051e3348e7c248af69b3f34bd321c0313fb54c3df2c46476d9a19116e4fd",
               "role": "runtime-bootstrap"
             },
             {
@@ -844,7 +844,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "a5112d121acefd54525dc3807749d113c57f27cf11deb9981b4e9793ec522cf2",
+              "sha256": "311f47369a6ce51b98b307b1f3f13ca69e5d166f2461946e03aac81c9531f2c7",
               "role": "composition"
             },
             {

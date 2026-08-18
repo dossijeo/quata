@@ -22,6 +22,7 @@ import com.quata.feature.profile.domain.EmergencyContactCandidate
 
 const val ProfileSosContactsListTestTag = "profile.sos.contacts.list"
 const val ProfileSosSearchTestTag = "profile.sos.search"
+const val ProfileSosErrorTestTag = "profile.sos.error"
 
 /**
  * Portable contacts-tab body for the SOS editor. Platform hosts provide the avatar-backed
@@ -38,6 +39,7 @@ fun EmergencyContactsSelectionContent(
     headerStrings: EmergencyContactsHeaderStrings,
     searchPlaceholder: String,
     selectedCountLabel: String,
+    errorMessage: String?,
     networkUsersLabel: String,
     onTabSelected: (EmergencyContactsTab) -> Unit,
     onDismiss: () -> Unit,
@@ -85,6 +87,18 @@ fun EmergencyContactsSelectionContent(
                 color = template.colors.accent,
                 fontWeight = FontWeight.Bold
             )
+            errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = message,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.semantics {
+                        testTag = ProfileSosErrorTestTag
+                        contentDescription = ProfileSosErrorTestTag
+                    },
+                )
+            }
             Spacer(Modifier.height(14.dp))
             Text(networkUsersLabel, fontWeight = FontWeight.ExtraBold)
             contactActions?.let { actions ->

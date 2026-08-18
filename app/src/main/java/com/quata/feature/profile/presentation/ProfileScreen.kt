@@ -197,6 +197,7 @@ fun EmergencyContactsDialog(
     selectedIds: List<String>,
     message: String,
     isSaving: Boolean,
+    errorMessage: String? = null,
     onMessageChange: (String) -> Unit,
     onToggleContact: (EmergencyContactCandidate) -> Unit,
     onDismiss: () -> Unit,
@@ -210,6 +211,7 @@ fun EmergencyContactsDialog(
     BackHandler(true, onDismiss)
     EmergencyContactsDialogContent(
         layoutPadding, isLandscape, imeBottom > 0, candidates, selectedIds, message, isSaving,
+        errorMessage,
         androidProfileStrings(context).emergency,
         onMessageChange, onToggleContact, onDismiss, onSave,
         EmergencyContactsDialogSlots(

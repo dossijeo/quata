@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -20,6 +23,7 @@ import com.quata.core.ui.components.QuataPanel
 fun EmergencyContactsLandscapeMessagePanelContent(
     title: String,
     hint: String,
+    errorMessage: String?,
     input: @Composable () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -36,6 +40,18 @@ fun EmergencyContactsLandscapeMessagePanelContent(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+            errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = message,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.semantics {
+                        testTag = ProfileSosErrorTestTag
+                        contentDescription = ProfileSosErrorTestTag
+                    },
+                )
+            }
             Spacer(Modifier.height(8.dp))
             input()
         }

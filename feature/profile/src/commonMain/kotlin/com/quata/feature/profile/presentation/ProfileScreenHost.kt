@@ -169,9 +169,11 @@ fun ProfileScreenHost(
                     profile?.emergencyContactIds.orEmpty().distinct().size,
                     state.emergencyCandidates.size,
                 )
+                slots.onSosErrorChanged(state.errorMessage)
             } else {
                 slots.onSosTabChanged(null)
                 slots.onSosSelectionChanged(0, state.emergencyCandidates.size)
+                slots.onSosErrorChanged(null)
             }
         }
         if (showSos && profile != null) {
@@ -183,6 +185,7 @@ fun ProfileScreenHost(
                 selectedIds = profile.emergencyContactIds,
                 message = profile.emergencyMessage,
                 isSaving = state.isSaving,
+                errorMessage = state.errorMessage,
                 strings = strings.emergency,
                 onMessageChange = { viewModel.onEvent(ProfileUiEvent.EmergencyMessageChanged(it)) },
                 onToggleContact = { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) },
@@ -320,6 +323,7 @@ data class ProfileScreenSlots(
     val sosE2eBridge: (@Composable (openSos: () -> Unit, closeSos: () -> Unit) -> Unit)? = null,
     val onSosTabChanged: (EmergencyContactsTab?) -> Unit = {},
     val onSosSelectionChanged: (selectedCount: Int, candidateCount: Int) -> Unit = { _, _ -> },
+    val onSosErrorChanged: (String?) -> Unit = {},
 )
 
 /** Platform-neutral back bridge. Hosts install their native back callback as a thin adapter. */

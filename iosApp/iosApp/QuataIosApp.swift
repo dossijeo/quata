@@ -573,6 +573,7 @@ private final class IosAppCompositionRoot {
                             view.addSubview(marker)
                         }
                     },
+                    forceSosSaveError: arguments.contains("-quata-ui-test-profile-sos-save-error"),
                 )
             }
             return container

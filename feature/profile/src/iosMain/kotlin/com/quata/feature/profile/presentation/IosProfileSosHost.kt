@@ -65,6 +65,7 @@ fun QuataProfileSosViewController(dependencies: IosProfileSosHostDependencies): 
             selectedIds = profile?.emergencyContactIds.orEmpty(),
             message = profile?.emergencyMessage.orEmpty(),
             isSaving = state.isSaving,
+            errorMessage = state.errorMessage,
             strings = dependencies.strings,
             onMessageChange = { dependencies.viewModel.onEvent(ProfileUiEvent.EmergencyMessageChanged(it)) },
             onToggleContact = { contact -> dependencies.viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(contact.id)) },

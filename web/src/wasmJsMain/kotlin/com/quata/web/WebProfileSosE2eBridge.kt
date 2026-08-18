@@ -25,6 +25,7 @@ internal fun installWebProfileSosE2eBridge(
         globalThis.document?.documentElement?.removeAttribute('data-quata-profile-sos-tab');
         globalThis.document?.documentElement?.removeAttribute('data-quata-profile-sos-selected-count');
         globalThis.document?.documentElement?.removeAttribute('data-quata-profile-sos-candidate-count');
+        globalThis.document?.documentElement?.removeAttribute('data-quata-profile-sos-error-visible');
       };
     }""",
 )
@@ -39,6 +40,10 @@ internal fun updateWebProfileSosE2eTab(tab: String?) {
 
 internal fun updateWebProfileSosE2eSelectionState(selectedCount: Int, candidateCount: Int) {
     updateProfileSosSelectionMarker(selectedCount, candidateCount)
+}
+
+internal fun updateWebProfileSosE2eErrorState(errorMessage: String?) {
+    updateProfileSosErrorMarker(!errorMessage.isNullOrBlank())
 }
 
 @JsFun(
@@ -60,3 +65,13 @@ private external fun updateProfileSosTabMarker(tab: String?)
     }""",
 )
 private external fun updateProfileSosSelectionMarker(selectedCount: Int, candidateCount: Int)
+
+@JsFun(
+    """(visible) => {
+      const element = globalThis.document?.documentElement;
+      if (!element) return;
+      if (visible) element.setAttribute('data-quata-profile-sos-error-visible', 'true');
+      else element.removeAttribute('data-quata-profile-sos-error-visible');
+    }""",
+)
+private external fun updateProfileSosErrorMarker(visible: Boolean)
