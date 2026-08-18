@@ -5,12 +5,12 @@
     "SOS-CONTACTS",
     "SB-06"
   ],
-  "productSha": "87e38b3bd6b6c7779f747c3e9273373f727818f5",
+  "productSha": "cdadcbb120689e2391321d86b005f6fef9a1afa0",
   "evidence": {
     "backend": {
       "status": "passed",
-      "sha": "87e38b3bd6b6c7779f747c3e9273373f727818f5",
-      "report": "build-reports/supabase/sb-06-profile-sos-existing-users-87e38b3b.json",
+      "sha": "cdadcbb120689e2391321d86b005f6fef9a1afa0",
+      "report": "build-reports/supabase/sb-06-profile-sos-existing-users-cdadcbb1.json",
       "mode": "two_approved_existing_profiles_public_key",
       "cleanup": {
         "verified": true,
@@ -19,7 +19,7 @@
     },
     "contracts": {
       "status": "passed",
-      "sha": "87e38b3bd6b6c7779f747c3e9273373f727818f5",
+      "sha": "cdadcbb120689e2391321d86b005f6fef9a1afa0",
       "report": "node --test scripts/supabase-e2e-sb06-contract.test.mjs",
       "tests": {
         "count": 4,
@@ -38,7 +38,7 @@
     "node --check scripts/supabase-e2e-sb06.mjs",
     "node --test scripts/supabase-e2e-sb06-contract.test.mjs",
     "npm run test:ci-fast-contracts",
-    "node scripts/supabase-e2e-sb06.mjs --allow-profile-mutation --allow-sos-contact-mutation --out build-reports/supabase/sb-06-profile-sos-existing-users-87e38b3b.json"
+    "node scripts/supabase-e2e-sb06.mjs --allow-profile-mutation --allow-sos-contact-mutation --out build-reports/supabase/sb-06-profile-sos-existing-users-cdadcbb1.json"
   ],
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
