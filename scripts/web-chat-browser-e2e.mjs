@@ -285,7 +285,8 @@ try {
   report.steps.push("two_authenticated_chat_views_opened");
 
   report.phase = "send_a_text";
-  const markerA = `e2e-chat-a-${crypto.randomUUID()}`, markerB = `e2e-chat-b-${crypto.randomUUID()}`;
+  const markerA = `e2e-chat-a-${crypto.randomUUID()}`;
+  const markerB = `🚨 e2e-chat-b-${crypto.randomUUID()} www.quata.test/chat 📝`;
   await sendText(pageA.page, markerA);
   state.messageA = positiveId((await pollMessage(config, state.b, state.thread, (message) => message?.text === markerA))?.id, "message_a");
   await pageB.page.getByText(markerA, { exact: true }).waitFor({ timeout: 45_000 });
@@ -298,7 +299,7 @@ try {
   state.messageB = positiveId(reply?.id, "message_b");
   if (reply?.reply_to_message_id !== state.messageA) throw new Error("chat_contract_invalid:reply_link");
   await pageA.page.getByText(markerB, { exact: true }).waitFor({ timeout: 45_000 });
-  report.steps.push("b_reply_received_by_a_via_polling_ui_and_backend_linked");
+  report.steps.push("b_reply_with_catalog_emoji_and_link_received_by_a_via_polling_ui_and_backend_linked");
   if (pageA.faults.length || pageB.faults.length) throw new Error("browser_runtime_fault");
 
   report.phase = "logout_two_users";

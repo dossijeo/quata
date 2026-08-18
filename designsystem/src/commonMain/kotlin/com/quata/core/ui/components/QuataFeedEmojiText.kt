@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.IntOffset
@@ -17,8 +18,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.em
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.Font
@@ -94,16 +97,24 @@ internal fun emojiInlineEntryAt(value: String, index: Int): Pair<String, String>
 @Composable
 fun rememberQuataEmojiInlineText(value: String): QuataEmojiInlineText {
     val usedInlineIds = remember(value) { quataEmojiInlineIds(value) }
-    val inlineContent = buildMap<String, InlineTextContent> {
+    val inlineContent = rememberQuataEmojiInlineContent(usedInlineIds)
+    val text = remember(value) { quataEmojiAnnotatedString(value) }
+    return remember(text, inlineContent) { QuataEmojiInlineText(text, inlineContent) }
+}
+
+@Composable
+internal fun rememberQuataEmojiInlineContent(value: String): Map<String, InlineTextContent> =
+    rememberQuataEmojiInlineContent(remember(value) { quataEmojiInlineIds(value) })
+
+@Composable
+private fun rememberQuataEmojiInlineContent(usedInlineIds: Set<String>): Map<String, InlineTextContent> =
+    buildMap {
         usedInlineIds.forEach { inlineId ->
             val fixedResource = QuataFeedEmoji.inlineResourceNames.values.firstOrNull { it == inlineId }
             if (fixedResource != null) put(inlineId, feedEmojiInlineContent(fixedResource))
             else communityEmojiInlineEntriesById[inlineId]?.let { put(inlineId, communityEmojiInlineContent(it)) }
         }
     }
-    val text = remember(value) { quataEmojiAnnotatedString(value) }
-    return remember(text, inlineContent) { QuataEmojiInlineText(text, inlineContent) }
-}
 
 /**
  * Replaces the five feed glyphs with transparent Noto PNG resources.
@@ -171,6 +182,10 @@ internal fun quataFeedEmojiAnnotatedString(value: String): AnnotatedString = bui
 
 /** Longest-match parsing keeps ZWJ, variation-selector and regional-indicator sequences atomic. */
 internal fun quataEmojiAnnotatedString(value: String): AnnotatedString = buildAnnotatedString {
+    appendQuataEmojiInlineSegment(value)
+}
+
+internal fun AnnotatedString.Builder.appendQuataEmojiInlineSegment(value: String) {
     var index = 0
     while (index < value.length) {
         val entry = emojiInlineEntryAt(value, index)
@@ -179,6 +194,25 @@ internal fun quataEmojiAnnotatedString(value: String): AnnotatedString = buildAn
             index += entry.first.length
         }
     }
+}
+
+internal const val QuataLinkAnnotationTag = "quata-url"
+private val QuataUrlRegex = Regex("""(https?://[^\s]+|www\.[^\s]+)""")
+
+internal fun quataEmojiLinkifiedAnnotatedString(value: String, linkColor: Color): AnnotatedString = buildAnnotatedString {
+    var currentIndex = 0
+    QuataUrlRegex.findAll(value).forEach { match ->
+        if (match.range.first > currentIndex) appendQuataEmojiInlineSegment(value.substring(currentIndex, match.range.first))
+        val rawUrl = match.value.trimEnd('.', ',', ';', ')')
+        val normalizedUrl = if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) rawUrl else "https://$rawUrl"
+        pushStringAnnotation(QuataLinkAnnotationTag, normalizedUrl)
+        pushStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.Bold))
+        appendQuataEmojiInlineSegment(rawUrl)
+        pop()
+        pop()
+        currentIndex = match.range.first + rawUrl.length
+    }
+    if (currentIndex < value.length) appendQuataEmojiInlineSegment(value.substring(currentIndex))
 }
 
 private fun quataEmojiInlineIds(value: String): Set<String> = buildSet {

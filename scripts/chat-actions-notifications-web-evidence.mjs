@@ -5158,7 +5158,7 @@ try {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 
-  const composerMarker = `chat-composer-ui-${runId}-😀`;
+  const composerMarker = `🚨 chat-composer-ui-${runId} www.quata.test/chat 📝`;
   await fillComposerAndSend(page, composerMarker);
   const composerMessage = await pollMessage(
     config,
@@ -5183,7 +5183,7 @@ try {
       composerMarkerSha256: sha256(composerMarker),
       uniqueKeySha256: sha256(state.uniqueKey),
     };
-    report.steps.push("composer_emoji_marker_sent_by_shared_ui_and_verified_by_rpc");
+    report.steps.push("composer_emoji_link_marker_sent_by_shared_ui_and_verified_by_rpc");
     throw new EvidenceCompleted();
   }
 

@@ -50,6 +50,7 @@ const profileRolesSafetyOnly = options.profileRolesSafetyOnly;
 const menuSurfaceOnly = options.menuSurfaceOnly;
 const keyboardMenuOnly = options.keyboardMenuOnly;
 const attachmentsAudioOnly = options.attachmentsAudioOnly;
+const composerEmojiOnly = options.composerEmojiOnly;
 const groupSosOnly = options.groupSosOnly;
 const attachmentPickerOnly = options.attachmentPickerOnly;
 const groupAdminOnly = options.groupAdminOnly;
@@ -147,7 +148,7 @@ try {
     state.groupRemoveProfile = await createTemporaryForwardProfile(`${runId}-remove`, "1");
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
-  } else if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly && !attachmentPickerOnly) {
+  } else if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -155,10 +156,10 @@ try {
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
   state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
-  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-send-${randomUUID()}-😀`;
-  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
+  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `🚨 chat-actions-ios-send-${randomUUID()} www.quata.test/chat 📝`;
+  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -195,7 +196,7 @@ try {
       state.profilePrivateChatMarkerMessage = messageId(privateMessage);
       report.steps.push("profile_private_chat_seed_message_ready");
     }
-    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
+    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
         p_thread_id: state.thread,
@@ -433,6 +434,7 @@ export QUATA_IOS_CHAT_PROFILE_PRIVATE_CHAT_MARKER_PROBE=${shellQuote(state.priva
 export QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E=${menuSurfaceOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_KEYBOARD_MENU_UI_E2E=${keyboardMenuOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E=${attachmentsAudioOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E=${composerEmojiOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E=${attachmentPickerOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE_OPT_IN=${attachmentPickerOnly ? shellQuote("I_ACCEPT_IOS_CHAT_ATTACHMENT_PICKER_FIXTURE") : "0"}
 export QUATA_IOS_CHAT_ATTACHMENT_PICKER_SOURCE=${shellQuote(state.attachmentPicker?.source ?? "document")}
@@ -478,6 +480,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         menuSurfaceOnly,
         keyboardMenuOnly,
         attachmentsAudioOnly,
+        composerEmojiOnly,
         attachmentPickerOnly,
         groupSosOnly,
         groupAdminOnly,
@@ -499,6 +502,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? "ios_xctest_keyboard_header_and_selected_action_bar_verified"
       : attachmentsAudioOnly
       ? "ios_xctest_document_and_audio_attachment_chrome_verified"
+      : composerEmojiOnly
+      ? "ios_xctest_composer_emoji_link_marker_sent"
       : attachmentPickerOnly
       ? `ios_xctest_attachment_picker_${options.attachmentPickerSource}_${options.attachmentPickerOutcome}_used_shared_composer`
       : groupSosOnly
@@ -649,6 +654,13 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("ios_audio_recording_sent_by_shared_composer_and_verified_by_rpc");
     }
 
+    if (composerEmojiOnly) {
+      const composerMessage = await pollMessage(config, state.a, state.thread, (message) => messageText(message) === state.composerMarker, "composer emoji message");
+      state.composerMessage = messageId(composerMessage);
+      state.uiMessages.push(state.composerMessage);
+      report.steps.push("composer_emoji_link_marker_sent_by_shared_ui_and_verified_by_rpc");
+    }
+
     if (groupAdminOnly) {
       await pollParticipant(state.thread, state.groupAdminProfile.id, "moderator");
       report.steps.push("group_participant_promoted_from_shared_member_menu_and_verified_by_db");
@@ -660,7 +672,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("group_participant_blocked_from_shared_member_menu_and_verified_by_db");
     }
 
-    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
+    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -678,7 +690,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     await copyRemoteEvidence(options);
     report.status = "passed";
-    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly)
+    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly)
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -690,6 +702,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         menuSurfaceOnly,
         keyboardMenuOnly,
         attachmentsAudioOnly,
+        composerEmojiOnly,
         attachmentPickerOnly,
         groupSosOnly,
         groupAdminOnly,
@@ -725,6 +738,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
           audioMarkerSha256: sha256(state.attachmentsAudio.audio.marker),
           nextAudioMarkerSha256: sha256(state.attachmentsAudio.nextAudio.marker),
         } : null,
+        composerMessageId: state.composerMessage,
+        composerMarkerSha256: state.composerMarker ? sha256(state.composerMarker) : null,
         profileFollowInitialState: state.profileFollow?.initiallyFollowing ?? null,
         profileListInitialEdges: state.profileListEdges?.map((edge) => ({ label: edge.label, existed: edge.existed })),
         profileContent: state.profileContent ? {
@@ -973,6 +988,7 @@ function parseArgs(argv) {
     keyboardMenuOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_KEYBOARD_MENU_ONLY === "1",
     attachmentsAudioOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENTS_AUDIO_ONLY === "1",
     attachmentPickerOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENT_PICKER_ONLY === "1",
+    composerEmojiOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_COMPOSER_EMOJI_ONLY === "1",
     attachmentPickerSource: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENT_PICKER_SOURCE?.trim() || "document",
     attachmentPickerOutcome: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENT_PICKER_OUTCOME?.trim() || "success",
     groupSosOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_GROUP_SOS_ONLY === "1",
@@ -1076,6 +1092,14 @@ function parseArgs(argv) {
       index += 1;
       if (index >= argv.length) throw new Error("missing_value:--attachment-picker-outcome");
       result.attachmentPickerOutcome = argv[index];
+      continue;
+    }
+    if (key === "--composer-emoji-only") {
+      result.composerEmojiOnly = true;
+      result.output = resolve("build-reports/ios/chat-composer-emoji-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/chat-composer-emoji-evidence");
+      result.remoteLogDir = "build/reports/ios/chat-composer-emoji";
+      result.remoteResultBundleDir = "build/reports/ios/chat-composer-emoji/xcresults";
       continue;
     }
     if (key === "--group-sos-only") {
@@ -2248,6 +2272,7 @@ function selectedIosXctestForMode(mode) {
   if (mode.menuSurfaceOnly) return { method: "testOptionsMenuSurfaceShowsCommonActionsAndTogglesMute", log: "menu-surface.log" };
   if (mode.keyboardMenuOnly) return { method: "testKeyboardHeaderAndSelectedActionBarStayVisible", log: "keyboard-menu.log" };
   if (mode.attachmentsAudioOnly) return { method: "testAttachmentsAndAudioExposeSharedAnchors", log: "attachments-audio.log" };
+  if (mode.composerEmojiOnly) return { method: "testComposerEmojiLinkMarkerUsesSharedChatSurface", log: "composer-emoji.log" };
   if (mode.attachmentPickerOnly) return { method: "testAttachmentPickerFixtureUsesSharedComposerAnchors", log: "attachment-picker.log" };
   if (mode.groupSosOnly) return { method: "testGroupMenuAndSosMessagesExposeSharedAnchors", log: "group-sos.log" };
   if (mode.groupAdminOnly) return { method: "testGroupAdminPromotesParticipantThroughSharedMemberMenu", log: "group-admin.log" };

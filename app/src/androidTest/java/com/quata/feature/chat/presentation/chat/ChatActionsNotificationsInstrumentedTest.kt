@@ -129,6 +129,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
+            "composer-emoji" -> listOf(chatUrl, ownProbe, composerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
             "group-admin" -> listOf(chatUrl, ownProbe, groupAdminProfileId, groupAdminDisplayName, groupAdminSearchQuery).all { !it.isNullOrBlank() }
             "group-moderation" -> listOf(chatUrl, ownProbe, groupRemoveProfileId, groupRemoveDisplayName, groupRemoveSearchQuery, groupBlockProfileId, groupBlockDisplayName, groupBlockSearchQuery).all { !it.isNullOrBlank() }
@@ -198,6 +199,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty(), audioName.orEmpty(), nextAudioName.orEmpty(), imageProbe.orEmpty(), videoProbe.orEmpty(), audioRecordingMarker.orEmpty())
                 "attachment-picker" -> runAttachmentPickerStage(attachmentPickerSource.orEmpty(), attachmentPickerOutcome, attachmentPickerName.orEmpty(), attachmentPickerMarker.orEmpty())
+                "composer-emoji" -> runComposerEmojiStage(ownProbe.orEmpty(), composerMarker.orEmpty())
                 "group-sos" -> runGroupSosStage(ownProbe.orEmpty())
                 "group-admin" -> runGroupAdminStage(
                     ownProbe = ownProbe.orEmpty(),
@@ -518,13 +520,7 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private suspend fun runSendReplyStage(ownProbe: String, composerMarker: String, replyMarker: String) {
-        waitForMarker(ownProbe, "initial chat thread")
-        saveScreenshot("android-chat-actions-thread-initial")
-
-        fillComposer(composerMarker)
-        flushPendingChatMessages()
-        waitForMarker(composerMarker.take(28), "composer message")
-        saveScreenshot("android-chat-composer-sent")
+        runComposerEmojiStage(ownProbe, composerMarker)
 
         openMessageActions(ownProbe)
         clickAction("chat.action.favorite", "Favorito")
@@ -542,6 +538,16 @@ class ChatActionsNotificationsInstrumentedTest {
         flushPendingChatMessages()
         waitForMarker(replyMarker.take(28), "reply message")
         saveScreenshot("android-chat-composer-reply-sent")
+    }
+
+    private suspend fun runComposerEmojiStage(ownProbe: String, composerMarker: String) {
+        waitForMarker(ownProbe, "initial chat thread")
+        saveScreenshot("android-chat-actions-thread-initial")
+
+        fillComposer(composerMarker)
+        flushPendingChatMessages()
+        waitForMarker(composerMarker.take(28), "composer message")
+        saveScreenshot("android-chat-composer-sent")
     }
 
     private suspend fun runEditFavoriteStage(ownProbe: String, composerMarker: String, editMarker: String) {

@@ -1,6 +1,7 @@
 package com.quata.core.ui.components
 
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 class QuataFeedEmojiTextContractTest {
@@ -36,5 +37,26 @@ class QuataFeedEmojiTextContractTest {
             QuataFeedEmoji.inlineResourceNames.values.toSet(),
             text.getStringAnnotations(0, text.length).map { it.item }.toSet(),
         )
+    }
+
+    @Test
+    fun linkifiedEmojiTextKeepsUrlsClickableWhileReplacingEmojiWithInlineContent() {
+        val text = quataEmojiLinkifiedAnnotatedString(
+            "${QuataFeedEmoji.Rank} Mira www.quata.test/chat ${QuataFeedEmoji.Note}.",
+            androidx.compose.ui.graphics.Color.Blue,
+        )
+
+        assertEquals(
+            setOf("quata-feed-emoji-rank", "quata-feed-emoji-note"),
+            text.getStringAnnotations(0, text.length)
+                .filter { it.tag != QuataLinkAnnotationTag }
+                .map { it.item }
+                .toSet(),
+        )
+        assertContains(
+            text.getStringAnnotations(QuataLinkAnnotationTag, 0, text.length).map { it.item },
+            "https://www.quata.test/chat",
+        )
+        assertEquals("${QuataFeedEmoji.Rank} Mira www.quata.test/chat ${QuataFeedEmoji.Note}.", text.text)
     }
 }

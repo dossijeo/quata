@@ -636,6 +636,43 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(2))
     }
 
+    func testComposerEmojiLinkMarkerUsesSharedChatSurface() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Chat composer emoji UI gate is opt-in.")
+        }
+        guard let conversationId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_CONVERSATION_ID"]),
+              let seedMessageId = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MESSAGE_ID"]),
+              let seedMarkerProbe = nonEmpty(environment["QUATA_IOS_CHAT_E2E_MARKER_PROBE"]),
+              let composerMarker = nonEmpty(environment["QUATA_IOS_CHAT_E2E_COMPOSER_MARKER"]) else {
+            throw XCTSkip("Disposable Chat composer emoji fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(seedMessageId))", in: app)
+        _ = chatHost(in: app, context: "composer emoji/link conversation")
+        assertChatRoute(conversationId, messageId: seedMessageId, in: app, context: "composer emoji/link conversation")
+        XCTAssertTrue(messageText(seedMarkerProbe, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        assertAuthenticatedChrome(in: app, context: "composer emoji/link conversation")
+        assertPrimaryNavigationHidden(in: app, context: "composer emoji/link conversation")
+        attachScreenshot(app, name: "ios-chat-actions-thread-initial")
+
+        typeText(composerMarker, into: "chat.composer.input", in: app)
+        assertConversationHeaderVisibleWithKeyboard(in: app)
+        tapTaggedButton("chat.composer.send", in: app, context: "send composer emoji/link message")
+        XCTAssertTrue(messageText(composerMarker, in: app).waitForExistence(timeout: 45), app.debugDescription)
+        attachScreenshot(app, name: "ios-chat-composer-sent")
+        dismissKeyboardIfPresent(in: app)
+    }
+
     func testProfileEntryFromChatOpensPublicProfileAndReturns() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_PROFILE_UI_E2E"] == "1" else {

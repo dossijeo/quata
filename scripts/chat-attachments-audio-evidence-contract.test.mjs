@@ -535,7 +535,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosRunner, /export PATH="\$JAVA_HOME\/bin:\$PATH"/);
   const attachmentsMode = iosWrapper.slice(
     iosWrapper.indexOf('if [[ "$QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E" == "1" ]]'),
-    iosWrapper.indexOf('elif [[ "$QUATA_IOS_CHAT_PROFILE_ONLY" == "1"'),
+    iosWrapper.indexOf('elif [[ "$QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E" == "1"'),
   );
   assert.doesNotMatch(attachmentsMode, /:\s*"\$\{QUATA_IOS_CHAT_E2E_MESSAGE_ID:\?/);
   assert.doesNotMatch(attachmentsMode, /:\s*"\$\{QUATA_IOS_CHAT_PROFILE_E2E_MARKER_PROBE:\?/);
