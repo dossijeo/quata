@@ -3,6 +3,7 @@ package com.quata.feature.postcomposer.data
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerDestination
 import com.quata.feature.postcomposer.domain.PostComposerType
+import com.quata.core.text.extractPostMeta
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -42,6 +43,25 @@ class ActorBoundPostComposerRepositoryTest {
         assertEquals("post-db-9", result.getOrThrow())
         assertEquals(listOf("session", "moderate:actor-7", "destinations:actor-7", "insert:wall-9:actor-7"), transport.calls)
         assertEquals("wall-9", transport.insert?.wallId)
+    }
+
+    @Test
+    fun imagePublicationCarriesLocationInSharedRemoteBody() = runTest {
+        val transport = RecordingTransport(destinations = listOf(PostComposerDestination("wall-9", "Bata", isDefault = true)))
+        val result = ActorBoundPostComposerRepository(transport).createPost(
+            PostComposerDraft(
+                type = PostComposerType.Image,
+                imageUri = "file:///photo.png",
+                locationLabel = "Malabo Centro",
+                latitude = 3.7523,
+                longitude = 8.7741,
+                destinationWallId = "wall-9",
+            ),
+        )
+
+        assertEquals("post-db-9", result.getOrThrow())
+        assertEquals("Malabo Centro", transport.insert?.body?.extractPostMeta()?.imageLocation)
+        assertEquals("feed", transport.insert?.body?.extractPostMeta()?.channel)
     }
 
     @Test

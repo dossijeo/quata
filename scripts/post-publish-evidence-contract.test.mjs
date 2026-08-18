@@ -12,6 +12,11 @@ const androidPostPublishTest = readFileSync(new URL("../app/src/androidTest/java
 const iosPostPublishTest = readFileSync(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedPostPublishUITests.swift", import.meta.url), "utf8");
 const commonPublishButton = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerPublishButtonContent.kt", import.meta.url), "utf8");
 const commonDestinationSelector = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerDestinationSelectorContent.kt", import.meta.url), "utf8");
+const commonLocationSection = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerLocationSectionContent.kt", import.meta.url), "utf8");
+const commonLocationEditor = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerLocationTextEditorContent.kt", import.meta.url), "utf8");
+const commonComposerRepository = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/data/ActorBoundPostComposerRepository.kt", import.meta.url), "utf8");
+const iosComposerHost = readFileSync(new URL("../feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosComposerHost.kt", import.meta.url), "utf8");
+const iosApp = readFileSync(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
 const webPostComposerHost = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerHost.kt", import.meta.url), "utf8");
 const webPostComposerBridge = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerE2eBridge.kt", import.meta.url), "utf8");
 
@@ -60,6 +65,21 @@ test("common destination selector exposes stable anchors for all platform replay
   assert.match(commonDestinationSelector, /ComposerDestinationSelectedTestTag = "composer-destination-selected"/);
   assert.match(commonDestinationSelector, /composer-destination-option\.\$\{destination\.wallId\}/);
   assert.match(commonDestinationSelector, /contentDescription = "Destino:/);
+});
+
+test("post location uses common anchors and the shared remote metadata codec", () => {
+  assert.match(commonLocationSection, /ComposerLocationSectionTestTag = "composer-location-section"/);
+  assert.match(commonLocationSection, /ComposerLocationValueTestTag = "composer-location-value"/);
+  assert.match(commonLocationSection, /ComposerLocationEditTestTag = "composer-location-edit"/);
+  assert.match(commonLocationSection, /contentDescription = "\$title: \$locationText"/);
+  assert.match(commonLocationEditor, /ComposerLocationInputTestTag = "composer-location-input"/);
+  assert.match(commonComposerRepository, /PostComposerType\.Image -> buildPostBodyWithMeta\(imageLocation = locationLabel, channel = "feed"\)/);
+  assert.match(iosComposerHost, /val location: LocationService/);
+  assert.match(iosComposerHost, /val permissions: PermissionService/);
+  assert.match(iosComposerHost, /requestLocation = \{ resolved ->/);
+  assert.match(iosComposerHost, /dependencies\.location\.currentLocation\(\)/);
+  assert.match(iosApp, /location: services\.location/);
+  assert.match(iosApp, /permissions: services\.permissions/);
 });
 
 test("shared post publish fixture owns community post cleanup and residue verification", () => {

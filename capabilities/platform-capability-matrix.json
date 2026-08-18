@@ -521,7 +521,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "224a8a39e1662356af107991ffb73abbf7c96a3fc43648b38bc0a50f3cc55d90",
+              "sha256": "bb0a6485b63268c7e9df8c727236db944bc3c480a3a52af187cd6face018d1a9",
               "role": "composition"
             },
             {
@@ -594,7 +594,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "224a8a39e1662356af107991ffb73abbf7c96a3fc43648b38bc0a50f3cc55d90",
+              "sha256": "bb0a6485b63268c7e9df8c727236db944bc3c480a3a52af187cd6face018d1a9",
               "role": "composition"
             },
             {
@@ -662,7 +662,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "224a8a39e1662356af107991ffb73abbf7c96a3fc43648b38bc0a50f3cc55d90",
+              "sha256": "bb0a6485b63268c7e9df8c727236db944bc3c480a3a52af187cd6face018d1a9",
               "role": "composition"
             },
             {
@@ -844,7 +844,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-              "sha256": "224a8a39e1662356af107991ffb73abbf7c96a3fc43648b38bc0a50f3cc55d90",
+              "sha256": "bb0a6485b63268c7e9df8c727236db944bc3c480a3a52af187cd6face018d1a9",
               "role": "composition"
             },
             {

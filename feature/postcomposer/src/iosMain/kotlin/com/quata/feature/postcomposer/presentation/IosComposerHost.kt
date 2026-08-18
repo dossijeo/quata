@@ -16,8 +16,12 @@ import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
+import com.quata.core.platform.LocationService
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.PermissionService
+import com.quata.core.platform.PermissionStatus
 import com.quata.core.platform.VideoThumbnailService
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import kotlinx.coroutines.launch
@@ -28,6 +32,8 @@ class IosComposerHostDependencies(
     val filePicker: FilePickerService,
     val cameraCapture: CameraCaptureService,
     val videoThumbnails: VideoThumbnailService,
+    val location: LocationService,
+    val permissions: PermissionService,
     val languageTag: String?,
     val onClose: () -> Unit,
 )
@@ -37,9 +43,11 @@ fun createIosComposerHostDependencies(
     filePicker: FilePickerService,
     cameraCapture: CameraCaptureService,
     videoThumbnails: VideoThumbnailService,
+    location: LocationService,
+    permissions: PermissionService,
     languageTag: String?,
     onClose: () -> Unit,
-): IosComposerHostDependencies = IosComposerHostDependencies(repository, filePicker, cameraCapture, videoThumbnails, languageTag, onClose)
+): IosComposerHostDependencies = IosComposerHostDependencies(repository, filePicker, cameraCapture, videoThumbnails, location, permissions, languageTag, onClose)
 
 fun QuataComposerViewController(dependencies: IosComposerHostDependencies): UIViewController = ComposeUIViewController {
     QuataTheme { IosPostComposerHost(dependencies) }
@@ -111,6 +119,22 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             editVideo = null,
             imagePreview = { _, modifier -> imageFile?.let { IosComposerLocalImagePreview(it, modifier) } },
             videoPreview = { _, _, modifier -> videoThumbnail?.let { IosComposerLocalImagePreview(it, modifier) } },
+            requestLocation = { resolved ->
+                scope.launch {
+                    if (dependencies.permissions.status(PlatformPermission.Location) != PermissionStatus.Granted &&
+                        dependencies.permissions.request(PlatformPermission.Location) != PermissionStatus.Granted
+                    ) return@launch
+                    val location = (dependencies.location.currentLocation() as? PlatformResult.Success)?.value
+                        ?: return@launch
+                    resolved(
+                        iosComposerCoordinateLabel(location.latitude, location.longitude),
+                        location.latitude,
+                        location.longitude,
+                    )
+                }
+            },
         ),
     )
 }
+
+private fun iosComposerCoordinateLabel(latitude: Double, longitude: Double): String = "$latitude, $longitude"

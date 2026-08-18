@@ -1134,6 +1134,8 @@ private final class IosAppCompositionRoot {
                     filePicker: services.filePicker,
                     cameraCapture: services.cameraCapture,
                     videoThumbnails: services.videoThumbnails,
+                    location: services.location,
+                    permissions: services.permissions,
                     languageTag: Locale.preferredLanguages.first,
                     onClose: { [weak self] in
                         self?.authenticatedHost.view.endEditing(true)

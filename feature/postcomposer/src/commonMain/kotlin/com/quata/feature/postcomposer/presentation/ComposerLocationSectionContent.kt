@@ -9,11 +9,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.quataTheme
+
+const val ComposerLocationSectionTestTag = "composer-location-section"
+const val ComposerLocationValueTestTag = "composer-location-value"
+const val ComposerLocationEditTestTag = "composer-location-edit"
 
 /** Shared location editor structure; platform hosts inject icon, CTA and system-aware text input. */
 @Composable
@@ -28,7 +35,12 @@ fun ComposerLocationSectionContent(
     modifier: Modifier = Modifier
 ) {
     val template = quataTheme()
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(ComposerLocationSectionTestTag)
+            .semantics { contentDescription = "$title: $locationText" },
+    ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             leadingIcon()
             Column(
@@ -46,10 +58,11 @@ fun ComposerLocationSectionContent(
                     text = locationText,
                     color = template.colors.textSecondary,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag(ComposerLocationValueTestTag),
                 )
             }
-            editAction(Modifier.align(Alignment.CenterEnd))
+            editAction(Modifier.align(Alignment.CenterEnd).testTag(ComposerLocationEditTestTag))
         }
         editor?.let {
             Spacer(Modifier.height(12.dp))
