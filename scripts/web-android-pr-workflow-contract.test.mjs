@@ -7,11 +7,19 @@ import { spawnSync } from 'node:child_process';
 const workflow = resolve(import.meta.dirname, '..', '.github', 'workflows', 'web-android-pr.yml');
 const daemonCriteria = resolve(import.meta.dirname, '..', 'gradle', 'gradle-daemon-jvm.properties');
 const finalGateScript = resolve(import.meta.dirname, '..', 'scripts', 'check-final-certification.sh');
+const jbrInstaller = resolve(import.meta.dirname, '..', 'scripts', 'install-ci-jbr-21.sh');
 
-function assertJetBrainsDaemonBootstrap(yaml, expectedJobs) {
-  const pairedSteps = /- name: Set up JetBrains Runtime 21 for Gradle daemon\n\s+uses: actions\/setup-java@v5\n\s+with:\n\s+distribution: jetbrains\n\s+java-version: "21\.0\.8"\n\s+check-latest: false\n\n\s+- name: Set up JDK 17\n\s+uses: actions\/setup-java@v5\n\s+with:\n\s+distribution: temurin\n\s+java-version: "17"/g;
-  assert.equal([...yaml.matchAll(pairedSteps)].length, expectedJobs, 'every Gradle job must preload JBR 21 before the default JDK 17');
+function assertJetBrainsDaemonBootstrap(yaml, installer, expectedJobs) {
+  const pairedSteps = /- name: Set up JDK 17\n\s+uses: actions\/setup-java@v5\n\s+with:\n\s+distribution: temurin\n\s+java-version: "17"\n\n\s+- name: Install pinned JetBrains Runtime 21 for Gradle daemon\n\s+shell: bash\n\s+run: bash scripts\/install-ci-jbr-21\.sh/g;
+  assert.equal([...yaml.matchAll(pairedSteps)].length, expectedJobs, 'every Gradle job must install Temurin 17 before the pinned JBR daemon runtime');
+  assert.doesNotMatch(yaml, /distribution: jetbrains/, 'CI must not resolve JBR through setup-java/Foojay on every job');
   assert.doesNotMatch(yaml, /\bset-default:/, 'setup-java@v5 does not accept set-default');
+  assert.match(installer, /https:\/\/api\.foojay\.io\/disco\/v3\.0\/ids\/398ffe3949748bfb1d5636f023d228fd\/redirect/);
+  assert.match(installer, /JAVA_HOME_17_X64/);
+  assert.match(installer, /GRADLE_OPTS=.*org\.gradle\.java\.installations\.paths/);
+  assert.match(installer, /org\.gradle\.java\.installations\.auto-download=false/);
+  assert.match(installer, /RUNNER_OS/);
+  assert.match(installer, /RUNNER_ARCH/);
 }
 
 function assertWebWasmTimeoutBudget(yaml) {
@@ -127,7 +135,7 @@ function assertOfficialEditorEvidenceCoverage(yaml) {
   assert.match(yaml, /build-reports\/web\/official-editor-evidence\//);
 }
 
-function assertWorkflowContract(yaml) {
+function assertWorkflowContract(yaml, installer) {
   assert.match(yaml, /^on:\n  workflow_dispatch:\n  pull_request:/m);
   assert.match(yaml, /^permissions:\n  contents: read$/m);
   assert.match(
@@ -135,7 +143,7 @@ function assertWorkflowContract(yaml) {
     /uses: actions\/checkout@v6\n        with:\n          fetch-depth: 0/,
     'the checkout must contain the pull request base commit',
   );
-  assertJetBrainsDaemonBootstrap(yaml, 5);
+  assertJetBrainsDaemonBootstrap(yaml, installer, 5);
   assertWebWasmTimeoutBudget(yaml);
   assertBrowserTestCoverage(yaml);
   assertOfficialEditorEvidenceCoverage(yaml);
@@ -175,8 +183,8 @@ function assertWorkflowContract(yaml) {
 }
 
 test('Web/Wasm workflow supplies its fetched trusted base SHA and deterministic daemon runtime', async () => {
-  const [yaml, criteria] = await Promise.all([readFile(workflow, 'utf8'), readFile(daemonCriteria, 'utf8')]);
-  assertWorkflowContract(yaml);
+  const [yaml, criteria, installer] = await Promise.all([readFile(workflow, 'utf8'), readFile(daemonCriteria, 'utf8'), readFile(jbrInstaller, 'utf8')]);
+  assertWorkflowContract(yaml, installer);
   assert.match(criteria, /^toolchainVendor=JETBRAINS$/m);
   assert.match(criteria, /^toolchainVersion=21$/m);
 });
@@ -205,8 +213,8 @@ test('workflow contract fails closed if base history, PR-only trigger, read perm
     ['main push trigger removed', yaml.replace('  push:\n    branches:\n      - main\n      - master\n', '')],
     ['write permission', yaml.replace('contents: read', 'contents: write')],
     ['missing policy base', yaml.replace(/\n\s+--policy-base "[^"]+" \\/, '')],
-    ['JetBrains daemon runtime made default', yaml.replace('set-default: false', 'set-default: true')],
-    ['JetBrains daemon runtime removed', yaml.replace(/      - name: Set up JetBrains Runtime 21 for Gradle daemon[\s\S]*?\n\n(?=      - name: Set up JDK 17)/, '')],
+    ['setup-java JetBrains resolution restored', yaml.replace('distribution: temurin', 'distribution: jetbrains')],
+    ['pinned JetBrains daemon runtime removed', yaml.replace(/      - name: Install pinned JetBrains Runtime 21 for Gradle daemon\n\s+shell: bash\n\s+run: bash scripts\/install-ci-jbr-21\.sh\n/, '')],
     ['candidate final label trigger removed', yaml.replace(', labeled, unlabeled', '')],
     ['full Web lane no longer gated', yaml.replace("contains(github.event.pull_request.labels.*.name, 'candidate-final')", "contains(github.event.pull_request.labels.*.name, 'candidate-review')")],
     ['docs-only fast lane guard removed', yaml.replace("if: ${{ github.event_name != 'pull_request' || needs.classify-impact.outputs.docs_only != 'true' }}", "if: ${{ always() }}")],
