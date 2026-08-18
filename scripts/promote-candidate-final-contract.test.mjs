@@ -10,6 +10,7 @@ function pr(overrides = {}) {
   return {
     isDraft: false,
     headRefOid: "a".repeat(40),
+    baseRefName: "main",
     labels: [],
     statusCheckRollup: [
       "PR fast contracts and focal imports",
@@ -51,6 +52,7 @@ test("promotion fails closed for SHA drift, drafts or disabled auto-merge", () =
   const cases = [
     [pr({ headRefOid: "b".repeat(40) }), repository, /frozen_sha_mismatch/],
     [pr({ isDraft: true }), repository, /draft_pr_cannot_be_candidate_final/],
+    [pr({ baseRefName: "codex/parent-candidate" }), repository, /unexpected_base:codex\/parent-candidate/],
     [pr(), { allow_auto_merge: false, allow_squash_merge: true }, /repository_auto_merge_disabled/],
     [pr(), { allow_auto_merge: true, allow_squash_merge: false }, /repository_squash_merge_disabled/],
   ];
