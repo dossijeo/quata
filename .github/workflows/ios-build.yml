@@ -258,15 +258,34 @@ jobs:
             2>&1 | tee build/reports/ios/kotlin-ios.log
 
       - name: Link QuataShared simulator framework
+        # Bound the explicit simulator linker for the same reason as the
+        # XCFramework assembly: CI must fail with diagnostics instead of
+        # consuming the whole job when Gradle/linker progress stalls.
+        timeout-minutes: 45
         shell: bash
         run: |
           set -euo pipefail
-          bash ./gradlew \
+          run_watchdog() {
+            local timeout_seconds="$1"
+            local log_file="$2"
+            shift 2
+            local status
+            if python3 scripts/run-ios-command-watchdog.py \
+              --timeout-seconds "$timeout_seconds" \
+              --log "$log_file" \
+              -- "$@"; then
+              status=0
+            else
+              status=$?
+            fi
+            cat "$log_file"
+            return "$status"
+          }
+          run_watchdog 2400 build/reports/ios/framework-link.log bash ./gradlew \
             :ios-shared:linkDebugFrameworkIosSimulatorArm64 \
             --stacktrace \
             --warning-mode all \
-            --console=plain \
-            2>&1 | tee build/reports/ios/framework-link.log
+            --console=plain
 
       - name: Assemble QuataShared XCFramework
         # The XCFramework task may invoke both device and simulator linkers.
