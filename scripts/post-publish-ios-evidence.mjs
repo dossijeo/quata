@@ -50,7 +50,9 @@ try {
     platformLabel: "ios",
     runId: randomUUID(),
     destination,
+    locationLabel: options.mode === "image-location" ? undefined : null,
   });
+  if (options.mode === "image-location") fixture.locationLabel = `Malabo-Centro-${fixture.marker}`;
 
   localCredentials = join(await mkdirTemp("quata-ios-post-publish-credentials-"), "credentials.json");
   await writeFile(
@@ -98,9 +100,13 @@ export QUATA_IOS_POST_PUBLISH_UI_RESULT_BUNDLE_DIR=${shellQuote(options.remoteRe
 export QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN=${shellQuote(OPT_IN)}
 export QUATA_IOS_POST_PUBLISH_MARKER=${shellQuote(fixture.marker)}
 export QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID=${shellQuote(fixture.destination.wallId)}
+export QUATA_IOS_POST_PUBLISH_MODE=${shellQuote(options.mode)}
+${fixture.locationLabel ? `export QUATA_IOS_POST_PUBLISH_LOCATION_LABEL=${shellQuote(fixture.locationLabel)}` : "unset QUATA_IOS_POST_PUBLISH_LOCATION_LABEL"}
 bash scripts/run-ios-post-publish-ui-test.sh
 `);
-  report.steps.push("ios_xctest_real_text_post_published_from_common_composer");
+  report.steps.push(options.mode === "image-location"
+    ? "ios_xctest_real_image_location_post_published_from_common_composer"
+    : "ios_xctest_real_text_post_published_from_common_composer");
 
   await copyRemoteEvidence(options).catch((error) => {
     report.evidence.copyWarning = safeFailure(error);
@@ -115,6 +121,8 @@ bash scripts/run-ios-post-publish-ui-test.sh
     postId: published.postId,
     wallId: published.wallId,
     expectedWallId: fixture.destination.wallId,
+    locationLabel: published.locationLabel,
+    expectedLocationLabel: fixture.locationLabel,
     mediaUrls: published.mediaUrls,
   };
   report.cleanup = await cleanupPostPublishFixture({ fixture, withDatabase: (callback) => withPg(config, callback) });
@@ -165,11 +173,12 @@ function parseArgs(args) {
     evidenceDir: join("build-reports", "ios", "post-publish-evidence"),
     simulatorUdid: process.env.QUATA_IOS_SIMULATOR_UDID?.trim() || "",
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
+    mode: "text",
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
-    if (["--host", "--project", "--derived-data", "--remote-log-dir", "--out", "--evidence-dir", "--simulator"].includes(key)) {
+    if (["--host", "--project", "--derived-data", "--remote-log-dir", "--out", "--evidence-dir", "--simulator", "--mode"].includes(key)) {
       if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
       index += 1;
       if (key === "--host") parsed.host = value;
@@ -179,6 +188,7 @@ function parseArgs(args) {
       if (key === "--out") parsed.output = value;
       if (key === "--evidence-dir") parsed.evidenceDir = value;
       if (key === "--simulator") parsed.simulatorUdid = value;
+      if (key === "--mode") parsed.mode = value;
     } else if (key === "--build-first") {
       parsed.buildFirst = true;
     } else {
@@ -186,6 +196,7 @@ function parseArgs(args) {
     }
   }
   if (!parsed.simulatorUdid) throw new Error("missing_environment:QUATA_IOS_SIMULATOR_UDID");
+  if (!["text", "image-location"].includes(parsed.mode)) throw new Error(`unsupported_mode:${parsed.mode}`);
   parsed.output = resolve(parsed.output);
   parsed.evidenceDir = resolve(parsed.evidenceDir);
   return parsed;

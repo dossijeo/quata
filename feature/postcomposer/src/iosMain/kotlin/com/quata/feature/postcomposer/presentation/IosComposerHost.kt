@@ -36,6 +36,8 @@ class IosComposerHostDependencies(
     val permissions: PermissionService,
     val languageTag: String?,
     val onClose: () -> Unit,
+    val initialImageReference: String? = null,
+    val initialLocationLabel: String? = null,
 )
 
 fun createIosComposerHostDependencies(
@@ -48,6 +50,30 @@ fun createIosComposerHostDependencies(
     languageTag: String?,
     onClose: () -> Unit,
 ): IosComposerHostDependencies = IosComposerHostDependencies(repository, filePicker, cameraCapture, videoThumbnails, location, permissions, languageTag, onClose)
+
+fun createIosComposerHostDependenciesWithInitialDraft(
+    repository: PostComposerRepository,
+    filePicker: FilePickerService,
+    cameraCapture: CameraCaptureService,
+    videoThumbnails: VideoThumbnailService,
+    location: LocationService,
+    permissions: PermissionService,
+    languageTag: String?,
+    onClose: () -> Unit,
+    initialImageReference: String?,
+    initialLocationLabel: String?,
+): IosComposerHostDependencies = IosComposerHostDependencies(
+    repository,
+    filePicker,
+    cameraCapture,
+    videoThumbnails,
+    location,
+    permissions,
+    languageTag,
+    onClose,
+    initialImageReference,
+    initialLocationLabel,
+)
 
 fun QuataComposerViewController(dependencies: IosComposerHostDependencies): UIViewController = ComposeUIViewController {
     QuataTheme { IosPostComposerHost(dependencies) }
@@ -64,10 +90,20 @@ private fun PlatformResult<PlatformFile>.composerCapturedFileOrNull(): PlatformF
 private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     val copy = createPostRootCopyForLanguageTag(dependencies.languageTag)
     val viewModel = remember(dependencies.repository, copy) {
-        CreatePostViewModel(dependencies.repository, messages = copy.viewModelMessages())
+        CreatePostViewModel(dependencies.repository, messages = copy.viewModelMessages()).also { model ->
+            dependencies.initialLocationLabel?.takeIf(String::isNotBlank)
+                ?.let { model.onEvent(CreatePostUiEvent.LocationLabelChanged(it)) }
+            dependencies.initialImageReference?.takeIf(String::isNotBlank)
+                ?.let { model.onEvent(CreatePostUiEvent.ImageSelected(it)) }
+        }
     }
     val scope = rememberCoroutineScope()
-    var imageFile by remember { mutableStateOf<PlatformFile?>(null) }
+    var imageFile by remember {
+        mutableStateOf(
+            dependencies.initialImageReference?.takeIf(String::isNotBlank)
+                ?.let { PlatformFile(it, "post-publish-evidence-image.png", "image/png") },
+        )
+    }
     var videoThumbnail by remember { mutableStateOf<PlatformFile?>(null) }
 
     fun releaseVideoThumbnail() {
@@ -94,6 +130,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
         onBack = dependencies.onClose,
         onPostCreated = { dependencies.onClose() },
         copy = copy,
+        initialStep = if (dependencies.initialImageReference != null) CreatePostStep.Image else null,
         slots = CreatePostPlatformSlots(
             pickImage = {
                 scope.launch {

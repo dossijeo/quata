@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 class CreatePostAndroidViewModel(
     repository: PostComposerRepository,
     copy: CreatePostRootCopy,
+    initialEvidenceImageUri: String? = null,
+    initialEvidenceLocationLabel: String? = null,
 ) : ViewModel() {
     private val delegate = CreatePostViewModel(repository, messages = copy.viewModelMessages())
     internal val commonViewModel: CreatePostViewModel get() = delegate
@@ -18,12 +20,31 @@ class CreatePostAndroidViewModel(
     fun submit(type: PostComposerType) = delegate.submit(type)
     fun cancelSubmit() = delegate.cancelSubmit()
 
+    init {
+        if (initialEvidenceLocationLabel != null) {
+            delegate.onEvent(CreatePostUiEvent.LocationLabelChanged(initialEvidenceLocationLabel))
+        }
+        if (initialEvidenceImageUri != null) {
+            delegate.onEvent(CreatePostUiEvent.ImageSelected(initialEvidenceImageUri))
+        }
+    }
+
     override fun onCleared() = delegate.close()
 
     companion object {
-        fun factory(repository: PostComposerRepository, copy: CreatePostRootCopy): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        fun factory(
+            repository: PostComposerRepository,
+            copy: CreatePostRootCopy,
+            initialEvidenceImageUri: String? = null,
+            initialEvidenceLocationLabel: String? = null,
+        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T = CreatePostAndroidViewModel(repository, copy) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = CreatePostAndroidViewModel(
+                repository,
+                copy,
+                initialEvidenceImageUri,
+                initialEvidenceLocationLabel,
+            ) as T
         }
     }
 }

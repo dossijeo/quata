@@ -185,11 +185,12 @@ fun CreatePostRoot(
     resetToken: Int = 0,
     cancelUploadToken: Int = 0,
     copy: CreatePostRootCopy = SpanishCreatePostRootCopy,
+    initialStep: CreatePostStep? = null,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
-    var step by rememberSaveable { mutableStateOf(CreatePostStep.TypePicker) }
+    var step by rememberSaveable(initialStep) { mutableStateOf(initialStep ?: CreatePostStep.TypePicker) }
     var textValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(state.text)) }
     var emojiOpen by rememberSaveable { mutableStateOf(false) }
     var locationOpen by rememberSaveable { mutableStateOf(false) }

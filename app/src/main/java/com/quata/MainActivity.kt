@@ -100,6 +100,12 @@ class MainActivity : ComponentActivity() {
             } else {
                 null
             }
+            val postPublishEvidenceImageUri = intent?.getStringExtra(EXTRA_POST_PUBLISH_EVIDENCE_IMAGE_URI)
+                ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
+            val postPublishEvidenceLocationLabel = intent?.getStringExtra(EXTRA_POST_PUBLISH_EVIDENCE_LOCATION_LABEL)
+                ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
+            intent?.removeExtra(EXTRA_POST_PUBLISH_EVIDENCE_IMAGE_URI)
+            intent?.removeExtra(EXTRA_POST_PUBLISH_EVIDENCE_LOCATION_LABEL)
             handleIncomingIntent(intent)
             AndroidStartupDiagnostics.mark("mainActivity.hostsAttached")
 
@@ -117,6 +123,8 @@ class MainActivity : ComponentActivity() {
                             incomingShare = incomingShare.value,
                             onIncomingShareHandled = ::clearIncomingShare,
                             startDestinationOverride = startDestinationForEvidence,
+                            postPublishEvidenceImageUri = postPublishEvidenceImageUri,
+                            postPublishEvidenceLocationLabel = postPublishEvidenceLocationLabel,
                         )
                         AnimatedVisibility(
                             visible = showSplash,
@@ -226,6 +234,8 @@ class MainActivity : ComponentActivity() {
         )
         const val EXTRA_SKIP_SPLASH_FOR_EVIDENCE = "com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE"
         const val EXTRA_START_DESTINATION_FOR_EVIDENCE = "com.quata.extra.START_DESTINATION_FOR_EVIDENCE"
+        const val EXTRA_POST_PUBLISH_EVIDENCE_IMAGE_URI = "com.quata.extra.POST_PUBLISH_EVIDENCE_IMAGE_URI"
+        const val EXTRA_POST_PUBLISH_EVIDENCE_LOCATION_LABEL = "com.quata.extra.POST_PUBLISH_EVIDENCE_LOCATION_LABEL"
     }
 
 }
