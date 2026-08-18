@@ -881,6 +881,7 @@ export function createPostPublishFixture({
   platformLabel,
   runId = randomUUID(),
   destination = null,
+  locationLabel = null,
 }) {
   if (!uuid.test(actorSession?.profileId ?? "")) throw new Error("post_publish_fixture_invalid_actor");
   const cleanPlatform = String(platformLabel ?? "")
@@ -897,6 +898,7 @@ export function createPostPublishFixture({
     actorSession,
     runId: cleanRunId,
     destination,
+    locationLabel,
     publishedPostId: null,
     publishedMediaUrls: [],
   };
@@ -969,16 +971,27 @@ export async function pollPostPublishFixture({
       if (fixture.destination?.wallId && row.wall_id !== fixture.destination.wallId) {
         throw new Error(`post_publish_destination_mismatch:${row.wall_id ?? "missing"}`);
       }
+      if (fixture.locationLabel) {
+        const location = postLocationFromBody(row.body ?? "");
+        if (location !== fixture.locationLabel) {
+          throw new Error(`post_publish_location_mismatch:${location || "missing"}`);
+        }
+      }
       return {
         postId: row.id,
         wallId: row.wall_id ?? null,
         body: row.body ?? null,
+        locationLabel: postLocationFromBody(row.body ?? "") || null,
         mediaUrls: fixture.publishedMediaUrls,
       };
     }
     await delay(1_000);
   }
   throw new Error("post_publish_post_not_persisted");
+}
+
+function postLocationFromBody(body) {
+  return /\[UBICACION:([^\]]+)]/i.exec(String(body ?? ""))?.[1]?.trim() ?? "";
 }
 
 export async function cleanupPostPublishFixture({

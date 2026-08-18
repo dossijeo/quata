@@ -12,6 +12,7 @@ import {
   createPostPublishFixture,
   pollPostPublishFixture,
   selectPostPublishDestinationFixture,
+  validPngFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
 const CHECK = "POST-PUBLISH-WEB-REAL-001";
@@ -50,12 +51,14 @@ try {
     actorSession: { profileId: session.userId },
     withDatabase: (callback) => withPg(config, callback),
   });
+  const fixtureRunId = randomUUID();
   fixture = createPostPublishFixture({
     actorSession: { profileId: session.userId },
     platformLabel: "web",
-    runId: randomUUID(),
+    runId: fixtureRunId,
     destination,
   });
+  if (options.mode === "image-location") fixture.locationLabel = `Malabo Centro ${fixture.marker}`;
   report.steps.push("real_authorized_profile_authenticated_without_logging_credentials");
 
   browser = await chromium.launch({
@@ -111,14 +114,15 @@ try {
   report.evidence.composer = await screenshot(page, "web-post-publish-composer-opened");
   report.steps.push("common_create_post_root_mounted_on_web");
 
-  await clickSemanticElement(page, "composer-type-text");
-  if (!(await semanticAnchorPresent(page, "composer-text-input", 1_500))) {
+  const composerType = options.mode === "image-location" ? "image" : "text";
+  await clickSemanticElement(page, `composer-type-${composerType}`);
+  if (options.mode !== "image-location" && !(await semanticAnchorPresent(page, "composer-text-input", 1_500))) {
     const viewport = page.viewportSize() ?? { width: 430, height: 930 };
     await page.mouse.click(viewport.width / 2, 190);
     await delay(500);
     report.steps.push("web_text_type_selected_by_visual_fallback_after_compose_action_limit");
   }
-  report.steps.push("common_text_post_type_selected_by_semantic_anchor");
+  report.steps.push(`common_${composerType}_post_type_selected_by_semantic_anchor`);
   await page.waitForFunction(() => {
     const state = globalThis.__quataPostComposerE2eProduct?.state?.();
     return Number(state?.destinationCount ?? 0) > 0;
@@ -137,19 +141,40 @@ try {
     report.steps.push("web_destination_selected_by_common_semantic_anchor");
   }
   report.evidence.destination = destination;
-  const body = `Publicacion reversible POST-PUBLISH Web ${fixture.marker}`;
-  await fillSemanticInput(page, "composer-text-input", body);
-  await page.waitForFunction((expected) => {
-    const state = globalThis.__quataPostComposerE2eProduct?.state?.();
-    return Number(state?.textLength ?? 0) >= expected;
-  }, body.length, { timeout: 2_000 }).catch(async () => {
-    await page.evaluate((value) => {
+  if (options.mode === "image-location") {
+    const pngBase64 = validPngFixture().toString("base64");
+    await page.evaluate(({ pngBase64, locationLabel }) => {
       const bridge = globalThis.__quataPostComposerE2eProduct;
-      if (bridge?.version !== 1 || typeof bridge.setText !== "function") throw Error("post_composer_set_text_bridge_missing");
-      bridge.setText(value);
-    }, body);
-    report.steps.push("web_text_written_by_localhost_opt_in_product_bridge_after_compose_keyboard_limit");
-  });
+      if (bridge?.version !== 1 || typeof bridge.setImage !== "function" || typeof bridge.setLocation !== "function") {
+        throw Error("post_composer_image_location_bridge_missing");
+      }
+      const binary = atob(pngBase64);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+      const blobUrl = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+      bridge.setImage(blobUrl);
+      bridge.setLocation(locationLabel);
+    }, { pngBase64, locationLabel: fixture.locationLabel });
+    await page.waitForFunction((expected) => {
+      const state = globalThis.__quataPostComposerE2eProduct?.state?.();
+      return state?.hasImage === true && state?.locationLabel === expected;
+    }, fixture.locationLabel, { timeout: 10_000 });
+    report.steps.push("web_image_and_location_selected_by_localhost_opt_in_product_bridge_after_visual_route");
+  } else {
+    const body = `Publicacion reversible POST-PUBLISH Web ${fixture.marker}`;
+    await fillSemanticInput(page, "composer-text-input", body);
+    await page.waitForFunction((expected) => {
+      const state = globalThis.__quataPostComposerE2eProduct?.state?.();
+      return Number(state?.textLength ?? 0) >= expected;
+    }, body.length, { timeout: 2_000 }).catch(async () => {
+      await page.evaluate((value) => {
+        const bridge = globalThis.__quataPostComposerE2eProduct;
+        if (bridge?.version !== 1 || typeof bridge.setText !== "function") throw Error("post_composer_set_text_bridge_missing");
+        bridge.setText(value);
+      }, body);
+      report.steps.push("web_text_written_by_localhost_opt_in_product_bridge_after_compose_keyboard_limit");
+    });
+  }
   report.evidence.filled = await screenshot(page, "web-post-publish-composer-filled");
   await page.mouse.wheel(0, 900);
   await delay(350);
@@ -168,8 +193,10 @@ try {
   report.steps.push("web_publish_button_clicked_by_visual_viewport_fallback_after_missing_dom_anchor");
   await page.evaluate(() => {
     const bridge = globalThis.__quataPostComposerE2eProduct;
-    if (bridge?.version !== 1 || typeof bridge.submitText !== "function") throw Error("post_composer_bridge_missing");
-    bridge.submitText();
+    if (bridge?.version !== 1) throw Error("post_composer_bridge_missing");
+    if (typeof bridge.submitImage === "function" && bridge.state?.()?.hasImage === true) bridge.submitImage();
+    else if (typeof bridge.submitText === "function") bridge.submitText();
+    else throw Error("post_composer_submit_bridge_missing");
   });
   report.diagnostics.bridgeAfterSubmit = await postComposerBridgeState(page);
   report.diagnostics.composerStateAfterSubmit = await postComposerProductState(page);
@@ -188,6 +215,8 @@ try {
     postId: published.postId,
     wallId: published.wallId,
     expectedWallId: fixture.destination.wallId,
+    locationLabel: published.locationLabel,
+    expectedLocationLabel: fixture.locationLabel,
     mediaUrls: published.mediaUrls,
   };
   await page.waitForFunction(() => localStorage.getItem("web.navigation.route") !== "composer", { timeout: 45_000 }).catch(() => {});
@@ -242,17 +271,20 @@ function parseArgs(args) {
     chrome: process.env.QUATA_CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe",
     output: resolve("build-reports/web/post-publish-evidence.json"),
     evidenceDir: resolve("build-reports/web/post-publish-evidence"),
+    mode: "text",
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
-    if (!["--dist", "--chrome", "--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) throw new Error("invalid_arguments");
+    if (!["--dist", "--chrome", "--out", "--evidence-dir", "--mode"].includes(key) || !value || value.startsWith("--")) throw new Error("invalid_arguments");
     index += 1;
     if (key === "--dist") parsed.distribution = resolve(value);
     if (key === "--chrome") parsed.chrome = resolve(value);
     if (key === "--out") parsed.output = resolve(value);
     if (key === "--evidence-dir") parsed.evidenceDir = resolve(value);
+    if (key === "--mode") parsed.mode = value;
   }
+  if (!["text", "image-location"].includes(parsed.mode)) throw new Error("invalid_mode");
   return parsed;
 }
 

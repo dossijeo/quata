@@ -25,7 +25,8 @@ test("post publish web runner uses the shared reversible fixture and cleanup", (
   assert.match(webRunner, /pollPostPublishFixture/);
   assert.match(webRunner, /cleanupPostPublishFixture/);
   assert.match(webRunner, /selectPostPublishDestinationFixture/);
-  assert.match(webRunner, /clickSemanticElement\(page, "composer-type-text"\)/);
+  assert.match(webRunner, /clickSemanticElement\(page, `composer-type-\$\{composerType\}`\)/);
+  assert.match(webRunner, /const composerType = options\.mode === "image-location" \? "image" : "text"/);
   assert.match(webRunner, /composer-destination-option\.\$\{destination\.wallId\}/);
   assert.match(webRunner, /clickSemanticElement\(page, "composer-publish", \{ reinforcePhysical: true \}\)/);
   assert.match(webRunner, /expectedWallId/);
@@ -45,14 +46,24 @@ test("post publish runner requires explicit reversible mutation opt-in", () => {
 test("web composer submit uses a localhost opt-in bridge without replacing common UI state", () => {
   assert.match(webPostComposerHost, /installWebPostComposerE2eBridge/);
   assert.match(webPostComposerHost, /CreatePostUiEvent\.TextChanged/);
+  assert.match(webPostComposerHost, /CreatePostUiEvent\.ImageSelected/);
+  assert.match(webPostComposerHost, /CreatePostUiEvent\.LocationLabelChanged/);
   assert.match(webPostComposerHost, /viewModel\.submit\(PostComposerType\.Text\)/);
+  assert.match(webPostComposerHost, /viewModel\.submit\(PostComposerType\.Image\)/);
   assert.match(webPostComposerHost, /textLength/);
+  assert.match(webPostComposerHost, /locationLabel/);
   assert.match(webPostComposerHost, /selectedDestinationWallId/);
   assert.match(webPostComposerBridge, /quata-post-publish-e2e/);
   assert.match(webPostComposerBridge, /__quataPostComposerE2eProduct/);
   assert.match(webPostComposerBridge, /setText:/);
+  assert.match(webPostComposerBridge, /setImage:/);
+  assert.match(webPostComposerBridge, /setLocation:/);
+  assert.match(webPostComposerBridge, /submitImage:/);
   assert.match(webPostComposerBridge, /state:/);
   assert.match(webRunner, /__quataPostComposerE2eProduct/);
+  assert.match(webRunner, /image-location/);
+  assert.match(webRunner, /validPngFixture/);
+  assert.match(webRunner, /expectedLocationLabel/);
   assert.match(webRunner, /web_text_written_by_localhost_opt_in_product_bridge_after_compose_keyboard_limit/);
   assert.match(webRunner, /web_post_publish_submitted_by_localhost_opt_in_product_bridge_after_visual_route/);
   assert.match(webRunner, /quata-supabase-url/);

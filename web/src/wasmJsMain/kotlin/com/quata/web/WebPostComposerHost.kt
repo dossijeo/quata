@@ -50,12 +50,17 @@ fun WebPostComposerHost(
     DisposableEffect(viewModel, canPublish, onAuthRequired) {
         val uninstall = installWebPostComposerE2eBridge(
             setText = { value -> viewModel.onEvent(CreatePostUiEvent.TextChanged(value)) },
+            setImage = { value -> viewModel.onEvent(CreatePostUiEvent.ImageSelected(value.takeIf(String::isNotBlank))) },
+            setLocation = { value -> viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(value)) },
             submitText = { if (canPublish) viewModel.submit(PostComposerType.Text) else onAuthRequired() },
+            submitImage = { if (canPublish) viewModel.submit(PostComposerType.Image) else onAuthRequired() },
             state = {
                 val state = viewModel.uiState.value
                 buildJsonObject {
                     put("textLength", state.text.length)
                     put("isLoading", state.isLoading)
+                    put("hasImage", !state.imageUri.isNullOrBlank())
+                    state.locationLabel?.let { put("locationLabel", it) }
                     put("destinationCount", state.destinations.size)
                     state.selectedDestinationWallId?.let { put("selectedDestinationWallId", it) }
                     state.selectedDestination?.label?.let { put("selectedDestinationLabel", it) }

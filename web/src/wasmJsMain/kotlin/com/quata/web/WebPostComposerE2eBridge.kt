@@ -4,12 +4,15 @@ package com.quata.web
 
 internal fun installWebPostComposerE2eBridge(
     setText: (String) -> Unit,
+    setImage: (String) -> Unit,
+    setLocation: (String) -> Unit,
     submitText: () -> Unit,
+    submitImage: () -> Unit,
     state: () -> String,
-): () -> Unit = installPostComposerBridgeWhenAllowed(setText, submitText, state)
+): () -> Unit = installPostComposerBridgeWhenAllowed(setText, setImage, setLocation, submitText, submitImage, state)
 
 @JsFun(
-    """(setText, submitText, state) => {
+    """(setText, setImage, setLocation, submitText, submitImage, state) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const optedIn = new URLSearchParams(location?.search || '').get('quata-post-publish-e2e') === '1' ||
         globalThis.sessionStorage?.getItem('quata.post_publish.e2e') === '1';
@@ -17,7 +20,10 @@ internal fun installWebPostComposerE2eBridge(
       const bridge = Object.freeze({
         version: 1,
         setText: (value) => setText(String(value ?? '')),
+        setImage: (value) => setImage(String(value ?? '')),
+        setLocation: (value) => setLocation(String(value ?? '')),
         submitText: () => submitText(),
+        submitImage: () => submitImage(),
         state: () => {
           try { return JSON.parse(state()); } catch (error) { return { error: 'state_unavailable' }; }
         },
@@ -32,6 +38,9 @@ internal fun installWebPostComposerE2eBridge(
 )
 private external fun installPostComposerBridgeWhenAllowed(
     setText: (String) -> Unit,
+    setImage: (String) -> Unit,
+    setLocation: (String) -> Unit,
     submitText: () -> Unit,
+    submitImage: () -> Unit,
     state: () -> String,
 ): () -> Unit
