@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-SOS",
+    "SOS-CONTACTS",
+    "SB-06"
+  ],
+  "productSha": "87e38b3bd6b6c7779f747c3e9273373f727818f5",
+  "evidence": {
+    "backend": {
+      "status": "passed",
+      "sha": "87e38b3bd6b6c7779f747c3e9273373f727818f5",
+      "report": "build-reports/supabase/sb-06-profile-sos-existing-users-87e38b3b.json",
+      "mode": "two_approved_existing_profiles_public_key",
+      "cleanup": {
+        "verified": true,
+        "mode": "profile_field_and_contact_snapshot_restored"
+      }
+    },
+    "contracts": {
+      "status": "passed",
+      "sha": "87e38b3bd6b6c7779f747c3e9273373f727818f5",
+      "report": "node --test scripts/supabase-e2e-sb06-contract.test.mjs",
+      "tests": {
+        "count": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "no_remote_mutation"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --check scripts/supabase-e2e-sb06.mjs",
+    "node --test scripts/supabase-e2e-sb06-contract.test.mjs",
+    "npm run test:ci-fast-contracts",
+    "node scripts/supabase-e2e-sb06.mjs --allow-profile-mutation --allow-sos-contact-mutation --out build-reports/supabase/sb-06-profile-sos-existing-users-87e38b3b.json"
+  ],
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "SB-06 now supports the explicitly approved Gabrielo/Gabrielu lane through QUATA_CHAT_GROUP_CREDENTIALS_FILE without hardcoding or reporting phone numbers, passwords, JWTs, profile IDs, Supabase URL or publishable key.",
+    "The evidence uses only public Supabase configuration plus user JWTs. It rejects service-role keys and does not use SUPABASE_DB_URL, SQL, DDL, RPC, schema changes, grants, migration repair, Edge deploys or user creation.",
+    "The runner snapshots the actor display_name and existing community_emergency_contacts rows, deletes the current SOS set, inserts the normalized replacement set through the same PostgREST table shape as ProfileRemoteGateway, then restores and verifies the exact original snapshot.",
+    "This closes the remote persistence/cleanup slice for SOS-CONTACTS. It does not declare full SCR-SOS GO: visual 5/5 limit, permissions/contact picker states and forced UI rollback/error paths remain pending."
+  ]
+}
