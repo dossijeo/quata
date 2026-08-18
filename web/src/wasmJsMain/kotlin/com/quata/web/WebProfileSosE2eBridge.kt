@@ -5,12 +5,14 @@ package com.quata.web
 internal fun installWebProfileSosE2eBridge(
     openSos: () -> Unit,
     closeSos: () -> Unit,
-): () -> Unit = installProfileSosBridgeWhenAllowed(openSos, closeSos)
+    selectFirstContacts: (Int) -> Unit,
+): () -> Unit = installProfileSosBridgeWhenAllowed(openSos, closeSos, selectFirstContacts)
 
 @JsFun(
-    """(openSos, closeSos) => {
+    """(openSos, closeSos, selectFirstContacts) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
-      const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1';
+      const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.auth.e2e') === '1';
       if (!local || !optedIn) return () => {};
       const query = new URLSearchParams(globalThis.location?.search || '');
       const saveErrorE2e = query.get('quata-profile-sos-save-error-e2e') === '1' ||
@@ -20,6 +22,7 @@ internal fun installWebProfileSosE2eBridge(
         saveErrorE2e,
         open: () => openSos(),
         close: () => closeSos(),
+        selectFirstContacts: (count) => selectFirstContacts(count),
       });
       globalThis.__quataProfileSosE2eProduct = bridge;
       const element = globalThis.document?.documentElement;
@@ -41,6 +44,7 @@ internal fun installWebProfileSosE2eBridge(
 private external fun installProfileSosBridgeWhenAllowed(
     openSos: () -> Unit,
     closeSos: () -> Unit,
+    selectFirstContacts: (Int) -> Unit,
 ): () -> Unit
 
 internal fun updateWebProfileSosE2eTab(tab: String?) {

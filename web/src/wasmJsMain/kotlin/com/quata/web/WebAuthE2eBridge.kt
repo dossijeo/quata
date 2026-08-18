@@ -20,7 +20,8 @@ internal fun installWebAuthE2eBridge(
     """(login, restore, logout, openRecovery, openLogin, recoveryQuestion, resetPassword) => {
       const location = globalThis.location;
       const localHost = location?.hostname === '127.0.0.1' || location?.hostname === 'localhost';
-      const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1';
+      const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.auth.e2e') === '1';
       if (!localHost || !optedIn) return () => {};
       const promise = (operation) => new Promise((resolve, reject) => operation(resolve, reject));
       const bridge = Object.freeze({
@@ -67,7 +68,8 @@ internal fun installWebAuthGateE2eBridge(
     """(dismiss, chooseLogin, chooseRegister) => {
       const location = globalThis.location;
       const localHost = location?.hostname === '127.0.0.1' || location?.hostname === 'localhost';
-      const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1';
+      const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.auth.e2e') === '1';
       if (!localHost || !optedIn) return () => {};
       const bridge = Object.freeze({
         version: 1,
@@ -96,13 +98,15 @@ internal fun installWebLegalDocumentsE2eBridge(
     surface: String,
     openPrivacy: () -> Unit,
     openChildSafety: () -> Unit,
-): () -> Unit = installLegalDocumentsBridgeWhenAllowed(surface, openPrivacy, openChildSafety)
+    dismissStatus: () -> Unit,
+): () -> Unit = installLegalDocumentsBridgeWhenAllowed(surface, openPrivacy, openChildSafety, dismissStatus)
 
 @JsFun(
-    """(surface, openPrivacy, openChildSafety) => {
+    """(surface, openPrivacy, openChildSafety, dismissStatus) => {
       const location = globalThis.location;
       const localHost = location?.hostname === '127.0.0.1' || location?.hostname === 'localhost';
-      const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1';
+      const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.auth.e2e') === '1';
       if (!localHost || !optedIn) return () => {};
       const previous = globalThis.__quataLegalDocumentsE2eProduct || {};
       const bridge = Object.freeze({
@@ -112,6 +116,7 @@ internal fun installWebLegalDocumentsE2eBridge(
           if (document === 'childsafety') return openChildSafety();
           throw new Error('unknown_legal_document');
         },
+        dismissStatus: () => dismissStatus(),
       });
       globalThis.__quataLegalDocumentsE2eProduct = { ...previous, [surface]: bridge };
       return () => {
@@ -127,4 +132,37 @@ private external fun installLegalDocumentsBridgeWhenAllowed(
     surface: String,
     openPrivacy: () -> Unit,
     openChildSafety: () -> Unit,
+    dismissStatus: () -> Unit,
+): () -> Unit
+
+internal fun installWebDocumentStatusE2eBridge(
+    surface: String,
+    dismissStatus: () -> Unit,
+): () -> Unit = installDocumentStatusBridgeWhenAllowed(surface, dismissStatus)
+
+@JsFun(
+    """(surface, dismissStatus) => {
+      const location = globalThis.location;
+      const localHost = location?.hostname === '127.0.0.1' || location?.hostname === 'localhost';
+      const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.auth.e2e') === '1';
+      if (!localHost || !optedIn) return () => {};
+      const previous = globalThis.__quataDocumentStatusE2eProduct || {};
+      const bridge = Object.freeze({
+        version: 1,
+        dismissStatus: () => dismissStatus(),
+      });
+      globalThis.__quataDocumentStatusE2eProduct = { ...previous, [surface]: bridge };
+      return () => {
+        const current = globalThis.__quataDocumentStatusE2eProduct || {};
+        if (current[surface] === bridge) {
+          delete current[surface];
+          globalThis.__quataDocumentStatusE2eProduct = current;
+        }
+      };
+    }""",
+)
+private external fun installDocumentStatusBridgeWhenAllowed(
+    surface: String,
+    dismissStatus: () -> Unit,
 ): () -> Unit

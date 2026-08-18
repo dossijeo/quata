@@ -8,8 +8,12 @@ import com.quata.core.moderation.iosLegalDocumentFile
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
+import com.quata.core.platform.PermissionService
+import com.quata.core.platform.PermissionStatus
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.UnsupportedContactPickerService
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileEditConfig
 import com.quata.feature.profile.domain.ProfileEditModel
@@ -38,6 +42,8 @@ fun QuataIosProfileLegalEvidenceViewController(
         onDeactivateAccount = {},
         onDeleteAccountData = {},
         filePicker = IosProfileLegalEvidenceFilePicker,
+        contacts = UnsupportedContactPickerService,
+        permissions = IosProfileLegalEvidencePermissionService,
         touchFlowEnabled = true,
         onTouchFlowEnabledChange = {},
         themeMode = QuataThemeMode.Light,
@@ -70,6 +76,11 @@ private object IosProfileLegalEvidenceFilePicker : FilePickerService {
 
     override suspend fun pick(request: FilePickerRequest): PlatformResult<List<PlatformFile>> =
         PlatformResult.Unsupported
+}
+
+private object IosProfileLegalEvidencePermissionService : PermissionService {
+    override suspend fun status(permission: PlatformPermission): PermissionStatus = PermissionStatus.Unavailable
+    override suspend fun request(permission: PlatformPermission): PermissionStatus = PermissionStatus.Unavailable
 }
 
 private class IosProfileLegalEvidenceRepository(

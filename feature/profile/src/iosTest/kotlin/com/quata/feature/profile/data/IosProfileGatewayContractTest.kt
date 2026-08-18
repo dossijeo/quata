@@ -6,8 +6,12 @@ import com.quata.core.moderation.LegalDocument
 import com.quata.core.model.AuthSession
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.DocumentOpenService
+import com.quata.core.platform.PermissionService
+import com.quata.core.platform.PermissionStatus
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.UnsupportedContactPickerService
 import com.quata.core.model.currentEpochSeconds
 import com.quata.core.preferences.SessionStorage
 import com.quata.core.session.IosAuthSessionRefresher
@@ -84,6 +88,8 @@ class IosProfileGatewayContractTest {
             onDeactivateAccount = {},
             onDeleteAccountData = {},
             filePicker = UnsupportedFilePicker,
+            contacts = UnsupportedContactPickerService,
+            permissions = UnavailablePermissionService,
             touchFlowEnabled = true,
             themeModeStorageValue = "dark-mode",
             languageCode = "en",
@@ -307,6 +313,11 @@ class IosProfileGatewayContractTest {
             acceptedMimeTypes: List<String>,
             allowMultiple: Boolean,
         ): PlatformResult<List<PlatformFile>> = PlatformResult.Unsupported
+    }
+
+    private object UnavailablePermissionService : PermissionService {
+        override suspend fun status(permission: PlatformPermission): PermissionStatus = PermissionStatus.Unavailable
+        override suspend fun request(permission: PlatformPermission): PermissionStatus = PermissionStatus.Unavailable
     }
 
     private val failingLegalDocumentOpen: (LegalDocument, DocumentOpenService) -> Unit = { _, _ ->

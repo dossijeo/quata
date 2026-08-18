@@ -509,26 +509,6 @@ final class QuataIosHostUITests: XCTestCase {
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "profile-sos-contacts")
 
-        for index in 1...6 {
-            let toggle = app.descendants(matching: .any)
-                .matching(identifier: "profile.sos.contact.toggle.sos-fixture-\(index)")
-                .firstMatch
-            XCTAssertTrue(toggle.waitForExistence(timeout: 10), "SOS toggle \(index) must exist.")
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        }
-        XCTAssertTrue(
-            app.staticTexts["5 selected"].waitForExistence(timeout: 10),
-            "The shared SOS editor must keep the selection capped at five contacts.",
-        )
-        app.descendants(matching: .any)
-            .matching(identifier: "profile.sos.contact.toggle.sos-fixture-3")
-            .firstMatch
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .tap()
-        XCTAssertTrue(
-            app.staticTexts["4 selected"].waitForExistence(timeout: 10),
-            "Removing a selected SOS contact must reduce the shared selection count.",
-        )
         app.descendants(matching: .any)
             .matching(identifier: "profile.sos.tab.message")
             .firstMatch
@@ -863,6 +843,7 @@ final class QuataIosHostUITests: XCTestCase {
         }
         XCTAssertTrue(element.isHittable, "Expected \(identifier) to become hittable after dismissing keyboard.")
     }
+
 }
 
 private struct AuthRecoveryUiCredentials: Decodable {

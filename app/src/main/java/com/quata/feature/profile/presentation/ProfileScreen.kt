@@ -47,7 +47,10 @@ import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.moderation.LegalDocuments
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.ContactPickerService
+import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.UnsupportedContactPickerService
 import com.quata.core.platform.documentViewerOpeningState
 import com.quata.core.platform.openWithViewerState
 import com.quata.core.ui.components.AttachmentPreview
@@ -84,6 +87,8 @@ fun ProfileScreen(
     onDeactivateAccount: () -> Unit,
     onDeleteAccountData: () -> Unit,
     documentOpenService: DocumentOpenService,
+    contactPickerService: ContactPickerService = UnsupportedContactPickerService,
+    permissionService: PermissionService? = null,
     onProfileSaved: () -> Unit,
     @Suppress("UNUSED_PARAMETER") viewModel: ProfileAndroidViewModel? = null,
 ) {
@@ -152,6 +157,15 @@ fun ProfileScreen(
                     user, selected, addContactLabel, removeContactLabel,
                     avatar = { AvatarImage(user.displayName, user.avatarUrl, profileId = user.id, modifier = Modifier.size(46.dp)) }, onToggle = toggle,
                 ) },
+                emergencyContactActions = permissionService?.let { permissions ->
+                    {
+                        EmergencyContactsContactActionsContent(
+                            strings = androidProfileStrings(context).emergency,
+                            contacts = contactPickerService,
+                            permissions = permissions,
+                        )
+                    }
+                },
                 onProfileSaved = onProfileSaved,
                 legalDocuments = {
                     SettingsLegalDocumentsSectionContent(
@@ -231,7 +245,26 @@ private fun Context.hasCameraPermission() = ContextCompat.checkSelfPermission(th
 private fun androidProfileStrings(context: Context) = ProfileScreenStrings(
     context.getString(R.string.profile_loading), context.getString(R.string.profile_my_data), context.getString(R.string.profile_account_management), context.getString(R.string.profile_account_management_description), context.getString(R.string.profile_configure_emergency_contacts), context.getString(R.string.common_save_changes), context.getString(R.string.common_saving), context.getString(R.string.profile_logout), context.getString(R.string.auth_name), context.getString(R.string.profile_neighborhood), context.getString(R.string.profile_phone), context.getString(R.string.auth_password), context.getString(R.string.profile_new_secret_answer), context.getString(R.string.profile_new_secret_answer), context.getString(R.string.common_back), context.getString(R.string.legal_account_deletion), context.getString(R.string.legal_data_deletion), context.getString(R.string.profile_account_management_description), context.getString(R.string.common_save_changes), context.getString(R.string.common_back),
     AppearanceSettingsStrings(context.getString(R.string.profile_touch_flow_setting), context.getString(R.string.profile_theme_setting), context.getString(R.string.theme_mode_system), context.getString(R.string.theme_mode_dark), context.getString(R.string.theme_mode_light)),
-    EmergencyContactsEditorStrings(EmergencyContactsHeaderStrings(context.getString(R.string.common_back), context.getString(R.string.common_sos), context.getString(R.string.emergency_contacts_title), context.getString(R.string.emergency_contacts_description), context.getString(R.string.emergency_contacts_tab), context.getString(R.string.emergency_message_tab)), { context.getString(R.string.emergency_selected_count, it) }, context.getString(R.string.emergency_network_users), context.getString(R.string.emergency_search_placeholder), context.getString(R.string.emergency_message_title), context.getString(R.string.emergency_message_hint), context.getString(R.string.emergency_save_contacts), context.getString(R.string.emergency_save_contacts_short)),
+    EmergencyContactsEditorStrings(
+        header = EmergencyContactsHeaderStrings(context.getString(R.string.common_back), context.getString(R.string.common_sos), context.getString(R.string.emergency_contacts_title), context.getString(R.string.emergency_contacts_description), context.getString(R.string.emergency_contacts_tab), context.getString(R.string.emergency_message_tab)),
+        selectedCount = { context.getString(R.string.emergency_selected_count, it) },
+        networkUsers = context.getString(R.string.emergency_network_users),
+        importContacts = context.getString(R.string.emergency_import_contacts),
+        requestContactsPermission = context.getString(R.string.emergency_request_contacts_permission),
+        contactPickerUnavailable = context.getString(R.string.emergency_contact_picker_unavailable),
+        contactPickerCancelled = context.getString(R.string.emergency_contact_picker_cancelled),
+        contactPickerFailed = context.getString(R.string.emergency_contact_picker_failed),
+        contactsPicked = { context.getString(R.string.emergency_contacts_picked, it) },
+        contactsPermissionGranted = context.getString(R.string.emergency_contacts_permission_granted),
+        contactsPermissionDenied = context.getString(R.string.emergency_contacts_permission_denied),
+        contactsPermissionPermanentlyDenied = context.getString(R.string.emergency_contacts_permission_permanently_denied),
+        contactsPermissionUnavailable = context.getString(R.string.emergency_contacts_permission_unavailable),
+        searchPlaceholder = context.getString(R.string.emergency_search_placeholder),
+        messageTitle = context.getString(R.string.emergency_message_title),
+        messageHint = context.getString(R.string.emergency_message_hint),
+        savePortrait = context.getString(R.string.emergency_save_contacts),
+        saveLandscape = context.getString(R.string.emergency_save_contacts_short),
+    ),
     context.getString(R.string.profile_password_update_unavailable),
     context.getString(R.string.profile_loading_error),
     context.getString(R.string.profile_retry),

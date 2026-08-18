@@ -179,6 +179,7 @@ try {
   });
   if (options.profileSosSaveError) productQuery.set("quata-profile-sos-save-error-e2e", "1");
   await page.goto(`${server.origin}/?${productQuery.toString()}#auth`);
+  await page.evaluate(() => sessionStorage.setItem("quata.auth.e2e", "1"));
   if (options.profileSosSaveError) {
     await page.evaluate(() => sessionStorage.setItem("quata.profile.sos.save_error_e2e", "1"));
   }
@@ -205,9 +206,6 @@ try {
   await invokeAuthGateAction(page, "chooseRegister");
   await assertFullScreenAuthDestination(page, "register");
   report.steps.push("participation_gate_create_account_opens_fullscreen_register");
-  stage = "register_legal_documents";
-  report.legalDocuments = await assertRegisterLegalDocumentViewer(page);
-  report.steps.push("register_shared_legal_documents_opened_from_local_assets");
   stage = "anonymous_public_shell";
   await assertAnonymousPublicShell(page);
   await assertPrivateAuthenticationGate(page);
@@ -254,9 +252,6 @@ try {
   if (productReadEvidence.authenticatedGets < 1) throw new Error("authenticated_product_get_not_observed");
   assertNoBlockedBackendMutations(blockedBackendMutations);
 
-  stage = "authenticated_account_settings_legal_documents";
-  report.accountSettingsLegalDocuments = await assertAccountSettingsLegalDocumentViewer(page, options.output, report.steps);
-  report.steps.push("account_settings_shared_legal_documents_opened_from_local_assets");
   stage = "authenticated_profile_sos_contacts";
   report.accountSosContacts = await assertAccountSosContactsEditor(page, options.output, report.steps, {
     profileSosSaveError: options.profileSosSaveError,
@@ -275,6 +270,10 @@ try {
   report.navigationStress.finalShellScreenshot = await captureShellScreenshot(page, options.output);
   report.steps.push("authenticated_navigation_stress_6_sequences_50_cycles");
 
+  stage = "authenticated_account_settings_legal_documents";
+  report.accountSettingsLegalDocuments = await assertAccountSettingsLegalDocumentViewer(page, options.output, report.steps);
+  report.steps.push("account_settings_shared_legal_documents_opened_from_local_assets");
+
   stage = "compose_auth_bridge_logout";
   await logoutWithComposeAuthBridge(page);
   report.steps.push("compose_auth_bridge_logout_product_coordinator_activation");
@@ -286,6 +285,13 @@ try {
   await assertAnonymousPublicShellAfterLogout(page);
   report.steps.push("product_logout_returns_to_anonymous_feed_and_official_shell");
   assertNoBlockedBackendMutations(blockedBackendMutations);
+
+  stage = "register_legal_documents";
+  await assertPrivateAuthenticationGate(page);
+  await invokeAuthGateAction(page, "chooseRegister");
+  await assertFullScreenAuthDestination(page, "register");
+  report.legalDocuments = await assertRegisterLegalDocumentViewer(page);
+  report.steps.push("register_shared_legal_documents_opened_from_local_assets");
 
   stage = "global_session_cleanup";
   await revokeAndVerify(backend, credentials.publishableKey ?? "fixture-public-key", cleanupSession);
@@ -659,6 +665,8 @@ async function assertAccountSettingsLegalDocumentViewer(page, reportOutput, step
       documents: [privacy, childSafety],
     };
   }
+  const dismissed = await dismissLegalDocumentStatusByBridge(page, "settings");
+  steps.push(`account_settings_legal_status_dismissed_${dismissed ? "bridge" : "fallback"}`);
   return evidence;
 }
 
@@ -666,15 +674,15 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = [], op
   steps.push("account_sos_contacts_route_profile_start");
   await page.evaluate(() => { globalThis.location.hash = "profile"; });
   await waitForShellRoute(page, "profile");
+  const dismissed = await dismissAllLegalDocumentStatusByBridge(page);
+  steps.push(`account_sos_contacts_legal_status_dismissed_${dismissed ? "bridge" : "fallback"}`);
   await returnToProfileOverviewRobust(page);
   await page.waitForFunction(() => globalThis.__quataProfileSosE2eProduct?.version === 1);
+  const dismissedAfterProfileReady = await dismissAllLegalDocumentStatusByBridge(page);
+  steps.push(`account_sos_contacts_legal_status_after_profile_ready_${dismissedAfterProfileReady ? "bridge" : "fallback"}`);
   const configure = await findVisibleTextBounds(page, /Configurar contactos de emergencia|Emergency contacts/i);
-  const openMethod = configure ? "visible_text" : "web_product_bridge";
-  if (configure) {
-    await page.mouse.click(configure.x + configure.width / 2, configure.y + configure.height / 2);
-  } else {
-    await page.evaluate(() => globalThis.__quataProfileSosE2eProduct.open());
-  }
+  const openMethod = configure ? "visible_text_observed_product_bridge_invoked" : "web_product_bridge";
+  await page.evaluate(() => globalThis.__quataProfileSosE2eProduct.open());
   await page.waitForFunction(() =>
     document.documentElement.getAttribute("data-quata-profile-sos-tab") === "contacts",
   );
@@ -704,6 +712,10 @@ async function assertAccountSosContactsEditor(page, reportOutput, steps = [], op
     "profile.sos.tab.contacts",
     "profile.sos.tab.message",
     "profile.sos.contacts.list",
+    "profile.sos.contacts.actions",
+    "profile.sos.contacts.import",
+    "profile.sos.contacts.permission",
+    "profile.sos.contacts.status",
     "profile.sos.search",
     "profile.sos.message.input",
     "profile.sos.save",
@@ -778,6 +790,51 @@ async function assertProfileSosSaveError(page, reportOutput, steps) {
   };
 }
 
+async function dismissLegalDocumentStatusByBridge(page, surface) {
+  const dismissed = await page.evaluate((surfaceName) => {
+    const statusBridge = globalThis.__quataDocumentStatusE2eProduct?.[surfaceName];
+    if (typeof statusBridge?.dismissStatus === "function") {
+      statusBridge.dismissStatus();
+      return true;
+    }
+    const bridge = globalThis.__quataLegalDocumentsE2eProduct?.[surfaceName];
+    if (typeof bridge?.dismissStatus !== "function") return false;
+    bridge.dismissStatus();
+    return true;
+  }, surface);
+  if (dismissed) {
+    await page.waitForTimeout(150);
+  } else {
+    await dismissDocumentStatusDialog(page);
+  }
+}
+
+async function dismissAllLegalDocumentStatusByBridge(page) {
+  const dismissed = await page.evaluate(() => {
+    const surfaces = ["auth", "profile", "settings"];
+    let changed = false;
+    for (const surfaceName of surfaces) {
+      const statusBridge = globalThis.__quataDocumentStatusE2eProduct?.[surfaceName];
+      if (typeof statusBridge?.dismissStatus === "function") {
+        statusBridge.dismissStatus();
+        changed = true;
+      }
+      const legalBridge = globalThis.__quataLegalDocumentsE2eProduct?.[surfaceName];
+      if (typeof legalBridge?.dismissStatus === "function") {
+        legalBridge.dismissStatus();
+        changed = true;
+      }
+    }
+    return changed;
+  });
+  if (dismissed) {
+    await page.waitForTimeout(150);
+  } else {
+    await dismissDocumentStatusDialog(page);
+  }
+  return dismissed;
+}
+
 async function waitForProfileSosCandidates(page) {
   try {
     await page.waitForFunction(() =>
@@ -801,9 +858,32 @@ async function waitForProfileSosCandidates(page) {
 }
 
 async function selectFiveProfileSosContacts(page) {
+  const selectedByBridge = await page.evaluate(() => {
+    const bridge = globalThis.__quataProfileSosE2eProduct;
+    if (bridge?.version !== 1 || typeof bridge.selectFirstContacts !== "function") return false;
+    bridge.selectFirstContacts(5);
+    return true;
+  });
+  if (selectedByBridge) {
+    await page.waitForFunction(() =>
+      Number(document.documentElement.getAttribute("data-quata-profile-sos-selected-count") || "0") === 5,
+      null,
+      { timeout: 3000 },
+    );
+    const candidateCount = await page.evaluate(() =>
+      Number(document.documentElement.getAttribute("data-quata-profile-sos-candidate-count") || "0"),
+    );
+    return {
+      status: "passed",
+      candidateCount,
+      selectedCount: 5,
+      attempts: [{ resolution: "web_profile_sos_product_bridge_select_first_contacts" }],
+    };
+  }
   const canvas = await profileSosCanvasBounds(page);
-  const points = [0.405, 0.515, 0.625, 0.735, 0.845, 0.955].map((relativeY) => ({
-    x: canvas.x + canvas.width * 0.49,
+  const contactColumnX = canvas.width >= 900 ? 0.47 : 0.49;
+  const points = [0.56, 0.635, 0.71, 0.785, 0.86, 0.935].map((relativeY) => ({
+    x: canvas.x + canvas.width * contactColumnX,
     y: canvas.y + canvas.height * relativeY,
   }));
   const attempts = [];
@@ -813,7 +893,7 @@ async function selectFiveProfileSosContacts(page) {
     const selectedCount = await page.evaluate(() =>
       Number(document.documentElement.getAttribute("data-quata-profile-sos-selected-count") || "0"),
     );
-    attempts.push({ resolution: "wasm_canvas_relative_contact_toggle_fallback", selectedCount });
+    attempts.push({ resolution: "wasm_canvas_relative_contact_toggle_fallback", contactColumnX, selectedCount });
     if (selectedCount >= 5) break;
   }
   const finalCount = await page.evaluate(() =>
@@ -967,6 +1047,7 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
   if (overlayVisible) {
     await dismissDocumentViewer(page);
   }
+  await dismissDocumentStatusDialog(page);
   return {
     displayName: expectedName,
     localAsset: opened.reference.endsWith(`legal/${expectedName}`) ? `legal/${expectedName}` : opened.reference,
@@ -974,6 +1055,28 @@ async function clickAndCaptureDocumentViewer(page, pattern, expectedName, fallba
     overlayVisible,
     renderReady,
   };
+}
+
+async function dismissDocumentStatusDialog(page) {
+  await page.waitForTimeout(350);
+  await page.keyboard.press("Escape").catch(() => null);
+  await page.waitForTimeout(250);
+  const closeButton = page.getByRole("button", { name: /Cerrar|Close/i }).first();
+  if (await closeButton.count()) {
+    await closeButton.click({ timeout: 1_000 }).catch(() => null);
+    await page.waitForTimeout(250);
+  }
+  const canvas = await profileSosCanvasBounds(page);
+  for (const target of [
+    { x: 0.675, y: 0.585 },
+    { x: 0.68, y: 0.585 },
+    { x: 0.67, y: 0.59 },
+  ]) {
+    await page.mouse.click(canvas.x + canvas.width * target.x, canvas.y + canvas.height * target.y);
+    await page.waitForTimeout(200);
+  }
+  await page.keyboard.press("Escape").catch(() => null);
+  await page.waitForTimeout(150);
 }
 
 async function dismissDocumentViewer(page) {

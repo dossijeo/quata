@@ -961,6 +961,8 @@ fun AppNavGraph(
                                 pendingAccountAction = AccountLifecycleAction.DeleteData
                             },
                             documentOpenService = container.documentOpenService,
+                            contactPickerService = container.platformServices.contacts,
+                            permissionService = container.permissionService,
                             onProfileSaved = {
                                 navController.navigate(AppDestinations.Feed.route) {
                                     popUpTo(AppDestinations.Feed.route) { inclusive = false }

@@ -1,12 +1,14 @@
 package com.quata.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.quata.core.localization.QuataLanguage
+import com.quata.core.moderation.LegalDocument
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.PreferenceStore
@@ -34,6 +36,33 @@ fun WebLoginHost(
     val catalog = AuthCatalog.copy(AuthCatalogLocale.Spanish)
     val scope = rememberCoroutineScope()
     var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
+    DisposableEffect(Unit) {
+        val uninstallStatus = installWebDocumentStatusE2eBridge("auth") {
+            documentViewerState = null
+        }
+        val uninstallLegal = installWebLegalDocumentsE2eBridge(
+            surface = "auth",
+            openPrivacy = {
+                scope.launch {
+                    val file = webLegalDocumentFile(LegalDocument.Privacy, QuataLanguage.Spanish)
+                    documentViewerState = documentViewerOpeningState(file)
+                    documentViewerState = documentOpener.openWithViewerState(file).completed
+                }
+            },
+            openChildSafety = {
+                scope.launch {
+                    val file = webLegalDocumentFile(LegalDocument.ChildSafety, QuataLanguage.Spanish)
+                    documentViewerState = documentViewerOpeningState(file)
+                    documentViewerState = documentOpener.openWithViewerState(file).completed
+                }
+            },
+            dismissStatus = { documentViewerState = null },
+        )
+        onDispose {
+            uninstallStatus()
+            uninstallLegal()
+        }
+    }
     AuthProductHostContent(
         repository = repository,
         catalog = catalog,

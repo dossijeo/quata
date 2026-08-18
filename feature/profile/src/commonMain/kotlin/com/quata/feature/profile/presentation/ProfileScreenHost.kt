@@ -162,6 +162,16 @@ fun ProfileScreenHost(
                 showSos = false
                 viewModel.onEvent(ProfileUiEvent.ClearMessages)
             },
+            { count ->
+                val desiredIds = state.emergencyCandidates.take(count).map { it.id }.toSet()
+                val selectedIds = profile?.emergencyContactIds.orEmpty().toSet()
+                state.emergencyCandidates
+                    .filter { it.id in selectedIds && it.id !in desiredIds }
+                    .forEach { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) }
+                state.emergencyCandidates
+                    .filter { it.id !in selectedIds && it.id in desiredIds }
+                    .forEach { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) }
+            },
         )
         SideEffect {
             if (showSos) {
@@ -320,7 +330,7 @@ data class ProfileScreenSlots(
     val onProfileSaved: () -> Unit = {},
     val onBackFromOverview: () -> Unit = {},
     val backDispatcher: ProfileBackDispatcher? = null,
-    val sosE2eBridge: (@Composable (openSos: () -> Unit, closeSos: () -> Unit) -> Unit)? = null,
+    val sosE2eBridge: (@Composable (openSos: () -> Unit, closeSos: () -> Unit, selectFirstContacts: (Int) -> Unit) -> Unit)? = null,
     val onSosTabChanged: (EmergencyContactsTab?) -> Unit = {},
     val onSosSelectionChanged: (selectedCount: Int, candidateCount: Int) -> Unit = { _, _ -> },
     val onSosErrorChanged: (String?) -> Unit = {},

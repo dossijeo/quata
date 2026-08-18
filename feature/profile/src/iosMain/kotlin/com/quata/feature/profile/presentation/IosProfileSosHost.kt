@@ -1,28 +1,21 @@
 package com.quata.feature.profile.presentation
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.clickable
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.PermissionService
 import com.quata.core.platform.PermissionStatus
 import com.quata.core.platform.PlatformContact
-import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
 import com.quata.feature.profile.domain.EmergencyContactCandidate
-import kotlinx.coroutines.launch
 import platform.UIKit.UIViewController
 
 /**
@@ -55,7 +48,6 @@ class IosProfileSosHostDependencies(
 fun QuataProfileSosViewController(dependencies: IosProfileSosHostDependencies): UIViewController = ComposeUIViewController {
     val state by dependencies.viewModel.uiState.collectAsState()
     val profile = state.profile
-    val scope = rememberCoroutineScope()
     QuataTheme {
         EmergencyContactsDialogContent(
             layoutPadding = PaddingValues(),
@@ -82,38 +74,15 @@ fun QuataProfileSosViewController(dependencies: IosProfileSosHostDependencies): 
                     OutlinedTextField(value, onValueChange, modifier = modifier)
                 },
                 contactActions = {
-                    Column(
+                    EmergencyContactsContactActionsContent(
+                        strings = dependencies.strings,
+                        contacts = dependencies.contacts,
+                        permissions = dependencies.permissions,
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    when (val result = dependencies.contacts.pickContacts()) {
-                                        is PlatformResult.Success -> dependencies.onContactsPicked(result.value)
-                                        PlatformResult.Cancelled,
-                                        is PlatformResult.Failure,
-                                        PlatformResult.Unsupported -> dependencies.onContactPickerResult(result)
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(dependencies.importContactsLabel)
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    dependencies.onContactsPermissionResult(
-                                        dependencies.permissions.request(PlatformPermission.Contacts),
-                                    )
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(dependencies.requestPermissionsLabel)
-                        }
-                    }
+                        onContactsPicked = dependencies.onContactsPicked,
+                        onContactPickerResult = dependencies.onContactPickerResult,
+                        onContactsPermissionResult = dependencies.onContactsPermissionResult,
+                    )
                 },
             ),
         )

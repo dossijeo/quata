@@ -66,6 +66,7 @@ import com.quata.feature.profile.domain.ProfileEditModel
 import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.profile.domain.ProfileUpdate
 import com.quata.feature.profile.domain.SecretQuestionOption
+import com.quata.feature.profile.presentation.EmergencyContactsContactActionsContent
 import com.quata.feature.profile.presentation.EmergencyContactsEditorStrings
 import com.quata.feature.profile.presentation.EmergencyContactsHeaderStrings
 import com.quata.feature.profile.presentation.EmergencyUserRowContent
@@ -101,6 +102,12 @@ internal fun WebProfileHost(
     val isLandscape = rememberQuataWindowLayoutInfo().isLandscape
     val scope = rememberCoroutineScope()
     var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
+    DisposableEffect(Unit) {
+        val uninstall = installWebDocumentStatusE2eBridge("profile") {
+            documentViewerState = null
+        }
+        onDispose { uninstall() }
+    }
     ProfileScreenHost(
         repository = repository,
         strings = WebProfileScreenStrings,
@@ -131,6 +138,7 @@ internal fun WebProfileHost(
                         surface = "profile",
                         openPrivacy = { openLegalDocument(LegalDocument.Privacy) },
                         openChildSafety = { openLegalDocument(LegalDocument.ChildSafety) },
+                        dismissStatus = { documentViewerState = null },
                     )
                     onDispose { uninstall() }
                 }
@@ -141,9 +149,23 @@ internal fun WebProfileHost(
                 )
             },
             emergencyContactRow = { contact, selected, toggle -> EmergencyUserRowContent(contact, selected, "Añadir", "Quitar", avatar = { BrowserRemoteAvatar(contact.displayName, contact.id, contact.avatarUrl, false, null, Modifier.size(46.dp)) }, onToggle = toggle) },
-            sosE2eBridge = { openSos, closeSos ->
-                DisposableEffect(openSos, closeSos) {
-                    val uninstall = installWebProfileSosE2eBridge(openSos, closeSos)
+            emergencyContactActions = {
+                EmergencyContactsContactActionsContent(
+                    strings = WebProfileScreenStrings.emergency,
+                    contacts = platformServices.contacts,
+                    permissions = platformServices.permissions,
+                )
+            },
+            sosE2eBridge = { openSos, closeSos, selectFirstContacts ->
+                DisposableEffect(openSos, closeSos, selectFirstContacts) {
+                    val uninstall = installWebProfileSosE2eBridge(
+                        openSos = {
+                            documentViewerState = null
+                            openSos()
+                        },
+                        closeSos = closeSos,
+                        selectFirstContacts = selectFirstContacts,
+                    )
                     onDispose { uninstall() }
                 }
             },
@@ -452,7 +474,26 @@ internal fun webProfileLanguageTag(): String? = js("globalThis.navigator?.langua
 private val WebProfileScreenStrings = ProfileScreenStrings(
     "Cargando perfil…", "Mis datos", "Gestión de cuenta", "Gestiona las opciones sensibles de tu cuenta.", "Configurar contactos de emergencia", "Guardar cambios", "Guardando…", "Cerrar sesión", "Nombre", "Barrio", "Teléfono", "Nueva contraseña", "Pregunta secreta", "Nueva respuesta secreta", "Volver", "Desactivar cuenta", "Solicitar eliminación de datos", "Esta acción requiere una confirmación adicional.", "Continuar", "Cancelar",
     AppearanceSettingsStrings("Activar Qüata TouchFlow", "Modo de color", "Sistema", "Modo Oscuro", "Modo Claro"),
-    EmergencyContactsEditorStrings(EmergencyContactsHeaderStrings("Volver", "SOS", "Contactos de emergencia", "Elige hasta cinco contactos y personaliza el mensaje de ayuda.", "Contactos", "Mensaje"), { "$it seleccionados" }, "Contactos disponibles", "Buscar contacto", "Mensaje SOS", "Escribe el mensaje que recibirán tus contactos.", "Guardar SOS", "Guardar"),
+    EmergencyContactsEditorStrings(
+        header = EmergencyContactsHeaderStrings("Volver", "SOS", "Contactos de emergencia", "Elige hasta cinco contactos y personaliza el mensaje de ayuda.", "Contactos", "Mensaje"),
+        selectedCount = { "$it seleccionados" },
+        networkUsers = "Contactos disponibles",
+        importContacts = "Importar contactos",
+        requestContactsPermission = "Permitir acceso a contactos",
+        contactPickerUnavailable = "La importación de contactos no está disponible en este navegador. Usa los contactos de QÜATA de abajo.",
+        contactPickerCancelled = "Importación de contactos cancelada.",
+        contactPickerFailed = "No se pudieron importar los contactos.",
+        contactsPicked = { "$it contactos seleccionados. Vincúlalos con usuarios QÜATA antes de guardar." },
+        contactsPermissionGranted = "Acceso a contactos concedido.",
+        contactsPermissionDenied = "Acceso a contactos denegado.",
+        contactsPermissionPermanentlyDenied = "El acceso a contactos está bloqueado en el navegador.",
+        contactsPermissionUnavailable = "El acceso a contactos no está disponible en este navegador.",
+        searchPlaceholder = "Buscar contacto",
+        messageTitle = "Mensaje SOS",
+        messageHint = "Escribe el mensaje que recibirán tus contactos.",
+        savePortrait = "Guardar SOS",
+        saveLandscape = "Guardar",
+    ),
     "El cambio de contraseña se realiza desde «Olvidé mi contraseña» hasta que exista un contrato autenticado de actualización.",
     "No se pudo cargar el perfil.",
     "Reintentar",
