@@ -118,6 +118,7 @@ test("SOS contacts evidence runners exercise the shared anchors on Android, Web 
   assert.match(loaded.webEvidence, /__quataProfileSosE2eProduct/);
   assert.match(loaded.webEvidence, /landscape_split_visible/);
   assert.match(loaded.webEvidence, /wasm_canvas_relative_tab_fallback/);
+  assert.match(loaded.webEvidence, /wasm_viewport_relative_save_button_fallback/);
   assert.match(loaded.webSosBridge, /data-quata-profile-sos-tab/);
   assert.match(loaded.webSosBridge, /data-quata-profile-sos-selected-count/);
   assert.match(loaded.webSosBridge, /data-quata-profile-sos-error-visible/);

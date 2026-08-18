@@ -759,7 +759,7 @@ async function assertProfileSosSaveError(page, reportOutput, steps) {
   if (!saveErrorOptIn.bridge || saveErrorOptIn.marker !== "enabled") {
     throw new Error(`profile_sos_save_error_opt_in_missing:${JSON.stringify(saveErrorOptIn)}`);
   }
-  const save = await findVisibleTextBounds(page, /Guardar SOS|Guardar|Save/i) ?? await profileSosSaveButtonFallbackBounds(page);
+  const save = await profileSosSaveButtonFallbackBounds(page) ?? await findVisibleTextBounds(page, /Guardar SOS|Guardar|Save/i);
   if (!save) throw new Error("profile_sos_save_button_missing");
   await page.mouse.click(save.x + save.width / 2, save.y + save.height / 2);
   await page.waitForFunction(() =>
@@ -872,14 +872,22 @@ async function profileSosSaveButtonFallbackBounds(page) {
       const rect = element.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     });
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
+    const rect = (canvas ?? document.documentElement).getBoundingClientRect();
+    if (rect.width >= 900) {
+      return {
+        x: rect.x + rect.width * 0.834,
+        y: rect.y + rect.height * 0.108,
+        width: rect.width * 0.155,
+        height: rect.height * 0.06,
+        resolution: canvas ? "wasm_canvas_relative_save_button_fallback" : "wasm_viewport_relative_save_button_fallback",
+      };
+    }
     return {
-      x: rect.x + rect.width * 0.70,
-      y: rect.y + rect.height * 0.92,
-      width: rect.width * 0.24,
+      x: rect.x + rect.width * 0.08,
+      y: rect.y + rect.height * 0.82,
+      width: rect.width * 0.84,
       height: rect.height * 0.08,
-      resolution: "wasm_canvas_relative_save_button_fallback",
+      resolution: canvas ? "wasm_canvas_relative_save_button_fallback" : "wasm_viewport_relative_save_button_fallback",
     };
   });
 }
