@@ -97,13 +97,13 @@ fun WebPostComposerHost(
             pickImage = { scope.launch { mediaSlots.pickImage()?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
             captureImage = { scope.launch { mediaSlots.captureImage()?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
             editImage = when {
-                mediaSlots.imageEditor != null -> {{
+                mediaSlots.imageEditor != null -> ({
                     stateUri(viewModel, true)?.let { imageEditorReference = it }
-                }}
-                mediaSlots.editImage != null -> {{
+                })
+                mediaSlots.editImage != null -> ({
                     val edit = mediaSlots.editImage
                     scope.launch { stateUri(viewModel, true)?.let { current -> edit(current)?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } }
-                }}
+                })
                 else -> null
             },
             pickVideo = { scope.launch { mediaSlots.pickVideo()?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } },

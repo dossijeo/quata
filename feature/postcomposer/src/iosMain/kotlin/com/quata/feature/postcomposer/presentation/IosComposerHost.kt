@@ -159,16 +159,16 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                     }
                 }
             },
-            editImage = {{ imageFile?.let { imageEditorFile = it } }},
+            editImage = ({ imageFile?.let { imageEditorFile = it } }),
             pickVideo = { selectVideo(FilePickerSource.Gallery) },
             captureVideo = { selectVideo(FilePickerSource.Camera) },
-            editVideo = if (iosPostComposerVideoEditorEvidenceOptedIn()) {{
+            editVideo = if (iosPostComposerVideoEditorEvidenceOptedIn()) ({
                 videoFile?.let { current ->
                     val edited = iosPostComposerVideoEditorEvidenceEditedFile(current)
                     videoFile = edited
                     viewModel.onEvent(CreatePostUiEvent.VideoSelected(edited.reference))
                 }
-            }} else null,
+            }) else null,
             imagePreview = { _, modifier -> imageFile?.let { IosComposerLocalImagePreview(it, modifier) } },
             videoPreview = { _, _, modifier -> videoThumbnail?.let { IosComposerLocalImagePreview(it, modifier) } },
             requestLocation = { resolved ->

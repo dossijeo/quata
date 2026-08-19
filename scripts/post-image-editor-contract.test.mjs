@@ -49,7 +49,10 @@ test("Web composer opens the real Compose/Wasm post image editor and exports a J
 });
 
 test("iOS composer opens a real editor surface and exports a temporary JPEG", () => {
-  assert.match(iosHost, /editImage = \{\{ imageFile\?\.let \{ imageEditorFile = it \} \}\}/);
+  assert.match(iosHost, /editImage = \(\{ imageFile\?\.let \{ imageEditorFile = it \} \}\)/);
+  assert.doesNotMatch(iosHost, /editImage\s*=\s*\{\{/);
+  assert.doesNotMatch(iosHost, /editVideo\s*=\s*if[\s\S]*?\{\{/);
+  assert.doesNotMatch(webHost, /editImage\s*=\s*when[\s\S]*?\{\{/);
   assert.doesNotMatch(iosHost, /iosPostComposerImageEditorEvidenceEditedFile/);
   assert.match(iosHost, /IosPostImageEditor/);
   assert.match(iosEditor, /PostImageEditorDialogContent/);
