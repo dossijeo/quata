@@ -8,9 +8,12 @@ import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import {
   cleanupPostPublishFixture,
+  cleanupPostPublishStorageObjects,
   createPostPublishFixture,
   pollPostPublishFixture,
   selectPostPublishDestinationFixture,
+  snapshotPostImageStorageObjects,
+  waitForPostImageStorageRollback,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
 const CHECK = "POST-PUBLISH-ANDROID-REAL-001";
@@ -50,6 +53,10 @@ try {
   const backend = await publicConfig();
   const credentials = config.credentials.a;
   const session = await login(backend, credentials, `post-publish-android-${randomUUID()}`);
+  const storageBefore = await snapshotPostImageStorageObjects({
+    actorSession: { profileId: session.userId },
+    withDatabase: (callback) => withPg(config, callback),
+  });
   const destination = await selectPostPublishDestinationFixture({
     actorSession: { profileId: session.userId },
     withDatabase: (callback) => withPg(config, callback),
@@ -94,6 +101,7 @@ try {
     "-e", "quataPostPublishDestinationWallId", fixture.destination.wallId,
     "-e", "quataPostPublishMode", options.mode,
     ...(options.failOnce ? ["-e", "quataPostProgressRollbackFailOnce", "1"] : []),
+    ...(options.failAfterUpload ? ["-e", "quataPostStorageRollbackFailAfterUpload", "1"] : []),
     ...(fixture.locationLabel ? ["-e", "quataPostPublishLocationLabel", fixture.locationLabel] : []),
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
@@ -102,12 +110,14 @@ try {
   if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentationOutput)) {
     throw new Error("android_instrumentation_semantic_failure");
   }
-  report.steps.push("android_real_text_post_published_from_common_composer");
+  report.steps.push(`android_real_${options.mode === "image-location" ? "image" : "text"}_post_published_from_common_composer`);
 
   const evidenceDir = options.evidenceDir;
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
-  const evidenceFiles = options.failOnce
+  const evidenceFiles = options.failAfterUpload
+    ? [...baseEvidenceFiles.slice(0, 2), "android-post-storage-rollback-after-error.png", ...baseEvidenceFiles.slice(2)]
+    : options.failOnce
     ? [...baseEvidenceFiles.slice(0, 2), "android-post-progress-rollback-after-error.png", ...baseEvidenceFiles.slice(2)]
     : baseEvidenceFiles;
   for (const file of evidenceFiles) {
@@ -130,6 +140,19 @@ try {
     mediaUrls: published.mediaUrls,
   };
   report.cleanup = await cleanupPostPublishFixture({ fixture, withDatabase: (callback) => withPg(config, callback) });
+  report.storageCleanup = await cleanupPostPublishStorageObjects({
+    backend,
+    accessToken: session.accessToken,
+    mediaUrls: report.cleanup.mediaUrls,
+  });
+  if (options.failAfterUpload) {
+    report.storageAfterCleanup = await waitForPostImageStorageRollback({
+      actorSession: { profileId: session.userId },
+      before: storageBefore,
+      withDatabase: (callback) => withPg(config, callback),
+      delay,
+    });
+  }
   report.steps.push("post_publish_cleanup_verified_residue_absent");
   report.status = "passed";
 } catch (error) {
@@ -174,12 +197,17 @@ function parseArgs(args) {
     evidenceDir: join("build-reports", "android", "post-publish-evidence"),
     mode: "text",
     failOnce: false,
+    failAfterUpload: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
     if (key === "--fail-once") {
       parsed.failOnce = true;
+      continue;
+    }
+    if (key === "--fail-after-upload") {
+      parsed.failAfterUpload = true;
       continue;
     }
     if (!["--out", "--evidence-dir", "--mode"].includes(key) || !value || value.startsWith("--")) throw new Error("invalid_arguments");
@@ -189,6 +217,7 @@ function parseArgs(args) {
     if (key === "--mode") parsed.mode = value;
   }
   if (!["text", "image-location"].includes(parsed.mode)) throw new Error("invalid_mode");
+  if (parsed.failAfterUpload && parsed.mode !== "image-location") throw new Error("fail_after_upload_requires_image_location_mode");
   return parsed;
 }
 
@@ -228,8 +257,9 @@ async function login(backend, credentials, clientInstanceId) {
     client_instance_id: clientInstanceId,
   });
   const profile = response.payload?.profile;
-  if (typeof profile?.id !== "string") throw new Error("invalid_auth_response");
-  return { userId: profile.id };
+  const session = response.payload?.session;
+  if (typeof profile?.id !== "string" || typeof session?.access_token !== "string") throw new Error("invalid_auth_response");
+  return { userId: profile.id, accessToken: session.access_token };
 }
 
 function localPhone(countryCode, phone) {

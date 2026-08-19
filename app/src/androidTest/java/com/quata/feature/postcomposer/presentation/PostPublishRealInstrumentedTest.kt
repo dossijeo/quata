@@ -60,11 +60,13 @@ class PostPublishRealInstrumentedTest {
         val mode = optionalArgument("quataPostPublishMode") ?: "text"
         val locationLabel = optionalArgument("quataPostPublishLocationLabel")
         val failOnce = optionalArgument("quataPostProgressRollbackFailOnce") == "1"
+        val failAfterUpload = optionalArgument("quataPostStorageRollbackFailAfterUpload") == "1"
         assumeTrue(
             "POST-PUBLISH-ANDROID-REAL-001 is opt-in and requires local credentials plus marker.",
             !credentialsFile.isNullOrBlank() && !marker.isNullOrBlank() && !destinationWallId.isNullOrBlank(),
         )
         require(mode == "text" || mode == "image-location") { "unsupported_post_publish_mode:$mode" }
+        require(!failAfterUpload || mode == "image-location") { "post_storage_rollback_requires_image_location_mode" }
         val evidenceImageUri = if (mode == "image-location") {
             require(!locationLabel.isNullOrBlank()) { "image-location mode requires quataPostPublishLocationLabel" }
             createImageLocationEvidenceUri()
@@ -83,7 +85,9 @@ class PostPublishRealInstrumentedTest {
             session?.isSupabaseAuthenticated() == true,
         )
 
-        ActivityScenario.launch<MainActivity>(mainIntent(evidenceImageUri, locationLabel, failOnce = failOnce)).use {
+        ActivityScenario.launch<MainActivity>(
+            mainIntent(evidenceImageUri, locationLabel, failOnce = failOnce, failAfterUpload = failAfterUpload),
+        ).use {
             compose.waitUntil(45_000) {
                 runCatching { compose.onNodeWithTag(CreatePostCommonRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
@@ -128,7 +132,7 @@ class PostPublishRealInstrumentedTest {
             compose.onNodeWithTag(ComposerPublishButtonTestTag, useUnmergedTree = true)
                 .performScrollTo()
                 .performClick()
-            if (failOnce) {
+            if (failOnce || failAfterUpload) {
                 compose.waitUntil(20_000) {
                     runCatching { compose.onNodeWithTag(ComposerFeedbackErrorTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
                         runCatching { compose.onNodeWithTag(ComposerFeedbackRetryTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
@@ -145,7 +149,7 @@ class PostPublishRealInstrumentedTest {
                     24,
                 )
                 device.waitForIdle(1_000)
-                saveScreenshot("android-post-progress-rollback-after-error")
+                saveScreenshot(if (failAfterUpload) "android-post-storage-rollback-after-error" else "android-post-progress-rollback-after-error")
                 compose.onNodeWithTag(ComposerFeedbackRetryTestTag, useUnmergedTree = true)
                     .performScrollTo()
                     .performClick()
@@ -372,12 +376,14 @@ class PostPublishRealInstrumentedTest {
         pickerOutcome: String? = null,
         pickerPath: String? = null,
         failOnce: Boolean = false,
+        failAfterUpload: Boolean = false,
     ): Intent =
         Intent(targetContext, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             .putExtra("com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", true)
             .putExtra("com.quata.extra.START_DESTINATION_FOR_EVIDENCE", "create_post")
             .putExtra("com.quata.extra.POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE", failOnce)
+            .putExtra("com.quata.extra.POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE", failAfterUpload)
             .apply {
                 evidenceImageUri?.let { putExtra("com.quata.extra.POST_PUBLISH_EVIDENCE_IMAGE_URI", it) }
                 evidenceLocationLabel?.let { putExtra("com.quata.extra.POST_PUBLISH_EVIDENCE_LOCATION_LABEL", it) }

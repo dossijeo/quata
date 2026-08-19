@@ -9,9 +9,12 @@ import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import {
   cleanupPostPublishFixture,
+  cleanupPostPublishStorageObjects,
   createPostPublishFixture,
   pollPostPublishFixture,
   selectPostPublishDestinationFixture,
+  snapshotPostImageStorageObjects,
+  waitForPostImageStorageRollback,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
 const CHECK = "POST-PUBLISH-IOS-REAL-001";
@@ -41,6 +44,10 @@ try {
   const backend = await publicConfig();
   const credentials = config.credentials.a;
   const session = await login(backend, credentials, `post-publish-ios-${randomUUID()}`);
+  const storageBefore = await snapshotPostImageStorageObjects({
+    actorSession: { profileId: session.userId },
+    withDatabase: (callback) => withPg(config, callback),
+  });
   const destination = await selectPostPublishDestinationFixture({
     actorSession: { profileId: session.userId },
     withDatabase: (callback) => withPg(config, callback),
@@ -102,6 +109,7 @@ export QUATA_IOS_POST_PUBLISH_MARKER=${shellQuote(fixture.marker)}
 export QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID=${shellQuote(fixture.destination.wallId)}
 export QUATA_IOS_POST_PUBLISH_MODE=${shellQuote(options.mode)}
 ${options.failOnce ? "export QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE=1" : "unset QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE"}
+${options.failAfterUpload ? "export QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD=1" : "unset QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD"}
 ${fixture.locationLabel ? `export QUATA_IOS_POST_PUBLISH_LOCATION_LABEL=${shellQuote(fixture.locationLabel)}` : "unset QUATA_IOS_POST_PUBLISH_LOCATION_LABEL"}
 bash scripts/run-ios-post-publish-ui-test.sh
 `);
@@ -127,6 +135,19 @@ bash scripts/run-ios-post-publish-ui-test.sh
     mediaUrls: published.mediaUrls,
   };
   report.cleanup = await cleanupPostPublishFixture({ fixture, withDatabase: (callback) => withPg(config, callback) });
+  report.storageCleanup = await cleanupPostPublishStorageObjects({
+    backend,
+    accessToken: session.accessToken,
+    mediaUrls: report.cleanup.mediaUrls,
+  });
+  if (options.failAfterUpload) {
+    report.storageAfterCleanup = await waitForPostImageStorageRollback({
+      actorSession: { profileId: session.userId },
+      before: storageBefore,
+      withDatabase: (callback) => withPg(config, callback),
+      delay,
+    });
+  }
   report.steps.push("post_publish_cleanup_verified_residue_absent");
   report.status = "passed";
 } catch (error) {
@@ -176,12 +197,15 @@ function parseArgs(args) {
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
     mode: "text",
     failOnce: false,
+    failAfterUpload: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
     if (key === "--fail-once") {
       parsed.failOnce = true;
+    } else if (key === "--fail-after-upload") {
+      parsed.failAfterUpload = true;
     } else if (["--host", "--project", "--derived-data", "--remote-log-dir", "--out", "--evidence-dir", "--simulator", "--mode"].includes(key)) {
       if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
       index += 1;
@@ -201,6 +225,7 @@ function parseArgs(args) {
   }
   if (!parsed.simulatorUdid) throw new Error("missing_environment:QUATA_IOS_SIMULATOR_UDID");
   if (!["text", "image-location"].includes(parsed.mode)) throw new Error(`unsupported_mode:${parsed.mode}`);
+  if (parsed.failAfterUpload && parsed.mode !== "image-location") throw new Error("fail_after_upload_requires_image_location_mode");
   parsed.output = resolve(parsed.output);
   parsed.evidenceDir = resolve(parsed.evidenceDir);
   return parsed;
@@ -241,9 +266,11 @@ async function login(backend, credentials, clientInstanceId) {
     password: String(credentials.password),
     client_instance_id: clientInstanceId,
   });
-  const profile = response.payload?.profile;
-  if (typeof profile?.id !== "string") throw new Error("invalid_auth_response");
-  return { userId: profile.id };
+  const root = response.payload;
+  const profile = root?.profile;
+  const session = root?.session;
+  if (typeof profile?.id !== "string" || typeof session?.access_token !== "string") throw new Error("invalid_auth_response");
+  return { userId: profile.id, accessToken: session.access_token };
 }
 
 function localPhone(countryCode, phone) {

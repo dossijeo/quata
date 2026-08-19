@@ -9,10 +9,13 @@ import pg from "pg";
 import { chromium } from "playwright-core";
 import {
   cleanupPostPublishFixture,
+  cleanupPostPublishStorageObjects,
   createPostPublishFixture,
+  snapshotPostImageStorageObjects,
   pollPostPublishFixture,
   selectPostPublishDestinationFixture,
   validPngFixture,
+  waitForPostImageStorageRollback,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
 const CHECK = "POST-PUBLISH-WEB-REAL-001";
@@ -47,6 +50,10 @@ try {
   const backend = await publicConfig();
   server = await startServer(options.distribution, await wordpressBaseUrl(), backend);
   const session = await login(backend, config.credentials.a, `post-publish-web-${randomUUID()}`);
+  const storageBefore = await snapshotPostImageStorageObjects({
+    actorSession: { profileId: session.userId },
+    withDatabase: (callback) => withPg(config, callback),
+  });
   const destination = await selectPostPublishDestinationFixture({
     actorSession: { profileId: session.userId },
     withDatabase: (callback) => withPg(config, callback),
@@ -77,7 +84,8 @@ try {
     localStorage.setItem("web.auth.session_ready", "true");
     localStorage.setItem("quata_web_client_instance_id", state.clientInstanceId);
     if (state.failOnce) localStorage.setItem("quata_post_progress_rollback_fail_once", "1");
-  }, { ...session, failOnce: options.failOnce });
+    if (state.failAfterUpload) localStorage.setItem("quata_post_storage_rollback_fail_after_upload", "1");
+  }, { ...session, failOnce: options.failOnce, failAfterUpload: options.failAfterUpload });
 
   const page = await context.newPage();
   const faults = [];
@@ -103,7 +111,9 @@ try {
     if (entry) report.network.push(entry);
   });
 
-  const routeParams = options.failOnce
+  const routeParams = options.failAfterUpload
+    ? "?quata-post-publish-e2e=1&quata-post-storage-rollback-e2e=1"
+    : options.failOnce
     ? "?quata-post-publish-e2e=1&quata-post-progress-rollback-e2e=1"
     : "?quata-post-publish-e2e=1";
   await page.goto(`${server.origin}/${routeParams}#composer`, { waitUntil: "domcontentloaded" });
@@ -190,7 +200,7 @@ try {
     bridgeBeforeSubmit: await postComposerBridgeState(page),
     composerStateBeforeSubmit: await postComposerProductState(page),
   };
-  if (options.failOnce) {
+  if (options.failOnce || options.failAfterUpload) {
     await clickSemanticElement(page, "composer-publish", { reinforcePhysical: true }).catch(() => {});
     await page.waitForFunction(() => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
@@ -198,17 +208,27 @@ try {
     }, { timeout: 4_000 }).catch(async () => {
       await page.evaluate(() => {
         const bridge = globalThis.__quataPostComposerE2eProduct;
-        if (bridge?.version !== 1 || typeof bridge.submitText !== "function") throw Error("post_composer_submit_bridge_missing");
-        bridge.submitText();
+        if (bridge?.version !== 1) throw Error("post_composer_submit_bridge_missing");
+        if (typeof bridge.submitImage === "function" && bridge.state?.()?.hasImage === true) bridge.submitImage();
+        else if (typeof bridge.submitText === "function") bridge.submitText();
+        else throw Error("post_composer_submit_bridge_missing");
       });
     });
-    await page.waitForFunction(() => {
+    await page.waitForFunction((expectedType) => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
-      return state?.hasError === true && state?.retryAvailable === true && state?.lastFailedSubmitType === "text";
-    }, { timeout: 10_000 });
+      return state?.hasError === true && state?.retryAvailable === true && state?.lastFailedSubmitType === expectedType;
+    }, composerType, { timeout: 10_000 });
     report.diagnostics.bridgeAfterForcedFailure = await postComposerBridgeState(page);
     report.diagnostics.composerStateAfterForcedFailure = await postComposerProductState(page);
-    report.evidence.afterForcedFailure = await screenshot(page, "web-post-progress-rollback-after-error");
+    if (options.failAfterUpload) {
+      report.storageRollback = await waitForPostImageStorageRollback({
+        actorSession: { profileId: session.userId },
+        before: storageBefore,
+        withDatabase: (callback) => withPg(config, callback),
+        delay,
+      });
+    }
+    report.evidence.afterForcedFailure = await screenshot(page, options.failAfterUpload ? "web-post-storage-rollback-after-error" : "web-post-progress-rollback-after-error");
     report.steps.push("web_common_error_feedback_and_retry_visible_after_forced_first_failure");
     await clickSemanticElement(page, "composer-feedback-retry");
     report.steps.push("web_retry_button_clicked_by_common_semantic_anchor");
@@ -249,9 +269,22 @@ try {
   };
   await page.waitForFunction(() => localStorage.getItem("web.navigation.route") !== "composer", { timeout: 45_000 }).catch(() => {});
   report.evidence.afterPublish = await screenshot(page, "web-post-publish-after-publish");
-  report.steps.push("real_text_post_published_from_common_composer_and_verified_by_marker");
+  report.steps.push(`real_${composerType}_post_published_from_common_composer_and_verified_by_marker`);
 
   report.cleanup = await cleanupPostPublishFixture({ fixture, withDatabase: (callback) => withPg(config, callback) });
+  report.storageCleanup = await cleanupPostPublishStorageObjects({
+    backend,
+    accessToken: session.accessToken,
+    mediaUrls: report.cleanup.mediaUrls,
+  });
+  if (options.failAfterUpload) {
+    report.storageAfterCleanup = await waitForPostImageStorageRollback({
+      actorSession: { profileId: session.userId },
+      before: storageBefore,
+      withDatabase: (callback) => withPg(config, callback),
+      delay,
+    });
+  }
   report.steps.push("post_publish_cleanup_verified_residue_absent");
   const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
   if (actionableFaults.length) {
@@ -301,12 +334,17 @@ function parseArgs(args) {
     evidenceDir: resolve("build-reports/web/post-publish-evidence"),
     mode: "text",
     failOnce: false,
+    failAfterUpload: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
     if (key === "--fail-once") {
       parsed.failOnce = true;
+      continue;
+    }
+    if (key === "--fail-after-upload") {
+      parsed.failAfterUpload = true;
       continue;
     }
     if (!["--dist", "--chrome", "--out", "--evidence-dir", "--mode"].includes(key) || !value || value.startsWith("--")) throw new Error("invalid_arguments");
@@ -318,6 +356,7 @@ function parseArgs(args) {
     if (key === "--mode") parsed.mode = value;
   }
   if (!["text", "image-location"].includes(parsed.mode)) throw new Error("invalid_mode");
+  if (parsed.failAfterUpload && parsed.mode !== "image-location") throw new Error("fail_after_upload_requires_image_location_mode");
   return parsed;
 }
 

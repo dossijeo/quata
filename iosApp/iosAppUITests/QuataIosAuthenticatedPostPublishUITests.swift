@@ -44,10 +44,16 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-composer-filled")
 
         tapPublish(in: app)
-        if environment["QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE"] == "1" {
-            waitForRetryAndTap(in: app)
+        var retriedAfterForcedFailure = false
+        if environment["QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE"] == "1" ||
+            environment["QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD"] == "1" {
+            let screenshotName = environment["QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD"] == "1"
+                ? "ios-post-storage-rollback-after-error"
+                : "ios-post-progress-rollback-after-error"
+            waitForRetryAndTap(in: app, screenshotName: screenshotName)
+            retriedAfterForcedFailure = true
         }
-        waitForPublishedFeedbackOrClose(in: app)
+        waitForPublishedFeedbackOrClose(in: app, allowExistingRetryError: retriedAfterForcedFailure)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-after-publish")
     }
 
@@ -183,6 +189,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_NAME",
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_MIME",
             "QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE",
+            "QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD",
         ] {
             if let value = ProcessInfo.processInfo.environment[key], !value.isEmpty {
                 app.launchEnvironment[key] = value
@@ -376,7 +383,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         publish.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
-    private func waitForRetryAndTap(in app: XCUIApplication) {
+    private func waitForRetryAndTap(in app: XCUIApplication, screenshotName: String) {
         let error = app.descendants(matching: .any)
             .matching(identifier: "composer-feedback-error")
             .firstMatch
@@ -385,7 +392,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(error.waitForExistence(timeout: 20), "The forced first publish failure must surface shared error feedback.")
         XCTAssertTrue(retry.waitForExistence(timeout: 10), "The forced first publish failure must expose the shared retry action.")
-        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-progress-rollback-after-error")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: screenshotName)
         if retry.isHittable {
             retry.tap()
         } else {
@@ -393,7 +400,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         }
     }
 
-    private func waitForPublishedFeedbackOrClose(in app: XCUIApplication) {
+    private func waitForPublishedFeedbackOrClose(in app: XCUIApplication, allowExistingRetryError: Bool = false) {
         let success = app.descendants(matching: .any)
             .matching(identifier: "composer-feedback-success")
             .firstMatch
@@ -408,15 +415,20 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             .firstMatch
         let deadline = Date().addingTimeInterval(60)
         while Date() < deadline {
-            if error.exists {
+            if success.exists || feed.exists || !composer.exists {
+                return
+            }
+            if error.exists && !allowExistingRetryError {
                 QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-error")
                 XCTFail("The real iOS composer surfaced shared error feedback after publish.")
                 return
             }
-            if success.exists || feed.exists {
-                return
-            }
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        if error.exists {
+            QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-error")
+            XCTFail("The real iOS composer surfaced shared error feedback after publish.")
+            return
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-timeout")
         XCTFail("The real iOS composer did not show publish success or return to Feed after publish.")

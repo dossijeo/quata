@@ -90,6 +90,8 @@ def patch_target(target, hint=''):
         env['QUATA_IOS_POST_PUBLISH_MODE'] = os.environ.get('QUATA_IOS_POST_PUBLISH_MODE', 'text')
         if os.environ.get('QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE'):
             env['QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE'] = os.environ['QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE']
+        if os.environ.get('QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD'):
+            env['QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD'] = os.environ['QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD']
         if os.environ.get('QUATA_IOS_POST_PUBLISH_LOCATION_LABEL'):
             env['QUATA_IOS_POST_PUBLISH_LOCATION_LABEL'] = os.environ['QUATA_IOS_POST_PUBLISH_LOCATION_LABEL']
         matched.add('ui')

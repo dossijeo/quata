@@ -1149,15 +1149,22 @@ private final class IosAppCompositionRoot {
     private func installAuthenticatedComposerIfAvailable() {
         guard let runtimeBootstrap, let configuration = runtimeConfiguration else { return }
         let services = platformServices.services
-        let repository = ActorBoundPostComposerRepository(
-            transport: IosPostComposerTransport(
-                configuration: IosPostComposerRuntimeConfiguration(
-                    supabaseUrl: configuration.supabaseUrl,
-                    supabasePublishableKey: configuration.supabasePublishableKey,
-                    wordpressBaseUrl: IosPublicRuntimeConfiguration.wordpressBaseUrl
-                ),
-                authSession: runtimeBootstrap.authSessionForInteractiveLogin()
+        let baseTransport = IosPostComposerTransport(
+            configuration: IosPostComposerRuntimeConfiguration(
+                supabaseUrl: configuration.supabaseUrl,
+                supabasePublishableKey: configuration.supabasePublishableKey,
+                wordpressBaseUrl: IosPublicRuntimeConfiguration.wordpressBaseUrl
+            ),
+            authSession: runtimeBootstrap.authSessionForInteractiveLogin()
+        )
+        let transport: ActorBoundComposerTransport = ProcessInfo.processInfo.environment["QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD"] == "1"
+            ? FailInsertAfterUploadComposerTransport(
+                delegate: baseTransport,
+                failureMessage: "post_composer_e2e_forced_insert_after_upload_failure"
             )
+            : baseTransport
+        let repository = ActorBoundPostComposerRepository(
+            transport: transport
         )
         let composerRepository: PostComposerRepository = ProcessInfo.processInfo.environment["QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE"] == "1"
             ? FailOncePostComposerRepository(
