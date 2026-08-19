@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-IMAGE-EDITOR"
+  ],
+  "productSha": "5f30ed187e618d5910898c9ad26a434f1e3bd12b",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "5f30ed187e618d5910898c9ad26a434f1e3bd12b",
+      "report": "build-reports/web/post-image-editor-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "5f30ed187e618d5910898c9ad26a434f1e3bd12b",
+      "report": "build-reports/android/post-image-editor-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "5f30ed187e618d5910898c9ad26a434f1e3bd12b",
+      "report": "build-reports/ios/post-image-editor-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate reduces POST-IMAGE-EDITOR through common CreatePostRoot media edit anchors and shared selected preview semantics. Android exercises the real QuataImageEditorDialog from the common composer and saves back to the common preview. Web/Wasm and iOS use explicit local opt-in edit adapters to validate the shared action and state roundtrip without backend mutation while native full crop/export parity remains documented as a limit.",
+    "The unit also fixes selected media preview accessibility by exposing common contentDescription anchors for image and video previews, because iOS XCTest does not reliably observe non-interactive Compose testTags as accessibility identifiers."
+  ]
+}
