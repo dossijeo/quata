@@ -21,6 +21,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import com.quata.MainActivity
 import com.quata.QuataApp
@@ -337,10 +338,11 @@ class PostPublishRealInstrumentedTest {
     }
 
     private fun clickLocalizedText(spanish: String, english: String) {
-        if (runCatching { compose.onNodeWithText(spanish, useUnmergedTree = true).performClick() }.isFailure) {
-            compose.onNodeWithText(english, useUnmergedTree = true)
-                .performClick()
-        }
+        if (runCatching { compose.onNodeWithText(spanish, useUnmergedTree = true).performClick() }.isSuccess) return
+        if (runCatching { compose.onNodeWithText(english, useUnmergedTree = true).performClick() }.isSuccess) return
+        val uiObject = device.findObject(By.textContains(spanish)) ?: device.findObject(By.textContains(english))
+        check(uiObject != null) { "android_missing_localized_text_anchor:$spanish|$english" }
+        uiObject.click()
     }
 
     @Test
