@@ -4,11 +4,11 @@
     "SCR-CREATE-POST",
     "POST-PICKER-CAMERA"
   ],
-  "productSha": "2025c18c34563ca54375485dc690ebed35b95f1a",
+  "productSha": "44923913f0c9505193d9867beaaf23e294a5cc7c",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "2025c18c34563ca54375485dc690ebed35b95f1a",
+      "sha": "44923913f0c9505193d9867beaaf23e294a5cc7c",
       "report": "build-reports/web/post-picker-camera-evidence.json",
       "cleanup": {
         "verified": true,
@@ -17,7 +17,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "2025c18c34563ca54375485dc690ebed35b95f1a",
+      "sha": "44923913f0c9505193d9867beaaf23e294a5cc7c",
       "report": "build-reports/android/post-picker-camera-evidence.json",
       "cleanup": {
         "verified": true,
@@ -26,7 +26,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "2025c18c34563ca54375485dc690ebed35b95f1a",
+      "sha": "44923913f0c9505193d9867beaaf23e294a5cc7c",
       "report": "build-reports/ios/post-picker-camera-evidence.json",
       "cleanup": {
         "verified": true,
