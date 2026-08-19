@@ -48,6 +48,40 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-after-publish")
     }
 
+    func testAuthenticatedSessionExercisesMediaSourceActionsFromCommonComposer() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_POST_PICKER_CAMERA_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated post picker/camera UI gate is opt-in.")
+        }
+        guard environment["QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN"] == "I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE" else {
+            throw XCTSkip("Post picker/camera fixture replay is opt-in.")
+        }
+        let source = environment["QUATA_IOS_POST_COMPOSER_PICKER_SOURCE"] ?? ""
+        let outcome = environment["QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME"] ?? "success"
+        XCTAssertTrue(["gallery", "camera"].contains(source), "Unsupported picker source \(source).")
+        XCTAssertTrue(["success", "cancelled", "failure", "unsupported"].contains(outcome), "Unsupported picker outcome \(outcome).")
+
+        let app = openComposer(mode: "image", locationLabel: "")
+        assertSharedComposerSurface(in: app)
+        tapImageType(in: app)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-picker-camera-image-form-\(source)-\(outcome)")
+
+        let actionIdentifier = source == "gallery" ? "composer-media.pick-image" : "composer-media.capture-image"
+        tapComposerAction(actionIdentifier, in: app)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-picker-camera-after-tap-\(source)-\(outcome)")
+
+        let selectedImagePreview = app.descendants(matching: .any)
+            .matching(identifier: "composer-media.selected-image-preview")
+            .firstMatch
+        if outcome == "success" {
+            XCTAssertTrue(selectedImagePreview.waitForExistence(timeout: 12), "A successful \(source) picker replay must select an image in common composer state.")
+        } else {
+            XCTAssertFalse(selectedImagePreview.waitForExistence(timeout: 2), "A non-success \(source) picker replay must not select an image.")
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-picker-camera-after-action-\(source)-\(outcome)")
+        print("IOS_POST_PICKER_CAMERA_UI_GATE_PASSED \(source) \(outcome)")
+    }
+
     private func selectDestination(_ wallId: String, in app: XCUIApplication) {
         let destination = app.descendants(matching: .any)
             .matching(identifier: "composer-destination-option.\(wallId)")
@@ -72,6 +106,18 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         app.launchEnvironment["QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN"] = Self.realPublishOptIn
         if !locationLabel.isEmpty {
             app.launchEnvironment["QUATA_IOS_POST_PUBLISH_LOCATION_LABEL"] = locationLabel
+        }
+        for key in [
+            "QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN",
+            "QUATA_IOS_POST_COMPOSER_PICKER_SOURCE",
+            "QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME",
+            "QUATA_IOS_POST_COMPOSER_PICKER_PATH",
+            "QUATA_IOS_POST_COMPOSER_PICKER_NAME",
+            "QUATA_IOS_POST_COMPOSER_PICKER_MIME",
+        ] {
+            if let value = ProcessInfo.processInfo.environment[key], !value.isEmpty {
+                app.launchEnvironment[key] = value
+            }
         }
         app.launch()
 
@@ -122,6 +168,34 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         } else {
             textType.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         }
+    }
+
+    private func tapImageType(in app: XCUIApplication) {
+        let imageType = app.descendants(matching: .any)
+            .matching(identifier: "composer-type-image")
+            .firstMatch
+        XCTAssertTrue(imageType.waitForExistence(timeout: 10), "The common image composer type must be exposed.")
+        if imageType.isHittable {
+            imageType.tap()
+        } else {
+            imageType.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+    }
+
+    private func tapComposerAction(_ identifier: String, in app: XCUIApplication) {
+        let action = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
+        for _ in 0..<8 {
+            if action.waitForExistence(timeout: 1), action.isHittable {
+                action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                return
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        XCTAssertTrue(action.exists, "Expected common composer action \(identifier) to exist.")
+        action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     private func assertImageLocationDraft(_ locationLabel: String, in app: XCUIApplication) {

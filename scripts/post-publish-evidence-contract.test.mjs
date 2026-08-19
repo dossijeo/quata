@@ -13,6 +13,7 @@ const androidCreatePostScreen = readFileSync(new URL("../app/src/main/java/com/q
 const androidCreatePostViewModel = readFileSync(new URL("../app/src/main/java/com/quata/feature/postcomposer/presentation/CreatePostAndroidViewModel.kt", import.meta.url), "utf8");
 const androidPostPublishTest = readFileSync(new URL("../app/src/androidTest/java/com/quata/feature/postcomposer/presentation/PostPublishRealInstrumentedTest.kt", import.meta.url), "utf8");
 const iosPostPublishTest = readFileSync(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedPostPublishUITests.swift", import.meta.url), "utf8");
+const commonCreatePostRoot = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/CreatePostRoot.kt", import.meta.url), "utf8");
 const commonPublishButton = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerPublishButtonContent.kt", import.meta.url), "utf8");
 const commonDestinationSelector = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerDestinationSelectorContent.kt", import.meta.url), "utf8");
 const commonLocationSection = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerLocationSectionContent.kt", import.meta.url), "utf8");
@@ -22,6 +23,11 @@ const iosComposerHost = readFileSync(new URL("../feature/postcomposer/src/iosMai
 const iosApp = readFileSync(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
 const webPostComposerHost = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerHost.kt", import.meta.url), "utf8");
 const webPostComposerBridge = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerE2eBridge.kt", import.meta.url), "utf8");
+const webPostComposerRoute = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRoute.kt", import.meta.url), "utf8");
+const androidPickerCameraRunner = readFileSync(new URL("./post-picker-camera-android-evidence.mjs", import.meta.url), "utf8");
+const webPickerCameraRunner = readFileSync(new URL("./post-picker-camera-web-evidence.mjs", import.meta.url), "utf8");
+const iosPickerCameraRunner = readFileSync(new URL("./post-picker-camera-ios-evidence.mjs", import.meta.url), "utf8");
+const iosPickerCameraWrapper = readFileSync(new URL("./run-ios-post-picker-camera-ui-test.sh", import.meta.url), "utf8");
 
 test("post publish web runner uses the shared reversible fixture and cleanup", () => {
   assert.match(webRunner, /createPostPublishFixture/);
@@ -194,4 +200,76 @@ test("common publish button exposes an accessibility action for iOS XCTest repla
   assert.match(commonPublishButton, /onClick\(label = publishLabel\)/);
   assert.match(commonPublishButton, /if \(!isLoading\) onSubmit\(\)/);
   assert.doesNotMatch(commonPublishButton, /\.clickable\(/);
+});
+
+test("post picker/camera uses common semantic anchors before platform adapters", () => {
+  for (const tag of [
+    "composer-media.pick-image",
+    "composer-media.capture-image",
+    "composer-media.edit-image",
+    "composer-media.pick-video",
+    "composer-media.capture-video",
+    "composer-media.edit-video",
+    "composer-media.selected-image-preview",
+    "composer-media.selected-video-preview",
+  ]) {
+    assert.match(commonCreatePostRoot, new RegExp(tag.replace(/[.]/g, "\\.")));
+  }
+  assert.match(commonCreatePostRoot, /m\.testTag\(ComposerPickImageTestTag\)/);
+  assert.match(commonCreatePostRoot, /m\.testTag\(ComposerCaptureImageTestTag\)/);
+  assert.match(commonCreatePostRoot, /m\.testTag\(ComposerPickVideoTestTag\)/);
+  assert.match(commonCreatePostRoot, /m\.testTag\(ComposerCaptureVideoTestTag\)/);
+});
+
+test("post picker/camera evidence is opt-in and does not open native pickers under replay", () => {
+  assert.match(webPostComposerRoute, /quata-post-picker-camera-e2e/);
+  assert.match(webPostComposerRoute, /I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE/);
+  assert.match(webPostComposerRoute, /gallery-image/);
+  assert.match(webPostComposerRoute, /camera-video/);
+  assert.match(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE/);
+  assert.match(iosComposerHost, /QUATA_IOS_POST_COMPOSER_PICKER_SOURCE/);
+  assert.match(iosComposerHost, /captureVideo = \{ selectVideo\(FilePickerSource\.Camera\) \}/);
+  assert.match(androidCreatePostScreen, /AndroidPostComposerPickerEvidence/);
+  assert.match(androidCreatePostScreen, /GalleryImage/);
+  assert.match(androidCreatePostScreen, /CameraVideo/);
+  assert.match(mainActivity, /EXTRA_POST_COMPOSER_PICKER_EVIDENCE_SOURCE/);
+  assert.match(androidAppNavGraph, /postComposerPickerEvidenceSource/);
+});
+
+test("android post picker/camera runner exercises shared UI anchors with no backend mutation", () => {
+  assert.match(androidPickerCameraRunner, /POST-PICKER-CAMERA-ANDROID-REAL-001/);
+  assert.match(androidPickerCameraRunner, /authenticatedUserExercisesMediaSourceActionsFromCommonComposer/);
+  assert.match(androidPickerCameraRunner, /gallery-image/);
+  assert.match(androidPickerCameraRunner, /camera-image:cancelled/);
+  assert.match(androidPickerCameraRunner, /quataPostComposerPickerSource/);
+  assert.match(androidPickerCameraRunner, /quataPostComposerPickerOutcome/);
+  assert.doesNotMatch(androidPickerCameraRunner, /community_posts/);
+  assert.doesNotMatch(androidPickerCameraRunner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
+});
+
+test("web post picker/camera runner exercises shared UI anchors with no backend mutation", () => {
+  assert.match(webPickerCameraRunner, /POST-PICKER-CAMERA-WEB-REAL-001/);
+  assert.match(webPickerCameraRunner, /I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE/);
+  assert.match(webPickerCameraRunner, /composer-media\.pick-image/);
+  assert.match(webPickerCameraRunner, /composer-media\.capture-image/);
+  assert.match(webPickerCameraRunner, /composer-media\.edit-image/);
+  assert.match(webPickerCameraRunner, /hasImage/);
+  assert.match(webPickerCameraRunner, /hasVideo/);
+  assert.match(webPostComposerHost, /put\("hasVideo", !state\.videoUri\.isNullOrBlank\(\)\)/);
+  assert.doesNotMatch(webPickerCameraRunner, /community_posts/);
+  assert.doesNotMatch(webPickerCameraRunner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
+});
+
+test("ios post picker/camera runner exercises shared UI anchors with no backend mutation", () => {
+  assert.match(iosPickerCameraRunner, /POST-PICKER-CAMERA-IOS-REAL-001/);
+  assert.match(iosPickerCameraRunner, /run-ios-post-picker-camera-ui-test\.sh/);
+  assert.match(iosPickerCameraRunner, /QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN/);
+  assert.match(iosPickerCameraRunner, /I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE/);
+  assert.match(iosPickerCameraWrapper, /testAuthenticatedSessionExercisesMediaSourceActionsFromCommonComposer/);
+  assert.match(iosPickerCameraWrapper, /IOS_POST_PICKER_CAMERA_UI_GATE_PASSED/);
+  assert.match(iosPostPublishTest, /composer-media\.pick-image/);
+  assert.match(iosPostPublishTest, /composer-media\.capture-image/);
+  assert.match(iosPostPublishTest, /composer-media\.selected-image-preview/);
+  assert.doesNotMatch(iosPickerCameraRunner, /community_posts/);
+  assert.doesNotMatch(iosPickerCameraRunner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
 });

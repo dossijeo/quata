@@ -30,6 +30,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -111,6 +113,9 @@ fun CreatePostScreen(
     onUploadStateChange: (Boolean) -> Unit = {},
     evidenceImageUri: String? = null,
     evidenceLocationLabel: String? = null,
+    evidencePickerSource: String? = null,
+    evidencePickerOutcome: String? = null,
+    evidencePickerPath: String? = null,
     viewModel: CreatePostAndroidViewModel = viewModel(
         factory = CreatePostAndroidViewModel.factory(
             repository,
@@ -133,6 +138,9 @@ fun CreatePostScreen(
     var editedImageTempUri by remember { mutableStateOf<Uri?>(null) }
     var preparedVideoTempUri by remember { mutableStateOf<Uri?>(null) }
     var editedVideoTempUri by remember { mutableStateOf<Uri?>(null) }
+    val evidencePicker = remember(evidencePickerSource, evidencePickerOutcome, evidencePickerPath) {
+        AndroidPostComposerPickerEvidence.from(evidencePickerSource, evidencePickerOutcome, evidencePickerPath)
+    }
 
     fun clearOwnedMedia() {
         listOfNotNull(preparedImageTempUri, editedImageTempUri).distinct().forEach(context::deleteComposerOwnedImage)
@@ -198,6 +206,13 @@ fun CreatePostScreen(
         if (result.values.all { it }) cameraMode = if (pendingCapture == CaptureTarget.Photo) QuataCameraMode.Photo else QuataCameraMode.Video
     }
     fun capture(target: CaptureTarget) {
+        val evidenceSource = if (target == CaptureTarget.Photo) AndroidPostComposerPickerEvidence.Source.CameraImage else AndroidPostComposerPickerEvidence.Source.CameraVideo
+        if (target == CaptureTarget.Photo && evidencePicker?.handle(evidenceSource) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } == true) {
+            return
+        }
+        if (target == CaptureTarget.Video && evidencePicker?.handle(evidenceSource) { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } == true) {
+            return
+        }
         pendingCapture = target
         val required = buildList {
             add(Manifest.permission.CAMERA)
@@ -214,6 +229,9 @@ fun CreatePostScreen(
     BackHandler(state.isLoading) { cancelDialog = true }
 
     QuataScreen(padding) {
+        evidencePicker?.let { picker ->
+            Box(Modifier.size(1.dp).testTag("composer-picker-evidence-ready.${picker.source.testValue}.${picker.outcome}"))
+        }
         CreatePostRoot(
             viewModel = viewModel.commonViewModel,
             accessibility = CriticalControlsAccessibilityCatalog.forLanguageTag(Locale.getDefault().toLanguageTag()),
@@ -227,10 +245,22 @@ fun CreatePostScreen(
             copy = rootCopy,
             initialStep = if (evidenceImageUri != null) CreatePostStep.Image else null,
             slots = CreatePostPlatformSlots(
-                pickImage = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                pickImage = {
+                    if (evidencePicker?.handle(AndroidPostComposerPickerEvidence.Source.GalleryImage) {
+                            viewModel.onEvent(CreatePostUiEvent.ImageSelected(it))
+                        } != true) {
+                        imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                },
                 captureImage = { capture(CaptureTarget.Photo) },
                 editImage = { state.imageUri?.let(Uri::parse)?.let { imageEditorUri = it } },
-                pickVideo = { videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
+                pickVideo = {
+                    if (evidencePicker?.handle(AndroidPostComposerPickerEvidence.Source.GalleryVideo) {
+                            viewModel.onEvent(CreatePostUiEvent.VideoSelected(it))
+                        } != true) {
+                        videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                    }
+                },
                 captureVideo = { capture(CaptureTarget.Video) },
                 editVideo = { state.videoUri?.let(Uri::parse)?.let { videoEditorUri = it } },
                 imagePreview = { uri, modifier -> AsyncImage(uri, context.getString(R.string.composer_selected_image), modifier.fillMaxSize(), contentScale = ContentScale.Crop) },
@@ -640,6 +670,57 @@ private fun MediaMetadataRetriever.scaledComposerVideoFrameSize(maxDimension: In
 }
 
 private fun Int.normalizedComposerVideoRotation(): Int = normalizedQuataVideoRotation()
+
+private data class AndroidPostComposerPickerEvidence(
+    val source: Source,
+    val outcome: String,
+    val path: String?,
+) {
+    fun handle(expectedSource: Source, consume: (String) -> Unit): Boolean {
+        if (source != expectedSource) return false
+        if (outcome != "success") return true
+        val reference = path
+            ?.takeIf { it.isNotBlank() }
+            ?.let { rawPath ->
+                val file = File(rawPath)
+                if (file.isFile && file.length() > 0L) Uri.fromFile(file).toString() else rawPath
+            }
+            ?: "evidence://${expectedSource.testValue}"
+        consume(reference)
+        return true
+    }
+
+    enum class Source {
+        GalleryImage,
+        CameraImage,
+        GalleryVideo,
+        CameraVideo,
+    }
+
+    companion object {
+        fun from(source: String?, outcome: String?, path: String?): AndroidPostComposerPickerEvidence? {
+            val resolvedSource = when (source?.lowercase(Locale.US)) {
+                "gallery-image" -> Source.GalleryImage
+                "camera-image" -> Source.CameraImage
+                "gallery-video" -> Source.GalleryVideo
+                "camera-video" -> Source.CameraVideo
+                else -> return null
+            }
+            val resolvedOutcome = outcome?.lowercase(Locale.US)?.takeIf {
+                it in setOf("success", "cancelled", "failure", "unsupported")
+            } ?: "success"
+            return AndroidPostComposerPickerEvidence(resolvedSource, resolvedOutcome, path)
+        }
+    }
+}
+
+private val AndroidPostComposerPickerEvidence.Source.testValue: String
+    get() = when (this) {
+        AndroidPostComposerPickerEvidence.Source.GalleryImage -> "gallery-image"
+        AndroidPostComposerPickerEvidence.Source.CameraImage -> "camera-image"
+        AndroidPostComposerPickerEvidence.Source.GalleryVideo -> "gallery-video"
+        AndroidPostComposerPickerEvidence.Source.CameraVideo -> "camera-video"
+    }
 
 private fun Bitmap.scaleComposerVideoPoster(maxDimension: Int): Bitmap {
     val largest = maxOf(width, height)

@@ -60,6 +60,7 @@ fun WebPostComposerHost(
                     put("textLength", state.text.length)
                     put("isLoading", state.isLoading)
                     put("hasImage", !state.imageUri.isNullOrBlank())
+                    put("hasVideo", !state.videoUri.isNullOrBlank())
                     state.locationLabel?.let { put("locationLabel", it) }
                     put("destinationCount", state.destinations.size)
                     state.selectedDestinationWallId?.let { put("selectedDestinationWallId", it) }

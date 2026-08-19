@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-PICKER-CAMERA"
+  ],
+  "productSha": "44923913f0c9505193d9867beaaf23e294a5cc7c",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "44923913f0c9505193d9867beaaf23e294a5cc7c",
+      "report": "build-reports/web/post-picker-camera-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "44923913f0c9505193d9867beaaf23e294a5cc7c",
+      "report": "build-reports/android/post-picker-camera-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "44923913f0c9505193d9867beaaf23e294a5cc7c",
+      "report": "build-reports/ios/post-picker-camera-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate reduces POST-PICKER-CAMERA through common CreatePostRoot media actions and shared semantic anchors. Android, Web/Wasm and iOS exercise gallery image selection, camera image selection and camera cancellation through local opt-in fixtures without backend mutation.",
+    "Web/Wasm currently resolves the visible media action text because Compose/Wasm does not expose these testTags as DOM/ARIA nodes, but the product source still defines the common tags and the evidence verifies shared state through the Web composer bridge. Android and iOS resolve the common semantic/accessibility anchors directly."
+  ]
+}

@@ -47,6 +47,14 @@ import com.quata.feature.postcomposer.domain.PostComposerType
 
 enum class CreatePostStep { TypePicker, Text, Image, Video }
 const val CreatePostCommonRootTestTag = "create-post-common-root"
+const val ComposerPickImageTestTag = "composer-media.pick-image"
+const val ComposerCaptureImageTestTag = "composer-media.capture-image"
+const val ComposerEditImageTestTag = "composer-media.edit-image"
+const val ComposerPickVideoTestTag = "composer-media.pick-video"
+const val ComposerCaptureVideoTestTag = "composer-media.capture-video"
+const val ComposerEditVideoTestTag = "composer-media.edit-video"
+const val ComposerSelectedImagePreviewTestTag = "composer-media.selected-image-preview"
+const val ComposerSelectedVideoPreviewTestTag = "composer-media.selected-video-preview"
 
 fun createPostStepFor(type: PostComposerType): CreatePostStep = when (type) {
     PostComposerType.Text -> CreatePostStep.Text
@@ -379,9 +387,9 @@ private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots:
         mediaSource = {
             ComposerMediaSourceFormContent(
                 title = copy.image, isLandscapeLayout = landscape,
-                primarySourceAction = { m -> ComposerActionButtonContent(copy.pickImage, { Icon(Icons.Filled.PhotoLibrary, null) }, slots.pickImage, m) },
-                secondarySourceAction = { m -> ComposerActionButtonContent(copy.takePhoto, { Icon(Icons.Filled.PhotoCamera, null) }, slots.captureImage, m) },
-                editAction = state.imageUri?.let { slots.editImage }?.let { edit -> { m: Modifier -> ComposerActionButtonContent(copy.editImage, { Icon(Icons.Filled.Edit, null) }, edit, m) } },
+                primarySourceAction = { m -> ComposerActionButtonContent(copy.pickImage, { Icon(Icons.Filled.PhotoLibrary, null) }, slots.pickImage, m.testTag(ComposerPickImageTestTag)) },
+                secondarySourceAction = { m -> ComposerActionButtonContent(copy.takePhoto, { Icon(Icons.Filled.PhotoCamera, null) }, slots.captureImage, m.testTag(ComposerCaptureImageTestTag)) },
+                editAction = state.imageUri?.let { slots.editImage }?.let { edit -> { m: Modifier -> ComposerActionButtonContent(copy.editImage, { Icon(Icons.Filled.Edit, null) }, edit, m.testTag(ComposerEditImageTestTag)) } },
                 afterEdit = { state.imageUri?.let { uri -> slots.mediaExport?.invoke(this, uri, PostComposerType.Image) } },
             )
         },
@@ -404,6 +412,7 @@ private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots:
                         actionLabels = defaultComposerPreviewActionLabels(), authorName = copy.author,
                         compact = landscape, backgroundSeed = uri,
                         media = { slots.imagePreview(uri, Modifier.fillMaxSize()) },
+                        modifier = Modifier.testTag(ComposerSelectedImagePreviewTestTag),
                     )
                 } ?: ComposerEmptyPreviewContent(copy.preview, copy.imageType, copy.imagePreviewEmpty)
             })
@@ -419,10 +428,10 @@ private fun ColumnScope.CommonVideoComposerForm(state: CreatePostUiState, slots:
         mediaSource = {
             ComposerMediaSourceFormContent(
                 title = copy.video, isLandscapeLayout = landscape,
-                primarySourceAction = { m -> ComposerActionButtonContent(copy.pickVideo, { Icon(Icons.Filled.VideoLibrary, null) }, slots.pickVideo, m) },
-                secondarySourceAction = slots.captureVideo?.let { capture -> { m -> ComposerActionButtonContent(copy.recordVideo, { Icon(Icons.Filled.Videocam, null) }, capture, m) } },
+                primarySourceAction = { m -> ComposerActionButtonContent(copy.pickVideo, { Icon(Icons.Filled.VideoLibrary, null) }, slots.pickVideo, m.testTag(ComposerPickVideoTestTag)) },
+                secondarySourceAction = slots.captureVideo?.let { capture -> { m -> ComposerActionButtonContent(copy.recordVideo, { Icon(Icons.Filled.Videocam, null) }, capture, m.testTag(ComposerCaptureVideoTestTag)) } },
                 beforeEdit = { Text(state.videoUri?.substringAfterLast('/') ?: copy.noFile, maxLines = 1) },
-                editAction = state.videoUri?.let { slots.editVideo }?.let { edit -> { m: Modifier -> ComposerActionButtonContent(copy.editVideo, { Icon(Icons.Filled.Edit, null) }, edit, m) } },
+                editAction = state.videoUri?.let { slots.editVideo }?.let { edit -> { m: Modifier -> ComposerActionButtonContent(copy.editVideo, { Icon(Icons.Filled.Edit, null) }, edit, m.testTag(ComposerEditVideoTestTag)) } },
                 afterEdit = { state.videoUri?.let { uri -> slots.mediaExport?.invoke(this, uri, PostComposerType.Video) } },
             )
         },
@@ -435,6 +444,7 @@ private fun ColumnScope.CommonVideoComposerForm(state: CreatePostUiState, slots:
                         actionLabels = defaultComposerPreviewActionLabels(), authorName = copy.author,
                         compact = landscape, backgroundSeed = uri,
                         media = { slots.videoPreview(uri, landscape, Modifier.fillMaxSize()) },
+                        modifier = Modifier.testTag(ComposerSelectedVideoPreviewTestTag),
                     )
                 } ?: ComposerEmptyPreviewContent(copy.preview, copy.videoType, copy.videoPreviewEmpty)
             })
