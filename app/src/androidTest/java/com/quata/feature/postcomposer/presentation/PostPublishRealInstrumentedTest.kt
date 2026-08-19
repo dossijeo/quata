@@ -26,6 +26,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import com.quata.MainActivity
 import com.quata.QuataApp
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorCancelTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorRootTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorResetTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorRotateTestTag
@@ -291,7 +292,7 @@ class PostPublishRealInstrumentedTest {
             openImageEditor()
             waitForImageEditorDialog()
             saveScreenshot("android-post-image-editor-opened")
-            clickLocalizedAction("Cancelar", "Cancel")
+            clickImageEditorCancel()
             compose.waitUntil(20_000) {
                 runCatching { compose.onNodeWithTag(ComposerSelectedImagePreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
                     runCatching { compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
@@ -320,21 +321,22 @@ class PostPublishRealInstrumentedTest {
     }
 
     private fun openImageEditor() {
-        val openedByTag = runCatching {
+        if (runCatching {
             compose.onNodeWithTag(ComposerEditImageTestTag, useUnmergedTree = true)
                 .performScrollTo()
                 .performClick()
             waitForImageEditorDialog(timeoutMillis = 2_000)
-        }.isSuccess
-        if (!openedByTag) clickLocalizedText("Editar imagen", "Edit image")
+        }.isSuccess) return
+        clickLocalizedText("Editar imagen", "Edit image")
+        waitForImageEditorDialog(timeoutMillis = 5_000)
     }
 
     private fun waitForImageEditorDialog(timeoutMillis: Long = 20_000) {
         compose.waitUntil(timeoutMillis) {
-            runCatching { compose.onNodeWithText("Guardar", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess ||
-                runCatching { compose.onNodeWithText("Save", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess ||
-                runCatching { compose.onNodeWithText("Cancelar", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess ||
-                runCatching { compose.onNodeWithText("Cancel", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            runCatching {
+                compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
         }
     }
 
@@ -342,6 +344,15 @@ class PostPublishRealInstrumentedTest {
         if (runCatching { compose.onNodeWithContentDescription(spanish, useUnmergedTree = true).performClick() }.isSuccess) return
         if (runCatching { compose.onNodeWithContentDescription(english, useUnmergedTree = true).performClick() }.isSuccess) return
         clickLocalizedText(spanish, english)
+    }
+
+    private fun clickImageEditorCancel() {
+        if (runCatching {
+            compose.onAllNodesWithTag(PostImageEditorCancelTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+        }.isSuccess) return
+        clickLocalizedAction("Cancelar", "Cancel")
     }
 
     private fun clickLocalizedText(spanish: String, english: String) {

@@ -75,8 +75,11 @@ test("post image editor evidence must exercise root, cancel, controls and save o
   assert.match(webEvidence, /state\.imageUri !== previous/);
   assert.doesNotMatch(webEvidence, /quata_post_composer_image_editor_e2e_reference/);
   assert.match(commonModels, /PostImageEditorCancelTestTag/);
-  assert.match(androidUiTest, /onNodeWithText\("Cancelar"/);
-  assert.match(androidUiTest, /onNodeWithText\("Cancel"/);
+  assert.match(commonContent, /contentDescription = strings\.cancel/);
+  assert.match(androidUiTest, /onNodeWithContentDescription\(spanish/);
+  assert.match(androidUiTest, /onNodeWithContentDescription\(english/);
+  assert.match(androidUiTest, /onNodeWithText\(spanish/);
+  assert.match(androidUiTest, /PostImageEditorRootTestTag/);
   assert.match(androidUiTest, /android-post-image-editor-after-cancel/);
   assert.match(androidUiTest, /android-post-image-editor-reopened/);
   assert.match(androidUiTest, /PostImageEditorRotateTestTag/);

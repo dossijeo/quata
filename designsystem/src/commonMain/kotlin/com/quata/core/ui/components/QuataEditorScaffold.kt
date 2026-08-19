@@ -44,6 +44,7 @@ fun QuataEditorScaffold(
     onBack: () -> Unit,
     backContentDescription: String? = null,
     modifier: Modifier = Modifier,
+    backModifier: Modifier = Modifier,
     backEnabled: Boolean = true,
     bottomPadding: Dp = 0.dp,
     actions: @Composable RowScope.() -> Unit = {},
@@ -52,17 +53,17 @@ fun QuataEditorScaffold(
     val template = quataTheme()
     Surface(modifier.fillMaxSize(), color = template.colors.background, contentColor = template.colors.textPrimary) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(bottom = bottomPadding)) {
-            QuataEditorTopBar(title, showTitle, backEnabled, onBack, backContentDescription, actions)
+            QuataEditorTopBar(title, showTitle, backEnabled, onBack, backContentDescription, backModifier, actions)
             content()
         }
     }
 }
 
 @Composable
-private fun QuataEditorTopBar(title: String, showTitle: Boolean, backEnabled: Boolean, onBack: () -> Unit, backContentDescription: String?, actions: @Composable RowScope.() -> Unit) {
+private fun QuataEditorTopBar(title: String, showTitle: Boolean, backEnabled: Boolean, onBack: () -> Unit, backContentDescription: String?, backModifier: Modifier, actions: @Composable RowScope.() -> Unit) {
     val template = quataTheme()
     Row(Modifier.fillMaxWidth().height(58.dp).background(template.colors.surfaceRaised).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        CompactIconButton(onClick = onBack, enabled = backEnabled) {
+        CompactIconButton(onClick = onBack, enabled = backEnabled, modifier = backModifier) {
             CompactIcon(Icons.AutoMirrored.Filled.ArrowBack, backContentDescription, tint = template.colors.textPrimary)
         }
         Spacer(Modifier.width(6.dp))

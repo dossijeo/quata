@@ -139,6 +139,7 @@ fun QuataImageEditorDialog(
         showTitle = !isLandscapeLayout,
         onBack = onDismiss,
         backContentDescription = stringResource(R.string.video_editor_back),
+        backModifier = Modifier.testTag(PostImageEditorCancelTestTag),
         modifier = Modifier.testTag(PostImageEditorRootTestTag),
         backEnabled = !isSaving,
         bottomPadding = if (isLandscapeLayout) 0.dp else ImageEditorBottomAir,
