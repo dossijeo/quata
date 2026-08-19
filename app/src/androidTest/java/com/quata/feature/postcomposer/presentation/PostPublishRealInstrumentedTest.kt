@@ -12,6 +12,7 @@ import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -290,7 +291,7 @@ class PostPublishRealInstrumentedTest {
             openImageEditor()
             waitForImageEditorDialog()
             saveScreenshot("android-post-image-editor-opened")
-            clickLocalizedText("Cancelar", "Cancel")
+            clickLocalizedAction("Cancelar", "Cancel")
             compose.waitUntil(20_000) {
                 runCatching { compose.onNodeWithTag(ComposerSelectedImagePreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
                     runCatching { compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
@@ -335,6 +336,12 @@ class PostPublishRealInstrumentedTest {
                 runCatching { compose.onNodeWithText("Cancelar", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess ||
                 runCatching { compose.onNodeWithText("Cancel", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
         }
+    }
+
+    private fun clickLocalizedAction(spanish: String, english: String) {
+        if (runCatching { compose.onNodeWithContentDescription(spanish, useUnmergedTree = true).performClick() }.isSuccess) return
+        if (runCatching { compose.onNodeWithContentDescription(english, useUnmergedTree = true).performClick() }.isSuccess) return
+        clickLocalizedText(spanish, english)
     }
 
     private fun clickLocalizedText(spanish: String, english: String) {
