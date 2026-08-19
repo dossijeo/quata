@@ -4,12 +4,12 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "5f30ed187e618d5910898c9ad26a434f1e3bd12b",
+  "productSha": "5ba13a7cae628d8df995d79bc1fcc7abf5f61622",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "5f30ed187e618d5910898c9ad26a434f1e3bd12b",
-      "report": "build-reports/web/post-image-editor-evidence.json",
+      "sha": "5ba13a7cae628d8df995d79bc1fcc7abf5f61622",
+      "report": "build-reports/web/post-image-editor-full-evidence.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -17,7 +17,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "5f30ed187e618d5910898c9ad26a434f1e3bd12b",
+      "sha": "5ba13a7cae628d8df995d79bc1fcc7abf5f61622",
       "report": "build-reports/android/post-image-editor-evidence.json",
       "cleanup": {
         "verified": true,
@@ -26,8 +26,8 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "5f30ed187e618d5910898c9ad26a434f1e3bd12b",
-      "report": "build-reports/ios/post-image-editor-evidence.json",
+      "sha": "5ba13a7cae628d8df995d79bc1fcc7abf5f61622",
+      "report": "build-reports/ios/POST-IMAGE-EDITOR-evidence.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -37,7 +37,8 @@
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate reduces POST-IMAGE-EDITOR through common CreatePostRoot media edit anchors and shared selected preview semantics. Android exercises the real QuataImageEditorDialog from the common composer and saves back to the common preview. Web/Wasm and iOS use explicit local opt-in edit adapters to validate the shared action and state roundtrip without backend mutation while native full crop/export parity remains documented as a limit.",
-    "The unit also fixes selected media preview accessibility by exposing common contentDescription anchors for image and video previews, because iOS XCTest does not reliably observe non-interactive Compose testTags as accessibility identifiers."
+    "This candidate closes the POST-IMAGE-EDITOR focal unit through common CreatePostRoot media edit anchors, shared selected preview semantics, common transform/geometry/control surface, and real editor save/cancel/reopen evidence on Web/Wasm, Android and iOS.",
+    "Android keeps its fullscreen QuataImageEditorDialog as the native edge, but forwards the common post-image-editor.* anchors through QuataEditorScaffold; Web/Wasm and iOS use real platform export paths behind the same common PostImageEditorDialogContent contract.",
+    "No backend mutation is performed by this unit; cleanup is verified as zero physical residue because the fixture is local media only."
   ]
 }
