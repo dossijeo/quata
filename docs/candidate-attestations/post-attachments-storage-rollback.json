@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-PUBLISH"
+  ],
+  "productSha": "609061ab75a4ec92e6405875c0d65ba195a650d3",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "609061ab75a4ec92e6405875c0d65ba195a650d3",
+      "report": "build-reports/web/post-storage-rollback-evidence-609061ab.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "609061ab75a4ec92e6405875c0d65ba195a650d3",
+      "report": "build-reports/android/post-storage-rollback-evidence-609061ab.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "609061ab75a4ec92e6405875c0d65ba195a650d3",
+      "report": "build-reports/ios/post-storage-rollback-evidence-609061ab.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate closes the POST-PUBLISH Storage rollback gap by forcing a first insert failure after an authenticated image upload from the shared composer, surfacing common error/retry feedback, retrying the same image publish, verifying the exact post marker and location metadata in Supabase, and deleting the final Storage object.",
+    "Web/Wasm verifies the post-upload rollback before retry by comparing storage.objects snapshots for the authenticated profile. Android and iOS verify the same forced retry route visually and fail closed on final physical Storage residue after the published image cleanup.",
+    "The shared CreatePostViewModel assigns the active submit job before launching it, preventing a fast retry tap from racing Kotlin/Native job identity while the previous coroutine is completing."
+  ]
+}
