@@ -25,6 +25,7 @@ import androidx.test.uiautomator.UiDevice
 import com.quata.MainActivity
 import com.quata.QuataApp
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorRootTestTag
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorCancelTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorResetTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorRotateTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorSaveTestTag
@@ -293,6 +294,21 @@ class PostPublishRealInstrumentedTest {
                 runCatching { compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
             saveScreenshot("android-post-image-editor-opened")
+            compose.onAllNodesWithTag(PostImageEditorCancelTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            compose.waitUntil(20_000) {
+                runCatching { compose.onNodeWithTag(ComposerSelectedImagePreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
+                    runCatching { compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+            }
+            saveScreenshot("android-post-image-editor-after-cancel")
+            compose.onNodeWithTag(ComposerEditImageTestTag, useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            compose.waitUntil(20_000) {
+                runCatching { compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            saveScreenshot("android-post-image-editor-reopened")
             compose.onAllNodesWithTag(PostImageEditorRotateTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()

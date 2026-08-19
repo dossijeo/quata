@@ -11,6 +11,7 @@ val ImageEditorAvatarOutputSpec = ImageEditorOutputSpec(width = 1080, height = 1
 
 const val PostImageEditorRootTestTag = "post-image-editor.root"
 const val PostImageEditorPreviewTestTag = "post-image-editor.preview"
+const val PostImageEditorCancelTestTag = "post-image-editor.cancel"
 const val PostImageEditorResetTestTag = "post-image-editor.reset"
 const val PostImageEditorRotateTestTag = "post-image-editor.rotate"
 const val PostImageEditorCropTestTag = "post-image-editor.crop"

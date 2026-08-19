@@ -105,7 +105,11 @@ fun PostImageEditorDialogContent(
                 }
             }
         },
-        dismissButton = { OutlinedButton(onClick = onDismiss) { Text(strings.cancel) } },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, modifier = Modifier.testTag(PostImageEditorCancelTestTag)) {
+                Text(strings.cancel)
+            }
+        },
         confirmButton = {
             Button(onClick = onSave, modifier = Modifier.testTag(PostImageEditorSaveTestTag)) {
                 CompactIcon(Icons.Filled.Check, null)

@@ -23,6 +23,7 @@ test("post image editor owns a common transform, geometry and shared control sur
   for (const tag of [
     "PostImageEditorRootTestTag",
     "PostImageEditorPreviewTestTag",
+    "PostImageEditorCancelTestTag",
     "PostImageEditorResetTestTag",
     "PostImageEditorRotateTestTag",
     "PostImageEditorSaveTestTag",
@@ -62,13 +63,20 @@ test("iOS composer opens a real editor surface and exports a temporary JPEG", ()
   assert.match(iosEditor, /PlatformFile\(reference = url\.absoluteString/);
 });
 
-test("post image editor evidence must exercise root, controls and save on all platforms", () => {
-  for (const tag of ["post-image-editor.root", "post-image-editor.rotate", "post-image-editor.reset", "post-image-editor.save"]) {
+test("post image editor evidence must exercise root, cancel, controls and save on all platforms", () => {
+  for (const tag of ["post-image-editor.root", "post-image-editor.cancel", "post-image-editor.rotate", "post-image-editor.reset", "post-image-editor.save"]) {
     assert.match(webEvidence, new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(iosUiTest, new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+  assert.match(webEvidence, /afterCancel/);
+  assert.match(webEvidence, /editorReopened/);
+  assert.match(iosUiTest, /ios-post-image-editor-after-cancel/);
+  assert.match(iosUiTest, /ios-post-image-editor-reopened/);
   assert.match(webEvidence, /state\.imageUri !== previous/);
   assert.doesNotMatch(webEvidence, /quata_post_composer_image_editor_e2e_reference/);
+  assert.match(androidUiTest, /PostImageEditorCancelTestTag/);
+  assert.match(androidUiTest, /android-post-image-editor-after-cancel/);
+  assert.match(androidUiTest, /android-post-image-editor-reopened/);
   assert.match(androidUiTest, /PostImageEditorRotateTestTag/);
   assert.match(androidUiTest, /PostImageEditorResetTestTag/);
   assert.match(androidUiTest, /PostImageEditorSaveTestTag/);

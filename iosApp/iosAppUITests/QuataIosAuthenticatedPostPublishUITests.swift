@@ -115,6 +115,12 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(editorRoot.waitForExistence(timeout: 12), "The iOS composer must open the real shared post image editor surface.")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-opened")
+        tapComposerAction("post-image-editor.cancel", in: app)
+        XCTAssertTrue(selectedImagePreview.waitForExistence(timeout: 12), "Cancelling the iOS image editor must preserve the common selected-image preview.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-after-cancel")
+        tapComposerAction("composer-media.edit-image", in: app)
+        XCTAssertTrue(editorRoot.waitForExistence(timeout: 12), "The iOS composer must reopen the shared post image editor after cancellation.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-reopened")
         tapComposerAction("post-image-editor.rotate", in: app)
         tapComposerAction("post-image-editor.reset", in: app)
         tapComposerAction("post-image-editor.save", in: app)

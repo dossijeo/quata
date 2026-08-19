@@ -116,6 +116,15 @@ async function runAttempt(context) {
     anchors.edit = await clickComposerEditAction(page);
     await waitForPostImageEditor(page);
     evidence.editorOpened = await screenshot(page, "web-post-image-editor-editor-opened");
+    anchors.cancel = await clickPostImageEditorAction(page, "post-image-editor.cancel", /Cancelar|Cancel/i);
+    await page.waitForFunction((expected) => {
+      const state = globalThis.__quataPostComposerE2eProduct?.state?.();
+      return state?.hasImage === true && state?.imageUri === expected;
+    }, reference, { timeout: 10_000 });
+    evidence.afterCancel = await screenshot(page, "web-post-image-editor-after-cancel");
+    anchors.editAfterCancel = await clickComposerEditAction(page);
+    await waitForPostImageEditor(page);
+    evidence.editorReopened = await screenshot(page, "web-post-image-editor-editor-reopened");
     anchors.rotate = await clickPostImageEditorAction(page, "post-image-editor.rotate", /Girar|Rotate/i);
     anchors.reset = await clickPostImageEditorAction(page, "post-image-editor.reset", /Restablecer|Reset/i);
     anchors.save = await clickPostImageEditorSave(page, reference);
