@@ -4,11 +4,11 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "5ba13a7cae628d8df995d79bc1fcc7abf5f61622",
+  "productSha": "244c5eaee750a4c8826792d7f00aaa128bdad916",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "5ba13a7cae628d8df995d79bc1fcc7abf5f61622",
+      "sha": "244c5eaee750a4c8826792d7f00aaa128bdad916",
       "report": "build-reports/web/post-image-editor-full-evidence.json",
       "cleanup": {
         "verified": true,
@@ -17,7 +17,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "5ba13a7cae628d8df995d79bc1fcc7abf5f61622",
+      "sha": "244c5eaee750a4c8826792d7f00aaa128bdad916",
       "report": "build-reports/android/post-image-editor-evidence.json",
       "cleanup": {
         "verified": true,
@@ -26,7 +26,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "5ba13a7cae628d8df995d79bc1fcc7abf5f61622",
+      "sha": "244c5eaee750a4c8826792d7f00aaa128bdad916",
       "report": "build-reports/ios/POST-IMAGE-EDITOR-evidence.json",
       "cleanup": {
         "verified": true,
