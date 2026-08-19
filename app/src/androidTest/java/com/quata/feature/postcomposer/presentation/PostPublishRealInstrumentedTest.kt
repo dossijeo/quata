@@ -63,6 +63,7 @@ class PostPublishRealInstrumentedTest {
 
         suppressStartupPrompts()
         grantOptionalNotificationPermission()
+        grantOptionalLocationPermission()
         app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password)
             .getOrThrow()
         val session = app.container.sessionManager.currentSession()
@@ -132,7 +133,88 @@ class PostPublishRealInstrumentedTest {
         writeReport(safeMarker, destinationWallId.orEmpty())
     }
 
-    private fun mainIntent(evidenceImageUri: String? = null, evidenceLocationLabel: String? = null): Intent =
+    @Test
+    fun authenticatedUserExercisesMediaSourceActionsFromCommonComposer() = runBlocking {
+        val credentialsFile = optionalArgument("quataPostPublishCredentialsFile")
+        val source = optionalArgument("quataPostComposerPickerSource")
+        val outcome = optionalArgument("quataPostComposerPickerOutcome") ?: "success"
+        assumeTrue(
+            "POST-PICKER-CAMERA-ANDROID-REAL-001 is opt-in and requires local credentials plus source.",
+            !credentialsFile.isNullOrBlank() && !source.isNullOrBlank(),
+        )
+        val pickerSource = source.orEmpty()
+        require(pickerSource in setOf("gallery-image", "camera-image", "gallery-video", "camera-video")) {
+            "unsupported_post_composer_picker_source:$pickerSource"
+        }
+        require(outcome in setOf("success", "cancelled", "failure", "unsupported")) {
+            "unsupported_post_composer_picker_outcome:$outcome"
+        }
+        val fixturePath = if (outcome == "success") {
+            if (pickerSource.endsWith("image")) {
+                Uri.parse(createImageLocationEvidenceUri()).path ?: error("android_image_fixture_path_missing")
+            } else {
+                createVideoEvidenceFile().absolutePath
+            }
+        } else null
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+
+        suppressStartupPrompts()
+        grantOptionalNotificationPermission()
+        grantOptionalLocationPermission()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password)
+            .getOrThrow()
+
+        ActivityScenario.launch<MainActivity>(
+            mainIntent(
+                pickerSource = pickerSource,
+                pickerOutcome = outcome,
+                pickerPath = fixturePath,
+            ),
+        ).use {
+            compose.waitUntil(45_000) {
+                runCatching { compose.onNodeWithTag(CreatePostCommonRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            compose.onNodeWithTag("composer-picker-evidence-ready.$pickerSource.$outcome", useUnmergedTree = true)
+                .fetchSemanticsNode()
+            saveScreenshot("android-post-picker-camera-composer-opened")
+            val typeTag = if (pickerSource.endsWith("image")) "composer-type-image" else "composer-type-video"
+            compose.onNodeWithTag(typeTag, useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            val actionTag = when (pickerSource) {
+                "gallery-image" -> ComposerPickImageTestTag
+                "camera-image" -> ComposerCaptureImageTestTag
+                "gallery-video" -> ComposerPickVideoTestTag
+                else -> ComposerCaptureVideoTestTag
+            }
+            compose.onNodeWithTag(actionTag, useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            compose.waitForIdle()
+            saveScreenshot("android-post-picker-camera-after-tap-$pickerSource-$outcome")
+            val selectedTag = if (pickerSource.endsWith("image")) ComposerSelectedImagePreviewTestTag else ComposerSelectedVideoPreviewTestTag
+            if (outcome == "success") {
+                compose.waitUntil(20_000) {
+                    runCatching { compose.onNodeWithTag(selectedTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+                }
+            } else {
+                compose.waitUntil(5_000) {
+                    runCatching { compose.onNodeWithTag(selectedTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+                }
+            }
+            saveScreenshot("android-post-picker-camera-after-action-$pickerSource-$outcome")
+        }
+
+        writePickerReport(pickerSource, outcome)
+    }
+
+    private fun mainIntent(
+        evidenceImageUri: String? = null,
+        evidenceLocationLabel: String? = null,
+        pickerSource: String? = null,
+        pickerOutcome: String? = null,
+        pickerPath: String? = null,
+    ): Intent =
         Intent(targetContext, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             .putExtra("com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", true)
@@ -140,6 +222,9 @@ class PostPublishRealInstrumentedTest {
             .apply {
                 evidenceImageUri?.let { putExtra("com.quata.extra.POST_PUBLISH_EVIDENCE_IMAGE_URI", it) }
                 evidenceLocationLabel?.let { putExtra("com.quata.extra.POST_PUBLISH_EVIDENCE_LOCATION_LABEL", it) }
+                pickerSource?.let { putExtra("com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_SOURCE", it) }
+                pickerOutcome?.let { putExtra("com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_OUTCOME", it) }
+                pickerPath?.let { putExtra("com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_PATH", it) }
             }
 
     private fun saveScreenshot(name: String) {
@@ -168,6 +253,18 @@ class PostPublishRealInstrumentedTest {
         )
     }
 
+    private fun writePickerReport(source: String, outcome: String) {
+        File(evidenceDir(), "android-post-picker-camera-evidence.json").writeText(
+            JSONObject()
+                .put("check", "POST-PICKER-CAMERA-ANDROID-REAL-001")
+                .put("status", "passed")
+                .put("source", source)
+                .put("outcome", outcome)
+                .put("evidenceDirectory", evidenceDir().absolutePath)
+                .toString(2) + "\n",
+        )
+    }
+
     private fun evidenceDir(): File =
         File(targetContext.filesDir, "post-publish-evidence")
             .also { dir -> check(dir.exists() || dir.mkdirs()) { "android_evidence_directory_create_failed:${dir.absolutePath}" } }
@@ -188,6 +285,13 @@ class PostPublishRealInstrumentedTest {
         return Uri.fromFile(file).toString()
     }
 
+    private fun createVideoEvidenceFile(): File =
+        File(targetContext.filesDir, "post-picker-camera-evidence-video.mp4").also { file ->
+            if (!file.exists()) {
+                file.writeBytes(ByteArray(32) { index -> (index * 7).toByte() })
+            }
+        }
+
     private fun suppressStartupPrompts() {
         targetContext.getSharedPreferences("quata_startup_permission_prompts", Context.MODE_PRIVATE)
             .edit()
@@ -200,6 +304,18 @@ class PostPublishRealInstrumentedTest {
         if (targetContext.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
         instrumentation.uiAutomation.executeShellCommand("pm grant ${targetContext.packageName} ${Manifest.permission.POST_NOTIFICATIONS}")
             .close()
+    }
+
+    private fun grantOptionalLocationPermission() {
+        listOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        ).forEach { permission ->
+            if (targetContext.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+                instrumentation.uiAutomation.executeShellCommand("pm grant ${targetContext.packageName} $permission")
+                    .close()
+            }
+        }
     }
 
     private fun optionalArgument(name: String): String? =

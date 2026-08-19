@@ -208,6 +208,9 @@ fun AppNavGraph(
     startDestinationOverride: String? = null,
     postPublishEvidenceImageUri: String? = null,
     postPublishEvidenceLocationLabel: String? = null,
+    postComposerPickerEvidenceSource: String? = null,
+    postComposerPickerEvidenceOutcome: String? = null,
+    postComposerPickerEvidencePath: String? = null,
 ) {
     val navController = rememberNavController()
     val currentBackStackEntry = navController.currentBackStackEntryAsState().value
@@ -843,6 +846,9 @@ fun AppNavGraph(
                         onVideoEditorVisibilityChange = { isVideoEditorOpen = it },
                         evidenceImageUri = postPublishEvidenceImageUri,
                         evidenceLocationLabel = postPublishEvidenceLocationLabel,
+                        evidencePickerSource = postComposerPickerEvidenceSource,
+                        evidencePickerOutcome = postComposerPickerEvidenceOutcome,
+                        evidencePickerPath = postComposerPickerEvidencePath,
                         onBack = {
                             navController.navigate(AppDestinations.Feed.route) {
                                 popUpTo(AppDestinations.Feed.route) { inclusive = false }

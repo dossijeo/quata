@@ -42,23 +42,31 @@ fun WebPostComposerRoute(
         },
         mediaSlots = WebComposerMediaSlots(
             pickImage = {
-                platformServices.filePicker.pick(
+                if (webPostComposerPickerEvidenceShouldHandle("gallery-image")) {
+                    webPostComposerPickerEvidenceReference("gallery-image")
+                } else platformServices.filePicker.pick(
                         FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery),
                     ).firstReferenceOrNull()
             },
             captureImage = {
-                when (val result = platformServices.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))) {
+                if (webPostComposerPickerEvidenceShouldHandle("camera-image")) {
+                    webPostComposerPickerEvidenceReference("camera-image")
+                } else when (val result = platformServices.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))) {
                     is PlatformResult.Success -> result.value.reference
                     else -> null
                 }
             },
             pickVideo = {
-                platformServices.filePicker.pick(
+                if (webPostComposerPickerEvidenceShouldHandle("gallery-video")) {
+                    webPostComposerPickerEvidenceReference("gallery-video")
+                } else platformServices.filePicker.pick(
                         FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery),
                     ).firstReferenceOrNull()
             },
             captureVideo = {
-                platformServices.filePicker.pick(
+                if (webPostComposerPickerEvidenceShouldHandle("camera-video")) {
+                    webPostComposerPickerEvidenceReference("camera-video")
+                } else platformServices.filePicker.pick(
                         FilePickerRequest(listOf("video/*"), source = FilePickerSource.Camera),
                     ).firstReferenceOrNull()
             },
@@ -119,3 +127,28 @@ private fun BrowserComposerMediaPreview(uri: String?, isVideo: Boolean, modifier
 }
 
 private fun browserComposerIsLandscape(): Boolean = js("Boolean(globalThis.matchMedia?.('(orientation: landscape)').matches)")
+
+private fun webPostComposerPickerEvidenceShouldHandle(source: String): Boolean = js(
+    """
+    (() => {
+      const params = new URLSearchParams(globalThis.location?.search || '');
+      if (params.get('quata-post-picker-camera-e2e') !== '1') return false;
+      if (globalThis.localStorage?.getItem('quata_post_composer_picker_e2e_opt_in') !== 'I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE') return false;
+      return globalThis.localStorage?.getItem('quata_post_composer_picker_e2e_source') === source;
+    })()
+    """,
+)
+
+private fun webPostComposerPickerEvidenceReference(source: String): String? = js(
+    """
+    (() => {
+      const params = new URLSearchParams(globalThis.location?.search || '');
+      if (params.get('quata-post-picker-camera-e2e') !== '1') return null;
+      if (globalThis.localStorage?.getItem('quata_post_composer_picker_e2e_opt_in') !== 'I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE') return null;
+      if (globalThis.localStorage?.getItem('quata_post_composer_picker_e2e_source') !== source) return null;
+      const outcome = String(globalThis.localStorage?.getItem('quata_post_composer_picker_e2e_outcome') || 'success').toLowerCase();
+      if (outcome !== 'success') return null;
+      return globalThis.localStorage?.getItem('quata_post_composer_picker_e2e_reference') || null;
+    })()
+    """,
+)

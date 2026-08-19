@@ -104,8 +104,17 @@ class MainActivity : ComponentActivity() {
                 ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
             val postPublishEvidenceLocationLabel = intent?.getStringExtra(EXTRA_POST_PUBLISH_EVIDENCE_LOCATION_LABEL)
                 ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
+            val postComposerPickerEvidenceSource = intent?.getStringExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_SOURCE)
+                ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
+            val postComposerPickerEvidenceOutcome = intent?.getStringExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_OUTCOME)
+                ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
+            val postComposerPickerEvidencePath = intent?.getStringExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_PATH)
+                ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
             intent?.removeExtra(EXTRA_POST_PUBLISH_EVIDENCE_IMAGE_URI)
             intent?.removeExtra(EXTRA_POST_PUBLISH_EVIDENCE_LOCATION_LABEL)
+            intent?.removeExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_SOURCE)
+            intent?.removeExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_OUTCOME)
+            intent?.removeExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_PATH)
             handleIncomingIntent(intent)
             AndroidStartupDiagnostics.mark("mainActivity.hostsAttached")
 
@@ -125,6 +134,9 @@ class MainActivity : ComponentActivity() {
                             startDestinationOverride = startDestinationForEvidence,
                             postPublishEvidenceImageUri = postPublishEvidenceImageUri,
                             postPublishEvidenceLocationLabel = postPublishEvidenceLocationLabel,
+                            postComposerPickerEvidenceSource = postComposerPickerEvidenceSource,
+                            postComposerPickerEvidenceOutcome = postComposerPickerEvidenceOutcome,
+                            postComposerPickerEvidencePath = postComposerPickerEvidencePath,
                         )
                         AnimatedVisibility(
                             visible = showSplash,
@@ -236,6 +248,9 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_START_DESTINATION_FOR_EVIDENCE = "com.quata.extra.START_DESTINATION_FOR_EVIDENCE"
         const val EXTRA_POST_PUBLISH_EVIDENCE_IMAGE_URI = "com.quata.extra.POST_PUBLISH_EVIDENCE_IMAGE_URI"
         const val EXTRA_POST_PUBLISH_EVIDENCE_LOCATION_LABEL = "com.quata.extra.POST_PUBLISH_EVIDENCE_LOCATION_LABEL"
+        const val EXTRA_POST_COMPOSER_PICKER_EVIDENCE_SOURCE = "com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_SOURCE"
+        const val EXTRA_POST_COMPOSER_PICKER_EVIDENCE_OUTCOME = "com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_OUTCOME"
+        const val EXTRA_POST_COMPOSER_PICKER_EVIDENCE_PATH = "com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_PATH"
     }
 
 }

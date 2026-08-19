@@ -25,6 +25,8 @@ import com.quata.core.platform.PermissionStatus
 import com.quata.core.platform.VideoThumbnailService
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import kotlinx.coroutines.launch
+import platform.Foundation.NSProcessInfo
+import platform.Foundation.NSURL
 import platform.UIKit.UIViewController
 
 class IosComposerHostDependencies(
@@ -98,6 +100,9 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
         }
     }
     val scope = rememberCoroutineScope()
+    val filePicker = remember(dependencies.filePicker) {
+        IosPostComposerEvidenceFilePicker.wrapIfRequested(dependencies.filePicker)
+    }
     var imageFile by remember {
         mutableStateOf(
             dependencies.initialImageReference?.takeIf(String::isNotBlank)
@@ -112,7 +117,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     }
     fun selectVideo(source: FilePickerSource) {
         scope.launch {
-            dependencies.filePicker.pick(FilePickerRequest(listOf("video/*"), source = source))
+            filePicker.pick(FilePickerRequest(listOf("video/*"), source = source))
                 .composerSelectedFileOrNull()?.let { file ->
                     releaseVideoThumbnail()
                     viewModel.onEvent(CreatePostUiEvent.VideoSelected(file.reference))
@@ -134,7 +139,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
         slots = CreatePostPlatformSlots(
             pickImage = {
                 scope.launch {
-                    dependencies.filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery))
+                    filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery))
                         .composerSelectedFileOrNull()?.let { file ->
                             imageFile = file
                             viewModel.onEvent(CreatePostUiEvent.ImageSelected(file.reference))
@@ -143,16 +148,17 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             },
             captureImage = {
                 scope.launch {
-                    dependencies.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))
-                        .composerCapturedFileOrNull()?.let { file ->
-                            imageFile = file
-                            viewModel.onEvent(CreatePostUiEvent.ImageSelected(file.reference))
-                        }
+                    val result = iosPostComposerEvidenceCameraCapturePhoto()
+                        ?: dependencies.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))
+                    result.composerCapturedFileOrNull()?.let { file ->
+                        imageFile = file
+                        viewModel.onEvent(CreatePostUiEvent.ImageSelected(file.reference))
+                    }
                 }
             },
             editImage = null,
             pickVideo = { selectVideo(FilePickerSource.Gallery) },
-            captureVideo = null,
+            captureVideo = { selectVideo(FilePickerSource.Camera) },
             editVideo = null,
             imagePreview = { _, modifier -> imageFile?.let { IosComposerLocalImagePreview(it, modifier) } },
             videoPreview = { _, _, modifier -> videoThumbnail?.let { IosComposerLocalImagePreview(it, modifier) } },
@@ -175,3 +181,92 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
 }
 
 private fun iosComposerCoordinateLabel(latitude: Double, longitude: Double): String = "$latitude, $longitude"
+
+private const val PostComposerPickerFixtureOptIn = "I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE"
+
+private class IosPostComposerEvidenceFilePicker(
+    private val delegate: FilePickerService,
+) : FilePickerService {
+    override suspend fun pickFiles(
+        acceptedMimeTypes: List<String>,
+        allowMultiple: Boolean,
+    ): PlatformResult<List<PlatformFile>> = pick(
+        FilePickerRequest(acceptedMimeTypes, allowMultiple, FilePickerSource.Documents),
+    )
+
+    override suspend fun pick(request: FilePickerRequest): PlatformResult<List<PlatformFile>> {
+        iosPostComposerEvidencePickerOutcome(request.source)?.let { return it }
+        iosPostComposerEvidencePickedFile(request.source)?.let { return PlatformResult.Success(listOf(it)) }
+        return delegate.pick(request)
+    }
+
+    companion object {
+        fun wrapIfRequested(delegate: FilePickerService): FilePickerService =
+            if (iosPostComposerEvidenceFixtureOptedIn()) IosPostComposerEvidenceFilePicker(delegate) else delegate
+    }
+}
+
+private fun iosPostComposerEvidenceCameraCapturePhoto(): PlatformResult<PlatformFile>? =
+    iosPostComposerEvidencePickerOutcome(FilePickerSource.Camera)
+        ?.let {
+            when (it) {
+                is PlatformResult.Success -> it.value.firstOrNull()?.let { file -> PlatformResult.Success(file) }
+                    ?: PlatformResult.Failure("post_composer_camera_capture_empty")
+                is PlatformResult.Failure -> it
+                PlatformResult.Cancelled -> PlatformResult.Cancelled
+                PlatformResult.Unsupported -> PlatformResult.Unsupported
+            }
+        }
+        ?: iosPostComposerEvidencePickedFile(FilePickerSource.Camera)?.let { PlatformResult.Success(it) }
+
+private fun iosPostComposerEvidencePickerOutcome(source: FilePickerSource): PlatformResult<List<PlatformFile>>? {
+    val environment = NSProcessInfo.processInfo.environment
+    if (!iosPostComposerEvidenceFixtureOptedIn(environment)) return null
+    if (environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_PICKER_SOURCE")?.lowercase() != source.iosPostComposerEvidenceSourceName()) {
+        return null
+    }
+    return when (environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME")?.lowercase()) {
+        "cancelled" -> PlatformResult.Cancelled
+        "failure" -> PlatformResult.Failure(
+            environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_PICKER_REASON")
+                ?: "post_composer_picker_e2e_failure",
+        )
+        "unsupported" -> PlatformResult.Unsupported
+        else -> null
+    }
+}
+
+private fun iosPostComposerEvidencePickedFile(source: FilePickerSource): PlatformFile? {
+    val environment = NSProcessInfo.processInfo.environment
+    if (!iosPostComposerEvidenceFixtureOptedIn(environment)) return null
+    if (environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_PICKER_SOURCE")?.lowercase() != source.iosPostComposerEvidenceSourceName()) {
+        return null
+    }
+    val path = environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_PICKER_PATH")
+        ?.takeIf(String::isNotBlank)
+        ?: return null
+    val reference = if (path.startsWith("file://")) path else NSURL.fileURLWithPath(path).absoluteString ?: path
+    val name = environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_PICKER_NAME")
+        ?: path.substringAfterLast('/').ifBlank { "post-composer-picker-fixture" }
+    val mimeType = environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_PICKER_MIME")
+        ?: when (source) {
+            FilePickerSource.Documents -> "application/octet-stream"
+            FilePickerSource.Gallery,
+            FilePickerSource.Camera -> "image/png"
+        }
+    return PlatformFile(reference = reference, displayName = name, mimeType = mimeType)
+}
+
+private fun FilePickerSource.iosPostComposerEvidenceSourceName(): String = when (this) {
+    FilePickerSource.Documents -> "document"
+    FilePickerSource.Gallery -> "gallery"
+    FilePickerSource.Camera -> "camera"
+}
+
+private fun iosPostComposerEvidenceFixtureOptedIn(
+    environment: Map<Any?, *> = NSProcessInfo.processInfo.environment,
+): Boolean =
+    environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN") == PostComposerPickerFixtureOptIn
+
+private fun Map<Any?, *>.iosPostComposerFixtureValue(key: String): String? =
+    this[key]?.toString()?.takeIf(String::isNotBlank)

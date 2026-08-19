@@ -14,7 +14,9 @@ internal fun installWebPostComposerE2eBridge(
 @JsFun(
     """(setText, setImage, setLocation, submitText, submitImage, state) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
-      const optedIn = new URLSearchParams(location?.search || '').get('quata-post-publish-e2e') === '1' ||
+      const params = new URLSearchParams(location?.search || '');
+      const optedIn = params.get('quata-post-publish-e2e') === '1' ||
+        params.get('quata-post-picker-camera-e2e') === '1' ||
         globalThis.sessionStorage?.getItem('quata.post_publish.e2e') === '1';
       if (!local || !optedIn) return () => {};
       const bridge = Object.freeze({
