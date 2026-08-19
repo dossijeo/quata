@@ -13,6 +13,7 @@ import com.quata.core.session.SessionManager
 import com.quata.core.text.buildPostBodyWithMeta
 import com.quata.data.supabase.SupabaseApiException
 import com.quata.data.supabase.SupabaseCommunityApi
+import com.quata.feature.postcomposer.domain.PostComposerDestination
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
@@ -25,6 +26,14 @@ class PostComposerRepositoryImpl(
     private val sessionManager: SessionManager,
     private val mediaUploadOptimizer: MediaUploadOptimizer
 ) : PostComposerRepository {
+    override suspend fun loadDestinations(): Result<List<PostComposerDestination>> = runCatching {
+        val session = sessionManager.currentSession() ?: error("No hay sesion activa")
+        if (AppConfig.USE_MOCK_BACKEND) {
+            return@runCatching listOf(PostComposerDestination("mock-feed", "Feed", isDefault = true))
+        }
+        destinationListFor(session.userId)
+    }
+
     override suspend fun createPost(draft: PostComposerDraft): Result<String?> = runCatching {
         validateDraft(draft)
         val session = sessionManager.currentSession() ?: error("No hay sesion activa")
@@ -45,7 +54,10 @@ class PostComposerRepositoryImpl(
             error(moderation.data.message ?: moderation.data.reason ?: "Contenido bloqueado por moderacion")
         }
 
-        val wallId = resolveWallId(session.userId)
+        val wallId = draft.destinationWallId?.takeIf(String::isNotBlank)?.let { requested ->
+            require(destinationListFor(session.userId).any { it.wallId == requested }) { "composer_destination_unavailable" }
+            requested
+        } ?: resolveWallId(session.userId)
         var uploadedImageStoragePath: String? = null
         val imageUrl = if (draft.type == PostComposerType.Image) {
             val media = mediaUploadOptimizer.prepareImageUpload(
@@ -128,6 +140,26 @@ class PostComposerRepositoryImpl(
         supabaseApi.getMembers(profileId = profileId).firstOrNull()?.wall_id?.let { return it }
         return supabaseApi.getActiveWallsStats(limit = 1).firstOrNull()?.id
             ?: error("No hay comunidad activa para publicar")
+    }
+
+    private suspend fun destinationListFor(profileId: String): List<PostComposerDestination> {
+        val memberWallIds = supabaseApi.getMembers(profileId = profileId)
+            .mapNotNull { it.wall_id.takeIf(String::isNotBlank) }
+            .distinct()
+        val walls = supabaseApi.getActiveWallsStats()
+        val fallbackId = memberWallIds.firstOrNull() ?: walls.firstOrNull()?.id
+        val memberSet = memberWallIds.toSet()
+        return walls
+            .filter { it.id in memberSet || memberSet.isEmpty() }
+            .map { wall ->
+                PostComposerDestination(
+                    wallId = wall.id,
+                    label = wall.name?.takeIf(String::isNotBlank) ?: wall.slug?.takeIf(String::isNotBlank) ?: "Feed",
+                    subtitle = listOfNotNull(wall.city, wall.description).firstOrNull { !it.isNullOrBlank() },
+                    isDefault = wall.id == fallbackId,
+                )
+            }
+            .ifEmpty { fallbackId?.let { listOf(PostComposerDestination(it, "Feed", isDefault = true)) }.orEmpty() }
     }
 
     private fun validateDraft(draft: PostComposerDraft) {

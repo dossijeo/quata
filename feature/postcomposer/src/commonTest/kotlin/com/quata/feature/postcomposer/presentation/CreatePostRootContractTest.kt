@@ -1,6 +1,7 @@
 package com.quata.feature.postcomposer.presentation
 
 import com.quata.feature.postcomposer.domain.PostComposerRepository
+import com.quata.feature.postcomposer.domain.PostComposerDestination
 import com.quata.feature.postcomposer.domain.PostComposerType
 import com.quata.core.common.AppDispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -24,6 +25,12 @@ class CreatePostRootContractTest {
     fun postPublishEvidenceAnchorsStayCommon() {
         assertEquals("composer-text-input", ComposerTextInputTestTag)
         assertEquals("composer-publish", ComposerPublishButtonTestTag)
+        assertEquals("composer-destination-selector", ComposerDestinationSelectorTestTag)
+        assertEquals("composer-destination-selected", ComposerDestinationSelectedTestTag)
+        assertEquals("composer-location-section", ComposerLocationSectionTestTag)
+        assertEquals("composer-location-value", ComposerLocationValueTestTag)
+        assertEquals("composer-location-edit", ComposerLocationEditTestTag)
+        assertEquals("composer-location-input", ComposerLocationInputTestTag)
         assertEquals("composer-type-text", "composer-type-${PostComposerType.Text.name.lowercase()}")
         assertEquals("composer-feedback-error", ComposerFeedbackErrorTestTag)
         assertEquals("composer-feedback-success", ComposerFeedbackSuccessTestTag)
@@ -89,6 +96,23 @@ class CreatePostRootContractTest {
     }
 
     @Test
+    fun clearDraftPreservesLoadedDestinationSelection() = runTest {
+        val viewModel = CreatePostViewModel(object : PostComposerRepository {
+            override suspend fun loadDestinations() = Result.success(
+                listOf(PostComposerDestination("wall-1", "Centro", isDefault = true)),
+            )
+            override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft) = Result.success<String?>(null)
+        }, AppDispatchers(default = StandardTestDispatcher(testScheduler)))
+        advanceUntilIdle()
+        viewModel.onEvent(CreatePostUiEvent.TextChanged("hola"))
+        viewModel.onEvent(CreatePostUiEvent.ClearDraft)
+        assertEquals("", viewModel.uiState.value.text)
+        assertEquals("wall-1", viewModel.uiState.value.selectedDestinationWallId)
+        assertEquals("Centro", viewModel.uiState.value.selectedDestination?.label)
+        viewModel.close()
+    }
+
+    @Test
     fun publicationDispatchesExactlyOneEffectiveAuthOrSubmitCallback() {
         var authCalls = 0
         var submitCalls = 0
@@ -114,12 +138,20 @@ class CreatePostRootContractTest {
     fun sharedEventsBuildTheSameCompleteVideoDraftUsedByEveryHost() = runTest {
         var published = com.quata.feature.postcomposer.domain.PostComposerDraft(PostComposerType.Text)
         val viewModel = CreatePostViewModel(object : PostComposerRepository {
+            override suspend fun loadDestinations() = Result.success(
+                listOf(
+                    PostComposerDestination("wall-1", "Centro", isDefault = true),
+                    PostComposerDestination("wall-2", "Bata"),
+                ),
+            )
             override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft): Result<String?> {
                 published = draft
                 return Result.success("post-1")
             }
         }, AppDispatchers(default = StandardTestDispatcher(testScheduler)))
 
+        advanceUntilIdle()
+        viewModel.onEvent(CreatePostUiEvent.DestinationSelected("wall-2"))
         viewModel.onEvent(CreatePostUiEvent.TextChanged("Título"))
         viewModel.onEvent(CreatePostUiEvent.TextPatternSelected("midnight-blue"))
         viewModel.onEvent(CreatePostUiEvent.VideoSelected("file:///video.mp4"))
@@ -131,5 +163,7 @@ class CreatePostRootContractTest {
         assertEquals("Título", published.text)
         assertEquals("file:///video.mp4", published.videoUri)
         assertEquals("Madrid", published.locationLabel)
+        assertEquals("wall-2", published.destinationWallId)
+        assertEquals("Bata", published.destinationLabel)
     }
 }

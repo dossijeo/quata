@@ -6,7 +6,9 @@ set -euo pipefail
 : "${QUATA_IOS_DERIVED_DATA_PATH:?Build the signed simulator test bundle first and set QUATA_IOS_DERIVED_DATA_PATH.}"
 : "${QUATA_IOS_SIMULATOR_UDID:?Set QUATA_IOS_SIMULATOR_UDID.}"
 : "${QUATA_IOS_POST_PUBLISH_MARKER:?Set QUATA_IOS_POST_PUBLISH_MARKER.}"
+: "${QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID:?Set QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID.}"
 : "${QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN:?Set QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN.}"
+: "${QUATA_IOS_POST_PUBLISH_MODE:=text}"
 : "${QUATA_IOS_POST_PUBLISH_UI_LOG_DIR:=build/reports/ios/post-publish-ui}"
 : "${QUATA_IOS_POST_PUBLISH_UI_TIMEOUT_SECONDS:=300}"
 : "${QUATA_IOS_POST_PUBLISH_UI_RESULT_BUNDLE_DIR:=}"
@@ -83,7 +85,11 @@ def patch_target(target, hint=''):
     if 'QuataIosUITests' in name:
         env['QUATA_IOS_POST_PUBLISH_UI_E2E'] = '1'
         env['QUATA_IOS_POST_PUBLISH_MARKER'] = os.environ['QUATA_IOS_POST_PUBLISH_MARKER']
+        env['QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID'] = os.environ['QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID']
         env['QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN'] = os.environ['QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN']
+        env['QUATA_IOS_POST_PUBLISH_MODE'] = os.environ.get('QUATA_IOS_POST_PUBLISH_MODE', 'text')
+        if os.environ.get('QUATA_IOS_POST_PUBLISH_LOCATION_LABEL'):
+            env['QUATA_IOS_POST_PUBLISH_LOCATION_LABEL'] = os.environ['QUATA_IOS_POST_PUBLISH_LOCATION_LABEL']
         matched.add('ui')
 for configuration in data.get('TestConfigurations', []):
     for target in configuration.get('TestTargets', []):

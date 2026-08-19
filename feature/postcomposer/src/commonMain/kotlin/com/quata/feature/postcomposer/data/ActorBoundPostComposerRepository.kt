@@ -1,6 +1,7 @@
 package com.quata.feature.postcomposer.data
 
 import com.quata.core.text.buildPostBodyWithMeta
+import com.quata.feature.postcomposer.domain.PostComposerDestination
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
@@ -31,10 +32,12 @@ fun composerModerationFields(
     "url" to sourceUrl,
 )
 
-/** Platform boundary: actor and wall are derived from the current real session, never from UI. */
+/** Platform boundary: actor is session-bound; destinations come from the authenticated backend. */
 interface ActorBoundComposerTransport {
     suspend fun renewableSession(): ComposerActorSession?
     suspend fun moderate(actor: ComposerActorSession, draft: PostComposerDraft): Result<Unit>
+    suspend fun loadDestinations(actorProfileId: String): Result<List<PostComposerDestination>> =
+        resolveWallId(actorProfileId).map { wallId -> listOf(PostComposerDestination(wallId, "Feed", isDefault = true)) }
     suspend fun resolveWallId(actorProfileId: String): Result<String>
     suspend fun prepareImage(reference: String): Result<ComposerPreparedMedia>
     suspend fun prepareVideo(reference: String): Result<ComposerPreparedMedia>
@@ -46,12 +49,25 @@ interface ActorBoundComposerTransport {
 }
 
 class ActorBoundPostComposerRepository(private val transport: ActorBoundComposerTransport) : PostComposerRepository {
+    override suspend fun loadDestinations(): Result<List<PostComposerDestination>> = runCatching {
+        val actor = transport.renewableSession() ?: error("composer_authenticated_actor_missing")
+        require(actor.profileId.isNotBlank()) { "composer_authenticated_actor_missing" }
+        transport.loadDestinations(actor.profileId).getOrThrow()
+            .filter { it.wallId.isNotBlank() && it.label.isNotBlank() }
+            .distinctBy { it.wallId }
+    }
+
     override suspend fun createPost(draft: PostComposerDraft): Result<String?> = try {
         validateComposerDraft(draft)
         val actor = transport.renewableSession() ?: error("composer_authenticated_actor_missing")
         require(actor.profileId.isNotBlank()) { "composer_authenticated_actor_missing" }
         transport.moderate(actor, draft).getOrThrow()
-        val wallId = transport.resolveWallId(actor.profileId).getOrThrow().also { require(it.isNotBlank()) { "composer_wall_unavailable" } }
+        val wallId = draft.destinationWallId?.takeIf(String::isNotBlank)?.let { requested ->
+            val destinations = transport.loadDestinations(actor.profileId).getOrThrow()
+            require(destinations.any { it.wallId == requested }) { "composer_destination_unavailable" }
+            requested
+        } ?: transport.resolveWallId(actor.profileId).getOrThrow()
+        require(wallId.isNotBlank()) { "composer_wall_unavailable" }
         var prepared: ComposerPreparedMedia? = null
         var uploaded: ComposerUploadedMedia? = null
         try {

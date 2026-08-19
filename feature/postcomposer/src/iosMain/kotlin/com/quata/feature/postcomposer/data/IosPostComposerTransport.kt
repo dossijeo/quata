@@ -3,6 +3,7 @@ package com.quata.feature.postcomposer.data
 import com.quata.core.data.toFoundationData
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.model.AuthSession
+import com.quata.feature.postcomposer.domain.PostComposerDestination
 import com.quata.feature.postcomposer.domain.PostComposerDraft
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
@@ -69,6 +70,31 @@ class IosPostComposerTransport(
             .jsonArray.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull ?: error("composer_wall_unavailable")
     }
 
+    override suspend fun loadDestinations(actorProfileId: String): Result<List<PostComposerDestination>> = runCatching {
+        val memberWallIds = getRest("community_members?select=wall_id&profile_id=eq.${actorProfileId.iosComposerQuery()}")
+            .jsonArray
+            .mapNotNull { it.jsonObject["wall_id"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank) }
+            .distinct()
+        val walls = getRest(iosComposerDestinationsPath())
+            .jsonArray
+            .mapNotNull { row ->
+                val obj = row.jsonObject
+                val wallId = obj["id"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                val label = obj["name"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+                    ?: obj["slug"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+                    ?: "Feed"
+                val subtitle = obj["city"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+                    ?: obj["description"]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+                PostComposerDestination(wallId, label, subtitle, isDefault = false)
+            }
+        val fallbackId = memberWallIds.firstOrNull() ?: walls.firstOrNull()?.wallId
+        val memberSet = memberWallIds.toSet()
+        walls
+            .filter { it.wallId in memberSet || memberSet.isEmpty() }
+            .map { it.copy(isDefault = it.wallId == fallbackId) }
+            .ifEmpty { fallbackId?.let { listOf(PostComposerDestination(it, "Feed", isDefault = true)) }.orEmpty() }
+    }
+
     override suspend fun prepareImage(reference: String): Result<ComposerPreparedMedia> = prepare(reference, "imagen.jpg", "image/jpeg")
     override suspend fun prepareVideo(reference: String): Result<ComposerPreparedMedia> = prepare(reference, "video.mp4", "video/mp4")
 
@@ -130,6 +156,7 @@ private fun IosPostComposerRuntimeConfiguration.key() = supabasePublishableKey.t
 internal const val IOS_COMPOSER_WALL_STATS_TABLE = "community_walls_stats"
 internal const val IOS_COMPOSER_POSTS_TABLE = "community_posts"
 internal fun iosComposerWallFallbackPath() = "$IOS_COMPOSER_WALL_STATS_TABLE?select=id&is_active=eq.true&order=sort_order.asc&limit=1"
+internal fun iosComposerDestinationsPath() = "$IOS_COMPOSER_WALL_STATS_TABLE?select=id,slug,name,city,description&is_active=eq.true&order=sort_order.asc,chat_last_at.desc,created_at.desc&limit=250"
 internal fun IosPostComposerRuntimeConfiguration.iosComposerPostsUrl() = "${restBase()}/$IOS_COMPOSER_POSTS_TABLE"
 internal fun IosPostComposerRuntimeConfiguration.iosComposerStorageObjectUrl(path: String) = "${storageBase()}/object/community-posts/${path.iosComposerPath()}"
 internal fun IosPostComposerRuntimeConfiguration.iosComposerStoragePublicUrl(path: String) = "${storageBase()}/object/public/community-posts/${path.iosComposerPath()}"

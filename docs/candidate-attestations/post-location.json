@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-LOCATION"
+  ],
+  "productSha": "d42e6fac6335c58f9cce9c09213b57392df880e6",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "d42e6fac6335c58f9cce9c09213b57392df880e6",
+      "report": "build-reports/web/post-location-web-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "d42e6fac6335c58f9cce9c09213b57392df880e6",
+      "report": "build-reports/android/post-location-android-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "d42e6fac6335c58f9cce9c09213b57392df880e6",
+      "report": "build-reports/ios/post-location-ios-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate reduces POST-LOCATION through the common CreatePostRoot image composer: Android, Web/Wasm and iOS start from the shared image form, expose common location and destination anchors, publish a real authenticated image post with location metadata, verify exact wall_id and locationLabel in Supabase, and hard-clean community_posts plus related comments/likes with residue count zero.",
+    "Web/Wasm still uses the localhost-only opt-in bridge after reaching the visual route because Compose/Wasm does not expose a stable DOM media picker or publish action for the canvas host. Android and iOS use native image fixtures injected at the platform boundary and validate common semantic anchors."
+  ]
+}

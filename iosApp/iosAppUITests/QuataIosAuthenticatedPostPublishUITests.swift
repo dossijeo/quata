@@ -16,13 +16,31 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         guard let marker = environment["QUATA_IOS_POST_PUBLISH_MARKER"], !marker.isEmpty else {
             throw XCTSkip("Real post publish requires QUATA_IOS_POST_PUBLISH_MARKER.")
         }
+        guard let destinationWallId = environment["QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID"], !destinationWallId.isEmpty else {
+            throw XCTSkip("Real post publish requires QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID.")
+        }
+        let mode = environment["QUATA_IOS_POST_PUBLISH_MODE"] ?? "text"
+        XCTAssertTrue(["text", "image-location"].contains(mode), "Unsupported post publish mode \(mode).")
+        let locationLabel = environment["QUATA_IOS_POST_PUBLISH_LOCATION_LABEL"] ?? ""
+        if mode == "image-location" {
+            XCTAssertFalse(locationLabel.isEmpty, "Image-location mode requires QUATA_IOS_POST_PUBLISH_LOCATION_LABEL.")
+        }
 
-        let app = openComposer()
+        let app = openComposer(mode: mode, locationLabel: locationLabel)
         assertSharedComposerSurface(in: app)
 
-        tapTextType(in: app)
-        typeText(marker, into: "composer-text-input", in: app)
-        dismissKeyboardIfPresent(in: app)
+        if mode == "text" {
+            tapTextType(in: app)
+        } else {
+            assertImageLocationDraft(locationLabel, in: app)
+        }
+        selectDestination(destinationWallId, in: app)
+        if mode == "text" {
+            typeText(marker, into: "composer-text-input", in: app)
+            dismissKeyboardIfPresent(in: app)
+        } else {
+            assertImageLocationDraft(locationLabel, in: app)
+        }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-composer-filled")
 
         tapPublish(in: app)
@@ -30,9 +48,31 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-after-publish")
     }
 
-    private func openComposer() -> XCUIApplication {
+    private func selectDestination(_ wallId: String, in app: XCUIApplication) {
+        let destination = app.descendants(matching: .any)
+            .matching(identifier: "composer-destination-option.\(wallId)")
+            .firstMatch
+        for _ in 0..<10 {
+            if destination.waitForExistence(timeout: 1), destination.isHittable {
+                destination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-destination-selected")
+                return
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        XCTAssertTrue(destination.exists, "Expected shared composer destination \(wallId) to exist.")
+        destination.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func openComposer(mode: String, locationLabel: String) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launchEnvironment["QUATA_IOS_POST_PUBLISH_MODE"] = mode
+        app.launchEnvironment["QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN"] = Self.realPublishOptIn
+        if !locationLabel.isEmpty {
+            app.launchEnvironment["QUATA_IOS_POST_PUBLISH_LOCATION_LABEL"] = locationLabel
+        }
         app.launch()
 
         let feed = app.descendants(matching: .any)
@@ -82,6 +122,28 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         } else {
             textType.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         }
+    }
+
+    private func assertImageLocationDraft(_ locationLabel: String, in app: XCUIApplication) {
+        let location = app.descendants(matching: .any)
+            .matching(identifier: "composer-location-value")
+            .firstMatch
+        for _ in 0..<10 {
+            if location.waitForExistence(timeout: 1), elementText(location).contains(locationLabel) {
+                return
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        XCTAssertTrue(location.exists, "The common image composer location value must be exposed.")
+        XCTAssertTrue(
+            elementText(location).contains(locationLabel),
+            "Expected image-location draft to expose \(locationLabel); text=\(elementText(location))",
+        )
+    }
+
+    private func elementText(_ element: XCUIElement) -> String {
+        [element.label, element.value as? String].compactMap { $0 }.joined(separator: " ")
     }
 
     private func typeText(_ value: String, into identifier: String, in app: XCUIApplication) {

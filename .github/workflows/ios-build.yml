@@ -712,15 +712,18 @@ jobs:
           if [[ "$EVENT_NAME" == "pull_request" && "$DOCS_ONLY" == "true" ]]; then
             exit 0
           fi
-          if [[ "$EVENT_NAME" == "pull_request" && "$FINAL_CANDIDATE" != "true" ]]; then
-            echo "A pull request must carry candidate-final before final certification can pass." >&2
-            exit 1
-          fi
           affected="$IOS_AFFECTED"
           result="$IOS_FINAL_RESULT"
           if [[ "$affected" != "true" && "$affected" != "false" ]]; then
             echo "Final certification is invalid: 'ios' has affected='$affected'." >&2
             exit 1
+          fi
+          if [[ "$EVENT_NAME" == "pull_request" && "$FINAL_CANDIDATE" != "true" ]]; then
+            if [[ "$result" != "skipped" ]]; then
+              echo "Preparation pull request is invalid: 'ios' final job must be skipped before candidate-final, but was '$result'." >&2
+              exit 1
+            fi
+            exit 0
           fi
           expected_result="skipped"
           [[ "$affected" == "true" ]] && expected_result="success"

@@ -206,6 +206,8 @@ fun AppNavGraph(
     incomingShare: ExternalSharePayload? = null,
     onIncomingShareHandled: () -> Unit = {},
     startDestinationOverride: String? = null,
+    postPublishEvidenceImageUri: String? = null,
+    postPublishEvidenceLocationLabel: String? = null,
 ) {
     val navController = rememberNavController()
     val currentBackStackEntry = navController.currentBackStackEntryAsState().value
@@ -839,6 +841,8 @@ fun AppNavGraph(
                             }
                         },
                         onVideoEditorVisibilityChange = { isVideoEditorOpen = it },
+                        evidenceImageUri = postPublishEvidenceImageUri,
+                        evidenceLocationLabel = postPublishEvidenceLocationLabel,
                         onBack = {
                             navController.navigate(AppDestinations.Feed.route) {
                                 popUpTo(AppDestinations.Feed.route) { inclusive = false }

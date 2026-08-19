@@ -1597,6 +1597,8 @@ final class QuataFeedFrameworkTests: XCTestCase {
                     filePicker: services.services.filePicker,
                     cameraCapture: services.services.cameraCapture,
                     videoThumbnails: services.services.videoThumbnails,
+                    location: services.services.location,
+                    permissions: services.services.permissions,
                     languageTag: "en-US",
                     onClose: {},
                 ),

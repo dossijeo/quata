@@ -97,6 +97,8 @@ data class CreatePostRootCopy(
     val publicationFailed: String,
     val author: String = "Qüata",
     val feed: String = "Feed",
+    val destination: String = "Destino",
+    val destinationHelper: String = "Elige dónde se publicará.",
 )
 
 val SpanishCreatePostRootCopy = CreatePostRootCopy(
@@ -183,11 +185,12 @@ fun CreatePostRoot(
     resetToken: Int = 0,
     cancelUploadToken: Int = 0,
     copy: CreatePostRootCopy = SpanishCreatePostRootCopy,
+    initialStep: CreatePostStep? = null,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
-    var step by rememberSaveable { mutableStateOf(CreatePostStep.TypePicker) }
+    var step by rememberSaveable(initialStep) { mutableStateOf(initialStep ?: CreatePostStep.TypePicker) }
     var textValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(state.text)) }
     var emojiOpen by rememberSaveable { mutableStateOf(false) }
     var locationOpen by rememberSaveable { mutableStateOf(false) }
@@ -255,6 +258,15 @@ fun CreatePostRoot(
         title = title,
         scrollState = rememberScrollState(),
         form = {
+            if (step != CreatePostStep.TypePicker) {
+                ComposerDestinationSelectorContent(
+                    title = copy.destination,
+                    helper = copy.destinationHelper,
+                    destinations = state.destinations,
+                    selectedDestination = state.selectedDestination,
+                    onDestinationSelected = { viewModel.onEvent(CreatePostUiEvent.DestinationSelected(it)) },
+                )
+            }
             when (step) {
                 CreatePostStep.TypePicker -> ComposerTypePickerContent(
                     isLandscapeLayout = isLandscapeLayout,
@@ -308,7 +320,12 @@ fun CreatePostRoot(
                         ComposerSectionPanelContent(copy.preview, content = {
                             ComposerTextPostPreviewContent(
                                 text = state.text, patternId = state.textPatternId, compact = isLandscapeLayout,
-                                strings = ComposerTextPostPreviewStrings(copy.previewEmpty, copy.readMore, copy.author, copy.feed),
+                                strings = ComposerTextPostPreviewStrings(
+                                    copy.previewEmpty,
+                                    copy.readMore,
+                                    copy.author,
+                                    state.selectedDestination?.label ?: copy.feed,
+                                ),
                                 actionLabels = defaultComposerPreviewActionLabels(),
                                 readerDismissButton = { m, dismiss -> Button(onClick = dismiss, modifier = m) { Icon(Icons.Filled.Close, copy.close) } },
                             )
@@ -382,7 +399,7 @@ private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots:
             ComposerSectionPanelContent(copy.preview, content = {
                 state.imageUri?.let { uri ->
                     ComposerMediaPostPreviewContent(
-                        isVideo = false, description = "", subtitle = state.locationLabel ?: copy.feed,
+                        isVideo = false, description = "", subtitle = state.locationLabel ?: state.selectedDestination?.label ?: copy.feed,
                         topChips = state.locationLabel?.takeIf(String::isNotBlank)?.let(::listOf).orEmpty(),
                         actionLabels = defaultComposerPreviewActionLabels(), authorName = copy.author,
                         compact = landscape, backgroundSeed = uri,
@@ -414,7 +431,7 @@ private fun ColumnScope.CommonVideoComposerForm(state: CreatePostUiState, slots:
             ComposerSectionPanelContent(copy.preview, content = {
                 state.videoUri?.let { uri ->
                     ComposerMediaPostPreviewContent(
-                        isVideo = true, description = state.text, subtitle = copy.feed, topChips = emptyList(),
+                        isVideo = true, description = state.text, subtitle = state.selectedDestination?.label ?: copy.feed, topChips = emptyList(),
                         actionLabels = defaultComposerPreviewActionLabels(), authorName = copy.author,
                         compact = landscape, backgroundSeed = uri,
                         media = { slots.videoPreview(uri, landscape, Modifier.fillMaxSize()) },

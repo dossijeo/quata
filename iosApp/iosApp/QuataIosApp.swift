@@ -143,6 +143,38 @@ enum IosAuthLifecycleBootstrap {
     }
 }
 
+enum IosPostPublishEvidenceComposerSeed {
+    private static let optIn = "I_ACCEPT_REVERSIBLE_POST_PUBLISH_MUTATION"
+
+    static func imageLocationDraft(environment: [String: String] = ProcessInfo.processInfo.environment) -> (imageReference: String, locationLabel: String)? {
+        guard environment["QUATA_IOS_POST_PUBLISH_MODE"] == "image-location",
+              environment["QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN"] == optIn,
+              let locationLabel = environment["QUATA_IOS_POST_PUBLISH_LOCATION_LABEL"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !locationLabel.isEmpty,
+              let imageReference = createImageFixtureReference()
+        else { return nil }
+        return (imageReference, locationLabel)
+    }
+
+    private static func createImageFixtureReference() -> String? {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8))
+        let image = renderer.image { context in
+            UIColor(red: 0.99, green: 0.52, blue: 0.17, alpha: 1).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 4, height: 8))
+            UIColor(red: 0.10, green: 0.27, blue: 0.66, alpha: 1).setFill()
+            context.fill(CGRect(x: 4, y: 0, width: 4, height: 8))
+        }
+        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("quata-post-publish-evidence-image.png")
+        guard let data = image.pngData() else { return nil }
+        do {
+            try data.write(to: url, options: .atomic)
+            return url.absoluteString
+        } catch {
+            return nil
+        }
+    }
+}
+
 /// UIKit launcher and composition boundary for the iOS application.
 ///
 /// Swift owns the window, lifecycle and authenticated dependency hand-off. The shared Feed
@@ -1128,17 +1160,22 @@ private final class IosAppCompositionRoot {
             )
         )
         authenticatedHost.installComposerFactory { [weak self] in
-            IosComposerHostKt.QuataComposerViewController(
-                dependencies: IosComposerHostKt.createIosComposerHostDependencies(
+            let evidenceDraft = IosPostPublishEvidenceComposerSeed.imageLocationDraft()
+            return IosComposerHostKt.QuataComposerViewController(
+                dependencies: IosComposerHostKt.createIosComposerHostDependenciesWithInitialDraft(
                     repository: repository,
                     filePicker: services.filePicker,
                     cameraCapture: services.cameraCapture,
                     videoThumbnails: services.videoThumbnails,
+                    location: services.location,
+                    permissions: services.permissions,
                     languageTag: Locale.preferredLanguages.first,
                     onClose: { [weak self] in
                         self?.authenticatedHost.view.endEditing(true)
                         self?.authenticatedHost.showFeed(postId: nil)
                     },
+                    initialImageReference: evidenceDraft?.imageReference,
+                    initialLocationLabel: evidenceDraft?.locationLabel,
                 ),
             )
         }

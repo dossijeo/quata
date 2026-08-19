@@ -6,7 +6,10 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import com.quata.core.designsystem.theme.quataTheme
+
+const val ComposerLocationInputTestTag = "composer-location-input"
 
 /** Portable manual-location editor; geocoding, permissions and location acquisition stay hosted. */
 @Composable
@@ -22,7 +25,7 @@ fun ComposerLocationTextEditorContent(
         onValueChange = onValueChange,
         placeholder = { Text(placeholder) },
         singleLine = true,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().testTag(ComposerLocationInputTestTag),
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = template.colors.textPrimary,
             unfocusedTextColor = template.colors.textPrimary,

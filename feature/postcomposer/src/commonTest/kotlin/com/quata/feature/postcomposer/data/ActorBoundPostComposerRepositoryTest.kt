@@ -1,7 +1,9 @@
 package com.quata.feature.postcomposer.data
 
 import com.quata.feature.postcomposer.domain.PostComposerDraft
+import com.quata.feature.postcomposer.domain.PostComposerDestination
 import com.quata.feature.postcomposer.domain.PostComposerType
+import com.quata.core.text.extractPostMeta
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -20,6 +22,58 @@ class ActorBoundPostComposerRepositoryTest {
         assertEquals(listOf("session", "moderate:actor-7", "wall:actor-7", "insert:wall-5:actor-7"), transport.calls)
         assertEquals("actor-7", transport.insert?.actorProfileId)
         assertEquals("wall-5", transport.insert?.wallId)
+    }
+
+    @Test
+    fun destinationsAreLoadedFromAuthenticatedActor() = runTest {
+        val transport = RecordingTransport(destinations = listOf(PostComposerDestination("wall-9", "Bata", isDefault = true)))
+        val result = ActorBoundPostComposerRepository(transport).loadDestinations()
+
+        assertEquals(listOf(PostComposerDestination("wall-9", "Bata", isDefault = true)), result.getOrThrow())
+        assertEquals(listOf("session", "destinations:actor-7"), transport.calls)
+    }
+
+    @Test
+    fun selectedDestinationWallIsUsedAfterAvailabilityCheck() = runTest {
+        val transport = RecordingTransport(destinations = listOf(PostComposerDestination("wall-9", "Bata", isDefault = true)))
+        val result = ActorBoundPostComposerRepository(transport).createPost(
+            PostComposerDraft(type = PostComposerType.Text, text = "Hola", destinationWallId = "wall-9"),
+        )
+
+        assertEquals("post-db-9", result.getOrThrow())
+        assertEquals(listOf("session", "moderate:actor-7", "destinations:actor-7", "insert:wall-9:actor-7"), transport.calls)
+        assertEquals("wall-9", transport.insert?.wallId)
+    }
+
+    @Test
+    fun imagePublicationCarriesLocationInSharedRemoteBody() = runTest {
+        val transport = RecordingTransport(destinations = listOf(PostComposerDestination("wall-9", "Bata", isDefault = true)))
+        val result = ActorBoundPostComposerRepository(transport).createPost(
+            PostComposerDraft(
+                type = PostComposerType.Image,
+                imageUri = "file:///photo.png",
+                locationLabel = "Malabo Centro",
+                latitude = 3.7523,
+                longitude = 8.7741,
+                destinationWallId = "wall-9",
+            ),
+        )
+
+        assertEquals("post-db-9", result.getOrThrow())
+        assertEquals("Malabo Centro", transport.insert?.body?.extractPostMeta()?.imageLocation)
+        assertEquals("feed", transport.insert?.body?.extractPostMeta()?.channel)
+    }
+
+    @Test
+    fun unavailableDestinationFailsBeforeInsert() = runTest {
+        val transport = RecordingTransport(destinations = listOf(PostComposerDestination("wall-9", "Bata", isDefault = true)))
+        val result = ActorBoundPostComposerRepository(transport).createPost(
+            PostComposerDraft(type = PostComposerType.Text, text = "Hola", destinationWallId = "wall-x"),
+        )
+
+        assertFalse(result.isSuccess)
+        assertEquals("composer_destination_unavailable", result.exceptionOrNull()?.message)
+        assertEquals(listOf("session", "moderate:actor-7", "destinations:actor-7"), transport.calls)
     }
 
     @Test
@@ -87,11 +141,15 @@ class ActorBoundPostComposerRepositoryTest {
         private val insertFailure: Throwable? = null,
         private val insertId: String? = "post-db-9",
         private val rollbackFailure: Throwable? = null,
+        private val destinations: List<PostComposerDestination>? = null,
     ) : ActorBoundComposerTransport {
         val calls = mutableListOf<String>()
         var insert: ComposerPostInsert? = null
         override suspend fun renewableSession() = ComposerActorSession("actor-7", "Ada").also { calls += "session" }
         override suspend fun moderate(actor: ComposerActorSession, draft: PostComposerDraft): Result<Unit> = runCatching { calls += "moderate:${actor.profileId}"; if (moderationFailure) error("blocked") }
+        override suspend fun loadDestinations(actorProfileId: String): Result<List<PostComposerDestination>> =
+            destinations?.let { Result.success(it).also { calls += "destinations:$actorProfileId" } }
+                ?: super.loadDestinations(actorProfileId)
         override suspend fun resolveWallId(actorProfileId: String) = Result.success("wall-5").also { calls += "wall:$actorProfileId" }
         override suspend fun prepareImage(reference: String) = Result.success(ComposerPreparedMedia(reference, "photo.png", "image/png"))
         override suspend fun prepareVideo(reference: String) = Result.success(ComposerPreparedMedia(reference, "movie.mp4", "video/mp4"))

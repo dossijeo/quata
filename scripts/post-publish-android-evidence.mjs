@@ -10,6 +10,7 @@ import {
   cleanupPostPublishFixture,
   createPostPublishFixture,
   pollPostPublishFixture,
+  selectPostPublishDestinationFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
 
 const CHECK = "POST-PUBLISH-ANDROID-REAL-001";
@@ -49,11 +50,18 @@ try {
   const backend = await publicConfig();
   const credentials = config.credentials.a;
   const session = await login(backend, credentials, `post-publish-android-${randomUUID()}`);
+  const destination = await selectPostPublishDestinationFixture({
+    actorSession: { profileId: session.userId },
+    withDatabase: (callback) => withPg(config, callback),
+  });
   fixture = createPostPublishFixture({
     actorSession: { profileId: session.userId },
     platformLabel: "android",
     runId: randomUUID(),
+    destination,
+    locationLabel: options.mode === "image-location" ? undefined : null,
   });
+  if (options.mode === "image-location") fixture.locationLabel = `Malabo-Centro-${fixture.marker}`;
   localCredentials = join("build-reports", "android", `post-publish-credentials-${randomUUID()}.json`);
   await mkdir(dirname(localCredentials), { recursive: true });
   await writeFile(
@@ -83,6 +91,9 @@ try {
     "-e", "class", "com.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest",
     "-e", "quataPostPublishCredentialsFile", deviceCredentialsPath,
     "-e", "quataPostPublishMarker", fixture.marker,
+    "-e", "quataPostPublishDestinationWallId", fixture.destination.wallId,
+    "-e", "quataPostPublishMode", options.mode,
+    ...(fixture.locationLabel ? ["-e", "quataPostPublishLocationLabel", fixture.locationLabel] : []),
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
   report.instrumentationTail = redactedTail(instrumentationOutput);
@@ -108,6 +119,10 @@ try {
   report.evidence.published = {
     state: "verified_in_database",
     postId: published.postId,
+    wallId: published.wallId,
+    expectedWallId: fixture.destination.wallId,
+    locationLabel: published.locationLabel,
+    expectedLocationLabel: fixture.locationLabel,
     mediaUrls: published.mediaUrls,
   };
   report.cleanup = await cleanupPostPublishFixture({ fixture, withDatabase: (callback) => withPg(config, callback) });
@@ -153,15 +168,18 @@ function parseArgs(args) {
   const parsed = {
     output: join("build-reports", "android", "post-publish-evidence.json"),
     evidenceDir: join("build-reports", "android", "post-publish-evidence"),
+    mode: "text",
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
-    if (!["--out", "--evidence-dir"].includes(key) || !value || value.startsWith("--")) throw new Error("invalid_arguments");
+    if (!["--out", "--evidence-dir", "--mode"].includes(key) || !value || value.startsWith("--")) throw new Error("invalid_arguments");
     index += 1;
     if (key === "--out") parsed.output = value;
     if (key === "--evidence-dir") parsed.evidenceDir = value;
+    if (key === "--mode") parsed.mode = value;
   }
+  if (!["text", "image-location"].includes(parsed.mode)) throw new Error("invalid_mode");
   return parsed;
 }
 

@@ -109,10 +109,14 @@ fun CreatePostScreen(
     onBack: () -> Unit,
     onVideoEditorVisibilityChange: (Boolean) -> Unit = {},
     onUploadStateChange: (Boolean) -> Unit = {},
+    evidenceImageUri: String? = null,
+    evidenceLocationLabel: String? = null,
     viewModel: CreatePostAndroidViewModel = viewModel(
         factory = CreatePostAndroidViewModel.factory(
             repository,
             createPostRootCopyForLanguageTag(Locale.getDefault().toLanguageTag()),
+            initialEvidenceImageUri = evidenceImageUri,
+            initialEvidenceLocationLabel = evidenceLocationLabel,
         ),
     ),
 ) {
@@ -139,7 +143,9 @@ fun CreatePostScreen(
         editedVideoTempUri = null
     }
 
-    fun resolveLocation() {
+    fun resolveLocation(deliver: (String, Double?, Double?) -> Unit = { label, latitude, longitude ->
+        viewModel.onEvent(CreatePostUiEvent.LocationResolved(label, latitude, longitude))
+    }) {
         scope.launch {
             if (permissionService.status(PlatformPermission.Location) != PermissionStatus.Granted &&
                 permissionService.request(PlatformPermission.Location) != PermissionStatus.Granted
@@ -153,9 +159,7 @@ fun CreatePostScreen(
                         }?.takeIf(String::isNotBlank)
                 }.getOrNull()
             } ?: "${location.latitude}, ${location.longitude}"
-            viewModel.onEvent(CreatePostUiEvent.LocationResolved(
-                label, location.latitude, location.longitude,
-            ))
+            deliver(label, location.latitude, location.longitude)
         }
     }
     fun selectImage(uri: Uri?) {
@@ -221,6 +225,7 @@ fun CreatePostScreen(
             resetToken = resetToken,
             cancelUploadToken = cancelUploadToken,
             copy = rootCopy,
+            initialStep = if (evidenceImageUri != null) CreatePostStep.Image else null,
             slots = CreatePostPlatformSlots(
                 pickImage = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 captureImage = { capture(CaptureTarget.Photo) },
@@ -230,6 +235,7 @@ fun CreatePostScreen(
                 editVideo = { state.videoUri?.let(Uri::parse)?.let { videoEditorUri = it } },
                 imagePreview = { uri, modifier -> AsyncImage(uri, context.getString(R.string.composer_selected_image), modifier.fillMaxSize(), contentScale = ContentScale.Crop) },
                 videoPreview = { uri, contain, modifier -> AndroidComposerVideoPreview(uri, contain, modifier) },
+                requestLocation = { resolved -> resolveLocation(resolved) },
                 clearOwnedMedia = ::clearOwnedMedia,
             ),
         )

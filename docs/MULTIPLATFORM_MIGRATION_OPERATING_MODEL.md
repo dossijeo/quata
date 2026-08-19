@@ -154,6 +154,12 @@ explicita y fail-closed. CodeQL usa un gate estable: **Analyze java-kotlin** y
 branch protection exige **CodeQL final security gate** para que PRs docs-only no queden bloqueadas
 por jobs matriciales omitidos.
 
+Una PR preparatoria sin `candidate-final` no debe quedar roja por los gates agregados finales si
+todos los jobs finales afectados fueron `skipped` por la guarda de `candidate-final`. Ese estado
+solo significa "todavia no certificada"; no es GO, no permite merge a `main` y falla cerrado si
+cualquier job final corre, se cancela o produce un resultado distinto de `skipped` antes de la
+promocion.
+
 
 ### Product/Evidence SHA y attestation documental
 
