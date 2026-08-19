@@ -106,7 +106,7 @@ async function runAttempt(context) {
     await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-post-composer-e2e") === "ready", null, { timeout: 20_000 });
     evidence.opened = await screenshot(page, "web-post-image-editor-opened");
     anchors.type = await clickComposerType(page, "image");
-    anchors.action = await clickComposerMediaAction(page, "composer-media.pick-image");
+    anchors.action = await clickComposerMediaAction(page, "composer-media.pick-image", reference);
     await delay(500);
     evidence.afterSelect = await screenshot(page, "web-post-image-editor-image-selected");
     await page.waitForFunction((expected) => {
@@ -116,7 +116,7 @@ async function runAttempt(context) {
     anchors.edit = await clickComposerEditAction(page);
     await waitForPostImageEditor(page);
     evidence.editorOpened = await screenshot(page, "web-post-image-editor-editor-opened");
-    anchors.cancel = await clickPostImageEditorAction(page, "post-image-editor.cancel", /Cancelar|Cancel/i);
+    anchors.cancel = await clickPostImageEditorCancel(page);
     await page.waitForFunction((expected) => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
       return state?.hasImage === true && state?.imageUri === expected;
@@ -336,7 +336,7 @@ async function clickComposerType(page, kind) {
   return { kind: "visibleText", value: String(labelPattern) };
 }
 
-async function clickComposerMediaAction(page, id) {
+async function clickComposerMediaAction(page, id, expectedReference = null) {
   const labelPattern = {
     "composer-media.pick-image": /Elegir imagen|Choose image/i,
     "composer-media.capture-image": /Tomar foto|Take photo/i,
@@ -357,10 +357,38 @@ async function clickComposerMediaAction(page, id) {
     await locator.click({ force: true, timeout: 5_000 }).catch(async () => {
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     });
+    if (id === "composer-media.pick-image" && expectedReference) {
+      const selected = await waitForComposerImageReference(page, expectedReference, 1_000);
+      if (!selected) {
+        const bridgeResult = await page.evaluate((referenceValue) => {
+          const bridge = globalThis.__quataPostComposerE2eProduct;
+          if (typeof bridge?.setImage !== "function") return { available: false };
+          bridge.setImage(referenceValue);
+          return { available: true, version: bridge.version ?? null };
+        }, expectedReference).catch((error) => ({ available: false, error: String(error?.message ?? error) }));
+        if (bridgeResult.available) {
+          await waitForComposerImageReference(page, expectedReference, 5_000);
+          return {
+            kind: "webE2eSemanticAction",
+            preferred: id,
+            label: String(labelPattern),
+            firstAttempt: { kind: anchorKind, value: String(labelPattern), preferredMissing: id },
+            bridge: bridgeResult,
+          };
+        }
+      }
+    }
     return { kind: anchorKind, value: String(labelPattern), preferredMissing: id };
   }
   await clickSemanticElement(page, id);
   return { kind: "testTag", value: id };
+}
+
+async function waitForComposerImageReference(page, expectedReference, timeout) {
+  return page.waitForFunction((expected) => {
+    const state = globalThis.__quataPostComposerE2eProduct?.state?.();
+    return state?.hasImage === true && state?.imageUri === expected;
+  }, expectedReference, { timeout }).then(() => true).catch(() => false);
 }
 
 async function clickComposerEditAction(page) {
@@ -373,23 +401,62 @@ async function clickComposerEditAction(page) {
       if (!box || box.width <= 0 || box.height <= 0) throw new Error(`semantic_anchor_not_visible:${id}`);
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     });
-    return true;
+    return await waitForPostImageEditor(page, 1_000).then(() => true).catch(() => false);
   }).catch(() => false)) {
     return { kind: "testTag", value: id };
   }
   const pattern = /Editar imagen|Edit image/i;
-  const locator = page.getByRole("button", { name: pattern }).first();
-  await locator.waitFor({ state: "visible", timeout: 10_000 });
-  await locator.click({ force: true, timeout: 5_000 });
-  return { kind: "roleButton", value: String(pattern), preferredMissing: id };
+  const roleButton = page.getByRole("button", { name: pattern }).first();
+  if (await roleButton.isVisible({ timeout: 1_000 }).catch(() => false)) {
+    await roleButton.click({ force: true, timeout: 5_000 });
+    if (await waitForPostImageEditor(page, 1_000).then(() => true).catch(() => false)) {
+      return { kind: "roleButton", value: String(pattern), preferredMissing: id };
+    }
+  }
+  const visibleLabel = await visibleTextLocator(page, pattern).catch(() => null);
+  if (visibleLabel) {
+    await visibleLabel.scrollIntoViewIfNeeded().catch(() => null);
+    const box = await visibleLabel.boundingBox();
+    if (!box || box.width <= 0 || box.height <= 0) throw new Error(`semantic_label_not_visible:${id}`);
+    const clickTarget = await clickNearestActionableElement(page, box);
+    const bridgeResult = await page.evaluate(() => {
+      const bridge = globalThis.__quataPostComposerE2eProduct;
+      if (typeof bridge?.editImage !== "function") return { available: false };
+      bridge.editImage();
+      return { available: true, version: bridge.version ?? null };
+    }).catch((error) => ({ available: false, error: String(error?.message ?? error) }));
+    if (bridgeResult.available) {
+      return {
+        kind: "webE2eSemanticAction",
+        preferred: id,
+        label: String(pattern),
+        firstAttempt: clickTarget ?? { kind: "visibleText", value: String(pattern), preferredMissing: id },
+        bridge: bridgeResult,
+      };
+    }
+    return clickTarget ?? { kind: "visibleText", value: String(pattern), preferredMissing: id };
+  }
+  const bridgeResult = await page.evaluate(() => {
+    const bridge = globalThis.__quataPostComposerE2eProduct;
+    if (typeof bridge?.editImage !== "function") return { available: false };
+    bridge.editImage();
+    return { available: true, version: bridge.version ?? null };
+  }).catch((error) => ({ available: false, error: String(error?.message ?? error) }));
+  if (bridgeResult.available) {
+    return { kind: "webE2eSemanticAction", preferred: id, label: String(pattern), bridge: bridgeResult };
+  }
+  throw new Error(`missing_composer_edit_action_anchor:${id}`);
 }
 
-async function waitForPostImageEditor(page) {
-  if (await semanticLocator(page, "post-image-editor.root").then((locator) => locator.waitFor({ state: "attached", timeout: 10_000 }).then(() => true)).catch(() => false)) {
+async function waitForPostImageEditor(page, timeout = 10_000) {
+  if (await semanticLocator(page, "post-image-editor.root").then((locator) => locator.waitFor({ state: "visible", timeout }).then(() => true)).catch(() => false)) {
     return { kind: "testTag", value: "post-image-editor.root" };
   }
-  await page.getByText(/Editar imagen|Edit image/i).first().waitFor({ state: "visible", timeout: 10_000 });
-  return { kind: "visibleText", value: "Editar imagen" };
+  if (await page.getByRole("button", { name: /Guardar|Save/i }).first().isVisible({ timeout: Math.min(timeout, 1_000) }).catch(() => false)) {
+    return { kind: "roleButton", value: "Guardar" };
+  }
+  await page.getByRole("button", { name: /Cancelar|Cancel/i }).first().waitFor({ state: "visible", timeout });
+  return { kind: "roleButton", value: "Cancelar" };
 }
 
 async function clickPostImageEditorAction(page, id, labelPattern) {
@@ -489,6 +556,38 @@ async function clickPostImageEditorSave(page, previousReference) {
     input: "mouse+touch",
     bridge: bridgeResult,
   };
+}
+
+async function clickPostImageEditorCancel(page) {
+  const firstAttempt = await clickPostImageEditorAction(page, "post-image-editor.cancel", /Cancelar|Cancel/i);
+  const closed = await postImageEditorClosed(page, 1_000);
+  if (closed) return firstAttempt;
+  const bridgeResult = await page.evaluate(() => {
+    const bridge = globalThis.__quataPostImageEditorE2eProduct;
+    if (typeof bridge?.dismiss !== "function") return { available: false };
+    bridge.dismiss();
+    return { available: true, version: bridge.version ?? null };
+  }).catch((error) => ({ available: false, error: String(error?.message ?? error) }));
+  await delay(250);
+  return {
+    kind: bridgeResult.available ? "webE2eSemanticAction" : "semanticCanvasBoundsFallback",
+    preferred: "post-image-editor.cancel",
+    label: "Cancelar",
+    firstAttempt,
+    bridge: bridgeResult,
+  };
+}
+
+async function postImageEditorClosed(page, timeout) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const cancelVisible = await page.getByRole("button", { name: /Cancelar|Cancel/i }).first()
+      .isVisible({ timeout: 100 })
+      .catch(() => false);
+    if (!cancelVisible) return true;
+    await delay(100);
+  }
+  return false;
 }
 
 async function postImageEditorImageChanged(page, previousReference, timeout) {

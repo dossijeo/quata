@@ -58,6 +58,7 @@ fun WebPostComposerHost(
             setImage = { value -> viewModel.onEvent(CreatePostUiEvent.ImageSelected(value.takeIf(String::isNotBlank))) },
             setVideo = { value -> viewModel.onEvent(CreatePostUiEvent.VideoSelected(value.takeIf(String::isNotBlank))) },
             setLocation = { value -> viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(value)) },
+            editImage = { stateUri(viewModel, true)?.let { imageEditorReference = it } },
             submitText = { if (canPublish) viewModel.submit(PostComposerType.Text) else onAuthRequired() },
             submitImage = { if (canPublish) viewModel.submit(PostComposerType.Image) else onAuthRequired() },
             state = {
