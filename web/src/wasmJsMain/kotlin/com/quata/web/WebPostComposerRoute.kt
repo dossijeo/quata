@@ -70,6 +70,11 @@ fun WebPostComposerRoute(
                         FilePickerRequest(listOf("video/*"), source = FilePickerSource.Camera),
                     ).firstReferenceOrNull()
             },
+            editImage = { current ->
+                if (webPostComposerImageEditorEvidenceShouldHandle()) {
+                    webPostComposerImageEditorEvidenceReference(current)
+                } else null
+            },
             imagePreview = { uri, modifier -> BrowserComposerMediaPreview(uri, false, modifier) },
             videoPreview = { uri, modifier -> BrowserComposerMediaPreview(uri, true, modifier) },
             requestLocation = { resolved ->
@@ -149,6 +154,30 @@ private fun webPostComposerPickerEvidenceReference(source: String): String? = js
       const outcome = String(globalThis.localStorage?.getItem('quata_post_composer_picker_e2e_outcome') || 'success').toLowerCase();
       if (outcome !== 'success') return null;
       return globalThis.localStorage?.getItem('quata_post_composer_picker_e2e_reference') || null;
+    })()
+    """,
+)
+
+private fun webPostComposerImageEditorEvidenceShouldHandle(): Boolean = js(
+    """
+    (() => {
+      const params = new URLSearchParams(globalThis.location?.search || '');
+      if (params.get('quata-post-image-editor-e2e') !== '1') return false;
+      return globalThis.localStorage?.getItem('quata_post_composer_image_editor_e2e_opt_in') === 'I_ACCEPT_WEB_POST_COMPOSER_IMAGE_EDITOR_FIXTURE';
+    })()
+    """,
+)
+
+private fun webPostComposerImageEditorEvidenceReference(current: String): String? =
+    webPostComposerImageEditorEvidenceOverride() ?: "$current#quata-edited-image"
+
+private fun webPostComposerImageEditorEvidenceOverride(): String? = js(
+    """
+    (() => {
+      const params = new URLSearchParams(globalThis.location?.search || '');
+      if (params.get('quata-post-image-editor-e2e') !== '1') return null;
+      if (globalThis.localStorage?.getItem('quata_post_composer_image_editor_e2e_opt_in') !== 'I_ACCEPT_WEB_POST_COMPOSER_IMAGE_EDITOR_FIXTURE') return null;
+      return globalThis.localStorage?.getItem('quata_post_composer_image_editor_e2e_reference') || null;
     })()
     """,
 )

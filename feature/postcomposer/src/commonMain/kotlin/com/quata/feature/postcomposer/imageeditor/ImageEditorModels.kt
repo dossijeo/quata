@@ -9,6 +9,13 @@ data class ImageEditorOutputSpec(val width: Int, val height: Int) {
 val ImageEditorPostOutputSpec = ImageEditorOutputSpec(width = 1080, height = 1920)
 val ImageEditorAvatarOutputSpec = ImageEditorOutputSpec(width = 1080, height = 1080)
 
+const val PostImageEditorRootTestTag = "post-image-editor.root"
+const val PostImageEditorPreviewTestTag = "post-image-editor.preview"
+const val PostImageEditorResetTestTag = "post-image-editor.reset"
+const val PostImageEditorRotateTestTag = "post-image-editor.rotate"
+const val PostImageEditorCropTestTag = "post-image-editor.crop"
+const val PostImageEditorSaveTestTag = "post-image-editor.save"
+
 /**
  * Platform-neutral editing state for the locked square avatar crop.  The actual bitmap decode
  * and export remain platform work, but keeping this state common makes the editor contract the

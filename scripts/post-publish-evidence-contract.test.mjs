@@ -28,6 +28,13 @@ const androidPickerCameraRunner = readFileSync(new URL("./post-picker-camera-and
 const webPickerCameraRunner = readFileSync(new URL("./post-picker-camera-web-evidence.mjs", import.meta.url), "utf8");
 const iosPickerCameraRunner = readFileSync(new URL("./post-picker-camera-ios-evidence.mjs", import.meta.url), "utf8");
 const iosPickerCameraWrapper = readFileSync(new URL("./run-ios-post-picker-camera-ui-test.sh", import.meta.url), "utf8");
+const androidImageEditorDialog = readFileSync(new URL("../app/src/main/java/com/quata/feature/postcomposer/imageeditor/QuataImageEditorDialog.kt", import.meta.url), "utf8");
+const commonImageEditorModels = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/imageeditor/ImageEditorModels.kt", import.meta.url), "utf8");
+const commonEditorScaffold = readFileSync(new URL("../designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataEditorScaffold.kt", import.meta.url), "utf8");
+const androidImageEditorRunner = readFileSync(new URL("./post-image-editor-android-evidence.mjs", import.meta.url), "utf8");
+const webImageEditorRunner = readFileSync(new URL("./post-image-editor-web-evidence.mjs", import.meta.url), "utf8");
+const iosImageEditorRunner = readFileSync(new URL("./post-image-editor-ios-evidence.mjs", import.meta.url), "utf8");
+const iosImageEditorWrapper = readFileSync(new URL("./run-ios-post-image-editor-ui-test.sh", import.meta.url), "utf8");
 
 test("post publish web runner uses the shared reversible fixture and cleanup", () => {
   assert.match(webRunner, /createPostPublishFixture/);
@@ -219,6 +226,8 @@ test("post picker/camera uses common semantic anchors before platform adapters",
   assert.match(commonCreatePostRoot, /m\.testTag\(ComposerCaptureImageTestTag\)/);
   assert.match(commonCreatePostRoot, /m\.testTag\(ComposerPickVideoTestTag\)/);
   assert.match(commonCreatePostRoot, /m\.testTag\(ComposerCaptureVideoTestTag\)/);
+  assert.match(commonCreatePostRoot, /contentDescription = ComposerSelectedImagePreviewTestTag/);
+  assert.match(commonCreatePostRoot, /contentDescription = ComposerSelectedVideoPreviewTestTag/);
 });
 
 test("post picker/camera evidence is opt-in and does not open native pickers under replay", () => {
@@ -272,4 +281,54 @@ test("ios post picker/camera runner exercises shared UI anchors with no backend 
   assert.match(iosPostPublishTest, /composer-media\.selected-image-preview/);
   assert.doesNotMatch(iosPickerCameraRunner, /community_posts/);
   assert.doesNotMatch(iosPickerCameraRunner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
+});
+
+test("post image editor exposes stable common anchors and Android forwards them to Compose UI", () => {
+  for (const tag of [
+    "post-image-editor.root",
+    "post-image-editor.preview",
+    "post-image-editor.reset",
+    "post-image-editor.rotate",
+    "post-image-editor.crop",
+    "post-image-editor.save",
+  ]) {
+    assert.match(commonImageEditorModels, new RegExp(tag.replace(/[.]/g, "\\.")));
+  }
+  assert.match(androidImageEditorDialog, /Modifier\.testTag\(PostImageEditorRootTestTag\)/);
+  assert.match(androidImageEditorDialog, /\.testTag\(PostImageEditorPreviewTestTag\)/);
+  assert.match(androidImageEditorDialog, /Modifier\.testTag\(PostImageEditorSaveTestTag\)/);
+  assert.match(commonEditorScaffold, /modifier = modifier\.widthIn\(min = 66\.dp\)/);
+});
+
+test("post image editor runners exercise editor anchors without backend mutation", () => {
+  assert.match(androidImageEditorRunner, /POST-IMAGE-EDITOR-ANDROID-REAL-001/);
+  assert.match(androidImageEditorRunner, /authenticatedUserExercisesPostImageEditorFromCommonComposer/);
+  assert.match(androidImageEditorRunner, /quataPostImageEditorEvidence/);
+  assert.match(androidPostPublishTest, /ComposerEditImageTestTag/);
+  assert.match(androidPostPublishTest, /PostImageEditorRootTestTag/);
+  assert.match(androidPostPublishTest, /PostImageEditorSaveTestTag/);
+  assert.match(androidPostPublishTest, /filterToOne\(hasClickAction\(\)\)/);
+
+  assert.match(webImageEditorRunner, /POST-IMAGE-EDITOR-WEB-REAL-001/);
+  assert.match(webImageEditorRunner, /quata-post-image-editor-e2e/);
+  assert.match(webImageEditorRunner, /I_ACCEPT_WEB_POST_COMPOSER_IMAGE_EDITOR_FIXTURE/);
+  assert.match(webImageEditorRunner, /composer-media\.edit-image/);
+  assert.match(webImageEditorRunner, /imageUri === expected/);
+  assert.match(webPostComposerRoute, /editImage =/);
+  assert.match(webPostComposerRoute, /quata_post_composer_image_editor_e2e_opt_in/);
+  assert.match(webPostComposerHost, /put\("imageUri", it\.take\(220\)\)/);
+
+  assert.match(iosImageEditorRunner, /POST-IMAGE-EDITOR-IOS-REAL-001/);
+  assert.match(iosImageEditorRunner, /run-ios-post-image-editor-ui-test\.sh/);
+  assert.match(iosImageEditorRunner, /I_ACCEPT_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE/);
+  assert.match(iosImageEditorWrapper, /testAuthenticatedSessionExercisesPostImageEditorFromCommonComposer/);
+  assert.match(iosImageEditorWrapper, /IOS_POST_IMAGE_EDITOR_UI_GATE_PASSED/);
+  assert.match(iosPostPublishTest, /QUATA_IOS_POST_IMAGE_EDITOR_UI_E2E/);
+  assert.match(iosPostPublishTest, /composer-media\.edit-image/);
+  assert.match(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE/);
+
+  for (const runner of [androidImageEditorRunner, webImageEditorRunner, iosImageEditorRunner]) {
+    assert.doesNotMatch(runner, /community_posts/);
+    assert.doesNotMatch(runner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
+  }
 });

@@ -33,6 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -412,7 +414,9 @@ private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots:
                         actionLabels = defaultComposerPreviewActionLabels(), authorName = copy.author,
                         compact = landscape, backgroundSeed = uri,
                         media = { slots.imagePreview(uri, Modifier.fillMaxSize()) },
-                        modifier = Modifier.testTag(ComposerSelectedImagePreviewTestTag),
+                        modifier = Modifier
+                            .testTag(ComposerSelectedImagePreviewTestTag)
+                            .semantics { contentDescription = ComposerSelectedImagePreviewTestTag },
                     )
                 } ?: ComposerEmptyPreviewContent(copy.preview, copy.imageType, copy.imagePreviewEmpty)
             })
@@ -444,7 +448,9 @@ private fun ColumnScope.CommonVideoComposerForm(state: CreatePostUiState, slots:
                         actionLabels = defaultComposerPreviewActionLabels(), authorName = copy.author,
                         compact = landscape, backgroundSeed = uri,
                         media = { slots.videoPreview(uri, landscape, Modifier.fillMaxSize()) },
-                        modifier = Modifier.testTag(ComposerSelectedVideoPreviewTestTag),
+                        modifier = Modifier
+                            .testTag(ComposerSelectedVideoPreviewTestTag)
+                            .semantics { contentDescription = ComposerSelectedVideoPreviewTestTag },
                     )
                 } ?: ComposerEmptyPreviewContent(copy.preview, copy.videoType, copy.videoPreviewEmpty)
             })

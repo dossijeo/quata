@@ -82,6 +82,34 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         print("IOS_POST_PICKER_CAMERA_UI_GATE_PASSED \(source) \(outcome)")
     }
 
+    func testAuthenticatedSessionExercisesPostImageEditorFromCommonComposer() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_POST_IMAGE_EDITOR_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated post image editor UI gate is opt-in.")
+        }
+        guard environment["QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN"] == "I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE" else {
+            throw XCTSkip("Post image editor replay requires the picker fixture.")
+        }
+        guard environment["QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE_OPT_IN"] == "I_ACCEPT_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE" else {
+            throw XCTSkip("Post image editor fixture replay is opt-in.")
+        }
+
+        let app = openComposer(mode: "image", locationLabel: "")
+        assertSharedComposerSurface(in: app)
+        tapImageType(in: app)
+        tapComposerAction("composer-media.pick-image", in: app)
+        let selectedImagePreview = app.descendants(matching: .any)
+            .matching(identifier: "composer-media.selected-image-preview")
+            .firstMatch
+        XCTAssertTrue(selectedImagePreview.waitForExistence(timeout: 12), "A picker replay must select an image before editing.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-image-selected")
+
+        tapComposerAction("composer-media.edit-image", in: app)
+        XCTAssertTrue(selectedImagePreview.waitForExistence(timeout: 12), "The iOS edit adapter must return to the common selected-image preview.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-after-edit")
+        print("IOS_POST_IMAGE_EDITOR_UI_GATE_PASSED")
+    }
+
     private func selectDestination(_ wallId: String, in app: XCUIApplication) {
         let destination = app.descendants(matching: .any)
             .matching(identifier: "composer-destination-option.\(wallId)")
@@ -114,6 +142,10 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_COMPOSER_PICKER_PATH",
             "QUATA_IOS_POST_COMPOSER_PICKER_NAME",
             "QUATA_IOS_POST_COMPOSER_PICKER_MIME",
+            "QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE_OPT_IN",
+            "QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_PATH",
+            "QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_NAME",
+            "QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_MIME",
         ] {
             if let value = ProcessInfo.processInfo.environment[key], !value.isEmpty {
                 app.launchEnvironment[key] = value

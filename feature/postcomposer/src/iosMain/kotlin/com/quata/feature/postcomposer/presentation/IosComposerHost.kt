@@ -156,7 +156,13 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                     }
                 }
             },
-            editImage = null,
+            editImage = if (iosPostComposerImageEditorEvidenceOptedIn()) {{
+                imageFile?.let { current ->
+                    val edited = iosPostComposerImageEditorEvidenceEditedFile(current)
+                    imageFile = edited
+                    viewModel.onEvent(CreatePostUiEvent.ImageSelected(edited.reference))
+                }
+            }} else null,
             pickVideo = { selectVideo(FilePickerSource.Gallery) },
             captureVideo = { selectVideo(FilePickerSource.Camera) },
             editVideo = null,
@@ -255,6 +261,27 @@ private fun iosPostComposerEvidencePickedFile(source: FilePickerSource): Platfor
             FilePickerSource.Camera -> "image/png"
         }
     return PlatformFile(reference = reference, displayName = name, mimeType = mimeType)
+}
+
+private fun iosPostComposerImageEditorEvidenceOptedIn(): Boolean =
+    NSProcessInfo.processInfo.environment
+        .iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE_OPT_IN") ==
+        "I_ACCEPT_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE"
+
+private fun iosPostComposerImageEditorEvidenceEditedFile(current: PlatformFile): PlatformFile {
+    val environment = NSProcessInfo.processInfo.environment
+    val overridePath = environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_PATH")
+    val reference = overridePath
+        ?.takeIf(String::isNotBlank)
+        ?.let { if (it.startsWith("file://")) it else NSURL.fileURLWithPath(it).absoluteString ?: it }
+        ?: "${current.reference}#quata-edited-image"
+    return PlatformFile(
+        reference = reference,
+        displayName = environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_NAME")
+            ?: "post-image-editor-fixture.png",
+        mimeType = environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_MIME")
+            ?: current.mimeType,
+    )
 }
 
 private fun FilePickerSource.iosPostComposerEvidenceSourceName(): String = when (this) {
