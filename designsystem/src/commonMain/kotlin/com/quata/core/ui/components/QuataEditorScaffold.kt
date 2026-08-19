@@ -84,7 +84,7 @@ fun QuataEditorToolButton(
     val template = quataTheme()
     val alpha = if (enabled) 1f else 0.42f
     val iconColor = if (selected) template.colors.accentContent else template.colors.textPrimary.copy(alpha = alpha)
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(min = 66.dp)) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier.widthIn(min = 66.dp)) {
         Box(
             modifier.size(52.dp, 38.dp).clip(RoundedCornerShape(12.dp))
                 .background(if (selected) template.colors.accent else template.colors.surfaceAlt.copy(alpha = if (enabled) 1f else 0.54f))

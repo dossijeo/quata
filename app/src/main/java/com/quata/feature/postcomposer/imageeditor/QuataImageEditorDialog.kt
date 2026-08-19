@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -138,6 +139,7 @@ fun QuataImageEditorDialog(
         showTitle = !isLandscapeLayout,
         onBack = onDismiss,
         backContentDescription = stringResource(R.string.video_editor_back),
+        modifier = Modifier.testTag(PostImageEditorRootTestTag),
         backEnabled = !isSaving,
         bottomPadding = if (isLandscapeLayout) 0.dp else ImageEditorBottomAir,
         actions = {
@@ -146,6 +148,7 @@ fun QuataImageEditorDialog(
                 QuataEditorToolButton(
                     label = stringResource(R.string.image_editor_reset),
                     enabled = canSave,
+                    modifier = Modifier.testTag(PostImageEditorResetTestTag),
                     onClick = {
                     originalBitmap?.let { original ->
                         bitmap = original
@@ -161,6 +164,7 @@ fun QuataImageEditorDialog(
                 QuataEditorToolButton(
                     label = stringResource(R.string.image_editor_rotate),
                     enabled = canSave,
+                    modifier = Modifier.testTag(PostImageEditorRotateTestTag),
                     onClick = {
                     bitmap = bitmap?.rotateClockwise()
                     zoom = 1f
@@ -176,6 +180,7 @@ fun QuataImageEditorDialog(
                         label = stringResource(if (isCropPanelOpen) R.string.video_editor_crop_done else R.string.video_editor_crop),
                         enabled = canSave,
                         selected = isCropPanelOpen,
+                        modifier = Modifier.testTag(PostImageEditorCropTestTag),
                         onClick = {
                     if (!isCropLocked) {
                         if (isCropPanelOpen) {
@@ -196,6 +201,7 @@ fun QuataImageEditorDialog(
                 QuataEditorToolButton(
                     label = stringResource(R.string.video_editor_export),
                     enabled = canSave,
+                    modifier = Modifier.testTag(PostImageEditorSaveTestTag),
                     onClick = {
                     val source = bitmap ?: return@QuataEditorToolButton
                     val cropToOutputAspect = isCropLocked || isCropPanelOpen || isCropApplied
@@ -244,6 +250,7 @@ fun QuataImageEditorDialog(
                         outputSpec = outputSpec,
                         onPanChange = { pan = it },
                         modifier = Modifier
+                            .testTag(PostImageEditorPreviewTestTag)
                             .weight(1f)
                             .fillMaxHeight()
                     )
@@ -269,10 +276,11 @@ fun QuataImageEditorDialog(
                     isCropPanelOpen = isCropPanelOpen,
                     isCropApplied = isCropApplied,
                     outputSpec = outputSpec,
-                    onPanChange = { pan = it },
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
+                        onPanChange = { pan = it },
+                        modifier = Modifier
+                            .testTag(PostImageEditorPreviewTestTag)
+                            .weight(1f)
+                            .fillMaxWidth()
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 )
 

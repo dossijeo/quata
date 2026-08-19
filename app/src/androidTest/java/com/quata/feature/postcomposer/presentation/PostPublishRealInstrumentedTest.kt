@@ -8,7 +8,10 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
+import androidx.compose.ui.test.filterToOne
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -21,6 +24,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import com.quata.MainActivity
 import com.quata.QuataApp
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorRootTestTag
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorSaveTestTag
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertTrue
@@ -206,6 +211,63 @@ class PostPublishRealInstrumentedTest {
         }
 
         writePickerReport(pickerSource, outcome)
+    }
+
+    @Test
+    fun authenticatedUserExercisesPostImageEditorFromCommonComposer() = runBlocking {
+        val credentialsFile = optionalArgument("quataPostPublishCredentialsFile")
+        assumeTrue(
+            "POST-IMAGE-EDITOR-ANDROID-REAL-001 is opt-in and requires local credentials.",
+            !credentialsFile.isNullOrBlank() && optionalArgument("quataPostImageEditorEvidence") == "1",
+        )
+        val fixturePath = Uri.parse(createImageLocationEvidenceUri()).path ?: error("android_image_fixture_path_missing")
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+
+        suppressStartupPrompts()
+        grantOptionalNotificationPermission()
+        grantOptionalLocationPermission()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password)
+            .getOrThrow()
+
+        ActivityScenario.launch<MainActivity>(
+            mainIntent(
+                pickerSource = "gallery-image",
+                pickerOutcome = "success",
+                pickerPath = fixturePath,
+            ),
+        ).use {
+            compose.waitUntil(45_000) {
+                runCatching { compose.onNodeWithTag(CreatePostCommonRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            saveScreenshot("android-post-image-editor-composer-opened")
+            compose.onNodeWithTag("composer-type-image", useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            compose.onNodeWithTag(ComposerPickImageTestTag, useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            compose.waitUntil(20_000) {
+                runCatching { compose.onNodeWithTag(ComposerSelectedImagePreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            saveScreenshot("android-post-image-editor-image-selected")
+            compose.onNodeWithTag(ComposerEditImageTestTag, useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            compose.waitUntil(20_000) {
+                runCatching { compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            saveScreenshot("android-post-image-editor-opened")
+            compose.onAllNodesWithTag(PostImageEditorSaveTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            compose.waitUntil(30_000) {
+                runCatching { compose.onNodeWithTag(ComposerSelectedImagePreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
+                    runCatching { compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+            }
+            saveScreenshot("android-post-image-editor-saved-preview")
+        }
+
+        writePickerReport("image-editor", "success")
     }
 
     private fun mainIntent(
