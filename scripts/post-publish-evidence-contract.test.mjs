@@ -20,6 +20,7 @@ const commonLocationSection = readFileSync(new URL("../feature/postcomposer/src/
 const commonLocationEditor = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerLocationTextEditorContent.kt", import.meta.url), "utf8");
 const commonComposerRepository = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/data/ActorBoundPostComposerRepository.kt", import.meta.url), "utf8");
 const commonFailOnceComposerRepository = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/data/FailOncePostComposerRepository.kt", import.meta.url), "utf8");
+const commonFailAfterUploadTransport = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/data/FailInsertAfterUploadComposerTransport.kt", import.meta.url), "utf8");
 const commonSubmissionFeedback = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerSubmissionFeedbackContent.kt", import.meta.url), "utf8");
 const iosComposerHost = readFileSync(new URL("../feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosComposerHost.kt", import.meta.url), "utf8");
 const iosApp = readFileSync(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
@@ -86,6 +87,30 @@ test("post progress rollback evidence uses a shared fail-once repository and com
   assert.match(iosRunner, /--fail-once/);
   assert.match(iosWrapper, /QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE/);
   assert.match(iosPostPublishTest, /waitForRetryAndTap/);
+});
+
+test("post storage rollback evidence forces a post-upload failure and verifies shared Storage cleanup", () => {
+  assert.match(commonFailAfterUploadTransport, /class FailInsertAfterUploadComposerTransport/);
+  assert.match(commonFailAfterUploadTransport, /request\.imageUrl != null \|\| request\.videoUrl != null/);
+  assert.match(commonFailAfterUploadTransport, /post_composer_e2e_forced_insert_after_upload_failure/);
+  assert.match(sharedFixtures, /snapshotPostImageStorageObjects/);
+  assert.match(sharedFixtures, /waitForPostImageStorageRollback/);
+  assert.match(sharedFixtures, /cleanupPostPublishStorageObjects/);
+  assert.match(sharedFixtures, /bucket_id = 'community-posts'/);
+  assert.match(webPostComposerRoute, /quata-post-storage-rollback-e2e/);
+  assert.match(webPostComposerRoute, /FailInsertAfterUploadComposerTransport/);
+  assert.match(webRunner, /--fail-after-upload/);
+  assert.match(webRunner, /quata_post_storage_rollback_fail_after_upload/);
+  assert.match(webRunner, /fail_after_upload_requires_image_location_mode/);
+  assert.match(androidRunner, /--fail-after-upload/);
+  assert.match(androidRunner, /quataPostStorageRollbackFailAfterUpload/);
+  assert.match(androidPostPublishTest, /android-post-storage-rollback-after-error/);
+  assert.match(mainActivity, /POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE/);
+  assert.match(iosRunner, /--fail-after-upload/);
+  assert.match(iosRunner, /QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD/);
+  assert.match(iosWrapper, /QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD/);
+  assert.match(iosApp, /FailInsertAfterUploadComposerTransport/);
+  assert.match(iosPostPublishTest, /ios-post-storage-rollback-after-error/);
 });
 
 test("web composer submit uses a localhost opt-in bridge without replacing common UI state", () => {

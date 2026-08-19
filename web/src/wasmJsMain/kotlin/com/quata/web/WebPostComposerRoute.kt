@@ -21,6 +21,7 @@ import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PermissionStatus
 import com.quata.feature.postcomposer.data.ActorBoundPostComposerRepository
+import com.quata.feature.postcomposer.data.FailInsertAfterUploadComposerTransport
 import com.quata.feature.postcomposer.data.FailOncePostComposerRepository
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
@@ -39,7 +40,14 @@ fun WebPostComposerRoute(
     val scope = rememberCoroutineScope()
     WebPostComposerHost(
         repository = remember(runtimeConfiguration, authRepository) {
-            val real = ActorBoundPostComposerRepository(WebPostComposerTransport(runtimeConfiguration, authRepository))
+            val transport = WebPostComposerTransport(runtimeConfiguration, authRepository).let { base ->
+                if (webPostComposerStorageRollbackEvidenceShouldFailAfterUpload()) {
+                    FailInsertAfterUploadComposerTransport(base)
+                } else {
+                    base
+                }
+            }
+            val real = ActorBoundPostComposerRepository(transport)
             if (webPostComposerProgressRollbackEvidenceShouldFailOnce()) {
                 FailOncePostComposerRepository(real)
             } else {
@@ -152,6 +160,18 @@ private fun webPostComposerProgressRollbackEvidenceShouldFailOnce(): Boolean = j
       return local &&
         params.get('quata-post-progress-rollback-e2e') === '1' &&
         globalThis.localStorage?.getItem('quata_post_progress_rollback_fail_once') === '1';
+    })()
+    """,
+)
+
+private fun webPostComposerStorageRollbackEvidenceShouldFailAfterUpload(): Boolean = js(
+    """
+    (() => {
+      const local = globalThis.location?.hostname === 'localhost' || globalThis.location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(globalThis.location?.search || '');
+      return local &&
+        params.get('quata-post-storage-rollback-e2e') === '1' &&
+        globalThis.localStorage?.getItem('quata_post_storage_rollback_fail_after_upload') === '1';
     })()
     """,
 )

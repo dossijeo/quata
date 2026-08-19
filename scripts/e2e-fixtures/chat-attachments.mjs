@@ -1053,6 +1053,104 @@ export async function cleanupPostPublishFixture({
   });
 }
 
+export async function snapshotPostImageStorageObjects({
+  actorSession,
+  withDatabase,
+}) {
+  if (!uuid.test(actorSession?.profileId ?? "")) throw new Error("post_image_storage_snapshot_invalid_actor");
+  return await withDatabase(async (client) => {
+    const result = await client.query(
+      `select name
+         from storage.objects
+        where bucket_id = 'community-posts'
+          and name like $1
+        order by name`,
+      [`${actorSession.profileId}/%`],
+    );
+    return result.rows.map((row) => row.name).filter(Boolean);
+  });
+}
+
+export function diffPostImageStorageObjects(before, after) {
+  const previous = new Set(before ?? []);
+  return [...new Set(after ?? [])].filter((name) => !previous.has(name)).sort();
+}
+
+export async function waitForPostImageStorageRollback({
+  actorSession,
+  before,
+  withDatabase,
+  delay,
+  timeout = 30_000,
+}) {
+  const deadline = Date.now() + timeout;
+  let lastNewObjects = [];
+  while (Date.now() < deadline) {
+    const current = await snapshotPostImageStorageObjects({ actorSession, withDatabase });
+    lastNewObjects = diffPostImageStorageObjects(before, current);
+    if (lastNewObjects.length === 0) {
+      return { status: "post_image_storage_rollback_verified", newObjectsAfterRollback: [] };
+    }
+    await delay(1_000);
+  }
+  throw new Error(`post_image_storage_rollback_residue:${lastNewObjects.join(",")}`);
+}
+
+export function postImageStoragePathFromPublicUrl(url) {
+  const value = String(url ?? "");
+  const marker = "/storage/v1/object/public/community-posts/";
+  const index = value.indexOf(marker);
+  if (index < 0) return null;
+  const path = value.slice(index + marker.length).split(/[?#]/, 1)[0];
+  return path ? decodeURIComponent(path) : null;
+}
+
+export async function deletePostImageStorageObject({
+  backend,
+  accessToken,
+  storagePath,
+}) {
+  if (!backend?.url || !backend?.key) throw new Error("post_image_storage_delete_backend_missing");
+  if (!accessToken) throw new Error("post_image_storage_delete_access_token_missing");
+  if (!storagePath || storagePath.includes("..")) throw new Error("post_image_storage_delete_path_invalid");
+  const response = await fetch(`${backend.url}/storage/v1/object/community-posts`, {
+    method: "DELETE",
+    headers: {
+      apikey: backend.key,
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ prefixes: [storagePath] }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const text = await response.text().catch(() => "");
+  if (!response.ok) throw new Error(`post_image_storage_delete_failed:${response.status}:${text.slice(0, 180)}`);
+  return { storagePath, status: response.status };
+}
+
+export async function cleanupPostPublishStorageObjects({
+  backend,
+  accessToken,
+  mediaUrls = [],
+}) {
+  const paths = [...new Set(mediaUrls.map(postImageStoragePathFromPublicUrl).filter(Boolean))];
+  const deleted = [];
+  const errors = [];
+  for (const storagePath of paths) {
+    try {
+      deleted.push(await deletePostImageStorageObject({ backend, accessToken, storagePath }));
+    } catch (error) {
+      errors.push({ storagePath, error: String(error?.message ?? error).slice(0, 240) });
+    }
+  }
+  if (errors.length) {
+    const failure = new Error("post_publish_storage_cleanup_failed");
+    failure.details = { deleted, errors };
+    throw failure;
+  }
+  return { deleted };
+}
+
 export async function cleanupProfileRolesSafetyFixture({
   fixture,
   withDatabase,

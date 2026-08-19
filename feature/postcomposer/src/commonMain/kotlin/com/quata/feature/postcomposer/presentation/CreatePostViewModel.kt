@@ -6,6 +6,7 @@ import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -122,7 +123,8 @@ class CreatePostViewModel(
         val state = _uiState.value
         val destination = state.selectedDestination
         _uiState.value = state.copy(isLoading = true, error = null, successMessage = null)
-        submitJob = scope.launch {
+        lateinit var runningJob: Job
+        runningJob = scope.launch(start = CoroutineStart.LAZY) {
             try {
                 repository.createPost(
                     PostComposerDraft(
@@ -138,6 +140,9 @@ class CreatePostViewModel(
                         destinationLabel = destination?.label,
                     )
                 )
+                    .also {
+                        if (submitJob === runningJob) submitJob = null
+                    }
                     .onSuccess { postId ->
                         _uiState.value = CreatePostUiState(
                             destinations = state.destinations,
@@ -158,9 +163,11 @@ class CreatePostViewModel(
                         }
                     }
             } finally {
-                submitJob = null
+                if (submitJob === runningJob) submitJob = null
             }
         }
+        submitJob = runningJob
+        runningJob.start()
     }
 
     fun cancelSubmit() {

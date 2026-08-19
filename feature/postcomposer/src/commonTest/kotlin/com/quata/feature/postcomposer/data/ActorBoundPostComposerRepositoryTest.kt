@@ -96,6 +96,22 @@ class ActorBoundPostComposerRepositoryTest {
     }
 
     @Test
+    fun failAfterUploadDecoratorExercisesRollbackOnceThenAllowsRetry() = runTest {
+        val transport = RecordingTransport()
+        val repository = ActorBoundPostComposerRepository(FailInsertAfterUploadComposerTransport(transport))
+        val draft = PostComposerDraft(type = PostComposerType.Image, imageUri = "file:///photo.png")
+
+        val first = repository.createPost(draft)
+        val second = repository.createPost(draft)
+
+        assertFalse(first.isSuccess)
+        assertEquals("post_composer_e2e_forced_insert_after_upload_failure", first.exceptionOrNull()?.message)
+        assertEquals("post-db-9", second.getOrThrow())
+        assertEquals(1, transport.calls.count { it == "rollback:storage:actor-7/img-1.png" })
+        assertEquals(1, transport.calls.count { it == "insert:wall-5:actor-7" })
+    }
+
+    @Test
     fun cancellationIsRethrownAfterRollbackAndTemporaryRelease() = runTest {
         val transport = RecordingTransport(insertFailure = CancellationException("cancelled"))
 

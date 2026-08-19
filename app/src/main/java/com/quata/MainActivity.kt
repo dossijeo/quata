@@ -58,6 +58,7 @@ import com.quata.feature.externalshare.ExternalShareIntentParser
 import com.quata.feature.externalshare.ExternalShareParseResult
 import com.quata.feature.externalshare.ExternalSharePayload
 import com.quata.feature.externalshare.ShareTargetAvailability
+import com.quata.feature.postcomposer.data.PostComposerEvidenceFaults
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -112,12 +113,18 @@ class MainActivity : ComponentActivity() {
                 ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
             val postProgressRollbackFailOnceForEvidence = BuildConfig.DEBUG &&
                 intent?.getBooleanExtra(EXTRA_POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE, false) == true
+            val postStorageRollbackFailAfterUploadForEvidence = BuildConfig.DEBUG &&
+                intent?.getBooleanExtra(EXTRA_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE, false) == true
+            if (postStorageRollbackFailAfterUploadForEvidence) {
+                PostComposerEvidenceFaults.requestFailInsertAfterUploadOnce()
+            }
             intent?.removeExtra(EXTRA_POST_PUBLISH_EVIDENCE_IMAGE_URI)
             intent?.removeExtra(EXTRA_POST_PUBLISH_EVIDENCE_LOCATION_LABEL)
             intent?.removeExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_SOURCE)
             intent?.removeExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_OUTCOME)
             intent?.removeExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_PATH)
             intent?.removeExtra(EXTRA_POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE)
+            intent?.removeExtra(EXTRA_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE)
             handleIncomingIntent(intent)
             AndroidStartupDiagnostics.mark("mainActivity.hostsAttached")
 
@@ -256,6 +263,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_POST_COMPOSER_PICKER_EVIDENCE_OUTCOME = "com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_OUTCOME"
         const val EXTRA_POST_COMPOSER_PICKER_EVIDENCE_PATH = "com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_PATH"
         const val EXTRA_POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE = "com.quata.extra.POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE"
+        const val EXTRA_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE = "com.quata.extra.POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE"
     }
 
 }

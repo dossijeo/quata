@@ -105,6 +105,9 @@ class PostComposerRepositoryImpl(
         }
 
         runCatching {
+            if (PostComposerEvidenceFaults.consumeFailInsertAfterUploadOnce() && (imageUrl != null || videoUrl != null)) {
+                error("post_composer_e2e_forced_insert_after_upload_failure")
+            }
             supabaseApi.createPost(
                 wallId = wallId,
                 profileId = session.userId,
