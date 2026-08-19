@@ -109,6 +109,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                 ?.let { PlatformFile(it, "post-publish-evidence-image.png", "image/png") },
         )
     }
+    var videoFile by remember { mutableStateOf<PlatformFile?>(null) }
     var videoThumbnail by remember { mutableStateOf<PlatformFile?>(null) }
 
     fun releaseVideoThumbnail() {
@@ -120,6 +121,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             filePicker.pick(FilePickerRequest(listOf("video/*"), source = source))
                 .composerSelectedFileOrNull()?.let { file ->
                     releaseVideoThumbnail()
+                    videoFile = file
                     viewModel.onEvent(CreatePostUiEvent.VideoSelected(file.reference))
                     videoThumbnail = (dependencies.videoThumbnails.createThumbnail(file).toIosComposerVideoPreview() as? IosComposerVideoPreview.Thumbnail)?.file
                 }
@@ -165,7 +167,13 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             }} else null,
             pickVideo = { selectVideo(FilePickerSource.Gallery) },
             captureVideo = { selectVideo(FilePickerSource.Camera) },
-            editVideo = null,
+            editVideo = if (iosPostComposerVideoEditorEvidenceOptedIn()) {{
+                videoFile?.let { current ->
+                    val edited = iosPostComposerVideoEditorEvidenceEditedFile(current)
+                    videoFile = edited
+                    viewModel.onEvent(CreatePostUiEvent.VideoSelected(edited.reference))
+                }
+            }} else null,
             imagePreview = { _, modifier -> imageFile?.let { IosComposerLocalImagePreview(it, modifier) } },
             videoPreview = { _, _, modifier -> videoThumbnail?.let { IosComposerLocalImagePreview(it, modifier) } },
             requestLocation = { resolved ->
@@ -280,6 +288,27 @@ private fun iosPostComposerImageEditorEvidenceEditedFile(current: PlatformFile):
         displayName = environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_NAME")
             ?: "post-image-editor-fixture.png",
         mimeType = environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_MIME")
+            ?: current.mimeType,
+    )
+}
+
+private fun iosPostComposerVideoEditorEvidenceOptedIn(): Boolean =
+    NSProcessInfo.processInfo.environment
+        .iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE_OPT_IN") ==
+        "I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE"
+
+private fun iosPostComposerVideoEditorEvidenceEditedFile(current: PlatformFile): PlatformFile {
+    val environment = NSProcessInfo.processInfo.environment
+    val overridePath = environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_PATH")
+    val reference = overridePath
+        ?.takeIf(String::isNotBlank)
+        ?.let { if (it.startsWith("file://")) it else NSURL.fileURLWithPath(it).absoluteString ?: it }
+        ?: "${current.reference}#quata-edited-video"
+    return PlatformFile(
+        reference = reference,
+        displayName = environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_NAME")
+            ?: "post-video-editor-fixture.mp4",
+        mimeType = environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_MIME")
             ?: current.mimeType,
     )
 }

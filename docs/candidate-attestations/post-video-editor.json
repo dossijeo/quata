@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-VIDEO-EDITOR"
+  ],
+  "productSha": "c64164560b620fcbb0161fdfd61f9b497fda103b",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "c64164560b620fcbb0161fdfd61f9b497fda103b",
+      "report": "build-reports/web/post-video-editor-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "c64164560b620fcbb0161fdfd61f9b497fda103b",
+      "report": "build-reports/android/post-video-editor-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "c64164560b620fcbb0161fdfd61f9b497fda103b",
+      "report": "build-reports/ios/post-video-editor-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate reduces POST-VIDEO-EDITOR through common CreatePostRoot media edit anchors and common selected video preview semantics. Android exercises the real QuataVideoEditor dialog from the common composer with a real MP4 fixture, timeline, mute and export. Web/Wasm and iOS use explicit local opt-in edit adapters to validate the shared action and state roundtrip without backend mutation while full native/web video crop/export parity remains documented as a limit.",
+    "The unit keeps video evidence reversible and local-only: no Supabase data mutation is performed by the Web, Android or iOS POST-VIDEO-EDITOR evidence runners."
+  ]
+}

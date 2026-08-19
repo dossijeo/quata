@@ -51,6 +51,7 @@ fun WebPostComposerHost(
         val uninstall = installWebPostComposerE2eBridge(
             setText = { value -> viewModel.onEvent(CreatePostUiEvent.TextChanged(value)) },
             setImage = { value -> viewModel.onEvent(CreatePostUiEvent.ImageSelected(value.takeIf(String::isNotBlank))) },
+            setVideo = { value -> viewModel.onEvent(CreatePostUiEvent.VideoSelected(value.takeIf(String::isNotBlank))) },
             setLocation = { value -> viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(value)) },
             submitText = { if (canPublish) viewModel.submit(PostComposerType.Text) else onAuthRequired() },
             submitImage = { if (canPublish) viewModel.submit(PostComposerType.Image) else onAuthRequired() },

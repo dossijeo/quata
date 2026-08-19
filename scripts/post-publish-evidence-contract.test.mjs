@@ -35,6 +35,12 @@ const androidImageEditorRunner = readFileSync(new URL("./post-image-editor-andro
 const webImageEditorRunner = readFileSync(new URL("./post-image-editor-web-evidence.mjs", import.meta.url), "utf8");
 const iosImageEditorRunner = readFileSync(new URL("./post-image-editor-ios-evidence.mjs", import.meta.url), "utf8");
 const iosImageEditorWrapper = readFileSync(new URL("./run-ios-post-image-editor-ui-test.sh", import.meta.url), "utf8");
+const androidVideoEditorDialog = readFileSync(new URL("../app/src/main/java/com/quata/feature/postcomposer/videoeditor/QuataVideoEditor.kt", import.meta.url), "utf8");
+const commonVideoEditorModels = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/videoeditor/VideoEditorModels.kt", import.meta.url), "utf8");
+const androidVideoEditorRunner = readFileSync(new URL("./post-video-editor-android-evidence.mjs", import.meta.url), "utf8");
+const webVideoEditorRunner = readFileSync(new URL("./post-video-editor-web-evidence.mjs", import.meta.url), "utf8");
+const iosVideoEditorRunner = readFileSync(new URL("./post-video-editor-ios-evidence.mjs", import.meta.url), "utf8");
+const iosVideoEditorWrapper = readFileSync(new URL("./run-ios-post-video-editor-ui-test.sh", import.meta.url), "utf8");
 
 test("post publish web runner uses the shared reversible fixture and cleanup", () => {
   assert.match(webRunner, /createPostPublishFixture/);
@@ -63,6 +69,7 @@ test("web composer submit uses a localhost opt-in bridge without replacing commo
   assert.match(webPostComposerHost, /installWebPostComposerE2eBridge/);
   assert.match(webPostComposerHost, /CreatePostUiEvent\.TextChanged/);
   assert.match(webPostComposerHost, /CreatePostUiEvent\.ImageSelected/);
+  assert.match(webPostComposerHost, /CreatePostUiEvent\.VideoSelected/);
   assert.match(webPostComposerHost, /CreatePostUiEvent\.LocationLabelChanged/);
   assert.match(webPostComposerHost, /viewModel\.submit\(PostComposerType\.Text\)/);
   assert.match(webPostComposerHost, /viewModel\.submit\(PostComposerType\.Image\)/);
@@ -73,6 +80,7 @@ test("web composer submit uses a localhost opt-in bridge without replacing commo
   assert.match(webPostComposerBridge, /__quataPostComposerE2eProduct/);
   assert.match(webPostComposerBridge, /setText:/);
   assert.match(webPostComposerBridge, /setImage:/);
+  assert.match(webPostComposerBridge, /setVideo:/);
   assert.match(webPostComposerBridge, /setLocation:/);
   assert.match(webPostComposerBridge, /submitImage:/);
   assert.match(webPostComposerBridge, /state:/);
@@ -328,6 +336,61 @@ test("post image editor runners exercise editor anchors without backend mutation
   assert.match(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE/);
 
   for (const runner of [androidImageEditorRunner, webImageEditorRunner, iosImageEditorRunner]) {
+    assert.doesNotMatch(runner, /community_posts/);
+    assert.doesNotMatch(runner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
+  }
+});
+
+test("post video editor exposes stable common anchors and Android forwards them to Compose UI", () => {
+  for (const tag of [
+    "post-video-editor.root",
+    "post-video-editor.preview",
+    "post-video-editor.mute",
+    "post-video-editor.crop",
+    "post-video-editor.captions",
+    "post-video-editor.export",
+    "post-video-editor.timeline",
+    "post-video-editor.play-pause",
+  ]) {
+    assert.match(commonVideoEditorModels, new RegExp(tag.replace(/[.]/g, "\\.")));
+  }
+  assert.match(androidVideoEditorDialog, /Modifier\.testTag\(PostVideoEditorRootTestTag\)/);
+  assert.match(androidVideoEditorDialog, /PostVideoEditorPreviewTestTag/);
+  assert.match(androidVideoEditorDialog, /PostVideoEditorTimelineTestTag/);
+  assert.match(androidVideoEditorDialog, /PostVideoEditorExportTestTag/);
+});
+
+test("post video editor runners exercise editor anchors without backend mutation", () => {
+  assert.match(androidVideoEditorRunner, /POST-VIDEO-EDITOR-ANDROID-REAL-001/);
+  assert.match(androidVideoEditorRunner, /authenticatedUserExercisesPostVideoEditorFromCommonComposer/);
+  assert.match(androidVideoEditorRunner, /quataPostVideoEditorEvidence/);
+  assert.match(androidVideoEditorRunner, /sample-video-vertical\.mp4/);
+  assert.match(androidPostPublishTest, /ComposerEditVideoTestTag/);
+  assert.match(androidPostPublishTest, /PostVideoEditorRootTestTag/);
+  assert.match(androidPostPublishTest, /PostVideoEditorExportTestTag/);
+  assert.match(androidPostPublishTest, /onAllNodesWithTag\(PostVideoEditorMuteTestTag/);
+  assert.match(androidPostPublishTest, /onAllNodesWithTag\(PostVideoEditorExportTestTag/);
+
+  assert.match(webVideoEditorRunner, /POST-VIDEO-EDITOR-WEB-REAL-001/);
+  assert.match(webVideoEditorRunner, /quata-post-video-editor-e2e/);
+  assert.match(webVideoEditorRunner, /I_ACCEPT_WEB_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
+  assert.match(webVideoEditorRunner, /composer-media\.edit-video/);
+  assert.match(webVideoEditorRunner, /localhostProductBridge/);
+  assert.match(webVideoEditorRunner, /videoUri === expected/);
+  assert.match(webPostComposerRoute, /editVideo =/);
+  assert.match(webPostComposerRoute, /quata_post_composer_video_editor_e2e_opt_in/);
+  assert.match(webPostComposerHost, /put\("videoUri", it\.take\(220\)\)/);
+
+  assert.match(iosVideoEditorRunner, /POST-VIDEO-EDITOR-IOS-REAL-001/);
+  assert.match(iosVideoEditorRunner, /run-ios-post-video-editor-ui-test\.sh/);
+  assert.match(iosVideoEditorRunner, /I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
+  assert.match(iosVideoEditorWrapper, /testAuthenticatedSessionExercisesPostVideoEditorFromCommonComposer/);
+  assert.match(iosVideoEditorWrapper, /IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED/);
+  assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_UI_E2E/);
+  assert.match(iosPostPublishTest, /composer-media\.edit-video/);
+  assert.match(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
+
+  for (const runner of [androidVideoEditorRunner, webVideoEditorRunner, iosVideoEditorRunner]) {
     assert.doesNotMatch(runner, /community_posts/);
     assert.doesNotMatch(runner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
   }

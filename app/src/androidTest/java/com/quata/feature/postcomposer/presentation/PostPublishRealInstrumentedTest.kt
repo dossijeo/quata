@@ -26,6 +26,11 @@ import com.quata.MainActivity
 import com.quata.QuataApp
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorRootTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorSaveTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorMuteTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorPreviewTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorRootTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorTimelineTestTag
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertTrue
@@ -268,6 +273,71 @@ class PostPublishRealInstrumentedTest {
         }
 
         writePickerReport("image-editor", "success")
+    }
+
+    @Test
+    fun authenticatedUserExercisesPostVideoEditorFromCommonComposer() = runBlocking {
+        val credentialsFile = optionalArgument("quataPostPublishCredentialsFile")
+        val fixturePath = optionalArgument("quataPostVideoEditorFixturePath")
+        assumeTrue(
+            "POST-VIDEO-EDITOR-ANDROID-REAL-001 is opt-in and requires local credentials plus a valid MP4 fixture.",
+            !credentialsFile.isNullOrBlank() &&
+                optionalArgument("quataPostVideoEditorEvidence") == "1" &&
+                !fixturePath.isNullOrBlank(),
+        )
+        require(File(fixturePath.orEmpty()).isFile) { "android_video_fixture_missing:$fixturePath" }
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+
+        suppressStartupPrompts()
+        grantOptionalNotificationPermission()
+        grantOptionalLocationPermission()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password)
+            .getOrThrow()
+
+        ActivityScenario.launch<MainActivity>(
+            mainIntent(
+                pickerSource = "gallery-video",
+                pickerOutcome = "success",
+                pickerPath = fixturePath,
+            ),
+        ).use {
+            compose.waitUntil(45_000) {
+                runCatching { compose.onNodeWithTag(CreatePostCommonRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            saveScreenshot("android-post-video-editor-composer-opened")
+            compose.onNodeWithTag("composer-type-video", useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            compose.onNodeWithTag(ComposerPickVideoTestTag, useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            compose.waitUntil(20_000) {
+                runCatching { compose.onNodeWithTag(ComposerSelectedVideoPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            saveScreenshot("android-post-video-editor-video-selected")
+            compose.onNodeWithTag(ComposerEditVideoTestTag, useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            compose.waitUntil(30_000) {
+                runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            compose.onNodeWithTag(PostVideoEditorPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode()
+            compose.onNodeWithTag(PostVideoEditorTimelineTestTag, useUnmergedTree = true).fetchSemanticsNode()
+            compose.onAllNodesWithTag(PostVideoEditorMuteTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            saveScreenshot("android-post-video-editor-opened")
+            compose.onAllNodesWithTag(PostVideoEditorExportTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            compose.waitUntil(120_000) {
+                runCatching { compose.onNodeWithTag(ComposerSelectedVideoPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
+                    runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+            }
+            saveScreenshot("android-post-video-editor-exported-preview")
+        }
+
+        writePickerReport("video-editor", "success")
     }
 
     private fun mainIntent(
