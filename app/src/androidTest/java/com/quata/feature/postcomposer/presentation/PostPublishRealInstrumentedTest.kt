@@ -293,11 +293,11 @@ class PostPublishRealInstrumentedTest {
                 runCatching { compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
             saveScreenshot("android-post-image-editor-opened")
-            compose.onNodeWithTag(PostImageEditorRotateTestTag, useUnmergedTree = true)
-                .performScrollTo()
+            compose.onAllNodesWithTag(PostImageEditorRotateTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
                 .performClick()
-            compose.onNodeWithTag(PostImageEditorResetTestTag, useUnmergedTree = true)
-                .performScrollTo()
+            compose.onAllNodesWithTag(PostImageEditorResetTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
                 .performClick()
             compose.onAllNodesWithTag(PostImageEditorSaveTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
