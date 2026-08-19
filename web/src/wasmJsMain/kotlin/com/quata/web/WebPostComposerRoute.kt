@@ -75,6 +75,11 @@ fun WebPostComposerRoute(
                     webPostComposerImageEditorEvidenceReference(current)
                 } else null
             },
+            editVideo = { current ->
+                if (webPostComposerVideoEditorEvidenceShouldHandle()) {
+                    webPostComposerVideoEditorEvidenceReference(current)
+                } else null
+            },
             imagePreview = { uri, modifier -> BrowserComposerMediaPreview(uri, false, modifier) },
             videoPreview = { uri, modifier -> BrowserComposerMediaPreview(uri, true, modifier) },
             requestLocation = { resolved ->
@@ -178,6 +183,30 @@ private fun webPostComposerImageEditorEvidenceOverride(): String? = js(
       if (params.get('quata-post-image-editor-e2e') !== '1') return null;
       if (globalThis.localStorage?.getItem('quata_post_composer_image_editor_e2e_opt_in') !== 'I_ACCEPT_WEB_POST_COMPOSER_IMAGE_EDITOR_FIXTURE') return null;
       return globalThis.localStorage?.getItem('quata_post_composer_image_editor_e2e_reference') || null;
+    })()
+    """,
+)
+
+private fun webPostComposerVideoEditorEvidenceShouldHandle(): Boolean = js(
+    """
+    (() => {
+      const params = new URLSearchParams(globalThis.location?.search || '');
+      if (params.get('quata-post-video-editor-e2e') !== '1') return false;
+      return globalThis.localStorage?.getItem('quata_post_composer_video_editor_e2e_opt_in') === 'I_ACCEPT_WEB_POST_COMPOSER_VIDEO_EDITOR_FIXTURE';
+    })()
+    """,
+)
+
+private fun webPostComposerVideoEditorEvidenceReference(current: String): String? =
+    webPostComposerVideoEditorEvidenceOverride() ?: "$current#quata-edited-video"
+
+private fun webPostComposerVideoEditorEvidenceOverride(): String? = js(
+    """
+    (() => {
+      const params = new URLSearchParams(globalThis.location?.search || '');
+      if (params.get('quata-post-video-editor-e2e') !== '1') return null;
+      if (globalThis.localStorage?.getItem('quata_post_composer_video_editor_e2e_opt_in') !== 'I_ACCEPT_WEB_POST_COMPOSER_VIDEO_EDITOR_FIXTURE') return null;
+      return globalThis.localStorage?.getItem('quata_post_composer_video_editor_e2e_reference') || null;
     })()
     """,
 )

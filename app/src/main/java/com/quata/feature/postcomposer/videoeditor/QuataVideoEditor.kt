@@ -111,6 +111,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -602,18 +603,21 @@ fun QuataVideoEditorDialog(
         showTitle = !isLandscapeLayout,
         onBack = ::requestBack,
         backContentDescription = stringResource(R.string.video_editor_back),
+        modifier = Modifier.testTag(PostVideoEditorRootTestTag),
         actions = {
             if (!isExporting) {
                 QuataEditorToolButton(
                     label = stringResource(if (isMuted) R.string.video_editor_unmute else R.string.video_editor_mute),
                     enabled = true,
-                    onClick = { isMuted = !isMuted }
+                    onClick = { isMuted = !isMuted },
+                    modifier = Modifier.testTag(PostVideoEditorMuteTestTag),
                 ) {
                     CompactIcon(if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
                 }
                 QuataEditorToolButton(
                     label = stringResource(if (isCropPanelOpen) R.string.video_editor_crop_done else R.string.video_editor_crop),
                     enabled = true,
+                    modifier = Modifier.testTag(PostVideoEditorCropTestTag),
                     onClick = {
                     isCaptionPanelOpen = false
                     isCropPanelOpen = !isCropPanelOpen
@@ -625,6 +629,7 @@ fun QuataVideoEditorDialog(
                     label = stringResource(if (isCaptionPanelOpen) R.string.video_editor_captions_done else R.string.video_editor_captions),
                     enabled = true,
                     selected = captionStyle != null,
+                    modifier = Modifier.testTag(PostVideoEditorCaptionsTestTag),
                     onClick = {
                     isCropPanelOpen = false
                     isCaptionPanelOpen = !isCaptionPanelOpen
@@ -636,6 +641,7 @@ fun QuataVideoEditorDialog(
                     label = stringResource(R.string.video_editor_export),
                     enabled = true,
                     onClick = ::export,
+                    modifier = Modifier.testTag(PostVideoEditorExportTestTag),
                 ) {
                     CompactIcon(Icons.Filled.Save, contentDescription = null)
                 }
@@ -665,6 +671,7 @@ fun QuataVideoEditorDialog(
                             cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
                         },
                         modifier = Modifier
+                            .testTag(PostVideoEditorPreviewTestTag)
                             .weight(1f)
                             .fillMaxHeight()
                     )
@@ -696,6 +703,7 @@ fun QuataVideoEditorDialog(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .testTag(PostVideoEditorTimelineTestTag)
                                 .height(82.dp)
                         )
 
@@ -749,6 +757,7 @@ fun QuataVideoEditorDialog(
                         cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
                     },
                     modifier = Modifier
+                        .testTag(PostVideoEditorPreviewTestTag)
                         .weight(1f)
                         .fillMaxSize()
                         .padding(horizontal = 14.dp, vertical = 8.dp)
@@ -776,6 +785,7 @@ fun QuataVideoEditorDialog(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
+                        .testTag(PostVideoEditorTimelineTestTag)
                         .height(88.dp)
                         .padding(horizontal = 48.dp)
                 )
@@ -1501,7 +1511,12 @@ private fun VideoEditorInfoBar(
                     shape = CircleShape,
                     modifier = Modifier.size(44.dp)
                 ) {
-                    CompactIconButton(onClick = onPlayPause, modifier = Modifier.fillMaxSize()) {
+                    CompactIconButton(
+                        onClick = onPlayPause,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag(PostVideoEditorPlayPauseTestTag),
+                    ) {
                         CompactIcon(
                             if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                             contentDescription = stringResource(R.string.video_editor_play_pause),

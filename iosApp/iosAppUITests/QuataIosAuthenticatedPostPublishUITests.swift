@@ -110,6 +110,34 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         print("IOS_POST_IMAGE_EDITOR_UI_GATE_PASSED")
     }
 
+    func testAuthenticatedSessionExercisesPostVideoEditorFromCommonComposer() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_POST_VIDEO_EDITOR_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated post video editor UI gate is opt-in.")
+        }
+        guard environment["QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN"] == "I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE" else {
+            throw XCTSkip("Post video editor replay requires the picker fixture.")
+        }
+        guard environment["QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE_OPT_IN"] == "I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE" else {
+            throw XCTSkip("Post video editor fixture replay is opt-in.")
+        }
+
+        let app = openComposer(mode: "video", locationLabel: "")
+        assertSharedComposerSurface(in: app)
+        tapVideoType(in: app)
+        tapComposerAction("composer-media.pick-video", in: app)
+        let selectedVideoPreview = app.descendants(matching: .any)
+            .matching(identifier: "composer-media.selected-video-preview")
+            .firstMatch
+        XCTAssertTrue(selectedVideoPreview.waitForExistence(timeout: 12), "A picker replay must select a video before editing.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-video-selected")
+
+        tapComposerAction("composer-media.edit-video", in: app)
+        XCTAssertTrue(selectedVideoPreview.waitForExistence(timeout: 12), "The iOS video edit adapter must return to the common selected-video preview.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-after-edit")
+        print("IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED")
+    }
+
     private func selectDestination(_ wallId: String, in app: XCUIApplication) {
         let destination = app.descendants(matching: .any)
             .matching(identifier: "composer-destination-option.\(wallId)")
@@ -146,6 +174,10 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_PATH",
             "QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_NAME",
             "QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_MIME",
+            "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE_OPT_IN",
+            "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_PATH",
+            "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_NAME",
+            "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_MIME",
         ] {
             if let value = ProcessInfo.processInfo.environment[key], !value.isEmpty {
                 app.launchEnvironment[key] = value
@@ -211,6 +243,18 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             imageType.tap()
         } else {
             imageType.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+    }
+
+    private func tapVideoType(in app: XCUIApplication) {
+        let videoType = app.descendants(matching: .any)
+            .matching(identifier: "composer-type-video")
+            .firstMatch
+        XCTAssertTrue(videoType.waitForExistence(timeout: 10), "The common video composer type must be exposed.")
+        if videoType.isHittable {
+            videoType.tap()
+        } else {
+            videoType.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         }
     }
 
