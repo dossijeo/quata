@@ -25,6 +25,8 @@ import androidx.test.uiautomator.UiDevice
 import com.quata.MainActivity
 import com.quata.QuataApp
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorRootTestTag
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorResetTestTag
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorRotateTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorSaveTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorMuteTestTag
@@ -291,6 +293,12 @@ class PostPublishRealInstrumentedTest {
                 runCatching { compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
             saveScreenshot("android-post-image-editor-opened")
+            compose.onNodeWithTag(PostImageEditorRotateTestTag, useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            compose.onNodeWithTag(PostImageEditorResetTestTag, useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
             compose.onAllNodesWithTag(PostImageEditorSaveTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()

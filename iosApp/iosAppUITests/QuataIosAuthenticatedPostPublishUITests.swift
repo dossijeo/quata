@@ -99,10 +99,6 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         guard environment["QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN"] == "I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE" else {
             throw XCTSkip("Post image editor replay requires the picker fixture.")
         }
-        guard environment["QUATA_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE_OPT_IN"] == "I_ACCEPT_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE" else {
-            throw XCTSkip("Post image editor fixture replay is opt-in.")
-        }
-
         let app = openComposer(mode: "image", locationLabel: "")
         assertSharedComposerSurface(in: app)
         tapImageType(in: app)
@@ -114,7 +110,15 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-image-selected")
 
         tapComposerAction("composer-media.edit-image", in: app)
-        XCTAssertTrue(selectedImagePreview.waitForExistence(timeout: 12), "The iOS edit adapter must return to the common selected-image preview.")
+        let editorRoot = app.descendants(matching: .any)
+            .matching(identifier: "post-image-editor.root")
+            .firstMatch
+        XCTAssertTrue(editorRoot.waitForExistence(timeout: 12), "The iOS composer must open the real shared post image editor surface.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-opened")
+        tapComposerAction("post-image-editor.rotate", in: app)
+        tapComposerAction("post-image-editor.reset", in: app)
+        tapComposerAction("post-image-editor.save", in: app)
+        XCTAssertTrue(selectedImagePreview.waitForExistence(timeout: 12), "Saving the iOS image editor must return to the common selected-image preview.")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-image-editor-after-edit")
         print("IOS_POST_IMAGE_EDITOR_UI_GATE_PASSED")
     }

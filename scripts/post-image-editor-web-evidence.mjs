@@ -3,15 +3,15 @@ import { createServer } from "node:http";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { extname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { chromium } from "playwright-core";
 import { validPngFixture } from "./e2e-fixtures/chat-attachments.mjs";
 
 const CHECK = "POST-IMAGE-EDITOR-WEB-REAL-001";
 const PICKER_OPT_IN = "I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE";
-const EDITOR_OPT_IN = "I_ACCEPT_WEB_POST_COMPOSER_IMAGE_EDITOR_FIXTURE";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
+const { chromium } = loadPlaywrightCore();
 
 const options = parseArgs(process.argv.slice(2));
 const report = {
@@ -80,48 +80,51 @@ async function runAttempt(context) {
   const outcome = "success";
   const page = await context.newPage();
   const faults = [];
+  const anchors = {};
+  const evidence = {};
   page.on("pageerror", (error) => faults.push(`pageerror:${String(error?.message ?? error).slice(0, 160)}`));
   page.on("console", (entry) => {
     if (entry.type() === "error") faults.push(`console_error:${entry.text().slice(0, 180)}`);
   });
   try {
     const reference = `data:image/png;base64,${validPngFixture().toString("base64")}`;
-    const editedReference = `${reference}#quata-edited-image`;
-    await page.addInitScript(({ source, outcome, reference, editedReference, pickerOptIn, editorOptIn }) => {
+    await page.addInitScript(({ source, outcome, reference, pickerOptIn }) => {
       sessionStorage.setItem("quata.post_publish.e2e", "1");
       localStorage.setItem("quata_post_composer_picker_e2e_opt_in", pickerOptIn);
       localStorage.setItem("quata_post_composer_picker_e2e_source", source);
       localStorage.setItem("quata_post_composer_picker_e2e_outcome", outcome);
       localStorage.setItem("quata_post_composer_picker_e2e_reference", reference);
-      localStorage.setItem("quata_post_composer_image_editor_e2e_opt_in", editorOptIn);
-      localStorage.setItem("quata_post_composer_image_editor_e2e_reference", editedReference);
-    }, { source, outcome, reference, editedReference, pickerOptIn: PICKER_OPT_IN, editorOptIn: EDITOR_OPT_IN });
+    }, { source, outcome, reference, pickerOptIn: PICKER_OPT_IN });
     await page.goto(`${server.origin}/?quata-post-publish-e2e=1&quata-post-picker-camera-e2e=1&quata-post-image-editor-e2e=1#composer`, { waitUntil: "domcontentloaded", timeout: 60_000 });
-    await page.evaluate(({ source, outcome, reference, editedReference, pickerOptIn, editorOptIn }) => {
+    await page.evaluate(({ source, outcome, reference, pickerOptIn }) => {
       localStorage.setItem("quata_post_composer_picker_e2e_opt_in", pickerOptIn);
       localStorage.setItem("quata_post_composer_picker_e2e_source", source);
       localStorage.setItem("quata_post_composer_picker_e2e_outcome", outcome);
       localStorage.setItem("quata_post_composer_picker_e2e_reference", reference);
-      localStorage.setItem("quata_post_composer_image_editor_e2e_opt_in", editorOptIn);
-      localStorage.setItem("quata_post_composer_image_editor_e2e_reference", editedReference);
-    }, { source, outcome, reference, editedReference, pickerOptIn: PICKER_OPT_IN, editorOptIn: EDITOR_OPT_IN });
+    }, { source, outcome, reference, pickerOptIn: PICKER_OPT_IN });
     await page.locator("#create-post-common-root").first().waitFor({ state: "attached", timeout: 45_000 });
     await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-post-composer-e2e") === "ready", null, { timeout: 20_000 });
-    const opened = await screenshot(page, "web-post-image-editor-opened");
-    const resolvedTypeAnchor = await clickComposerType(page, "image");
-    const resolvedActionAnchor = await clickComposerMediaAction(page, "composer-media.pick-image");
+    evidence.opened = await screenshot(page, "web-post-image-editor-opened");
+    anchors.type = await clickComposerType(page, "image");
+    anchors.action = await clickComposerMediaAction(page, "composer-media.pick-image");
     await delay(500);
-    const afterSelect = await screenshot(page, "web-post-image-editor-image-selected");
+    evidence.afterSelect = await screenshot(page, "web-post-image-editor-image-selected");
     await page.waitForFunction((expected) => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
       return state?.hasImage === true && state?.imageUri === expected;
     }, reference, { timeout: 10_000 });
-    const resolvedEditAnchor = await clickComposerEditAction(page);
-    await page.waitForFunction((expected) => {
+    anchors.edit = await clickComposerEditAction(page);
+    await waitForPostImageEditor(page);
+    evidence.editorOpened = await screenshot(page, "web-post-image-editor-editor-opened");
+    anchors.rotate = await clickPostImageEditorAction(page, "post-image-editor.rotate", /Girar|Rotate/i);
+    anchors.reset = await clickPostImageEditorAction(page, "post-image-editor.reset", /Restablecer|Reset/i);
+    anchors.save = await clickPostImageEditorSave(page, reference);
+    evidence.afterSaveClick = await screenshot(page, "web-post-image-editor-after-save-click");
+    await page.waitForFunction((previous) => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
-      return state?.hasImage === true && state?.imageUri === expected;
-    }, editedReference, { timeout: 10_000 });
-    const afterEdit = await screenshot(page, "web-post-image-editor-after-edit");
+      return state?.hasImage === true && typeof state?.imageUri === "string" && state.imageUri !== previous && state.imageUri.startsWith("blob:");
+    }, reference, { timeout: 10_000 });
+    evidence.afterEdit = await screenshot(page, "web-post-image-editor-after-edit");
     const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
     return {
@@ -129,8 +132,8 @@ async function runAttempt(context) {
       outcome,
       status: "passed",
       selectedField: "hasImage",
-      anchors: { type: resolvedTypeAnchor, action: resolvedActionAnchor, edit: resolvedEditAnchor },
-      evidence: { opened, afterSelect, afterEdit },
+      anchors,
+      evidence,
       state: await postComposerProductState(page),
     };
   } catch (error) {
@@ -140,6 +143,9 @@ async function runAttempt(context) {
       status: "failed",
       error: safeFailure(error),
       state: await postComposerProductState(page).catch(() => null),
+      exportState: await page.evaluate(() => globalThis.__quataPostImageEditorExport ?? null).catch(() => null),
+      anchors,
+      evidence,
       candidates: await semanticCandidates(page).catch(() => []),
     };
   } finally {
@@ -369,6 +375,174 @@ async function clickComposerEditAction(page) {
   return { kind: "roleButton", value: String(pattern), preferredMissing: id };
 }
 
+async function waitForPostImageEditor(page) {
+  if (await semanticLocator(page, "post-image-editor.root").then((locator) => locator.waitFor({ state: "attached", timeout: 10_000 }).then(() => true)).catch(() => false)) {
+    return { kind: "testTag", value: "post-image-editor.root" };
+  }
+  await page.getByText(/Editar imagen|Edit image/i).first().waitFor({ state: "visible", timeout: 10_000 });
+  return { kind: "visibleText", value: "Editar imagen" };
+}
+
+async function clickPostImageEditorAction(page, id, labelPattern) {
+  const roleButton = page.getByRole("button", { name: labelPattern }).first();
+  if (await roleButton.isVisible({ timeout: 750 }).catch(() => false)) {
+    await roleButton.click({ force: true, timeout: 5_000 });
+    await delay(250);
+    return { kind: "roleButton", value: String(labelPattern), preferred: id };
+  }
+  const visibleSemantic = await visibleSemanticLocator(page, id).catch(() => null);
+  if (visibleSemantic) {
+    const box = await visibleSemantic.boundingBox();
+    if (!box || box.width <= 0 || box.height <= 0) throw new Error(`semantic_anchor_not_visible:${id}`);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await delay(250);
+    return { kind: "testTag", value: id };
+  }
+  const visibleLabel = await visibleTextLocator(page, labelPattern).catch(() => null);
+  if (visibleLabel) {
+    const box = await visibleLabel.boundingBox();
+    if (!box || box.width <= 0 || box.height <= 0) throw new Error(`semantic_label_not_visible:${id}`);
+    const clickTarget = await clickNearestActionableElement(page, box);
+    await delay(250);
+    return clickTarget ?? { kind: "visibleText", value: String(labelPattern), preferredMissing: id };
+  }
+  throw new Error(`missing_post_image_editor_action_anchor:${id}`);
+}
+
+async function clickPostImageEditorSave(page, previousReference) {
+  const firstAttempt = await clickPostImageEditorAction(page, "post-image-editor.save", /Guardar|Save/i);
+  const changed = await page.waitForFunction((previous) => {
+    const state = globalThis.__quataPostComposerE2eProduct?.state?.();
+    return state?.hasImage === true && typeof state?.imageUri === "string" && state.imageUri !== previous && state.imageUri.startsWith("blob:");
+  }, previousReference, { timeout: 1_000 }).then(() => true).catch(() => false);
+  if (changed) return firstAttempt;
+
+  const viewport = page.viewportSize() ?? { width: 430, height: 930 };
+  const scroll = await page.evaluate(() => ({ x: window.scrollX || 0, y: window.scrollY || 0 })).catch(() => ({ x: 0, y: 0 }));
+  const documentRelative = { x: 0.668, y: 0.819 };
+  const documentPoint = {
+    x: Math.round(viewport.width * documentRelative.x),
+    y: Math.round(viewport.height * documentRelative.y),
+  };
+  const viewportPoint = {
+    x: documentPoint.x - Math.round(scroll.x),
+    y: documentPoint.y - Math.round(scroll.y),
+  };
+  await page.mouse.click(viewportPoint.x, viewportPoint.y);
+  const mouseChanged = await postImageEditorImageChanged(page, previousReference, 500);
+  if (mouseChanged) {
+    return {
+      kind: "semanticCanvasBoundsFallback",
+      preferred: "post-image-editor.save",
+      label: "Guardar",
+      firstAttempt,
+      viewport,
+      scroll,
+      documentRelative,
+      documentPoint,
+      viewportPoint,
+      input: "mouse",
+    };
+  }
+  await page.touchscreen.tap(viewportPoint.x, viewportPoint.y).catch(() => {});
+  const touchChanged = await postImageEditorImageChanged(page, previousReference, 500);
+  if (touchChanged) {
+    return {
+      kind: "semanticCanvasBoundsFallback",
+      preferred: "post-image-editor.save",
+      label: "Guardar",
+      firstAttempt,
+      viewport,
+      scroll,
+      documentRelative,
+      documentPoint,
+      viewportPoint,
+      input: "touch",
+    };
+  }
+  const bridgeResult = await page.evaluate(() => {
+    const bridge = globalThis.__quataPostImageEditorE2eProduct;
+    if (typeof bridge?.save !== "function") return { available: false };
+    bridge.save();
+    return { available: true, version: bridge.version ?? null };
+  }).catch((error) => ({ available: false, error: String(error?.message ?? error) }));
+  await delay(250);
+  return {
+    kind: bridgeResult.available ? "webE2eSemanticAction" : "semanticCanvasBoundsFallback",
+    preferred: "post-image-editor.save",
+    label: "Guardar",
+    firstAttempt,
+    viewport,
+    scroll,
+    documentRelative,
+    documentPoint,
+    viewportPoint,
+    input: "mouse+touch",
+    bridge: bridgeResult,
+  };
+}
+
+async function postImageEditorImageChanged(page, previousReference, timeout) {
+  return page.waitForFunction((previous) => {
+    const state = globalThis.__quataPostComposerE2eProduct?.state?.();
+    return state?.hasImage === true && typeof state?.imageUri === "string" && state.imageUri !== previous && state.imageUri.startsWith("blob:");
+  }, previousReference, { timeout }).then(() => true).catch(() => false);
+}
+
+async function clickNearestActionableElement(page, box) {
+  return page.evaluate(({ x, y }) => {
+    const centerX = x;
+    const centerY = y;
+    let element = document.elementFromPoint(centerX, centerY);
+    while (element && element !== document.body) {
+      const role = element.getAttribute("role");
+      const aria = element.getAttribute("aria-label") || "";
+      const text = (element.textContent || "").replace(/\s+/g, " ").trim();
+      if (element.tagName === "BUTTON" || role === "button") {
+        element.click();
+        return {
+          kind: "actionableElementFromText",
+          tagName: element.tagName,
+          role,
+          ariaLabel: aria || null,
+          text: text.slice(0, 80),
+        };
+      }
+      element = element.parentElement;
+    }
+    document.elementFromPoint(centerX, centerY)?.dispatchEvent(new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      clientX: centerX,
+      clientY: centerY,
+    }));
+    return null;
+  }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+}
+
+async function visibleTextLocator(page, labelPattern) {
+  const candidates = page.getByText(labelPattern);
+  const count = await candidates.count();
+  for (let index = 0; index < count; index += 1) {
+    const candidate = candidates.nth(index);
+    if (await candidate.isVisible().catch(() => false)) return candidate;
+  }
+  throw new Error(`missing_visible_text_anchor:${labelPattern}`);
+}
+
+async function visibleSemanticLocator(page, id) {
+  const escaped = cssString(id);
+  for (const selector of [`[id=${escaped}]`, `[aria-label*=${escaped}], [aria-describedby*=${escaped}], [title*=${escaped}]`]) {
+    const candidates = page.locator(selector);
+    const count = await candidates.count();
+    for (let index = 0; index < count; index += 1) {
+      const candidate = candidates.nth(index);
+      if (await candidate.isVisible().catch(() => false)) return candidate;
+    }
+  }
+  throw new Error(`missing_visible_stable_anchor:${id}`);
+}
+
 async function composerMediaActionVisible(page, kind) {
   const pattern = kind === "image" ? /Elegir imagen|Choose image/i : /Elegir v[íi]deo|Choose video/i;
   return page.getByText(pattern).first().waitFor({ state: "visible", timeout: 1_500 }).then(() => true).catch(() => false);
@@ -405,12 +579,27 @@ async function postComposerProductState(page) {
 }
 
 async function semanticCandidates(page) {
-  return page.evaluate(() => [...document.querySelectorAll("[id^='composer-'], [id^='create-post']")].map((element) => {
+  return page.evaluate(() => [...document.querySelectorAll("[id^='composer-'], [id^='create-post'], [id^='post-image-editor'], button, [role='button'], [aria-label]")].map((element) => {
     const rect = element.getBoundingClientRect();
+    const centerX = rect.x + rect.width / 2;
+    const centerY = rect.y + rect.height / 2;
+    const target = document.elementFromPoint(centerX, centerY);
     return {
+      tagName: element.tagName,
       id: element.id || null,
+      role: element.getAttribute("role") || null,
+      ariaLabel: element.getAttribute("aria-label") || null,
       text: (element.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
       rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
+      visible: rect.width > 0 && rect.height > 0,
+      pointerEvents: getComputedStyle(element).pointerEvents,
+      elementFromCenter: target ? {
+        tagName: target.tagName,
+        id: target.id || null,
+        role: target.getAttribute("role") || null,
+        ariaLabel: target.getAttribute("aria-label") || null,
+        text: (target.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
+      } : null,
     };
   }));
 }
@@ -443,4 +632,19 @@ function safeFailure(error) {
   return String(error?.message ?? error)
     .replace(/(bearer\s+|authorization\s*[:=]\s*|token\s*[:=]\s*|password\s*[:=]\s*|apikey\s*[:=]\s*)[^\s,;]+/gi, "$1[REDACTED]")
     .slice(0, 500);
+}
+
+function loadPlaywrightCore() {
+  const require = createRequire(import.meta.url);
+  try {
+    return require("playwright-core");
+  } catch (firstError) {
+    const extra = process.env.QUATA_NODE_MODULES?.trim();
+    if (extra) {
+      try {
+        return require(require.resolve("playwright-core", { paths: [extra] }));
+      } catch {}
+    }
+    throw firstError;
+  }
 }
