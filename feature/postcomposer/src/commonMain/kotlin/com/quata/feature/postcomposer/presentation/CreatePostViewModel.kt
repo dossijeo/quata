@@ -33,26 +33,31 @@ class CreatePostViewModel(
             is CreatePostUiEvent.TextChanged -> _uiState.value = _uiState.value.copy(
                 text = event.value.take(CreatePostTextLimit),
                 error = null,
+                lastFailedSubmitType = null,
                 successMessage = null
             )
             is CreatePostUiEvent.TextPatternSelected -> _uiState.value = _uiState.value.copy(
                 textPatternId = event.patternId,
                 error = null,
+                lastFailedSubmitType = null,
                 successMessage = null
             )
             is CreatePostUiEvent.DestinationSelected -> _uiState.value = _uiState.value.copy(
                 selectedDestinationWallId = event.wallId.takeIf(String::isNotBlank),
                 error = null,
+                lastFailedSubmitType = null,
                 successMessage = null
             )
             is CreatePostUiEvent.ImageSelected -> _uiState.value = _uiState.value.copy(
                 imageUri = event.uri,
                 error = null,
+                lastFailedSubmitType = null,
                 successMessage = null
             )
             is CreatePostUiEvent.VideoSelected -> _uiState.value = _uiState.value.copy(
                 videoUri = event.uri,
                 error = null,
+                lastFailedSubmitType = null,
                 successMessage = null
             )
             is CreatePostUiEvent.LocationResolved -> _uiState.value = _uiState.value.copy(
@@ -60,11 +65,13 @@ class CreatePostViewModel(
                 latitude = event.latitude,
                 longitude = event.longitude,
                 error = null,
+                lastFailedSubmitType = null,
                 successMessage = null
             )
             is CreatePostUiEvent.LocationLabelChanged -> _uiState.value = _uiState.value.copy(
                 locationLabel = event.value.takeIf { it.isNotBlank() },
                 error = null,
+                lastFailedSubmitType = null,
                 successMessage = null
             )
             CreatePostUiEvent.ClearDraft -> _uiState.value = CreatePostUiState(
@@ -72,7 +79,12 @@ class CreatePostViewModel(
                 selectedDestinationWallId = _uiState.value.selectedDestinationWallId,
             )
             CreatePostUiEvent.Submit -> submit(PostComposerType.Text)
-            CreatePostUiEvent.ClearMessage -> _uiState.value = _uiState.value.copy(successMessage = null, error = null)
+            CreatePostUiEvent.RetrySubmit -> _uiState.value.lastFailedSubmitType?.let(::submit)
+            CreatePostUiEvent.ClearMessage -> _uiState.value = _uiState.value.copy(
+                successMessage = null,
+                error = null,
+                lastFailedSubmitType = null,
+            )
         }
     }
 
@@ -138,7 +150,11 @@ class CreatePostViewModel(
                         if (throwable is CancellationException) {
                             _uiState.value = state.copy(isLoading = false)
                         } else {
-                            _uiState.value = state.copy(isLoading = false, error = throwable.message ?: messages.failed)
+                            _uiState.value = state.copy(
+                                isLoading = false,
+                                error = throwable.message ?: messages.failed,
+                                lastFailedSubmitType = type,
+                            )
                         }
                     }
             } finally {

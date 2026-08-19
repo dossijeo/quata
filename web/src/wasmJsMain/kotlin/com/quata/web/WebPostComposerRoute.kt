@@ -21,6 +21,7 @@ import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PermissionStatus
 import com.quata.feature.postcomposer.data.ActorBoundPostComposerRepository
+import com.quata.feature.postcomposer.data.FailOncePostComposerRepository
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
 import org.w3c.dom.HTMLImageElement
@@ -38,7 +39,12 @@ fun WebPostComposerRoute(
     val scope = rememberCoroutineScope()
     WebPostComposerHost(
         repository = remember(runtimeConfiguration, authRepository) {
-            ActorBoundPostComposerRepository(WebPostComposerTransport(runtimeConfiguration, authRepository))
+            val real = ActorBoundPostComposerRepository(WebPostComposerTransport(runtimeConfiguration, authRepository))
+            if (webPostComposerProgressRollbackEvidenceShouldFailOnce()) {
+                FailOncePostComposerRepository(real)
+            } else {
+                real
+            }
         },
         mediaSlots = WebComposerMediaSlots(
             pickImage = {
@@ -137,6 +143,18 @@ private fun BrowserComposerMediaPreview(uri: String?, isVideo: Boolean, modifier
 }
 
 private fun browserComposerIsLandscape(): Boolean = js("Boolean(globalThis.matchMedia?.('(orientation: landscape)').matches)")
+
+private fun webPostComposerProgressRollbackEvidenceShouldFailOnce(): Boolean = js(
+    """
+    (() => {
+      const local = globalThis.location?.hostname === 'localhost' || globalThis.location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(globalThis.location?.search || '');
+      return local &&
+        params.get('quata-post-progress-rollback-e2e') === '1' &&
+        globalThis.localStorage?.getItem('quata_post_progress_rollback_fail_once') === '1';
+    })()
+    """,
+)
 
 private fun webPostComposerPickerEvidenceShouldHandle(source: String): Boolean = js(
     """

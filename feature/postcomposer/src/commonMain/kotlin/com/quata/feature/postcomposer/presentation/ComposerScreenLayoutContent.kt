@@ -42,5 +42,6 @@ fun ComposerScreenLayoutContent(
         Spacer(Modifier.height(28.dp))
         form()
         feedback()
+        Spacer(Modifier.height(104.dp))
     }
 }

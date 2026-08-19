@@ -102,6 +102,7 @@ data class CreatePostRootCopy(
     val videoPreviewEmpty: String,
     val publish: String,
     val publishing: String,
+    val retry: String,
     val back: String,
     val publicationCreated: String,
     val publicationFailed: String,
@@ -124,7 +125,7 @@ val SpanishCreatePostRootCopy = CreatePostRootCopy(
     recordVideo = "Grabar vídeo", editVideo = "Editar vídeo", noFile = "Ningún archivo seleccionado",
     description = "Descripción", descriptionPlaceholder = "Añade un título o descripción…",
     videoPreviewEmpty = "Selecciona o graba un vídeo para previsualizarlo.", publish = "Publicar",
-    publishing = "Publicando…", back = "Volver al feed",
+    publishing = "Publicando…", retry = "Reintentar", back = "Volver al feed",
     publicationCreated = "Publicación creada", publicationFailed = "No se pudo publicar",
 )
 
@@ -139,7 +140,7 @@ val EnglishCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
     locationPlaceholder = "Neighborhood, city or place", edit = "Edit", pickVideo = "Choose video", recordVideo = "Record video",
     editVideo = "Edit video", noFile = "No file selected", description = "Description",
     descriptionPlaceholder = "Add a title or description…", videoPreviewEmpty = "Choose or record a video to preview it.",
-    publish = "Publish", publishing = "Publishing…", back = "Back to feed",
+    publish = "Publish", publishing = "Publishing…", retry = "Retry", back = "Back to feed",
     publicationCreated = "Post created", publicationFailed = "Could not publish", feed = "Feed",
 )
 
@@ -155,7 +156,7 @@ val FrenchCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
     recordVideo = "Enregistrer une vidéo", editVideo = "Modifier la vidéo", noFile = "Aucun fichier sélectionné",
     description = "Description", descriptionPlaceholder = "Ajoutez un titre ou une description…",
     videoPreviewEmpty = "Choisissez ou enregistrez une vidéo pour l'aperçu.", publish = "Publier",
-    publishing = "Publication…", back = "Retour au fil",
+    publishing = "Publication…", retry = "Réessayer", back = "Retour au fil",
     publicationCreated = "Publication créée", publicationFailed = "Impossible de publier", feed = "Fil",
 )
 
@@ -360,12 +361,18 @@ fun CreatePostRoot(
                 }) { publish(PostComposerType.Video) }
             }
             if (step != CreatePostStep.TypePicker) {
+                ComposerSubmissionFeedbackContent(
+                    errorMessage = state.error,
+                    successMessage = state.successMessage,
+                    retryLabel = copy.retry,
+                    onRetry = state.lastFailedSubmitType?.let { type -> { viewModel.submit(type) } },
+                )
                 ComposerBackButtonContent(copy.back, {
                     dispatchCreatePostBack(state.isLoading, viewModel::cancelSubmit, { select(CreatePostStep.TypePicker) }, onBack)
                 }, accessibility = accessibility)
             }
         },
-        feedback = { ComposerSubmissionFeedbackContent(state.error, state.successMessage) },
+        feedback = {},
         modifier = modifier.fillMaxSize().testTag(CreatePostCommonRootTestTag),
     )
 }

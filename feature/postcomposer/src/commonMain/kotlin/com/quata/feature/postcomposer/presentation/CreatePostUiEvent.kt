@@ -14,5 +14,6 @@ sealed class CreatePostUiEvent {
     data class LocationLabelChanged(val value: String) : CreatePostUiEvent()
     data object ClearDraft : CreatePostUiEvent()
     data object Submit : CreatePostUiEvent()
+    data object RetrySubmit : CreatePostUiEvent()
     data object ClearMessage : CreatePostUiEvent()
 }

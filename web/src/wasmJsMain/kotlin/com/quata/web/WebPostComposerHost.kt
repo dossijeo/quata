@@ -70,6 +70,8 @@ fun WebPostComposerHost(
                     state.selectedDestination?.label?.let { put("selectedDestinationLabel", it) }
                     put("hasError", state.error != null)
                     state.error?.let { put("error", it.take(160)) }
+                    put("retryAvailable", state.lastFailedSubmitType != null)
+                    state.lastFailedSubmitType?.let { put("lastFailedSubmitType", it.name.lowercase()) }
                     put("hasSuccess", state.successMessage != null)
                     put("hasCreatedPostId", !state.createdPostId.isNullOrBlank())
                 }.toString()

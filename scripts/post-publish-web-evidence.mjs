@@ -76,7 +76,8 @@ try {
     if (state.displayName) localStorage.setItem("quata_web_display_name", state.displayName);
     localStorage.setItem("web.auth.session_ready", "true");
     localStorage.setItem("quata_web_client_instance_id", state.clientInstanceId);
-  }, session);
+    if (state.failOnce) localStorage.setItem("quata_post_progress_rollback_fail_once", "1");
+  }, { ...session, failOnce: options.failOnce });
 
   const page = await context.newPage();
   const faults = [];
@@ -102,7 +103,10 @@ try {
     if (entry) report.network.push(entry);
   });
 
-  await page.goto(`${server.origin}/?quata-post-publish-e2e=1#composer`, { waitUntil: "domcontentloaded" });
+  const routeParams = options.failOnce
+    ? "?quata-post-publish-e2e=1&quata-post-progress-rollback-e2e=1"
+    : "?quata-post-publish-e2e=1";
+  await page.goto(`${server.origin}/${routeParams}#composer`, { waitUntil: "domcontentloaded" });
   await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
   await page.waitForFunction(() =>
     localStorage.getItem("web.navigation.route") === "composer" &&
@@ -186,18 +190,42 @@ try {
     bridgeBeforeSubmit: await postComposerBridgeState(page),
     composerStateBeforeSubmit: await postComposerProductState(page),
   };
-  await clickSemanticElement(page, "composer-publish", { reinforcePhysical: true });
-  await page.getByText("Publicar", { exact: true }).last().click({ force: true, timeout: 2_000 }).catch(() => {});
-  const viewport = page.viewportSize() ?? { width: 430, height: 930 };
-  await page.mouse.click(viewport.width / 2, viewport.height - 160);
-  report.steps.push("web_publish_button_clicked_by_visual_viewport_fallback_after_missing_dom_anchor");
-  await page.evaluate(() => {
-    const bridge = globalThis.__quataPostComposerE2eProduct;
-    if (bridge?.version !== 1) throw Error("post_composer_bridge_missing");
-    if (typeof bridge.submitImage === "function" && bridge.state?.()?.hasImage === true) bridge.submitImage();
-    else if (typeof bridge.submitText === "function") bridge.submitText();
-    else throw Error("post_composer_submit_bridge_missing");
-  });
+  if (options.failOnce) {
+    await clickSemanticElement(page, "composer-publish", { reinforcePhysical: true }).catch(() => {});
+    await page.waitForFunction(() => {
+      const state = globalThis.__quataPostComposerE2eProduct?.state?.();
+      return state?.hasError === true && state?.retryAvailable === true;
+    }, { timeout: 4_000 }).catch(async () => {
+      await page.evaluate(() => {
+        const bridge = globalThis.__quataPostComposerE2eProduct;
+        if (bridge?.version !== 1 || typeof bridge.submitText !== "function") throw Error("post_composer_submit_bridge_missing");
+        bridge.submitText();
+      });
+    });
+    await page.waitForFunction(() => {
+      const state = globalThis.__quataPostComposerE2eProduct?.state?.();
+      return state?.hasError === true && state?.retryAvailable === true && state?.lastFailedSubmitType === "text";
+    }, { timeout: 10_000 });
+    report.diagnostics.bridgeAfterForcedFailure = await postComposerBridgeState(page);
+    report.diagnostics.composerStateAfterForcedFailure = await postComposerProductState(page);
+    report.evidence.afterForcedFailure = await screenshot(page, "web-post-progress-rollback-after-error");
+    report.steps.push("web_common_error_feedback_and_retry_visible_after_forced_first_failure");
+    await clickSemanticElement(page, "composer-feedback-retry");
+    report.steps.push("web_retry_button_clicked_by_common_semantic_anchor");
+  } else {
+    await clickSemanticElement(page, "composer-publish", { reinforcePhysical: true });
+    await page.getByText("Publicar", { exact: true }).last().click({ force: true, timeout: 2_000 }).catch(() => {});
+    const viewport = page.viewportSize() ?? { width: 430, height: 930 };
+    await page.mouse.click(viewport.width / 2, viewport.height - 160);
+    report.steps.push("web_publish_button_clicked_by_visual_viewport_fallback_after_missing_dom_anchor");
+    await page.evaluate(() => {
+      const bridge = globalThis.__quataPostComposerE2eProduct;
+      if (bridge?.version !== 1) throw Error("post_composer_bridge_missing");
+      if (typeof bridge.submitImage === "function" && bridge.state?.()?.hasImage === true) bridge.submitImage();
+      else if (typeof bridge.submitText === "function") bridge.submitText();
+      else throw Error("post_composer_submit_bridge_missing");
+    });
+  }
   report.diagnostics.bridgeAfterSubmit = await postComposerBridgeState(page);
   report.diagnostics.composerStateAfterSubmit = await postComposerProductState(page);
   report.steps.push("web_post_publish_submitted_by_localhost_opt_in_product_bridge_after_visual_route");
@@ -272,10 +300,15 @@ function parseArgs(args) {
     output: resolve("build-reports/web/post-publish-evidence.json"),
     evidenceDir: resolve("build-reports/web/post-publish-evidence"),
     mode: "text",
+    failOnce: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
+    if (key === "--fail-once") {
+      parsed.failOnce = true;
+      continue;
+    }
     if (!["--dist", "--chrome", "--out", "--evidence-dir", "--mode"].includes(key) || !value || value.startsWith("--")) throw new Error("invalid_arguments");
     index += 1;
     if (key === "--dist") parsed.distribution = resolve(value);

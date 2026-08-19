@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-PUBLISH"
+  ],
+  "productSha": "99a4ac5d75ec4a513b68d8054e6ac1cc3a424630",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "99a4ac5d75ec4a513b68d8054e6ac1cc3a424630",
+      "report": "build-reports/web/post-progress-rollback-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "99a4ac5d75ec4a513b68d8054e6ac1cc3a424630",
+      "report": "build-reports/android/post-progress-rollback-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "99a4ac5d75ec4a513b68d8054e6ac1cc3a424630",
+      "report": "build-reports/ios/post-progress-rollback-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate covers the forced first-failure publish path for a real authenticated text post on Web/Wasm, Android and iOS. The shared CreatePostViewModel preserves the draft, exposes common error feedback and retries the same submit type through the common retry action before publishing successfully.",
+    "Each platform verifies the exact marker in Supabase and hard-cleans community_posts plus related comments/likes with physical residue count zero. Web/Wasm uses the localhost-only opt-in product bridge for text entry/submit after visually reaching the shared composer because the Compose canvas still does not expose all controls as actionable DOM nodes."
+  ]
+}

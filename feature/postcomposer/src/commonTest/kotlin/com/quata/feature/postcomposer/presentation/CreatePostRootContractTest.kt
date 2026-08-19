@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertNotNull
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class CreatePostRootContractTest {
@@ -33,6 +34,7 @@ class CreatePostRootContractTest {
         assertEquals("composer-location-input", ComposerLocationInputTestTag)
         assertEquals("composer-type-text", "composer-type-${PostComposerType.Text.name.lowercase()}")
         assertEquals("composer-feedback-error", ComposerFeedbackErrorTestTag)
+        assertEquals("composer-feedback-retry", ComposerFeedbackRetryTestTag)
         assertEquals("composer-feedback-success", ComposerFeedbackSuccessTestTag)
     }
 
@@ -50,6 +52,9 @@ class CreatePostRootContractTest {
         assertEquals(CreatePostMessages("Post created", "Could not publish"), EnglishCreatePostRootCopy.viewModelMessages())
         assertEquals(CreatePostMessages("Publicación creada", "No se pudo publicar"), SpanishCreatePostRootCopy.viewModelMessages())
         assertEquals(CreatePostMessages("Publication créée", "Impossible de publier"), FrenchCreatePostRootCopy.viewModelMessages())
+        assertEquals("Retry", EnglishCreatePostRootCopy.retry)
+        assertEquals("Reintentar", SpanishCreatePostRootCopy.retry)
+        assertEquals("Réessayer", FrenchCreatePostRootCopy.retry)
     }
 
     @Test
@@ -165,5 +170,41 @@ class CreatePostRootContractTest {
         assertEquals("Madrid", published.locationLabel)
         assertEquals("wall-2", published.destinationWallId)
         assertEquals("Bata", published.destinationLabel)
+    }
+
+    @Test
+    fun failedSubmitKeepsDraftAndRetryReusesTheSameType() = runTest {
+        val calls = mutableListOf<PostComposerType>()
+        var failNext = true
+        val viewModel = CreatePostViewModel(object : PostComposerRepository {
+            override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft): Result<String?> {
+                calls += draft.type
+                return if (failNext) {
+                    failNext = false
+                    Result.failure(IllegalStateException("network down"))
+                } else {
+                    Result.success("post-2")
+                }
+            }
+        }, AppDispatchers(default = StandardTestDispatcher(testScheduler)))
+
+        viewModel.onEvent(CreatePostUiEvent.VideoSelected("file:///video.mp4"))
+        viewModel.onEvent(CreatePostUiEvent.TextChanged("clip"))
+        viewModel.submit(PostComposerType.Video)
+        advanceUntilIdle()
+
+        assertEquals("network down", viewModel.uiState.value.error)
+        assertEquals(PostComposerType.Video, viewModel.uiState.value.lastFailedSubmitType)
+        assertEquals("file:///video.mp4", viewModel.uiState.value.videoUri)
+
+        viewModel.onEvent(CreatePostUiEvent.RetrySubmit)
+        advanceUntilIdle()
+
+        assertEquals(listOf(PostComposerType.Video, PostComposerType.Video), calls)
+        assertEquals("Publicación creada", viewModel.uiState.value.successMessage)
+        assertNull(viewModel.uiState.value.lastFailedSubmitType)
+        assertNull(viewModel.uiState.value.error)
+        assertNotNull(viewModel.uiState.value.createdPostId)
+        viewModel.close()
     }
 }

@@ -101,6 +101,7 @@ export QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN=${shellQuote(OPT_IN)}
 export QUATA_IOS_POST_PUBLISH_MARKER=${shellQuote(fixture.marker)}
 export QUATA_IOS_POST_PUBLISH_DESTINATION_WALL_ID=${shellQuote(fixture.destination.wallId)}
 export QUATA_IOS_POST_PUBLISH_MODE=${shellQuote(options.mode)}
+${options.failOnce ? "export QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE=1" : "unset QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE"}
 ${fixture.locationLabel ? `export QUATA_IOS_POST_PUBLISH_LOCATION_LABEL=${shellQuote(fixture.locationLabel)}` : "unset QUATA_IOS_POST_PUBLISH_LOCATION_LABEL"}
 bash scripts/run-ios-post-publish-ui-test.sh
 `);
@@ -174,11 +175,14 @@ function parseArgs(args) {
     simulatorUdid: process.env.QUATA_IOS_SIMULATOR_UDID?.trim() || "",
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
     mode: "text",
+    failOnce: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
-    if (["--host", "--project", "--derived-data", "--remote-log-dir", "--out", "--evidence-dir", "--simulator", "--mode"].includes(key)) {
+    if (key === "--fail-once") {
+      parsed.failOnce = true;
+    } else if (["--host", "--project", "--derived-data", "--remote-log-dir", "--out", "--evidence-dir", "--simulator", "--mode"].includes(key)) {
       if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
       index += 1;
       if (key === "--host") parsed.host = value;
