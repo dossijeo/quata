@@ -110,11 +110,14 @@ class MainActivity : ComponentActivity() {
                 ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
             val postComposerPickerEvidencePath = intent?.getStringExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_PATH)
                 ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
+            val postProgressRollbackFailOnceForEvidence = BuildConfig.DEBUG &&
+                intent?.getBooleanExtra(EXTRA_POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE, false) == true
             intent?.removeExtra(EXTRA_POST_PUBLISH_EVIDENCE_IMAGE_URI)
             intent?.removeExtra(EXTRA_POST_PUBLISH_EVIDENCE_LOCATION_LABEL)
             intent?.removeExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_SOURCE)
             intent?.removeExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_OUTCOME)
             intent?.removeExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_PATH)
+            intent?.removeExtra(EXTRA_POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE)
             handleIncomingIntent(intent)
             AndroidStartupDiagnostics.mark("mainActivity.hostsAttached")
 
@@ -137,6 +140,7 @@ class MainActivity : ComponentActivity() {
                             postComposerPickerEvidenceSource = postComposerPickerEvidenceSource,
                             postComposerPickerEvidenceOutcome = postComposerPickerEvidenceOutcome,
                             postComposerPickerEvidencePath = postComposerPickerEvidencePath,
+                            postProgressRollbackFailOnceForEvidence = postProgressRollbackFailOnceForEvidence,
                         )
                         AnimatedVisibility(
                             visible = showSplash,
@@ -251,6 +255,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_POST_COMPOSER_PICKER_EVIDENCE_SOURCE = "com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_SOURCE"
         const val EXTRA_POST_COMPOSER_PICKER_EVIDENCE_OUTCOME = "com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_OUTCOME"
         const val EXTRA_POST_COMPOSER_PICKER_EVIDENCE_PATH = "com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_PATH"
+        const val EXTRA_POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE = "com.quata.extra.POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE"
     }
 
 }

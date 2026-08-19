@@ -1159,11 +1159,17 @@ private final class IosAppCompositionRoot {
                 authSession: runtimeBootstrap.authSessionForInteractiveLogin()
             )
         )
+        let composerRepository: PostComposerRepository = ProcessInfo.processInfo.environment["QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE"] == "1"
+            ? FailOncePostComposerRepository(
+                delegate: repository,
+                failureMessage: "post_composer_e2e_forced_first_publish_failure"
+            )
+            : repository
         authenticatedHost.installComposerFactory { [weak self] in
             let evidenceDraft = IosPostPublishEvidenceComposerSeed.imageLocationDraft()
             return IosComposerHostKt.QuataComposerViewController(
                 dependencies: IosComposerHostKt.createIosComposerHostDependenciesWithInitialDraft(
-                    repository: repository,
+                    repository: composerRepository,
                     filePicker: services.filePicker,
                     cameraCapture: services.cameraCapture,
                     videoThumbnails: services.videoThumbnails,

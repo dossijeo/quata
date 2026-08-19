@@ -59,6 +59,7 @@ class PostPublishRealInstrumentedTest {
         val destinationWallId = optionalArgument("quataPostPublishDestinationWallId")
         val mode = optionalArgument("quataPostPublishMode") ?: "text"
         val locationLabel = optionalArgument("quataPostPublishLocationLabel")
+        val failOnce = optionalArgument("quataPostProgressRollbackFailOnce") == "1"
         assumeTrue(
             "POST-PUBLISH-ANDROID-REAL-001 is opt-in and requires local credentials plus marker.",
             !credentialsFile.isNullOrBlank() && !marker.isNullOrBlank() && !destinationWallId.isNullOrBlank(),
@@ -82,7 +83,7 @@ class PostPublishRealInstrumentedTest {
             session?.isSupabaseAuthenticated() == true,
         )
 
-        ActivityScenario.launch<MainActivity>(mainIntent(evidenceImageUri, locationLabel)).use {
+        ActivityScenario.launch<MainActivity>(mainIntent(evidenceImageUri, locationLabel, failOnce = failOnce)).use {
             compose.waitUntil(45_000) {
                 runCatching { compose.onNodeWithTag(CreatePostCommonRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
@@ -114,6 +115,8 @@ class PostPublishRealInstrumentedTest {
                     .performClick()
                 compose.onNodeWithTag(ComposerTextInputTestTag, useUnmergedTree = true)
                     .performTextReplacement(bodyText)
+                device.pressBack()
+                device.waitForIdle(1_000)
             } else {
                 compose.waitUntil(20_000) {
                     runCatching { compose.onNodeWithTag(ComposerLocationValueTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
@@ -125,6 +128,28 @@ class PostPublishRealInstrumentedTest {
             compose.onNodeWithTag(ComposerPublishButtonTestTag, useUnmergedTree = true)
                 .performScrollTo()
                 .performClick()
+            if (failOnce) {
+                compose.waitUntil(20_000) {
+                    runCatching { compose.onNodeWithTag(ComposerFeedbackErrorTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
+                        runCatching { compose.onNodeWithTag(ComposerFeedbackRetryTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+                }
+                compose.onNodeWithTag(ComposerFeedbackErrorTestTag, useUnmergedTree = true)
+                    .performScrollTo()
+                compose.onNodeWithTag(ComposerFeedbackRetryTestTag, useUnmergedTree = true)
+                    .performScrollTo()
+                device.swipe(
+                    device.displayWidth / 2,
+                    device.displayHeight - 360,
+                    device.displayWidth / 2,
+                    device.displayHeight / 2,
+                    24,
+                )
+                device.waitForIdle(1_000)
+                saveScreenshot("android-post-progress-rollback-after-error")
+                compose.onNodeWithTag(ComposerFeedbackRetryTestTag, useUnmergedTree = true)
+                    .performScrollTo()
+                    .performClick()
+            }
             saveScreenshot("android-post-publish-after-publish-tap")
             compose.waitUntil(90_000) {
                 val markerVisible = runCatching {
@@ -346,11 +371,13 @@ class PostPublishRealInstrumentedTest {
         pickerSource: String? = null,
         pickerOutcome: String? = null,
         pickerPath: String? = null,
+        failOnce: Boolean = false,
     ): Intent =
         Intent(targetContext, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             .putExtra("com.quata.extra.SKIP_SPLASH_FOR_EVIDENCE", true)
             .putExtra("com.quata.extra.START_DESTINATION_FOR_EVIDENCE", "create_post")
+            .putExtra("com.quata.extra.POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE", failOnce)
             .apply {
                 evidenceImageUri?.let { putExtra("com.quata.extra.POST_PUBLISH_EVIDENCE_IMAGE_URI", it) }
                 evidenceLocationLabel?.let { putExtra("com.quata.extra.POST_PUBLISH_EVIDENCE_LOCATION_LABEL", it) }

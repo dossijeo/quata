@@ -1,6 +1,7 @@
 package com.quata.feature.postcomposer.presentation
 
 import com.quata.feature.postcomposer.domain.PostComposerDestination
+import com.quata.feature.postcomposer.domain.PostComposerType
 
 data class CreatePostUiState(
     val text: String = "",
@@ -16,6 +17,7 @@ data class CreatePostUiState(
     val destinationsError: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
+    val lastFailedSubmitType: PostComposerType? = null,
     val successMessage: String? = null,
     val createdPostId: String? = null
 ) {

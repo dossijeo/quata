@@ -21,7 +21,7 @@ const DEFAULT_DB_TLS_CA_FILE = "C:/Users/PC/.quata-supabase-pooler-ca.pem";
 const deviceCredentialsPath = "app-internal:post-publish-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/post-publish-credentials.json";
 const deviceEvidencePath = "files/post-publish-evidence";
-const evidenceFiles = [
+const baseEvidenceFiles = [
   "android-post-publish-composer-opened.png",
   "android-post-publish-composer-filled.png",
   "android-post-publish-after-publish-tap.png",
@@ -88,11 +88,12 @@ try {
 
   const instrumentationOutput = await runCapture(adb, [
     "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", "com.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest",
+    "-e", "class", "com.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest#authenticatedUserPublishesTextPostFromCommonComposer",
     "-e", "quataPostPublishCredentialsFile", deviceCredentialsPath,
     "-e", "quataPostPublishMarker", fixture.marker,
     "-e", "quataPostPublishDestinationWallId", fixture.destination.wallId,
     "-e", "quataPostPublishMode", options.mode,
+    ...(options.failOnce ? ["-e", "quataPostProgressRollbackFailOnce", "1"] : []),
     ...(fixture.locationLabel ? ["-e", "quataPostPublishLocationLabel", fixture.locationLabel] : []),
     "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
   ]);
@@ -103,9 +104,12 @@ try {
   }
   report.steps.push("android_real_text_post_published_from_common_composer");
 
-  const evidenceDir = join("build-reports", "android", "post-publish-evidence");
+  const evidenceDir = options.evidenceDir;
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
+  const evidenceFiles = options.failOnce
+    ? [...baseEvidenceFiles.slice(0, 2), "android-post-progress-rollback-after-error.png", ...baseEvidenceFiles.slice(2)]
+    : baseEvidenceFiles;
   for (const file of evidenceFiles) {
     await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file));
   }
@@ -169,10 +173,15 @@ function parseArgs(args) {
     output: join("build-reports", "android", "post-publish-evidence.json"),
     evidenceDir: join("build-reports", "android", "post-publish-evidence"),
     mode: "text",
+    failOnce: false,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
+    if (key === "--fail-once") {
+      parsed.failOnce = true;
+      continue;
+    }
     if (!["--out", "--evidence-dir", "--mode"].includes(key) || !value || value.startsWith("--")) throw new Error("invalid_arguments");
     index += 1;
     if (key === "--out") parsed.output = value;
@@ -262,7 +271,7 @@ async function withPg(config, action) {
 }
 
 async function copyEvidenceIfPresent() {
-  const evidenceDir = join("build-reports", "android", "post-publish-evidence");
+  const evidenceDir = options.evidenceDir;
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   for (const file of evidenceFiles) {

@@ -44,6 +44,9 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-composer-filled")
 
         tapPublish(in: app)
+        if environment["QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE"] == "1" {
+            waitForRetryAndTap(in: app)
+        }
         waitForPublishedFeedbackOrClose(in: app)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-after-publish")
     }
@@ -157,6 +160,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
 
     private func openComposer(mode: String, locationLabel: String) -> XCUIApplication {
         let app = XCUIApplication()
+        disableQuiescenceWait(for: app)
         app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
         app.launchEnvironment["QUATA_IOS_POST_PUBLISH_MODE"] = mode
         app.launchEnvironment["QUATA_IOS_POST_PUBLISH_REAL_MUTATION_OPT_IN"] = Self.realPublishOptIn
@@ -178,6 +182,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_PATH",
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_NAME",
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_MIME",
+            "QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE",
         ] {
             if let value = ProcessInfo.processInfo.environment[key], !value.isEmpty {
                 app.launchEnvironment[key] = value
@@ -209,6 +214,14 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         XCTAssertTrue(composer.waitForExistence(timeout: 25), "The real shared composer host must open from authenticated iOS chrome.")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-publish-composer-opened")
         return app
+    }
+
+    private func disableQuiescenceWait(for app: XCUIApplication) {
+        let selector = NSSelectorFromString("setWaitForQuiescence:")
+        guard app.responds(to: selector) else {
+            return
+        }
+        _ = app.perform(selector, with: NSNumber(value: false))
     }
 
     private func assertSharedComposerSurface(in app: XCUIApplication) {
@@ -361,6 +374,23 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         }
         XCTAssertTrue(publish.exists, "Expected the shared composer publish action to exist.")
         publish.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func waitForRetryAndTap(in app: XCUIApplication) {
+        let error = app.descendants(matching: .any)
+            .matching(identifier: "composer-feedback-error")
+            .firstMatch
+        let retry = app.descendants(matching: .any)
+            .matching(identifier: "composer-feedback-retry")
+            .firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 20), "The forced first publish failure must surface shared error feedback.")
+        XCTAssertTrue(retry.waitForExistence(timeout: 10), "The forced first publish failure must expose the shared retry action.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-progress-rollback-after-error")
+        if retry.isHittable {
+            retry.tap()
+        } else {
+            retry.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
     }
 
     private func waitForPublishedFeedbackOrClose(in app: XCUIApplication) {

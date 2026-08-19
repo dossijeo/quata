@@ -19,6 +19,8 @@ const commonDestinationSelector = readFileSync(new URL("../feature/postcomposer/
 const commonLocationSection = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerLocationSectionContent.kt", import.meta.url), "utf8");
 const commonLocationEditor = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerLocationTextEditorContent.kt", import.meta.url), "utf8");
 const commonComposerRepository = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/data/ActorBoundPostComposerRepository.kt", import.meta.url), "utf8");
+const commonFailOnceComposerRepository = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/data/FailOncePostComposerRepository.kt", import.meta.url), "utf8");
+const commonSubmissionFeedback = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerSubmissionFeedbackContent.kt", import.meta.url), "utf8");
 const iosComposerHost = readFileSync(new URL("../feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosComposerHost.kt", import.meta.url), "utf8");
 const iosApp = readFileSync(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
 const webPostComposerHost = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerHost.kt", import.meta.url), "utf8");
@@ -63,6 +65,27 @@ test("post publish runner requires explicit reversible mutation opt-in", () => {
   assert.match(webRunner, /I_ACCEPT_REVERSIBLE_POST_PUBLISH_MUTATION/);
   assert.match(androidRunner, /I_ACCEPT_REVERSIBLE_POST_PUBLISH_MUTATION/);
   assert.match(iosRunner, /I_ACCEPT_REVERSIBLE_POST_PUBLISH_MUTATION/);
+});
+
+test("post progress rollback evidence uses a shared fail-once repository and common retry anchor", () => {
+  assert.match(commonFailOnceComposerRepository, /class FailOncePostComposerRepository/);
+  assert.match(commonFailOnceComposerRepository, /delegate\.loadDestinations\(\)/);
+  assert.match(commonFailOnceComposerRepository, /post_composer_e2e_forced_first_publish_failure/);
+  assert.match(commonSubmissionFeedback, /ComposerFeedbackRetryTestTag = "composer-feedback-retry"/);
+  assert.match(commonCreatePostRoot, /retryLabel = copy\.retry/);
+  assert.match(commonCreatePostRoot, /lastFailedSubmitType/);
+  assert.match(webPostComposerRoute, /quata-post-progress-rollback-e2e/);
+  assert.match(webPostComposerRoute, /FailOncePostComposerRepository\(real\)/);
+  assert.match(webPostComposerHost, /retryAvailable/);
+  assert.match(webRunner, /--fail-once/);
+  assert.match(webRunner, /composer-feedback-retry/);
+  assert.match(androidAppNavGraph, /FailOncePostComposerRepository/);
+  assert.match(androidRunner, /quataPostProgressRollbackFailOnce/);
+  assert.match(androidPostPublishTest, /ComposerFeedbackRetryTestTag/);
+  assert.match(iosApp, /QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE/);
+  assert.match(iosRunner, /--fail-once/);
+  assert.match(iosWrapper, /QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE/);
+  assert.match(iosPostPublishTest, /waitForRetryAndTap/);
 });
 
 test("web composer submit uses a localhost opt-in bridge without replacing common UI state", () => {
@@ -206,6 +229,7 @@ test("post publish ios UI test uses common semantic anchors", () => {
   assert.match(iosPostPublishTest, /composer-destination-option\.\\\(wallId\)/);
   assert.match(iosPostPublishTest, /composer-text-input/);
   assert.match(iosPostPublishTest, /composer-publish/);
+  assert.match(iosPostPublishTest, /QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE/);
   assert.match(iosPostPublishTest, /composer-feedback-success/);
 });
 

@@ -122,6 +122,7 @@ import androidx.navigation.navArgument
 import com.quata.core.common.toUserFacingMessage
 import com.quata.core.device.QuataProximityState
 import com.quata.core.di.AppContainer
+import com.quata.feature.postcomposer.data.FailOncePostComposerRepository
 import com.quata.core.location.quataLastLocation
 import com.quata.core.location.SosLocationRecoveryService
 import com.quata.core.localization.QuataLanguageManager
@@ -211,6 +212,7 @@ fun AppNavGraph(
     postComposerPickerEvidenceSource: String? = null,
     postComposerPickerEvidenceOutcome: String? = null,
     postComposerPickerEvidencePath: String? = null,
+    postProgressRollbackFailOnceForEvidence: Boolean = false,
 ) {
     val navController = rememberNavController()
     val currentBackStackEntry = navController.currentBackStackEntryAsState().value
@@ -822,7 +824,13 @@ fun AppNavGraph(
                 composable(AppDestinations.CreatePost.route) {
                     CreatePostScreen(
                         padding = padding,
-                        repository = container.postComposerRepository,
+                        repository = remember(container.postComposerRepository, postProgressRollbackFailOnceForEvidence) {
+                            if (postProgressRollbackFailOnceForEvidence) {
+                                FailOncePostComposerRepository(container.postComposerRepository)
+                            } else {
+                                container.postComposerRepository
+                            }
+                        },
                         locationService = container.locationService,
                         permissionService = container.permissionService,
                         resetToken = createPostResetToken,
