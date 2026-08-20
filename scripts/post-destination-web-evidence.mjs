@@ -96,7 +96,7 @@ async function runAttempt(context, mode) {
     await semanticLocator(page, expected).then((locator) => locator.waitFor({ state: "attached", timeout: 10_000 }));
     await semanticLocator(page, "composer-destination-retry").then((locator) => locator.waitFor({ state: "attached", timeout: 8_000 }));
     await clickSemanticElement(page, "composer-publish");
-    await semanticLocator(page, "composer-feedback-error").then((locator) => locator.waitFor({ state: "attached", timeout: 8_000 }));
+    await semanticLocatorWithDiscoveryScroll(page, "composer-feedback-error").then((locator) => locator.waitFor({ state: "attached", timeout: 8_000 }));
     const blocked = await screenshot(page, `web-post-destination-${mode}-publish-blocked`);
     return { mode, status: "passed", anchors: [expected, "composer-destination-retry", "composer-feedback-error"], evidence: { opened, form, blocked } };
   } catch (error) {
@@ -113,14 +113,54 @@ async function clickComposerType(page) {
 }
 
 async function clickSemanticElement(page, id) {
-  const locator = await semanticLocator(page, id);
+  const locator = await semanticLocatorWithDiscoveryScroll(page, id);
   await locator.waitFor({ state: "attached", timeout: 20_000 });
   await locator.scrollIntoViewIfNeeded().catch(() => null);
-  const box = await locator.boundingBox();
+  const box = await visibleSemanticBox(page, locator, id);
   await locator.click({ force: true, timeout: 5_000 }).catch(async () => {
     if (!box || box.width <= 0 || box.height <= 0) throw new Error(`semantic_anchor_not_visible:${id}`);
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   });
+}
+
+async function visibleSemanticBox(page, locator, id) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const box = await locator.boundingBox().catch(() => null);
+    if (box && box.width > 0 && box.height > 0) return box;
+    await scrollAllScrollableContainers(page, attempt + 1);
+    await locator.scrollIntoViewIfNeeded().catch(() => null);
+    await page.waitForTimeout(120);
+  }
+  throw new Error(`semantic_anchor_not_visible:${id}`);
+}
+
+async function semanticLocatorWithDiscoveryScroll(page, id) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const locator = await semanticLocator(page, id).catch(() => null);
+    if (locator && await locator.count()) return locator;
+    await scrollAllScrollableContainers(page, attempt + 1);
+    await page.waitForTimeout(150);
+  }
+  await page.evaluate(() => {
+    const scroller = document.scrollingElement || document.documentElement;
+    scroller.scrollTo({ top: 0, behavior: "instant" });
+  }).catch(() => null);
+  return semanticLocator(page, id);
+}
+
+async function scrollAllScrollableContainers(page, step) {
+  await page.evaluate((distance) => {
+    const amount = distance * Math.max(240, Math.floor(window.innerHeight * 0.45));
+    const candidates = [document.scrollingElement, document.documentElement, document.body, ...document.querySelectorAll("*")].filter(Boolean);
+    for (const element of candidates) {
+      const style = getComputedStyle(element);
+      const canScroll = element.scrollHeight > element.clientHeight + 8 && /(auto|scroll|overlay)/.test(`${style.overflowY} ${style.overflow}`);
+      if (canScroll || element === document.scrollingElement || element === document.documentElement || element === document.body) {
+        element.scrollTop = amount;
+      }
+    }
+  }, step);
+  await page.mouse.wheel(0, Math.max(360, Math.floor(step * 180)));
 }
 
 async function semanticLocator(page, id) {
