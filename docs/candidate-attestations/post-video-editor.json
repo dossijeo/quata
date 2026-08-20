@@ -4,12 +4,12 @@
     "SCR-CREATE-POST",
     "POST-VIDEO-EDITOR"
   ],
-  "productSha": "86898ad99a548b5c57d598da05675767ed32159c",
+  "productSha": "d4be1902fc1b72c89aa1a2329b58eca7c77375a4",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "86898ad99a548b5c57d598da05675767ed32159c",
-      "report": "build-reports/web/post-video-editor-evidence.json",
+      "sha": "d4be1902fc1b72c89aa1a2329b58eca7c77375a4",
+      "report": "build-reports/web/post-video-editor-evidence-d4be1902.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -17,8 +17,8 @@
     },
     "android": {
       "status": "passed",
-      "sha": "86898ad99a548b5c57d598da05675767ed32159c",
-      "report": "build-reports/android/post-video-editor-evidence.json",
+      "sha": "d4be1902fc1b72c89aa1a2329b58eca7c77375a4",
+      "report": "build-reports/android/post-video-editor-evidence-d4be1902.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -26,8 +26,8 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "86898ad99a548b5c57d598da05675767ed32159c",
-      "report": "build-reports/ios/POST-VIDEO-EDITOR-evidence.json",
+      "sha": "d4be1902fc1b72c89aa1a2329b58eca7c77375a4",
+      "report": "build-reports/ios/post-video-editor-evidence-d4be1902.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -37,8 +37,9 @@
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate closes the POST-VIDEO-EDITOR focal unit through common CreatePostRoot media edit anchors, shared selected video preview semantics, a common PostVideoEditorDialogContent control surface, and real local MP4 editor/export evidence on Web/Wasm, Android and iOS.",
-    "Android keeps its native fullscreen QuataVideoEditor edge but forwards the common post-video-editor.* anchors. Web/Wasm and iOS mount the common editor content behind platform export edges; Web/Wasm records localhostProductBridge fallbacks for internal dialog controls because Compose/Wasm does not expose those AlertDialog testTags as DOM/ARIA nodes, but the replay does not depend on coordinates.",
+    "This candidate closes the POST-VIDEO-EDITOR focal unit through common CreatePostRoot media edit anchors, shared selected video preview semantics, and a common PostVideoEditorDialogContent surface for preview chrome, play/mute, trim/timeline state, crop modes, crop zoom, captions, reset/cancel/export and progress/error copy on Web/Wasm, Android and iOS.",
+    "Android now mounts the same common PostVideoEditorDialogContent as Web/Wasm and iOS. Android diverges only through native ExoPlayer preview, frame timeline, crop drag overlay, Vosk/caption model dialogs and Media3/Transformer export slots; those preserve the original Android trim, crop, zoom/pan, caption, progress and cancel behavior behind the common surface.",
+    "Web/Wasm records localhostProductBridge fallbacks for internal dialog controls because Compose/Wasm does not expose those AlertDialog testTags as DOM/ARIA nodes, but the replay does not depend on coordinates and prefers semantic anchors when visible.",
     "The unit keeps video evidence reversible and local-only: no Supabase data mutation is performed by the Web, Android or iOS POST-VIDEO-EDITOR evidence runners. Remaining CREATE-POST limits are outside this focal unit: video camera with long real media, system permission negatives, and cross-flow progress/error/rollback combinations."
   ]
 }
