@@ -433,6 +433,12 @@ async function clickComposerMediaAction(page, id) {
 
 async function clickComposerEditAction(page) {
   const id = "composer-media.edit-video";
+  const alreadyOpen = await postComposerProductState(page)
+    .then((state) => state?.videoEditorOpen === true)
+    .catch(() => false);
+  if (alreadyOpen) {
+    return { kind: "alreadyOpen", value: "post-video-editor.root", preferredMissing: id };
+  }
   if (await semanticLocator(page, id).then(async (locator) => {
     await locator.waitFor({ state: "attached", timeout: 3_000 });
     await locator.scrollIntoViewIfNeeded().catch(() => null);

@@ -553,6 +553,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /POST-VIDEO-EDITOR-WEB-REAL-001/);
   assert.match(webVideoEditorRunner, /quata-post-video-editor-e2e/);
   assert.match(webVideoEditorRunner, /composer-media\.edit-video/);
+  assert.match(webVideoEditorRunner, /videoEditorOpen === true/);
+  assert.match(webVideoEditorRunner, /kind: "alreadyOpen", value: "post-video-editor\.root"/);
   assert.match(webVideoEditorRunner, /post-video-editor\.root/);
   assert.match(webVideoEditorRunner, /post-video-editor\.export/);
   assert.match(webVideoEditorRunner, /__quataPostVideoEditorExport/);
