@@ -9,6 +9,7 @@ const CHECK = "POST-VIDEO-EDITOR-IOS-REAL-001";
 const PICKER_OPT_IN = "I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 const CAPTION_FIXTURE_TEXT = "quata video editor captions are real";
+const EXPECTED_CAPTION_STYLE = "Karaoke";
 
 const options = parseArgs(process.argv.slice(2));
 const report = {
@@ -143,7 +144,7 @@ function assertIosExportDiagnostics(diagnostics) {
     throw new Error(`ios_video_editor_export_unexpected_dimensions:${diagnostics.outputWidth}x${diagnostics.outputHeight}`);
   }
   if (diagnostics.removeAudio !== true) throw new Error("ios_video_editor_export_mute_not_applied");
-  if (String(diagnostics.captionStyle || "") !== "Hormozi") {
+  if (String(diagnostics.captionStyle || "") !== EXPECTED_CAPTION_STYLE) {
     throw new Error(`ios_video_editor_caption_style_not_selected:${diagnostics.captionStyle || ""}`);
   }
   const text = String(diagnostics.captionText || "").trim().toLowerCase();

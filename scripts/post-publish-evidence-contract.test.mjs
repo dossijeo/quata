@@ -638,8 +638,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_UI_E2E/);
   assert.match(iosPostPublishTest, /composer-media\.edit-video/);
   assert.match(iosPostPublishTest, /post-video-editor\.root/);
-  assert.match(iosVideoEditorRunner, /diagnostics\.captionStyle \|\| ""\) !== "Hormozi"/);
-  assert.doesNotMatch(iosPostPublishTest, /post-video-editor\.caption-style\.Karaoke/);
+  assert.match(iosVideoEditorRunner, /EXPECTED_CAPTION_STYLE = "Karaoke"/);
+  assert.match(iosPostPublishTest, /post-video-editor\.caption-style\.Karaoke/);
   assert.match(iosPostPublishTest, /post-video-editor\.export/);
   assert.match(iosPostPublishTest, /post-video-editor\.export-progress/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE/);
