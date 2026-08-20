@@ -58,11 +58,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.onClick
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -516,15 +512,6 @@ private fun CommonCaptionControls(
                         .weight(1f)
                         .height(40.dp)
                         .testTag(styleTag)
-                        .semantics(mergeDescendants = true) {
-                            role = Role.Button
-                            contentDescription = styleTag
-                            this.selected = selected
-                            onClick(label = styleTag) {
-                                onStyleChange(id)
-                                true
-                            }
-                        }
                     val chipContent: @Composable () -> Unit = {
                         Row(
                             horizontalArrangement = Arrangement.Center,

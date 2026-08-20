@@ -4,6 +4,9 @@ import XCTest
 /// The companion runner seeds the normal app Keychain first, then opens the real composer route.
 final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
     private static let realPublishOptIn = "I_ACCEPT_REVERSIBLE_POST_PUBLISH_MUTATION"
+    private enum ReplayError: Error {
+        case captionStyleSelectionFailed(String)
+    }
 
     func testAuthenticatedSessionPublishesRealTextPost() throws {
         let environment = ProcessInfo.processInfo.environment
@@ -234,7 +237,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         tapComposerAction("post-video-editor.mute", in: app)
         tapComposerAction("post-video-editor.play-pause", in: app)
         tapComposerAction("post-video-editor.captions", in: app)
-        tapVideoCaptionStyle("Hormozi", in: app)
+        try tapVideoCaptionStyle("Hormozi", in: app)
         tapComposerAction("post-video-editor.crop", in: app)
         tapComposerAction("post-video-editor.export", in: app)
         let exportProgress = app.descendants(matching: .any)
@@ -417,7 +420,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.15)
     }
 
-    private func tapVideoCaptionStyle(_ style: String, in app: XCUIApplication) {
+    private func tapVideoCaptionStyle(_ style: String, in app: XCUIApplication) throws {
         let selectedIdentifier = "post-video-editor.caption-style-selected.\(style)"
         let buttonIdentifier = "post-video-editor.caption-style.\(style)"
         let button = app.buttons.matching(identifier: buttonIdentifier).firstMatch
@@ -440,6 +443,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             }
         }
         XCTFail("Selecting common video caption style \(style) did not update the shared editor state.")
+        throw ReplayError.captionStyleSelectionFailed(style)
     }
 
     private func commonElement(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
