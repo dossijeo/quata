@@ -58,7 +58,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -514,8 +517,13 @@ private fun CommonCaptionControls(
                         .height(40.dp)
                         .testTag(styleTag)
                         .semantics(mergeDescendants = true) {
+                            role = Role.Button
                             contentDescription = styleTag
                             this.selected = selected
+                            onClick(label = styleTag) {
+                                onStyleChange(id)
+                                true
+                            }
                         }
                     Surface(
                         onClick = { onStyleChange(id) },
