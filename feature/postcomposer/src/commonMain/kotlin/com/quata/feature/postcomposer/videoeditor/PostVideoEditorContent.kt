@@ -3,7 +3,6 @@ package com.quata.feature.postcomposer.videoeditor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -59,7 +58,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -515,15 +513,12 @@ private fun CommonCaptionControls(
                         .weight(1f)
                         .height(40.dp)
                         .testTag(styleTag)
-                        .clickable(
-                            role = Role.Button,
-                            onClick = { onStyleChange(id) },
-                        )
-                        .semantics {
+                        .semantics(mergeDescendants = true) {
                             contentDescription = styleTag
                             this.selected = selected
                         }
                     Surface(
+                        onClick = { onStyleChange(id) },
                         modifier = itemModifier,
                         shape = RoundedCornerShape(20.dp),
                         color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
