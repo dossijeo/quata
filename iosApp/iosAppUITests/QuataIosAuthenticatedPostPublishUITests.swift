@@ -94,6 +94,14 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             XCTAssertTrue(selectedPreview.waitForExistence(timeout: 12), "A successful \(source) picker replay must select \(mediaType) in common composer state.")
         } else {
             XCTAssertFalse(selectedPreview.waitForExistence(timeout: 2), "A non-success \(source) picker replay must not select \(mediaType).")
+            let mediaError = app.descendants(matching: .any)
+                .matching(identifier: "composer-media.error")
+                .firstMatch
+            if outcome == "failure" || outcome == "unsupported" {
+                XCTAssertTrue(mediaError.waitForExistence(timeout: 8), "A \(outcome) picker replay must expose the shared media error anchor.")
+            } else {
+                XCTAssertFalse(mediaError.waitForExistence(timeout: 2), "A cancelled picker replay must stay silent and not expose a media error.")
+            }
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-picker-camera-\(mediaType)-after-action-\(source)-\(outcome)")
         print("IOS_POST_PICKER_CAMERA_UI_GATE_PASSED \(mediaType) \(source) \(outcome)")

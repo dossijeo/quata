@@ -246,6 +246,15 @@ class PostPublishRealInstrumentedTest {
                 compose.waitUntil(5_000) {
                     runCatching { compose.onNodeWithTag(selectedTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
                 }
+                if (outcome == "failure" || outcome == "unsupported") {
+                    compose.waitUntil(8_000) {
+                        runCatching { compose.onNodeWithTag(ComposerMediaErrorTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+                    }
+                } else {
+                    compose.waitUntil(2_000) {
+                        runCatching { compose.onNodeWithTag(ComposerMediaErrorTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+                    }
+                }
             }
             saveScreenshot("android-post-picker-camera-after-action-$pickerSource-$outcome")
         }

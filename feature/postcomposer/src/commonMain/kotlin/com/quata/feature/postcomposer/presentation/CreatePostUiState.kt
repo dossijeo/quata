@@ -15,6 +15,7 @@ data class CreatePostUiState(
     val selectedDestinationWallId: String? = null,
     val destinationsLoading: Boolean = false,
     val destinationsError: String? = null,
+    val mediaError: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
     val lastFailedSubmitType: PostComposerType? = null,

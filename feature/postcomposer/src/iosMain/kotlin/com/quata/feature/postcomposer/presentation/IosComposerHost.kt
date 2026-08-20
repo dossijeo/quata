@@ -81,11 +81,40 @@ fun QuataComposerViewController(dependencies: IosComposerHostDependencies): UIVi
     QuataTheme { IosPostComposerHost(dependencies) }
 }
 
-private fun PlatformResult<List<PlatformFile>>.composerSelectedFileOrNull(): PlatformFile? =
-    (this as? PlatformResult.Success)?.value?.firstOrNull()
+private suspend fun PlatformResult<List<PlatformFile>>.dispatchIosComposerMediaResult(
+    viewModel: CreatePostViewModel,
+    copy: CreatePostRootCopy,
+    onSuccess: suspend (PlatformFile) -> Unit,
+) {
+    when (this) {
+        is PlatformResult.Success -> {
+            val file = value.firstOrNull { it.reference.isNotBlank() }
+            if (file != null) onSuccess(file) else viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaSelectionFailed))
+        }
+        is PlatformResult.Failure -> viewModel.onEvent(
+            CreatePostUiEvent.MediaSelectionFailed(reason?.takeIf(String::isNotBlank) ?: copy.mediaSelectionFailed),
+        )
+        PlatformResult.Unsupported -> viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaUnsupported))
+        PlatformResult.Cancelled -> viewModel.onEvent(CreatePostUiEvent.ClearMediaError)
+    }
+}
 
-private fun PlatformResult<PlatformFile>.composerCapturedFileOrNull(): PlatformFile? =
-    (this as? PlatformResult.Success)?.value
+private suspend fun PlatformResult<PlatformFile>.dispatchIosComposerMediaResult(
+    viewModel: CreatePostViewModel,
+    copy: CreatePostRootCopy,
+    onSuccess: suspend (PlatformFile) -> Unit,
+) {
+    when (this) {
+        is PlatformResult.Success -> {
+            if (value.reference.isNotBlank()) onSuccess(value) else viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaSelectionFailed))
+        }
+        is PlatformResult.Failure -> viewModel.onEvent(
+            CreatePostUiEvent.MediaSelectionFailed(reason?.takeIf(String::isNotBlank) ?: copy.mediaSelectionFailed),
+        )
+        PlatformResult.Unsupported -> viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaUnsupported))
+        PlatformResult.Cancelled -> viewModel.onEvent(CreatePostUiEvent.ClearMediaError)
+    }
+}
 
 /** Thin UIKit wrapper around the one common composer root. */
 @Composable
@@ -120,13 +149,12 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     }
     fun selectVideo(source: FilePickerSource) {
         scope.launch {
-            filePicker.pick(FilePickerRequest(listOf("video/*"), source = source))
-                .composerSelectedFileOrNull()?.let { file ->
+            filePicker.pick(FilePickerRequest(listOf("video/*"), source = source)).dispatchIosComposerMediaResult(viewModel, copy) { file ->
                     releaseVideoThumbnail()
                     videoFile = file
                     viewModel.onEvent(CreatePostUiEvent.VideoSelected(file.reference))
                     videoThumbnail = (dependencies.videoThumbnails.createThumbnail(file).toIosComposerVideoPreview() as? IosComposerVideoPreview.Thumbnail)?.file
-                }
+            }
         }
     }
     DisposableEffect(Unit) { onDispose(::releaseVideoThumbnail) }
@@ -143,18 +171,17 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
         slots = CreatePostPlatformSlots(
             pickImage = {
                 scope.launch {
-                    filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery))
-                        .composerSelectedFileOrNull()?.let { file ->
+                    filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery)).dispatchIosComposerMediaResult(viewModel, copy) { file ->
                             imageFile = file
                             viewModel.onEvent(CreatePostUiEvent.ImageSelected(file.reference))
-                        }
+                    }
                 }
             },
             captureImage = {
                 scope.launch {
                     val result = iosPostComposerEvidenceCameraCapturePhoto()
                         ?: dependencies.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))
-                    result.composerCapturedFileOrNull()?.let { file ->
+                    result.dispatchIosComposerMediaResult(viewModel, copy) { file ->
                         imageFile = file
                         viewModel.onEvent(CreatePostUiEvent.ImageSelected(file.reference))
                     }

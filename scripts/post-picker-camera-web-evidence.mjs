@@ -130,6 +130,14 @@ async function runAttempt(context, descriptor) {
       if (editAnchor.kind === "missingStableAnchor") report.steps.push(`web_edit_anchor_not_blocking_picker_state:${source}`);
     } else {
       await page.waitForFunction((field) => globalThis.__quataPostComposerE2eProduct?.state?.()?.[field] !== true, selectedField, { timeout: 5_000 });
+      if (outcome === "failure" || outcome === "unsupported") {
+        await page.waitForFunction(() => globalThis.__quataPostComposerE2eProduct?.state?.()?.hasMediaError === true, null, { timeout: 8_000 });
+        await page.locator('[id="composer-media.error"], [aria-label*="composer-media.error"]').first()
+          .waitFor({ state: "attached", timeout: 8_000 });
+      } else {
+        const state = await postComposerProductState(page);
+        if (state?.hasMediaError === true) throw new Error(`cancelled_picker_must_not_show_media_error:${source}`);
+      }
     }
     const afterAction = await screenshot(page, `web-post-picker-camera-after-action-${source}-${outcome}`);
     const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));

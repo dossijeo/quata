@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.quata.core.platform.PlatformResult
 import com.quata.core.accessibility.CriticalControlsAccessibilityCatalog
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
@@ -23,10 +24,10 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 data class WebComposerMediaSlots(
-    val pickImage: suspend () -> String?,
-    val captureImage: suspend () -> String?,
-    val pickVideo: suspend () -> String?,
-    val captureVideo: suspend () -> String?,
+    val pickImage: suspend () -> PlatformResult<String>,
+    val captureImage: suspend () -> PlatformResult<String>,
+    val pickVideo: suspend () -> PlatformResult<String>,
+    val captureVideo: suspend () -> PlatformResult<String>,
     val editImage: (suspend (String) -> String?)? = null,
     val editVideo: (suspend (String) -> String?)? = null,
     val imageEditor: (@Composable (String, () -> Unit, (String) -> Unit) -> Unit)? = null,
@@ -85,6 +86,8 @@ fun WebPostComposerHost(
                     state.selectedDestination?.label?.let { put("selectedDestinationLabel", it) }
                     put("hasError", state.error != null)
                     state.error?.let { put("error", it.take(160)) }
+                    put("hasMediaError", state.mediaError != null)
+                    state.mediaError?.let { put("mediaError", it.take(160)) }
                     put("retryAvailable", state.lastFailedSubmitType != null)
                     state.lastFailedSubmitType?.let { put("lastFailedSubmitType", it.name.lowercase()) }
                     put("hasSuccess", state.successMessage != null)
@@ -104,8 +107,8 @@ fun WebPostComposerHost(
         canPublish = canPublish,
         copy = copy,
         slots = CreatePostPlatformSlots(
-            pickImage = { scope.launch { mediaSlots.pickImage()?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
-            captureImage = { scope.launch { mediaSlots.captureImage()?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
+            pickImage = { scope.launch { mediaSlots.pickImage().dispatchMediaResult(viewModel, copy) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
+            captureImage = { scope.launch { mediaSlots.captureImage().dispatchMediaResult(viewModel, copy) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
             editImage = when {
                 mediaSlots.imageEditor != null -> ({
                     stateUri(viewModel, true)?.let { imageEditorReference = it }
@@ -116,8 +119,8 @@ fun WebPostComposerHost(
                 })
                 else -> null
             },
-            pickVideo = { scope.launch { mediaSlots.pickVideo()?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } },
-            captureVideo = { scope.launch { mediaSlots.captureVideo()?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } },
+            pickVideo = { scope.launch { mediaSlots.pickVideo().dispatchMediaResult(viewModel, copy) { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } },
+            captureVideo = { scope.launch { mediaSlots.captureVideo().dispatchMediaResult(viewModel, copy) { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } },
             editVideo = when {
                 mediaSlots.videoEditor != null -> ({
                     stateUri(viewModel, false)?.let { videoEditorReference = it }
@@ -159,3 +162,18 @@ fun WebPostComposerHost(
 
 private fun stateUri(viewModel: CreatePostViewModel, image: Boolean): String? =
     if (image) viewModel.uiState.value.imageUri else viewModel.uiState.value.videoUri
+
+private fun PlatformResult<String>.dispatchMediaResult(
+    viewModel: CreatePostViewModel,
+    copy: com.quata.feature.postcomposer.presentation.CreatePostRootCopy,
+    onSuccess: (String) -> Unit,
+) {
+    when (this) {
+        is PlatformResult.Success -> onSuccess(value)
+        is PlatformResult.Failure -> viewModel.onEvent(
+            CreatePostUiEvent.MediaSelectionFailed(reason?.takeIf(String::isNotBlank) ?: copy.mediaSelectionFailed),
+        )
+        PlatformResult.Unsupported -> viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaUnsupported))
+        PlatformResult.Cancelled -> viewModel.onEvent(CreatePostUiEvent.ClearMediaError)
+    }
+}
