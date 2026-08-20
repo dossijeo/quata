@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +33,10 @@ import com.quata.feature.postcomposer.domain.PostComposerDestination
 
 const val ComposerDestinationSelectorTestTag = "composer-destination-selector"
 const val ComposerDestinationSelectedTestTag = "composer-destination-selected"
+const val ComposerDestinationLoadingTestTag = "composer-destination-loading"
+const val ComposerDestinationErrorTestTag = "composer-destination-error"
+const val ComposerDestinationEmptyTestTag = "composer-destination-empty"
+const val ComposerDestinationRetryTestTag = "composer-destination-retry"
 
 @Composable
 fun ComposerDestinationSelectorContent(
@@ -38,36 +44,106 @@ fun ComposerDestinationSelectorContent(
     helper: String,
     destinations: List<PostComposerDestination>,
     selectedDestination: PostComposerDestination?,
+    loading: Boolean,
+    errorMessage: String?,
+    emptyMessage: String,
+    loadingMessage: String,
+    retryLabel: String,
+    onRetry: () -> Unit,
     onDestinationSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (destinations.isEmpty()) return
     ComposerSectionPanelContent(
         title = title,
         modifier = modifier.testTag(ComposerDestinationSelectorTestTag),
         content = {
-            Text(
-                text = selectedDestination?.label ?: helper,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.testTag(ComposerDestinationSelectedTestTag),
-            )
-            Text(
-                text = selectedDestination?.subtitle ?: helper,
-                fontSize = 13.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 12.dp)) {
-                destinations.forEach { destination ->
-                    ComposerDestinationOptionContent(
-                        destination = destination,
-                        selected = destination.wallId == selectedDestination?.wallId,
-                        onClick = { onDestinationSelected(destination.wallId) },
-                    )
-                }
+            when {
+                loading -> ComposerDestinationStatusContent(
+                    message = loadingMessage,
+                    testTag = ComposerDestinationLoadingTestTag,
+                    leading = { CircularProgressIndicator() },
+                )
+                errorMessage != null -> ComposerDestinationStatusContent(
+                    message = errorMessage,
+                    testTag = ComposerDestinationErrorTestTag,
+                    trailing = {
+                        TextButton(onClick = onRetry, modifier = Modifier.testTag(ComposerDestinationRetryTestTag)) {
+                            Text(retryLabel)
+                        }
+                    },
+                )
+                destinations.isEmpty() -> ComposerDestinationStatusContent(
+                    message = emptyMessage,
+                    testTag = ComposerDestinationEmptyTestTag,
+                    trailing = {
+                        TextButton(onClick = onRetry, modifier = Modifier.testTag(ComposerDestinationRetryTestTag)) {
+                            Text(retryLabel)
+                        }
+                    },
+                )
+                else -> ComposerDestinationOptionsContent(helper, destinations, selectedDestination, onDestinationSelected)
             }
         },
     )
+}
+
+@Composable
+private fun ComposerDestinationStatusContent(
+    message: String,
+    testTag: String,
+    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(testTag)
+            .semantics { contentDescription = testTag },
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            leading?.invoke()
+            Text(
+                text = message,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        trailing?.invoke()
+    }
+}
+
+@Composable
+private fun ComposerDestinationOptionsContent(
+    helper: String,
+    destinations: List<PostComposerDestination>,
+    selectedDestination: PostComposerDestination?,
+    onDestinationSelected: (String) -> Unit,
+) {
+    Text(
+        text = selectedDestination?.label ?: helper,
+        fontWeight = FontWeight.ExtraBold,
+        modifier = Modifier.testTag(ComposerDestinationSelectedTestTag),
+    )
+    Text(
+        text = selectedDestination?.subtitle ?: helper,
+        fontSize = 13.sp,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 12.dp)) {
+        destinations.forEach { destination ->
+            ComposerDestinationOptionContent(
+                destination = destination,
+                selected = destination.wallId == selectedDestination?.wallId,
+                onClick = { onDestinationSelected(destination.wallId) },
+            )
+        }
+    }
 }
 
 @Composable

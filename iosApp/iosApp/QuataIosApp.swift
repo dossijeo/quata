@@ -1172,11 +1172,18 @@ private final class IosAppCompositionRoot {
                 failureMessage: "post_composer_e2e_forced_first_publish_failure"
             )
             : repository
+        let destinationMode = ProcessInfo.processInfo.environment["QUATA_IOS_POST_DESTINATION_E2E_MODE"]?.lowercased()
+        let evidenceRepository: PostComposerRepository = ["empty", "failure", "multiple"].contains(destinationMode ?? "")
+            ? DestinationEvidencePostComposerRepository(
+                delegate: composerRepository,
+                mode: destinationMode ?? ""
+            )
+            : composerRepository
         authenticatedHost.installComposerFactory { [weak self] in
             let evidenceDraft = IosPostPublishEvidenceComposerSeed.imageLocationDraft()
             return IosComposerHostKt.QuataComposerViewController(
                 dependencies: IosComposerHostKt.createIosComposerHostDependenciesWithInitialDraft(
-                    repository: composerRepository,
+                    repository: evidenceRepository,
                     filePicker: services.filePicker,
                     cameraCapture: services.cameraCapture,
                     videoThumbnails: services.videoThumbnails,

@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
@@ -263,6 +264,66 @@ class PostPublishRealInstrumentedTest {
     }
 
     @Test
+    fun authenticatedUserExercisesDestinationStatesFromCommonComposer() = runBlocking {
+        val credentialsFile = optionalArgument("quataPostPublishCredentialsFile")
+        val mode = optionalArgument("quataPostDestinationEvidenceMode") ?: "multiple"
+        assumeTrue(
+            "POST-DESTINATION-ANDROID-REAL-001 is opt-in and requires local credentials plus a destination evidence mode.",
+            !credentialsFile.isNullOrBlank(),
+        )
+        require(mode in setOf("empty", "failure", "multiple")) { "unsupported_post_destination_mode:$mode" }
+        val credentials = credentialsFromFile(credentialsFile.orEmpty())
+
+        suppressStartupPrompts()
+        grantOptionalNotificationPermission()
+        app.container.authRepository.login(credentials.countryCode, credentials.phone, credentials.password)
+            .getOrThrow()
+
+        ActivityScenario.launch<MainActivity>(
+            mainIntent(destinationEvidenceMode = mode),
+        ).use {
+            compose.waitUntil(45_000) {
+                runCatching { compose.onNodeWithTag(CreatePostCommonRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            saveScreenshot("android-post-destination-composer-opened-$mode")
+            compose.onNodeWithTag("composer-type-text", useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            when (mode) {
+                "failure" -> {
+                    compose.waitUntil(20_000) {
+                        runCatching { compose.onNodeWithTag(ComposerDestinationErrorTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
+                            runCatching { compose.onNodeWithTag(ComposerDestinationRetryTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+                    }
+                    saveScreenshot("android-post-destination-error")
+                    assertPublishBlockedByDestinationRequired()
+                }
+                "empty" -> {
+                    compose.waitUntil(20_000) {
+                        runCatching { compose.onNodeWithTag(ComposerDestinationEmptyTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
+                            runCatching { compose.onNodeWithTag(ComposerDestinationRetryTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+                    }
+                    saveScreenshot("android-post-destination-empty")
+                    assertPublishBlockedByDestinationRequired()
+                }
+                else -> {
+                    compose.waitUntil(20_000) {
+                        runCatching { compose.onNodeWithTag("composer-destination-option.e2e-wall-bata", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+                    }
+                    compose.onNodeWithTag("composer-destination-option.e2e-wall-bata", useUnmergedTree = true)
+                        .performScrollTo()
+                        .performClick()
+                    compose.onNodeWithTag(ComposerDestinationSelectedTestTag, useUnmergedTree = true)
+                        .assertTextContains("Bata", substring = true)
+                    saveScreenshot("android-post-destination-multiple-selected")
+                }
+            }
+        }
+
+        writeDestinationReport(mode)
+    }
+
+    @Test
     fun authenticatedUserExercisesPostImageEditorFromCommonComposer() = runBlocking {
         val credentialsFile = optionalArgument("quataPostPublishCredentialsFile")
         assumeTrue(
@@ -444,6 +505,7 @@ class PostPublishRealInstrumentedTest {
         pickerSource: String? = null,
         pickerOutcome: String? = null,
         pickerPath: String? = null,
+        destinationEvidenceMode: String? = null,
         failOnce: Boolean = false,
         failAfterUpload: Boolean = false,
     ): Intent =
@@ -459,7 +521,18 @@ class PostPublishRealInstrumentedTest {
                 pickerSource?.let { putExtra("com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_SOURCE", it) }
                 pickerOutcome?.let { putExtra("com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_OUTCOME", it) }
                 pickerPath?.let { putExtra("com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_PATH", it) }
+                destinationEvidenceMode?.let { putExtra("com.quata.extra.POST_DESTINATION_EVIDENCE_MODE", it) }
             }
+
+    private fun assertPublishBlockedByDestinationRequired() {
+        compose.onNodeWithTag(ComposerPublishButtonTestTag, useUnmergedTree = true)
+            .performScrollTo()
+            .performClick()
+        compose.waitUntil(10_000) {
+            runCatching { compose.onNodeWithTag(ComposerFeedbackErrorTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+        }
+        saveScreenshot("android-post-destination-publish-blocked")
+    }
 
     private fun saveScreenshot(name: String) {
         val file = File(evidenceDir(), "$name.png")
@@ -494,6 +567,17 @@ class PostPublishRealInstrumentedTest {
                 .put("status", "passed")
                 .put("source", source)
                 .put("outcome", outcome)
+                .put("evidenceDirectory", evidenceDir().absolutePath)
+                .toString(2) + "\n",
+        )
+    }
+
+    private fun writeDestinationReport(mode: String) {
+        File(evidenceDir(), "android-post-destination-evidence.json").writeText(
+            JSONObject()
+                .put("check", "POST-DESTINATION-ANDROID-REAL-001")
+                .put("status", "passed")
+                .put("mode", mode)
                 .put("evidenceDirectory", evidenceDir().absolutePath)
                 .toString(2) + "\n",
         )

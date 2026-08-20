@@ -83,9 +83,12 @@ class CreatePostViewModel(
                 lastFailedSubmitType = null,
                 successMessage = null
             )
+            CreatePostUiEvent.ReloadDestinations -> loadDestinations()
             CreatePostUiEvent.ClearDraft -> _uiState.value = CreatePostUiState(
                 destinations = _uiState.value.destinations,
                 selectedDestinationWallId = _uiState.value.selectedDestinationWallId,
+                destinationsLoading = _uiState.value.destinationsLoading,
+                destinationsError = _uiState.value.destinationsError,
             )
             CreatePostUiEvent.ClearMediaError -> _uiState.value = _uiState.value.copy(mediaError = null)
             CreatePostUiEvent.Submit -> submit(PostComposerType.Text)
@@ -132,6 +135,16 @@ class CreatePostViewModel(
         if (submitJob?.isActive == true) return
         val state = _uiState.value
         val destination = state.selectedDestination
+        if (state.destinationsLoading || destination == null) {
+            _uiState.value = state.copy(
+                isLoading = false,
+                error = messages.destinationRequired,
+                mediaError = null,
+                successMessage = null,
+                lastFailedSubmitType = null,
+            )
+            return
+        }
         _uiState.value = state.copy(isLoading = true, error = null, mediaError = null, successMessage = null)
         lateinit var runningJob: Job
         runningJob = scope.launch(start = CoroutineStart.LAZY) {
@@ -195,4 +208,5 @@ class CreatePostViewModel(
 data class CreatePostMessages(
     val created: String,
     val failed: String,
+    val destinationRequired: String,
 )

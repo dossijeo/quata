@@ -107,6 +107,40 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         print("IOS_POST_PICKER_CAMERA_UI_GATE_PASSED \(mediaType) \(source) \(outcome)")
     }
 
+    func testAuthenticatedSessionExercisesDestinationStatesFromCommonComposer() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_POST_DESTINATION_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated post destination UI gate is opt-in.")
+        }
+        let mode = environment["QUATA_IOS_POST_DESTINATION_E2E_MODE"] ?? ""
+        XCTAssertTrue(["empty", "failure", "multiple"].contains(mode), "Unsupported destination evidence mode \(mode).")
+
+        let app = openComposer(mode: "text", locationLabel: "")
+        assertSharedComposerSurface(in: app)
+        tapTextType(in: app)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-destination-composer-opened-\(mode)")
+
+        switch mode {
+        case "failure":
+            XCTAssertTrue(commonElement("composer-destination-error", in: app).waitForExistence(timeout: 12), "Destination load failure must expose the shared error anchor.")
+            XCTAssertTrue(commonElement("composer-destination-retry", in: app).waitForExistence(timeout: 6), "Destination load failure must expose the shared retry anchor.")
+            QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-destination-error")
+            assertPublishBlockedByDestinationRequired(in: app)
+        case "empty":
+            XCTAssertTrue(commonElement("composer-destination-empty", in: app).waitForExistence(timeout: 12), "Empty destinations must expose the shared empty anchor.")
+            XCTAssertTrue(commonElement("composer-destination-retry", in: app).waitForExistence(timeout: 6), "Empty destinations must expose the shared retry anchor.")
+            QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-destination-empty")
+            assertPublishBlockedByDestinationRequired(in: app)
+        default:
+            selectDestination("e2e-wall-bata", in: app)
+            let selected = commonElement("composer-destination-selected", in: app)
+            XCTAssertTrue(selected.waitForExistence(timeout: 8), "Selected destination label must remain anchored.")
+            XCTAssertTrue(elementText(selected).contains("Bata"), "Selecting the alternate destination must update common selected label.")
+            QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-destination-multiple-selected")
+        }
+        print("IOS_POST_DESTINATION_UI_GATE_PASSED \(mode)")
+    }
+
     func testAuthenticatedSessionExercisesPostImageEditorFromCommonComposer() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_POST_IMAGE_EDITOR_UI_E2E"] == "1" else {
@@ -233,6 +267,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_MIME",
             "QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE",
             "QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD",
+            "QUATA_IOS_POST_DESTINATION_E2E_MODE",
         ] {
             if let value = ProcessInfo.processInfo.environment[key], !value.isEmpty {
                 app.launchEnvironment[key] = value
@@ -335,6 +370,16 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         }
         XCTAssertTrue(action.exists, "Expected common composer action \(identifier) to exist.")
         action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func commonElement(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    private func assertPublishBlockedByDestinationRequired(in app: XCUIApplication) {
+        tapPublish(in: app)
+        XCTAssertTrue(commonElement("composer-feedback-error", in: app).waitForExistence(timeout: 8), "Publishing without a loaded destination must expose the common feedback error.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-destination-publish-blocked")
     }
 
     private func assertImageLocationDraft(_ locationLabel: String, in app: XCUIApplication) {

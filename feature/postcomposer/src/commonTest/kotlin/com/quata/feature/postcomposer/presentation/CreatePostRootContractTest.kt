@@ -28,6 +28,10 @@ class CreatePostRootContractTest {
         assertEquals("composer-publish", ComposerPublishButtonTestTag)
         assertEquals("composer-destination-selector", ComposerDestinationSelectorTestTag)
         assertEquals("composer-destination-selected", ComposerDestinationSelectedTestTag)
+        assertEquals("composer-destination-loading", ComposerDestinationLoadingTestTag)
+        assertEquals("composer-destination-error", ComposerDestinationErrorTestTag)
+        assertEquals("composer-destination-empty", ComposerDestinationEmptyTestTag)
+        assertEquals("composer-destination-retry", ComposerDestinationRetryTestTag)
         assertEquals("composer-location-section", ComposerLocationSectionTestTag)
         assertEquals("composer-location-value", ComposerLocationValueTestTag)
         assertEquals("composer-location-edit", ComposerLocationEditTestTag)
@@ -49,9 +53,9 @@ class CreatePostRootContractTest {
         assertEquals("POSTEAR VÍDEO", SpanishCreatePostRootCopy.videoType)
         assertEquals("POST TEXT", EnglishCreatePostRootCopy.textType)
         assertEquals("PUBLIER TEXTE", FrenchCreatePostRootCopy.textType)
-        assertEquals(CreatePostMessages("Post created", "Could not publish"), EnglishCreatePostRootCopy.viewModelMessages())
-        assertEquals(CreatePostMessages("Publicación creada", "No se pudo publicar"), SpanishCreatePostRootCopy.viewModelMessages())
-        assertEquals(CreatePostMessages("Publication créée", "Impossible de publier"), FrenchCreatePostRootCopy.viewModelMessages())
+        assertEquals(CreatePostMessages("Post created", "Could not publish", "Choose a destination before publishing."), EnglishCreatePostRootCopy.viewModelMessages())
+        assertEquals(CreatePostMessages("Publicación creada", "No se pudo publicar", "Elige un destino antes de publicar."), SpanishCreatePostRootCopy.viewModelMessages())
+        assertEquals(CreatePostMessages("Publication créée", "Impossible de publier", "Choisissez une destination avant de publier."), FrenchCreatePostRootCopy.viewModelMessages())
         assertEquals("Retry", EnglishCreatePostRootCopy.retry)
         assertEquals("Reintentar", SpanishCreatePostRootCopy.retry)
         assertEquals("Réessayer", FrenchCreatePostRootCopy.retry)
@@ -61,22 +65,26 @@ class CreatePostRootContractTest {
     fun viewModelFeedbackUsesTheSameLocalizedCopyAsTheCommonRoot() = runTest {
         val successViewModel = CreatePostViewModel(
             repository = object : PostComposerRepository {
+                override suspend fun loadDestinations() = Result.success(listOf(PostComposerDestination("wall-1", "Centro")))
                 override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft) = Result.success<String?>("post-1")
             },
             dispatchers = AppDispatchers(default = StandardTestDispatcher(testScheduler)),
             messages = EnglishCreatePostRootCopy.viewModelMessages(),
         )
+        advanceUntilIdle()
         successViewModel.submit(PostComposerType.Text)
         advanceUntilIdle()
         assertEquals("Post created", successViewModel.uiState.value.successMessage)
 
         val failureViewModel = CreatePostViewModel(
             repository = object : PostComposerRepository {
+                override suspend fun loadDestinations() = Result.success(listOf(PostComposerDestination("wall-1", "Centro")))
                 override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft) = Result.failure<String?>(IllegalStateException())
             },
             dispatchers = AppDispatchers(default = StandardTestDispatcher(testScheduler)),
             messages = FrenchCreatePostRootCopy.viewModelMessages(),
         )
+        advanceUntilIdle()
         failureViewModel.submit(PostComposerType.Text)
         advanceUntilIdle()
         assertEquals("Impossible de publier", failureViewModel.uiState.value.error)
@@ -114,6 +122,65 @@ class CreatePostRootContractTest {
         assertEquals("", viewModel.uiState.value.text)
         assertEquals("wall-1", viewModel.uiState.value.selectedDestinationWallId)
         assertEquals("Centro", viewModel.uiState.value.selectedDestination?.label)
+        viewModel.close()
+    }
+
+    @Test
+    fun destinationLoadFailureIsVisibleRetryableAndBlocksSubmitBeforeRepositoryMutation() = runTest {
+        var loadCalls = 0
+        var createCalls = 0
+        val viewModel = CreatePostViewModel(object : PostComposerRepository {
+            override suspend fun loadDestinations(): Result<List<PostComposerDestination>> {
+                loadCalls += 1
+                return if (loadCalls == 1) {
+                    Result.failure(IllegalStateException("offline"))
+                } else {
+                    Result.success(listOf(PostComposerDestination("wall-1", "Centro")))
+                }
+            }
+
+            override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft): Result<String?> {
+                createCalls += 1
+                return Result.success("post-1")
+            }
+        }, AppDispatchers(default = StandardTestDispatcher(testScheduler)))
+
+        advanceUntilIdle()
+        assertEquals("offline", viewModel.uiState.value.destinationsError)
+        viewModel.submit(PostComposerType.Text)
+        assertEquals("Elige un destino antes de publicar.", viewModel.uiState.value.error)
+        assertEquals(0, createCalls)
+
+        viewModel.onEvent(CreatePostUiEvent.ReloadDestinations)
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.destinationsError)
+        assertEquals("wall-1", viewModel.uiState.value.selectedDestinationWallId)
+        viewModel.submit(PostComposerType.Text)
+        advanceUntilIdle()
+
+        assertEquals(1, createCalls)
+        assertEquals("Publicación creada", viewModel.uiState.value.successMessage)
+        viewModel.close()
+    }
+
+    @Test
+    fun emptyDestinationsBlockSubmitWithoutCallingRepositoryCreate() = runTest {
+        var createCalls = 0
+        val viewModel = CreatePostViewModel(object : PostComposerRepository {
+            override suspend fun loadDestinations() = Result.success(emptyList<PostComposerDestination>())
+            override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft): Result<String?> {
+                createCalls += 1
+                return Result.success("post-1")
+            }
+        }, AppDispatchers(default = StandardTestDispatcher(testScheduler)))
+
+        advanceUntilIdle()
+        assertEquals(emptyList(), viewModel.uiState.value.destinations)
+        viewModel.submit(PostComposerType.Text)
+
+        assertEquals("Elige un destino antes de publicar.", viewModel.uiState.value.error)
+        assertEquals(0, createCalls)
+        assertNull(viewModel.uiState.value.lastFailedSubmitType)
         viewModel.close()
     }
 
@@ -177,6 +244,7 @@ class CreatePostRootContractTest {
         val calls = mutableListOf<PostComposerType>()
         var failNext = true
         val viewModel = CreatePostViewModel(object : PostComposerRepository {
+            override suspend fun loadDestinations() = Result.success(listOf(PostComposerDestination("wall-1", "Centro")))
             override suspend fun createPost(draft: com.quata.feature.postcomposer.domain.PostComposerDraft): Result<String?> {
                 calls += draft.type
                 return if (failNext) {
@@ -188,6 +256,7 @@ class CreatePostRootContractTest {
             }
         }, AppDispatchers(default = StandardTestDispatcher(testScheduler)))
 
+        advanceUntilIdle()
         viewModel.onEvent(CreatePostUiEvent.VideoSelected("file:///video.mp4"))
         viewModel.onEvent(CreatePostUiEvent.TextChanged("clip"))
         viewModel.submit(PostComposerType.Video)

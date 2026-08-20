@@ -111,6 +111,9 @@ class MainActivity : ComponentActivity() {
                 ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
             val postComposerPickerEvidencePath = intent?.getStringExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_PATH)
                 ?.takeIf { BuildConfig.DEBUG && it.isNotBlank() }
+            val postDestinationEvidenceMode = intent?.getStringExtra(EXTRA_POST_DESTINATION_EVIDENCE_MODE)
+                ?.lowercase()
+                ?.takeIf { BuildConfig.DEBUG && it in setOf("empty", "failure", "multiple") }
             val postProgressRollbackFailOnceForEvidence = BuildConfig.DEBUG &&
                 intent?.getBooleanExtra(EXTRA_POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE, false) == true
             val postStorageRollbackFailAfterUploadForEvidence = BuildConfig.DEBUG &&
@@ -123,6 +126,7 @@ class MainActivity : ComponentActivity() {
             intent?.removeExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_SOURCE)
             intent?.removeExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_OUTCOME)
             intent?.removeExtra(EXTRA_POST_COMPOSER_PICKER_EVIDENCE_PATH)
+            intent?.removeExtra(EXTRA_POST_DESTINATION_EVIDENCE_MODE)
             intent?.removeExtra(EXTRA_POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE)
             intent?.removeExtra(EXTRA_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE)
             handleIncomingIntent(intent)
@@ -147,6 +151,7 @@ class MainActivity : ComponentActivity() {
                             postComposerPickerEvidenceSource = postComposerPickerEvidenceSource,
                             postComposerPickerEvidenceOutcome = postComposerPickerEvidenceOutcome,
                             postComposerPickerEvidencePath = postComposerPickerEvidencePath,
+                            postDestinationEvidenceMode = postDestinationEvidenceMode,
                             postProgressRollbackFailOnceForEvidence = postProgressRollbackFailOnceForEvidence,
                         )
                         AnimatedVisibility(
@@ -262,6 +267,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_POST_COMPOSER_PICKER_EVIDENCE_SOURCE = "com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_SOURCE"
         const val EXTRA_POST_COMPOSER_PICKER_EVIDENCE_OUTCOME = "com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_OUTCOME"
         const val EXTRA_POST_COMPOSER_PICKER_EVIDENCE_PATH = "com.quata.extra.POST_COMPOSER_PICKER_EVIDENCE_PATH"
+        const val EXTRA_POST_DESTINATION_EVIDENCE_MODE = "com.quata.extra.POST_DESTINATION_EVIDENCE_MODE"
         const val EXTRA_POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE = "com.quata.extra.POST_PROGRESS_ROLLBACK_FAIL_ONCE_FOR_EVIDENCE"
         const val EXTRA_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE = "com.quata.extra.POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD_FOR_EVIDENCE"
     }
