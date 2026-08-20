@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-PICKER-CAMERA",
+    "POST-MEDIA-PERMISSIONS"
+  ],
+  "productSha": "9767f2e95f45309c1b13ff2f932cbc66a9684c5e",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "9767f2e95f45309c1b13ff2f932cbc66a9684c5e",
+      "report": "build-reports/web/post-media-permissions-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "9767f2e95f45309c1b13ff2f932cbc66a9684c5e",
+      "report": "build-reports/android/post-media-permissions-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "9767f2e95f45309c1b13ff2f932cbc66a9684c5e",
+      "report": "build-reports/ios/post-media-permissions-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate reduces POST-PICKER-CAMERA media permission limits through the common CreatePostMediaPermissions contract. Gallery image, camera image, gallery video and camera video map to shared PlatformPermission requirements before platform picker/camera edges are invoked.",
+    "Android, Web/Wasm and iOS surface permission-denied states through the common composer-media.error path and shared media permission copy. Web/Wasm and Android evidence cover gallery image success, camera image success/cancelled, gallery image permission-denied and camera video permission-denied; iOS evidence covers gallery image success, camera image success/cancelled, gallery image permission-denied and camera image permission-denied on the simulator path.",
+    "No backend mutation is performed by this unit; cleanup is verified as zero physical residue because the fixture is local media only."
+  ]
+}
