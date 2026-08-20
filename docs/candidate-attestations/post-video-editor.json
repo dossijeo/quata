@@ -4,45 +4,52 @@
     "SCR-CREATE-POST",
     "POST-VIDEO-EDITOR"
   ],
-  "productSha": "94cfd418cade6ce856e1ac4d50f8e603a379fb1e",
+  "status": "blocked",
+  "productSha": "666b7dac7ef119fb4050e2784a04c65fe34d048a",
   "evidence": {
     "web": {
-      "status": "passed",
-      "sha": "94cfd418cade6ce856e1ac4d50f8e603a379fb1e",
-      "report": "build-reports/web/POST-VIDEO-EDITOR-evidence-94cfd418.json",
-      "cleanup": {
-        "verified": true,
-        "physicalResidue": 0
-      }
+      "status": "passed_partial",
+      "sha": "666b7dac7ef119fb4050e2784a04c65fe34d048a",
+      "report": "build-reports/web/POST-VIDEO-EDITOR-evidence-666b7dac.json",
+      "coverage": [
+        "common editor surface mounted",
+        "real metadata duration/aspect consumed before export",
+        "trim applied to exported blob",
+        "mute removes the audio stream",
+        "foreground crop and background crop are passed to the Web edge and physically exported",
+        "captions fail closed when no real transcript is available"
+      ],
+      "blockingGap": "Web/Wasm does not yet generate a real CaptionDocument/transcript from the source video audio."
     },
     "android": {
-      "status": "passed",
+      "status": "passed_existing_reference",
       "sha": "94cfd418cade6ce856e1ac4d50f8e603a379fb1e",
       "report": "build-reports/android/POST-VIDEO-EDITOR-evidence-94cfd418.json",
-      "cleanup": {
-        "verified": true,
-        "physicalResidue": 0
-      }
+      "coverage": [
+        "Android reference edge uses VoskVideoTranscriber, dynamic Vosk model delivery and Media3 burn-in",
+        "common editor surface is mounted from the composer"
+      ]
     },
     "ios": {
-      "status": "passed",
-      "sha": "94cfd418cade6ce856e1ac4d50f8e603a379fb1e",
-      "report": "build-reports/ios/POST-VIDEO-EDITOR-evidence-94cfd418.json",
-      "cleanup": {
-        "verified": true,
-        "physicalResidue": 0
-      }
+      "status": "build_passed_partial",
+      "sha": "666b7dac7ef119fb4050e2784a04c65fe34d048a",
+      "report": "/Users/gabriel/Documents/Projects/quata/build/reports/ios/QuataIos-intel-signed-build.xcresult",
+      "coverage": [
+        "iOS native driver compiles at exact SHA",
+        "AVFoundation metadata duration/aspect is exposed to the common editor",
+        "foreground and background crop requests are accepted by the AVFoundation export edge",
+        "captions fail closed when no real transcript is available"
+      ],
+      "blockingGap": "iOS does not yet generate a real CaptionDocument/transcript from the source video audio."
     }
   },
   "notes": [
-    "POST-VIDEO-EDITOR is a focal GO candidate on 2026-08-20 over Product/Evidence SHA 94cfd418cade6ce856e1ac4d50f8e603a379fb1e.",
-    "The prior d4be1902 evidence is superseded and must not be reused because Web/Wasm and iOS had not proven that exported files applied trim, mute, crop and captions.",
-    "Android, Web/Wasm and iOS now mount the same common PostVideoEditorDialogContent for preview chrome, play/mute, timeline, crop, captions, reset/cancel and export flow.",
-    "Android diverges only through native ExoPlayer preview, Media3/Transformer export and platform media helpers. Web/Wasm diverges through browser video/canvas/MediaRecorder export. iOS diverges through AVPlayer preview and AVFoundation export.",
-    "Web/Wasm evidence records export operations trim/mute/crop/captions as true and output video/webm 1080x1920 with a non-empty blob.",
-    "Android evidence runs the existing Android reference edge from the common composer and passes OK (1 test) with real local fixture selection/export flow.",
-    "iOS evidence uses the native AVFoundation driver injected into the shared composer, real AVPlayer preview surface and XCTest replay against the Mac simulator; it returns to the common selected-video preview after export.",
-    "The unit keeps video evidence reversible and local-only: no Supabase data mutation is performed by the Web, Android or iOS POST-VIDEO-EDITOR evidence runners.",
-    "Remaining CREATE-POST limits are outside this focal unit: video camera permission permutations, cross-flow progress/error/rollback combinations and broader publish/storage media matrices."
+    "POST-VIDEO-EDITOR is not a GO candidate at Product/Evidence SHA 666b7dac7ef119fb4050e2784a04c65fe34d048a.",
+    "The prior 94cfd418 attestation is superseded for Web/Wasm and iOS because those edges did not prove real captions and used insufficient physical export validation.",
+    "Web/Wasm and iOS no longer burn the CaptionTemplateStyle name as fake captions. If captions are selected without a real transcript, export fails closed instead of producing a misleading artifact.",
+    "Web/Wasm now reads real video metadata at export time, records actual duration, applies crop/backgroundCropRect against the source video aspect, exports a physical WebM blob, and verifies the blob with ffprobe for 1080x1920 video and no audio stream after mute.",
+    "iOS now reads AVFoundation metadata instead of assuming 90 seconds, passes backgroundCropRect to AVFoundation, and compiles the updated bridge at exact SHA.",
+    "Android remains the functional reference for automatic captions because it owns Vosk model delivery, audio decode/transcription and Media3 caption burn-in.",
+    "GO requires implementing or approving a real Web/Wasm and iOS caption transcript provider/burn-in path equivalent to the Android Vosk path; tests must validate the physical caption result, not only operations=true."
   ]
 }
