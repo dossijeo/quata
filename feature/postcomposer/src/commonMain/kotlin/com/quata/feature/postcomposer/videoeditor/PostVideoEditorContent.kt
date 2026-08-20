@@ -488,43 +488,50 @@ private fun CommonCaptionControls(
     onStyleChange: (String?) -> Unit,
 ) {
     val values = listOf(CaptionStyleOption("", strings.captionsNone)) + options
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
-            .horizontalScroll(rememberScrollState())
             .padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        values.forEach { option ->
-            val id = option.id.ifBlank { null }
-            val styleTag = "post-video-editor.caption-style.${id ?: "none"}"
-            val selected = id == selectedId
-            if (selected) {
-                Button(
-                    onClick = { onStyleChange(id) },
-                    modifier = Modifier
+        values.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                row.forEach { option ->
+                    val id = option.id.ifBlank { null }
+                    val styleTag = "post-video-editor.caption-style.${id ?: "none"}"
+                    val selected = id == selectedId
+                    val itemModifier = Modifier
+                        .weight(1f)
                         .testTag(styleTag)
-                        .semantics { contentDescription = styleTag },
-                    contentPadding = ButtonDefaults.TextButtonContentPadding,
-                ) {
-                    CompactIcon(Icons.Filled.Subtitles, null)
-                    Spacer(Modifier.width(4.dp))
-                    Text(option.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        .semantics { contentDescription = styleTag }
+                    if (selected) {
+                        Button(
+                            onClick = { onStyleChange(id) },
+                            modifier = itemModifier,
+                            contentPadding = ButtonDefaults.TextButtonContentPadding,
+                        ) {
+                            CompactIcon(Icons.Filled.Subtitles, null)
+                            Spacer(Modifier.width(4.dp))
+                            Text(option.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { onStyleChange(id) },
+                            modifier = itemModifier,
+                            contentPadding = ButtonDefaults.TextButtonContentPadding,
+                        ) {
+                            Text(option.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
                 }
-            } else {
-                OutlinedButton(
-                    onClick = { onStyleChange(id) },
-                    modifier = Modifier
-                        .testTag(styleTag)
-                        .semantics { contentDescription = styleTag },
-                    contentPadding = ButtonDefaults.TextButtonContentPadding,
-                ) {
-                    Text(option.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
