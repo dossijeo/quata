@@ -107,7 +107,7 @@ if (report.status !== "passed") {
 async function runAttempt(descriptor) {
   const [source, outcome = "success"] = descriptor.split(":");
   if (!["gallery", "camera"].includes(source)) throw new Error(`invalid_source:${source}`);
-  if (!["success", "cancelled", "failure", "unsupported"].includes(outcome)) throw new Error(`invalid_outcome:${outcome}`);
+  if (!["success", "cancelled", "failure", "unsupported", "permission-denied"].includes(outcome)) throw new Error(`invalid_outcome:${outcome}`);
   const remoteLogDir = `${options.remoteLogDir}/${source}-${outcome}`;
   try {
     await runSshScript(options.host, `
@@ -145,7 +145,7 @@ function parseArgs(args) {
     videoFixture: resolve(process.env.QUATA_POST_PICKER_CAMERA_VIDEO_FIXTURE?.trim() || longMp4FixturePath()),
     simulatorUdid: process.env.QUATA_IOS_SIMULATOR_UDID?.trim() || "",
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
-    sources: ["gallery", "camera", "camera:cancelled"],
+    sources: ["gallery", "camera", "camera:cancelled", "gallery:permission-denied", "camera:permission-denied"],
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];

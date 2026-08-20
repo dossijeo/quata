@@ -2,8 +2,6 @@
 
 package com.quata.feature.postcomposer.presentation
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
@@ -53,7 +51,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -202,14 +199,6 @@ fun CreatePostScreen(
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia(), ::selectImage)
     val videoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia(), ::selectVideo)
-    val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result.values.all { it }) {
-            cameraMode = if (pendingCapture == CaptureTarget.Photo) QuataCameraMode.Photo else QuataCameraMode.Video
-        } else {
-            viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(rootCopy.mediaPermissionDenied))
-            pendingCapture = null
-        }
-    }
     fun capture(target: CaptureTarget) {
         val evidenceSource = if (target == CaptureTarget.Photo) AndroidPostComposerPickerEvidence.Source.CameraImage else AndroidPostComposerPickerEvidence.Source.CameraVideo
         if (target == CaptureTarget.Photo && evidencePicker?.handle(evidenceSource, rootCopy, viewModel) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } == true) {
@@ -219,13 +208,19 @@ fun CreatePostScreen(
             return
         }
         pendingCapture = target
-        val required = buildList {
-            add(Manifest.permission.CAMERA)
-            if (target == CaptureTarget.Video) add(Manifest.permission.RECORD_AUDIO)
+        scope.launch {
+            val request = if (target == CaptureTarget.Photo) {
+                CreatePostMediaPermissionRequest.CameraImage
+            } else {
+                CreatePostMediaPermissionRequest.CameraVideo
+            }
+            if (permissionService.ensureCreatePostMediaPermissions(request)) {
+                cameraMode = if (target == CaptureTarget.Photo) QuataCameraMode.Photo else QuataCameraMode.Video
+            } else {
+                viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(rootCopy.mediaPermissionDenied))
+                pendingCapture = null
+            }
         }
-        if (required.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) {
-            cameraMode = if (target == CaptureTarget.Photo) QuataCameraMode.Photo else QuataCameraMode.Video
-        } else permissions.launch(required.toTypedArray())
     }
 
     LaunchedEffect(state.isLoading) { onUploadStateChange(state.isLoading) }
@@ -254,7 +249,13 @@ fun CreatePostScreen(
                     if (evidencePicker?.handle(AndroidPostComposerPickerEvidence.Source.GalleryImage, rootCopy, viewModel) {
                             viewModel.onEvent(CreatePostUiEvent.ImageSelected(it))
                         } != true) {
-                        imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        scope.launch {
+                            if (permissionService.ensureCreatePostMediaPermissions(CreatePostMediaPermissionRequest.GalleryImage)) {
+                                imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            } else {
+                                viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(rootCopy.mediaPermissionDenied))
+                            }
+                        }
                     }
                 },
                 captureImage = { capture(CaptureTarget.Photo) },
@@ -263,7 +264,13 @@ fun CreatePostScreen(
                     if (evidencePicker?.handle(AndroidPostComposerPickerEvidence.Source.GalleryVideo, rootCopy, viewModel) {
                             viewModel.onEvent(CreatePostUiEvent.VideoSelected(it))
                         } != true) {
-                        videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                        scope.launch {
+                            if (permissionService.ensureCreatePostMediaPermissions(CreatePostMediaPermissionRequest.GalleryVideo)) {
+                                videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                            } else {
+                                viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(rootCopy.mediaPermissionDenied))
+                            }
+                        }
                     }
                 },
                 captureVideo = { capture(CaptureTarget.Video) },
@@ -702,6 +709,7 @@ private data class AndroidPostComposerPickerEvidence(
             "cancelled" -> viewModel.onEvent(CreatePostUiEvent.ClearMediaError)
             "failure" -> viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaSelectionFailed))
             "unsupported" -> viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaUnsupported))
+            "permission-denied" -> viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaPermissionDenied))
         }
         return true
     }
@@ -723,7 +731,7 @@ private data class AndroidPostComposerPickerEvidence(
                 else -> return null
             }
             val resolvedOutcome = outcome?.lowercase(Locale.US)?.takeIf {
-                it in setOf("success", "cancelled", "failure", "unsupported")
+                it in setOf("success", "cancelled", "failure", "unsupported", "permission-denied")
             } ?: "success"
             return AndroidPostComposerPickerEvidence(resolvedSource, resolvedOutcome, path)
         }

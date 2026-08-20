@@ -10,7 +10,7 @@ data class PlatformContact(
     val emails: List<String> = emptyList(),
 )
 
-enum class PlatformPermission { Camera, Microphone, Photos, Files, Location, Notifications, Contacts }
+enum class PlatformPermission { Camera, Microphone, Photos, Videos, Files, Location, Notifications, Contacts }
 enum class PermissionStatus { Granted, Denied, PermanentlyDenied, Unavailable }
 enum class FilePickerSource { Documents, Gallery, Camera }
 sealed interface PlatformResult<out T> {

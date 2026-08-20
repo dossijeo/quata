@@ -12,7 +12,7 @@ const deviceTempVideoPath = "/data/local/tmp/post-picker-camera-long-video.mp4";
 const deviceVideoPath = "/data/data/com.quata/files/post-picker-camera-long-video.mp4";
 const deviceEvidencePath = "files/post-publish-evidence";
 const DEFAULT_VIDEO_FIXTURE = "play-store/05-assets/source-media/big-buck-bunny-320x180.mp4";
-const defaultSources = ["gallery-image", "camera-image", "camera-image:cancelled"];
+const defaultSources = ["gallery-image", "camera-image", "camera-image:cancelled", "gallery-image:permission-denied", "camera-video:permission-denied"];
 
 const options = parseArgs(process.argv.slice(2));
 const report = {
@@ -142,7 +142,7 @@ function sourceAndOutcome(value) {
   if (!["gallery-image", "camera-image", "gallery-video", "camera-video"].includes(source)) {
     throw new Error(`invalid_source:${value}`);
   }
-  if (!["success", "cancelled", "failure", "unsupported"].includes(outcome)) {
+  if (!["success", "cancelled", "failure", "unsupported", "permission-denied"].includes(outcome)) {
     throw new Error(`invalid_outcome:${value}`);
   }
   return { source, outcome };

@@ -8,6 +8,7 @@ const commonModels = read("feature/postcomposer/src/commonMain/kotlin/com/quata/
 const commonContent = read("feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/imageeditor/PostImageEditorContent.kt");
 const webHost = read("web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerHost.kt");
 const webEditor = read("web/src/wasmJsMain/kotlin/com/quata/web/WebPostImageEditor.kt");
+const androidEditor = read("app/src/main/java/com/quata/feature/postcomposer/imageeditor/QuataImageEditorDialog.kt");
 const webEvidence = read("scripts/post-image-editor-web-evidence.mjs");
 const iosHost = read("feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosComposerHost.kt");
 const iosEditor = read("feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostImageEditor.kt");
@@ -47,6 +48,20 @@ test("Web composer opens the real Compose/Wasm post image editor and exports a J
   assert.match(webEditor, /canvas\.width = outputWidth; canvas\.height = outputHeight/);
   assert.match(webEditor, /context\.rotate\(turns \* Math\.PI \/ 2\)/);
   assert.match(webEditor, /canvas\.toBlob[\s\S]*'image\/jpeg', 0\.92/);
+});
+
+test("Android composer uses the same common post image editor surface and native JPEG export edge", () => {
+  assert.match(androidEditor, /PostImageEditorDialogContent\(/);
+  assert.match(androidEditor, /PostImageEditorTransform\.Default/);
+  assert.match(androidEditor, /postImageEditorGeometry\(/);
+  assert.match(androidEditor, /AndroidPostImageEditorPreview\(/);
+  assert.match(androidEditor, /Context\.exportEditedImage\(/);
+  assert.match(androidEditor, /Bitmap\.createBitmap\(outputSpec\.width, outputSpec\.height/);
+  assert.match(androidEditor, /canvas\.rotate\(turns \* 90f\)/);
+  assert.match(androidEditor, /Bitmap\.CompressFormat\.JPEG, ImageEditorJpegQuality/);
+  assert.doesNotMatch(androidEditor, /QuataEditorScaffold/);
+  assert.doesNotMatch(androidEditor, /QuataEditorToolButton/);
+  assert.doesNotMatch(androidEditor, /ImageCropAdjustmentPane/);
 });
 
 test("iOS composer opens a real editor surface and exports a temporary JPEG", () => {

@@ -34,6 +34,7 @@ class BrowserPermissionService : PermissionService {
             PermissionStatus.Unavailable
         }
         PlatformPermission.Photos,
+        PlatformPermission.Videos,
         PlatformPermission.Files,
         PlatformPermission.Contacts -> PermissionStatus.Unavailable
     }
@@ -45,6 +46,7 @@ private fun PlatformPermission.browserPermissionName(): String? = when (this) {
     PlatformPermission.Location -> "geolocation"
     PlatformPermission.Notifications -> "notifications"
     PlatformPermission.Photos,
+    PlatformPermission.Videos,
     PlatformPermission.Files,
     PlatformPermission.Contacts -> null
 }

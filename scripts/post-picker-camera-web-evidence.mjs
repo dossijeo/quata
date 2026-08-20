@@ -81,7 +81,7 @@ async function runAttempt(context, descriptor) {
   if (!["gallery-image", "camera-image", "gallery-video", "camera-video"].includes(source)) {
     throw new Error(`invalid_source:${source}`);
   }
-  if (!["success", "cancelled", "failure", "unsupported"].includes(outcome)) throw new Error(`invalid_outcome:${outcome}`);
+  if (!["success", "cancelled", "failure", "unsupported", "permission-denied"].includes(outcome)) throw new Error(`invalid_outcome:${outcome}`);
   const page = await context.newPage();
   const faults = [];
   page.on("pageerror", (error) => faults.push(`pageerror:${String(error?.message ?? error).slice(0, 160)}`));
@@ -130,10 +130,16 @@ async function runAttempt(context, descriptor) {
       if (editAnchor.kind === "missingStableAnchor") report.steps.push(`web_edit_anchor_not_blocking_picker_state:${source}`);
     } else {
       await page.waitForFunction((field) => globalThis.__quataPostComposerE2eProduct?.state?.()?.[field] !== true, selectedField, { timeout: 5_000 });
-      if (outcome === "failure" || outcome === "unsupported") {
+      if (outcome === "failure" || outcome === "unsupported" || outcome === "permission-denied") {
         await page.waitForFunction(() => globalThis.__quataPostComposerE2eProduct?.state?.()?.hasMediaError === true, null, { timeout: 8_000 });
         await page.locator('[id="composer-media.error"], [aria-label*="composer-media.error"]').first()
           .waitFor({ state: "attached", timeout: 8_000 });
+        if (outcome === "permission-denied") {
+          const errorText = await page.locator('[id="composer-media.error"], [aria-label*="composer-media.error"]').first().textContent().catch(() => "");
+          if (!/Permiso denegado|Permission denied|Autorisation refusée/i.test(errorText ?? "")) {
+            throw new Error("permission_denied_must_use_common_media_permission_copy");
+          }
+        }
       } else {
         const state = await postComposerProductState(page);
         if (state?.hasMediaError === true) throw new Error(`cancelled_picker_must_not_show_media_error:${source}`);
@@ -173,7 +179,7 @@ function parseArgs(args) {
     output: resolve("build-reports/web/post-picker-camera-evidence.json"),
     evidenceDir: resolve("build-reports/web/post-picker-camera-evidence"),
     videoFixture: resolve(process.env.QUATA_POST_PICKER_CAMERA_VIDEO_FIXTURE?.trim() || longMp4FixturePath()),
-    sources: ["gallery-image", "camera-image", "camera-image:cancelled"],
+    sources: ["gallery-image", "camera-image", "camera-image:cancelled", "gallery-image:permission-denied", "camera-video:permission-denied"],
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];

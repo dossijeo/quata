@@ -14,6 +14,7 @@ const androidCreatePostViewModel = readFileSync(new URL("../app/src/main/java/co
 const androidPostPublishTest = readFileSync(new URL("../app/src/androidTest/java/com/quata/feature/postcomposer/presentation/PostPublishRealInstrumentedTest.kt", import.meta.url), "utf8");
 const iosPostPublishTest = readFileSync(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedPostPublishUITests.swift", import.meta.url), "utf8");
 const commonCreatePostRoot = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/CreatePostRoot.kt", import.meta.url), "utf8");
+const commonCreatePostMediaPermissions = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/CreatePostMediaPermissions.kt", import.meta.url), "utf8");
 const commonCreatePostViewModel = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/CreatePostViewModel.kt", import.meta.url), "utf8");
 const commonMediaSourceForm = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerMediaSourceFormContent.kt", import.meta.url), "utf8");
 const commonPublishButton = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerPublishButtonContent.kt", import.meta.url), "utf8");
@@ -30,6 +31,11 @@ const iosApp = readFileSync(new URL("../iosApp/iosApp/QuataIosApp.swift", import
 const webPostComposerHost = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerHost.kt", import.meta.url), "utf8");
 const webPostComposerBridge = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerE2eBridge.kt", import.meta.url), "utf8");
 const webPostComposerRoute = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRoute.kt", import.meta.url), "utf8");
+const corePlatformServiceContracts = readFileSync(new URL("../core/src/commonMain/kotlin/com/quata/core/platform/PlatformServiceContracts.kt", import.meta.url), "utf8");
+const androidPermissionHost = readFileSync(new URL("../app/src/main/java/com/quata/core/platform/MainActivityPermissionHost.kt", import.meta.url), "utf8");
+const androidPlatformServices = readFileSync(new URL("../core/src/androidMain/kotlin/com/quata/core/platform/AndroidPlatformServices.kt", import.meta.url), "utf8");
+const browserPermissionService = readFileSync(new URL("../core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserPermissionService.wasm.kt", import.meta.url), "utf8");
+const iosPermissionAggregator = readFileSync(new URL("../core/src/iosMain/kotlin/com/quata/core/platform/IosCoreLocationHost.kt", import.meta.url), "utf8");
 const androidPickerCameraRunner = readFileSync(new URL("./post-picker-camera-android-evidence.mjs", import.meta.url), "utf8");
 const webPickerCameraRunner = readFileSync(new URL("./post-picker-camera-web-evidence.mjs", import.meta.url), "utf8");
 const iosPickerCameraRunner = readFileSync(new URL("./post-picker-camera-ios-evidence.mjs", import.meta.url), "utf8");
@@ -339,6 +345,7 @@ test("post picker/camera uses common semantic anchors before platform adapters",
   assert.match(commonCreatePostRoot, /contentDescription = ComposerSelectedImagePreviewTestTag/);
   assert.match(commonCreatePostRoot, /contentDescription = ComposerSelectedVideoPreviewTestTag/);
   assert.match(commonMediaSourceForm, /ComposerMediaErrorTestTag/);
+  assert.match(commonMediaSourceForm, /contentDescription = "\$ComposerMediaErrorTestTag \$message"/);
   assert.match(commonCreatePostViewModel, /MediaSelectionFailed/);
 });
 
@@ -359,6 +366,26 @@ test("post picker/camera evidence is opt-in and does not open native pickers und
   assert.match(androidAppNavGraph, /postComposerPickerEvidenceSource/);
 });
 
+test("post media permissions are common and preserve platform-specific permission APIs", () => {
+  assert.match(corePlatformServiceContracts, /PlatformPermission \{ Camera, Microphone, Photos, Videos, Files, Location, Notifications, Contacts \}/);
+  assert.match(commonCreatePostMediaPermissions, /CreatePostMediaPermissionRequest/);
+  assert.match(commonCreatePostMediaPermissions, /GalleryImage -> listOf\(PlatformPermission\.Photos\)/);
+  assert.match(commonCreatePostMediaPermissions, /GalleryVideo -> listOf\(PlatformPermission\.Videos\)/);
+  assert.match(commonCreatePostMediaPermissions, /CameraVideo -> listOf\(PlatformPermission\.Camera, PlatformPermission\.Microphone\)/);
+  assert.match(commonCreatePostMediaPermissions, /CreatePostMediaPermissionDeniedReason/);
+  assert.match(androidPlatformServices, /PlatformPermission\.Videos -> if \(Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.TIRAMISU\)/);
+  assert.match(androidPlatformServices, /android\.Manifest\.permission\.READ_MEDIA_VIDEO/);
+  assert.match(androidPermissionHost, /PlatformPermission\.Videos -> if \(Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.TIRAMISU\)/);
+  assert.match(browserPermissionService, /PlatformPermission\.Videos,/);
+  assert.match(iosPermissionAggregator, /PlatformPermission\.Videos -> photos\.status\(permission\)/);
+  assert.match(iosComposerHost, /CreatePostMediaPermissionRequest\.CameraVideo/);
+  assert.match(iosComposerHost, /iosPostComposerEvidenceShouldBypassNativePermission/);
+  assert.doesNotMatch(iosComposerHost, /CreatePostMediaPermissionRequest\.GalleryImage/);
+  assert.match(webPostComposerRoute, /CreatePostMediaPermissionRequest\.CameraVideo/);
+  assert.match(webPostComposerRoute, /allowUnavailable = setOf\(PlatformPermission\.Videos\)/);
+  assert.match(webPostComposerHost, /CreatePostMediaPermissionDeniedReason/);
+});
+
 test("android post picker/camera runner exercises shared UI anchors with no backend mutation", () => {
   assert.match(androidPickerCameraRunner, /POST-PICKER-CAMERA-ANDROID-REAL-001/);
   assert.match(androidPickerCameraRunner, /authenticatedUserExercisesMediaSourceActionsFromCommonComposer/);
@@ -367,8 +394,10 @@ test("android post picker/camera runner exercises shared UI anchors with no back
   assert.match(androidPickerCameraRunner, /post-picker-camera-long-video\.mp4/);
   assert.match(androidPostPublishTest, /quataPostComposerPickerVideoPath/);
   assert.match(androidPickerCameraRunner, /camera-image:cancelled/);
+  assert.match(androidPickerCameraRunner, /permission-denied/);
   assert.match(androidPostPublishTest, /ComposerMediaErrorTestTag/);
-  assert.match(androidPostPublishTest, /outcome == "failure" \|\| outcome == "unsupported"/);
+  assert.match(androidPostPublishTest, /outcome == "failure" \|\| outcome == "unsupported" \|\| outcome == "permission-denied"/);
+  assert.match(androidPostPublishTest, /android_permission_denied_must_use_common_media_permission_copy/);
   assert.match(androidPickerCameraRunner, /quataPostComposerPickerSource/);
   assert.match(androidPickerCameraRunner, /quataPostComposerPickerOutcome/);
   assert.doesNotMatch(androidPickerCameraRunner, /community_posts/);
@@ -387,6 +416,8 @@ test("web post picker/camera runner exercises shared UI anchors with no backend 
   assert.match(webPickerCameraRunner, /hasVideo/);
   assert.match(webPickerCameraRunner, /hasMediaError/);
   assert.match(webPickerCameraRunner, /composer-media\.error/);
+  assert.match(webPickerCameraRunner, /permission-denied/);
+  assert.match(webPickerCameraRunner, /permission_denied_must_use_common_media_permission_copy/);
   assert.match(webPostComposerHost, /put\("hasVideo", !state\.videoUri\.isNullOrBlank\(\)\)/);
   assert.match(webPostComposerHost, /MediaSelectionFailed/);
   assert.doesNotMatch(webPickerCameraRunner, /community_posts/);
@@ -400,19 +431,21 @@ test("ios post picker/camera runner exercises shared UI anchors with no backend 
   assert.match(iosPickerCameraRunner, /I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE/);
   assert.match(iosPickerCameraRunner, /QUATA_IOS_POST_COMPOSER_PICKER_MEDIA_TYPE/);
   assert.match(iosPickerCameraRunner, /longMp4FixturePath/);
+  assert.match(iosPickerCameraRunner, /permission-denied/);
   assert.match(iosPickerCameraWrapper, /testAuthenticatedSessionExercisesMediaSourceActionsFromCommonComposer/);
   assert.match(iosPickerCameraWrapper, /IOS_POST_PICKER_CAMERA_UI_GATE_PASSED/);
   assert.ok(iosPostPublishTest.includes("composer-media.pick-\\(mediaType)"));
   assert.ok(iosPostPublishTest.includes("composer-media.capture-\\(mediaType)"));
   assert.ok(iosPostPublishTest.includes("composer-media.selected-\\(mediaType)-preview"));
   assert.match(iosPostPublishTest, /composer-media\.error/);
+  assert.match(iosPostPublishTest, /Permission denied replay must expose the shared media permission copy/);
   assert.match(iosComposerHost, /dispatchIosComposerMediaResult/);
   assert.match(iosComposerHost, /MediaSelectionFailed/);
   assert.doesNotMatch(iosPickerCameraRunner, /community_posts/);
   assert.doesNotMatch(iosPickerCameraRunner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
 });
 
-test("post image editor exposes stable common anchors and Android forwards them to Compose UI", () => {
+test("post image editor exposes stable common anchors and Android uses the shared editor surface", () => {
   for (const tag of [
     "post-image-editor.root",
     "post-image-editor.preview",
@@ -423,10 +456,13 @@ test("post image editor exposes stable common anchors and Android forwards them 
   ]) {
     assert.match(commonImageEditorModels, new RegExp(tag.replace(/[.]/g, "\\.")));
   }
-  assert.match(androidImageEditorDialog, /Modifier\.testTag\(PostImageEditorRootTestTag\)/);
-  assert.match(androidImageEditorDialog, /\.testTag\(PostImageEditorPreviewTestTag\)/);
-  assert.match(androidImageEditorDialog, /Modifier\.testTag\(PostImageEditorSaveTestTag\)/);
-  assert.match(commonEditorScaffold, /modifier = modifier\.widthIn\(min = 66\.dp\)/);
+  assert.match(androidImageEditorDialog, /PostImageEditorDialogContent\(/);
+  assert.match(androidImageEditorDialog, /postImageEditorGeometry\(/);
+  assert.match(androidImageEditorDialog, /AndroidPostImageEditorPreview\(/);
+  assert.match(androidImageEditorDialog, /context\.exportEditedImage\(/);
+  assert.doesNotMatch(androidImageEditorDialog, /QuataEditorScaffold/);
+  assert.doesNotMatch(androidImageEditorDialog, /ImageCropControls/);
+  assert.doesNotMatch(androidImageEditorDialog, /ImageCropAdjustmentPane/);
   assert.match(commonPostImageEditorContent, /PostImageEditorDialogContent/);
   assert.match(commonPostImageEditorContent, /PostImageEditorRootTestTag/);
   assert.match(commonPostImageEditorContent, /PostImageEditorRotateTestTag/);
