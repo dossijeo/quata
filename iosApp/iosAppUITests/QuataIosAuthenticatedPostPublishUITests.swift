@@ -236,9 +236,12 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         tapComposerAction("post-video-editor.crop", in: app)
         tapComposerAction("post-video-editor.captions", in: app)
         tapComposerAction("post-video-editor.export", in: app)
-        XCTAssertTrue(selectedVideoPreview.waitForExistence(timeout: 12), "Saving the iOS video editor must return to the common selected-video preview.")
-        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-after-edit")
-        print("IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED")
+        let nativeExportError = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.error")
+            .firstMatch
+        XCTAssertTrue(nativeExportError.waitForExistence(timeout: 12), "iOS must not certify edited video export until the native AVFoundation edge applies trim/mute/crop/captions.")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-native-export-required")
+        XCTFail("POST-VIDEO-EDITOR iOS is not equivalent yet: ios_post_video_editor_native_export_required")
     }
 
     private func selectDestination(_ wallId: String, in app: XCUIApplication) {

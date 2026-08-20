@@ -188,12 +188,19 @@ async function exerciseVideoEditor(page) {
   }
   await invokeVideoEditorAction(page, "mute");
   await invokeVideoEditorAction(page, "playPause");
+  await invokeVideoEditorAction(page, "trimStart", 0.08);
+  await invokeVideoEditorAction(page, "trimEnd", 0.62);
   await invokeVideoEditorAction(page, "crop");
+  await invokeVideoEditorAction(page, "cropMode", "Square");
+  await invokeVideoEditorAction(page, "cropZoom", 1.32);
+  await invokeVideoEditorAction(page, "cropPan", 0.08, -0.04);
   await invokeVideoEditorAction(page, "captions");
+  await invokeVideoEditorAction(page, "captionStyle", "Karaoke");
   await invokeVideoEditorAction(page, "export");
   await page.waitForFunction(() => globalThis.__quataPostVideoEditorExport?.status === "success", null, { timeout: 15_000 });
   anchors.export = anchors["post-video-editor.export"];
   anchors.exportState = await page.evaluate(() => globalThis.__quataPostVideoEditorExport || null);
+  assertWebVideoEditorExportParity(anchors.exportState);
   return anchors;
 }
 
@@ -209,7 +216,7 @@ async function resolveVideoEditorAnchor(page, id) {
   return { kind: "localhostProductBridge", value: id, preferredMissing: id };
 }
 
-async function invokeVideoEditorAction(page, action) {
+async function invokeVideoEditorAction(page, action, ...args) {
   const id = {
     mute: "post-video-editor.mute",
     playPause: "post-video-editor.play-pause",
@@ -221,13 +228,27 @@ async function invokeVideoEditorAction(page, action) {
     await locator.click({ force: true, timeout: 800 });
     return true;
   }).catch(() => false)) return;
-  const invoked = await page.evaluate((name) => {
+  const invoked = await page.evaluate(({ name, args: bridgeArgs }) => {
     const bridge = globalThis.__quataPostVideoEditorE2eProduct;
     if (typeof bridge?.[name] !== "function") return false;
-    bridge[name]();
+    bridge[name](...bridgeArgs);
     return true;
-  }, action);
+  }, { name: action, args });
   if (!invoked) throw new Error(`missing_stable_anchor:${id || action}`);
+}
+
+function assertWebVideoEditorExportParity(exportState) {
+  if (!exportState || exportState.status !== "success") throw new Error("web_video_editor_export_missing_success_state");
+  const requiredOperations = ["trim", "mute", "crop", "captions"];
+  for (const operation of requiredOperations) {
+    if (exportState.operations?.[operation] !== true) {
+      throw new Error(`web_video_editor_export_missing_operation:${operation}`);
+    }
+  }
+  if (!exportState.output || exportState.output.size <= 0) throw new Error("web_video_editor_export_empty_output");
+  if (exportState.output.outputWidth !== 1080 || exportState.output.outputHeight !== 1920) {
+    throw new Error(`web_video_editor_export_unexpected_dimensions:${exportState.output.outputWidth}x${exportState.output.outputHeight}`);
+  }
 }
 
 function parseArgs(args) {

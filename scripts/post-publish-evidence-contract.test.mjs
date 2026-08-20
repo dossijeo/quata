@@ -564,9 +564,17 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /post-video-editor\.root/);
   assert.match(webVideoEditorRunner, /post-video-editor\.export/);
   assert.match(webVideoEditorRunner, /__quataPostVideoEditorExport/);
+  assert.match(webVideoEditorRunner, /assertWebVideoEditorExportParity/);
+  assert.match(webVideoEditorRunner, /const requiredOperations = \["trim", "mute", "crop", "captions"\]/);
+  assert.match(webVideoEditorRunner, /web_video_editor_export_missing_operation:\$\{operation\}/);
   assert.match(webPostComposerRoute, /videoEditor =/);
   assert.match(webPostVideoEditor, /PostVideoEditorDialogContent/);
   assert.match(webPostVideoEditor, /webPostVideoEditorExportEdited/);
+  assert.match(webPostVideoEditor, /__quataPostVideoEditorExportNative/);
+  assert.match(webPostVideoEditor, /trimStart: value => trimStart/);
+  assert.match(webPostVideoEditor, /cropMode: value => cropMode/);
+  assert.match(webVideoEditorRunner, /invokeVideoEditorAction\(page, "cropMode", "Square"\)/);
+  assert.match(webVideoEditorRunner, /invokeVideoEditorAction\(page, "captionStyle", "Karaoke"\)/);
   assert.doesNotMatch(webPostVideoEditor, /webPostVideoEditorExportCopy/);
   assert.match(webPostVideoEditor, /MediaRecorder/);
   assert.match(webPostVideoEditor, /canvas\.captureStream/);
@@ -581,6 +589,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /composer-media\.edit-video/);
   assert.match(iosPostPublishTest, /post-video-editor\.root/);
   assert.match(iosPostPublishTest, /post-video-editor\.export/);
+  assert.match(iosPostPublishTest, /post-video-editor\.error/);
+  assert.match(iosPostPublishTest, /native_export_required/);
   assert.match(iosComposerHost, /IosPostVideoEditor/);
   assert.match(iosPostVideoEditor, /PostVideoEditorDialogContent/);
   assert.match(iosPostVideoEditor, /IosVideoThumbnailService/);

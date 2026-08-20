@@ -17,6 +17,7 @@ import com.quata.feature.postcomposer.videoeditor.CaptionStyleOption
 import com.quata.feature.postcomposer.videoeditor.MaximumPostVideoEditorDurationMs
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorDialogContent
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorUiState
+import com.quata.feature.postcomposer.videoeditor.VideoCropMode
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorExportSpec
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropModeChange
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropPan
@@ -51,7 +52,20 @@ internal fun WebPostVideoEditor(
             runCatching { webPostVideoEditorExportEdited(sourceReference, spec) }
                 .onSuccess {
                     state = state.copy(isExporting = false, exportProgress = 1f)
-                    webPostVideoEditorRecordExportSuccess(it)
+                    webPostVideoEditorRecordExportSuccess(
+                        reference = it,
+                        trimStartMs = spec.trimStartMs,
+                        trimEndMs = spec.trimEndMs,
+                        sourceDurationMs = spec.sourceDurationMs,
+                        removeAudio = spec.removeAudio,
+                        cropLeft = spec.cropRect.left,
+                        cropTop = spec.cropRect.top,
+                        cropRight = spec.cropRect.right,
+                        cropBottom = spec.cropRect.bottom,
+                        captionStyle = spec.captionStyle?.name ?: "",
+                        outputWidth = spec.outputWidth,
+                        outputHeight = spec.outputHeight,
+                    )
                     onEdited(it)
                 }
                 .onFailure {
@@ -65,8 +79,18 @@ internal fun WebPostVideoEditor(
         val uninstall = installWebPostVideoEditorE2eBridge(
             mute = { state = state.copy(isMuted = !state.isMuted) },
             playPause = { state = state.copy(isPlaying = !state.isPlaying) },
+            trimStart = { state = postVideoEditorStateAfterTrimStart(state, it) },
+            trimEnd = { state = postVideoEditorStateAfterTrimEnd(state, it) },
             crop = { state = postVideoEditorStateAfterCropToggle(state) },
+            cropMode = { mode ->
+                VideoCropMode.entries.firstOrNull { it.name == mode }?.let {
+                    state = postVideoEditorStateAfterCropModeChange(state, it, videoAspectRatio)
+                }
+            },
+            cropZoom = { state = postVideoEditorStateAfterCropZoomChange(state, it, videoAspectRatio) },
+            cropPan = { dx, dy -> state = postVideoEditorStateAfterCropPan(state, dx, dy, videoAspectRatio) },
             captions = { state = postVideoEditorStateAfterCaptionsToggle(state) },
+            captionStyle = { state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null) },
             export = { export() },
             dismiss = onDismiss,
         )
@@ -121,14 +145,33 @@ internal fun WebPostVideoEditor(
 internal fun installWebPostVideoEditorE2eBridge(
     mute: () -> Unit,
     playPause: () -> Unit,
+    trimStart: (Float) -> Unit,
+    trimEnd: (Float) -> Unit,
     crop: () -> Unit,
+    cropMode: (String) -> Unit,
+    cropZoom: (Float) -> Unit,
+    cropPan: (Float, Float) -> Unit,
     captions: () -> Unit,
+    captionStyle: (String?) -> Unit,
     export: () -> Unit,
     dismiss: () -> Unit,
-): () -> Unit = installPostVideoEditorBridgeWhenAllowed(mute, playPause, crop, captions, export, dismiss)
+): () -> Unit = installPostVideoEditorBridgeWhenAllowed(
+    mute,
+    playPause,
+    trimStart,
+    trimEnd,
+    crop,
+    cropMode,
+    cropZoom,
+    cropPan,
+    captions,
+    captionStyle,
+    export,
+    dismiss,
+)
 
 @JsFun(
-    """(mute, playPause, crop, captions, exportVideo, dismiss) => {
+    """(mute, playPause, trimStart, trimEnd, crop, cropMode, cropZoom, cropPan, captions, captionStyle, exportVideo, dismiss) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const params = new URLSearchParams(location?.search || '');
       const optedIn = params.get('quata-post-video-editor-e2e') === '1' ||
@@ -139,8 +182,14 @@ internal fun installWebPostVideoEditorE2eBridge(
         version: 1,
         mute: () => mute(),
         playPause: () => playPause(),
+        trimStart: value => trimStart(Number(value)),
+        trimEnd: value => trimEnd(Number(value)),
         crop: () => crop(),
+        cropMode: value => cropMode(String(value || '')),
+        cropZoom: value => cropZoom(Number(value)),
+        cropPan: (dx, dy) => cropPan(Number(dx), Number(dy)),
         captions: () => captions(),
+        captionStyle: value => captionStyle(value == null || value === '' ? null : String(value)),
         export: () => exportVideo(),
         dismiss: () => dismiss(),
       });
@@ -155,8 +204,14 @@ internal fun installWebPostVideoEditorE2eBridge(
 private external fun installPostVideoEditorBridgeWhenAllowed(
     mute: () -> Unit,
     playPause: () -> Unit,
+    trimStart: (Float) -> Unit,
+    trimEnd: (Float) -> Unit,
     crop: () -> Unit,
+    cropMode: (String) -> Unit,
+    cropZoom: (Float) -> Unit,
+    cropPan: (Float, Float) -> Unit,
     captions: () -> Unit,
+    captionStyle: (String?) -> Unit,
     export: () -> Unit,
     dismiss: () -> Unit,
 ): () -> Unit
@@ -180,6 +235,7 @@ internal suspend fun webPostVideoEditorExportEdited(
         reference = reference,
         trimStartMs = spec.trimStartMs,
         trimEndMs = spec.trimEndMs,
+        sourceDurationMs = spec.sourceDurationMs,
         removeAudio = spec.removeAudio,
         cropLeft = spec.cropRect.left,
         cropTop = spec.cropRect.top,
@@ -198,8 +254,54 @@ private fun webPostVideoEditorRecordExportStarted(): Unit = js(
     """(() => { globalThis.__quataPostVideoEditorExport = { status: 'started' }; })()""",
 )
 
-private fun webPostVideoEditorRecordExportSuccess(reference: String): Unit = js(
-    """(() => { globalThis.__quataPostVideoEditorExport = { status: 'success', reference: String(reference).slice(0, 80) }; })()""",
+private fun webPostVideoEditorRecordExportSuccess(
+    reference: String,
+    trimStartMs: Long,
+    trimEndMs: Long,
+    sourceDurationMs: Long,
+    removeAudio: Boolean,
+    cropLeft: Float,
+    cropTop: Float,
+    cropRight: Float,
+    cropBottom: Float,
+    captionStyle: String,
+    outputWidth: Int,
+    outputHeight: Int,
+): Unit = js(
+    """(() => {
+        const native = globalThis.__quataPostVideoEditorExportNative || {};
+        const cropChanged = Math.abs(Number(cropLeft)) > 0.001 ||
+          Math.abs(Number(cropTop)) > 0.001 ||
+          Math.abs(Number(cropRight) - 1) > 0.001 ||
+          Math.abs(Number(cropBottom) - 1) > 0.001;
+        globalThis.__quataPostVideoEditorExport = {
+          status: 'success',
+          reference: String(reference).slice(0, 80),
+          output: {
+            mimeType: String(native.mimeType || ''),
+            size: Number(native.size || 0),
+            outputWidth: Number(outputWidth),
+            outputHeight: Number(outputHeight),
+          },
+          spec: {
+            trimStartMs: Number(trimStartMs),
+            trimEndMs: Number(trimEndMs),
+            sourceDurationMs: Number(sourceDurationMs),
+            removeAudio: Boolean(removeAudio),
+            cropLeft: Number(cropLeft),
+            cropTop: Number(cropTop),
+            cropRight: Number(cropRight),
+            cropBottom: Number(cropBottom),
+            captionStyle: String(captionStyle || ''),
+          },
+          operations: {
+            trim: Number(trimStartMs) > 0 || Number(trimEndMs) < Number(sourceDurationMs),
+            mute: Boolean(removeAudio),
+            crop: cropChanged,
+            captions: String(captionStyle || '').length > 0,
+          },
+        };
+      })()""",
 )
 
 private fun webPostVideoEditorRecordExportFailure(message: String): Unit = js(
@@ -210,6 +312,7 @@ private fun webPostVideoEditorExportEditedJs(
     reference: String,
     trimStartMs: Long,
     trimEndMs: Long,
+    sourceDurationMs: Long,
     removeAudio: Boolean,
     cropLeft: Float,
     cropTop: Float,
@@ -270,10 +373,27 @@ private fun webPostVideoEditorExportEditedJs(
           recorder.onstop = () => {
             const blob = new Blob(chunks, { type: mimeType });
             if (!blob.size) reject(Error('web_post_video_editor_empty_export'));
-            else resolve(globalThis.URL.createObjectURL(blob));
+            else {
+              globalThis.__quataPostVideoEditorExportNative = {
+                mimeType,
+                size: blob.size,
+                outputWidth: canvas.width,
+                outputHeight: canvas.height,
+              };
+              resolve(globalThis.URL.createObjectURL(blob));
+            }
           };
-          const startMs = Math.max(0, Number(trimStartMs) || 0);
-          const endMs = Math.max(startMs + 500, Number(trimEndMs) || (video.duration * 1000));
+          const actualDurationMs = Math.max(500, (Number(video.duration) || 0) * 1000);
+          const hintedDurationMs = Math.max(1, Number(sourceDurationMs) || actualDurationMs);
+          const scale = actualDurationMs > 0 && hintedDurationMs > actualDurationMs * 1.5
+            ? actualDurationMs / hintedDurationMs
+            : 1;
+          const startMs = Math.min(
+            Math.max(0, Number(trimStartMs) || 0) * scale,
+            Math.max(0, actualDurationMs - 500)
+          );
+          const requestedEndMs = Math.max(startMs + 500, (Number(trimEndMs) || actualDurationMs) * scale);
+          const endMs = Math.min(actualDurationMs, requestedEndMs);
           const durationMs = endMs - startMs;
           const crop = {
             left: Math.max(0, Math.min(1, Number(cropLeft) || 0)),
@@ -305,7 +425,7 @@ private fun webPostVideoEditorExportEditedJs(
               context.fillRect(canvas.width * 0.08, canvas.height * 0.72, canvas.width * 0.84, canvas.height * 0.095);
               context.fillStyle = '#ffffff';
               context.textAlign = 'center';
-              context.font = `${Math.round(canvas.width * 0.056)}px sans-serif`;
+              context.font = Math.round(canvas.width * 0.056) + 'px sans-serif';
               context.fillText(caption.toUpperCase(), canvas.width / 2, canvas.height * 0.78);
             }
           }

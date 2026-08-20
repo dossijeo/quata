@@ -537,7 +537,14 @@ private fun PostVideoEditorInfoBar(
             Text("${strings.exporting} ${(state.exportProgress * 100).toInt().coerceIn(0, 100)}%", style = MaterialTheme.typography.bodySmall)
         }
         state.error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+            Text(
+                it,
+                modifier = Modifier
+                    .testTag(PostVideoEditorErrorTestTag)
+                    .semantics { contentDescription = PostVideoEditorErrorTestTag },
+                color = MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.Bold,
+            )
         }
         Row(
             modifier = Modifier
