@@ -2,6 +2,7 @@ package com.quata.feature.postcomposer.imageeditor
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -40,6 +41,7 @@ fun QuataImageEditorDialog(
     mode: QuataImageEditorMode = QuataImageEditorMode.Post,
 ) {
     val context = LocalContext.current
+    val cropLocked = mode == QuataImageEditorMode.Avatar
     val outputSpec = remember(mode) {
         when (mode) {
             QuataImageEditorMode.Post -> ImageEditorPostOutputSpec
@@ -76,7 +78,8 @@ fun QuataImageEditorDialog(
         outputSpec = outputSpec,
         onTransformChange = { transform = it },
         onDismiss = onDismiss,
-        onSave = {
+        cropLocked = cropLocked,
+        onSave = { cropToOutputAspect ->
             val source = bitmap ?: return@PostImageEditorDialogContent
             if (isSaving) return@PostImageEditorDialogContent
             isSaving = true
@@ -88,6 +91,7 @@ fun QuataImageEditorDialog(
                             source = source,
                             transform = transform,
                             outputSpec = outputSpec,
+                            cropToOutputAspect = cropToOutputAspect,
                         )
                     }
                 }.onSuccess(onEdited)
@@ -102,7 +106,7 @@ fun QuataImageEditorDialog(
             cancel = stringResource(android.R.string.cancel),
             save = stringResource(R.string.video_editor_export),
         ),
-        preview = { currentTransform, currentGeometry, modifier ->
+        preview = { currentTransform, currentGeometry, cropPanelOpen, cropApplied, modifier ->
             val currentBitmap = bitmap
             if (isLoading || isSaving || currentBitmap == null || currentGeometry == null) {
                 CircularProgressIndicator(modifier = modifier)
@@ -112,6 +116,7 @@ fun QuataImageEditorDialog(
                     transform = currentTransform,
                     geometry = currentGeometry,
                     outputSpec = outputSpec,
+                    cropToOutputAspect = cropPanelOpen || cropApplied || cropLocked,
                     modifier = modifier,
                 )
             }
@@ -125,9 +130,30 @@ private fun AndroidPostImageEditorPreview(
     transform: PostImageEditorTransform,
     geometry: PostImageEditorGeometry,
     outputSpec: ImageEditorOutputSpec,
+    cropToOutputAspect: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Canvas(modifier) {
+        val turns = ((transform.quarterTurns % 4) + 4) % 4
+        if (!cropToOutputAspect) {
+            val rotatedWidth = if (turns % 2 == 0) bitmap.width else bitmap.height
+            val rotatedHeight = if (turns % 2 == 0) bitmap.height else bitmap.width
+            val scale = minOf(size.width / rotatedWidth.toFloat(), size.height / rotatedHeight.toFloat())
+            val drawWidth = bitmap.width * scale
+            val drawHeight = bitmap.height * scale
+            val canvas = drawContext.canvas.nativeCanvas
+            canvas.save()
+            canvas.translate(size.width / 2f, size.height / 2f)
+            canvas.rotate(turns * 90f)
+            canvas.drawBitmap(
+                bitmap,
+                null,
+                android.graphics.RectF(-drawWidth / 2f, -drawHeight / 2f, drawWidth / 2f, drawHeight / 2f),
+                PreviewPaint,
+            )
+            canvas.restore()
+            return@Canvas
+        }
         val frameScale = minOf(size.width / outputSpec.width, size.height / outputSpec.height)
         val drawWidth = geometry.sourceDrawnWidth * frameScale
         val drawHeight = geometry.sourceDrawnHeight * frameScale
@@ -170,8 +196,20 @@ private fun Context.exportEditedImage(
     source: Bitmap,
     transform: PostImageEditorTransform,
     outputSpec: ImageEditorOutputSpec,
+    cropToOutputAspect: Boolean,
 ): Uri {
     val outputFile = File(cacheDir, "$QuataEditedImageFilePrefix${System.currentTimeMillis()}.jpg")
+    if (!cropToOutputAspect) {
+        val turns = ((transform.quarterTurns % 4) + 4) % 4
+        val output = if (turns == 0) source else source.rotateClockwise(turns)
+        try {
+            outputFile.outputStream().use { output.compress(Bitmap.CompressFormat.JPEG, ImageEditorJpegQuality, it) }
+            copyImageGpsMetadata(sourceUri, outputFile)
+            return Uri.fromFile(outputFile)
+        } finally {
+            if (output !== source) output.recycle()
+        }
+    }
     val output = Bitmap.createBitmap(outputSpec.width, outputSpec.height, Bitmap.Config.ARGB_8888)
     try {
         val canvas = android.graphics.Canvas(output)
@@ -203,6 +241,11 @@ private fun Context.exportEditedImage(
     } finally {
         output.recycle()
     }
+}
+
+private fun Bitmap.rotateClockwise(turns: Int): Bitmap {
+    val matrix = Matrix().apply { postRotate((((turns % 4) + 4) % 4) * 90f) }
+    return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
 }
 
 private fun Context.copyImageGpsMetadata(sourceUri: Uri, outputFile: File) {

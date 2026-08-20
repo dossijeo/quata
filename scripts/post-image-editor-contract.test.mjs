@@ -27,13 +27,22 @@ test("post image editor owns a common transform, geometry and shared control sur
     "PostImageEditorCancelTestTag",
     "PostImageEditorResetTestTag",
     "PostImageEditorRotateTestTag",
+    "PostImageEditorCropTestTag",
     "PostImageEditorSaveTestTag",
   ]) {
     assert.match(commonContent, new RegExp(tag));
   }
+  assert.match(commonContent, /cropLocked: Boolean = false/);
+  assert.match(commonContent, /cropPanelOpen by remember/);
+  assert.match(commonContent, /cropApplied by remember/);
+  assert.match(commonContent, /cropLocked \|\| cropPanelOpen \|\| cropApplied/);
+  assert.match(commonContent, /BoxWithConstraints/);
+  assert.match(commonContent, /val landscape = maxWidth > 560\.dp/);
+  assert.match(commonContent, /Icons\.Filled\.Crop/);
   assert.match(commonContent, /detectDragGestures/);
   assert.match(commonContent, /Slider\(/);
-  assert.match(commonContent, /preview\(transform, geometry/);
+  assert.match(commonContent, /preview\(transform, geometry, cropPanelOpen, cropApplied/);
+  assert.match(commonContent, /onSave\(shouldCrop\)/);
 });
 
 test("Web composer opens the real Compose/Wasm post image editor and exports a JPEG blob", () => {
@@ -45,6 +54,10 @@ test("Web composer opens the real Compose/Wasm post image editor and exports a J
   assert.match(webEditor, /rememberBrowserCanvasImage\(sourceReference\)/);
   assert.match(webEditor, /postImageEditorGeometry/);
   assert.match(webEditor, /webPostImageEditorExportJpeg/);
+  assert.match(webEditor, /cropToOutputAspect: Boolean = true/);
+  assert.match(webEditor, /const shouldCrop = Boolean\(cropToOutputAspect\)/);
+  assert.match(webEditor, /const outputWidth = shouldCrop \? 1080/);
+  assert.match(webEditor, /const scale = \(shouldCrop \?/);
   assert.match(webEditor, /canvas\.width = outputWidth; canvas\.height = outputHeight/);
   assert.match(webEditor, /context\.rotate\(turns \* Math\.PI \/ 2\)/);
   assert.match(webEditor, /canvas\.toBlob[\s\S]*'image\/jpeg', 0\.92/);
@@ -52,6 +65,11 @@ test("Web composer opens the real Compose/Wasm post image editor and exports a J
 
 test("Android composer uses the same common post image editor surface and native JPEG export edge", () => {
   assert.match(androidEditor, /PostImageEditorDialogContent\(/);
+  assert.match(androidEditor, /val cropLocked = mode == QuataImageEditorMode\.Avatar/);
+  assert.match(androidEditor, /cropLocked = cropLocked/);
+  assert.match(androidEditor, /cropToOutputAspect: Boolean/);
+  assert.match(androidEditor, /if \(!cropToOutputAspect\)/);
+  assert.match(androidEditor, /source\.rotateClockwise\(turns\)/);
   assert.match(androidEditor, /PostImageEditorTransform\.Default/);
   assert.match(androidEditor, /postImageEditorGeometry\(/);
   assert.match(androidEditor, /AndroidPostImageEditorPreview\(/);
@@ -72,6 +90,9 @@ test("iOS composer opens a real editor surface and exports a temporary JPEG", ()
   assert.doesNotMatch(iosHost, /iosPostComposerImageEditorEvidenceEditedFile/);
   assert.match(iosHost, /IosPostImageEditor/);
   assert.match(iosEditor, /PostImageEditorDialogContent/);
+  assert.match(iosEditor, /cropToOutputAspect: Boolean/);
+  assert.match(iosEditor, /val scale = if \(cropToOutputAspect\)/);
+  assert.match(iosEditor, /outputWidth = if \(cropToOutputAspect\)/);
   assert.match(iosEditor, /UIGraphicsBeginImageContextWithOptions/);
   assert.match(iosEditor, /CGContextRotateCTM/);
   assert.match(iosEditor, /UIImageJPEGRepresentation\(it, 0\.92\)/);

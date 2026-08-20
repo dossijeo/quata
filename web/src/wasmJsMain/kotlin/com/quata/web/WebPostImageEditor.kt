@@ -53,12 +53,12 @@ internal fun WebPostImageEditor(
         }
     val scope = rememberCoroutineScope()
     var saveInProgress by remember(sourceReference) { mutableStateOf(false) }
-    fun requestSave() {
+    fun requestSave(cropToOutputAspect: Boolean) {
         if (saveInProgress) return
         saveInProgress = true
         webPostImageEditorRecordExportStarted()
         scope.launch {
-            runCatching { webPostImageEditorExportJpeg(sourceReference, transform) }
+            runCatching { webPostImageEditorExportJpeg(sourceReference, transform, cropToOutputAspect) }
                 .onSuccess(onEdited)
                 .onFailure {
                     webPostImageEditorRecordExportFailure(it.message ?: "web_post_image_editor_export_failed")
@@ -70,7 +70,7 @@ internal fun WebPostImageEditor(
         val uninstall = installWebPostImageEditorE2eBridge(
             rotate = { transform = transform.rotateClockwise() },
             reset = { transform = PostImageEditorTransform.Default },
-            save = { requestSave() },
+            save = { requestSave(true) },
             dismiss = onDismiss,
         )
         onDispose { uninstall() }
@@ -82,12 +82,13 @@ internal fun WebPostImageEditor(
         outputSpec = ImageEditorPostOutputSpec,
         onTransformChange = { transform = it },
         onDismiss = onDismiss,
-        onSave = { requestSave() },
-        preview = { currentTransform, currentGeometry, modifier ->
+        onSave = { cropToOutputAspect -> requestSave(cropToOutputAspect) },
+        preview = { currentTransform, currentGeometry, cropPanelOpen, cropApplied, modifier ->
             PostImageEditorCanvasPreview(
                 imageState = imageState,
                 geometry = currentGeometry,
                 transform = currentTransform,
+                cropToOutputAspect = cropPanelOpen || cropApplied,
                 modifier = modifier.onSizeChanged { frameSize = it.width to it.height },
             )
         },
@@ -99,16 +100,21 @@ private fun PostImageEditorCanvasPreview(
     imageState: BrowserCanvasImageState,
     geometry: PostImageEditorGeometry?,
     transform: PostImageEditorTransform,
+    cropToOutputAspect: Boolean,
     modifier: Modifier,
 ) {
     Canvas(modifier) {
         val ready = imageState as? BrowserCanvasImageState.Ready ?: return@Canvas
-        val current = geometry ?: return@Canvas
-        val frameScale = minOf(size.width / ImageEditorPostOutputSpec.width, size.height / ImageEditorPostOutputSpec.height)
-        val drawWidth = current.sourceDrawnWidth * frameScale
-        val drawHeight = current.sourceDrawnHeight * frameScale
-        val maxPanX = current.maxPanX * frameScale
-        val maxPanY = current.maxPanY * frameScale
+        val current = geometry
+        val turns = ((transform.quarterTurns % 4) + 4) % 4
+        val rotatedWidth = if (turns % 2 == 0) ready.bitmap.width else ready.bitmap.height
+        val rotatedHeight = if (turns % 2 == 0) ready.bitmap.height else ready.bitmap.width
+        val fitScale = minOf(size.width / rotatedWidth.toFloat(), size.height / rotatedHeight.toFloat())
+        val cropScale = minOf(size.width / ImageEditorPostOutputSpec.width, size.height / ImageEditorPostOutputSpec.height)
+        val drawWidth = if (cropToOutputAspect && current != null) current.sourceDrawnWidth * cropScale else ready.bitmap.width * fitScale
+        val drawHeight = if (cropToOutputAspect && current != null) current.sourceDrawnHeight * cropScale else ready.bitmap.height * fitScale
+        val maxPanX = if (cropToOutputAspect && current != null) current.maxPanX * cropScale else 0f
+        val maxPanY = if (cropToOutputAspect && current != null) current.maxPanY * cropScale else 0f
         withTransform({
             translate(
                 left = size.width / 2f + transform.panX * maxPanX,
@@ -128,6 +134,7 @@ private fun PostImageEditorCanvasPreview(
 internal suspend fun webPostImageEditorExportJpeg(
     reference: String,
     transform: PostImageEditorTransform,
+    cropToOutputAspect: Boolean = true,
 ): String = suspendCoroutine { continuation ->
     webPostImageEditorExportJpegJs(
         reference = reference,
@@ -135,6 +142,7 @@ internal suspend fun webPostImageEditorExportJpeg(
         panX = transform.panX,
         panY = transform.panY,
         quarterTurns = transform.quarterTurns,
+        cropToOutputAspect = cropToOutputAspect,
         onSuccess = { payload ->
             runCatching {
                 Json.parseToJsonElement(payload).jsonObject["reference"]?.jsonPrimitive?.contentOrNull
@@ -202,6 +210,7 @@ private fun webPostImageEditorExportJpegJs(
     panX: Float,
     panY: Float,
     quarterTurns: Int,
+    cropToOutputAspect: Boolean,
     onSuccess: (String) -> Unit,
     onFailure: (String) -> Unit,
 ): Unit = js(
@@ -229,23 +238,24 @@ private fun webPostImageEditorExportJpegJs(
                 .catch(error => { globalThis.URL.revokeObjectURL(sourceUrl); reject(error); });
             }));
         sourcePromise.then(image => {
-          const outputWidth = 1080;
-          const outputHeight = 1920;
           const width = Number(image.naturalWidth || image.width || 0);
           const height = Number(image.naturalHeight || image.height || 0);
           if (!width || !height) throw Error('web_post_image_editor_dimensions_invalid');
+          const turns = ((Number(quarterTurns) % 4) + 4) % 4;
+          const shouldCrop = Boolean(cropToOutputAspect);
+          const outputWidth = shouldCrop ? 1080 : (turns % 2 === 0 ? width : height);
+          const outputHeight = shouldCrop ? 1920 : (turns % 2 === 0 ? height : width);
           const canvas = globalThis.document.createElement('canvas');
           canvas.width = outputWidth; canvas.height = outputHeight;
           const context = canvas.getContext('2d');
           if (!context) throw Error('web_post_image_editor_canvas_context_unavailable');
-          const turns = ((Number(quarterTurns) % 4) + 4) % 4;
-          const scale = Math.max(outputWidth / width, outputHeight / height) * Math.min(4, Math.max(1, Number(zoom) || 1));
+          const scale = (shouldCrop ? Math.max(outputWidth / width, outputHeight / height) * Math.min(4, Math.max(1, Number(zoom) || 1)) : 1);
           const sourceDrawnWidth = width * scale;
           const sourceDrawnHeight = height * scale;
           const outputDrawnWidth = turns % 2 === 0 ? sourceDrawnWidth : sourceDrawnHeight;
           const outputDrawnHeight = turns % 2 === 0 ? sourceDrawnHeight : sourceDrawnWidth;
-          const maxPanX = Math.max(0, (outputDrawnWidth - outputWidth) / 2);
-          const maxPanY = Math.max(0, (outputDrawnHeight - outputHeight) / 2);
+          const maxPanX = shouldCrop ? Math.max(0, (outputDrawnWidth - outputWidth) / 2) : 0;
+          const maxPanY = shouldCrop ? Math.max(0, (outputDrawnHeight - outputHeight) / 2) : 0;
           context.fillStyle = '#000000';
           context.fillRect(0, 0, outputWidth, outputHeight);
           context.save();

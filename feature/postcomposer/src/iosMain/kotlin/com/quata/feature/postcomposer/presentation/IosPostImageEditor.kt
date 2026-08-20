@@ -51,25 +51,26 @@ internal fun IosPostImageEditor(
         outputSpec = ImageEditorPostOutputSpec,
         onTransformChange = { transform = it },
         onDismiss = onDismiss,
-        onSave = {
+        onSave = { cropToOutputAspect ->
             if (saveInProgress) return@PostImageEditorDialogContent
             saveInProgress = true
             scope.launch {
-                runCatching { iosPostImageEditorExport(source, transform) }
+                runCatching { iosPostImageEditorExport(source, transform, cropToOutputAspect) }
                     .onSuccess(onEdited)
                     .onFailure { saveInProgress = false }
             }
         },
-        preview = { currentTransform, currentGeometry, modifier ->
+        preview = { currentTransform, currentGeometry, cropPanelOpen, cropApplied, modifier ->
             IosComposerLocalImagePreview(
                 source,
                 modifier.graphicsLayer {
-                    val scale = currentTransform.zoom
+                    val cropToOutputAspect = cropPanelOpen || cropApplied
+                    val scale = if (cropToOutputAspect) currentTransform.zoom else 1f
                     scaleX = scale
                     scaleY = scale
                     rotationZ = currentTransform.quarterTurns * 90f
-                    translationX = currentTransform.panX * (currentGeometry?.maxPanX ?: 0f)
-                    translationY = currentTransform.panY * (currentGeometry?.maxPanY ?: 0f)
+                    translationX = if (cropToOutputAspect) currentTransform.panX * (currentGeometry?.maxPanX ?: 0f) else 0f
+                    translationY = if (cropToOutputAspect) currentTransform.panY * (currentGeometry?.maxPanY ?: 0f) else 0f
                 },
             )
         },
@@ -97,21 +98,22 @@ private fun iosPostImageEditorGeometry(
 private fun iosPostImageEditorExport(
     source: PlatformFile,
     transform: PostImageEditorTransform,
+    cropToOutputAspect: Boolean,
 ): PlatformFile {
     val image = source.iosPostImageEditorImageOrNull() ?: error("ios_post_image_editor_decode_failed")
     val width = image.size.useContents { width }
     val height = image.size.useContents { height }
     require(width > 0.0 && height > 0.0) { "ios_post_image_editor_dimensions_invalid" }
-    val outputWidth = ImageEditorPostOutputSpec.width.toDouble()
-    val outputHeight = ImageEditorPostOutputSpec.height.toDouble()
     val turns = ((transform.quarterTurns % 4) + 4) % 4
-    val scale = maxOf(outputWidth / width, outputHeight / height) * transform.zoom
+    val outputWidth = if (cropToOutputAspect) ImageEditorPostOutputSpec.width.toDouble() else if (turns % 2 == 0) width else height
+    val outputHeight = if (cropToOutputAspect) ImageEditorPostOutputSpec.height.toDouble() else if (turns % 2 == 0) height else width
+    val scale = if (cropToOutputAspect) maxOf(outputWidth / width, outputHeight / height) * transform.zoom else 1.0
     val drawWidth = width * scale
     val drawHeight = height * scale
     val outputDrawnWidth = if (turns % 2 == 0) drawWidth else drawHeight
     val outputDrawnHeight = if (turns % 2 == 0) drawHeight else drawWidth
-    val maxPanX = maxOf(0.0, (outputDrawnWidth - outputWidth) / 2.0)
-    val maxPanY = maxOf(0.0, (outputDrawnHeight - outputHeight) / 2.0)
+    val maxPanX = if (cropToOutputAspect) maxOf(0.0, (outputDrawnWidth - outputWidth) / 2.0) else 0.0
+    val maxPanY = if (cropToOutputAspect) maxOf(0.0, (outputDrawnHeight - outputHeight) / 2.0) else 0.0
 
     UIGraphicsBeginImageContextWithOptions(CGSizeMake(outputWidth, outputHeight), true, 1.0)
     val context = UIGraphicsGetCurrentContext() ?: error("ios_post_image_editor_context_unavailable")
