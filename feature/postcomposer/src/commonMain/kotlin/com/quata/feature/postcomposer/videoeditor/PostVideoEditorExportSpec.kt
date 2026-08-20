@@ -1,6 +1,7 @@
 package com.quata.feature.postcomposer.videoeditor
 
 import androidx.compose.ui.geometry.Offset
+import com.quata.core.captions.core.CaptionDocument
 import com.quata.core.captions.templates.CaptionTemplateStyle
 import kotlin.math.roundToLong
 
@@ -12,20 +13,20 @@ data class PostVideoEditorExportSpec(
     val cropRect: NormalizedCropRect,
     val backgroundCropRect: NormalizedCropRect?,
     val captionStyle: CaptionTemplateStyle?,
-    val captionText: String?,
+    val captionDocument: CaptionDocument?,
     val outputWidth: Int = PostVideoEditorOutputWidth,
     val outputHeight: Int = PostVideoEditorOutputHeight,
 ) {
     val trimDurationMs: Long get() = (trimEndMs - trimStartMs).coerceAtLeast(MinimumPostVideoEditorTrimMs)
     val hasCrop: Boolean get() = !cropRect.isFullFrame || backgroundCropRect != null
-    val hasCaptions: Boolean get() = captionStyle != null
+    val hasCaptions: Boolean get() = captionStyle != null && captionDocument?.isEmpty == false
 }
 
 fun postVideoEditorExportSpec(
     state: PostVideoEditorUiState,
     videoAspectRatio: Float,
     durationMs: Long,
-    captionText: String? = null,
+    captionDocument: CaptionDocument? = null,
 ): PostVideoEditorExportSpec {
     val safeDuration = durationMs.coerceAtLeast(1L)
     val trimStartMs = (state.trimStartFraction.coerceIn(0f, 1f) * safeDuration).roundToLong()
@@ -53,9 +54,9 @@ fun postVideoEditorExportSpec(
         cropRect = foregroundCrop,
         backgroundCropRect = backgroundCrop,
         captionStyle = selectedCaptionStyle,
-        captionText = captionText
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
+        captionDocument = captionDocument
+            ?.trimTo(trimStartMs, trimEndMs)
+            ?.takeIf { !it.isEmpty }
             ?.takeIf { selectedCaptionStyle != null },
     )
 }

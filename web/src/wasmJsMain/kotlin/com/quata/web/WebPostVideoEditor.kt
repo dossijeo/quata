@@ -12,6 +12,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.WebElementView
+import com.quata.core.captions.core.CaptionDocument
+import com.quata.core.captions.core.CaptionDocumentWireCodec
 import com.quata.core.captions.templates.CaptionTemplateStyle
 import com.quata.feature.postcomposer.videoeditor.CaptionStyleOption
 import com.quata.feature.postcomposer.videoeditor.MaximumPostVideoEditorDurationMs
@@ -53,12 +55,12 @@ internal fun WebPostVideoEditor(
                 val exportDurationMs = freshMetadata?.durationMs?.also { durationMs = it } ?: durationMs
                 val exportAspectRatio = freshMetadata?.aspectRatio?.also { videoAspectRatio = it } ?: videoAspectRatio
                 val shouldGenerateCaptions = state.captionsEnabled && state.selectedCaptionStyleId != null
-                val captionText = if (shouldGenerateCaptions) {
+                val captionDocument = if (shouldGenerateCaptions) {
                     webPostVideoEditorTranscribeCaptions(sourceReference)
                 } else {
                     null
                 }
-                val spec = postVideoEditorExportSpec(state, exportAspectRatio, exportDurationMs, captionText)
+                val spec = postVideoEditorExportSpec(state, exportAspectRatio, exportDurationMs, captionDocument)
                 spec to webPostVideoEditorExportEdited(sourceReference, spec)
             }
                 .onSuccess {
@@ -80,7 +82,7 @@ internal fun WebPostVideoEditor(
                         backgroundCropRight = spec.backgroundCropRect?.right ?: 1f,
                         backgroundCropBottom = spec.backgroundCropRect?.bottom ?: 1f,
                         captionStyle = spec.captionStyle?.name ?: "",
-                        captionText = spec.captionText ?: "",
+                        captionDocumentWire = spec.captionDocument?.let(CaptionDocumentWireCodec::encodeDocument) ?: "",
                         outputWidth = spec.outputWidth,
                         outputHeight = spec.outputHeight,
                     )
@@ -267,7 +269,7 @@ internal suspend fun webPostVideoEditorExportEdited(
         backgroundCropRight = spec.backgroundCropRect?.right ?: 1f,
         backgroundCropBottom = spec.backgroundCropRect?.bottom ?: 1f,
         captionStyle = spec.captionStyle?.name ?: "",
-        captionText = spec.captionText ?: "",
+        captionDocumentWire = spec.captionDocument?.let(CaptionDocumentWireCodec::encodeDocument) ?: "",
         outputWidth = spec.outputWidth,
         outputHeight = spec.outputHeight,
         continuation::resume,
@@ -295,12 +297,14 @@ private fun webPostVideoEditorRecordExportSuccess(
     backgroundCropRight: Float,
     backgroundCropBottom: Float,
     captionStyle: String,
-    captionText: String,
+    captionDocumentWire: String,
     outputWidth: Int,
     outputHeight: Int,
 ): Unit = js(
     """(() => {
         const native = globalThis.__quataPostVideoEditorExportNative || {};
+        const documentWire = String(captionDocumentWire || '');
+        const captionSegments = parseCaptionDocument(documentWire);
         const cropChanged = Math.abs(Number(cropLeft)) > 0.001 ||
           Math.abs(Number(cropTop)) > 0.001 ||
           Math.abs(Number(cropRight) - 1) > 0.001 ||
@@ -332,15 +336,35 @@ private fun webPostVideoEditorRecordExportSuccess(
             backgroundCropRight: Number(backgroundCropRight),
             backgroundCropBottom: Number(backgroundCropBottom),
             captionStyle: String(captionStyle || ''),
-            captionText: String(captionText || ''),
+            captionDocumentWire: documentWire,
+            captionSegments,
+            captionText: captionSegments.map(segment => segment.text).join(' ').trim(),
           },
           operations: {
             trim: Number(trimStartMs) > 0 || Number(trimEndMs) < Number(sourceDurationMs),
             mute: Boolean(removeAudio),
             crop: cropChanged,
-            captions: String(captionStyle || '').length > 0 && String(captionText || '').length > 0,
+            captions: String(captionStyle || '').length > 0 && captionSegments.length > 0,
           },
         };
+        function parseCaptionDocument(value) {
+          return String(value || '').split(/\n\s*\n/g).map(chunk => {
+            const words = chunk.split(/\n/g).map(line => {
+              const parts = line.split('\t');
+              const text = String(parts[0] || '').trim();
+              const startMs = Math.max(0, Number(parts[1]) || 0);
+              const endMs = Math.max(startMs + 1, Number(parts[2]) || startMs + 1);
+              return text ? { text, startMs, endMs, confidence: Math.max(0, Math.min(1, Number(parts[3]) || 1)) } : null;
+            }).filter(Boolean);
+            if (!words.length) return null;
+            return {
+              words,
+              startMs: Math.min(...words.map(word => word.startMs)),
+              endMs: Math.max(...words.map(word => word.endMs)),
+              text: words.map(word => word.text).join(' '),
+            };
+          }).filter(Boolean);
+        }
       })()""",
 )
 
@@ -363,7 +387,7 @@ private fun webPostVideoEditorExportEditedJs(
     backgroundCropRight: Float,
     backgroundCropBottom: Float,
     captionStyle: String,
-    captionText: String,
+    captionDocumentWire: String,
     outputWidth: Int,
     outputHeight: Int,
     onSuccess: (String) -> Unit,
@@ -457,10 +481,57 @@ private fun webPostVideoEditorExportEditedJs(
             bottom: Math.max(0, Math.min(1, Number(backgroundCropBottom) || 1)),
           };
           const caption = String(captionStyle || '');
-          const captionWords = String(captionText || '').trim();
-          if (caption && !captionWords) throw Error('web_post_video_editor_caption_transcript_missing');
+          const captionSegments = parseCaptionDocument(captionDocumentWire);
+          if (caption && !captionSegments.length) throw Error('web_post_video_editor_caption_transcript_missing');
           const sourceWidth = Math.max(1, video.videoWidth || canvas.width);
           const sourceHeight = Math.max(1, video.videoHeight || canvas.height);
+          function parseCaptionDocument(value) {
+            return String(value || '').split(/\n\s*\n/g).map(chunk => {
+              const words = chunk.split(/\n/g).map(line => {
+                const parts = line.split('\t');
+                const text = String(parts[0] || '').trim();
+                const startMs = Math.max(0, Number(parts[1]) || 0);
+                const endMs = Math.max(startMs + 1, Number(parts[2]) || startMs + 1);
+                return text ? { text, startMs, endMs, confidence: Math.max(0, Math.min(1, Number(parts[3]) || 1)) } : null;
+              }).filter(Boolean);
+              if (!words.length) return null;
+              return {
+                words,
+                startMs: Math.min(...words.map(word => word.startMs)),
+                endMs: Math.max(...words.map(word => word.endMs)),
+                text: words.map(word => word.text).join(' '),
+              };
+            }).filter(Boolean);
+          }
+          function segmentAt(timeMs) {
+            return captionSegments.find(segment => timeMs >= segment.startMs && timeMs <= segment.endMs) || null;
+          }
+          function drawCaptionSegment(segment, timeMs) {
+            if (!segment) return;
+            const words = segment.words;
+            const displayWords = words.map(word => String(word.text || '').toUpperCase());
+            const fontSize = Math.round(canvas.width * 0.056);
+            context.font = fontSize + 'px sans-serif';
+            context.textAlign = 'left';
+            const gap = fontSize * 0.34;
+            const widths = displayWords.map(word => context.measureText(word).width);
+            const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, words.length - 1);
+            const boxWidth = Math.min(canvas.width * 0.88, Math.max(canvas.width * 0.24, totalWidth + canvas.width * 0.08));
+            const boxHeight = canvas.height * 0.095;
+            const boxX = (canvas.width - boxWidth) / 2;
+            const boxY = canvas.height * 0.72;
+            context.fillStyle = caption === 'PopWord' ? 'rgba(255,138,26,0.88)' : 'rgba(0,0,0,0.72)';
+            context.fillRect(boxX, boxY, boxWidth, boxHeight);
+            let x = (canvas.width - totalWidth) / 2;
+            const y = canvas.height * 0.78;
+            for (let index = 0; index < words.length; index += 1) {
+              const word = words[index];
+              const active = timeMs >= word.startMs && timeMs <= word.endMs;
+              context.fillStyle = active && (caption === 'Karaoke' || caption === 'Hormozi') ? '#ff7a18' : '#ffffff';
+              context.fillText(displayWords[index], x, y);
+              x += widths[index] + gap;
+            }
+          }
           function drawCropFit(rect) {
             const cropWidth = Math.max(1, (rect.right - rect.left) * sourceWidth);
             const cropHeight = Math.max(1, (rect.bottom - rect.top) * sourceHeight);
@@ -505,12 +576,7 @@ private fun webPostVideoEditorExportEditedJs(
             context.fillRect(0, 0, canvas.width, canvas.height);
             drawCropFit(crop);
             if (caption) {
-              context.fillStyle = 'rgba(0,0,0,0.72)';
-              context.fillRect(canvas.width * 0.08, canvas.height * 0.72, canvas.width * 0.84, canvas.height * 0.095);
-              context.fillStyle = '#ffffff';
-              context.textAlign = 'center';
-              context.font = Math.round(canvas.width * 0.056) + 'px sans-serif';
-              context.fillText(captionWords.toUpperCase(), canvas.width / 2, canvas.height * 0.78);
+              drawCaptionSegment(segmentAt((video.currentTime * 1000) - startMs), (video.currentTime * 1000) - startMs);
             }
           }
           video.onseeked = () => {
@@ -587,11 +653,19 @@ private fun webPostVideoEditorReadMetadataJs(
     """,
 )
 
-private suspend fun webPostVideoEditorTranscribeCaptions(reference: String): String =
+private suspend fun webPostVideoEditorTranscribeCaptions(reference: String): CaptionDocument =
     suspendCoroutine { continuation ->
         webPostVideoEditorTranscribeCaptionsJs(
             reference = reference,
-            onSuccess = { text -> continuation.resume(text) },
+            onSuccess = { wordsWire ->
+                val words = CaptionDocumentWireCodec.decodeWords(wordsWire)
+                val document = CaptionDocument.fromWords(words)
+                if (document.isEmpty) {
+                    continuation.resumeWith(Result.failure(IllegalStateException("web_post_video_editor_caption_transcript_missing")))
+                } else {
+                    continuation.resume(document)
+                }
+            },
             onFailure = { reason -> continuation.resumeWith(Result.failure(IllegalStateException(reason))) },
         )
     }
@@ -637,8 +711,14 @@ private fun webPostVideoEditorTranscribeCaptionsJs(
             settled = true;
             recognizer.remove();
             runCatchingCloseAudioContext(audioContext);
-            const text = words.map(word => String(word.word || word.text || '').trim()).filter(Boolean).join(' ').trim();
-            if (text) onSuccess(text);
+            const wire = words.map(word => {
+              const text = String(word.word || word.text || '').replace(/[\t\r\n|]+/g, ' ').trim();
+              const startMs = Math.max(0, Math.round(Number(word.start || 0) * 1000));
+              const endMs = Math.max(startMs + 1, Math.round(Number(word.end || 0) * 1000));
+              const confidence = Math.max(0, Math.min(1, Number(word.conf || word.confidence || 1)));
+              return text ? [text, startMs, endMs, confidence].join('\t') : '';
+            }).filter(Boolean).join('\n');
+            if (wire) onSuccess(wire);
             else fail('web_post_video_editor_caption_transcript_missing');
           };
           recognizer.on('result', message => {

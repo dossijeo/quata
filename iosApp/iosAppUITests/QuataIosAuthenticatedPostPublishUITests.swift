@@ -235,6 +235,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         tapComposerAction("post-video-editor.play-pause", in: app)
         tapComposerAction("post-video-editor.crop", in: app)
         tapComposerAction("post-video-editor.captions", in: app)
+        tapComposerAction("post-video-editor.caption-style.Karaoke", in: app)
         tapComposerAction("post-video-editor.export", in: app)
         let editorError = app.descendants(matching: .any)
             .matching(identifier: "post-video-editor.error")
@@ -298,6 +299,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_PATH",
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_NAME",
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_MIME",
+            "QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS",
             "QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE",
             "QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD",
             "QUATA_IOS_POST_DESTINATION_E2E_MODE",

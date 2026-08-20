@@ -9,6 +9,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
+import com.quata.core.captions.core.CaptionDocument
+import com.quata.core.captions.core.CaptionDocumentWireCodec
 import com.quata.core.captions.templates.CaptionTemplateStyle
 import com.quata.core.platform.IosVideoThumbnailService
 import com.quata.core.platform.PlatformFile
@@ -71,7 +73,7 @@ data class IosPostVideoEditorExportRequest(
     val backgroundCropRight: Float,
     val backgroundCropBottom: Float,
     val captionStyle: String?,
-    val captionText: String?,
+    val captionDocumentWire: String?,
     val outputWidth: Int,
     val outputHeight: Int,
 )
@@ -127,12 +129,12 @@ internal fun IosPostVideoEditor(
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
         scope.launch {
             runCatching {
-                val captionText = if (state.captionsEnabled && state.selectedCaptionStyleId != null) {
+                val captionDocument = if (state.captionsEnabled && state.selectedCaptionStyleId != null) {
                     iosPostVideoEditorTranscribeCaptions(source, nativeDriver)
                 } else {
                     null
                 }
-                val spec = postVideoEditorExportSpec(state, videoAspectRatio, durationMs, captionText)
+                val spec = postVideoEditorExportSpec(state, videoAspectRatio, durationMs, captionDocument)
                 iosPostVideoEditorExportEdited(source, spec, nativeDriver)
             }
                 .onSuccess {
@@ -209,13 +211,13 @@ private fun IosPostVideoEditorNativePreview(
 private suspend fun iosPostVideoEditorTranscribeCaptions(
     source: PlatformFile,
     nativeDriver: IosPostVideoEditorNativeDriver,
-): String = suspendCancellableCoroutine { continuation ->
+): CaptionDocument = suspendCancellableCoroutine { continuation ->
     nativeDriver.transcribe(source, object : IosPostVideoEditorTranscriptCallback {
         override fun onSuccess(text: String) {
-            val transcript = text.trim()
+            val document = CaptionDocument.fromWords(CaptionDocumentWireCodec.decodeWords(text))
             if (continuation.isActive) {
-                if (transcript.isNotEmpty()) {
-                    continuation.resume(transcript)
+                if (!document.isEmpty) {
+                    continuation.resume(document)
                 } else {
                     continuation.resumeWithException(IllegalStateException("ios_post_video_editor_caption_transcript_missing"))
                 }
@@ -247,7 +249,7 @@ private suspend fun iosPostVideoEditorExportEdited(
         backgroundCropRight = spec.backgroundCropRect?.right ?: 1f,
         backgroundCropBottom = spec.backgroundCropRect?.bottom ?: 1f,
         captionStyle = spec.captionStyle?.name,
-        captionText = spec.captionText,
+        captionDocumentWire = spec.captionDocument?.let(CaptionDocumentWireCodec::encodeDocument),
         outputWidth = spec.outputWidth,
         outputHeight = spec.outputHeight,
     )

@@ -63,12 +63,22 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
             let task = recognizer.recognitionTask(with: request) { [weak self] result, error in
                 if let result, result.isFinal {
                     self?.activeSpeechTasks.removeValue(forKey: taskId)
-                    let text = result.bestTranscription.formattedString.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let wire = result.bestTranscription.segments.compactMap { segment -> String? in
+                        let text = segment.substring
+                            .replacingOccurrences(of: "\t", with: " ")
+                            .replacingOccurrences(of: "\n", with: " ")
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !text.isEmpty else { return nil }
+                        let startMs = max(0, Int64((segment.timestamp * 1_000).rounded()))
+                        let endMs = max(startMs + 1, Int64(((segment.timestamp + segment.duration) * 1_000).rounded()))
+                        let confidence = max(0, min(1, segment.confidence))
+                        return "\(text)\t\(startMs)\t\(endMs)\t\(confidence)"
+                    }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
                     DispatchQueue.main.async {
-                        if text.isEmpty {
+                        if wire.isEmpty {
                             callback.onFailure(reason: "ios_post_video_editor_caption_transcript_missing")
                         } else {
-                            callback.onSuccess(text: text)
+                            callback.onSuccess(text: wire)
                         }
                     }
                     return
@@ -213,7 +223,7 @@ private final class IosPostVideoEditorExportOperation {
             try? compositionAudio.insertTimeRange(range, of: audioTrack, at: .zero)
         }
         if let captionStyle = request.captionStyle, !captionStyle.isEmpty,
-           request.captionText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+           request.captionDocumentWire?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
             callback.onFailure(reason: "ios_post_video_editor_caption_transcript_missing")
             return
         }
@@ -239,6 +249,7 @@ private final class IosPostVideoEditorExportOperation {
                 switch exportSession.status {
                 case .completed:
                     let size = (try? FileManager.default.attributesOfItem(atPath: outputUrl.path)[.size] as? NSNumber)?.int64Value
+                    self.writeExportDiagnostics(outputUrl: outputUrl, sizeBytes: size)
                     callback.onSuccess(file: PlatformFile(
                         reference: outputUrl.absoluteString,
                         displayName: outputUrl.lastPathComponent,
@@ -287,14 +298,15 @@ private final class IosPostVideoEditorExportOperation {
         composition.frameDuration = CMTime(value: 1, timescale: 30)
         composition.instructions = [instruction]
         if let captionStyle = request.captionStyle, !captionStyle.isEmpty {
-            guard let captionText = request.captionText?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !captionText.isEmpty else {
+            guard let captionDocument = CaptionDocumentWire.parse(request.captionDocumentWire),
+                  !captionDocument.segments.isEmpty else {
                 return composition
             }
             composition.animationTool = captionAnimationTool(
                 outputSize: outputSize,
+                duration: duration,
                 captionStyle: captionStyle,
-                captionText: captionText
+                captionDocument: captionDocument
             )
         }
         return composition
@@ -331,8 +343,9 @@ private final class IosPostVideoEditorExportOperation {
 
     private func captionAnimationTool(
         outputSize: CGSize,
+        duration: CMTime,
         captionStyle: String,
-        captionText: String
+        captionDocument: CaptionDocumentWire
     ) -> AVVideoCompositionCoreAnimationTool {
         let parentLayer = CALayer()
         let videoLayer = CALayer()
@@ -340,26 +353,51 @@ private final class IosPostVideoEditorExportOperation {
         videoLayer.frame = parentLayer.frame
         parentLayer.addSublayer(videoLayer)
 
-        let background = CALayer()
-        background.backgroundColor = UIColor.black.withAlphaComponent(0.72).cgColor
-        background.cornerRadius = outputSize.width * 0.018
-        background.frame = CGRect(
-            x: outputSize.width * 0.08,
-            y: outputSize.height * 0.72,
-            width: outputSize.width * 0.84,
-            height: outputSize.height * 0.095
-        )
-        parentLayer.addSublayer(background)
+        for segment in captionDocument.segments {
+            let background = CALayer()
+            background.backgroundColor = UIColor.black.withAlphaComponent(0.72).cgColor
+            background.cornerRadius = outputSize.width * 0.018
+            background.frame = CGRect(
+                x: outputSize.width * 0.08,
+                y: outputSize.height * 0.72,
+                width: outputSize.width * 0.84,
+                height: outputSize.height * 0.095
+            )
+            background.opacity = 0
+            addVisibilityAnimation(to: background, startMs: segment.startMs, endMs: segment.endMs, duration: duration)
+            parentLayer.addSublayer(background)
 
-        let text = CATextLayer()
-        text.string = captionText.uppercased()
-        text.alignmentMode = .center
-        text.foregroundColor = UIColor.white.cgColor
-        text.contentsScale = UIScreen.main.scale
-        text.fontSize = outputSize.width * 0.056
-        text.frame = background.frame.insetBy(dx: 12, dy: outputSize.height * 0.018)
-        parentLayer.addSublayer(text)
+            let text = CATextLayer()
+            text.string = segment.text.uppercased()
+            text.alignmentMode = .center
+            text.foregroundColor = UIColor.white.cgColor
+            text.contentsScale = UIScreen.main.scale
+            text.fontSize = outputSize.width * (captionStyle == "PopWord" ? 0.072 : 0.056)
+            text.frame = background.frame.insetBy(dx: 12, dy: outputSize.height * 0.018)
+            text.opacity = 0
+            addVisibilityAnimation(to: text, startMs: segment.startMs, endMs: segment.endMs, duration: duration)
+            parentLayer.addSublayer(text)
+        }
         return AVVideoCompositionCoreAnimationTool(postProcessingAsVideoLayer: videoLayer, in: parentLayer)
+    }
+
+    private func addVisibilityAnimation(to layer: CALayer, startMs: Int64, endMs: Int64, duration: CMTime) {
+        let totalMs = max(1, Int64(CMTimeGetSeconds(duration) * 1_000))
+        let start = max(0, min(1, Double(startMs) / Double(totalMs)))
+        let end = max(start, min(1, Double(endMs) / Double(totalMs)))
+        let animation = CAKeyframeAnimation(keyPath: "opacity")
+        animation.values = [0, 1, 1, 0]
+        animation.keyTimes = [
+            0,
+            NSNumber(value: start),
+            NSNumber(value: end),
+            1,
+        ]
+        animation.duration = CMTimeGetSeconds(duration)
+        animation.beginTime = AVCoreAnimationBeginTimeAtZero
+        animation.isRemovedOnCompletion = false
+        animation.fillMode = .both
+        layer.add(animation, forKey: "caption-visibility")
     }
 
     private func temporaryOutputUrl() -> URL {
@@ -367,11 +405,90 @@ private final class IosPostVideoEditorExportOperation {
             .appendingPathComponent("quata-post-video-editor-\(UUID().uuidString)")
             .appendingPathExtension("mp4")
     }
+
+    private func writeExportDiagnostics(outputUrl: URL, sizeBytes: Int64?) {
+        guard let path = ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS"],
+              !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+        let captionDocument = CaptionDocumentWire.parse(request.captionDocumentWire)
+        let payload: [String: Any] = [
+            "outputPath": outputUrl.path,
+            "sizeBytes": sizeBytes ?? 0,
+            "outputWidth": request.outputWidth,
+            "outputHeight": request.outputHeight,
+            "trimStartMs": request.trimStartMs,
+            "trimEndMs": request.trimEndMs,
+            "removeAudio": request.removeAudio,
+            "captionStyle": request.captionStyle ?? "",
+            "captionDocumentWire": request.captionDocumentWire ?? "",
+            "captionSegmentCount": captionDocument?.segments.count ?? 0,
+            "captionWordCount": captionDocument?.segments.reduce(0) { $0 + $1.words.count } ?? 0,
+            "captionText": captionDocument?.segments.map(\.text).joined(separator: " ") ?? "",
+            "hasBackgroundCrop": request.hasBackgroundCrop,
+        ]
+        do {
+            let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
+            let url = URL(fileURLWithPath: path)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: url, options: [.atomic])
+        } catch {
+            // Evidence-only diagnostics must never make a successful user export fail.
+        }
+    }
 }
 
 private enum VideoLayerScaleMode {
     case fit
     case fill
+}
+
+private struct CaptionDocumentWire {
+    let segments: [CaptionSegmentWire]
+
+    static func parse(_ value: String?) -> CaptionDocumentWire? {
+        let chunks = String(value ?? "")
+            .components(separatedBy: "\n\n")
+        let segments = chunks.compactMap(CaptionSegmentWire.parse)
+        return segments.isEmpty ? nil : CaptionDocumentWire(segments: segments)
+    }
+}
+
+private struct CaptionSegmentWire {
+    let words: [CaptionWordWire]
+    var startMs: Int64 { words.map(\.startMs).min() ?? 0 }
+    var endMs: Int64 { words.map(\.endMs).max() ?? startMs }
+    var text: String { words.map(\.text).joined(separator: " ") }
+
+    static func parse(_ value: String) -> CaptionSegmentWire? {
+        let words = value
+            .components(separatedBy: .newlines)
+            .compactMap(CaptionWordWire.parse)
+        return words.isEmpty ? nil : CaptionSegmentWire(words: words)
+    }
+}
+
+private struct CaptionWordWire {
+    let text: String
+    let startMs: Int64
+    let endMs: Int64
+    let confidence: Float
+
+    static func parse(_ value: String) -> CaptionWordWire? {
+        let parts = value.components(separatedBy: "\t")
+        guard parts.count >= 3 else { return nil }
+        let text = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty,
+              let start = Int64(parts[1]),
+              let rawEnd = Int64(parts[2]) else { return nil }
+        let confidence = parts.count > 3 ? Float(parts[3]) ?? 1 : 1
+        return CaptionWordWire(
+            text: text,
+            startMs: max(0, start),
+            endMs: max(start + 1, rawEnd),
+            confidence: max(0, min(1, confidence))
+        )
+    }
 }
 
 private extension IosPostVideoEditorExportRequest {

@@ -252,11 +252,20 @@ function assertWebVideoEditorExportParity(exportState, { expectCaptions = false 
   }
   if (expectCaptions) {
     const captionText = String(exportState.spec?.captionText || "").trim().toLowerCase();
+    const captionDocumentWire = String(exportState.spec?.captionDocumentWire || "").trim();
+    const captionSegments = Array.isArray(exportState.spec?.captionSegments) ? exportState.spec.captionSegments : [];
     if (!captionText || captionText === String(exportState.spec?.captionStyle || "").trim().toLowerCase()) {
       throw new Error("web_video_editor_caption_text_not_real_transcript");
     }
     if (!captionText.includes("quata") && !captionText.includes("video") && !captionText.includes("captions")) {
       throw new Error(`web_video_editor_caption_unexpected_transcript:${captionText.slice(0, 80)}`);
+    }
+    if (!captionDocumentWire.includes("\t") || captionSegments.length <= 0) {
+      throw new Error("web_video_editor_caption_document_missing_timings");
+    }
+    const timedWords = captionSegments.flatMap((segment) => Array.isArray(segment.words) ? segment.words : []);
+    if (timedWords.length <= 0 || timedWords.some((word) => !(Number(word.endMs) > Number(word.startMs)))) {
+      throw new Error("web_video_editor_caption_document_invalid_word_timings");
     }
   }
   if (!exportState.output || exportState.output.size <= 0) throw new Error("web_video_editor_export_empty_output");
