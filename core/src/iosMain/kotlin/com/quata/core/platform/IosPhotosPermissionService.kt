@@ -26,14 +26,15 @@ import kotlin.coroutines.resume
 @OptIn(ExperimentalForeignApi::class)
 class IosPhotosPermissionService : PermissionService {
     override suspend fun status(permission: PlatformPermission): PermissionStatus = when (permission) {
-        PlatformPermission.Photos -> PHPhotoLibrary
+        PlatformPermission.Photos,
+        PlatformPermission.Videos -> PHPhotoLibrary
             .authorizationStatusForAccessLevel(PHAccessLevelReadWrite)
             .toPhotosPermissionStatus()
         else -> PermissionStatus.Unavailable
     }
 
     override suspend fun request(permission: PlatformPermission): PermissionStatus {
-        if (permission != PlatformPermission.Photos) return PermissionStatus.Unavailable
+        if (permission != PlatformPermission.Photos && permission != PlatformPermission.Videos) return PermissionStatus.Unavailable
         val current = status(permission)
         if (current != PermissionStatus.Denied) return current
         return suspendCancellableCoroutine { continuation ->

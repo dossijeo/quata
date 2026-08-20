@@ -65,7 +65,7 @@ fun ComposerMediaSourceFormContent(
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier
                     .testTag(ComposerMediaErrorTestTag)
-                    .semantics { contentDescription = ComposerMediaErrorTestTag },
+                    .semantics { contentDescription = "$ComposerMediaErrorTestTag $message" },
             )
         }
         editAction?.let { action ->

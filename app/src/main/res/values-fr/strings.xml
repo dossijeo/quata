@@ -376,7 +376,6 @@
     <string name="composer_edit_image">Modifier image</string>
     <string name="composer_pending_location">Position en attente</string>
     <string name="composer_selected_image">Image selectionnee</string>
-    <string name="composer_image_preview_title">Photo avec position</string>
     <string name="composer_pick_video">Choisir video</string>
     <string name="composer_video_ready">Video prete</string>
     <string name="composer_publishing">Publication&#8230;</string>

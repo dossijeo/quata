@@ -20,6 +20,9 @@ import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PermissionStatus
+import com.quata.feature.postcomposer.presentation.CreatePostMediaPermissionDeniedReason
+import com.quata.feature.postcomposer.presentation.CreatePostMediaPermissionRequest
+import com.quata.feature.postcomposer.presentation.ensureCreatePostMediaPermissions
 import com.quata.feature.postcomposer.data.ActorBoundPostComposerRepository
 import com.quata.feature.postcomposer.data.DestinationEvidencePostComposerRepository
 import com.quata.feature.postcomposer.data.FailInsertAfterUploadComposerTransport
@@ -62,6 +65,12 @@ fun WebPostComposerRoute(
             pickImage = {
                 if (webPostComposerPickerEvidenceShouldHandle("gallery-image")) {
                     webPostComposerPickerEvidenceResult("gallery-image")
+                } else if (!platformServices.permissions.ensureCreatePostMediaPermissions(
+                        CreatePostMediaPermissionRequest.GalleryImage,
+                        allowUnavailable = setOf(PlatformPermission.Photos),
+                    )
+                ) {
+                    PlatformResult.Failure(CreatePostMediaPermissionDeniedReason)
                 } else platformServices.filePicker.pick(
                         FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery),
                     ).firstReferenceResult()
@@ -69,6 +78,8 @@ fun WebPostComposerRoute(
             captureImage = {
                 if (webPostComposerPickerEvidenceShouldHandle("camera-image")) {
                     webPostComposerPickerEvidenceResult("camera-image")
+                } else if (!platformServices.permissions.ensureCreatePostMediaPermissions(CreatePostMediaPermissionRequest.CameraImage)) {
+                    PlatformResult.Failure(CreatePostMediaPermissionDeniedReason)
                 } else when (val result = platformServices.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))) {
                     is PlatformResult.Success -> PlatformResult.Success(result.value.reference)
                     is PlatformResult.Failure -> result
@@ -79,6 +90,12 @@ fun WebPostComposerRoute(
             pickVideo = {
                 if (webPostComposerPickerEvidenceShouldHandle("gallery-video")) {
                     webPostComposerPickerEvidenceResult("gallery-video")
+                } else if (!platformServices.permissions.ensureCreatePostMediaPermissions(
+                        CreatePostMediaPermissionRequest.GalleryVideo,
+                        allowUnavailable = setOf(PlatformPermission.Videos),
+                    )
+                ) {
+                    PlatformResult.Failure(CreatePostMediaPermissionDeniedReason)
                 } else platformServices.filePicker.pick(
                         FilePickerRequest(listOf("video/*"), source = FilePickerSource.Gallery),
                     ).firstReferenceResult()
@@ -86,6 +103,8 @@ fun WebPostComposerRoute(
             captureVideo = {
                 if (webPostComposerPickerEvidenceShouldHandle("camera-video")) {
                     webPostComposerPickerEvidenceResult("camera-video")
+                } else if (!platformServices.permissions.ensureCreatePostMediaPermissions(CreatePostMediaPermissionRequest.CameraVideo)) {
+                    PlatformResult.Failure(CreatePostMediaPermissionDeniedReason)
                 } else platformServices.filePicker.pick(
                         FilePickerRequest(listOf("video/*"), source = FilePickerSource.Camera),
                     ).firstReferenceResult()
@@ -242,6 +261,7 @@ private fun webPostComposerPickerEvidenceResult(source: String): PlatformResult<
         "cancelled" -> PlatformResult.Cancelled
         "failure" -> PlatformResult.Failure(webPostComposerPickerEvidenceReason(source) ?: "post_composer_picker_e2e_failure")
         "unsupported" -> PlatformResult.Unsupported
+        "permission-denied" -> PlatformResult.Failure(CreatePostMediaPermissionDeniedReason)
         else -> PlatformResult.Failure("post_composer_picker_e2e_unknown_outcome")
     }
 }

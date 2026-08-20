@@ -1,6 +1,7 @@
 package com.quata.core.platform
 
 import android.Manifest
+import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.CompletableDeferred
@@ -44,7 +45,16 @@ private fun PlatformPermission.runtimePermissions(): Array<String>? = when (this
     PlatformPermission.Camera -> arrayOf(Manifest.permission.CAMERA)
     PlatformPermission.Microphone -> arrayOf(Manifest.permission.RECORD_AUDIO)
     PlatformPermission.Notifications -> arrayOf(Manifest.permission.POST_NOTIFICATIONS)
-    PlatformPermission.Photos -> arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
+    PlatformPermission.Photos -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
+    } else {
+        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
+    PlatformPermission.Videos -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        arrayOf(Manifest.permission.READ_MEDIA_VIDEO)
+    } else {
+        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
     PlatformPermission.Contacts -> arrayOf(Manifest.permission.READ_CONTACTS)
     PlatformPermission.Files -> null
 }

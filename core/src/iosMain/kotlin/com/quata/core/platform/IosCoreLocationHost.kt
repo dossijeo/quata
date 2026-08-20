@@ -162,7 +162,8 @@ class IosCompositePermissionService(
     override suspend fun status(permission: PlatformPermission): PermissionStatus = when (permission) {
         PlatformPermission.Location -> location.status(permission)
         PlatformPermission.Camera -> camera.status(permission)
-        PlatformPermission.Photos -> photos.status(permission)
+        PlatformPermission.Photos,
+        PlatformPermission.Videos -> photos.status(permission)
         PlatformPermission.Notifications -> notifications.status(permission)
         PlatformPermission.Contacts -> contacts.status(permission)
         PlatformPermission.Microphone -> microphone.status(permission)
@@ -172,7 +173,8 @@ class IosCompositePermissionService(
     override suspend fun request(permission: PlatformPermission): PermissionStatus = when (permission) {
         PlatformPermission.Location -> location.request(permission)
         PlatformPermission.Camera -> camera.request(permission)
-        PlatformPermission.Photos -> photos.request(permission)
+        PlatformPermission.Photos,
+        PlatformPermission.Videos -> photos.request(permission)
         PlatformPermission.Notifications -> notifications.request(permission)
         PlatformPermission.Contacts -> contacts.request(permission)
         PlatformPermission.Microphone -> microphone.request(permission)

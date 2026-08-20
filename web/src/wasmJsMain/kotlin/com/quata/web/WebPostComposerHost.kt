@@ -13,6 +13,7 @@ import com.quata.core.platform.PlatformResult
 import com.quata.core.accessibility.CriticalControlsAccessibilityCatalog
 import com.quata.feature.postcomposer.domain.PostComposerRepository
 import com.quata.feature.postcomposer.domain.PostComposerType
+import com.quata.feature.postcomposer.presentation.CreatePostMediaPermissionDeniedReason
 import com.quata.feature.postcomposer.presentation.CreatePostPlatformSlots
 import com.quata.feature.postcomposer.presentation.CreatePostRoot
 import com.quata.feature.postcomposer.presentation.CreatePostUiEvent
@@ -171,9 +172,16 @@ private fun PlatformResult<String>.dispatchMediaResult(
     when (this) {
         is PlatformResult.Success -> onSuccess(value)
         is PlatformResult.Failure -> viewModel.onEvent(
-            CreatePostUiEvent.MediaSelectionFailed(reason?.takeIf(String::isNotBlank) ?: copy.mediaSelectionFailed),
+            CreatePostUiEvent.MediaSelectionFailed(reason.webComposerMediaFailureMessage(copy)),
         )
         PlatformResult.Unsupported -> viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaUnsupported))
         PlatformResult.Cancelled -> viewModel.onEvent(CreatePostUiEvent.ClearMediaError)
     }
 }
+
+private fun String?.webComposerMediaFailureMessage(copy: com.quata.feature.postcomposer.presentation.CreatePostRootCopy): String =
+    when (this) {
+        CreatePostMediaPermissionDeniedReason -> copy.mediaPermissionDenied
+        null, "" -> copy.mediaSelectionFailed
+        else -> this
+    }

@@ -225,6 +225,11 @@ private fun PlatformPermission.androidRuntimePermissions(): List<String> = when 
     } else {
         listOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
     }
+    PlatformPermission.Videos -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        listOf(android.Manifest.permission.READ_MEDIA_VIDEO)
+    } else {
+        listOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
     PlatformPermission.Contacts -> listOf(android.Manifest.permission.READ_CONTACTS)
     PlatformPermission.Location,
     PlatformPermission.Notifications,

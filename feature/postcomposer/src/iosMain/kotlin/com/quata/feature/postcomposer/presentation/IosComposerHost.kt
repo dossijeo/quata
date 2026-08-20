@@ -92,7 +92,7 @@ private suspend fun PlatformResult<List<PlatformFile>>.dispatchIosComposerMediaR
             if (file != null) onSuccess(file) else viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaSelectionFailed))
         }
         is PlatformResult.Failure -> viewModel.onEvent(
-            CreatePostUiEvent.MediaSelectionFailed(reason?.takeIf(String::isNotBlank) ?: copy.mediaSelectionFailed),
+            CreatePostUiEvent.MediaSelectionFailed(reason.iosComposerMediaFailureMessage(copy)),
         )
         PlatformResult.Unsupported -> viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaUnsupported))
         PlatformResult.Cancelled -> viewModel.onEvent(CreatePostUiEvent.ClearMediaError)
@@ -109,12 +109,19 @@ private suspend fun PlatformResult<PlatformFile>.dispatchIosComposerMediaResult(
             if (value.reference.isNotBlank()) onSuccess(value) else viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaSelectionFailed))
         }
         is PlatformResult.Failure -> viewModel.onEvent(
-            CreatePostUiEvent.MediaSelectionFailed(reason?.takeIf(String::isNotBlank) ?: copy.mediaSelectionFailed),
+            CreatePostUiEvent.MediaSelectionFailed(reason.iosComposerMediaFailureMessage(copy)),
         )
         PlatformResult.Unsupported -> viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaUnsupported))
         PlatformResult.Cancelled -> viewModel.onEvent(CreatePostUiEvent.ClearMediaError)
     }
 }
+
+private fun String?.iosComposerMediaFailureMessage(copy: CreatePostRootCopy): String =
+    when (this) {
+        CreatePostMediaPermissionDeniedReason -> copy.mediaPermissionDenied
+        null, "" -> copy.mediaSelectionFailed
+        else -> this
+    }
 
 /** Thin UIKit wrapper around the one common composer root. */
 @Composable
@@ -149,6 +156,13 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     }
     fun selectVideo(source: FilePickerSource) {
         scope.launch {
+            if (source == FilePickerSource.Camera &&
+                !iosPostComposerEvidenceShouldBypassNativePermission(source) &&
+                !dependencies.permissions.ensureCreatePostMediaPermissions(CreatePostMediaPermissionRequest.CameraVideo)
+            ) {
+                viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaPermissionDenied))
+                return@launch
+            }
             filePicker.pick(FilePickerRequest(listOf("video/*"), source = source)).dispatchIosComposerMediaResult(viewModel, copy) { file ->
                     releaseVideoThumbnail()
                     videoFile = file
@@ -179,8 +193,19 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
             },
             captureImage = {
                 scope.launch {
-                    val result = iosPostComposerEvidenceCameraCapturePhoto()
-                        ?: dependencies.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))
+                    val evidenceResult = iosPostComposerEvidenceCameraCapturePhoto()
+                    if (evidenceResult != null) {
+                        evidenceResult.dispatchIosComposerMediaResult(viewModel, copy) { file ->
+                            imageFile = file
+                            viewModel.onEvent(CreatePostUiEvent.ImageSelected(file.reference))
+                        }
+                        return@launch
+                    }
+                    if (!dependencies.permissions.ensureCreatePostMediaPermissions(CreatePostMediaPermissionRequest.CameraImage)) {
+                        viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaPermissionDenied))
+                        return@launch
+                    }
+                    val result = dependencies.cameraCapture.capturePhoto(CameraCaptureRequest("quata-photo.jpg"))
                     result.dispatchIosComposerMediaResult(viewModel, copy) { file ->
                         imageFile = file
                         viewModel.onEvent(CreatePostUiEvent.ImageSelected(file.reference))
@@ -289,8 +314,19 @@ private fun iosPostComposerEvidencePickerOutcome(source: FilePickerSource): Plat
                 ?: "post_composer_picker_e2e_failure",
         )
         "unsupported" -> PlatformResult.Unsupported
+        "permission-denied" -> PlatformResult.Failure(CreatePostMediaPermissionDeniedReason)
         else -> null
     }
+}
+
+private fun iosPostComposerEvidenceShouldBypassNativePermission(source: FilePickerSource): Boolean {
+    val environment = NSProcessInfo.processInfo.environment
+    if (!iosPostComposerEvidenceFixtureOptedIn(environment)) return false
+    if (environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_PICKER_SOURCE")?.lowercase() != source.iosPostComposerEvidenceSourceName()) {
+        return false
+    }
+    return environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME")?.isNotBlank() == true ||
+        environment.iosPostComposerFixtureValue("QUATA_IOS_POST_COMPOSER_PICKER_PATH")?.isNotBlank() == true
 }
 
 private fun iosPostComposerEvidencePickedFile(source: FilePickerSource): PlatformFile? {

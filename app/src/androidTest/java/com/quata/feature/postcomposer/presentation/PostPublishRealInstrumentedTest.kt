@@ -192,7 +192,7 @@ class PostPublishRealInstrumentedTest {
         require(pickerSource in setOf("gallery-image", "camera-image", "gallery-video", "camera-video")) {
             "unsupported_post_composer_picker_source:$pickerSource"
         }
-        require(outcome in setOf("success", "cancelled", "failure", "unsupported")) {
+        require(outcome in setOf("success", "cancelled", "failure", "unsupported", "permission-denied")) {
             "unsupported_post_composer_picker_outcome:$outcome"
         }
         val fixturePath = if (outcome == "success") {
@@ -247,9 +247,17 @@ class PostPublishRealInstrumentedTest {
                 compose.waitUntil(5_000) {
                     runCatching { compose.onNodeWithTag(selectedTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
                 }
-                if (outcome == "failure" || outcome == "unsupported") {
+                if (outcome == "failure" || outcome == "unsupported" || outcome == "permission-denied") {
                     compose.waitUntil(8_000) {
                         runCatching { compose.onNodeWithTag(ComposerMediaErrorTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+                    }
+                    if (outcome == "permission-denied") {
+                        val hasPermissionCopy = runCatching {
+                            compose.onNodeWithText("Permiso denegado", substring = true, useUnmergedTree = true).fetchSemanticsNode()
+                        }.isSuccess || runCatching {
+                            compose.onNodeWithText("Permission denied", substring = true, useUnmergedTree = true).fetchSemanticsNode()
+                        }.isSuccess
+                        check(hasPermissionCopy) { "android_permission_denied_must_use_common_media_permission_copy" }
                     }
                 } else {
                     compose.waitUntil(2_000) {

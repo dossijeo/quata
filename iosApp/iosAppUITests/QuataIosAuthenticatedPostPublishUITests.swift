@@ -69,7 +69,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let outcome = environment["QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME"] ?? "success"
         let mediaType = environment["QUATA_IOS_POST_COMPOSER_PICKER_MEDIA_TYPE"] ?? "image"
         XCTAssertTrue(["gallery", "camera"].contains(source), "Unsupported picker source \(source).")
-        XCTAssertTrue(["success", "cancelled", "failure", "unsupported"].contains(outcome), "Unsupported picker outcome \(outcome).")
+        XCTAssertTrue(["success", "cancelled", "failure", "unsupported", "permission-denied"].contains(outcome), "Unsupported picker outcome \(outcome).")
         XCTAssertTrue(["image", "video"].contains(mediaType), "Unsupported picker media type \(mediaType).")
 
         let app = openComposer(mode: mediaType, locationLabel: "")
@@ -97,14 +97,31 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             let mediaError = app.descendants(matching: .any)
                 .matching(identifier: "composer-media.error")
                 .firstMatch
-            if outcome == "failure" || outcome == "unsupported" {
+            if outcome == "failure" || outcome == "unsupported" || outcome == "permission-denied" {
                 XCTAssertTrue(mediaError.waitForExistence(timeout: 8), "A \(outcome) picker replay must expose the shared media error anchor.")
+                if outcome == "permission-denied" {
+                    XCTAssertTrue(
+                        permissionDeniedMediaCopyExists(in: app),
+                        "Permission denied replay must expose the shared media permission copy."
+                    )
+                }
             } else {
                 XCTAssertFalse(mediaError.waitForExistence(timeout: 2), "A cancelled picker replay must stay silent and not expose a media error.")
             }
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-picker-camera-\(mediaType)-after-action-\(source)-\(outcome)")
         print("IOS_POST_PICKER_CAMERA_UI_GATE_PASSED \(mediaType) \(source) \(outcome)")
+    }
+
+    private func permissionDeniedMediaCopyExists(in app: XCUIApplication) -> Bool {
+        let copyPredicates = [
+            NSPredicate(format: "label CONTAINS[c] %@", "Permiso denegado"),
+            NSPredicate(format: "label CONTAINS[c] %@", "Permission denied"),
+            NSPredicate(format: "label CONTAINS[c] %@", "Autorisation refusée"),
+        ]
+        return copyPredicates.contains { predicate in
+            app.descendants(matching: .any).matching(predicate).firstMatch.waitForExistence(timeout: 2)
+        }
     }
 
     func testAuthenticatedSessionExercisesDestinationStatesFromCommonComposer() throws {

@@ -377,7 +377,6 @@
     <string name="composer_edit_image">Editar imagen</string>
     <string name="composer_pending_location">Ubicación pendiente</string>
     <string name="composer_selected_image">Imagen seleccionada</string>
-    <string name="composer_image_preview_title">Foto con ubicación</string>
     <string name="composer_pick_video">Elegir vídeo</string>
     <string name="composer_video_ready">Vídeo listo</string>
     <string name="composer_publishing">Publicando…</string>
