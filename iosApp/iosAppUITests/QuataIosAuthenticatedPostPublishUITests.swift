@@ -397,19 +397,24 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
     }
 
     private func tapComposerAction(_ identifier: String, in app: XCUIApplication) {
-        let action = app.descendants(matching: .any)
-            .matching(identifier: identifier)
-            .firstMatch
+        let buttonAction = app.buttons.matching(identifier: identifier).firstMatch
+        let fallbackAction = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         for _ in 0..<8 {
+            let action = buttonAction.waitForExistence(timeout: 1) ? buttonAction : fallbackAction
             if action.waitForExistence(timeout: 1), action.isHittable {
-                action.tap()
+                if identifier.hasPrefix("post-video-editor.caption-style.") {
+                    action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.15)
+                } else {
+                    action.tap()
+                }
                 return
             }
             app.swipeUp()
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
+        let action = buttonAction.exists ? buttonAction : fallbackAction
         XCTAssertTrue(action.exists, "Expected common composer action \(identifier) to exist.")
-        action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.15)
     }
 
     private func commonElement(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
