@@ -1,4 +1,6 @@
 import AVFoundation
+import CoreImage
+import CoreText
 import Foundation
 import QuartzCore
 import Speech
@@ -282,6 +284,7 @@ private final class IosPostVideoEditorExportOperation {
     private let callback: any IosPostVideoEditorExportCallback
     private let onFinished: () -> Void
     private var exportSession: AVAssetExportSession?
+    private var captionExportSession: AVAssetExportSession?
 
     init(
         sourceUrl: URL,
@@ -349,15 +352,17 @@ private final class IosPostVideoEditorExportOperation {
            let compositionAudio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
             try? compositionAudio.insertTimeRange(range, of: audioTrack, at: .zero)
         }
-        if let captionStyle = request.captionStyle, !captionStyle.isEmpty,
-           request.captionDocumentWire?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+        let captionDocument = CaptionDocumentWire.parse(request.captionDocumentWire)
+        if let captionStyle = request.captionStyle, !captionStyle.isEmpty, captionDocument == nil {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_caption_transcript_missing")
             finishFailure(reason: "ios_post_video_editor_caption_transcript_missing")
             return
         }
 
-        let outputUrl = temporaryOutputUrl()
+        let outputUrl = temporaryOutputUrl(suffix: "base")
+        let finalOutputUrl = temporaryOutputUrl(suffix: "final")
         try? FileManager.default.removeItem(at: outputUrl)
+        try? FileManager.default.removeItem(at: finalOutputUrl)
         guard let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")
             finishFailure(reason: "ios_post_video_editor_export_session_unavailable")
@@ -380,22 +385,25 @@ private final class IosPostVideoEditorExportOperation {
         ])
         exportSession.exportAsynchronously { [callback] in
             DispatchQueue.main.async {
-                defer { self.onFinished() }
                 switch exportSession.status {
                 case .completed:
-                    let size = (try? FileManager.default.attributesOfItem(atPath: outputUrl.path)[.size] as? NSNumber)?.int64Value
-                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_completed", details: ["sizeBytes": "\(size ?? 0)"])
-                    self.writeExportDiagnostics(outputUrl: outputUrl, sizeBytes: size)
-                    callback.onSuccess(file: PlatformFile(
-                        reference: outputUrl.absoluteString,
-                        displayName: outputUrl.lastPathComponent,
-                        mimeType: "video/mp4",
-                        sizeBytes: size.map { KotlinLong(value: $0) }
-                    ))
+                    if let captionStyle = self.request.captionStyle, !captionStyle.isEmpty, let captionDocument {
+                        self.burnCaptions(
+                            inputUrl: outputUrl,
+                            outputUrl: finalOutputUrl,
+                            captionStyle: captionStyle,
+                            captionDocument: captionDocument,
+                            callback: callback
+                        )
+                    } else {
+                        self.finishSuccess(outputUrl: outputUrl, callback: callback)
+                    }
                 case .failed, .cancelled:
+                    self.onFinished()
                     IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_failed", details: ["reason": exportSession.error?.localizedDescription ?? "ios_post_video_editor_export_failed"])
                     callback.onFailure(reason: exportSession.error?.localizedDescription ?? "ios_post_video_editor_export_failed")
                 default:
+                    self.onFinished()
                     IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_incomplete", details: ["status": "\(exportSession.status.rawValue)"])
                     callback.onFailure(reason: "ios_post_video_editor_export_incomplete")
                 }
@@ -440,18 +448,6 @@ private final class IosPostVideoEditorExportOperation {
         composition.renderSize = outputSize
         composition.frameDuration = CMTime(value: 1, timescale: 30)
         composition.instructions = [instruction]
-        if let captionStyle = request.captionStyle, !captionStyle.isEmpty {
-            guard let captionDocument = CaptionDocumentWire.parse(request.captionDocumentWire),
-                  !captionDocument.segments.isEmpty else {
-                return composition
-            }
-            composition.animationTool = captionAnimationTool(
-                outputSize: outputSize,
-                duration: duration,
-                captionStyle: captionStyle,
-                captionDocument: captionDocument
-            )
-        }
         return composition
     }
 
@@ -484,70 +480,126 @@ private final class IosPostVideoEditorExportOperation {
         return CGSize(width: max(1, width), height: max(1, height))
     }
 
-    private func captionAnimationTool(
-        outputSize: CGSize,
-        duration: CMTime,
+    private func burnCaptions(
+        inputUrl: URL,
+        outputUrl: URL,
         captionStyle: String,
-        captionDocument: CaptionDocumentWire
-    ) -> AVVideoCompositionCoreAnimationTool {
-        let parentLayer = CALayer()
-        let videoLayer = CALayer()
-        parentLayer.frame = CGRect(origin: .zero, size: outputSize)
-        videoLayer.frame = parentLayer.frame
-        parentLayer.addSublayer(videoLayer)
-
-        for segment in captionDocument.segments {
-            let background = CALayer()
-            background.backgroundColor = UIColor.black.withAlphaComponent(0.72).cgColor
-            background.cornerRadius = outputSize.width * 0.018
-            background.frame = CGRect(
-                x: outputSize.width * 0.08,
-                y: outputSize.height * 0.72,
-                width: outputSize.width * 0.84,
-                height: outputSize.height * 0.095
+        captionDocument: CaptionDocumentWire,
+        callback: any IosPostVideoEditorExportCallback
+    ) {
+        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_start", details: [
+            "segments": "\(captionDocument.segments.count)",
+        ])
+        let asset = AVURLAsset(url: inputUrl)
+        let videoComposition = AVMutableVideoComposition(asset: asset) { request in
+            let timeMs = max(0, Int64((CMTimeGetSeconds(request.compositionTime) * 1_000).rounded()))
+            guard let segment = captionDocument.segment(at: timeMs) else {
+                request.finish(with: request.sourceImage, context: nil)
+                return
+            }
+            let overlay = Self.captionOverlayImage(
+                outputSize: request.sourceImage.extent.size,
+                text: segment.text.uppercased(),
+                style: captionStyle
             )
-            background.opacity = 0
-            addVisibilityAnimation(to: background, startMs: segment.startMs, endMs: segment.endMs, duration: duration)
-            parentLayer.addSublayer(background)
-
-            let text = CATextLayer()
-            text.string = segment.text.uppercased()
-            text.alignmentMode = .center
-            text.foregroundColor = UIColor.white.cgColor
-            text.contentsScale = UIScreen.main.scale
-            text.fontSize = outputSize.width * (captionStyle == "PopWord" ? 0.072 : 0.056)
-            text.frame = background.frame.insetBy(dx: 12, dy: outputSize.height * 0.018)
-            text.opacity = 0
-            addVisibilityAnimation(to: text, startMs: segment.startMs, endMs: segment.endMs, duration: duration)
-            parentLayer.addSublayer(text)
+            request.finish(with: overlay.composited(over: request.sourceImage), context: nil)
         }
-        return AVVideoCompositionCoreAnimationTool(postProcessingAsVideoLayer: videoLayer, in: parentLayer)
+        videoComposition.renderSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
+        videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+        guard let captionExportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_session_unavailable")
+            callback.onFailure(reason: "ios_post_video_editor_caption_burn_unavailable")
+            onFinished()
+            return
+        }
+        self.captionExportSession = captionExportSession
+        captionExportSession.outputURL = outputUrl
+        captionExportSession.outputFileType = .mp4
+        captionExportSession.shouldOptimizeForNetworkUse = true
+        captionExportSession.videoComposition = videoComposition
+        captionExportSession.exportAsynchronously { [callback] in
+            DispatchQueue.main.async {
+                switch captionExportSession.status {
+                case .completed:
+                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_completed")
+                    self.finishSuccess(outputUrl: outputUrl, callback: callback)
+                    try? FileManager.default.removeItem(at: inputUrl)
+                case .failed, .cancelled:
+                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
+                        "reason": captionExportSession.error?.localizedDescription ?? "ios_post_video_editor_caption_burn_failed",
+                    ])
+                    callback.onFailure(reason: captionExportSession.error?.localizedDescription ?? "ios_post_video_editor_caption_burn_failed")
+                    self.onFinished()
+                default:
+                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_incomplete", details: [
+                        "status": "\(captionExportSession.status.rawValue)",
+                    ])
+                    callback.onFailure(reason: "ios_post_video_editor_caption_burn_incomplete")
+                    self.onFinished()
+                }
+            }
+        }
     }
 
-    private func addVisibilityAnimation(to layer: CALayer, startMs: Int64, endMs: Int64, duration: CMTime) {
-        let totalMs = max(1, Int64(CMTimeGetSeconds(duration) * 1_000))
-        let epsilon = 0.001
-        let start = max(epsilon, min(1 - epsilon * 2, Double(startMs) / Double(totalMs)))
-        let end = max(start + epsilon, min(1 - epsilon, Double(endMs) / Double(totalMs)))
-        let animation = CAKeyframeAnimation(keyPath: "opacity")
-        animation.calculationMode = .linear
-        animation.values = [0, 1, 1, 0]
-        animation.keyTimes = [
-            0,
-            NSNumber(value: start),
-            NSNumber(value: end),
-            1,
+    private static func captionOverlayImage(outputSize: CGSize, text: String, style: String) -> CIImage {
+        let width = max(2, Int(outputSize.width))
+        let height = max(2, Int(outputSize.height))
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 0, count: bytesPerRow * height)
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return CIImage.empty()
+        }
+        let box = CGRect(
+            x: outputSize.width * 0.08,
+            y: outputSize.height * 0.185,
+            width: outputSize.width * 0.84,
+            height: outputSize.height * 0.095
+        )
+        context.setFillColor(UIColor.black.withAlphaComponent(0.72).cgColor)
+        context.addPath(CGPath(roundedRect: box, cornerWidth: outputSize.width * 0.018, cornerHeight: outputSize.width * 0.018, transform: nil))
+        context.fillPath()
+
+        let fontSize = outputSize.width * (style == "PopWord" ? 0.072 : 0.056)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.boldSystemFont(ofSize: fontSize),
+            .foregroundColor: UIColor.white.cgColor,
         ]
-        animation.duration = CMTimeGetSeconds(duration)
-        animation.beginTime = AVCoreAnimationBeginTimeAtZero
-        animation.isRemovedOnCompletion = false
-        animation.fillMode = .both
-        layer.add(animation, forKey: "caption-visibility")
+        let attributed = NSAttributedString(string: text, attributes: attributes)
+        let line = CTLineCreateWithAttributedString(attributed)
+        let textBounds = CTLineGetTypographicBounds(line, nil, nil, nil)
+        context.textPosition = CGPoint(
+            x: box.midX - CGFloat(textBounds) / 2,
+            y: box.midY - fontSize * 0.36
+        )
+        CTLineDraw(line, context)
+        guard let image = context.makeImage() else { return CIImage.empty() }
+        return CIImage(cgImage: image)
     }
 
-    private func temporaryOutputUrl() -> URL {
+    private func finishSuccess(outputUrl: URL, callback: any IosPostVideoEditorExportCallback) {
+        let size = (try? FileManager.default.attributesOfItem(atPath: outputUrl.path)[.size] as? NSNumber)?.int64Value
+        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_completed", details: ["sizeBytes": "\(size ?? 0)"])
+        writeExportDiagnostics(outputUrl: outputUrl, sizeBytes: size)
+        callback.onSuccess(file: PlatformFile(
+            reference: outputUrl.absoluteString,
+            displayName: outputUrl.lastPathComponent,
+            mimeType: "video/mp4",
+            sizeBytes: size.map { KotlinLong(value: $0) }
+        ))
+        onFinished()
+    }
+
+    private func temporaryOutputUrl(suffix: String) -> URL {
         URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("quata-post-video-editor-\(UUID().uuidString)")
+            .appendingPathComponent("quata-post-video-editor-\(suffix)-\(UUID().uuidString)")
             .appendingPathExtension("mp4")
     }
 
@@ -596,6 +648,12 @@ private struct CaptionDocumentWire {
             .components(separatedBy: "\n\n")
         let segments = chunks.compactMap(CaptionSegmentWire.parse)
         return segments.isEmpty ? nil : CaptionDocumentWire(segments: segments)
+    }
+
+    func segment(at timeMs: Int64) -> CaptionSegmentWire? {
+        segments.last { segment in
+            timeMs >= segment.startMs && timeMs <= segment.endMs
+        }
     }
 }
 

@@ -673,7 +673,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_caption_transcript_timeout/);
   assert.match(iosPostVideoEditorNativeDriver, /CaptionDocumentWire\.parse/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetExportSession/);
-  assert.match(iosPostVideoEditorNativeDriver, /AVVideoCompositionCoreAnimationTool/);
+  assert.match(iosPostVideoEditorNativeDriver, /AVMutableVideoComposition\(asset: asset\)/);
+  assert.match(iosPostVideoEditorNativeDriver, /caption_burn_start/);
+  assert.match(iosPostVideoEditorNativeDriver, /caption_burn_completed/);
+  assert.match(iosPostVideoEditorNativeDriver, /captionOverlayImage/);
   assert.match(iosPostVideoEditorNativeDriver, /request\.removeAudio/);
   assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_caption_transcript_missing/);
   assert.match(iosPostVideoEditorNativeDriver, /hasBackgroundCrop/);
@@ -681,7 +684,6 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /VideoLayerScaleMode/);
   assert.match(iosPostVideoEditorNativeDriver, /segment\.text\.uppercased\(\)/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /captionStyle\.uppercased\(\)/);
-  assert.match(iosPostVideoEditorNativeDriver, /captionAnimationTool/);
   assert.match(iosPostVideoEditorNativeDriver, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_caption_document_missing_timings/);
   assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE='en_US'/);
