@@ -4,12 +4,12 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "244c5eaee750a4c8826792d7f00aaa128bdad916",
+  "productSha": "9b84cbdc379bda8e796fda8fbe2f4f6b05a40707",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "244c5eaee750a4c8826792d7f00aaa128bdad916",
-      "report": "build-reports/web/post-image-editor-full-evidence.json",
+      "sha": "9b84cbdc379bda8e796fda8fbe2f4f6b05a40707",
+      "report": "build-reports/web/post-image-editor-common-surface-evidence.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -17,8 +17,8 @@
     },
     "android": {
       "status": "passed",
-      "sha": "244c5eaee750a4c8826792d7f00aaa128bdad916",
-      "report": "build-reports/android/post-image-editor-evidence.json",
+      "sha": "9b84cbdc379bda8e796fda8fbe2f4f6b05a40707",
+      "report": "build-reports/android/post-image-editor-common-surface-evidence.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -26,8 +26,8 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "244c5eaee750a4c8826792d7f00aaa128bdad916",
-      "report": "build-reports/ios/POST-IMAGE-EDITOR-evidence.json",
+      "sha": "9b84cbdc379bda8e796fda8fbe2f4f6b05a40707",
+      "report": "build-reports/ios/post-image-editor-common-surface-evidence.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -38,7 +38,7 @@
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
     "This candidate closes the POST-IMAGE-EDITOR focal unit through common CreatePostRoot media edit anchors, shared selected preview semantics, common transform/geometry/control surface, and real editor save/cancel/reopen evidence on Web/Wasm, Android and iOS.",
-    "Android keeps its fullscreen QuataImageEditorDialog as the native edge, but forwards the common post-image-editor.* anchors through QuataEditorScaffold; Web/Wasm and iOS use real platform export paths behind the same common PostImageEditorDialogContent contract.",
+    "Android now uses the same common PostImageEditorDialogContent surface as Web/Wasm and iOS. Android, Web/Wasm and iOS diverge only at the bitmap decode/preview/export edge behind the shared PostImageEditorTransform and ImageEditorOutputSpec contracts.",
     "No backend mutation is performed by this unit; cleanup is verified as zero physical residue because the fixture is local media only."
   ]
 }
