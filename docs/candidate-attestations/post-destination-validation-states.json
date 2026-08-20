@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-TEXT-DESTINATION",
+    "POST-DESTINATION-VALIDATION-STATES"
+  ],
+  "productSha": "713248379fe709ea01cfb3b1abe30eff58331232",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "713248379fe709ea01cfb3b1abe30eff58331232",
+      "report": "build-reports/web/post-destination-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "713248379fe709ea01cfb3b1abe30eff58331232",
+      "report": "build-reports/android/post-destination-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "713248379fe709ea01cfb3b1abe30eff58331232",
+      "report": "build-reports/ios/post-destination-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate closes shared destination validation states for the common CreatePostRoot. Android, Web/Wasm and iOS exercise multiple-destination selection, empty destination state, destination load failure, retry anchor exposure and blocked publish feedback through common anchors.",
+    "The evidence is intentionally non-mutating: the destination repository decorator is opt-in, debug/evidence-only, and delegates createPost unchanged. Empty/failure modes verify publish blocking before any backend mutation; multiple mode verifies selected destination state.",
+    "Web/Wasm uses semantic anchors first and applies discovery scroll for Compose/Wasm nodes that are present only after scrolling. Coordinates remain diagnostic fallback only and are not the primary replay mechanism."
+  ]
+}
