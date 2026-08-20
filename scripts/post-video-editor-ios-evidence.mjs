@@ -109,6 +109,7 @@ export QUATA_IOS_SIMULATOR_UDID=${shellQuote(options.simulatorUdid)}
 export QUATA_IOS_POST_VIDEO_EDITOR_UI_LOG_DIR=${shellQuote(remoteLogDir)}
 export QUATA_IOS_POST_VIDEO_EDITOR_UI_RESULT_BUNDLE_DIR=${shellQuote(`${remoteLogDir}/xcresults`)}
 export QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS=${shellQuote(remoteDiagnostics)}
+export QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE='en_US'
 export QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN=${shellQuote(PICKER_OPT_IN)}
 export QUATA_IOS_POST_COMPOSER_PICKER_SOURCE=${shellQuote(source)}
 export QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME=${shellQuote(outcome)}

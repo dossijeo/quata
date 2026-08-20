@@ -40,7 +40,7 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
             callback.onFailure(reason: "ios_post_video_editor_caption_source_invalid")
             return
         }
-        let localeIdentifier = Locale.preferredLanguages.first ?? Locale.current.identifier
+        let localeIdentifier = Self.transcriptionLocaleIdentifier()
         let recognizer = SFSpeechRecognizer(locale: Locale(identifier: localeIdentifier))
             ?? SFSpeechRecognizer(locale: Locale(identifier: "en_US"))
         guard let recognizer else {
@@ -110,7 +110,10 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
             }
             if let task {
                 self?.activeSpeechTasks[taskId] = task
-                DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 90, execute: timeout)
+                DispatchQueue.global(qos: .utility).asyncAfter(
+                    deadline: .now() + Self.transcriptionTimeoutSeconds(for: sourceUrl),
+                    execute: timeout
+                )
             } else {
                 timeout.cancel()
                 DispatchQueue.main.async {
@@ -118,6 +121,22 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
                 }
             }
         }
+    }
+
+    private static func transcriptionLocaleIdentifier() -> String {
+        let override = ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let override, !override.isEmpty {
+            return override
+        }
+        return Locale.preferredLanguages.first ?? Locale.current.identifier
+    }
+
+    private static func transcriptionTimeoutSeconds(for sourceUrl: URL) -> Double {
+        let asset = AVURLAsset(url: sourceUrl)
+        let duration = CMTimeGetSeconds(asset.duration)
+        guard duration.isFinite, duration > 0 else { return 30 }
+        return max(20, min(90, duration * 3 + 10))
     }
 
     private static func captionWire(from transcription: SFTranscription) -> String {

@@ -658,6 +658,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditor, /UIKitView/);
   assert.match(iosPostVideoEditorNativeDriver, /SFSpeechRecognizer/);
   assert.match(iosPostVideoEditorNativeDriver, /SFSpeechURLRecognitionRequest/);
+  assert.match(iosPostVideoEditorNativeDriver, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE/);
+  assert.match(iosPostVideoEditorNativeDriver, /transcriptionTimeoutSeconds\(for: sourceUrl\)/);
   assert.match(iosPostVideoEditorNativeDriver, /shouldReportPartialResults = true/);
   assert.match(iosPostVideoEditorNativeDriver, /captionWire\(from: result\.bestTranscription\)/);
   assert.match(iosPostVideoEditorNativeDriver, /transcription\.segments/);
@@ -675,6 +677,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /captionAnimationTool/);
   assert.match(iosPostVideoEditorNativeDriver, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_caption_document_missing_timings/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE='en_US'/);
+  assert.match(iosVideoEditorWrapper, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_caption_pixels_missing/);
   assert.match(iosVideoEditorRunner, /ffprobe/);
   assert.match(iosQuataApp, /IosPostVideoEditorNativeDriverBridge\.shared/);
