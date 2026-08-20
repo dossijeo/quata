@@ -41,6 +41,9 @@ const iosImageEditorRunner = readFileSync(new URL("./post-image-editor-ios-evide
 const iosImageEditorWrapper = readFileSync(new URL("./run-ios-post-image-editor-ui-test.sh", import.meta.url), "utf8");
 const androidVideoEditorDialog = readFileSync(new URL("../app/src/main/java/com/quata/feature/postcomposer/videoeditor/QuataVideoEditor.kt", import.meta.url), "utf8");
 const commonVideoEditorModels = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/videoeditor/VideoEditorModels.kt", import.meta.url), "utf8");
+const commonPostVideoEditorContent = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/videoeditor/PostVideoEditorContent.kt", import.meta.url), "utf8");
+const webPostVideoEditor = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostVideoEditor.kt", import.meta.url), "utf8");
+const iosPostVideoEditor = readFileSync(new URL("../feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostVideoEditor.kt", import.meta.url), "utf8");
 const androidVideoEditorRunner = readFileSync(new URL("./post-video-editor-android-evidence.mjs", import.meta.url), "utf8");
 const webVideoEditorRunner = readFileSync(new URL("./post-video-editor-web-evidence.mjs", import.meta.url), "utf8");
 const iosVideoEditorRunner = readFileSync(new URL("./post-video-editor-ios-evidence.mjs", import.meta.url), "utf8");
@@ -415,8 +418,9 @@ test("post video editor exposes stable common anchors and Android forwards them 
     "post-video-editor.timeline",
     "post-video-editor.play-pause",
   ]) {
-    assert.match(commonVideoEditorModels, new RegExp(tag.replace(/[.]/g, "\\.")));
+    assert.match(`${commonVideoEditorModels}\n${commonPostVideoEditorContent}`, new RegExp(tag.replace(/[.]/g, "\\.")));
   }
+  assert.match(commonPostVideoEditorContent, /fun PostVideoEditorDialogContent/);
   assert.match(androidVideoEditorDialog, /Modifier\.testTag\(PostVideoEditorRootTestTag\)/);
   assert.match(androidVideoEditorDialog, /PostVideoEditorPreviewTestTag/);
   assert.match(androidVideoEditorDialog, /PostVideoEditorTimelineTestTag/);
@@ -436,22 +440,27 @@ test("post video editor runners exercise editor anchors without backend mutation
 
   assert.match(webVideoEditorRunner, /POST-VIDEO-EDITOR-WEB-REAL-001/);
   assert.match(webVideoEditorRunner, /quata-post-video-editor-e2e/);
-  assert.match(webVideoEditorRunner, /I_ACCEPT_WEB_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
   assert.match(webVideoEditorRunner, /composer-media\.edit-video/);
-  assert.match(webVideoEditorRunner, /localhostProductBridge/);
-  assert.match(webVideoEditorRunner, /videoUri === expected/);
-  assert.match(webPostComposerRoute, /editVideo =/);
-  assert.match(webPostComposerRoute, /quata_post_composer_video_editor_e2e_opt_in/);
+  assert.match(webVideoEditorRunner, /post-video-editor\.root/);
+  assert.match(webVideoEditorRunner, /post-video-editor\.export/);
+  assert.match(webVideoEditorRunner, /__quataPostVideoEditorExport/);
+  assert.match(webPostComposerRoute, /videoEditor =/);
+  assert.match(webPostVideoEditor, /PostVideoEditorDialogContent/);
+  assert.match(webPostVideoEditor, /webPostVideoEditorExportCopy/);
+  assert.doesNotMatch(webPostComposerRoute, /quata_post_composer_video_editor_e2e_opt_in/);
   assert.match(webPostComposerHost, /put\("videoUri", it\.take\(220\)\)/);
 
   assert.match(iosVideoEditorRunner, /POST-VIDEO-EDITOR-IOS-REAL-001/);
   assert.match(iosVideoEditorRunner, /run-ios-post-video-editor-ui-test\.sh/);
-  assert.match(iosVideoEditorRunner, /I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
   assert.match(iosVideoEditorWrapper, /testAuthenticatedSessionExercisesPostVideoEditorFromCommonComposer/);
   assert.match(iosVideoEditorWrapper, /IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_UI_E2E/);
   assert.match(iosPostPublishTest, /composer-media\.edit-video/);
-  assert.match(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
+  assert.match(iosPostPublishTest, /post-video-editor\.root/);
+  assert.match(iosPostPublishTest, /post-video-editor\.export/);
+  assert.match(iosComposerHost, /IosPostVideoEditor/);
+  assert.match(iosPostVideoEditor, /PostVideoEditorDialogContent/);
+  assert.doesNotMatch(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
 
   for (const runner of [androidVideoEditorRunner, webVideoEditorRunner, iosVideoEditorRunner]) {
     assert.doesNotMatch(runner, /community_posts/);

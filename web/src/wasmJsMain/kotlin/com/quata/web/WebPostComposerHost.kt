@@ -30,6 +30,7 @@ data class WebComposerMediaSlots(
     val editImage: (suspend (String) -> String?)? = null,
     val editVideo: (suspend (String) -> String?)? = null,
     val imageEditor: (@Composable (String, () -> Unit, (String) -> Unit) -> Unit)? = null,
+    val videoEditor: (@Composable (String, () -> Unit, (String) -> Unit) -> Unit)? = null,
     val imagePreview: @Composable (String, Modifier) -> Unit,
     val videoPreview: @Composable (String, Modifier) -> Unit,
     val export: (@Composable ColumnScope.(String, PostComposerType) -> Unit)? = null,
@@ -52,13 +53,19 @@ fun WebPostComposerHost(
     val viewModel = remember(repository, copy) { CreatePostViewModel(repository, messages = copy.viewModelMessages()) }
     val scope = rememberCoroutineScope()
     var imageEditorReference by remember { mutableStateOf<String?>(null) }
+    var videoEditorReference by remember { mutableStateOf<String?>(null) }
     DisposableEffect(viewModel, canPublish, onAuthRequired) {
         val uninstall = installWebPostComposerE2eBridge(
             setText = { value -> viewModel.onEvent(CreatePostUiEvent.TextChanged(value)) },
             setImage = { value -> viewModel.onEvent(CreatePostUiEvent.ImageSelected(value.takeIf(String::isNotBlank))) },
-            setVideo = { value -> viewModel.onEvent(CreatePostUiEvent.VideoSelected(value.takeIf(String::isNotBlank))) },
+            setVideo = { value ->
+                val reference = value.takeIf(String::isNotBlank)
+                viewModel.onEvent(CreatePostUiEvent.VideoSelected(reference))
+                if (reference != null) videoEditorReference = reference
+            },
             setLocation = { value -> viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(value)) },
             editImage = { stateUri(viewModel, true)?.let { imageEditorReference = it } },
+            editVideo = { stateUri(viewModel, false)?.let { videoEditorReference = it } },
             submitText = { if (canPublish) viewModel.submit(PostComposerType.Text) else onAuthRequired() },
             submitImage = { if (canPublish) viewModel.submit(PostComposerType.Image) else onAuthRequired() },
             state = {
@@ -68,6 +75,8 @@ fun WebPostComposerHost(
                     put("isLoading", state.isLoading)
                     put("hasImage", !state.imageUri.isNullOrBlank())
                     put("hasVideo", !state.videoUri.isNullOrBlank())
+                    put("imageEditorOpen", imageEditorReference != null)
+                    put("videoEditorOpen", videoEditorReference != null)
                     state.imageUri?.let { put("imageUri", it.take(220)) }
                     state.videoUri?.let { put("videoUri", it.take(220)) }
                     state.locationLabel?.let { put("locationLabel", it) }
@@ -109,7 +118,16 @@ fun WebPostComposerHost(
             },
             pickVideo = { scope.launch { mediaSlots.pickVideo()?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } },
             captureVideo = { scope.launch { mediaSlots.captureVideo()?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } },
-            editVideo = mediaSlots.editVideo?.let { edit -> { scope.launch { stateUri(viewModel, false)?.let { current -> edit(current)?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } } } },
+            editVideo = when {
+                mediaSlots.videoEditor != null -> ({
+                    stateUri(viewModel, false)?.let { videoEditorReference = it }
+                })
+                mediaSlots.editVideo != null -> {
+                    val edit = mediaSlots.editVideo
+                    { scope.launch { stateUri(viewModel, false)?.let { current -> edit(current)?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } } }
+                }
+                else -> null
+            },
             imagePreview = mediaSlots.imagePreview,
             videoPreview = { uri, _, modifier -> mediaSlots.videoPreview(uri, modifier) },
             mediaExport = mediaSlots.export,
@@ -124,6 +142,16 @@ fun WebPostComposerHost(
             { edited ->
                 imageEditorReference = null
                 viewModel.onEvent(CreatePostUiEvent.ImageSelected(edited))
+            },
+        )
+    }
+    videoEditorReference?.let { reference ->
+        mediaSlots.videoEditor?.invoke(
+            reference,
+            { videoEditorReference = null },
+            { edited ->
+                videoEditorReference = null
+                viewModel.onEvent(CreatePostUiEvent.VideoSelected(edited))
             },
         )
     }
