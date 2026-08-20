@@ -501,7 +501,7 @@ private fun CommonCaptionControls(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        values.chunked(2).forEach { row ->
+        values.chunked(1).forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -563,7 +563,6 @@ private fun CommonCaptionControls(
                         }
                     }
                 }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
