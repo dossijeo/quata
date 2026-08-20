@@ -150,17 +150,6 @@ fun PostVideoEditorDialogContent(
     timelineFrameCount: Int = 0,
     timelineFrameContent: @Composable (Int, Modifier) -> Unit = { _, frameModifier -> CommonTimelineFramePlaceholder(frameModifier) },
     preview: @Composable (Modifier) -> Unit,
-    timeline: @Composable (Modifier) -> Unit = { timelineModifier ->
-        PostVideoEditorTimelineContent(
-            state = state,
-            onTrimStartChange = onTrimStartChange,
-            onTrimEndChange = onTrimEndChange,
-            onSeekChange = onSeekChange,
-            frameCount = timelineFrameCount,
-            frameContent = timelineFrameContent,
-            modifier = timelineModifier,
-        )
-    },
 ) {
     val content: @Composable () -> Unit = {
         PostVideoEditorBody(
@@ -177,8 +166,12 @@ fun PostVideoEditorDialogContent(
             onCropZoomChange = onCropZoomChange,
             onCropPanChange = onCropPanChange,
             onCaptionStyleChange = onCaptionStyleChange,
+            onTrimStartChange = onTrimStartChange,
+            onTrimEndChange = onTrimEndChange,
+            onSeekChange = onSeekChange,
+            timelineFrameCount = timelineFrameCount,
+            timelineFrameContent = timelineFrameContent,
             preview = preview,
-            timeline = timeline,
         )
     }
     AlertDialog(
@@ -227,8 +220,12 @@ private fun PostVideoEditorBody(
     onCropZoomChange: (Float) -> Unit,
     onCropPanChange: (Float, Float) -> Unit,
     onCaptionStyleChange: (String?) -> Unit,
+    onTrimStartChange: (Float) -> Unit,
+    onTrimEndChange: (Float) -> Unit,
+    onSeekChange: (Float) -> Unit,
+    timelineFrameCount: Int,
+    timelineFrameContent: @Composable (Int, Modifier) -> Unit,
     preview: @Composable (Modifier) -> Unit,
-    timeline: @Composable (Modifier) -> Unit,
 ) {
     val previewModifier = Modifier
         .fillMaxWidth()
@@ -283,7 +280,11 @@ private fun PostVideoEditorBody(
                     onCropZoomChange = onCropZoomChange,
                     onCropPanChange = onCropPanChange,
                     onCaptionStyleChange = onCaptionStyleChange,
-                    timeline = timeline,
+                    onTrimStartChange = onTrimStartChange,
+                    onTrimEndChange = onTrimEndChange,
+                    onSeekChange = onSeekChange,
+                    timelineFrameCount = timelineFrameCount,
+                    timelineFrameContent = timelineFrameContent,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -313,7 +314,11 @@ private fun PostVideoEditorBody(
                 onCropZoomChange = onCropZoomChange,
                 onCropPanChange = onCropPanChange,
                 onCaptionStyleChange = onCaptionStyleChange,
-                timeline = timeline,
+                onTrimStartChange = onTrimStartChange,
+                onTrimEndChange = onTrimEndChange,
+                onSeekChange = onSeekChange,
+                timelineFrameCount = timelineFrameCount,
+                timelineFrameContent = timelineFrameContent,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -334,7 +339,11 @@ private fun PostVideoEditorControls(
     onCropZoomChange: (Float) -> Unit,
     onCropPanChange: (Float, Float) -> Unit,
     onCaptionStyleChange: (String?) -> Unit,
-    timeline: @Composable (Modifier) -> Unit,
+    onTrimStartChange: (Float) -> Unit,
+    onTrimEndChange: (Float) -> Unit,
+    onSeekChange: (Float) -> Unit,
+    timelineFrameCount: Int,
+    timelineFrameContent: @Composable (Int, Modifier) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -345,8 +354,14 @@ private fun PostVideoEditorControls(
         if (state.showMaxDurationWarning) {
             Text(strings.maxDurationWarning, color = MaterialTheme.colorScheme.error)
         }
-        timeline(
-            Modifier
+        PostVideoEditorTimelineContent(
+            state = state,
+            onTrimStartChange = onTrimStartChange,
+            onTrimEndChange = onTrimEndChange,
+            onSeekChange = onSeekChange,
+            frameCount = timelineFrameCount,
+            frameContent = timelineFrameContent,
+            modifier = Modifier
                 .fillMaxWidth()
                 .height(88.dp)
                 .testTag(PostVideoEditorTimelineTestTag),

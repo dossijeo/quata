@@ -1,15 +1,17 @@
 package com.quata.feature.postcomposer.presentation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.material3.Text
 import com.quata.core.captions.templates.CaptionTemplateStyle
+import com.quata.core.platform.IosVideoThumbnailService
 import com.quata.core.platform.PlatformFile
+import com.quata.core.platform.PlatformResult
 import com.quata.feature.postcomposer.videoeditor.CaptionStyleOption
 import com.quata.feature.postcomposer.videoeditor.MaximumPostVideoEditorDurationMs
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorDialogContent
@@ -17,16 +19,15 @@ import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportSpec
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorUiState
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorExportSpec
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCaptionsToggle
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropModeChange
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropPan
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropToggle
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropZoomChange
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimEnd
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimStart
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.launch
-import platform.Foundation.NSData
-import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
-import platform.Foundation.NSUUID
-import platform.Foundation.dataWithContentsOfURL
-import platform.Foundation.writeToFile
 
 @Composable
 internal fun IosPostVideoEditor(
@@ -35,9 +36,16 @@ internal fun IosPostVideoEditor(
     onEdited: (PlatformFile) -> Unit,
 ) {
     var state by remember(source.reference) { mutableStateOf(PostVideoEditorUiState()) }
+    var thumbnail by remember(source.reference) { mutableStateOf<PlatformFile?>(null) }
     val scope = rememberCoroutineScope()
     val durationMs = MaximumPostVideoEditorDurationMs
     val videoAspectRatio = 9f / 16f
+    LaunchedEffect(source.reference) {
+        thumbnail = when (val result = IosVideoThumbnailService().createThumbnail(source, maxWidth = 720)) {
+            is PlatformResult.Success -> result.value
+            else -> null
+        }
+    }
     fun export() {
         if (state.isExporting) return
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
@@ -66,39 +74,33 @@ internal fun IosPostVideoEditor(
         onDismiss = onDismiss,
         onExport = ::export,
         captionOptions = CaptionTemplateStyle.entries.map { CaptionStyleOption(it.name, it.name) },
-        onCropModeChange = { state = state.copy(cropMode = it, cropEnabled = true, cropZoom = 1f, cropCenterX = 0.5f, cropCenterY = 0.5f) },
-        onCropZoomChange = { state = state.copy(cropZoom = it.coerceIn(1f, 3f), cropEnabled = true) },
-        onCropPanChange = { dx, dy ->
-            state = state.copy(
-                cropEnabled = true,
-                cropCenterX = (state.cropCenterX + dx).coerceIn(0f, 1f),
-                cropCenterY = (state.cropCenterY + dy).coerceIn(0f, 1f),
-            )
-        },
+        onCropModeChange = { state = postVideoEditorStateAfterCropModeChange(state, it, videoAspectRatio) },
+        onCropZoomChange = { state = postVideoEditorStateAfterCropZoomChange(state, it, videoAspectRatio) },
+        onCropPanChange = { dx, dy -> state = postVideoEditorStateAfterCropPan(state, dx, dy, videoAspectRatio) },
         onCaptionStyleChange = { state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null) },
         onSeekChange = { state = state.copy(currentPositionFraction = it.coerceIn(0f, 1f)) },
         preview = { modifier: Modifier ->
-            Text(source.displayName?.ifBlank { "Video seleccionado" } ?: "Video seleccionado", modifier = modifier)
+            val previewFile = thumbnail
+            if (previewFile != null) {
+                IosComposerLocalImagePreview(previewFile, modifier = modifier)
+            } else {
+                IosComposerLocalImagePreview(source, modifier = modifier)
+            }
         },
     )
 }
 
-private fun iosPostVideoEditorExportEdited(source: PlatformFile, spec: PostVideoEditorExportSpec): PlatformFile {
-    if (spec.hasCrop || spec.hasCaptions || spec.removeAudio || spec.trimStartMs > 0L || spec.trimEndMs < spec.sourceDurationMs) {
+@OptIn(ExperimentalForeignApi::class)
+private suspend fun iosPostVideoEditorExportEdited(source: PlatformFile, spec: PostVideoEditorExportSpec): PlatformFile {
+    val hasTrim = spec.trimStartMs > 0L || spec.trimEndMs < spec.sourceDurationMs
+    if (hasTrim || spec.removeAudio || spec.hasCrop || spec.hasCaptions) {
         error("ios_post_video_editor_native_export_required")
     }
-    val input = iosPostVideoEditorLocalUrl(source.reference) ?: error("ios_post_video_editor_source_invalid")
-    val data = NSData.dataWithContentsOfURL(input) ?: error("ios_post_video_editor_read_failed")
-    val path = NSTemporaryDirectory().trimEnd('/') + "/quata-post-video-editor-${NSUUID.UUID().UUIDString}.mp4"
-    if (!data.writeToFile(path, atomically = true)) error("ios_post_video_editor_write_failed")
-    val url = NSURL.fileURLWithPath(path)
-    return PlatformFile(
-        reference = url.absoluteString ?: path,
-        displayName = "post-video-editor.mp4",
-        mimeType = source.mimeType?.ifBlank { "video/mp4" } ?: "video/mp4",
-    )
+    iosPostVideoEditorLocalUrl(source.reference) ?: error("ios_post_video_editor_source_invalid")
+    return source
 }
 
+@OptIn(ExperimentalForeignApi::class)
 private fun iosPostVideoEditorLocalUrl(reference: String): NSURL? {
     val value = reference.trim()
     return when {

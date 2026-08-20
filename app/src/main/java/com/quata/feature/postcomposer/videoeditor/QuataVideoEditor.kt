@@ -642,17 +642,28 @@ fun QuataVideoEditorDialog(
             CaptionStyleOption(style.name, stringResource(style.labelRes))
         },
         onCropModeChange = { mode ->
-            cropMode = mode
-            cropZoom = 1f
-            cropCenter = Offset(0.5f, 0.5f)
+            val nextState = postVideoEditorStateAfterCropModeChange(editorState, mode, videoAspect)
+            cropMode = nextState.cropMode
+            cropZoom = nextState.cropZoom
+            cropCenter = Offset(nextState.cropCenterX, nextState.cropCenterY)
         },
         onCropZoomChange = { nextZoom ->
-            cropZoom = nextZoom
-            cropCenter = cropMode.clampCenter(videoAspect, nextZoom, cropCenter)
+            val nextState = postVideoEditorStateAfterCropZoomChange(
+                editorState.copy(cropZoom = cropZoom, cropCenterX = cropCenter.x, cropCenterY = cropCenter.y),
+                nextZoom,
+                videoAspect,
+            )
+            cropZoom = nextState.cropZoom
+            cropCenter = Offset(nextState.cropCenterX, nextState.cropCenterY)
         },
         onCropPanChange = { dx, dy ->
-            val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
-            cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
+            val nextState = postVideoEditorStateAfterCropPan(
+                editorState.copy(cropZoom = cropZoom, cropCenterX = cropCenter.x, cropCenterY = cropCenter.y),
+                dx,
+                dy,
+                videoAspect,
+            )
+            cropCenter = Offset(nextState.cropCenterX, nextState.cropCenterY)
         },
         onCaptionStyleChange = { id ->
             captionStyle = id?.let { selected -> CaptionTemplateStyle.entries.firstOrNull { it.name == selected } }
@@ -963,7 +974,7 @@ private fun CropCorner(modifier: Modifier) {
 }
 
 @Composable
-private fun VideoTimeline(
+private fun LegacyVideoTimeline(
     frames: List<Bitmap>,
     durationMs: Long,
     trimStartMs: Long,
@@ -1104,14 +1115,14 @@ private fun VideoTimeline(
         )
 
         if (!isExporting) {
-            TimelineHandle(
+            LegacyTimelineHandle(
                 modifier = Modifier
                     .offset(x = maxWidth * startFraction)
                     .width(handleWidth)
                     .fillMaxHeight(),
                 alignStart = true
             )
-            TimelineHandle(
+            LegacyTimelineHandle(
                 modifier = Modifier
                     .offset(x = maxWidth * endFraction - handleWidth)
                     .width(handleWidth)
@@ -1138,7 +1149,7 @@ private fun VideoTimeline(
 }
 
 @Composable
-private fun TimelineHandle(
+private fun LegacyTimelineHandle(
     modifier: Modifier,
     alignStart: Boolean
 ) {

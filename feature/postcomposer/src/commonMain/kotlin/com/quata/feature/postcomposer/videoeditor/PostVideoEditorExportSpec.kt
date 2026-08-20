@@ -1,5 +1,6 @@
 package com.quata.feature.postcomposer.videoeditor
 
+import androidx.compose.ui.geometry.Offset
 import com.quata.core.captions.templates.CaptionTemplateStyle
 import kotlin.math.roundToLong
 
@@ -29,7 +30,7 @@ fun postVideoEditorExportSpec(
     val trimEndMs = (state.trimEndFraction.coerceIn(0f, 1f) * safeDuration).roundToLong()
         .coerceAtLeast(trimStartMs + MinimumPostVideoEditorTrimMs)
         .coerceAtMost(safeDuration)
-    val cropCenter = androidx.compose.ui.geometry.Offset(state.cropCenterX, state.cropCenterY)
+    val cropCenter = Offset(state.cropCenterX, state.cropCenterY)
     val cropRect = state.cropMode.cropRect(videoAspectRatio, state.cropZoom, cropCenter)
     val foregroundCrop = cropRect.takeIf { state.cropEnabled && !it.isFullFrame } ?: NormalizedCropRect.Full
     val backgroundCrop = if (!state.cropEnabled && cropRect.isFullFrame && isNineSixteenAspect(videoAspectRatio)) {
@@ -81,6 +82,58 @@ fun postVideoEditorStateAfterCaptionsToggle(state: PostVideoEditorUiState): Post
         captionsPanelOpen = !state.captionsPanelOpen,
         cropPanelOpen = false,
     )
+
+fun postVideoEditorStateAfterCropModeChange(
+    state: PostVideoEditorUiState,
+    mode: VideoCropMode,
+    videoAspectRatio: Float,
+): PostVideoEditorUiState {
+    val center = mode.clampCenter(videoAspectRatio, 1f, Offset(0.5f, 0.5f))
+    return state.copy(
+        cropMode = mode,
+        cropEnabled = mode != VideoCropMode.Original,
+        cropZoom = 1f,
+        cropCenterX = center.x,
+        cropCenterY = center.y,
+    )
+}
+
+fun postVideoEditorStateAfterCropZoomChange(
+    state: PostVideoEditorUiState,
+    zoom: Float,
+    videoAspectRatio: Float,
+): PostVideoEditorUiState {
+    val nextZoom = zoom.coerceIn(1f, 3f)
+    val center = state.cropMode.clampCenter(
+        videoAspectRatio,
+        nextZoom,
+        Offset(state.cropCenterX, state.cropCenterY),
+    )
+    return state.copy(
+        cropZoom = nextZoom,
+        cropEnabled = state.cropMode != VideoCropMode.Original,
+        cropCenterX = center.x,
+        cropCenterY = center.y,
+    )
+}
+
+fun postVideoEditorStateAfterCropPan(
+    state: PostVideoEditorUiState,
+    deltaX: Float,
+    deltaY: Float,
+    videoAspectRatio: Float,
+): PostVideoEditorUiState {
+    val center = state.cropMode.clampCenter(
+        videoAspectRatio,
+        state.cropZoom,
+        Offset(state.cropCenterX + deltaX, state.cropCenterY + deltaY),
+    )
+    return state.copy(
+        cropEnabled = state.cropMode != VideoCropMode.Original,
+        cropCenterX = center.x,
+        cropCenterY = center.y,
+    )
+}
 
 private fun isNineSixteenAspect(aspectRatio: Float): Boolean =
     kotlin.math.abs(aspectRatio - PostVideoEditorOutputAspectRatio) <= 0.01f

@@ -7,7 +7,7 @@
   "productSha": "d4be1902fc1b72c89aa1a2329b58eca7c77375a4",
   "evidence": {
     "web": {
-      "status": "passed",
+      "status": "superseded",
       "sha": "d4be1902fc1b72c89aa1a2329b58eca7c77375a4",
       "report": "build-reports/web/post-video-editor-evidence-d4be1902.json",
       "cleanup": {
@@ -16,7 +16,7 @@
       }
     },
     "android": {
-      "status": "passed",
+      "status": "superseded",
       "sha": "d4be1902fc1b72c89aa1a2329b58eca7c77375a4",
       "report": "build-reports/android/post-video-editor-evidence-d4be1902.json",
       "cleanup": {
@@ -25,7 +25,7 @@
       }
     },
     "ios": {
-      "status": "passed",
+      "status": "superseded",
       "sha": "d4be1902fc1b72c89aa1a2329b58eca7c77375a4",
       "report": "build-reports/ios/post-video-editor-evidence-d4be1902.json",
       "cleanup": {
@@ -35,10 +35,11 @@
     }
   },
   "notes": [
-    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "SUPERSEDED on 2026-08-20: the d4be1902 evidence is no longer valid as POST-VIDEO-EDITOR GO because Web/Wasm and iOS did not prove that exported video files applied the same trim, mute, crop and captions operations as the Android reference.",
+    "This manifest is retained as invalidated historical attestation metadata only. It must not be reused by scripts/validate-candidate-attestation.mjs to preserve or promote POST-VIDEO-EDITOR evidence.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate closes the POST-VIDEO-EDITOR focal unit through common CreatePostRoot media edit anchors, shared selected video preview semantics, and a common PostVideoEditorDialogContent surface for preview chrome, play/mute, trim/timeline state, crop modes, crop zoom, captions, reset/cancel/export and progress/error copy on Web/Wasm, Android and iOS.",
-    "Android now mounts the same common PostVideoEditorDialogContent as Web/Wasm and iOS. Android diverges only through native ExoPlayer preview, frame timeline, crop drag overlay, Vosk/caption model dialogs and Media3/Transformer export slots; those preserve the original Android trim, crop, zoom/pan, caption, progress and cancel behavior behind the common surface.",
+    "A future valid candidate must prove that Android, Web/Wasm and iOS share the common PostVideoEditorDialogContent timeline/crop/captions UX and that each platform export edge applies the same requested edit operations to the generated video file.",
+    "Android now mounts the same common PostVideoEditorDialogContent as Web/Wasm and iOS. Android diverges only through native ExoPlayer preview, frame thumbnails, crop preview surface, Vosk/caption model dialogs and Media3/Transformer export slots; those preserve the original Android trim, crop, zoom/pan, caption, progress and cancel behavior behind the common surface.",
     "Web/Wasm records localhostProductBridge fallbacks for internal dialog controls because Compose/Wasm does not expose those AlertDialog testTags as DOM/ARIA nodes, but the replay does not depend on coordinates and prefers semantic anchors when visible.",
     "The unit keeps video evidence reversible and local-only: no Supabase data mutation is performed by the Web, Android or iOS POST-VIDEO-EDITOR evidence runners. Remaining CREATE-POST limits are outside this focal unit: video camera with long real media, system permission negatives, and cross-flow progress/error/rollback combinations."
   ]

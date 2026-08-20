@@ -55,6 +55,7 @@ const iosImageEditorWrapper = readFileSync(new URL("./run-ios-post-image-editor-
 const androidVideoEditorDialog = readFileSync(new URL("../app/src/main/java/com/quata/feature/postcomposer/videoeditor/QuataVideoEditor.kt", import.meta.url), "utf8");
 const commonVideoEditorModels = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/videoeditor/VideoEditorModels.kt", import.meta.url), "utf8");
 const commonPostVideoEditorContent = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/videoeditor/PostVideoEditorContent.kt", import.meta.url), "utf8");
+const commonPostVideoEditorSpec = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/videoeditor/PostVideoEditorExportSpec.kt", import.meta.url), "utf8");
 const webPostVideoEditor = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostVideoEditor.kt", import.meta.url), "utf8");
 const iosPostVideoEditor = readFileSync(new URL("../feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostVideoEditor.kt", import.meta.url), "utf8");
 const androidVideoEditorRunner = readFileSync(new URL("./post-video-editor-android-evidence.mjs", import.meta.url), "utf8");
@@ -529,11 +530,16 @@ test("post video editor exposes stable common anchors and Android forwards them 
   assert.match(commonPostVideoEditorContent, /cropPanelOpen/);
   assert.match(commonPostVideoEditorContent, /captionsPanelOpen/);
   assert.match(commonPostVideoEditorContent, /captionOptions: List<CaptionStyleOption>/);
-  assert.match(commonPostVideoEditorContent, /timeline: @Composable \(Modifier\) -> Unit/);
+  assert.match(commonPostVideoEditorContent, /PostVideoEditorTimelineContent\(/);
+  assert.match(commonPostVideoEditorContent, /timelineFrameContent: @Composable \(Int, Modifier\) -> Unit/);
+  assert.doesNotMatch(commonPostVideoEditorContent, /timeline: @Composable \(Modifier\) -> Unit/);
+  assert.match(commonPostVideoEditorSpec, /postVideoEditorStateAfterCropPan/);
+  assert.match(commonPostVideoEditorSpec, /postVideoEditorStateAfterCropZoomChange/);
   assert.match(commonPostVideoEditorContent, /DialogProperties\(usePlatformDefaultWidth = false\)/);
   assert.match(androidVideoEditorDialog, /PostVideoEditorDialogContent\(/);
   assert.match(androidVideoEditorDialog, /CaptionStyleOption/);
   assert.doesNotMatch(androidVideoEditorDialog, /timeline = \{ timelineModifier ->/);
+  assert.doesNotMatch(androidVideoEditorDialog, /private fun VideoTimeline\(/);
   assert.match(androidVideoEditorDialog, /VideoPreviewPane\(/);
   assert.doesNotMatch(androidVideoEditorDialog, /QuataEditorScaffold\(/);
   assert.doesNotMatch(androidVideoEditorDialog, /QuataEditorToolButton\(/);
@@ -577,6 +583,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /post-video-editor\.export/);
   assert.match(iosComposerHost, /IosPostVideoEditor/);
   assert.match(iosPostVideoEditor, /PostVideoEditorDialogContent/);
+  assert.match(iosPostVideoEditor, /IosVideoThumbnailService/);
   assert.match(iosPostVideoEditor, /ios_post_video_editor_native_export_required/);
   assert.doesNotMatch(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
 

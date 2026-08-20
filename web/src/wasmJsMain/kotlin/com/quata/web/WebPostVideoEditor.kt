@@ -18,8 +18,11 @@ import com.quata.feature.postcomposer.videoeditor.MaximumPostVideoEditorDuration
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorDialogContent
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorUiState
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorExportSpec
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropModeChange
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropPan
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCaptionsToggle
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropToggle
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropZoomChange
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimEnd
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimStart
 import kotlinx.coroutines.launch
@@ -82,15 +85,9 @@ internal fun WebPostVideoEditor(
         onDismiss = onDismiss,
         onExport = ::export,
         captionOptions = CaptionTemplateStyle.entries.map { CaptionStyleOption(it.name, it.name) },
-        onCropModeChange = { state = state.copy(cropMode = it, cropEnabled = true, cropZoom = 1f, cropCenterX = 0.5f, cropCenterY = 0.5f) },
-        onCropZoomChange = { state = state.copy(cropZoom = it.coerceIn(1f, 3f), cropEnabled = true) },
-        onCropPanChange = { dx, dy ->
-            state = state.copy(
-                cropEnabled = true,
-                cropCenterX = (state.cropCenterX + dx).coerceIn(0f, 1f),
-                cropCenterY = (state.cropCenterY + dy).coerceIn(0f, 1f),
-            )
-        },
+        onCropModeChange = { state = postVideoEditorStateAfterCropModeChange(state, it, videoAspectRatio) },
+        onCropZoomChange = { state = postVideoEditorStateAfterCropZoomChange(state, it, videoAspectRatio) },
+        onCropPanChange = { dx, dy -> state = postVideoEditorStateAfterCropPan(state, dx, dy, videoAspectRatio) },
         onCaptionStyleChange = { state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null) },
         onSeekChange = { state = state.copy(currentPositionFraction = it.coerceIn(0f, 1f)) },
         preview = { modifier ->
@@ -312,7 +309,6 @@ private fun webPostVideoEditorExportEditedJs(
               context.fillText(caption.toUpperCase(), canvas.width / 2, canvas.height * 0.78);
             }
           }
-          video.currentTime = startMs / 1000;
           video.onseeked = () => {
             recorder.start(250);
             video.play?.().catch(() => {});
@@ -326,6 +322,7 @@ private fun webPostVideoEditorExportEditedJs(
               }
             }, 1000 / fps);
           };
+          video.currentTime = startMs / 1000;
         })).then(onSuccess).catch(error => onFailure(String(error?.message || error || 'web_post_video_editor_export_failed').slice(0, 160)));
       } catch (error) {
         onFailure(String(error?.message || error || 'web_post_video_editor_export_failed').slice(0, 160));
