@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -58,6 +59,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -510,25 +512,44 @@ private fun CommonCaptionControls(
                     val selected = id == selectedId
                     val itemModifier = Modifier
                         .weight(1f)
-                        .testTag(if (selected) selectedStyleTag else styleTag)
-                        .semantics { contentDescription = if (selected) selectedStyleTag else styleTag }
-                    if (selected) {
-                        Button(
+                        .height(40.dp)
+                        .testTag(styleTag)
+                        .semantics { contentDescription = styleTag }
+                        .selectable(
+                            selected = selected,
+                            role = Role.Button,
                             onClick = { onStyleChange(id) },
-                            modifier = itemModifier,
-                            contentPadding = ButtonDefaults.TextButtonContentPadding,
+                        )
+                    Surface(
+                        modifier = itemModifier,
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        border = if (selected) null else ButtonDefaults.outlinedButtonBorder(enabled = true),
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            CompactIcon(Icons.Filled.Subtitles, null)
-                            Spacer(Modifier.width(4.dp))
-                            Text(option.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    } else {
-                        OutlinedButton(
-                            onClick = { onStyleChange(id) },
-                            modifier = itemModifier,
-                            contentPadding = ButtonDefaults.TextButtonContentPadding,
-                        ) {
-                            Text(option.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                            ) {
+                                if (selected) {
+                                    CompactIcon(Icons.Filled.Subtitles, null)
+                                    Spacer(Modifier.width(4.dp))
+                                }
+                                Text(option.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            if (selected) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(1.dp)
+                                        .testTag(selectedStyleTag)
+                                        .semantics { contentDescription = selectedStyleTag },
+                                )
+                            }
                         }
                     }
                 }
