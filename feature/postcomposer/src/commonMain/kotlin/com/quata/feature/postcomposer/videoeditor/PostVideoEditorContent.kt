@@ -2,9 +2,13 @@ package com.quata.feature.postcomposer.videoeditor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,9 +46,17 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -53,6 +66,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
+import com.quata.core.designsystem.theme.quataTheme
+import kotlin.math.roundToLong
 
 data class PostVideoEditorStrings(
     val title: String = "Editar video",
@@ -93,12 +108,15 @@ data class PostVideoEditorUiState(
     val isPlaying: Boolean = false,
     val trimStartFraction: Float = 0f,
     val trimEndFraction: Float = 1f,
+    val currentPositionFraction: Float = 0f,
     val cropEnabled: Boolean = false,
     val captionsEnabled: Boolean = false,
     val cropPanelOpen: Boolean = false,
     val captionsPanelOpen: Boolean = false,
     val cropMode: VideoCropMode = VideoCropMode.Original,
     val cropZoom: Float = 1f,
+    val cropCenterX: Float = 0.5f,
+    val cropCenterY: Float = 0.5f,
     val selectedCaptionStyleId: String? = null,
     val currentPositionLabel: String? = null,
     val selectedDurationLabel: String? = null,
@@ -126,15 +144,21 @@ fun PostVideoEditorDialogContent(
     captionOptions: List<CaptionStyleOption> = emptyList(),
     onCropModeChange: (VideoCropMode) -> Unit = {},
     onCropZoomChange: (Float) -> Unit = {},
+    onCropPanChange: (Float, Float) -> Unit = { _, _ -> },
     onCaptionStyleChange: (String?) -> Unit = {},
+    onSeekChange: (Float) -> Unit = {},
+    timelineFrameCount: Int = 0,
+    timelineFrameContent: @Composable (Int, Modifier) -> Unit = { _, frameModifier -> CommonTimelineFramePlaceholder(frameModifier) },
     preview: @Composable (Modifier) -> Unit,
     timeline: @Composable (Modifier) -> Unit = { timelineModifier ->
-        DefaultVideoTimelineControls(
+        PostVideoEditorTimelineContent(
             state = state,
             onTrimStartChange = onTrimStartChange,
             onTrimEndChange = onTrimEndChange,
+            onSeekChange = onSeekChange,
+            frameCount = timelineFrameCount,
+            frameContent = timelineFrameContent,
             modifier = timelineModifier,
-            strings = strings,
         )
     },
 ) {
@@ -151,6 +175,7 @@ fun PostVideoEditorDialogContent(
             onReset = onReset,
             onCropModeChange = onCropModeChange,
             onCropZoomChange = onCropZoomChange,
+            onCropPanChange = onCropPanChange,
             onCaptionStyleChange = onCaptionStyleChange,
             preview = preview,
             timeline = timeline,
@@ -200,6 +225,7 @@ private fun PostVideoEditorBody(
     onReset: () -> Unit,
     onCropModeChange: (VideoCropMode) -> Unit,
     onCropZoomChange: (Float) -> Unit,
+    onCropPanChange: (Float, Float) -> Unit,
     onCaptionStyleChange: (String?) -> Unit,
     preview: @Composable (Modifier) -> Unit,
     timeline: @Composable (Modifier) -> Unit,
@@ -212,6 +238,20 @@ private fun PostVideoEditorBody(
         .background(MaterialTheme.colorScheme.surfaceVariant)
         .testTag(PostVideoEditorPreviewTestTag)
         .semantics { contentDescription = PostVideoEditorPreviewTestTag }
+        .then(
+            if (state.cropPanelOpen && state.cropMode != VideoCropMode.Original && !state.isExporting) {
+                Modifier.pointerInput(state.cropMode, state.cropZoom, state.cropCenterX, state.cropCenterY) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        val width = size.width.toFloat().coerceAtLeast(1f)
+                        val height = size.height.toFloat().coerceAtLeast(1f)
+                        onCropPanChange(dragAmount.x / width, dragAmount.y / height)
+                    }
+                }
+            } else {
+                Modifier
+            }
+        )
     if (isLandscapeLayout) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -241,6 +281,7 @@ private fun PostVideoEditorBody(
                     onReset = onReset,
                     onCropModeChange = onCropModeChange,
                     onCropZoomChange = onCropZoomChange,
+                    onCropPanChange = onCropPanChange,
                     onCaptionStyleChange = onCaptionStyleChange,
                     timeline = timeline,
                     modifier = Modifier.fillMaxWidth(),
@@ -270,6 +311,7 @@ private fun PostVideoEditorBody(
                 onReset = onReset,
                 onCropModeChange = onCropModeChange,
                 onCropZoomChange = onCropZoomChange,
+                onCropPanChange = onCropPanChange,
                 onCaptionStyleChange = onCaptionStyleChange,
                 timeline = timeline,
                 modifier = Modifier.fillMaxWidth(),
@@ -290,6 +332,7 @@ private fun PostVideoEditorControls(
     onReset: () -> Unit,
     onCropModeChange: (VideoCropMode) -> Unit,
     onCropZoomChange: (Float) -> Unit,
+    onCropPanChange: (Float, Float) -> Unit,
     onCaptionStyleChange: (String?) -> Unit,
     timeline: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
@@ -521,30 +564,173 @@ private fun TimeReadout(label: String, value: String, modifier: Modifier, alignm
 }
 
 @Composable
-private fun DefaultVideoTimelineControls(
+fun PostVideoEditorTimelineContent(
     state: PostVideoEditorUiState,
     onTrimStartChange: (Float) -> Unit,
     onTrimEndChange: (Float) -> Unit,
+    onSeekChange: (Float) -> Unit,
+    frameCount: Int,
+    frameContent: @Composable (Int, Modifier) -> Unit,
     modifier: Modifier,
-    strings: PostVideoEditorStrings,
 ) {
+    val template = quataTheme()
     val trimStart = state.trimStartFraction.coerceIn(0f, 0.95f)
     val trimEnd = state.trimEndFraction.coerceIn((trimStart + 0.05f).coerceAtMost(1f), 1f)
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(strings.trimStart, style = MaterialTheme.typography.labelSmall)
-        Slider(
-            value = trimStart,
-            onValueChange = { onTrimStartChange(it.coerceIn(0f, trimEnd - 0.05f)) },
-            valueRange = 0f..1f,
-            modifier = Modifier.testTag(PostVideoEditorTimelineTestTag),
+    val currentPosition = state.currentPositionFraction.coerceIn(trimStart, trimEnd)
+    val handleWidth = 30.dp
+    val handleHitWidth = 64.dp
+    val handleHitPadding = (handleHitWidth - handleWidth) / 2f
+    val currentTrimStart by rememberUpdatedState(trimStart)
+    val currentTrimEnd by rememberUpdatedState(trimEnd)
+    val baseModifier = modifier
+        .clip(RoundedCornerShape(20.dp))
+        .background(template.colors.surfaceAlt)
+        .testTag(PostVideoEditorTimelineTestTag)
+    val interactiveModifier = if (state.isExporting) {
+        baseModifier
+    } else {
+        baseModifier.pointerInput(Unit) {
+            detectTapGestures { offset ->
+                val width = size.width.toFloat().coerceAtLeast(1f)
+                onSeekChange((offset.x / width).coerceIn(0f, 1f))
+            }
+        }
+    }
+
+    BoxWithConstraints(modifier = interactiveModifier) {
+        val timelineWidthPx = with(LocalDensity.current) { maxWidth.toPx().coerceAtLeast(1f) }
+        val handleWidthPx = with(LocalDensity.current) { handleWidth.toPx() }
+        val frameSlots = frameCount.coerceAtLeast(6)
+        fun playheadX(widthPx: Float): Float {
+            val startX = trimStart * widthPx + handleWidthPx
+            val endX = (trimEnd * widthPx - handleWidthPx).coerceAtLeast(startX)
+            val selectedFraction = ((currentPosition - trimStart) / (trimEnd - trimStart).coerceAtLeast(0.001f))
+                .coerceIn(0f, 1f)
+            return startX + (endX - startX) * selectedFraction
+        }
+
+        fun Modifier.handleDrag(startHandle: Boolean): Modifier =
+            if (state.isExporting) {
+                this
+            } else {
+                pointerInput(timelineWidthPx, startHandle) {
+                    var initialStart = 0f
+                    var initialEnd = 1f
+                    var accumulatedDeltaX = 0f
+                    fun updateTrimFromDelta() {
+                        val delta = accumulatedDeltaX / timelineWidthPx
+                        if (startHandle) {
+                            onTrimStartChange((initialStart + delta).coerceIn(0f, currentTrimEnd - 0.05f))
+                        } else {
+                            onTrimEndChange((initialEnd + delta).coerceIn(currentTrimStart + 0.05f, 1f))
+                        }
+                    }
+                    detectDragGestures(
+                        onDragStart = {
+                            initialStart = currentTrimStart
+                            initialEnd = currentTrimEnd
+                            accumulatedDeltaX = 0f
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            accumulatedDeltaX += dragAmount.x
+                            updateTrimFromDelta()
+                        },
+                    )
+                }
+            }
+
+        Row(Modifier.fillMaxSize()) {
+            repeat(frameSlots) { index ->
+                frameContent(
+                    index.coerceAtMost((frameCount - 1).coerceAtLeast(0)),
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(horizontal = 1.dp),
+                )
+            }
+        }
+
+        if (!state.isExporting) {
+            Canvas(Modifier.fillMaxSize()) {
+                val startX = trimStart * size.width
+                val endX = trimEnd * size.width
+                drawRect(Color.Black.copy(alpha = 0.48f), topLeft = Offset.Zero, size = Size(startX, size.height))
+                drawRect(Color.Black.copy(alpha = 0.48f), topLeft = Offset(endX, 0f), size = Size(size.width - endX, size.height))
+                drawRect(
+                    color = template.colors.accent,
+                    topLeft = Offset(startX, 0f),
+                    size = Size(endX - startX, size.height),
+                    style = Stroke(width = 4.dp.toPx()),
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .offset(x = with(LocalDensity.current) { playheadX(timelineWidthPx).toDp() } - 1.dp)
+                .width(2.dp)
+                .fillMaxHeight()
+                .background(template.colors.textPrimary.copy(alpha = 0.88f)),
         )
-        Text(strings.trimEnd, style = MaterialTheme.typography.labelSmall)
-        Slider(
-            value = trimEnd,
-            onValueChange = { onTrimEndChange(it.coerceIn(trimStart + 0.05f, 1f)) },
-            valueRange = 0f..1f,
+
+        if (!state.isExporting) {
+            CommonTimelineHandle(
+                modifier = Modifier
+                    .offset(x = maxWidth * trimStart)
+                    .width(handleWidth)
+                    .fillMaxHeight(),
+                alignStart = true,
+            )
+            CommonTimelineHandle(
+                modifier = Modifier
+                    .offset(x = maxWidth * trimEnd - handleWidth)
+                    .width(handleWidth)
+                    .fillMaxHeight(),
+                alignStart = false,
+            )
+            Box(
+                modifier = Modifier
+                    .offset(x = maxWidth * trimStart - handleHitPadding)
+                    .width(handleHitWidth)
+                    .fillMaxHeight()
+                    .handleDrag(startHandle = true),
+            )
+            Box(
+                modifier = Modifier
+                    .offset(x = maxWidth * trimEnd - handleWidth - handleHitPadding)
+                    .width(handleHitWidth)
+                    .fillMaxHeight()
+                    .handleDrag(startHandle = false),
+            )
+        }
+    }
+}
+
+@Composable
+private fun CommonTimelineHandle(
+    modifier: Modifier,
+    alignStart: Boolean,
+) {
+    val template = quataTheme()
+    Box(
+        modifier = modifier.background(template.colors.accent),
+        contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.CenterEnd,
+    ) {
+        Box(
+            Modifier
+                .width(4.dp)
+                .height(34.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(template.colors.surface.copy(alpha = 0.92f)),
         )
     }
+}
+
+@Composable
+private fun CommonTimelineFramePlaceholder(modifier: Modifier) {
+    Box(modifier.background(Color.Black.copy(alpha = 0.36f)))
 }
 
 private fun PostVideoEditorStrings.labelFor(mode: VideoCropMode): String = when (mode) {

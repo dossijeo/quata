@@ -8,9 +8,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.Text
+import com.quata.core.captions.templates.CaptionTemplateStyle
 import com.quata.core.platform.PlatformFile
+import com.quata.feature.postcomposer.videoeditor.CaptionStyleOption
+import com.quata.feature.postcomposer.videoeditor.MaximumPostVideoEditorDurationMs
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorDialogContent
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportSpec
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorUiState
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorExportSpec
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCaptionsToggle
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropToggle
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimEnd
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimStart
 import kotlinx.coroutines.launch
 import platform.Foundation.NSData
 import platform.Foundation.NSTemporaryDirectory
@@ -27,11 +36,14 @@ internal fun IosPostVideoEditor(
 ) {
     var state by remember(source.reference) { mutableStateOf(PostVideoEditorUiState()) }
     val scope = rememberCoroutineScope()
+    val durationMs = MaximumPostVideoEditorDurationMs
+    val videoAspectRatio = 9f / 16f
     fun export() {
         if (state.isExporting) return
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
+        val spec = postVideoEditorExportSpec(state, videoAspectRatio, durationMs)
         scope.launch {
-            runCatching { iosPostVideoEditorExportCopy(source) }
+            runCatching { iosPostVideoEditorExportEdited(source, spec) }
                 .onSuccess {
                     state = state.copy(isExporting = false, exportProgress = 1f)
                     onEdited(it)
@@ -46,20 +58,35 @@ internal fun IosPostVideoEditor(
         state = state,
         onMutedChange = { state = state.copy(isMuted = it) },
         onPlayPause = { state = state.copy(isPlaying = !state.isPlaying) },
-        onTrimStartChange = { state = state.copy(trimStartFraction = it) },
-        onTrimEndChange = { state = state.copy(trimEndFraction = it) },
-        onCropToggle = { state = state.copy(cropEnabled = !state.cropEnabled) },
-        onCaptionsToggle = { state = state.copy(captionsEnabled = !state.captionsEnabled) },
+        onTrimStartChange = { state = postVideoEditorStateAfterTrimStart(state, it) },
+        onTrimEndChange = { state = postVideoEditorStateAfterTrimEnd(state, it) },
+        onCropToggle = { state = postVideoEditorStateAfterCropToggle(state) },
+        onCaptionsToggle = { state = postVideoEditorStateAfterCaptionsToggle(state) },
         onReset = { state = PostVideoEditorUiState() },
         onDismiss = onDismiss,
         onExport = ::export,
+        captionOptions = CaptionTemplateStyle.entries.map { CaptionStyleOption(it.name, it.name) },
+        onCropModeChange = { state = state.copy(cropMode = it, cropEnabled = true, cropZoom = 1f, cropCenterX = 0.5f, cropCenterY = 0.5f) },
+        onCropZoomChange = { state = state.copy(cropZoom = it.coerceIn(1f, 3f), cropEnabled = true) },
+        onCropPanChange = { dx, dy ->
+            state = state.copy(
+                cropEnabled = true,
+                cropCenterX = (state.cropCenterX + dx).coerceIn(0f, 1f),
+                cropCenterY = (state.cropCenterY + dy).coerceIn(0f, 1f),
+            )
+        },
+        onCaptionStyleChange = { state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null) },
+        onSeekChange = { state = state.copy(currentPositionFraction = it.coerceIn(0f, 1f)) },
         preview = { modifier: Modifier ->
             Text(source.displayName?.ifBlank { "Video seleccionado" } ?: "Video seleccionado", modifier = modifier)
         },
     )
 }
 
-private fun iosPostVideoEditorExportCopy(source: PlatformFile): PlatformFile {
+private fun iosPostVideoEditorExportEdited(source: PlatformFile, spec: PostVideoEditorExportSpec): PlatformFile {
+    if (spec.hasCrop || spec.hasCaptions || spec.removeAudio || spec.trimStartMs > 0L || spec.trimEndMs < spec.sourceDurationMs) {
+        error("ios_post_video_editor_native_export_required")
+    }
     val input = iosPostVideoEditorLocalUrl(source.reference) ?: error("ios_post_video_editor_source_invalid")
     val data = NSData.dataWithContentsOfURL(input) ?: error("ios_post_video_editor_read_failed")
     val path = NSTemporaryDirectory().trimEnd('/') + "/quata-post-video-editor-${NSUUID.UUID().UUIDString}.mp4"

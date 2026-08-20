@@ -533,7 +533,7 @@ test("post video editor exposes stable common anchors and Android forwards them 
   assert.match(commonPostVideoEditorContent, /DialogProperties\(usePlatformDefaultWidth = false\)/);
   assert.match(androidVideoEditorDialog, /PostVideoEditorDialogContent\(/);
   assert.match(androidVideoEditorDialog, /CaptionStyleOption/);
-  assert.match(androidVideoEditorDialog, /VideoTimeline\(/);
+  assert.doesNotMatch(androidVideoEditorDialog, /timeline = \{ timelineModifier ->/);
   assert.match(androidVideoEditorDialog, /VideoPreviewPane\(/);
   assert.doesNotMatch(androidVideoEditorDialog, /QuataEditorScaffold\(/);
   assert.doesNotMatch(androidVideoEditorDialog, /QuataEditorToolButton\(/);
@@ -560,7 +560,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /__quataPostVideoEditorExport/);
   assert.match(webPostComposerRoute, /videoEditor =/);
   assert.match(webPostVideoEditor, /PostVideoEditorDialogContent/);
-  assert.match(webPostVideoEditor, /webPostVideoEditorExportCopy/);
+  assert.match(webPostVideoEditor, /webPostVideoEditorExportEdited/);
+  assert.doesNotMatch(webPostVideoEditor, /webPostVideoEditorExportCopy/);
+  assert.match(webPostVideoEditor, /MediaRecorder/);
+  assert.match(webPostVideoEditor, /canvas\.captureStream/);
   assert.doesNotMatch(webPostComposerRoute, /quata_post_composer_video_editor_e2e_opt_in/);
   assert.match(webPostComposerHost, /put\("videoUri", it\.take\(220\)\)/);
 
@@ -574,6 +577,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /post-video-editor\.export/);
   assert.match(iosComposerHost, /IosPostVideoEditor/);
   assert.match(iosPostVideoEditor, /PostVideoEditorDialogContent/);
+  assert.match(iosPostVideoEditor, /ios_post_video_editor_native_export_required/);
   assert.doesNotMatch(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
 
   for (const runner of [androidVideoEditorRunner, webVideoEditorRunner, iosVideoEditorRunner]) {

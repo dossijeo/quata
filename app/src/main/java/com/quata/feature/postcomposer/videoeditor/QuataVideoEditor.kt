@@ -589,12 +589,15 @@ fun QuataVideoEditorDialog(
         isPlaying = isPlaying,
         trimStartFraction = if (durationMs > 0L) trimStartMs.toFloat() / durationMs else 0f,
         trimEndFraction = if (durationMs > 0L) trimEndMs.toFloat() / durationMs else 1f,
+        currentPositionFraction = if (durationMs > 0L) timelinePositionMs.toFloat() / durationMs else 0f,
         cropEnabled = cropMode != VideoCropMode.Original,
         captionsEnabled = captionStyle != null,
         cropPanelOpen = isCropPanelOpen,
         captionsPanelOpen = isCaptionPanelOpen,
         cropMode = cropMode,
         cropZoom = cropZoom,
+        cropCenterX = cropCenter.x,
+        cropCenterY = cropCenter.y,
         selectedCaptionStyleId = captionStyle?.name,
         currentPositionLabel = infoPositionMs.formatVideoTime(),
         selectedDurationLabel = selectedDurationMs.formatVideoTime(),
@@ -647,8 +650,31 @@ fun QuataVideoEditorDialog(
             cropZoom = nextZoom
             cropCenter = cropMode.clampCenter(videoAspect, nextZoom, cropCenter)
         },
+        onCropPanChange = { dx, dy ->
+            val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
+            cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
+        },
         onCaptionStyleChange = { id ->
             captionStyle = id?.let { selected -> CaptionTemplateStyle.entries.firstOrNull { it.name == selected } }
+        },
+        onSeekChange = { fraction ->
+            seekPreviewTo((fraction.coerceIn(0f, 1f) * durationMs.coerceAtLeast(1L)).roundToLong())
+        },
+        timelineFrameCount = frames.size.takeIf { it > 0 } ?: TimelineFrameCount,
+        timelineFrameContent = { index, frameModifier ->
+            val frame = frames.getOrNull(index)
+            if (frame == null) {
+                Box(
+                    modifier = frameModifier.background(Color.Black.copy(alpha = 0.36f))
+                )
+            } else {
+                Image(
+                    bitmap = frame.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = frameModifier
+                )
+            }
         },
         preview = { previewModifier ->
             VideoPreviewPane(
@@ -665,20 +691,6 @@ fun QuataVideoEditorDialog(
                     cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
                 },
                 modifier = previewModifier,
-            )
-        },
-        timeline = { timelineModifier ->
-            VideoTimeline(
-                frames = frames,
-                durationMs = durationMs,
-                trimStartMs = trimStartMs,
-                trimEndMs = trimEndMs,
-                currentPositionMs = timelinePositionMs,
-                isExporting = isExporting,
-                onTrimStartChange = ::applyTrimStartDrag,
-                onTrimEndChange = ::applyTrimEndDrag,
-                onSeek = ::seekPreviewTo,
-                modifier = timelineModifier,
             )
         },
     )

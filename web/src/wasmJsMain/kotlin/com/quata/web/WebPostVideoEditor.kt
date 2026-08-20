@@ -12,8 +12,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.WebElementView
+import com.quata.core.captions.templates.CaptionTemplateStyle
+import com.quata.feature.postcomposer.videoeditor.CaptionStyleOption
+import com.quata.feature.postcomposer.videoeditor.MaximumPostVideoEditorDurationMs
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorDialogContent
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorUiState
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorExportSpec
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCaptionsToggle
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropToggle
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimEnd
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimStart
 import kotlinx.coroutines.launch
 import org.w3c.dom.HTMLVideoElement
 import kotlinx.browser.document
@@ -28,13 +36,16 @@ internal fun WebPostVideoEditor(
     onEdited: (String) -> Unit,
 ) {
     var state by remember(sourceReference) { mutableStateOf(PostVideoEditorUiState()) }
+    var durationMs by remember(sourceReference) { mutableStateOf(MaximumPostVideoEditorDurationMs) }
+    val videoAspectRatio = 9f / 16f
     val scope = rememberCoroutineScope()
     fun export() {
         if (state.isExporting) return
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
+        val spec = postVideoEditorExportSpec(state, videoAspectRatio, durationMs)
         webPostVideoEditorRecordExportStarted()
         scope.launch {
-            runCatching { webPostVideoEditorExportCopy(sourceReference) }
+            runCatching { webPostVideoEditorExportEdited(sourceReference, spec) }
                 .onSuccess {
                     state = state.copy(isExporting = false, exportProgress = 1f)
                     webPostVideoEditorRecordExportSuccess(it)
@@ -51,8 +62,8 @@ internal fun WebPostVideoEditor(
         val uninstall = installWebPostVideoEditorE2eBridge(
             mute = { state = state.copy(isMuted = !state.isMuted) },
             playPause = { state = state.copy(isPlaying = !state.isPlaying) },
-            crop = { state = state.copy(cropEnabled = !state.cropEnabled) },
-            captions = { state = state.copy(captionsEnabled = !state.captionsEnabled) },
+            crop = { state = postVideoEditorStateAfterCropToggle(state) },
+            captions = { state = postVideoEditorStateAfterCaptionsToggle(state) },
             export = { export() },
             dismiss = onDismiss,
         )
@@ -63,13 +74,25 @@ internal fun WebPostVideoEditor(
         state = state,
         onMutedChange = { state = state.copy(isMuted = it) },
         onPlayPause = { state = state.copy(isPlaying = !state.isPlaying) },
-        onTrimStartChange = { state = state.copy(trimStartFraction = it) },
-        onTrimEndChange = { state = state.copy(trimEndFraction = it) },
-        onCropToggle = { state = state.copy(cropEnabled = !state.cropEnabled) },
-        onCaptionsToggle = { state = state.copy(captionsEnabled = !state.captionsEnabled) },
+        onTrimStartChange = { state = postVideoEditorStateAfterTrimStart(state, it) },
+        onTrimEndChange = { state = postVideoEditorStateAfterTrimEnd(state, it) },
+        onCropToggle = { state = postVideoEditorStateAfterCropToggle(state) },
+        onCaptionsToggle = { state = postVideoEditorStateAfterCaptionsToggle(state) },
         onReset = { state = PostVideoEditorUiState() },
         onDismiss = onDismiss,
         onExport = ::export,
+        captionOptions = CaptionTemplateStyle.entries.map { CaptionStyleOption(it.name, it.name) },
+        onCropModeChange = { state = state.copy(cropMode = it, cropEnabled = true, cropZoom = 1f, cropCenterX = 0.5f, cropCenterY = 0.5f) },
+        onCropZoomChange = { state = state.copy(cropZoom = it.coerceIn(1f, 3f), cropEnabled = true) },
+        onCropPanChange = { dx, dy ->
+            state = state.copy(
+                cropEnabled = true,
+                cropCenterX = (state.cropCenterX + dx).coerceIn(0f, 1f),
+                cropCenterY = (state.cropCenterY + dy).coerceIn(0f, 1f),
+            )
+        },
+        onCaptionStyleChange = { state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null) },
+        onSeekChange = { state = state.copy(currentPositionFraction = it.coerceIn(0f, 1f)) },
         preview = { modifier ->
             WebElementView(
                 factory = {
@@ -86,6 +109,10 @@ internal fun WebPostVideoEditor(
                 update = {
                     it.src = sourceReference
                     it.muted = state.isMuted
+                    if (!it.duration.isNaN() && it.duration.isFinite() && it.duration > 0.0) {
+                        durationMs = (it.duration * 1000.0).toLong().coerceAtLeast(1L)
+                    }
+                    it.currentTime = (state.currentPositionFraction.coerceIn(0f, 1f) * durationMs) / 1000.0
                     webPostVideoEditorApplyPlayback(it, state.isPlaying)
                 },
                 modifier = modifier,
@@ -148,8 +175,24 @@ private fun webPostVideoEditorApplyPlayback(video: HTMLVideoElement, shouldPlay:
     })()""",
 )
 
-internal suspend fun webPostVideoEditorExportCopy(reference: String): String = suspendCoroutine { continuation ->
-    webPostVideoEditorExportCopyJs(reference, continuation::resume) { message ->
+internal suspend fun webPostVideoEditorExportEdited(
+    reference: String,
+    spec: com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportSpec,
+): String = suspendCoroutine { continuation ->
+    webPostVideoEditorExportEditedJs(
+        reference = reference,
+        trimStartMs = spec.trimStartMs,
+        trimEndMs = spec.trimEndMs,
+        removeAudio = spec.removeAudio,
+        cropLeft = spec.cropRect.left,
+        cropTop = spec.cropRect.top,
+        cropRight = spec.cropRect.right,
+        cropBottom = spec.cropRect.bottom,
+        captionStyle = spec.captionStyle?.name ?: "",
+        outputWidth = spec.outputWidth,
+        outputHeight = spec.outputHeight,
+        continuation::resume,
+    ) { message ->
         continuation.resumeWith(Result.failure(IllegalStateException(message)))
     }
 }
@@ -166,8 +209,18 @@ private fun webPostVideoEditorRecordExportFailure(message: String): Unit = js(
     """(() => { globalThis.__quataPostVideoEditorExport = { status: 'failed', message: String(message).slice(0, 160) }; })()""",
 )
 
-private fun webPostVideoEditorExportCopyJs(
+private fun webPostVideoEditorExportEditedJs(
     reference: String,
+    trimStartMs: Long,
+    trimEndMs: Long,
+    removeAudio: Boolean,
+    cropLeft: Float,
+    cropTop: Float,
+    cropRight: Float,
+    cropBottom: Float,
+    captionStyle: String,
+    outputWidth: Int,
+    outputHeight: Int,
     onSuccess: (String) -> Unit,
     onFailure: (String) -> Unit,
 ): Unit = js(
@@ -178,20 +231,102 @@ private fun webPostVideoEditorExportCopyJs(
           onFailure('web_post_video_editor_blob_unsupported'); return;
         }
         const value = String(reference || '');
-        const asBlob = value.startsWith('data:') || value.startsWith('blob:')
-          ? fetch(value).then(response => {
-              if (!response.ok) throw Error('web_post_video_editor_source_' + response.status);
-              return response.blob();
-            })
+        const sourceUrlPromise = value.startsWith('blob:') || value.startsWith('data:')
+          ? Promise.resolve(value)
           : fetch(value).then(response => {
               if (!response.ok) throw Error('web_post_video_editor_source_' + response.status);
               return response.blob();
-            });
-        asBlob.then(blob => {
-          if (!blob || !blob.size) { onFailure('web_post_video_editor_empty_blob'); return; }
-          const output = new Blob([blob], { type: blob.type || 'video/mp4' });
-          onSuccess(globalThis.URL.createObjectURL(output));
-        }).catch(error => onFailure(String(error?.message || error || 'web_post_video_editor_export_failed').slice(0, 160)));
+            }).then(blob => globalThis.URL.createObjectURL(blob));
+        sourceUrlPromise.then(sourceUrl => new Promise((resolve, reject) => {
+          const video = globalThis.document.createElement('video');
+          video.crossOrigin = 'anonymous';
+          video.muted = Boolean(removeAudio);
+          video.playsInline = true;
+          video.preload = 'auto';
+          video.src = sourceUrl;
+          video.onloadedmetadata = () => resolve(video);
+          video.onerror = () => reject(Error('web_post_video_editor_video_load_failed'));
+        })).then(video => new Promise((resolve, reject) => {
+          const canvas = globalThis.document.createElement('canvas');
+          canvas.width = Math.max(2, Number(outputWidth) || 1080);
+          canvas.height = Math.max(2, Number(outputHeight) || 1920);
+          const context = canvas.getContext('2d');
+          if (!context) throw Error('web_post_video_editor_canvas_context_unavailable');
+          const fps = 30;
+          const stream = canvas.captureStream?.(fps);
+          if (!stream || typeof globalThis.MediaRecorder !== 'function') {
+            throw Error('web_post_video_editor_media_recorder_unavailable');
+          }
+          if (!removeAudio && typeof video.captureStream === 'function') {
+            try {
+              const mediaStream = video.captureStream();
+              mediaStream?.getAudioTracks?.().forEach(track => stream.addTrack(track));
+            } catch (_) {}
+          }
+          const chunks = [];
+          const mimeType = globalThis.MediaRecorder.isTypeSupported?.('video/webm;codecs=vp9')
+            ? 'video/webm;codecs=vp9'
+            : 'video/webm';
+          const recorder = new globalThis.MediaRecorder(stream, { mimeType });
+          recorder.ondataavailable = event => { if (event.data && event.data.size) chunks.push(event.data); };
+          recorder.onerror = event => reject(Error(event?.error?.message || 'web_post_video_editor_recorder_failed'));
+          recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: mimeType });
+            if (!blob.size) reject(Error('web_post_video_editor_empty_export'));
+            else resolve(globalThis.URL.createObjectURL(blob));
+          };
+          const startMs = Math.max(0, Number(trimStartMs) || 0);
+          const endMs = Math.max(startMs + 500, Number(trimEndMs) || (video.duration * 1000));
+          const durationMs = endMs - startMs;
+          const crop = {
+            left: Math.max(0, Math.min(1, Number(cropLeft) || 0)),
+            top: Math.max(0, Math.min(1, Number(cropTop) || 0)),
+            right: Math.max(0, Math.min(1, Number(cropRight) || 1)),
+            bottom: Math.max(0, Math.min(1, Number(cropBottom) || 1)),
+          };
+          const caption = String(captionStyle || '');
+          const sourceWidth = Math.max(1, video.videoWidth || canvas.width);
+          const sourceHeight = Math.max(1, video.videoHeight || canvas.height);
+          const cropWidth = Math.max(1, (crop.right - crop.left) * sourceWidth);
+          const cropHeight = Math.max(1, (crop.bottom - crop.top) * sourceHeight);
+          function drawFrame() {
+            context.fillStyle = '#000000';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(
+              video,
+              crop.left * sourceWidth,
+              crop.top * sourceHeight,
+              cropWidth,
+              cropHeight,
+              0,
+              0,
+              canvas.width,
+              canvas.height
+            );
+            if (caption) {
+              context.fillStyle = 'rgba(0,0,0,0.72)';
+              context.fillRect(canvas.width * 0.08, canvas.height * 0.72, canvas.width * 0.84, canvas.height * 0.095);
+              context.fillStyle = '#ffffff';
+              context.textAlign = 'center';
+              context.font = `${Math.round(canvas.width * 0.056)}px sans-serif`;
+              context.fillText(caption.toUpperCase(), canvas.width / 2, canvas.height * 0.78);
+            }
+          }
+          video.currentTime = startMs / 1000;
+          video.onseeked = () => {
+            recorder.start(250);
+            video.play?.().catch(() => {});
+            const startedAt = performance.now();
+            const timer = setInterval(() => {
+              drawFrame();
+              if ((performance.now() - startedAt) >= durationMs || (video.currentTime * 1000) >= endMs) {
+                clearInterval(timer);
+                video.pause?.();
+                recorder.stop();
+              }
+            }, 1000 / fps);
+          };
+        })).then(onSuccess).catch(error => onFailure(String(error?.message || error || 'web_post_video_editor_export_failed').slice(0, 160)));
       } catch (error) {
         onFailure(String(error?.message || error || 'web_post_video_editor_export_failed').slice(0, 160));
       }
