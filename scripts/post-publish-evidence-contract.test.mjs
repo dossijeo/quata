@@ -658,7 +658,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditor, /UIKitView/);
   assert.match(iosPostVideoEditorNativeDriver, /SFSpeechRecognizer/);
   assert.match(iosPostVideoEditorNativeDriver, /SFSpeechURLRecognitionRequest/);
-  assert.match(iosPostVideoEditorNativeDriver, /bestTranscription\.segments/);
+  assert.match(iosPostVideoEditorNativeDriver, /shouldReportPartialResults = true/);
+  assert.match(iosPostVideoEditorNativeDriver, /captionWire\(from: result\.bestTranscription\)/);
+  assert.match(iosPostVideoEditorNativeDriver, /transcription\.segments/);
+  assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_caption_transcript_timeout/);
   assert.match(iosPostVideoEditorNativeDriver, /CaptionDocumentWire\.parse/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetExportSession/);
   assert.match(iosPostVideoEditorNativeDriver, /AVVideoCompositionCoreAnimationTool/);

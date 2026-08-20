@@ -55,45 +55,83 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
                 return
             }
             let request = SFSpeechURLRecognitionRequest(url: sourceUrl)
-            request.shouldReportPartialResults = false
+            request.shouldReportPartialResults = true
             if #available(iOS 13.0, *) {
                 request.requiresOnDeviceRecognition = false
             }
             let taskId = UUID()
-            let task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-                if let result, result.isFinal {
-                    self?.activeSpeechTasks.removeValue(forKey: taskId)
-                    let wire = result.bestTranscription.segments.compactMap { segment -> String? in
-                        let text = segment.substring
-                            .replacingOccurrences(of: "\t", with: " ")
-                            .replacingOccurrences(of: "\n", with: " ")
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !text.isEmpty else { return nil }
-                        let startMs = max(0, Int64((segment.timestamp * 1_000).rounded()))
-                        let endMs = max(startMs + 1, Int64(((segment.timestamp + segment.duration) * 1_000).rounded()))
-                        let confidence = max(0, min(1, segment.confidence))
-                        return "\(text)\t\(startMs)\t\(endMs)\t\(confidence)"
-                    }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-                    DispatchQueue.main.async {
-                        if wire.isEmpty {
-                            callback.onFailure(reason: "ios_post_video_editor_caption_transcript_missing")
-                        } else {
-                            callback.onSuccess(text: wire)
-                        }
-                    }
-                    return
-                }
-                if let error {
-                    self?.activeSpeechTasks.removeValue(forKey: taskId)
-                    DispatchQueue.main.async {
-                        callback.onFailure(reason: error.localizedDescription.isEmpty
-                            ? "ios_post_video_editor_caption_transcript_failed"
-                            : error.localizedDescription)
+            var task: SFSpeechRecognitionTask?
+            var latestWire = ""
+            var didFinish = false
+            let timeout = DispatchWorkItem { [weak self] in
+                guard !didFinish else { return }
+                didFinish = true
+                task?.cancel()
+                self?.activeSpeechTasks.removeValue(forKey: taskId)
+                DispatchQueue.main.async {
+                    if latestWire.isEmpty {
+                        callback.onFailure(reason: "ios_post_video_editor_caption_transcript_timeout")
+                    } else {
+                        callback.onSuccess(text: latestWire)
                     }
                 }
             }
-            self?.activeSpeechTasks[taskId] = task
+            let finish: (String?, String?) -> Void = { [weak self] wire, failure in
+                guard !didFinish else { return }
+                didFinish = true
+                timeout.cancel()
+                task?.cancel()
+                self?.activeSpeechTasks.removeValue(forKey: taskId)
+                DispatchQueue.main.async {
+                    if let wire, !wire.isEmpty {
+                        callback.onSuccess(text: wire)
+                    } else {
+                        callback.onFailure(reason: failure ?? "ios_post_video_editor_caption_transcript_failed")
+                    }
+                }
+            }
+            task = recognizer.recognitionTask(with: request) { result, error in
+                if let result {
+                    latestWire = Self.captionWire(from: result.bestTranscription)
+                    if result.isFinal {
+                        finish(
+                            latestWire,
+                            latestWire.isEmpty ? "ios_post_video_editor_caption_transcript_missing" : nil
+                        )
+                        return
+                    }
+                }
+                if let error {
+                    let reason = error.localizedDescription.isEmpty
+                        ? "ios_post_video_editor_caption_transcript_failed"
+                        : error.localizedDescription
+                    finish(latestWire.isEmpty ? nil : latestWire, reason)
+                }
+            }
+            if let task {
+                self?.activeSpeechTasks[taskId] = task
+                DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 90, execute: timeout)
+            } else {
+                timeout.cancel()
+                DispatchQueue.main.async {
+                    callback.onFailure(reason: "ios_post_video_editor_caption_transcript_failed")
+                }
+            }
         }
+    }
+
+    private static func captionWire(from transcription: SFTranscription) -> String {
+        transcription.segments.compactMap { segment -> String? in
+            let text = segment.substring
+                .replacingOccurrences(of: "\t", with: " ")
+                .replacingOccurrences(of: "\n", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return nil }
+            let startMs = max(0, Int64((segment.timestamp * 1_000).rounded()))
+            let endMs = max(startMs + 1, Int64(((segment.timestamp + segment.duration) * 1_000).rounded()))
+            let confidence = max(0, min(1, segment.confidence))
+            return "\(text)\t\(startMs)\t\(endMs)\t\(confidence)"
+        }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func export(
