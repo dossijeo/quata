@@ -4,12 +4,12 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "72a3a9cb8f2ce07c2e9472522cff1bc4f023bacd",
+  "productSha": "f60aeb365ef687e0615ed2c0651b79530862e298",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "72a3a9cb8f2ce07c2e9472522cff1bc4f023bacd",
-      "report": "build-reports/web/post-image-editor-common-surface-evidence.json",
+      "sha": "f60aeb365ef687e0615ed2c0651b79530862e298",
+      "report": "build-reports/web/post-image-editor-evidence-f60aeb36.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -17,8 +17,8 @@
     },
     "android": {
       "status": "passed",
-      "sha": "72a3a9cb8f2ce07c2e9472522cff1bc4f023bacd",
-      "report": "build-reports/android/post-image-editor-common-surface-evidence.json",
+      "sha": "f60aeb365ef687e0615ed2c0651b79530862e298",
+      "report": "build-reports/android/post-image-editor-evidence-f60aeb36.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -26,8 +26,8 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "72a3a9cb8f2ce07c2e9472522cff1bc4f023bacd",
-      "report": "build-reports/ios/post-image-editor-common-surface-evidence.json",
+      "sha": "f60aeb365ef687e0615ed2c0651b79530862e298",
+      "report": "build-reports/ios/post-image-editor-evidence-f60aeb36.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -39,6 +39,7 @@
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
     "This candidate closes the POST-IMAGE-EDITOR focal unit through common CreatePostRoot media edit anchors, shared selected preview semantics, common transform/geometry/control surface, explicit crop mode, crop overlay, landscape layout, zoom/pan framing, locked square Avatar mode, and real editor save/cancel/reopen evidence on Web/Wasm, Android and iOS.",
     "Android now uses the same common PostImageEditorDialogContent surface as Web/Wasm and iOS. The common surface preserves explicit crop/apply controls, crop overlay, landscape control layout, zoom/pan framing and locked Avatar crop; Android, Web/Wasm and iOS diverge only at the bitmap decode/preview/export edge behind the shared PostImageEditorTransform and ImageEditorOutputSpec contracts.",
-    "No backend mutation is performed by this unit; cleanup is verified as zero physical residue because the fixture is local media only."
+    "No backend mutation is performed by this unit; cleanup is verified as zero physical residue because the fixture is local media only.",
+    "Evidence was repeated on f60aeb36 after fixing Android lint in the platform image preview/export edge: stale composer_image_preview_title resources were removed and Android Canvas translation now uses KTX without changing the common crop/avatar contract."
   ]
 }
