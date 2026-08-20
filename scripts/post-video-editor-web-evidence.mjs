@@ -122,6 +122,7 @@ async function runAttempt(context) {
       return state?.hasVideo === true && typeof state?.videoUri === "string" && state.videoUri.startsWith("blob:");
     }, null, { timeout: 15_000 }).then(() => postComposerProductState(page));
     const afterEdit = await screenshot(page, "web-post-video-editor-after-edit");
+    const physicalOutput = await saveAndProbeWebExport(page, editorAnchors.exportState);
     const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
     return {
@@ -130,7 +131,7 @@ async function runAttempt(context) {
       status: "passed",
       selectedField: "hasVideo",
       anchors: { type: resolvedTypeAnchor, action: selectedByBridge ?? resolvedActionAnchor, edit: resolvedEditorOpen, editor: editorAnchors },
-      evidence: { opened, afterSelect, afterEdit },
+      evidence: { opened, afterSelect, afterEdit, physicalOutput },
       state: exported,
     };
   } catch (error) {
@@ -194,14 +195,30 @@ async function exerciseVideoEditor(page) {
   await invokeVideoEditorAction(page, "cropMode", "Square");
   await invokeVideoEditorAction(page, "cropZoom", 1.32);
   await invokeVideoEditorAction(page, "cropPan", 0.08, -0.04);
+  anchors.captionsFailClosed = await assertCaptionsFailClosed(page);
+  await invokeVideoEditorAction(page, "captionStyle", null);
   await invokeVideoEditorAction(page, "captions");
-  await invokeVideoEditorAction(page, "captionStyle", "Karaoke");
   await invokeVideoEditorAction(page, "export");
   await page.waitForFunction(() => globalThis.__quataPostVideoEditorExport?.status === "success", null, { timeout: 15_000 });
   anchors.export = anchors["post-video-editor.export"];
   anchors.exportState = await page.evaluate(() => globalThis.__quataPostVideoEditorExport || null);
   assertWebVideoEditorExportParity(anchors.exportState);
   return anchors;
+}
+
+async function assertCaptionsFailClosed(page) {
+  await invokeVideoEditorAction(page, "captions");
+  await invokeVideoEditorAction(page, "captionStyle", "Karaoke");
+  await invokeVideoEditorAction(page, "export");
+  const failure = await page.waitForFunction(() => {
+    const state = globalThis.__quataPostVideoEditorExport;
+    return state?.status === "failed" && /caption_transcript_missing/.test(String(state.message || ""));
+  }, null, { timeout: 10_000 }).then((handle) => handle.jsonValue());
+  return {
+    kind: "failClosed",
+    value: failure?.message || "caption_transcript_missing",
+    reason: "web_ios_require_real_caption_transcript_before_burn_in",
+  };
 }
 
 async function waitForVideoEditorReady(page) {
@@ -239,16 +256,76 @@ async function invokeVideoEditorAction(page, action, ...args) {
 
 function assertWebVideoEditorExportParity(exportState) {
   if (!exportState || exportState.status !== "success") throw new Error("web_video_editor_export_missing_success_state");
-  const requiredOperations = ["trim", "mute", "crop", "captions"];
+  const requiredOperations = ["trim", "mute", "crop"];
   for (const operation of requiredOperations) {
     if (exportState.operations?.[operation] !== true) {
       throw new Error(`web_video_editor_export_missing_operation:${operation}`);
     }
   }
+  if (exportState.operations?.captions === true) {
+    throw new Error("web_video_editor_caption_false_positive");
+  }
   if (!exportState.output || exportState.output.size <= 0) throw new Error("web_video_editor_export_empty_output");
   if (exportState.output.outputWidth !== 1080 || exportState.output.outputHeight !== 1920) {
     throw new Error(`web_video_editor_export_unexpected_dimensions:${exportState.output.outputWidth}x${exportState.output.outputHeight}`);
   }
+}
+
+async function saveAndProbeWebExport(page, exportState) {
+  const reference = exportState?.reference ?? exportState?.output?.reference;
+  if (typeof reference !== "string" || !reference.startsWith("blob:")) {
+    throw new Error("web_video_editor_export_missing_blob_reference");
+  }
+  await mkdir(options.evidenceDir, { recursive: true });
+  const outputPath = resolve(options.evidenceDir, "web-post-video-editor-export.webm");
+  const base64 = await page.evaluate(async (blobReference) => {
+    const response = await fetch(blobReference);
+    if (!response.ok) throw new Error(`web_video_editor_blob_fetch_${response.status}`);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+    return btoa(binary);
+  }, reference);
+  await writeFile(outputPath, Buffer.from(base64, "base64"));
+  const outputStats = await stat(outputPath);
+  if (outputStats.size <= 0) throw new Error("web_video_editor_physical_export_empty");
+
+  const ffprobe = JSON.parse(execFileSync("ffprobe", [
+    "-v", "error",
+    "-print_format", "json",
+    "-show_format",
+    "-show_streams",
+    outputPath,
+  ], { encoding: "utf8" }));
+  const videoStream = ffprobe.streams?.find((stream) => stream.codec_type === "video");
+  const audioStream = ffprobe.streams?.find((stream) => stream.codec_type === "audio");
+  if (!videoStream) throw new Error("web_video_editor_physical_video_stream_missing");
+  if (audioStream) throw new Error("web_video_editor_physical_audio_stream_present_after_mute");
+  const width = Number(videoStream.width || 0);
+  const height = Number(videoStream.height || 0);
+  if (width !== 1080 || height !== 1920) {
+    throw new Error(`web_video_editor_physical_dimensions:${width}x${height}`);
+  }
+  const ffprobeDurationMs = Math.round(Number(ffprobe.format?.duration || videoStream.duration || 0) * 1000);
+  const bridgeDurationMs = Math.round(Number(exportState.output?.effectiveDurationMs || 0));
+  const physicalDurationMs = ffprobeDurationMs > 0 ? ffprobeDurationMs : bridgeDurationMs;
+  const expectedDurationMs = Math.max(500, Number(exportState.spec?.trimEndMs || 0) - Number(exportState.spec?.trimStartMs || 0));
+  if (physicalDurationMs < expectedDurationMs * 0.45 || physicalDurationMs > expectedDurationMs * 1.45) {
+    throw new Error(`web_video_editor_physical_trim_duration:${physicalDurationMs}:${expectedDurationMs}`);
+  }
+  return {
+    path: outputPath,
+    sizeBytes: outputStats.size,
+    durationMs: physicalDurationMs,
+    ffprobeDurationMs,
+    bridgeDurationMs,
+    expectedTrimDurationMs: expectedDurationMs,
+    video: { codec: videoStream.codec_name, width, height },
+    audioStreamPresent: Boolean(audioStream),
+  };
 }
 
 function parseArgs(args) {

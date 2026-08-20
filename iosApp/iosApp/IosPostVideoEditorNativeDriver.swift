@@ -13,6 +13,23 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
         IosPostVideoEditorPreviewSurfaceImpl(url: URL(string: reference))
     }
 
+    func metadata(source: PlatformFile) -> IosPostVideoEditorMetadata? {
+        guard let sourceUrl = URL(string: source.reference), sourceUrl.isFileURL else {
+            return nil
+        }
+        let asset = AVURLAsset(url: sourceUrl)
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+            return nil
+        }
+        let transformed = videoTrack.naturalSize.applying(videoTrack.preferredTransform)
+        let durationMs = max(1, Int64(CMTimeGetSeconds(asset.duration) * 1_000))
+        return IosPostVideoEditorMetadata(
+            durationMs: durationMs,
+            width: Int32(max(1, Int(abs(transformed.width)))),
+            height: Int32(max(1, Int(abs(transformed.height))))
+        )
+    }
+
     func export(
         source: PlatformFile,
         request: IosPostVideoEditorExportRequest,
@@ -120,16 +137,29 @@ private final class IosPostVideoEditorExportOperation {
             callback.onFailure(reason: "ios_post_video_editor_composition_video_track_failed")
             return
         }
+        let needsBackgroundTrack = request.hasBackgroundCrop
+        let compositionBackground = needsBackgroundTrack
+            ? composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+            : nil
         do {
             try compositionVideo.insertTimeRange(range, of: videoTrack, at: .zero)
+            if let compositionBackground {
+                try compositionBackground.insertTimeRange(range, of: videoTrack, at: .zero)
+            }
         } catch {
             callback.onFailure(reason: "ios_post_video_editor_video_insert_failed")
             return
         }
         compositionVideo.preferredTransform = videoTrack.preferredTransform
+        compositionBackground?.preferredTransform = videoTrack.preferredTransform
         if !request.removeAudio, let audioTrack = asset.tracks(withMediaType: .audio).first,
            let compositionAudio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
             try? compositionAudio.insertTimeRange(range, of: audioTrack, at: .zero)
+        }
+        if let captionStyle = request.captionStyle, !captionStyle.isEmpty,
+           request.captionText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            callback.onFailure(reason: "ios_post_video_editor_caption_transcript_missing")
+            return
         }
 
         let outputUrl = temporaryOutputUrl()
@@ -142,7 +172,12 @@ private final class IosPostVideoEditorExportOperation {
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
         exportSession.timeRange = CMTimeRange(start: .zero, duration: range.duration)
-        exportSession.videoComposition = makeVideoComposition(track: videoTrack, compositionTrack: compositionVideo, duration: range.duration)
+        exportSession.videoComposition = makeVideoComposition(
+            track: videoTrack,
+            foregroundTrack: compositionVideo,
+            backgroundTrack: compositionBackground,
+            duration: range.duration
+        )
         exportSession.exportAsynchronously { [callback] in
             DispatchQueue.main.async {
                 switch exportSession.status {
@@ -165,39 +200,70 @@ private final class IosPostVideoEditorExportOperation {
 
     private func makeVideoComposition(
         track: AVAssetTrack,
-        compositionTrack: AVCompositionTrack,
+        foregroundTrack: AVCompositionTrack,
+        backgroundTrack: AVCompositionTrack?,
         duration: CMTime
     ) -> AVMutableVideoComposition {
         let outputSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
         let instruction = AVMutableVideoCompositionInstruction()
         instruction.timeRange = CMTimeRange(start: .zero, duration: duration)
-        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionTrack)
-        layerInstruction.setTransform(videoTransform(for: track, outputSize: outputSize), at: .zero)
-        instruction.layerInstructions = [layerInstruction]
+        let foregroundInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: foregroundTrack)
+        foregroundInstruction.setTransform(
+            videoTransform(for: track, outputSize: outputSize, crop: request.foregroundCrop, mode: .fit),
+            at: .zero
+        )
+        if let backgroundTrack {
+            let backgroundInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: backgroundTrack)
+            backgroundInstruction.setOpacity(0.78, at: .zero)
+            backgroundInstruction.setTransform(
+                videoTransform(for: track, outputSize: outputSize, crop: request.backgroundCrop, mode: .fill),
+                at: .zero
+            )
+            instruction.backgroundColor = UIColor.black.cgColor
+            instruction.layerInstructions = [foregroundInstruction, backgroundInstruction]
+        } else {
+            instruction.backgroundColor = UIColor.black.cgColor
+            instruction.layerInstructions = [foregroundInstruction]
+        }
 
         let composition = AVMutableVideoComposition()
         composition.renderSize = outputSize
         composition.frameDuration = CMTime(value: 1, timescale: 30)
         composition.instructions = [instruction]
         if let captionStyle = request.captionStyle, !captionStyle.isEmpty {
-            composition.animationTool = captionAnimationTool(outputSize: outputSize, captionStyle: captionStyle)
+            guard let captionText = request.captionText?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !captionText.isEmpty else {
+                return composition
+            }
+            composition.animationTool = captionAnimationTool(
+                outputSize: outputSize,
+                captionStyle: captionStyle,
+                captionText: captionText
+            )
         }
         return composition
     }
 
-    private func videoTransform(for track: AVAssetTrack, outputSize: CGSize) -> CGAffineTransform {
+    private func videoTransform(
+        for track: AVAssetTrack,
+        outputSize: CGSize,
+        crop: CGRect,
+        mode: VideoLayerScaleMode
+    ) -> CGAffineTransform {
         let displaySize = displaySize(for: track)
-        let cropLeft = CGFloat(request.cropLeft).clamped(to: 0...1)
-        let cropTop = CGFloat(request.cropTop).clamped(to: 0...1)
-        let cropRight = CGFloat(request.cropRight).clamped(to: 0...1)
-        let cropBottom = CGFloat(request.cropBottom).clamped(to: 0...1)
-        let cropWidth = max(1, (cropRight - cropLeft) * displaySize.width)
-        let cropHeight = max(1, (cropBottom - cropTop) * displaySize.height)
-        let scaleX = outputSize.width / cropWidth
-        let scaleY = outputSize.height / cropHeight
+        let cropWidth = max(1, crop.width * displaySize.width)
+        let cropHeight = max(1, crop.height * displaySize.height)
+        let scale = mode == .fill
+            ? max(outputSize.width / cropWidth, outputSize.height / cropHeight)
+            : min(outputSize.width / cropWidth, outputSize.height / cropHeight)
+        let drawWidth = cropWidth * scale
+        let drawHeight = cropHeight * scale
+        let translateX = (outputSize.width - drawWidth) / 2
+        let translateY = (outputSize.height - drawHeight) / 2
         return track.preferredTransform
-            .translatedBy(x: -cropLeft * displaySize.width, y: -cropTop * displaySize.height)
-            .scaledBy(x: scaleX, y: scaleY)
+            .translatedBy(x: -crop.minX * displaySize.width, y: -crop.minY * displaySize.height)
+            .scaledBy(x: scale, y: scale)
+            .translatedBy(x: translateX / scale, y: translateY / scale)
     }
 
     private func displaySize(for track: AVAssetTrack) -> CGSize {
@@ -207,7 +273,11 @@ private final class IosPostVideoEditorExportOperation {
         return CGSize(width: max(1, width), height: max(1, height))
     }
 
-    private func captionAnimationTool(outputSize: CGSize, captionStyle: String) -> AVVideoCompositionCoreAnimationTool {
+    private func captionAnimationTool(
+        outputSize: CGSize,
+        captionStyle: String,
+        captionText: String
+    ) -> AVVideoCompositionCoreAnimationTool {
         let parentLayer = CALayer()
         let videoLayer = CALayer()
         parentLayer.frame = CGRect(origin: .zero, size: outputSize)
@@ -226,7 +296,7 @@ private final class IosPostVideoEditorExportOperation {
         parentLayer.addSublayer(background)
 
         let text = CATextLayer()
-        text.string = captionStyle.uppercased()
+        text.string = captionText.uppercased()
         text.alignmentMode = .center
         text.foregroundColor = UIColor.white.cgColor
         text.contentsScale = UIScreen.main.scale
@@ -240,6 +310,51 @@ private final class IosPostVideoEditorExportOperation {
         URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("quata-post-video-editor-\(UUID().uuidString)")
             .appendingPathExtension("mp4")
+    }
+}
+
+private enum VideoLayerScaleMode {
+    case fit
+    case fill
+}
+
+private extension IosPostVideoEditorExportRequest {
+    var foregroundCrop: CGRect {
+        normalizedCrop(
+            left: CGFloat(cropLeft),
+            top: CGFloat(cropTop),
+            right: CGFloat(cropRight),
+            bottom: CGFloat(cropBottom)
+        )
+    }
+
+    var backgroundCrop: CGRect {
+        normalizedCrop(
+            left: CGFloat(backgroundCropLeft),
+            top: CGFloat(backgroundCropTop),
+            right: CGFloat(backgroundCropRight),
+            bottom: CGFloat(backgroundCropBottom)
+        )
+    }
+
+    var hasBackgroundCrop: Bool {
+        abs(backgroundCropLeft) > 0.001 ||
+            abs(backgroundCropTop) > 0.001 ||
+            abs(backgroundCropRight - 1) > 0.001 ||
+            abs(backgroundCropBottom - 1) > 0.001
+    }
+
+    private func normalizedCrop(left: CGFloat, top: CGFloat, right: CGFloat, bottom: CGFloat) -> CGRect {
+        let safeLeft = left.clamped(to: 0...0.99)
+        let safeTop = top.clamped(to: 0...0.99)
+        let safeRight = right.clamped(to: (safeLeft + 0.01)...1)
+        let safeBottom = bottom.clamped(to: (safeTop + 0.01)...1)
+        return CGRect(
+            x: safeLeft,
+            y: safeTop,
+            width: safeRight - safeLeft,
+            height: safeBottom - safeTop
+        )
     }
 }
 

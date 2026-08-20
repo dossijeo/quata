@@ -12,6 +12,7 @@ data class PostVideoEditorExportSpec(
     val cropRect: NormalizedCropRect,
     val backgroundCropRect: NormalizedCropRect?,
     val captionStyle: CaptionTemplateStyle?,
+    val captionText: String?,
     val outputWidth: Int = PostVideoEditorOutputWidth,
     val outputHeight: Int = PostVideoEditorOutputHeight,
 ) {
@@ -24,6 +25,7 @@ fun postVideoEditorExportSpec(
     state: PostVideoEditorUiState,
     videoAspectRatio: Float,
     durationMs: Long,
+    captionText: String? = null,
 ): PostVideoEditorExportSpec {
     val safeDuration = durationMs.coerceAtLeast(1L)
     val trimStartMs = (state.trimStartFraction.coerceIn(0f, 1f) * safeDuration).roundToLong()
@@ -40,6 +42,9 @@ fun postVideoEditorExportSpec(
             .centerCropToAspect(PostVideoEditorOutputAspectRatio, videoAspectRatio)
             .takeUnless { it.isFullFrame }
     }
+    val selectedCaptionStyle = state.selectedCaptionStyleId
+        ?.let { id -> CaptionTemplateStyle.entries.firstOrNull { it.name == id } }
+        ?.takeIf { state.captionsEnabled }
     return PostVideoEditorExportSpec(
         trimStartMs = trimStartMs,
         trimEndMs = trimEndMs,
@@ -47,9 +52,11 @@ fun postVideoEditorExportSpec(
         removeAudio = state.isMuted,
         cropRect = foregroundCrop,
         backgroundCropRect = backgroundCrop,
-        captionStyle = state.selectedCaptionStyleId
-            ?.let { id -> CaptionTemplateStyle.entries.firstOrNull { it.name == id } }
-            ?.takeIf { state.captionsEnabled },
+        captionStyle = selectedCaptionStyle,
+        captionText = captionText
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.takeIf { selectedCaptionStyle != null },
     )
 }
 

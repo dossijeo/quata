@@ -36,6 +36,7 @@ import kotlin.coroutines.resumeWithException
 
 interface IosPostVideoEditorNativeDriver {
     fun createPreview(reference: String): IosPostVideoEditorPreviewSurface
+    fun metadata(source: PlatformFile): IosPostVideoEditorMetadata?
     fun export(source: PlatformFile, request: IosPostVideoEditorExportRequest, callback: IosPostVideoEditorExportCallback)
 }
 
@@ -59,13 +60,27 @@ data class IosPostVideoEditorExportRequest(
     val cropTop: Float,
     val cropRight: Float,
     val cropBottom: Float,
+    val backgroundCropLeft: Float,
+    val backgroundCropTop: Float,
+    val backgroundCropRight: Float,
+    val backgroundCropBottom: Float,
     val captionStyle: String?,
+    val captionText: String?,
     val outputWidth: Int,
     val outputHeight: Int,
 )
 
+data class IosPostVideoEditorMetadata(
+    val durationMs: Long,
+    val width: Int,
+    val height: Int,
+) {
+    val aspectRatio: Float get() = if (width > 0 && height > 0) width.toFloat() / height.toFloat() else 9f / 16f
+}
+
 object UnsupportedIosPostVideoEditorNativeDriver : IosPostVideoEditorNativeDriver {
     override fun createPreview(reference: String): IosPostVideoEditorPreviewSurface = UnsupportedIosPostVideoEditorPreviewSurface
+    override fun metadata(source: PlatformFile): IosPostVideoEditorMetadata? = null
     override fun export(source: PlatformFile, request: IosPostVideoEditorExportRequest, callback: IosPostVideoEditorExportCallback) {
         callback.onFailure("ios_post_video_editor_native_export_required")
     }
@@ -86,10 +101,12 @@ internal fun IosPostVideoEditor(
 ) {
     var state by remember(source.reference) { mutableStateOf(PostVideoEditorUiState()) }
     var thumbnail by remember(source.reference) { mutableStateOf<PlatformFile?>(null) }
+    var metadata by remember(source.reference) { mutableStateOf<IosPostVideoEditorMetadata?>(null) }
     val scope = rememberCoroutineScope()
-    val durationMs = MaximumPostVideoEditorDurationMs
-    val videoAspectRatio = 9f / 16f
+    val durationMs = metadata?.durationMs?.takeIf { it > 0L } ?: MaximumPostVideoEditorDurationMs
+    val videoAspectRatio = metadata?.aspectRatio ?: 9f / 16f
     LaunchedEffect(source.reference) {
+        metadata = nativeDriver.metadata(source)
         thumbnail = when (val result = IosVideoThumbnailService().createThumbnail(source, maxWidth = 720)) {
             is PlatformResult.Success -> result.value
             else -> null
@@ -186,7 +203,12 @@ private suspend fun iosPostVideoEditorExportEdited(
         cropTop = spec.cropRect.top,
         cropRight = spec.cropRect.right,
         cropBottom = spec.cropRect.bottom,
+        backgroundCropLeft = spec.backgroundCropRect?.left ?: 0f,
+        backgroundCropTop = spec.backgroundCropRect?.top ?: 0f,
+        backgroundCropRight = spec.backgroundCropRect?.right ?: 1f,
+        backgroundCropBottom = spec.backgroundCropRect?.bottom ?: 1f,
         captionStyle = spec.captionStyle?.name,
+        captionText = spec.captionText,
         outputWidth = spec.outputWidth,
         outputHeight = spec.outputHeight,
     )
