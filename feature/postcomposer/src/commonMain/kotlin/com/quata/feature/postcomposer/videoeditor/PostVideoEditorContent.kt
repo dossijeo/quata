@@ -525,42 +525,46 @@ private fun CommonCaptionControls(
                                 true
                             }
                         }
-                    Surface(
-                        onClick = { onStyleChange(id) },
-                        modifier = itemModifier,
-                        shape = RoundedCornerShape(20.dp),
-                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                        border = if (selected) null else ButtonDefaults.outlinedButtonBorder(enabled = true),
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
+                    val chipContent: @Composable () -> Unit = {
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp),
                         ) {
-                            Row(
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 12.dp),
-                            ) {
-                                if (selected) {
-                                    CompactIcon(Icons.Filled.Subtitles, null)
-                                    Spacer(Modifier.width(4.dp))
-                                }
-                                Text(
-                                    option.label,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = if (selected) {
-                                        Modifier
-                                            .testTag(selectedStyleTag)
-                                            .semantics { contentDescription = selectedStyleTag }
-                                    } else {
-                                        Modifier
-                                    },
-                                )
+                            if (selected) {
+                                CompactIcon(Icons.Filled.Subtitles, null)
+                                Spacer(Modifier.width(4.dp))
                             }
+                            Text(
+                                option.label,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = if (selected) {
+                                    Modifier
+                                        .testTag(selectedStyleTag)
+                                        .semantics { contentDescription = selectedStyleTag }
+                                } else {
+                                    Modifier
+                                },
+                            )
                         }
+                    }
+                    if (selected) {
+                        Button(
+                            onClick = { onStyleChange(id) },
+                            modifier = itemModifier,
+                            shape = RoundedCornerShape(20.dp),
+                            content = { chipContent() },
+                        )
+                    } else {
+                        OutlinedButton(
+                            onClick = { onStyleChange(id) },
+                            modifier = itemModifier,
+                            shape = RoundedCornerShape(20.dp),
+                            border = ButtonDefaults.outlinedButtonBorder(enabled = true),
+                            content = { chipContent() },
+                        )
                     }
                 }
             }
