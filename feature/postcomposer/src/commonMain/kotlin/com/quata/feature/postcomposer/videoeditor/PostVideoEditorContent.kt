@@ -59,7 +59,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -510,13 +514,50 @@ private fun CommonCaptionControls(
                     val selected = id == selectedId
                     val itemModifier = Modifier
                         .weight(1f)
-                        .height(40.dp)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(
+                            if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            },
+                        )
+                        .border(
+                            1.dp,
+                            if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.outlineVariant
+                            },
+                            RoundedCornerShape(22.dp),
+                        )
                         .testTag(styleTag)
-                    val chipContent: @Composable () -> Unit = {
+                        .semantics {
+                            role = Role.Button
+                            this.selected = selected
+                            contentDescription = styleTag
+                            onClick {
+                                onStyleChange(id)
+                                true
+                            }
+                            if (selected) {
+                                contentDescription = selectedStyleTag
+                            }
+                        }
+                        .pointerInput(id) {
+                            detectTapGestures {
+                                onStyleChange(id)
+                            }
+                        }
+                    Box(
+                        modifier = itemModifier.padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Row(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp),
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             if (selected) {
                                 CompactIcon(Icons.Filled.Subtitles, null)
@@ -524,6 +565,11 @@ private fun CommonCaptionControls(
                             }
                             Text(
                                 option.label,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.onPrimary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -536,22 +582,6 @@ private fun CommonCaptionControls(
                                 },
                             )
                         }
-                    }
-                    if (selected) {
-                        Button(
-                            onClick = { onStyleChange(id) },
-                            modifier = itemModifier,
-                            shape = RoundedCornerShape(20.dp),
-                            content = { chipContent() },
-                        )
-                    } else {
-                        OutlinedButton(
-                            onClick = { onStyleChange(id) },
-                            modifier = itemModifier,
-                            shape = RoundedCornerShape(20.dp),
-                            border = ButtonDefaults.outlinedButtonBorder(enabled = true),
-                            content = { chipContent() },
-                        )
                     }
                 }
             }
