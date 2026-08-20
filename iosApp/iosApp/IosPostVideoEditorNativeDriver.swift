@@ -217,7 +217,9 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
             }
         )
         activeExportOperations[operationId] = exporter
-        exporter.start()
+        DispatchQueue.main.async {
+            exporter.start()
+        }
     }
 }
 
@@ -294,7 +296,9 @@ private final class IosPostVideoEditorExportOperation {
     }
 
     func start() {
-        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_start")
+        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_start", details: [
+            "mainThread": Thread.isMainThread ? "true" : "false",
+        ])
         let asset = AVURLAsset(url: sourceUrl)
         guard let videoTrack = asset.tracks(withMediaType: .video).first else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_video_track_missing")
