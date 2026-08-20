@@ -5,11 +5,11 @@
     "POST-PICKER-CAMERA",
     "POST-MEDIA-PERMISSIONS"
   ],
-  "productSha": "cfa5e282b3f5699263add002ca9abedc6670bc0a",
+  "productSha": "72a3a9cb8f2ce07c2e9472522cff1bc4f023bacd",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "cfa5e282b3f5699263add002ca9abedc6670bc0a",
+      "sha": "72a3a9cb8f2ce07c2e9472522cff1bc4f023bacd",
       "report": "build-reports/web/post-media-permissions-evidence.json",
       "cleanup": {
         "verified": true,
@@ -18,7 +18,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "cfa5e282b3f5699263add002ca9abedc6670bc0a",
+      "sha": "72a3a9cb8f2ce07c2e9472522cff1bc4f023bacd",
       "report": "build-reports/android/post-media-permissions-evidence.json",
       "cleanup": {
         "verified": true,
@@ -27,7 +27,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "cfa5e282b3f5699263add002ca9abedc6670bc0a",
+      "sha": "72a3a9cb8f2ce07c2e9472522cff1bc4f023bacd",
       "report": "build-reports/ios/post-media-permissions-evidence.json",
       "cleanup": {
         "verified": true,
