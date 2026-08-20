@@ -515,14 +515,14 @@ private fun CommonCaptionControls(
                         .weight(1f)
                         .height(40.dp)
                         .testTag(styleTag)
-                        .semantics {
-                            contentDescription = styleTag
-                            this.selected = selected
-                        }
                         .clickable(
                             role = Role.Button,
                             onClick = { onStyleChange(id) },
                         )
+                        .semantics {
+                            contentDescription = styleTag
+                            this.selected = selected
+                        }
                     Surface(
                         modifier = itemModifier,
                         shape = RoundedCornerShape(20.dp),

@@ -125,19 +125,24 @@ set -euo pipefail
 cat ${shellQuote(remoteDiagnostics)}
 `);
     const diagnostics = JSON.parse(diagnosticsText);
-    assertIosExportDiagnostics(diagnostics);
+    const eventText = await runSshScript(options.host, `
+set -euo pipefail
+cat ${shellQuote(`${remoteDiagnostics}.events.jsonl`)}
+`);
+    const events = parseEvidenceEvents(eventText);
+    assertIosExportDiagnostics(diagnostics, events);
     await mkdir(options.evidenceDir, { recursive: true });
     const localExport = resolve(options.evidenceDir, "ios-post-video-editor-export.mp4");
     await run("scp", [`${options.host}:${diagnostics.outputPath}`, localExport]);
     await run("ssh", [options.host, "rm", "-f", diagnostics.outputPath]).catch(() => {});
     const physicalExport = probeIosExport(localExport, diagnostics);
-    return { source, outcome, status: "passed", remoteLogDir, diagnostics, physicalExport };
+    return { source, outcome, status: "passed", remoteLogDir, diagnostics, events: events.slice(-30), physicalExport };
   } catch (error) {
     return { source, outcome, status: "failed", remoteLogDir, error: safeFailure(error) };
   }
 }
 
-function assertIosExportDiagnostics(diagnostics) {
+function assertIosExportDiagnostics(diagnostics, events) {
   if (!diagnostics || typeof diagnostics !== "object") throw new Error("ios_video_editor_export_diagnostics_missing");
   if (Number(diagnostics.sizeBytes || 0) <= 0) throw new Error("ios_video_editor_export_empty_output");
   if (Number(diagnostics.outputWidth || 0) !== 1080 || Number(diagnostics.outputHeight || 0) !== 1920) {
@@ -147,6 +152,11 @@ function assertIosExportDiagnostics(diagnostics) {
   if (String(diagnostics.captionStyle || "") !== EXPECTED_CAPTION_STYLE) {
     throw new Error(`ios_video_editor_caption_style_not_selected:${diagnostics.captionStyle || ""}`);
   }
+  const selectedEvent = events.find((event) =>
+    event?.event === "caption_style_change" &&
+    String(event.style || "") === EXPECTED_CAPTION_STYLE
+  );
+  if (!selectedEvent) throw new Error(`ios_video_editor_caption_style_change_event_missing:${EXPECTED_CAPTION_STYLE}`);
   const text = String(diagnostics.captionText || "").trim().toLowerCase();
   if (!text.includes("quata") && !text.includes("video") && !text.includes("captions")) {
     throw new Error(`ios_video_editor_caption_unexpected_transcript:${text.slice(0, 80)}`);
@@ -157,6 +167,20 @@ function assertIosExportDiagnostics(diagnostics) {
   if (Number(diagnostics.captionSegmentCount || 0) <= 0 || Number(diagnostics.captionWordCount || 0) <= 0) {
     throw new Error("ios_video_editor_caption_document_empty");
   }
+}
+
+function parseEvidenceEvents(value) {
+  return String(value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return { event: "malformed_event", raw: line.slice(0, 120) };
+      }
+    });
 }
 
 function probeIosExport(outputPath, diagnostics) {

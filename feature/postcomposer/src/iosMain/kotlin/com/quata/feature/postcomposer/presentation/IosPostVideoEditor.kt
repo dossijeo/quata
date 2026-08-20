@@ -39,6 +39,7 @@ import kotlin.coroutines.resumeWithException
 interface IosPostVideoEditorNativeDriver {
     fun createPreview(reference: String): IosPostVideoEditorPreviewSurface
     fun metadata(source: PlatformFile): IosPostVideoEditorMetadata?
+    fun recordCaptionStyleChange(styleId: String?)
     fun transcribe(source: PlatformFile, callback: IosPostVideoEditorTranscriptCallback)
     fun export(source: PlatformFile, request: IosPostVideoEditorExportRequest, callback: IosPostVideoEditorExportCallback)
 }
@@ -89,6 +90,7 @@ data class IosPostVideoEditorMetadata(
 object UnsupportedIosPostVideoEditorNativeDriver : IosPostVideoEditorNativeDriver {
     override fun createPreview(reference: String): IosPostVideoEditorPreviewSurface = UnsupportedIosPostVideoEditorPreviewSurface
     override fun metadata(source: PlatformFile): IosPostVideoEditorMetadata? = null
+    override fun recordCaptionStyleChange(styleId: String?) = Unit
     override fun transcribe(source: PlatformFile, callback: IosPostVideoEditorTranscriptCallback) {
         callback.onFailure("ios_post_video_editor_caption_transcript_missing")
     }
@@ -162,7 +164,10 @@ internal fun IosPostVideoEditor(
         onCropModeChange = { state = postVideoEditorStateAfterCropModeChange(state, it, videoAspectRatio) },
         onCropZoomChange = { state = postVideoEditorStateAfterCropZoomChange(state, it, videoAspectRatio) },
         onCropPanChange = { dx, dy -> state = postVideoEditorStateAfterCropPan(state, dx, dy, videoAspectRatio) },
-        onCaptionStyleChange = { state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null) },
+        onCaptionStyleChange = {
+            nativeDriver.recordCaptionStyleChange(it)
+            state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null)
+        },
         onSeekChange = { state = state.copy(currentPositionFraction = it.coerceIn(0f, 1f)) },
         preview = { modifier: Modifier ->
             IosPostVideoEditorNativePreview(

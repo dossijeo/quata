@@ -35,6 +35,10 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
         )
     }
 
+    func recordCaptionStyleChange(styleId: String?) {
+        Self.writeEvidenceEvent("caption_style_change", details: ["style": styleId ?? "none"])
+    }
+
     func transcribe(
         source: PlatformFile,
         callback: any IosPostVideoEditorTranscriptCallback
