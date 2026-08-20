@@ -35,7 +35,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -58,12 +57,10 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Info
@@ -72,16 +69,12 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -114,11 +107,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Effect
 import androidx.media3.common.C
@@ -181,11 +171,7 @@ import com.quata.core.media.VideoExportProfile
 import com.quata.core.media.VideoExportSystemProfile
 import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
-import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.CompactIcon
-import com.quata.core.ui.components.CompactIconButton
-import com.quata.core.ui.components.QuataEditorScaffold
-import com.quata.core.ui.components.QuataEditorToolButton
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -598,237 +584,104 @@ fun QuataVideoEditorDialog(
     }
     val showMaxDurationWarning = durationMs > MaximumTrimDurationMs
 
-    QuataEditorScaffold(
-        title = stringResource(R.string.video_editor_title),
-        showTitle = !isLandscapeLayout,
-        onBack = ::requestBack,
-        backContentDescription = stringResource(R.string.video_editor_back),
-        modifier = Modifier.testTag(PostVideoEditorRootTestTag),
-        actions = {
-            if (!isExporting) {
-                QuataEditorToolButton(
-                    label = stringResource(if (isMuted) R.string.video_editor_unmute else R.string.video_editor_mute),
-                    enabled = true,
-                    onClick = { isMuted = !isMuted },
-                    modifier = Modifier.testTag(PostVideoEditorMuteTestTag),
-                ) {
-                    CompactIcon(if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
-                }
-                QuataEditorToolButton(
-                    label = stringResource(if (isCropPanelOpen) R.string.video_editor_crop_done else R.string.video_editor_crop),
-                    enabled = true,
-                    modifier = Modifier.testTag(PostVideoEditorCropTestTag),
-                    onClick = {
-                    isCaptionPanelOpen = false
-                    isCropPanelOpen = !isCropPanelOpen
-                    }
-                ) {
-                    CompactIcon(if (isCropPanelOpen) Icons.Filled.Check else Icons.Filled.Crop, contentDescription = null)
-                }
-                QuataEditorToolButton(
-                    label = stringResource(if (isCaptionPanelOpen) R.string.video_editor_captions_done else R.string.video_editor_captions),
-                    enabled = true,
-                    selected = captionStyle != null,
-                    modifier = Modifier.testTag(PostVideoEditorCaptionsTestTag),
-                    onClick = {
-                    isCropPanelOpen = false
-                    isCaptionPanelOpen = !isCaptionPanelOpen
-                    }
-                ) {
-                    CompactIcon(if (isCaptionPanelOpen) Icons.Filled.Check else Icons.Filled.Subtitles, contentDescription = null)
-                }
-                QuataEditorToolButton(
-                    label = stringResource(R.string.video_editor_export),
-                    enabled = true,
-                    onClick = ::export,
-                    modifier = Modifier.testTag(PostVideoEditorExportTestTag),
-                ) {
-                    CompactIcon(Icons.Filled.Save, contentDescription = null)
-                }
-            }
-        }
-    ) {
+    val editorState = PostVideoEditorUiState(
+        isMuted = isMuted,
+        isPlaying = isPlaying,
+        trimStartFraction = if (durationMs > 0L) trimStartMs.toFloat() / durationMs else 0f,
+        trimEndFraction = if (durationMs > 0L) trimEndMs.toFloat() / durationMs else 1f,
+        cropEnabled = cropMode != VideoCropMode.Original,
+        captionsEnabled = captionStyle != null,
+        cropPanelOpen = isCropPanelOpen,
+        captionsPanelOpen = isCaptionPanelOpen,
+        cropMode = cropMode,
+        cropZoom = cropZoom,
+        selectedCaptionStyleId = captionStyle?.name,
+        currentPositionLabel = infoPositionMs.formatVideoTime(),
+        selectedDurationLabel = selectedDurationMs.formatVideoTime(),
+        showMaxDurationWarning = showMaxDurationWarning,
+        isExporting = isExporting,
+        exportProgress = exportProgress,
+        error = exportError,
+    )
 
-            if (isLandscapeLayout) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    VideoPreviewPane(
-                        player = player,
-                        aspectRatio = videoAspect,
-                        previewFrame = previewFrame,
-                        isPlaying = isPlaying,
-                        cropRect = cropRect,
-                        videoRotationDegrees = metadata.rotation,
-                        captionPreviewFrame = captionPreviewFrame,
-                        isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
-                        onCropDrag = { dx, dy ->
-                            val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
-                            cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
-                        },
-                        modifier = Modifier
-                            .testTag(PostVideoEditorPreviewTestTag)
-                            .weight(1f)
-                            .fillMaxHeight()
-                    )
-
-                    Column(
-                        modifier = Modifier
-                            .width(312.dp)
-                            .fillMaxHeight()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (showMaxDurationWarning) {
-                            VideoMaxDurationWarningBanner(
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        VideoTimeline(
-                            frames = frames,
-                            durationMs = durationMs,
-                            trimStartMs = trimStartMs,
-                            trimEndMs = trimEndMs,
-                            currentPositionMs = timelinePositionMs,
-                            isExporting = isExporting,
-                            onTrimStartChange = ::applyTrimStartDrag,
-                            onTrimEndChange = ::applyTrimEndDrag,
-                            onSeek = { target ->
-                                seekPreviewTo(target)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag(PostVideoEditorTimelineTestTag)
-                                .height(82.dp)
-                        )
-
-                        if (isCropPanelOpen && !isExporting) {
-                            CropControls(
-                                mode = cropMode,
-                                zoom = cropZoom,
-                                onModeChange = { mode ->
-                                    cropMode = mode
-                                    cropZoom = 1f
-                                    cropCenter = Offset(0.5f, 0.5f)
-                                },
-                                onZoomChange = { nextZoom ->
-                                    cropZoom = nextZoom
-                                    cropCenter = cropMode.clampCenter(videoAspect, nextZoom, cropCenter)
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        if (isCaptionPanelOpen && !isExporting) {
-                            CaptionControls(
-                                selectedStyle = captionStyle,
-                                onStyleChange = { captionStyle = it },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        VideoEditorInfoBar(
-                            currentPositionMs = infoPositionMs,
-                            selectedDurationMs = selectedDurationMs,
-                            isPlaying = isPlaying,
-                            isExporting = isExporting,
-                            exportProgress = exportProgress,
-                            error = exportError,
-                            onPlayPause = ::playOrPause
-                        )
-                    }
-                }
-            } else {
-                VideoPreviewPane(
-                    player = player,
-                    aspectRatio = videoAspect,
-                    previewFrame = previewFrame,
-                    isPlaying = isPlaying,
-                    cropRect = cropRect,
-                    videoRotationDegrees = metadata.rotation,
-                    captionPreviewFrame = captionPreviewFrame,
-                    isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
-                    onCropDrag = { dx, dy ->
-                        val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
-                        cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
-                    },
-                    modifier = Modifier
-                        .testTag(PostVideoEditorPreviewTestTag)
-                        .weight(1f)
-                        .fillMaxSize()
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                )
-
-                if (showMaxDurationWarning) {
-                    VideoMaxDurationWarningBanner(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 48.dp, top = 2.dp, end = 48.dp, bottom = 6.dp)
-                    )
-                }
-
-                VideoTimeline(
-                    frames = frames,
-                    durationMs = durationMs,
-                    trimStartMs = trimStartMs,
-                    trimEndMs = trimEndMs,
-                    currentPositionMs = timelinePositionMs,
-                    isExporting = isExporting,
-                    onTrimStartChange = ::applyTrimStartDrag,
-                    onTrimEndChange = ::applyTrimEndDrag,
-                    onSeek = { target ->
-                        seekPreviewTo(target)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag(PostVideoEditorTimelineTestTag)
-                        .height(88.dp)
-                        .padding(horizontal = 48.dp)
-                )
-
-                if (isCropPanelOpen && !isExporting) {
-                    CropControls(
-                        mode = cropMode,
-                        zoom = cropZoom,
-                        onModeChange = { mode ->
-                            cropMode = mode
-                            cropZoom = 1f
-                            cropCenter = Offset(0.5f, 0.5f)
-                        },
-                        onZoomChange = { nextZoom ->
-                            cropZoom = nextZoom
-                            cropCenter = cropMode.clampCenter(videoAspect, nextZoom, cropCenter)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 10.dp)
-                    )
-                }
-                if (isCaptionPanelOpen && !isExporting) {
-                    CaptionControls(
-                        selectedStyle = captionStyle,
-                        onStyleChange = { captionStyle = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 10.dp)
-                    )
-                }
-
-                VideoEditorInfoBar(
-                    currentPositionMs = infoPositionMs,
-                    selectedDurationMs = selectedDurationMs,
-                    isPlaying = isPlaying,
-                    isExporting = isExporting,
-                    exportProgress = exportProgress,
-                    error = exportError,
-                    onPlayPause = ::playOrPause
-                )
-            }
-    }
+    PostVideoEditorDialogContent(
+        state = editorState,
+        isLandscapeLayout = isLandscapeLayout,
+        onMutedChange = { isMuted = it },
+        onPlayPause = ::playOrPause,
+        onTrimStartChange = { fraction ->
+            applyTrimStartDrag((fraction.coerceIn(0f, 1f) * durationMs.coerceAtLeast(1L)).roundToLong())
+        },
+        onTrimEndChange = { fraction ->
+            applyTrimEndDrag((fraction.coerceIn(0f, 1f) * durationMs.coerceAtLeast(1L)).roundToLong())
+        },
+        onCropToggle = {
+            isCaptionPanelOpen = false
+            isCropPanelOpen = !isCropPanelOpen
+        },
+        onCaptionsToggle = {
+            isCropPanelOpen = false
+            isCaptionPanelOpen = !isCaptionPanelOpen
+        },
+        onReset = {
+            isMuted = false
+            isCropPanelOpen = false
+            cropMode = VideoCropMode.Original
+            cropZoom = 1f
+            cropCenter = Offset(0.5f, 0.5f)
+            captionStyle = null
+            isCaptionPanelOpen = false
+            seekPreviewTo(trimStartMs)
+        },
+        onDismiss = ::requestBack,
+        onExport = ::export,
+        captionOptions = CaptionTemplateStyle.entries.map { style ->
+            CaptionStyleOption(style.name, stringResource(style.labelRes))
+        },
+        onCropModeChange = { mode ->
+            cropMode = mode
+            cropZoom = 1f
+            cropCenter = Offset(0.5f, 0.5f)
+        },
+        onCropZoomChange = { nextZoom ->
+            cropZoom = nextZoom
+            cropCenter = cropMode.clampCenter(videoAspect, nextZoom, cropCenter)
+        },
+        onCaptionStyleChange = { id ->
+            captionStyle = id?.let { selected -> CaptionTemplateStyle.entries.firstOrNull { it.name == selected } }
+        },
+        preview = { previewModifier ->
+            VideoPreviewPane(
+                player = player,
+                aspectRatio = videoAspect,
+                previewFrame = previewFrame,
+                isPlaying = isPlaying,
+                cropRect = cropRect,
+                videoRotationDegrees = metadata.rotation,
+                captionPreviewFrame = captionPreviewFrame,
+                isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
+                onCropDrag = { dx, dy ->
+                    val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
+                    cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
+                },
+                modifier = previewModifier,
+            )
+        },
+        timeline = { timelineModifier ->
+            VideoTimeline(
+                frames = frames,
+                durationMs = durationMs,
+                trimStartMs = trimStartMs,
+                trimEndMs = trimEndMs,
+                currentPositionMs = timelinePositionMs,
+                isExporting = isExporting,
+                onTrimStartChange = ::applyTrimStartDrag,
+                onTrimEndChange = ::applyTrimEndDrag,
+                onSeek = ::seekPreviewTo,
+                modifier = timelineModifier,
+            )
+        },
+    )
 
     if (isCancelExportDialogOpen) {
         AlertDialog(
@@ -1273,14 +1126,6 @@ private fun VideoTimeline(
 }
 
 @Composable
-private fun VideoMaxDurationWarningBanner(modifier: Modifier = Modifier) {
-    VideoMaxDurationWarningContent(
-        message = stringResource(R.string.video_editor_max_duration_warning),
-        modifier = modifier,
-    )
-}
-
-@Composable
 private fun TimelineHandle(
     modifier: Modifier,
     alignStart: Boolean
@@ -1296,272 +1141,6 @@ private fun TimelineHandle(
                 .height(42.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color.Black.copy(alpha = 0.38f))
-        )
-    }
-}
-
-@Composable
-private fun CropControls(
-    mode: VideoCropMode,
-    zoom: Float,
-    onModeChange: (VideoCropMode) -> Unit,
-    onZoomChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(template.colors.surface)
-            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
-            .padding(12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            VideoCropMode.entries.forEach { option ->
-                val selected = option == mode
-                val colors = if (selected) {
-                    ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent)
-                } else {
-                    ButtonDefaults.outlinedButtonColors(contentColor = template.colors.textPrimary)
-                }
-                val shape = RoundedCornerShape(9.dp)
-                if (selected) {
-                    Button(
-                        onClick = { onModeChange(option) },
-                        colors = colors,
-                        shape = shape,
-                        contentPadding = CompactButtonContentPadding,
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        CompactIcon(Icons.Filled.AspectRatio, contentDescription = null)
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(option.labelRes()), fontWeight = FontWeight.ExtraBold)
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = { onModeChange(option) },
-                        colors = colors,
-                        shape = shape,
-                        contentPadding = CompactButtonContentPadding,
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Text(stringResource(option.labelRes()), fontWeight = FontWeight.ExtraBold)
-                    }
-                }
-            }
-        }
-
-        if (mode != VideoCropMode.Original) {
-            Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.video_editor_zoom),
-                    color = template.colors.textSecondary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.width(56.dp)
-                )
-                Slider(
-                    value = zoom,
-                    onValueChange = onZoomChange,
-                    valueRange = 1f..3f,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CaptionControls(
-    selectedStyle: CaptionTemplateStyle?,
-    onStyleChange: (CaptionTemplateStyle?) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(template.colors.surface)
-            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
-            .padding(12.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.video_editor_captions),
-            color = template.colors.textPrimary,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 13.sp
-        )
-        Spacer(Modifier.height(10.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            CaptionStyleButton(
-                label = stringResource(R.string.caption_template_none),
-                selected = selectedStyle == null,
-                onClick = { onStyleChange(null) }
-            )
-            CaptionTemplateStyle.entries.forEach { style ->
-                CaptionStyleButton(
-                    label = stringResource(style.labelRes),
-                    selected = selectedStyle == style,
-                    onClick = { onStyleChange(style) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CaptionStyleButton(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val template = quataTheme()
-    val shape = RoundedCornerShape(9.dp)
-    if (selected) {
-        Button(
-            onClick = onClick,
-            colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
-            shape = shape,
-            contentPadding = CompactButtonContentPadding,
-            modifier = Modifier.height(36.dp)
-        ) {
-            CompactIcon(Icons.Filled.Subtitles, contentDescription = null)
-            Spacer(Modifier.width(4.dp))
-            Text(label, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-        }
-    } else {
-        OutlinedButton(
-            onClick = onClick,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = template.colors.textPrimary),
-            shape = shape,
-            contentPadding = CompactButtonContentPadding,
-            modifier = Modifier.height(36.dp)
-        ) {
-            Text(label, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-        }
-    }
-}
-
-@Composable
-private fun VideoEditorInfoBar(
-    currentPositionMs: Long,
-    selectedDurationMs: Long,
-    isPlaying: Boolean,
-    isExporting: Boolean,
-    exportProgress: Float,
-    error: String?,
-    onPlayPause: () -> Unit
-) {
-    val template = quataTheme()
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(template.colors.surfaceRaised)
-            .padding(horizontal = 18.dp, vertical = 6.dp)
-    ) {
-        if (isExporting) {
-            LinearProgressIndicator(
-                progress = { exportProgress.coerceIn(0f, 1f) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(5.dp),
-                color = template.colors.accent,
-                trackColor = template.colors.divider
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.video_editor_exporting, (exportProgress * 100).toInt().coerceIn(0, 100)),
-                color = template.colors.textPrimary,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(6.dp))
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(58.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TimeReadout(
-                text = stringResource(R.string.video_editor_current_time, currentPositionMs.formatVideoTime()),
-                horizontalAlignment = Alignment.Start,
-                modifier = Modifier.weight(1f)
-            )
-            if (isExporting) {
-                Spacer(modifier = Modifier.size(44.dp))
-            } else {
-                Surface(
-                    color = template.colors.accent,
-                    contentColor = template.colors.accentContent,
-                    shape = CircleShape,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    CompactIconButton(
-                        onClick = onPlayPause,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .testTag(PostVideoEditorPlayPauseTestTag),
-                    ) {
-                        CompactIcon(
-                            if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                            contentDescription = stringResource(R.string.video_editor_play_pause),
-                            modifier = Modifier.size(38.dp)
-                        )
-                    }
-                }
-            }
-            TimeReadout(
-                text = stringResource(R.string.video_editor_duration, selectedDurationMs.formatVideoTime()),
-                horizontalAlignment = Alignment.End,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun TimeReadout(
-    text: String,
-    horizontalAlignment: Alignment.Horizontal,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    val label = text.substringBefore(':', text).trim()
-    val value = text.substringAfter(':', "").trim()
-    Column(
-        modifier = modifier,
-        horizontalAlignment = horizontalAlignment,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = label,
-            color = template.colors.textSecondary,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 11.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = value.ifBlank { text },
-            color = template.colors.textPrimary,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 16.sp,
-            maxLines = 1
         )
     }
 }

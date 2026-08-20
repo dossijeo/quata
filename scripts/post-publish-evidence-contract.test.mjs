@@ -525,10 +525,18 @@ test("post video editor exposes stable common anchors and Android forwards them 
     assert.match(`${commonVideoEditorModels}\n${commonPostVideoEditorContent}`, new RegExp(tag.replace(/[.]/g, "\\.")));
   }
   assert.match(commonPostVideoEditorContent, /fun PostVideoEditorDialogContent/);
-  assert.match(androidVideoEditorDialog, /Modifier\.testTag\(PostVideoEditorRootTestTag\)/);
-  assert.match(androidVideoEditorDialog, /PostVideoEditorPreviewTestTag/);
-  assert.match(androidVideoEditorDialog, /PostVideoEditorTimelineTestTag/);
-  assert.match(androidVideoEditorDialog, /PostVideoEditorExportTestTag/);
+  assert.match(commonPostVideoEditorContent, /VideoCropMode/);
+  assert.match(commonPostVideoEditorContent, /cropPanelOpen/);
+  assert.match(commonPostVideoEditorContent, /captionsPanelOpen/);
+  assert.match(commonPostVideoEditorContent, /captionOptions: List<CaptionStyleOption>/);
+  assert.match(commonPostVideoEditorContent, /timeline: @Composable \(Modifier\) -> Unit/);
+  assert.match(commonPostVideoEditorContent, /DialogProperties\(usePlatformDefaultWidth = false\)/);
+  assert.match(androidVideoEditorDialog, /PostVideoEditorDialogContent\(/);
+  assert.match(androidVideoEditorDialog, /CaptionStyleOption/);
+  assert.match(androidVideoEditorDialog, /VideoTimeline\(/);
+  assert.match(androidVideoEditorDialog, /VideoPreviewPane\(/);
+  assert.doesNotMatch(androidVideoEditorDialog, /QuataEditorScaffold\(/);
+  assert.doesNotMatch(androidVideoEditorDialog, /QuataEditorToolButton\(/);
 });
 
 test("post video editor runners exercise editor anchors without backend mutation", () => {
