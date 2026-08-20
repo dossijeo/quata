@@ -8,7 +8,10 @@ const CHECK = "POST-PICKER-CAMERA-ANDROID-REAL-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 const deviceCredentialsPath = "app-internal:post-picker-camera-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/post-picker-camera-credentials.json";
+const deviceTempVideoPath = "/data/local/tmp/post-picker-camera-long-video.mp4";
+const deviceVideoPath = "/data/data/com.quata/files/post-picker-camera-long-video.mp4";
 const deviceEvidencePath = "files/post-publish-evidence";
+const DEFAULT_VIDEO_FIXTURE = "play-store/05-assets/source-media/big-buck-bunny-320x180.mp4";
 const defaultSources = ["gallery-image", "camera-image", "camera-image:cancelled"];
 
 const options = parseArgs(process.argv.slice(2));
@@ -48,6 +51,13 @@ try {
   await run(adb, ["shell", "chmod", "644", deviceTempCredentialsPath]);
   await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempCredentialsPath, `files/${deviceCredentialsPath.replace("app-internal:", "")}`]);
   await run(adb, ["shell", "rm", "-f", deviceTempCredentialsPath]);
+  if (options.sources.some((entry) => sourceAndOutcome(entry).source.endsWith("video"))) {
+    await run(adb, ["push", options.videoFixture, deviceTempVideoPath]);
+    await run(adb, ["shell", "chmod", "644", deviceTempVideoPath]);
+    await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempVideoPath, "files/post-picker-camera-long-video.mp4"]);
+    await run(adb, ["shell", "rm", "-f", deviceTempVideoPath]);
+    report.steps.push("android_long_video_fixture_copied_to_app_sandbox");
+  }
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
 
   for (const sourceAttempt of options.sources) {
@@ -58,6 +68,7 @@ try {
       "-e", "quataPostPublishCredentialsFile", deviceCredentialsPath,
       "-e", "quataPostComposerPickerSource", source,
       "-e", "quataPostComposerPickerOutcome", outcome,
+      "-e", "quataPostComposerPickerVideoPath", deviceVideoPath,
       "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
     ]);
     const attempt = { source, outcome, status: "failed", instrumentationTail: redactedTail(instrumentationOutput) };
@@ -84,7 +95,9 @@ try {
   await copyDeviceEvidence(resolve(options.evidenceDir)).catch(() => {});
 } finally {
   await run(adb, ["shell", "rm", "-f", deviceTempCredentialsPath]).catch(() => {});
+  await run(adb, ["shell", "rm", "-f", deviceTempVideoPath]).catch(() => {});
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-f", `files/${deviceCredentialsPath.replace("app-internal:", "")}`]).catch(() => {});
+  await run(adb, ["shell", "run-as", "com.quata", "rm", "-f", "files/post-picker-camera-long-video.mp4"]).catch(() => {});
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]).catch(() => {});
   await rm(localCredentials ?? "", { force: true }).catch(() => {});
   report.finishedAt = new Date().toISOString();
@@ -105,18 +118,20 @@ function parseArgs(args) {
     output: resolve(join("build-reports", "android", "post-picker-camera-evidence.json")),
     evidenceDir: resolve(join("build-reports", "android", "post-picker-camera-evidence")),
     credentialsFile: process.env.QUATA_POST_PUBLISH_CREDENTIALS_FILE?.trim() || DEFAULT_CREDENTIALS_FILE,
+    videoFixture: resolve(process.env.QUATA_POST_PICKER_CAMERA_VIDEO_FIXTURE?.trim() || DEFAULT_VIDEO_FIXTURE),
     sources: defaultSources,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
-    if (!["--out", "--evidence-dir", "--credentials-file", "--sources"].includes(key) || !value || value.startsWith("--")) {
+    if (!["--out", "--evidence-dir", "--credentials-file", "--sources", "--video-fixture"].includes(key) || !value || value.startsWith("--")) {
       throw new Error(`invalid_argument:${key}`);
     }
     index += 1;
     if (key === "--out") parsed.output = resolve(value);
     if (key === "--evidence-dir") parsed.evidenceDir = resolve(value);
     if (key === "--credentials-file") parsed.credentialsFile = value;
+    if (key === "--video-fixture") parsed.videoFixture = resolve(value);
     if (key === "--sources") parsed.sources = value.split(",").map((entry) => entry.trim()).filter(Boolean);
   }
   return parsed;

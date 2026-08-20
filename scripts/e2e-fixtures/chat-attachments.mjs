@@ -40,6 +40,14 @@ export function validMp4Fixture() {
   return readFileSync(resolve("play-store/05-assets/quata-demo-video.mp4"));
 }
 
+export function longMp4FixturePath() {
+  return resolve("play-store/05-assets/source-media/big-buck-bunny-320x180.mp4");
+}
+
+export function longMp4Fixture() {
+  return readFileSync(longMp4FixturePath());
+}
+
 export function pathSegment(path) {
   return String(path).split("/").map(encodeURIComponent).join("/");
 }

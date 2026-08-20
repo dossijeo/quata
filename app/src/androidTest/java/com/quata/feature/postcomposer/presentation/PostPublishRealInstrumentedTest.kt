@@ -182,6 +182,7 @@ class PostPublishRealInstrumentedTest {
         val credentialsFile = optionalArgument("quataPostPublishCredentialsFile")
         val source = optionalArgument("quataPostComposerPickerSource")
         val outcome = optionalArgument("quataPostComposerPickerOutcome") ?: "success"
+        val videoFixturePath = optionalArgument("quataPostComposerPickerVideoPath")
         assumeTrue(
             "POST-PICKER-CAMERA-ANDROID-REAL-001 is opt-in and requires local credentials plus source.",
             !credentialsFile.isNullOrBlank() && !source.isNullOrBlank(),
@@ -197,7 +198,7 @@ class PostPublishRealInstrumentedTest {
             if (pickerSource.endsWith("image")) {
                 Uri.parse(createImageLocationEvidenceUri()).path ?: error("android_image_fixture_path_missing")
             } else {
-                createVideoEvidenceFile().absolutePath
+                videoFixturePath?.takeIf { File(it).isFile } ?: createVideoEvidenceFile().absolutePath
             }
         } else null
         val credentials = credentialsFromFile(credentialsFile.orEmpty())

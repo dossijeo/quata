@@ -310,6 +310,9 @@ test("android post picker/camera runner exercises shared UI anchors with no back
   assert.match(androidPickerCameraRunner, /POST-PICKER-CAMERA-ANDROID-REAL-001/);
   assert.match(androidPickerCameraRunner, /authenticatedUserExercisesMediaSourceActionsFromCommonComposer/);
   assert.match(androidPickerCameraRunner, /gallery-image/);
+  assert.match(androidPickerCameraRunner, /gallery-video/);
+  assert.match(androidPickerCameraRunner, /post-picker-camera-long-video\.mp4/);
+  assert.match(androidPostPublishTest, /quataPostComposerPickerVideoPath/);
   assert.match(androidPickerCameraRunner, /camera-image:cancelled/);
   assert.match(androidPickerCameraRunner, /quataPostComposerPickerSource/);
   assert.match(androidPickerCameraRunner, /quataPostComposerPickerOutcome/);
@@ -320,6 +323,8 @@ test("android post picker/camera runner exercises shared UI anchors with no back
 test("web post picker/camera runner exercises shared UI anchors with no backend mutation", () => {
   assert.match(webPickerCameraRunner, /POST-PICKER-CAMERA-WEB-REAL-001/);
   assert.match(webPickerCameraRunner, /I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE/);
+  assert.match(webPickerCameraRunner, /longMp4FixturePath/);
+  assert.match(webPickerCameraRunner, /post-picker-camera-long-video\.mp4/);
   assert.match(webPickerCameraRunner, /composer-media\.pick-image/);
   assert.match(webPickerCameraRunner, /composer-media\.capture-image/);
   assert.match(webPickerCameraRunner, /composer-media\.edit-image/);
@@ -335,11 +340,13 @@ test("ios post picker/camera runner exercises shared UI anchors with no backend 
   assert.match(iosPickerCameraRunner, /run-ios-post-picker-camera-ui-test\.sh/);
   assert.match(iosPickerCameraRunner, /QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN/);
   assert.match(iosPickerCameraRunner, /I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE/);
+  assert.match(iosPickerCameraRunner, /QUATA_IOS_POST_COMPOSER_PICKER_MEDIA_TYPE/);
+  assert.match(iosPickerCameraRunner, /longMp4FixturePath/);
   assert.match(iosPickerCameraWrapper, /testAuthenticatedSessionExercisesMediaSourceActionsFromCommonComposer/);
   assert.match(iosPickerCameraWrapper, /IOS_POST_PICKER_CAMERA_UI_GATE_PASSED/);
-  assert.match(iosPostPublishTest, /composer-media\.pick-image/);
-  assert.match(iosPostPublishTest, /composer-media\.capture-image/);
-  assert.match(iosPostPublishTest, /composer-media\.selected-image-preview/);
+  assert.ok(iosPostPublishTest.includes("composer-media.pick-\\(mediaType)"));
+  assert.ok(iosPostPublishTest.includes("composer-media.capture-\\(mediaType)"));
+  assert.ok(iosPostPublishTest.includes("composer-media.selected-\\(mediaType)-preview"));
   assert.doesNotMatch(iosPickerCameraRunner, /community_posts/);
   assert.doesNotMatch(iosPickerCameraRunner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
 });

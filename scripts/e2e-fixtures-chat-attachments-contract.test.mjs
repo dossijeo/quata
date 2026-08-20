@@ -17,6 +17,8 @@ import {
   seedFeedOfficialCommentsFixture,
   seedProfileContentFixture,
   seedChatAttachmentFixture,
+  longMp4Fixture,
+  longMp4FixturePath,
   validMp4Fixture,
   validWavFixture,
 } from "./e2e-fixtures/chat-attachments.mjs";
@@ -38,6 +40,14 @@ test("validWavFixture supports longer observable playback windows for E2E chaini
 test("validMp4Fixture is shared and produces a real MP4 buffer", () => {
   const mp4 = validMp4Fixture();
   assert.ok(mp4.length > 8_000);
+  assert.equal(mp4.subarray(4, 8).toString("ascii"), "ftyp");
+});
+
+test("longMp4Fixture is shared and keeps post picker/camera video evidence realistic", () => {
+  const path = longMp4FixturePath();
+  const mp4 = longMp4Fixture();
+  assert.match(path, /big-buck-bunny-320x180\.mp4$/);
+  assert.ok(mp4.length > 10_000_000);
   assert.equal(mp4.subarray(4, 8).toString("ascii"), "ftyp");
 });
 
