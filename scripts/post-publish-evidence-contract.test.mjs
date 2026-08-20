@@ -639,6 +639,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /post-video-editor\.root/);
   assert.match(iosPostPublishTest, /post-video-editor\.caption-style\.Karaoke/);
   assert.match(iosPostPublishTest, /post-video-editor\.export/);
+  assert.match(iosPostPublishTest, /post-video-editor\.export-progress/);
+  assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE/);
   assert.match(iosPostPublishTest, /addingTimeInterval\(180\)/);
   assert.match(iosPostPublishTest, /IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED/);
   assert.match(iosComposerHost, /IosPostVideoEditor/);
@@ -654,6 +656,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditor, /CaptionDocument\.fromWords/);
   assert.match(iosPostVideoEditor, /CaptionDocumentWireCodec\.decodeWords/);
   assert.match(iosPostVideoEditor, /CaptionDocumentWireCodec::encodeDocument/);
+  assert.match(commonVideoEditorModels, /PostVideoEditorExportProgressTestTag/);
   assert.doesNotMatch(iosPostVideoEditor, /val captionText = "Q/);
   assert.match(iosPostVideoEditor, /UIKitView/);
   assert.match(iosPostVideoEditorNativeDriver, /SFSpeechRecognizer/);

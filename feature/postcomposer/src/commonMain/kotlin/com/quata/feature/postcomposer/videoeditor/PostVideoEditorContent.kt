@@ -552,7 +552,9 @@ private fun PostVideoEditorInfoBar(
         if (state.isExporting) {
             LinearProgressIndicator(
                 progress = { state.exportProgress.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(PostVideoEditorExportProgressTestTag),
             )
             Text("${strings.exporting} ${(state.exportProgress * 100).toInt().coerceIn(0, 100)}%", style = MaterialTheme.typography.bodySmall)
         }

@@ -237,6 +237,10 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         tapComposerAction("post-video-editor.captions", in: app)
         tapComposerAction("post-video-editor.caption-style.Karaoke", in: app)
         tapComposerAction("post-video-editor.export", in: app)
+        let exportProgress = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.export-progress")
+            .firstMatch
+        XCTAssertTrue(exportProgress.waitForExistence(timeout: 8), "Tapping the shared video editor export action must enter the exporting state.")
         let editorError = app.descendants(matching: .any)
             .matching(identifier: "post-video-editor.error")
             .firstMatch
@@ -300,6 +304,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_NAME",
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_MIME",
             "QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS",
+            "QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE",
             "QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE",
             "QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD",
             "QUATA_IOS_POST_DESTINATION_E2E_MODE",
