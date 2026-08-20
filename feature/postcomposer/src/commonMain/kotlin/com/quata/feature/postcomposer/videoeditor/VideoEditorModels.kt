@@ -10,3 +10,5 @@ const val PostVideoEditorExportProgressTestTag = "post-video-editor.export-progr
 const val PostVideoEditorTimelineTestTag = "post-video-editor.timeline"
 const val PostVideoEditorPlayPauseTestTag = "post-video-editor.play-pause"
 const val PostVideoEditorErrorTestTag = "post-video-editor.error"
+const val PostVideoEditorResetTestTag = "post-video-editor.reset"
+const val PostVideoEditorCancelExportTestTag = "post-video-editor.cancel-export"

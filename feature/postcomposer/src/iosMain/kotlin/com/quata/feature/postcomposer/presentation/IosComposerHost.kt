@@ -1,5 +1,6 @@
 package com.quata.feature.postcomposer.presentation
 
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -222,16 +223,18 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     }
     DisposableEffect(Unit) { onDispose(::releaseVideoThumbnail) }
 
-    CreatePostRoot(
-        viewModel = viewModel,
-        accessibility = CriticalControlsAccessibilityCatalog.forLanguageTag(dependencies.languageTag),
-        isLandscapeLayout = false,
-        onAuthRequired = dependencies.onClose,
-        onBack = dependencies.onClose,
-        onPostCreated = { dependencies.onClose() },
-        copy = copy,
-        initialStep = if (dependencies.initialImageReference != null) CreatePostStep.Image else null,
-        slots = CreatePostPlatformSlots(
+    BoxWithConstraints {
+        val isLandscapeLayout = maxWidth > maxHeight
+        CreatePostRoot(
+            viewModel = viewModel,
+            accessibility = CriticalControlsAccessibilityCatalog.forLanguageTag(dependencies.languageTag),
+            isLandscapeLayout = isLandscapeLayout,
+            onAuthRequired = dependencies.onClose,
+            onBack = dependencies.onClose,
+            onPostCreated = { dependencies.onClose() },
+            copy = copy,
+            initialStep = if (dependencies.initialImageReference != null) CreatePostStep.Image else null,
+            slots = CreatePostPlatformSlots(
             pickImage = {
                 scope.launch {
                     filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery)).dispatchIosComposerMediaResult(viewModel, copy) { file ->
@@ -281,8 +284,9 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
                     )
                 }
             },
-        ),
-    )
+            ),
+        )
+    }
     imageEditorFile?.let { current ->
         IosPostImageEditor(
             source = current,

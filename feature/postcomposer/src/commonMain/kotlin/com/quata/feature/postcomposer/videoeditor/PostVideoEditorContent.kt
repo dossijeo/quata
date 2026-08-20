@@ -151,6 +151,8 @@ fun PostVideoEditorDialogContent(
     onCropPanChange: (Float, Float) -> Unit = { _, _ -> },
     onCaptionStyleChange: (String?) -> Unit = {},
     onSeekChange: (Float) -> Unit = {},
+    onCancelExport: () -> Unit = {},
+    durationMs: Long = MaximumPostVideoEditorDurationMs,
     timelineFrameCount: Int = 0,
     timelineFrameContent: @Composable (Int, Modifier) -> Unit = { _, frameModifier -> CommonTimelineFramePlaceholder(frameModifier) },
     preview: @Composable (Modifier) -> Unit,
@@ -173,6 +175,8 @@ fun PostVideoEditorDialogContent(
             onTrimStartChange = onTrimStartChange,
             onTrimEndChange = onTrimEndChange,
             onSeekChange = onSeekChange,
+            onCancelExport = onCancelExport,
+            durationMs = durationMs,
             timelineFrameCount = timelineFrameCount,
             timelineFrameContent = timelineFrameContent,
             preview = preview,
@@ -227,6 +231,8 @@ private fun PostVideoEditorBody(
     onTrimStartChange: (Float) -> Unit,
     onTrimEndChange: (Float) -> Unit,
     onSeekChange: (Float) -> Unit,
+    onCancelExport: () -> Unit,
+    durationMs: Long,
     timelineFrameCount: Int,
     timelineFrameContent: @Composable (Int, Modifier) -> Unit,
     preview: @Composable (Modifier) -> Unit,
@@ -287,6 +293,8 @@ private fun PostVideoEditorBody(
                     onTrimStartChange = onTrimStartChange,
                     onTrimEndChange = onTrimEndChange,
                     onSeekChange = onSeekChange,
+                    onCancelExport = onCancelExport,
+                    durationMs = durationMs,
                     timelineFrameCount = timelineFrameCount,
                     timelineFrameContent = timelineFrameContent,
                     modifier = Modifier.fillMaxWidth(),
@@ -321,6 +329,8 @@ private fun PostVideoEditorBody(
                 onTrimStartChange = onTrimStartChange,
                 onTrimEndChange = onTrimEndChange,
                 onSeekChange = onSeekChange,
+                onCancelExport = onCancelExport,
+                durationMs = durationMs,
                 timelineFrameCount = timelineFrameCount,
                 timelineFrameContent = timelineFrameContent,
                 modifier = Modifier.fillMaxWidth(),
@@ -346,6 +356,8 @@ private fun PostVideoEditorControls(
     onTrimStartChange: (Float) -> Unit,
     onTrimEndChange: (Float) -> Unit,
     onSeekChange: (Float) -> Unit,
+    onCancelExport: () -> Unit,
+    durationMs: Long,
     timelineFrameCount: Int,
     timelineFrameContent: @Composable (Int, Modifier) -> Unit,
     modifier: Modifier = Modifier,
@@ -363,6 +375,7 @@ private fun PostVideoEditorControls(
             onTrimStartChange = onTrimStartChange,
             onTrimEndChange = onTrimEndChange,
             onSeekChange = onSeekChange,
+            durationMs = durationMs,
             frameCount = timelineFrameCount,
             frameContent = timelineFrameContent,
             modifier = Modifier
@@ -405,7 +418,11 @@ private fun PostVideoEditorControls(
                 CompactIcon(if (state.captionsPanelOpen || state.captionsEnabled) Icons.Filled.Check else Icons.Filled.Subtitles, null)
                 Text(" ${if (state.captionsPanelOpen) strings.captionsDone else strings.captions}")
             }
-            OutlinedButton(onClick = onReset, enabled = !state.isExporting) {
+            OutlinedButton(
+                onClick = onReset,
+                enabled = !state.isExporting,
+                modifier = Modifier.testTag(PostVideoEditorResetTestTag),
+            ) {
                 CompactIcon(Icons.Filled.Replay, null)
                 Text(" ${strings.reset}")
             }
@@ -428,6 +445,14 @@ private fun PostVideoEditorControls(
             )
         }
         PostVideoEditorInfoBar(state, strings, onPlayPause)
+        if (state.isExporting) {
+            OutlinedButton(
+                onClick = onCancelExport,
+                modifier = Modifier.testTag(PostVideoEditorCancelExportTestTag),
+            ) {
+                Text(strings.cancel)
+            }
+        }
     }
 }
 
@@ -660,13 +685,15 @@ fun PostVideoEditorTimelineContent(
     onTrimStartChange: (Float) -> Unit,
     onTrimEndChange: (Float) -> Unit,
     onSeekChange: (Float) -> Unit,
+    durationMs: Long,
     frameCount: Int,
     frameContent: @Composable (Int, Modifier) -> Unit,
     modifier: Modifier,
 ) {
     val template = quataTheme()
-    val trimStart = state.trimStartFraction.coerceIn(0f, 0.95f)
-    val trimEnd = state.trimEndFraction.coerceIn((trimStart + 0.05f).coerceAtMost(1f), 1f)
+    val minimumTrimFraction = postVideoEditorMinimumTrimFraction(durationMs)
+    val trimStart = state.trimStartFraction.coerceIn(0f, 1f - minimumTrimFraction)
+    val trimEnd = state.trimEndFraction.coerceIn((trimStart + minimumTrimFraction).coerceAtMost(1f), 1f)
     val currentPosition = state.currentPositionFraction.coerceIn(trimStart, trimEnd)
     val handleWidth = 30.dp
     val handleHitWidth = 64.dp
@@ -711,9 +738,9 @@ fun PostVideoEditorTimelineContent(
                     fun updateTrimFromDelta() {
                         val delta = accumulatedDeltaX / timelineWidthPx
                         if (startHandle) {
-                            onTrimStartChange((initialStart + delta).coerceIn(0f, currentTrimEnd - 0.05f))
+                            onTrimStartChange((initialStart + delta).coerceIn(0f, currentTrimEnd - minimumTrimFraction))
                         } else {
-                            onTrimEndChange((initialEnd + delta).coerceIn(currentTrimStart + 0.05f, 1f))
+                            onTrimEndChange((initialEnd + delta).coerceIn(currentTrimStart + minimumTrimFraction, 1f))
                         }
                     }
                     detectDragGestures(

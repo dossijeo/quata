@@ -1,6 +1,7 @@
 package com.quata.feature.postcomposer.presentation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -12,23 +13,29 @@ import androidx.compose.ui.viewinterop.UIKitView
 import com.quata.core.captions.core.CaptionDocument
 import com.quata.core.captions.core.CaptionDocumentWireCodec
 import com.quata.core.captions.templates.CaptionTemplateStyle
+import com.quata.core.media.QuataVideoExportPolicy
 import com.quata.core.platform.IosVideoThumbnailService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.feature.postcomposer.videoeditor.CaptionStyleOption
+import com.quata.feature.postcomposer.videoeditor.DefaultPostVideoEditorExportProfile
 import com.quata.feature.postcomposer.videoeditor.MaximumPostVideoEditorDurationMs
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorDialogContent
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportSpec
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorUiState
+import com.quata.feature.postcomposer.videoeditor.cropRect
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorExportSpec
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateForSourceDuration
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCaptionsToggle
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropModeChange
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropPan
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropToggle
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropZoomChange
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterReset
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimEnd
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimStart
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSURL
@@ -42,15 +49,27 @@ interface IosPostVideoEditorNativeDriver {
     fun recordCaptionStyleChange(styleId: String?)
     fun transcribe(source: PlatformFile, callback: IosPostVideoEditorTranscriptCallback)
     fun export(source: PlatformFile, request: IosPostVideoEditorExportRequest, callback: IosPostVideoEditorExportCallback)
+    fun cancelExport()
 }
 
 interface IosPostVideoEditorPreviewSurface {
     fun nativeView(): UIView
-    fun configure(isPlaying: Boolean, isMuted: Boolean, positionMs: Long)
+    fun configure(
+        isPlaying: Boolean,
+        isMuted: Boolean,
+        positionMs: Long,
+        videoAspectRatio: Float,
+        cropLeft: Float,
+        cropTop: Float,
+        cropRight: Float,
+        cropBottom: Float,
+        cropVisible: Boolean,
+    )
     fun dispose()
 }
 
 interface IosPostVideoEditorExportCallback {
+    fun onProgress(progress: Float)
     fun onSuccess(file: PlatformFile)
     fun onFailure(reason: String)
 }
@@ -77,6 +96,9 @@ data class IosPostVideoEditorExportRequest(
     val captionDocumentWire: String?,
     val outputWidth: Int,
     val outputHeight: Int,
+    val outputMaxFrameRate: Int,
+    val outputTargetBitrate: Int,
+    val outputIntermediateBitrate: Int,
 )
 
 data class IosPostVideoEditorMetadata(
@@ -98,11 +120,23 @@ object UnsupportedIosPostVideoEditorNativeDriver : IosPostVideoEditorNativeDrive
     override fun export(source: PlatformFile, request: IosPostVideoEditorExportRequest, callback: IosPostVideoEditorExportCallback) {
         callback.onFailure("ios_post_video_editor_native_export_required")
     }
+
+    override fun cancelExport() = Unit
 }
 
 private object UnsupportedIosPostVideoEditorPreviewSurface : IosPostVideoEditorPreviewSurface {
     override fun nativeView(): UIView = UIView()
-    override fun configure(isPlaying: Boolean, isMuted: Boolean, positionMs: Long) = Unit
+    override fun configure(
+        isPlaying: Boolean,
+        isMuted: Boolean,
+        positionMs: Long,
+        videoAspectRatio: Float,
+        cropLeft: Float,
+        cropTop: Float,
+        cropRight: Float,
+        cropBottom: Float,
+        cropVisible: Boolean,
+    ) = Unit
     override fun dispose() = Unit
 }
 
@@ -115,29 +149,74 @@ internal fun IosPostVideoEditor(
 ) {
     var state by remember(source.reference) { mutableStateOf(PostVideoEditorUiState()) }
     var thumbnail by remember(source.reference) { mutableStateOf<PlatformFile?>(null) }
+    var timelineFrames by remember(source.reference) { mutableStateOf<List<PlatformFile>>(emptyList()) }
     var metadata by remember(source.reference) { mutableStateOf<IosPostVideoEditorMetadata?>(null) }
+    var exportProfile by remember(source.reference) { mutableStateOf(DefaultPostVideoEditorExportProfile) }
+    var exportJob by remember(source.reference) { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
     val durationMs = metadata?.durationMs?.takeIf { it > 0L } ?: MaximumPostVideoEditorDurationMs
     val videoAspectRatio = metadata?.aspectRatio ?: 9f / 16f
     LaunchedEffect(source.reference) {
-        metadata = nativeDriver.metadata(source)
-        thumbnail = when (val result = IosVideoThumbnailService().createThumbnail(source, maxWidth = 720)) {
+        fun releaseGeneratedFrames() {
+            iosComposerThumbnailToRelease(thumbnail)?.let(::releaseIosComposerVideoThumbnail)
+            timelineFrames.forEach { frame ->
+                iosComposerThumbnailToRelease(frame)?.let(::releaseIosComposerVideoThumbnail)
+            }
+            thumbnail = null
+            timelineFrames = emptyList()
+        }
+        releaseGeneratedFrames()
+        val loadedMetadata = nativeDriver.metadata(source)
+        metadata = loadedMetadata
+        loadedMetadata?.durationMs?.takeIf { it > 0L }?.let {
+            state = postVideoEditorStateForSourceDuration(state, it)
+        }
+        loadedMetadata?.let {
+            exportProfile = QuataVideoExportPolicy.selectForSource(it.width, it.height)
+        }
+        val service = IosVideoThumbnailService()
+        thumbnail = when (val result = service.createThumbnail(source, maxWidth = 720)) {
             is PlatformResult.Success -> result.value
             else -> null
+        }
+        val frameDurationSeconds = (loadedMetadata?.durationMs?.takeIf { it > 0L } ?: MaximumPostVideoEditorDurationMs).toDouble() / 1000.0
+        timelineFrames = (0 until 6).mapNotNull { index ->
+            val fraction = if (index == 0) 0.0 else index.toDouble() / 5.0
+            val timeSeconds = (frameDurationSeconds * fraction).coerceAtMost((frameDurationSeconds - 0.05).coerceAtLeast(0.0))
+            when (val result = service.createThumbnailAt(source, maxWidth = 240, requestedTimeSeconds = timeSeconds)) {
+                is PlatformResult.Success -> result.value
+                else -> null
+            }
+        }
+    }
+    DisposableEffect(source.reference) {
+        onDispose {
+            iosComposerThumbnailToRelease(thumbnail)?.let(::releaseIosComposerVideoThumbnail)
+            timelineFrames.forEach { frame ->
+                iosComposerThumbnailToRelease(frame)?.let(::releaseIosComposerVideoThumbnail)
+            }
         }
     }
     fun export() {
         if (state.isExporting) return
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
-        scope.launch {
+        val job = scope.launch {
             runCatching {
                 val captionDocument = if (state.captionsEnabled && state.selectedCaptionStyleId != null) {
                     iosPostVideoEditorTranscribeCaptions(source, nativeDriver)
                 } else {
                     null
                 }
-                val spec = postVideoEditorExportSpec(state, videoAspectRatio, durationMs, captionDocument)
-                iosPostVideoEditorExportEdited(source, spec, nativeDriver)
+                val spec = postVideoEditorExportSpec(
+                    state,
+                    videoAspectRatio,
+                    durationMs,
+                    captionDocument,
+                    exportProfile,
+                )
+                iosPostVideoEditorExportEdited(source, spec, nativeDriver) { progress ->
+                    state = state.copy(exportProgress = progress.coerceIn(0.35f, 0.95f))
+                }
             }
                 .onSuccess {
                     state = state.copy(isExporting = false, exportProgress = 1f)
@@ -147,19 +226,27 @@ internal fun IosPostVideoEditor(
                     state = state.copy(isExporting = false, error = it.message ?: "ios_post_video_editor_export_failed")
                 }
         }
+        exportJob = job
+        job.invokeOnCompletion { exportJob = null }
     }
 
     PostVideoEditorDialogContent(
         state = state,
         onMutedChange = { state = state.copy(isMuted = it) },
         onPlayPause = { state = state.copy(isPlaying = !state.isPlaying) },
-        onTrimStartChange = { state = postVideoEditorStateAfterTrimStart(state, it) },
-        onTrimEndChange = { state = postVideoEditorStateAfterTrimEnd(state, it) },
+        onTrimStartChange = { state = postVideoEditorStateAfterTrimStart(state, it, durationMs) },
+        onTrimEndChange = { state = postVideoEditorStateAfterTrimEnd(state, it, durationMs) },
         onCropToggle = { state = postVideoEditorStateAfterCropToggle(state) },
         onCaptionsToggle = { state = postVideoEditorStateAfterCaptionsToggle(state) },
-        onReset = { state = PostVideoEditorUiState() },
+        onReset = { state = postVideoEditorStateAfterReset(state, durationMs) },
         onDismiss = onDismiss,
         onExport = ::export,
+        onCancelExport = {
+            exportJob?.cancel()
+            nativeDriver.cancelExport()
+            state = state.copy(isExporting = false, exportProgress = 0f)
+        },
+        durationMs = durationMs,
         captionOptions = CaptionTemplateStyle.entries.map { CaptionStyleOption(it.name, it.name) },
         onCropModeChange = { state = postVideoEditorStateAfterCropModeChange(state, it, videoAspectRatio) },
         onCropZoomChange = { state = postVideoEditorStateAfterCropZoomChange(state, it, videoAspectRatio) },
@@ -169,12 +256,19 @@ internal fun IosPostVideoEditor(
             state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null)
         },
         onSeekChange = { state = state.copy(currentPositionFraction = it.coerceIn(0f, 1f)) },
+        timelineFrameCount = timelineFrames.size.takeIf { it > 0 } ?: 6,
+        timelineFrameContent = { index, frameModifier ->
+            timelineFrames.getOrNull(index)?.let { frame ->
+                IosComposerLocalImagePreview(frame, modifier = frameModifier)
+            } ?: androidx.compose.foundation.layout.Box(frameModifier)
+        },
         preview = { modifier: Modifier ->
             IosPostVideoEditorNativePreview(
                 source = source,
                 nativeDriver = nativeDriver,
                 state = state,
                 durationMs = durationMs,
+                videoAspectRatio = videoAspectRatio,
                 fallbackThumbnail = thumbnail,
                 modifier = modifier,
             )
@@ -189,6 +283,7 @@ private fun IosPostVideoEditorNativePreview(
     nativeDriver: IosPostVideoEditorNativeDriver,
     state: PostVideoEditorUiState,
     durationMs: Long,
+    videoAspectRatio: Float,
     fallbackThumbnail: PlatformFile?,
     modifier: Modifier,
 ) {
@@ -199,6 +294,11 @@ private fun IosPostVideoEditorNativePreview(
         return
     }
     val surface = remember(localReference, nativeDriver) { nativeDriver.createPreview(localReference) }
+    val cropRect = state.cropMode.cropRect(
+        videoAspectRatio,
+        state.cropZoom,
+        androidx.compose.ui.geometry.Offset(state.cropCenterX, state.cropCenterY),
+    )
     androidx.compose.runtime.DisposableEffect(surface) { onDispose(surface::dispose) }
     UIKitView(
         factory = surface::nativeView,
@@ -207,6 +307,12 @@ private fun IosPostVideoEditorNativePreview(
                 isPlaying = state.isPlaying,
                 isMuted = state.isMuted,
                 positionMs = (state.currentPositionFraction.coerceIn(0f, 1f) * durationMs).toLong(),
+                videoAspectRatio = videoAspectRatio,
+                cropLeft = cropRect.left,
+                cropTop = cropRect.top,
+                cropRight = cropRect.right,
+                cropBottom = cropRect.bottom,
+                cropVisible = state.cropPanelOpen && state.cropMode != com.quata.feature.postcomposer.videoeditor.VideoCropMode.Original,
             )
         },
         modifier = modifier,
@@ -239,6 +345,7 @@ private suspend fun iosPostVideoEditorExportEdited(
     source: PlatformFile,
     spec: PostVideoEditorExportSpec,
     nativeDriver: IosPostVideoEditorNativeDriver,
+    onProgress: (Float) -> Unit = {},
 ): PlatformFile = suspendCancellableCoroutine { continuation ->
     val request = IosPostVideoEditorExportRequest(
         trimStartMs = spec.trimStartMs,
@@ -257,8 +364,15 @@ private suspend fun iosPostVideoEditorExportEdited(
         captionDocumentWire = spec.captionDocument?.let(CaptionDocumentWireCodec::encodeDocument),
         outputWidth = spec.outputWidth,
         outputHeight = spec.outputHeight,
+        outputMaxFrameRate = spec.outputMaxFrameRate,
+        outputTargetBitrate = spec.outputTargetBitrate,
+        outputIntermediateBitrate = spec.outputIntermediateBitrate,
     )
     nativeDriver.export(source, request, object : IosPostVideoEditorExportCallback {
+        override fun onProgress(progress: Float) {
+            if (continuation.isActive) onProgress(progress)
+        }
+
         override fun onSuccess(file: PlatformFile) {
             if (continuation.isActive) continuation.resume(file)
         }
@@ -267,6 +381,7 @@ private suspend fun iosPostVideoEditorExportEdited(
             if (continuation.isActive) continuation.resumeWithException(IllegalStateException(reason))
         }
     })
+    continuation.invokeOnCancellation { nativeDriver.cancelExport() }
 }
 
 @OptIn(ExperimentalForeignApi::class)

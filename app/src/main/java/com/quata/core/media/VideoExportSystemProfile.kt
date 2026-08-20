@@ -7,31 +7,6 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 
 object VideoExportSystemProfile {
-    private val sd480 = VideoExportProfile(
-        width = 480,
-        height = 854,
-        maxFrameRate = 30,
-        label = "480p",
-        targetBitrate = 800_000,
-        intermediateBitrate = 1_200_000
-    )
-    private val sd432Aligned = VideoExportProfile(
-        width = 432,
-        height = 768,
-        maxFrameRate = 30,
-        label = "432p",
-        targetBitrate = 700_000,
-        intermediateBitrate = 1_000_000
-    )
-    private val hd720 = VideoExportProfile(
-        width = 720,
-        height = 1280,
-        maxFrameRate = 30,
-        label = "720p",
-        targetBitrate = 1_200_000,
-        intermediateBitrate = 1_800_000
-    )
-
     @Volatile
     private var cachedProfile: VideoExportProfile? = null
 
@@ -41,9 +16,9 @@ object VideoExportSystemProfile {
     }
 
     private fun detectProfile(): VideoExportProfile {
-        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.O_MR1) return sd432Aligned
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return sd480
-        return if (supportsH264PerformancePoint()) hd720 else sd480
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.O_MR1) return QuataVideoExportPolicy.sd432Aligned
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return QuataVideoExportPolicy.conservativeProfile
+        return if (supportsH264PerformancePoint()) QuataVideoExportPolicy.defaultProfile else QuataVideoExportPolicy.conservativeProfile
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)

@@ -33,8 +33,11 @@ import com.quata.feature.postcomposer.imageeditor.PostImageEditorResetTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorRotateTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorSaveTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorCaptionsTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorCropTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorMuteTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorPreviewTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorResetTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorRootTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorTimelineTestTag
 import kotlinx.coroutines.runBlocking
@@ -492,6 +495,36 @@ class PostPublishRealInstrumentedTest {
             compose.onNodeWithTag(PostVideoEditorTimelineTestTag, useUnmergedTree = true).fetchSemanticsNode()
             compose.onAllNodesWithTag(PostVideoEditorMuteTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
+                .performClick()
+            compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            clickLocalizedText("1:1", "1:1")
+            compose.onNodeWithTag(PostVideoEditorPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode()
+            compose.onAllNodesWithTag(PostVideoEditorCaptionsTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            compose.waitUntil(5_000) {
+                runCatching { compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true)
+                .performClick()
+            compose.onNodeWithTag("post-video-editor.caption-style-selected.Karaoke", useUnmergedTree = true)
+                .fetchSemanticsNode()
+            compose.onAllNodesWithTag(PostVideoEditorResetTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            clickLocalizedText("1:1", "1:1")
+            compose.onAllNodesWithTag(PostVideoEditorCaptionsTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            compose.waitUntil(5_000) {
+                runCatching { compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true)
                 .performClick()
             saveScreenshot("android-post-video-editor-opened")
             compose.onAllNodesWithTag(PostVideoEditorExportTestTag, useUnmergedTree = true)

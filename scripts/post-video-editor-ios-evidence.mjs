@@ -105,6 +105,7 @@ set -euo pipefail
 cd ${shellQuote(options.project)}
 mkdir -p ${shellQuote(remoteLogDir)}
 rm -f ${shellQuote(remoteDiagnostics)}
+rm -f ${shellQuote(`${remoteDiagnostics}.events.jsonl`)}
 export QUATA_IOS_AUTH_E2E_FILE=${shellQuote(remoteCredentials)}
 export QUATA_IOS_DERIVED_DATA_PATH=${shellQuote(options.derivedDataPath)}
 export QUATA_IOS_SIMULATOR_UDID=${shellQuote(options.simulatorUdid)}
@@ -145,10 +146,11 @@ cat ${shellQuote(`${remoteDiagnostics}.events.jsonl`)}
 function assertIosExportDiagnostics(diagnostics, events) {
   if (!diagnostics || typeof diagnostics !== "object") throw new Error("ios_video_editor_export_diagnostics_missing");
   if (Number(diagnostics.sizeBytes || 0) <= 0) throw new Error("ios_video_editor_export_empty_output");
-  if (Number(diagnostics.outputWidth || 0) !== 1080 || Number(diagnostics.outputHeight || 0) !== 1920) {
+  if (!isSupportedVideoEditorProfile(Number(diagnostics.outputWidth || 0), Number(diagnostics.outputHeight || 0))) {
     throw new Error(`ios_video_editor_export_unexpected_dimensions:${diagnostics.outputWidth}x${diagnostics.outputHeight}`);
   }
   if (diagnostics.removeAudio !== true) throw new Error("ios_video_editor_export_mute_not_applied");
+  if (diagnostics.physicalBackgroundBlur !== true) throw new Error("ios_video_editor_background_blur_not_exported");
   if (String(diagnostics.captionStyle || "") !== EXPECTED_CAPTION_STYLE) {
     throw new Error(`ios_video_editor_caption_style_not_selected:${diagnostics.captionStyle || ""}`);
   }
@@ -197,17 +199,27 @@ function probeIosExport(outputPath, diagnostics) {
   if (audioStream) throw new Error("ios_video_editor_physical_audio_stream_present_after_mute");
   const width = Number(videoStream.width || 0);
   const height = Number(videoStream.height || 0);
-  if (width !== 1080 || height !== 1920) {
+  if (width !== Number(diagnostics.outputWidth || 0) || height !== Number(diagnostics.outputHeight || 0)) {
     throw new Error(`ios_video_editor_physical_dimensions:${width}x${height}`);
   }
   const captionPixelProbe = probeCaptionPixels(outputPath, firstCaptionProbeSecond(diagnostics.captionDocumentWire));
+  const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
   return {
     path: outputPath,
     video: { codec: videoStream.codec_name, width, height },
     durationMs: Math.round(Number(ffprobe.format?.duration || videoStream.duration || 0) * 1000),
     audioStreamPresent: Boolean(audioStream),
     captionPixelProbe,
+    backgroundBlurPixelProbe,
   };
+}
+
+function isSupportedVideoEditorProfile(width, height) {
+  return [
+    [720, 1280],
+    [480, 854],
+    [432, 768],
+  ].some(([expectedWidth, expectedHeight]) => width === expectedWidth && height === expectedHeight);
 }
 
 function firstCaptionProbeSecond(captionDocumentWire) {
@@ -249,6 +261,43 @@ function probeCaptionPixels(outputPath, seekSecond) {
     throw new Error(`ios_video_editor_caption_pixels_missing:${brightFraction.toFixed(4)}:${darkFraction.toFixed(4)}`);
   }
   return { width, height, seekSecond, brightFraction, darkFraction };
+}
+
+function probeBackgroundBlurPixels(outputPath) {
+  const width = 180;
+  const height = 80;
+  const sample = (crop) => execFileSync("ffmpeg", [
+    "-v", "error",
+    "-i", outputPath,
+    "-vf", `${crop},scale=${width}:${height}`,
+    "-frames:v", "1",
+    "-f", "rawvideo",
+    "-pix_fmt", "rgba",
+    "pipe:1",
+  ]);
+  const topBackground = sample("crop=iw*0.86:ih*0.16:iw*0.07:ih*0.06");
+  const centerForeground = sample("crop=iw*0.86:ih*0.16:iw*0.07:ih*0.42");
+  const backgroundSharpness = averageAdjacentLumaDelta(topBackground, width, height);
+  const foregroundSharpness = averageAdjacentLumaDelta(centerForeground, width, height);
+  if (!(backgroundSharpness < foregroundSharpness * 0.82)) {
+    throw new Error(`ios_video_editor_background_blur_pixels_missing:${backgroundSharpness.toFixed(2)}:${foregroundSharpness.toFixed(2)}`);
+  }
+  return { width, height, backgroundSharpness, foregroundSharpness };
+}
+
+function averageAdjacentLumaDelta(pixels, width, height) {
+  if (pixels.length !== width * height * 4) throw new Error(`video_editor_blur_probe_unexpected_size:${pixels.length}`);
+  let total = 0;
+  let count = 0;
+  const luma = (offset) => 0.2126 * pixels[offset] + 0.7152 * pixels[offset + 1] + 0.0722 * pixels[offset + 2];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 1; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      total += Math.abs(luma(offset) - luma(offset - 4));
+      count += 1;
+    }
+  }
+  return total / Math.max(1, count);
 }
 
 function parseArgs(args) {
@@ -308,7 +357,7 @@ async function validSpeechMp4FixturePath() {
   execFileSync("ffmpeg", [
     "-y",
     "-f", "lavfi",
-    "-i", "color=c=0x153a78:s=720x1280:r=30:d=6",
+    "-i", "testsrc2=s=720x1280:r=30:d=6",
     "-i", wavPath,
     "-shortest",
     "-c:v", "libx264",

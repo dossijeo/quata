@@ -4,6 +4,7 @@ package com.quata.web
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -11,24 +12,31 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.viewinterop.WebElementView
 import com.quata.core.captions.core.CaptionDocument
 import com.quata.core.captions.core.CaptionDocumentWireCodec
 import com.quata.core.captions.templates.CaptionTemplateStyle
+import com.quata.core.media.QuataVideoExportPolicy
 import com.quata.feature.postcomposer.videoeditor.CaptionStyleOption
+import com.quata.feature.postcomposer.videoeditor.DefaultPostVideoEditorExportProfile
 import com.quata.feature.postcomposer.videoeditor.MaximumPostVideoEditorDurationMs
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorDialogContent
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorUiState
 import com.quata.feature.postcomposer.videoeditor.VideoCropMode
+import com.quata.feature.postcomposer.videoeditor.cropRect
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorExportSpec
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateForSourceDuration
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropModeChange
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropPan
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCaptionsToggle
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropToggle
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropZoomChange
+import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterReset
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimEnd
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimStart
 import kotlinx.coroutines.launch
+import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLVideoElement
 import kotlinx.browser.document
 import kotlin.coroutines.resume
@@ -44,7 +52,17 @@ internal fun WebPostVideoEditor(
     var state by remember(sourceReference) { mutableStateOf(PostVideoEditorUiState()) }
     var durationMs by remember(sourceReference) { mutableStateOf(MaximumPostVideoEditorDurationMs) }
     var videoAspectRatio by remember(sourceReference) { mutableStateOf(9f / 16f) }
+    var timelineFrames by remember(sourceReference) { mutableStateOf<List<String>>(emptyList()) }
+    var exportProfile by remember(sourceReference) { mutableStateOf(DefaultPostVideoEditorExportProfile) }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(sourceReference) {
+        val metadata = webPostVideoEditorReadMetadata(sourceReference)
+        durationMs = metadata.durationMs
+        state = postVideoEditorStateForSourceDuration(state, metadata.durationMs)
+        videoAspectRatio = metadata.aspectRatio
+        exportProfile = QuataVideoExportPolicy.selectForSource(metadata.width, metadata.height)
+        timelineFrames = webPostVideoEditorCreateTimelineFrames(sourceReference, metadata.durationMs, 6)
+    }
     fun export() {
         if (state.isExporting) return
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
@@ -52,16 +70,31 @@ internal fun WebPostVideoEditor(
         scope.launch {
             runCatching {
                 val freshMetadata = runCatching { webPostVideoEditorReadMetadata(sourceReference) }.getOrNull()
-                val exportDurationMs = freshMetadata?.durationMs?.also { durationMs = it } ?: durationMs
+                val exportDurationMs = freshMetadata?.durationMs?.also {
+                    durationMs = it
+                    state = postVideoEditorStateForSourceDuration(state, it)
+                } ?: durationMs
                 val exportAspectRatio = freshMetadata?.aspectRatio?.also { videoAspectRatio = it } ?: videoAspectRatio
+                val selectedProfile = freshMetadata
+                    ?.let { QuataVideoExportPolicy.selectForSource(it.width, it.height) }
+                    ?.also { exportProfile = it }
+                    ?: exportProfile
                 val shouldGenerateCaptions = state.captionsEnabled && state.selectedCaptionStyleId != null
                 val captionDocument = if (shouldGenerateCaptions) {
                     webPostVideoEditorTranscribeCaptions(sourceReference)
                 } else {
                     null
                 }
-                val spec = postVideoEditorExportSpec(state, exportAspectRatio, exportDurationMs, captionDocument)
-                spec to webPostVideoEditorExportEdited(sourceReference, spec)
+                val spec = postVideoEditorExportSpec(
+                    state,
+                    exportAspectRatio,
+                    exportDurationMs,
+                    captionDocument,
+                    selectedProfile,
+                )
+                spec to webPostVideoEditorExportEdited(sourceReference, spec) { progress ->
+                    state = state.copy(exportProgress = progress.coerceIn(0.35f, 0.95f))
+                }
             }
                 .onSuccess {
                     val spec = it.first
@@ -99,8 +132,8 @@ internal fun WebPostVideoEditor(
         val uninstall = installWebPostVideoEditorE2eBridge(
             mute = { state = state.copy(isMuted = !state.isMuted) },
             playPause = { state = state.copy(isPlaying = !state.isPlaying) },
-            trimStart = { state = postVideoEditorStateAfterTrimStart(state, it) },
-            trimEnd = { state = postVideoEditorStateAfterTrimEnd(state, it) },
+            trimStart = { state = postVideoEditorStateAfterTrimStart(state, it, durationMs) },
+            trimEnd = { state = postVideoEditorStateAfterTrimEnd(state, it, durationMs) },
             crop = { state = postVideoEditorStateAfterCropToggle(state) },
             cropMode = { mode ->
                 VideoCropMode.entries.firstOrNull { it.name == mode }?.let {
@@ -121,43 +154,50 @@ internal fun WebPostVideoEditor(
         state = state,
         onMutedChange = { state = state.copy(isMuted = it) },
         onPlayPause = { state = state.copy(isPlaying = !state.isPlaying) },
-        onTrimStartChange = { state = postVideoEditorStateAfterTrimStart(state, it) },
-        onTrimEndChange = { state = postVideoEditorStateAfterTrimEnd(state, it) },
+        onTrimStartChange = { state = postVideoEditorStateAfterTrimStart(state, it, durationMs) },
+        onTrimEndChange = { state = postVideoEditorStateAfterTrimEnd(state, it, durationMs) },
         onCropToggle = { state = postVideoEditorStateAfterCropToggle(state) },
         onCaptionsToggle = { state = postVideoEditorStateAfterCaptionsToggle(state) },
-        onReset = { state = PostVideoEditorUiState() },
+        onReset = { state = postVideoEditorStateAfterReset(state, durationMs) },
         onDismiss = onDismiss,
         onExport = ::export,
+        onCancelExport = {
+            state = state.copy(isExporting = false, exportProgress = 0f)
+            webPostVideoEditorCancelActiveExport()
+            webPostVideoEditorRecordExportFailure("web_post_video_editor_export_cancelled")
+        },
+        durationMs = durationMs,
         captionOptions = CaptionTemplateStyle.entries.map { CaptionStyleOption(it.name, it.name) },
         onCropModeChange = { state = postVideoEditorStateAfterCropModeChange(state, it, videoAspectRatio) },
         onCropZoomChange = { state = postVideoEditorStateAfterCropZoomChange(state, it, videoAspectRatio) },
         onCropPanChange = { dx, dy -> state = postVideoEditorStateAfterCropPan(state, dx, dy, videoAspectRatio) },
         onCaptionStyleChange = { state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null) },
         onSeekChange = { state = state.copy(currentPositionFraction = it.coerceIn(0f, 1f)) },
+        timelineFrameCount = timelineFrames.size.takeIf { it > 0 } ?: 6,
+        timelineFrameContent = { index, frameModifier ->
+            timelineFrames.getOrNull(index)?.let { frame ->
+                BrowserCanvasImage(frame, null, ContentScale.Crop, frameModifier)
+            } ?: androidx.compose.foundation.layout.Box(frameModifier)
+        },
         preview = { modifier ->
             WebElementView(
                 factory = {
-                    (document.createElement("video") as HTMLVideoElement).apply {
-                        controls = false
-                        muted = state.isMuted
-                        loop = true
-                        preload = "metadata"
-                        style.width = "100%"
-                        style.height = "100%"
-                        style.objectFit = "contain"
-                    }
+                    webPostVideoEditorCreatePreviewElement()
                 },
                 update = {
-                    it.src = sourceReference
-                    it.muted = state.isMuted
-                    if (!it.duration.isNaN() && it.duration.isFinite() && it.duration > 0.0) {
-                        durationMs = (it.duration * 1000.0).toLong().coerceAtLeast(1L)
-                    }
-                    if (it.videoWidth > 0 && it.videoHeight > 0) {
-                        videoAspectRatio = it.videoWidth.toFloat() / it.videoHeight.toFloat()
-                    }
-                    it.currentTime = (state.currentPositionFraction.coerceIn(0f, 1f) * durationMs) / 1000.0
-                    webPostVideoEditorApplyPlayback(it, state.isPlaying)
+                    webPostVideoEditorConfigurePreview(
+                        root = it,
+                        reference = sourceReference,
+                        isMuted = state.isMuted,
+                        isPlaying = state.isPlaying,
+                        positionMs = (state.currentPositionFraction.coerceIn(0f, 1f) * durationMs).toLong(),
+                        videoAspectRatio = videoAspectRatio,
+                        cropLeft = state.cropMode.cropRect(videoAspectRatio, state.cropZoom, androidx.compose.ui.geometry.Offset(state.cropCenterX, state.cropCenterY)).left,
+                        cropTop = state.cropMode.cropRect(videoAspectRatio, state.cropZoom, androidx.compose.ui.geometry.Offset(state.cropCenterX, state.cropCenterY)).top,
+                        cropRight = state.cropMode.cropRect(videoAspectRatio, state.cropZoom, androidx.compose.ui.geometry.Offset(state.cropCenterX, state.cropCenterY)).right,
+                        cropBottom = state.cropMode.cropRect(videoAspectRatio, state.cropZoom, androidx.compose.ui.geometry.Offset(state.cropCenterX, state.cropCenterY)).bottom,
+                        cropVisible = state.cropPanelOpen && state.cropMode != VideoCropMode.Original,
+                    )
                 },
                 modifier = modifier,
             )
@@ -239,20 +279,143 @@ private external fun installPostVideoEditorBridgeWhenAllowed(
     dismiss: () -> Unit,
 ): () -> Unit
 
-private fun webPostVideoEditorApplyPlayback(video: HTMLVideoElement, shouldPlay: Boolean): Unit = js(
+private fun webPostVideoEditorCreatePreviewElement(): HTMLElement = js(
     """(() => {
-        if (shouldPlay) {
-            const result = video.play?.();
-            if (result && typeof result.catch === 'function') result.catch(() => {});
-        } else {
-            video.pause?.();
+      const root = document.createElement('div');
+      root.style.cssText = 'position:relative;width:100%;height:100%;overflow:hidden;background:#000;border-radius:16px;';
+      const bg = document.createElement('video');
+      const fgClip = document.createElement('div');
+      const fg = document.createElement('video');
+      for (const video of [bg, fg]) {
+        video.controls = false;
+        video.loop = true;
+        video.preload = 'metadata';
+        video.playsInline = true;
+        video.style.position = 'absolute';
+        video.style.top = '50%';
+        video.style.left = '50%';
+        video.style.width = '100%';
+        video.style.height = '100%';
+        video.style.transformOrigin = 'center center';
+      }
+      bg.dataset.layer = 'background';
+      fgClip.dataset.layer = 'foreground-clip';
+      fg.dataset.layer = 'foreground';
+      bg.style.objectFit = 'cover';
+      bg.style.filter = 'blur(22px)';
+      bg.style.opacity = '0.78';
+      fgClip.style.cssText = 'position:absolute;overflow:hidden;background:#000;';
+      fg.style.objectFit = 'fill';
+      const veil = document.createElement('div');
+      veil.dataset.layer = 'veil';
+      veil.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,.18);pointer-events:none;';
+      const overlay = document.createElement('div');
+      overlay.dataset.layer = 'crop';
+      overlay.style.cssText = 'position:absolute;border:3px solid #ff7a18;box-shadow:0 0 0 9999px rgba(0,0,0,.48);display:none;pointer-events:none;';
+      fgClip.append(fg);
+      root.append(bg, veil, fgClip, overlay);
+      return root;
+    })()"""
+)
+
+private fun webPostVideoEditorConfigurePreview(
+    root: HTMLElement,
+    reference: String,
+    isMuted: Boolean,
+    isPlaying: Boolean,
+    positionMs: Long,
+    videoAspectRatio: Float,
+    cropLeft: Float,
+    cropTop: Float,
+    cropRight: Float,
+    cropBottom: Float,
+    cropVisible: Boolean,
+): Unit = js(
+    """(() => {
+      const videos = Array.from(root.querySelectorAll('video'));
+      const bg = root.querySelector('video[data-layer="background"]');
+      const fgClip = root.querySelector('[data-layer="foreground-clip"]');
+      const fg = root.querySelector('video[data-layer="foreground"]');
+      const overlay = root.querySelector('[data-layer="crop"]');
+      const referenceValue = String(reference || '');
+      const positionSeconds = Math.max(0, Number(positionMs) || 0) / 1000;
+      for (const video of videos) {
+        if (video.src !== referenceValue) video.src = referenceValue;
+        video.muted = Boolean(isMuted);
+        if (Number.isFinite(positionSeconds) && Math.abs((video.currentTime || 0) - positionSeconds) > 0.35) {
+          try { video.currentTime = positionSeconds; } catch (_) {}
         }
-    })()""",
+        if (isPlaying) {
+          const result = video.play?.();
+          if (result && typeof result.catch === 'function') result.catch(() => {});
+        } else {
+          video.pause?.();
+        }
+      }
+      const left = Math.max(0, Math.min(1, Number(cropLeft) || 0));
+      const top = Math.max(0, Math.min(1, Number(cropTop) || 0));
+      const right = Math.max(left + 0.01, Math.min(1, Number(cropRight) || 1));
+      const bottom = Math.max(top + 0.01, Math.min(1, Number(cropBottom) || 1));
+      const cropWidth = right - left;
+      const cropHeight = bottom - top;
+      const rootWidth = Math.max(1, root.clientWidth || root.getBoundingClientRect?.().width || 1);
+      const rootHeight = Math.max(1, root.clientHeight || root.getBoundingClientRect?.().height || 1);
+      const outputAspect = 720 / 1280;
+      let viewportWidth = rootHeight * outputAspect;
+      let viewportHeight = rootHeight;
+      if (viewportWidth > rootWidth) {
+        viewportWidth = rootWidth;
+        viewportHeight = rootWidth / outputAspect;
+      }
+      const viewportLeft = (rootWidth - viewportWidth) / 2;
+      const viewportTop = (rootHeight - viewportHeight) / 2;
+      const applied = cropVisible ? { left: 0, top: 0, right: 1, bottom: 1 } : { left, top, right, bottom };
+      const appliedWidth = Math.max(0.01, applied.right - applied.left);
+      const appliedHeight = Math.max(0.01, applied.bottom - applied.top);
+      const safeVideoAspect = Math.max(0.1, Number(videoAspectRatio) || outputAspect);
+      const foregroundAspect = Math.max(0.1, safeVideoAspect * appliedWidth / appliedHeight);
+      let foregroundWidth = viewportHeight * foregroundAspect;
+      let foregroundHeight = viewportHeight;
+      if (foregroundWidth > viewportWidth) {
+        foregroundWidth = viewportWidth;
+        foregroundHeight = viewportWidth / foregroundAspect;
+      }
+      const foregroundLeft = viewportLeft + (viewportWidth - foregroundWidth) / 2;
+      const foregroundTop = viewportTop + (viewportHeight - foregroundHeight) / 2;
+      if (bg) {
+        bg.style.left = viewportLeft + 'px';
+        bg.style.top = viewportTop + 'px';
+        bg.style.width = viewportWidth + 'px';
+        bg.style.height = viewportHeight + 'px';
+        bg.style.transform = 'none';
+      }
+      if (fgClip) {
+        fgClip.style.left = foregroundLeft + 'px';
+        fgClip.style.top = foregroundTop + 'px';
+        fgClip.style.width = foregroundWidth + 'px';
+        fgClip.style.height = foregroundHeight + 'px';
+      }
+      if (fg) {
+        fg.style.left = (-applied.left / appliedWidth * foregroundWidth) + 'px';
+        fg.style.top = (-applied.top / appliedHeight * foregroundHeight) + 'px';
+        fg.style.width = (foregroundWidth / appliedWidth) + 'px';
+        fg.style.height = (foregroundHeight / appliedHeight) + 'px';
+        fg.style.transform = 'none';
+      }
+      if (overlay) {
+        overlay.style.display = cropVisible ? 'block' : 'none';
+        overlay.style.left = (foregroundLeft + left * foregroundWidth) + 'px';
+        overlay.style.top = (foregroundTop + top * foregroundHeight) + 'px';
+        overlay.style.width = (cropWidth * foregroundWidth) + 'px';
+        overlay.style.height = (cropHeight * foregroundHeight) + 'px';
+      }
+    })()"""
 )
 
 internal suspend fun webPostVideoEditorExportEdited(
     reference: String,
     spec: com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportSpec,
+    onProgress: (Float) -> Unit = {},
 ): String = suspendCoroutine { continuation ->
     webPostVideoEditorExportEditedJs(
         reference = reference,
@@ -272,6 +435,9 @@ internal suspend fun webPostVideoEditorExportEdited(
         captionDocumentWire = spec.captionDocument?.let(CaptionDocumentWireCodec::encodeDocument) ?: "",
         outputWidth = spec.outputWidth,
         outputHeight = spec.outputHeight,
+        outputMaxFrameRate = spec.outputMaxFrameRate,
+        outputTargetBitrate = spec.outputTargetBitrate,
+        onProgress = onProgress,
         continuation::resume,
     ) { message ->
         continuation.resumeWith(Result.failure(IllegalStateException(message)))
@@ -317,10 +483,13 @@ private fun webPostVideoEditorRecordExportSuccess(
             size: Number(native.size || 0),
             outputWidth: Number(outputWidth),
             outputHeight: Number(outputHeight),
+            outputMaxFrameRate: Number(native.outputMaxFrameRate || 0),
+            outputTargetBitrate: Number(native.outputTargetBitrate || 0),
             actualSourceDurationMs: Number(native.actualSourceDurationMs || 0),
             effectiveTrimStartMs: Number(native.effectiveTrimStartMs || 0),
             effectiveTrimEndMs: Number(native.effectiveTrimEndMs || 0),
             effectiveDurationMs: Number(native.effectiveDurationMs || 0),
+            physicalBackgroundBlur: Boolean(native.physicalBackgroundBlur),
           },
           spec: {
             trimStartMs: Number(trimStartMs),
@@ -372,6 +541,14 @@ private fun webPostVideoEditorRecordExportFailure(message: String): Unit = js(
     """(() => { globalThis.__quataPostVideoEditorExport = { status: 'failed', message: String(message).slice(0, 160) }; })()""",
 )
 
+private fun webPostVideoEditorCancelActiveExport(): Unit = js(
+    """(() => {
+      const active = globalThis.__quataPostVideoEditorActiveExport;
+      if (active && typeof active.cancel === 'function') active.cancel();
+      else globalThis.__quataPostVideoEditorCancelRequested = true;
+    })()""",
+)
+
 private fun webPostVideoEditorExportEditedJs(
     reference: String,
     trimStartMs: Long,
@@ -390,6 +567,9 @@ private fun webPostVideoEditorExportEditedJs(
     captionDocumentWire: String,
     outputWidth: Int,
     outputHeight: Int,
+    outputMaxFrameRate: Int,
+    outputTargetBitrate: Int,
+    onProgress: (Float) -> Unit,
     onSuccess: (String) -> Unit,
     onFailure: (String) -> Unit,
 ): Unit = js(
@@ -416,13 +596,37 @@ private fun webPostVideoEditorExportEditedJs(
           video.onloadedmetadata = () => resolve(video);
           video.onerror = () => reject(Error('web_post_video_editor_video_load_failed'));
         })).then(video => new Promise((resolve, reject) => {
+          let finished = false;
+          let timer = null;
+          let recorder = null;
+          let stream = null;
+          globalThis.__quataPostVideoEditorCancelRequested = false;
+          const failOnce = reason => {
+            if (finished) return;
+            finished = true;
+            if (timer) clearInterval(timer);
+            try { video.pause?.(); } catch (_) {}
+            try { stream?.getTracks?.().forEach(track => track.stop?.()); } catch (_) {}
+            if (globalThis.__quataPostVideoEditorActiveExport === activeExport) {
+              delete globalThis.__quataPostVideoEditorActiveExport;
+            }
+            reject(Error(reason));
+          };
+          const activeExport = {
+            cancel: () => {
+              globalThis.__quataPostVideoEditorCancelRequested = true;
+              try { recorder?.stop?.(); } catch (_) {}
+              failOnce('web_post_video_editor_export_cancelled');
+            }
+          };
+          globalThis.__quataPostVideoEditorActiveExport = activeExport;
           const canvas = globalThis.document.createElement('canvas');
-          canvas.width = Math.max(2, Number(outputWidth) || 1080);
-          canvas.height = Math.max(2, Number(outputHeight) || 1920);
+          canvas.width = Math.max(2, Number(outputWidth) || 720);
+          canvas.height = Math.max(2, Number(outputHeight) || 1280);
           const context = canvas.getContext('2d');
           if (!context) throw Error('web_post_video_editor_canvas_context_unavailable');
-          const fps = 30;
-          const stream = canvas.captureStream?.(fps);
+          const fps = Math.max(1, Math.min(60, Number(outputMaxFrameRate) || 30));
+          stream = canvas.captureStream?.(fps);
           if (!stream || typeof globalThis.MediaRecorder !== 'function') {
             throw Error('web_post_video_editor_media_recorder_unavailable');
           }
@@ -436,22 +640,33 @@ private fun webPostVideoEditorExportEditedJs(
           const mimeType = globalThis.MediaRecorder.isTypeSupported?.('video/webm;codecs=vp9')
             ? 'video/webm;codecs=vp9'
             : 'video/webm';
-          const recorder = new globalThis.MediaRecorder(stream, { mimeType });
+          recorder = new globalThis.MediaRecorder(stream, {
+            mimeType,
+            videoBitsPerSecond: Math.max(200000, Number(outputTargetBitrate) || 1200000)
+          });
           recorder.ondataavailable = event => { if (event.data && event.data.size) chunks.push(event.data); };
-          recorder.onerror = event => reject(Error(event?.error?.message || 'web_post_video_editor_recorder_failed'));
+          recorder.onerror = event => failOnce(event?.error?.message || 'web_post_video_editor_recorder_failed');
           recorder.onstop = () => {
+            if (finished || globalThis.__quataPostVideoEditorCancelRequested) return;
             const blob = new Blob(chunks, { type: mimeType });
-            if (!blob.size) reject(Error('web_post_video_editor_empty_export'));
+            if (!blob.size) failOnce('web_post_video_editor_empty_export');
             else {
+              finished = true;
+              if (globalThis.__quataPostVideoEditorActiveExport === activeExport) {
+                delete globalThis.__quataPostVideoEditorActiveExport;
+              }
               globalThis.__quataPostVideoEditorExportNative = {
                 mimeType,
                 size: blob.size,
                 outputWidth: canvas.width,
                 outputHeight: canvas.height,
+                outputMaxFrameRate: fps,
+                outputTargetBitrate: Math.max(200000, Number(outputTargetBitrate) || 1200000),
                 actualSourceDurationMs: actualDurationMs,
                 effectiveTrimStartMs: startMs,
                 effectiveTrimEndMs: endMs,
                 effectiveDurationMs: durationMs,
+                physicalBackgroundBlur: true,
               };
               resolve(globalThis.URL.createObjectURL(blob));
             }
@@ -571,7 +786,10 @@ private fun webPostVideoEditorExportEditedJs(
           function drawFrame() {
             context.fillStyle = '#000000';
             context.fillRect(0, 0, canvas.width, canvas.height);
+            context.save();
+            context.filter = 'blur(22px)';
             drawCropFill(backgroundCrop);
+            context.restore();
             context.fillStyle = 'rgba(0,0,0,0.24)';
             context.fillRect(0, 0, canvas.width, canvas.height);
             drawCropFit(crop);
@@ -583,8 +801,15 @@ private fun webPostVideoEditorExportEditedJs(
             recorder.start(250);
             video.play?.().catch(() => {});
             const startedAt = performance.now();
-            const timer = setInterval(() => {
+            timer = setInterval(() => {
+              if (globalThis.__quataPostVideoEditorCancelRequested) {
+                try { recorder.stop(); } catch (_) {}
+                failOnce('web_post_video_editor_export_cancelled');
+                return;
+              }
               drawFrame();
+              const elapsedMs = Math.max(0, performance.now() - startedAt);
+              onProgress(Math.min(0.95, 0.35 + (elapsedMs / Math.max(1, durationMs)) * 0.6));
               if ((performance.now() - startedAt) >= durationMs || (video.currentTime * 1000) >= endMs) {
                 clearInterval(timer);
                 video.pause?.();
@@ -604,6 +829,8 @@ private fun webPostVideoEditorExportEditedJs(
 private data class WebPostVideoEditorMetadata(
     val durationMs: Long,
     val aspectRatio: Float,
+    val width: Int,
+    val height: Int,
 )
 
 private suspend fun webPostVideoEditorReadMetadata(reference: String): WebPostVideoEditorMetadata =
@@ -613,9 +840,9 @@ private suspend fun webPostVideoEditorReadMetadata(reference: String): WebPostVi
             onSuccess = { durationMs, width, height ->
                 val safeDuration = durationMs.toLong().coerceAtLeast(1L)
                 val safeAspectRatio = if (width > 0 && height > 0) width.toFloat() / height.toFloat() else 9f / 16f
-                continuation.resume(WebPostVideoEditorMetadata(safeDuration, safeAspectRatio))
+                continuation.resume(WebPostVideoEditorMetadata(safeDuration, safeAspectRatio, width, height))
             },
-            onFailure = { continuation.resume(WebPostVideoEditorMetadata(MaximumPostVideoEditorDurationMs, 9f / 16f)) },
+            onFailure = { continuation.resume(WebPostVideoEditorMetadata(MaximumPostVideoEditorDurationMs, 9f / 16f, 720, 1280)) },
         )
     }
 
@@ -648,6 +875,90 @@ private fun webPostVideoEditorReadMetadataJs(
         }).catch(error => onFailure(String(error?.message || error || 'web_post_video_editor_metadata_failed').slice(0, 160)));
       } catch (error) {
         onFailure(String(error?.message || error || 'web_post_video_editor_metadata_failed').slice(0, 160));
+      }
+    })()
+    """,
+)
+
+private suspend fun webPostVideoEditorCreateTimelineFrames(
+    reference: String,
+    durationMs: Long,
+    count: Int,
+): List<String> = suspendCoroutine { continuation ->
+    webPostVideoEditorCreateTimelineFramesJs(
+        reference = reference,
+        durationMs = durationMs.toDouble(),
+        count = count,
+        onSuccess = { value ->
+            continuation.resume(
+                value.split('\n')
+                    .map(String::trim)
+                    .filter(String::isNotBlank),
+            )
+        },
+        onFailure = { continuation.resume(emptyList()) },
+    )
+}
+
+private fun webPostVideoEditorCreateTimelineFramesJs(
+    reference: String,
+    durationMs: Double,
+    count: Int,
+    onSuccess: (String) -> Unit,
+    onFailure: (String) -> Unit,
+): Unit = js(
+    """
+    (() => {
+      try {
+        const value = String(reference || '');
+        const sourceUrlPromise = value.startsWith('blob:') || value.startsWith('data:')
+          ? Promise.resolve(value)
+          : fetch(value).then(response => {
+              if (!response.ok) throw Error('web_post_video_editor_timeline_source_' + response.status);
+              return response.blob();
+            }).then(blob => globalThis.URL.createObjectURL(blob));
+        sourceUrlPromise.then(sourceUrl => new Promise((resolve, reject) => {
+          const video = document.createElement('video');
+          video.muted = true;
+          video.playsInline = true;
+          video.preload = 'auto';
+          video.src = sourceUrl;
+          video.onerror = () => reject(Error('web_post_video_editor_timeline_decode_failed'));
+          video.onloadedmetadata = async () => {
+            const frameCount = Math.max(1, Math.min(10, Number(count) || 6));
+            const actualDurationSeconds = Math.max(0.5, Number(video.duration || 0));
+            const hintedDurationSeconds = Math.max(0.5, Number(durationMs || 0) / 1000);
+            const totalSeconds = Math.min(actualDurationSeconds, hintedDurationSeconds);
+            const canvas = document.createElement('canvas');
+            canvas.width = 160;
+            canvas.height = 90;
+            const context = canvas.getContext('2d');
+            if (!context) throw Error('web_post_video_editor_timeline_canvas_missing');
+            const frames = [];
+            for (let index = 0; index < frameCount; index += 1) {
+              const fraction = frameCount === 1 ? 0.5 : index / (frameCount - 1);
+              const target = Math.max(0, Math.min(totalSeconds - 0.05, totalSeconds * fraction));
+              await new Promise(done => {
+                const finish = () => { video.onseeked = null; done(); };
+                video.onseeked = finish;
+                try { video.currentTime = target; } catch (_) { finish(); }
+                setTimeout(finish, 900);
+              });
+              context.fillStyle = '#000';
+              context.fillRect(0, 0, canvas.width, canvas.height);
+              const sourceWidth = Math.max(1, video.videoWidth || canvas.width);
+              const sourceHeight = Math.max(1, video.videoHeight || canvas.height);
+              const scale = Math.max(canvas.width / sourceWidth, canvas.height / sourceHeight);
+              const drawWidth = sourceWidth * scale;
+              const drawHeight = sourceHeight * scale;
+              context.drawImage(video, (canvas.width - drawWidth) / 2, (canvas.height - drawHeight) / 2, drawWidth, drawHeight);
+              frames.push(canvas.toDataURL('image/jpeg', 0.72));
+            }
+            resolve(frames.join('\n'));
+          };
+        })).then(onSuccess).catch(error => onFailure(String(error?.message || error || 'web_post_video_editor_timeline_failed')));
+      } catch (error) {
+        onFailure(String(error?.message || error || 'web_post_video_editor_timeline_failed'));
       }
     })()
     """,

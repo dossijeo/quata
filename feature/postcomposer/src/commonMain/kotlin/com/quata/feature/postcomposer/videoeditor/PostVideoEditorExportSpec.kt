@@ -3,6 +3,8 @@ package com.quata.feature.postcomposer.videoeditor
 import androidx.compose.ui.geometry.Offset
 import com.quata.core.captions.core.CaptionDocument
 import com.quata.core.captions.templates.CaptionTemplateStyle
+import com.quata.core.media.QuataVideoExportPolicy
+import com.quata.core.media.VideoExportProfile
 import kotlin.math.roundToLong
 
 data class PostVideoEditorExportSpec(
@@ -14,12 +16,16 @@ data class PostVideoEditorExportSpec(
     val backgroundCropRect: NormalizedCropRect?,
     val captionStyle: CaptionTemplateStyle?,
     val captionDocument: CaptionDocument?,
-    val outputWidth: Int = PostVideoEditorOutputWidth,
-    val outputHeight: Int = PostVideoEditorOutputHeight,
+    val exportProfile: VideoExportProfile = QuataVideoExportPolicy.defaultProfile,
 ) {
     val trimDurationMs: Long get() = (trimEndMs - trimStartMs).coerceAtLeast(MinimumPostVideoEditorTrimMs)
     val hasCrop: Boolean get() = !cropRect.isFullFrame || backgroundCropRect != null
     val hasCaptions: Boolean get() = captionStyle != null && captionDocument?.isEmpty == false
+    val outputWidth: Int get() = exportProfile.width
+    val outputHeight: Int get() = exportProfile.height
+    val outputMaxFrameRate: Int get() = exportProfile.maxFrameRate
+    val outputTargetBitrate: Int get() = exportProfile.targetBitrate
+    val outputIntermediateBitrate: Int get() = exportProfile.intermediateBitrate
 }
 
 fun postVideoEditorExportSpec(
@@ -27,11 +33,13 @@ fun postVideoEditorExportSpec(
     videoAspectRatio: Float,
     durationMs: Long,
     captionDocument: CaptionDocument? = null,
+    exportProfile: VideoExportProfile = QuataVideoExportPolicy.defaultProfile,
 ): PostVideoEditorExportSpec {
     val safeDuration = durationMs.coerceAtLeast(1L)
     val trimStartMs = (state.trimStartFraction.coerceIn(0f, 1f) * safeDuration).roundToLong()
     val trimEndMs = (state.trimEndFraction.coerceIn(0f, 1f) * safeDuration).roundToLong()
         .coerceAtLeast(trimStartMs + MinimumPostVideoEditorTrimMs)
+        .coerceAtMost(trimStartMs + MaximumPostVideoEditorDurationMs)
         .coerceAtMost(safeDuration)
     val cropCenter = Offset(state.cropCenterX, state.cropCenterY)
     val cropRect = state.cropMode.cropRect(videoAspectRatio, state.cropZoom, cropCenter)
@@ -58,23 +66,62 @@ fun postVideoEditorExportSpec(
             ?.trimTo(trimStartMs, trimEndMs)
             ?.takeIf { !it.isEmpty }
             ?.takeIf { selectedCaptionStyle != null },
+        exportProfile = exportProfile,
     )
 }
 
 fun postVideoEditorStateAfterTrimStart(
     state: PostVideoEditorUiState,
     fraction: Float,
+    durationMs: Long = MaximumPostVideoEditorDurationMs,
 ): PostVideoEditorUiState {
-    val end = state.trimEndFraction.coerceIn(0.05f, 1f)
-    return state.copy(trimStartFraction = fraction.coerceIn(0f, end - 0.05f))
+    val minimumFraction = postVideoEditorMinimumTrimFraction(durationMs)
+    val maximumFraction = postVideoEditorMaximumTrimFraction(durationMs)
+    val end = state.trimEndFraction.coerceIn(minimumFraction, 1f)
+    val start = fraction.coerceIn(0f, end - minimumFraction)
+    val normalizedEnd = end.coerceAtMost(start + maximumFraction).coerceAtLeast(start + minimumFraction)
+    return state.copy(
+        trimStartFraction = start,
+        trimEndFraction = normalizedEnd.coerceAtMost(1f),
+    )
 }
 
 fun postVideoEditorStateAfterTrimEnd(
     state: PostVideoEditorUiState,
     fraction: Float,
+    durationMs: Long = MaximumPostVideoEditorDurationMs,
 ): PostVideoEditorUiState {
-    val start = state.trimStartFraction.coerceIn(0f, 0.95f)
-    return state.copy(trimEndFraction = fraction.coerceIn(start + 0.05f, 1f))
+    val minimumFraction = postVideoEditorMinimumTrimFraction(durationMs)
+    val maximumFraction = postVideoEditorMaximumTrimFraction(durationMs)
+    val start = state.trimStartFraction.coerceIn(0f, 1f - minimumFraction)
+    val maxEnd = (start + maximumFraction).coerceAtMost(1f)
+    return state.copy(trimEndFraction = fraction.coerceIn(start + minimumFraction, maxEnd))
+}
+
+fun postVideoEditorMinimumTrimFraction(durationMs: Long): Float =
+    (MinimumPostVideoEditorTrimMs.toFloat() / durationMs.coerceAtLeast(MinimumPostVideoEditorTrimMs).toFloat())
+        .coerceIn(0.001f, 1f)
+
+fun postVideoEditorMaximumTrimFraction(durationMs: Long): Float =
+    (MaximumPostVideoEditorDurationMs.toFloat() / durationMs.coerceAtLeast(MaximumPostVideoEditorDurationMs).toFloat())
+        .coerceIn(postVideoEditorMinimumTrimFraction(durationMs), 1f)
+
+fun postVideoEditorStateForSourceDuration(
+    state: PostVideoEditorUiState,
+    durationMs: Long,
+): PostVideoEditorUiState {
+    val minimumFraction = postVideoEditorMinimumTrimFraction(durationMs)
+    val maximumFraction = postVideoEditorMaximumTrimFraction(durationMs)
+    val start = state.trimStartFraction.coerceIn(0f, 1f - minimumFraction)
+    val end = state.trimEndFraction
+        .coerceAtLeast(start + minimumFraction)
+        .coerceAtMost(start + maximumFraction)
+        .coerceAtMost(1f)
+    return state.copy(
+        trimStartFraction = start,
+        trimEndFraction = end,
+        currentPositionFraction = state.currentPositionFraction.coerceIn(start, end),
+    )
 }
 
 fun postVideoEditorStateAfterCropToggle(state: PostVideoEditorUiState): PostVideoEditorUiState =
@@ -144,13 +191,36 @@ fun postVideoEditorStateAfterCropPan(
     )
 }
 
+fun postVideoEditorStateAfterReset(
+    state: PostVideoEditorUiState,
+    durationMs: Long = MaximumPostVideoEditorDurationMs,
+): PostVideoEditorUiState {
+    val maximumFraction = postVideoEditorMaximumTrimFraction(durationMs)
+    return state.copy(
+        isMuted = false,
+        cropEnabled = false,
+        captionsEnabled = false,
+        cropPanelOpen = false,
+        captionsPanelOpen = false,
+        cropMode = VideoCropMode.Original,
+        cropZoom = 1f,
+        cropCenterX = 0.5f,
+        cropCenterY = 0.5f,
+        trimStartFraction = 0f,
+        trimEndFraction = maximumFraction,
+        currentPositionFraction = 0f,
+        selectedCaptionStyleId = null,
+        error = null,
+    )
+}
+
 private fun isNineSixteenAspect(aspectRatio: Float): Boolean =
     kotlin.math.abs(aspectRatio - PostVideoEditorOutputAspectRatio) <= 0.01f
 
-const val MinimumPostVideoEditorTrimMs = 500L
-const val MaximumPostVideoEditorDurationMs = 90_000L
-const val PostVideoEditorOutputWidth = 1080
-const val PostVideoEditorOutputHeight = 1920
-const val PostVideoEditorOutputAspectRatio = 9f / 16f
+const val MinimumPostVideoEditorTrimMs = QuataVideoExportPolicy.MinimumTrimMs
+const val MaximumPostVideoEditorDurationMs = QuataVideoExportPolicy.MaximumDurationMs
+val DefaultPostVideoEditorExportProfile: VideoExportProfile = QuataVideoExportPolicy.defaultProfile
+val ConservativePostVideoEditorExportProfile: VideoExportProfile = QuataVideoExportPolicy.conservativeProfile
+val PostVideoEditorOutputAspectRatio: Float = DefaultPostVideoEditorExportProfile.aspectRatio
 
 val DefaultPostVideoEditorCaptionStyleId: String = CaptionTemplateStyle.entries.first().name
