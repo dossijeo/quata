@@ -641,7 +641,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorRunner, /EXPECTED_CAPTION_STYLE = "Hormozi"/);
   assert.match(iosVideoEditorRunner, /caption_style_change/);
   assert.match(iosPostVideoEditor, /recordCaptionStyleChange/);
-  assert.match(iosPostPublishTest, /post-video-editor\.caption-style\.Hormozi/);
+  assert.match(iosPostPublishTest, /tapVideoCaptionStyle\("Hormozi"/);
+  assert.match(iosPostPublishTest, /post-video-editor\.caption-style\.\S+style/);
   assert.match(iosPostPublishTest, /post-video-editor\.export/);
   assert.match(iosPostPublishTest, /post-video-editor\.export-progress/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE/);

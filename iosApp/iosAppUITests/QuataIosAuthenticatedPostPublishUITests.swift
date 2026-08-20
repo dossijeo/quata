@@ -234,7 +234,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         tapComposerAction("post-video-editor.mute", in: app)
         tapComposerAction("post-video-editor.play-pause", in: app)
         tapComposerAction("post-video-editor.captions", in: app)
-        tapComposerAction("post-video-editor.caption-style.Hormozi", in: app)
+        tapVideoCaptionStyle("Hormozi", in: app)
         tapComposerAction("post-video-editor.crop", in: app)
         tapComposerAction("post-video-editor.export", in: app)
         let exportProgress = app.descendants(matching: .any)
@@ -415,6 +415,31 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let action = buttonAction.exists ? buttonAction : fallbackAction
         XCTAssertTrue(action.exists, "Expected common composer action \(identifier) to exist.")
         action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.15)
+    }
+
+    private func tapVideoCaptionStyle(_ style: String, in app: XCUIApplication) {
+        let selectedIdentifier = "post-video-editor.caption-style-selected.\(style)"
+        let buttonIdentifier = "post-video-editor.caption-style.\(style)"
+        let button = app.buttons.matching(identifier: buttonIdentifier).firstMatch
+        XCTAssertTrue(button.waitForExistence(timeout: 8), "Expected common video caption style \(style) to exist.")
+        for _ in 0..<2 {
+            if button.isHittable {
+                button.tap()
+            } else {
+                button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+            if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
+                return
+            }
+            let visibleText = app.staticTexts.matching(identifier: style).firstMatch
+            if visibleText.exists {
+                visibleText.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+            if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
+                return
+            }
+        }
+        XCTFail("Selecting common video caption style \(style) did not update the shared editor state.")
     }
 
     private func commonElement(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
