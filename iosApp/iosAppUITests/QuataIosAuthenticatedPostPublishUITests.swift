@@ -409,7 +409,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             .firstMatch
         for _ in 0..<8 {
             if action.waitForExistence(timeout: 1), action.isHittable {
-                action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                action.tap()
                 return
             }
             app.swipeUp()
