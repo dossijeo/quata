@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import com.quata.core.ui.components.CompactIcon
 
 data class PostImageEditorStrings(
@@ -95,7 +96,7 @@ fun PostImageEditorDialogContent(
     }
 
     fun rotate() {
-        onTransformChange(transform.rotateClockwise())
+        onTransformChange(PostImageEditorTransform.Default.copy(quarterTurns = (transform.quarterTurns + 1) % 4))
         cropPanelOpen = cropLocked
         cropApplied = cropLocked
     }
@@ -188,7 +189,10 @@ fun PostImageEditorDialogContent(
                 Text(" ${strings.save}")
             }
         },
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = modifier
+            .fillMaxWidth(0.94f)
+            .widthIn(max = 920.dp)
             .heightIn(max = 780.dp)
             .testTag(PostImageEditorRootTestTag),
     )

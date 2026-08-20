@@ -37,7 +37,10 @@ test("post image editor owns a common transform, geometry and shared control sur
   assert.match(commonContent, /cropApplied by remember/);
   assert.match(commonContent, /cropLocked \|\| cropPanelOpen \|\| cropApplied/);
   assert.match(commonContent, /BoxWithConstraints/);
+  assert.match(commonContent, /DialogProperties\(usePlatformDefaultWidth = false\)/);
+  assert.match(commonContent, /\.widthIn\(max = 920\.dp\)/);
   assert.match(commonContent, /val landscape = maxWidth > 560\.dp/);
+  assert.match(commonContent, /PostImageEditorTransform\.Default\.copy\(quarterTurns = \(transform\.quarterTurns \+ 1\) % 4\)/);
   assert.match(commonContent, /Icons\.Filled\.Crop/);
   assert.match(commonContent, /detectDragGestures/);
   assert.match(commonContent, /Slider\(/);
