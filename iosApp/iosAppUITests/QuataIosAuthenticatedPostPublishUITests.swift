@@ -137,10 +137,6 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         guard environment["QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN"] == "I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE" else {
             throw XCTSkip("Post video editor replay requires the picker fixture.")
         }
-        guard environment["QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE_OPT_IN"] == "I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE" else {
-            throw XCTSkip("Post video editor fixture replay is opt-in.")
-        }
-
         let app = openComposer(mode: "video", locationLabel: "")
         assertSharedComposerSurface(in: app)
         tapVideoType(in: app)
@@ -152,7 +148,28 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-video-selected")
 
         tapComposerAction("composer-media.edit-video", in: app)
-        XCTAssertTrue(selectedVideoPreview.waitForExistence(timeout: 12), "The iOS video edit adapter must return to the common selected-video preview.")
+        let editorRoot = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.root")
+            .firstMatch
+        XCTAssertTrue(editorRoot.waitForExistence(timeout: 12), "The iOS composer must open the shared post video editor.")
+        for identifier in [
+            "post-video-editor.preview",
+            "post-video-editor.mute",
+            "post-video-editor.play-pause",
+            "post-video-editor.timeline",
+            "post-video-editor.crop",
+            "post-video-editor.captions",
+            "post-video-editor.export",
+        ] {
+            XCTAssertTrue(app.descendants(matching: .any).matching(identifier: identifier).firstMatch.waitForExistence(timeout: 8), "Missing shared video editor anchor \(identifier).")
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-opened")
+        tapComposerAction("post-video-editor.mute", in: app)
+        tapComposerAction("post-video-editor.play-pause", in: app)
+        tapComposerAction("post-video-editor.crop", in: app)
+        tapComposerAction("post-video-editor.captions", in: app)
+        tapComposerAction("post-video-editor.export", in: app)
+        XCTAssertTrue(selectedVideoPreview.waitForExistence(timeout: 12), "Saving the iOS video editor must return to the common selected-video preview.")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-after-edit")
         print("IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED")
     }

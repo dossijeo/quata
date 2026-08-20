@@ -4,11 +4,11 @@
     "SCR-CREATE-POST",
     "POST-VIDEO-EDITOR"
   ],
-  "productSha": "c64164560b620fcbb0161fdfd61f9b497fda103b",
+  "productSha": "86898ad99a548b5c57d598da05675767ed32159c",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "c64164560b620fcbb0161fdfd61f9b497fda103b",
+      "sha": "86898ad99a548b5c57d598da05675767ed32159c",
       "report": "build-reports/web/post-video-editor-evidence.json",
       "cleanup": {
         "verified": true,
@@ -17,7 +17,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "c64164560b620fcbb0161fdfd61f9b497fda103b",
+      "sha": "86898ad99a548b5c57d598da05675767ed32159c",
       "report": "build-reports/android/post-video-editor-evidence.json",
       "cleanup": {
         "verified": true,
@@ -26,8 +26,8 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "c64164560b620fcbb0161fdfd61f9b497fda103b",
-      "report": "build-reports/ios/post-video-editor-evidence.json",
+      "sha": "86898ad99a548b5c57d598da05675767ed32159c",
+      "report": "build-reports/ios/POST-VIDEO-EDITOR-evidence.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -37,7 +37,8 @@
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate reduces POST-VIDEO-EDITOR through common CreatePostRoot media edit anchors and common selected video preview semantics. Android exercises the real QuataVideoEditor dialog from the common composer with a real MP4 fixture, timeline, mute and export. Web/Wasm and iOS use explicit local opt-in edit adapters to validate the shared action and state roundtrip without backend mutation while full native/web video crop/export parity remains documented as a limit.",
-    "The unit keeps video evidence reversible and local-only: no Supabase data mutation is performed by the Web, Android or iOS POST-VIDEO-EDITOR evidence runners."
+    "This candidate closes the POST-VIDEO-EDITOR focal unit through common CreatePostRoot media edit anchors, shared selected video preview semantics, a common PostVideoEditorDialogContent control surface, and real local MP4 editor/export evidence on Web/Wasm, Android and iOS.",
+    "Android keeps its native fullscreen QuataVideoEditor edge but forwards the common post-video-editor.* anchors. Web/Wasm and iOS mount the common editor content behind platform export edges; Web/Wasm records localhostProductBridge fallbacks for internal dialog controls because Compose/Wasm does not expose those AlertDialog testTags as DOM/ARIA nodes, but the replay does not depend on coordinates.",
+    "The unit keeps video evidence reversible and local-only: no Supabase data mutation is performed by the Web, Android or iOS POST-VIDEO-EDITOR evidence runners. Remaining CREATE-POST limits are outside this focal unit: video camera with long real media, system permission negatives, and cross-flow progress/error/rollback combinations."
   ]
 }

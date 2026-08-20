@@ -7,7 +7,6 @@ import { tmpdir } from "node:os";
 
 const CHECK = "POST-VIDEO-EDITOR-IOS-REAL-001";
 const PICKER_OPT_IN = "I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE";
-const EDITOR_OPT_IN = "I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 const DEFAULT_VIDEO_FIXTURE = "play-store/05-assets/source-media/sample-video-vertical.mp4";
 
@@ -112,7 +111,6 @@ export QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME=${shellQuote(outcome)}
 export QUATA_IOS_POST_COMPOSER_PICKER_PATH=${shellQuote(remoteFixture)}
 export QUATA_IOS_POST_COMPOSER_PICKER_NAME='POST-VIDEO-EDITOR-fixture.mp4'
 export QUATA_IOS_POST_COMPOSER_PICKER_MIME='video/mp4'
-export QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE_OPT_IN=${shellQuote(EDITOR_OPT_IN)}
 bash scripts/run-ios-post-video-editor-ui-test.sh
 `);
     return { source, outcome, status: "passed", remoteLogDir };

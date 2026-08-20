@@ -3,15 +3,15 @@ import { createServer } from "node:http";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { extname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { chromium } from "playwright-core";
 
 const CHECK = "POST-VIDEO-EDITOR-WEB-REAL-001";
 const PICKER_OPT_IN = "I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE";
-const EDITOR_OPT_IN = "I_ACCEPT_WEB_POST_COMPOSER_VIDEO_EDITOR_FIXTURE";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
-const VALID_MP4_DATA_URL = "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDE=";
+const DEFAULT_VIDEO_FIXTURE = "play-store/05-assets/source-media/sample-video-vertical.mp4";
+const { chromium } = loadPlaywrightCore();
 
 const options = parseArgs(process.argv.slice(2));
 const report = {
@@ -85,26 +85,21 @@ async function runAttempt(context) {
     if (entry.type() === "error") faults.push(`console_error:${entry.text().slice(0, 180)}`);
   });
   try {
-    const reference = VALID_MP4_DATA_URL;
-    const editedReference = `${reference}#quata-edited-video`;
-    await page.addInitScript(({ source, outcome, reference, editedReference, pickerOptIn, editorOptIn }) => {
+    const reference = await validMp4FixtureDataUrl();
+    await page.addInitScript(({ source, outcome, reference, pickerOptIn }) => {
       sessionStorage.setItem("quata.post_publish.e2e", "1");
       localStorage.setItem("quata_post_composer_picker_e2e_opt_in", pickerOptIn);
       localStorage.setItem("quata_post_composer_picker_e2e_source", source);
       localStorage.setItem("quata_post_composer_picker_e2e_outcome", outcome);
       localStorage.setItem("quata_post_composer_picker_e2e_reference", reference);
-      localStorage.setItem("quata_post_composer_video_editor_e2e_opt_in", editorOptIn);
-      localStorage.setItem("quata_post_composer_video_editor_e2e_reference", editedReference);
-    }, { source, outcome, reference, editedReference, pickerOptIn: PICKER_OPT_IN, editorOptIn: EDITOR_OPT_IN });
+    }, { source, outcome, reference, pickerOptIn: PICKER_OPT_IN });
     await page.goto(`${server.origin}/?quata-post-publish-e2e=1&quata-post-picker-camera-e2e=1&quata-post-video-editor-e2e=1#composer`, { waitUntil: "domcontentloaded", timeout: 60_000 });
-    await page.evaluate(({ source, outcome, reference, editedReference, pickerOptIn, editorOptIn }) => {
+    await page.evaluate(({ source, outcome, reference, pickerOptIn }) => {
       localStorage.setItem("quata_post_composer_picker_e2e_opt_in", pickerOptIn);
       localStorage.setItem("quata_post_composer_picker_e2e_source", source);
       localStorage.setItem("quata_post_composer_picker_e2e_outcome", outcome);
       localStorage.setItem("quata_post_composer_picker_e2e_reference", reference);
-      localStorage.setItem("quata_post_composer_video_editor_e2e_opt_in", editorOptIn);
-      localStorage.setItem("quata_post_composer_video_editor_e2e_reference", editedReference);
-    }, { source, outcome, reference, editedReference, pickerOptIn: PICKER_OPT_IN, editorOptIn: EDITOR_OPT_IN });
+    }, { source, outcome, reference, pickerOptIn: PICKER_OPT_IN });
     await page.locator("#create-post-common-root").first().waitFor({ state: "attached", timeout: 45_000 });
     await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-post-composer-e2e") === "ready", null, { timeout: 20_000 });
     const opened = await screenshot(page, "web-post-video-editor-opened");
@@ -115,14 +110,17 @@ async function runAttempt(context) {
     const afterSelect = await screenshot(page, "web-post-video-editor-video-selected");
     await page.waitForFunction((expected) => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
-      return state?.hasVideo === true && state?.videoUri === expected;
+      return state?.hasVideo === true
+        && typeof state.videoUri === "string"
+        && (state.videoUri === expected || state.videoUri.startsWith("data:video/") || state.videoUri.startsWith("blob:"));
     }, reference, { timeout: 10_000 });
     const resolvedEditAnchor = await clickComposerEditAction(page);
-    const editedByBridge = await ensureWebVideoSelected(page, editedReference, "composer-media.edit-video");
-    await page.waitForFunction((expected) => {
+    const resolvedEditorOpen = await ensureWebVideoEditorOpen(page, resolvedEditAnchor, reference);
+    const editorAnchors = await exerciseVideoEditor(page);
+    const exported = await page.waitForFunction(() => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
-      return state?.hasVideo === true && state?.videoUri === expected;
-    }, editedReference, { timeout: 10_000 });
+      return state?.hasVideo === true && typeof state?.videoUri === "string" && state.videoUri.startsWith("blob:");
+    }, null, { timeout: 15_000 }).then(() => postComposerProductState(page));
     const afterEdit = await screenshot(page, "web-post-video-editor-after-edit");
     const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
@@ -131,9 +129,9 @@ async function runAttempt(context) {
       outcome,
       status: "passed",
       selectedField: "hasVideo",
-      anchors: { type: resolvedTypeAnchor, action: selectedByBridge ?? resolvedActionAnchor, edit: editedByBridge ?? resolvedEditAnchor },
+      anchors: { type: resolvedTypeAnchor, action: selectedByBridge ?? resolvedActionAnchor, edit: resolvedEditorOpen, editor: editorAnchors },
       evidence: { opened, afterSelect, afterEdit },
-      state: await postComposerProductState(page),
+      state: exported,
     };
   } catch (error) {
     return {
@@ -141,12 +139,95 @@ async function runAttempt(context) {
       outcome,
       status: "failed",
       error: safeFailure(error),
+      errorDetail: String(error?.stack ?? error?.message ?? error).slice(0, 1_500),
       state: await postComposerProductState(page).catch(() => null),
       candidates: await semanticCandidates(page).catch(() => []),
     };
   } finally {
     await page.close().catch(() => {});
   }
+}
+
+async function ensureWebVideoEditorOpen(page, visualAnchor, reference) {
+  if (await semanticLocator(page, "post-video-editor.root").then((locator) => locator.waitFor({ state: "attached", timeout: 1_500 }).then(() => true)).catch(() => false)) {
+    return visualAnchor;
+  }
+  const invoked = await page.evaluate(() => {
+    const bridge = globalThis.__quataPostComposerE2eProduct;
+    if (typeof bridge?.editVideo !== "function") return false;
+    bridge.editVideo();
+    return true;
+  });
+  if (invoked && await waitForVideoEditorReady(page).then(() => true).catch(() => false)) {
+    return { kind: "localhostProductBridge", value: "editVideo", preferredMissing: "composer-media.edit-video" };
+  }
+  const openedWithReference = await page.evaluate((value) => {
+    const bridge = globalThis.__quataPostComposerE2eProduct;
+    if (typeof bridge?.setVideo !== "function") return false;
+    bridge.setVideo(value);
+    return true;
+  }, reference);
+  if (!openedWithReference) throw new Error("missing_stable_anchor:composer-media.edit-video");
+  await waitForVideoEditorReady(page);
+  return { kind: "localhostProductBridge", value: "setVideo:openEditor", preferredMissing: "composer-media.edit-video" };
+}
+
+async function exerciseVideoEditor(page) {
+  const anchors = {};
+  await waitForVideoEditorReady(page);
+  anchors.root = { kind: "testTagOrBridge", value: "post-video-editor.root" };
+  for (const id of [
+    "post-video-editor.preview",
+    "post-video-editor.mute",
+    "post-video-editor.play-pause",
+    "post-video-editor.timeline",
+    "post-video-editor.crop",
+    "post-video-editor.captions",
+  ]) {
+    anchors[id] = await resolveVideoEditorAnchor(page, id);
+  }
+  await invokeVideoEditorAction(page, "mute");
+  await invokeVideoEditorAction(page, "playPause");
+  await invokeVideoEditorAction(page, "crop");
+  await invokeVideoEditorAction(page, "captions");
+  await invokeVideoEditorAction(page, "export");
+  await page.waitForFunction(() => globalThis.__quataPostVideoEditorExport?.status === "success", null, { timeout: 15_000 });
+  anchors.export = anchors["post-video-editor.export"];
+  anchors.exportState = await page.evaluate(() => globalThis.__quataPostVideoEditorExport || null);
+  return anchors;
+}
+
+async function waitForVideoEditorReady(page) {
+  if (await semanticLocator(page, "post-video-editor.root").then((locator) => locator.waitFor({ state: "attached", timeout: 1_500 }).then(() => true)).catch(() => false)) return;
+  await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-post-video-editor-e2e") === "ready", null, { timeout: 10_000 });
+}
+
+async function resolveVideoEditorAnchor(page, id) {
+  if (await semanticLocator(page, id).then((locator) => locator.waitFor({ state: "attached", timeout: 500 }).then(() => true)).catch(() => false)) {
+    return { kind: "testTag", value: id };
+  }
+  return { kind: "localhostProductBridge", value: id, preferredMissing: id };
+}
+
+async function invokeVideoEditorAction(page, action) {
+  const id = {
+    mute: "post-video-editor.mute",
+    playPause: "post-video-editor.play-pause",
+    crop: "post-video-editor.crop",
+    captions: "post-video-editor.captions",
+    export: "post-video-editor.export",
+  }[action];
+  if (id && await semanticLocator(page, id).then(async (locator) => {
+    await locator.click({ force: true, timeout: 800 });
+    return true;
+  }).catch(() => false)) return;
+  const invoked = await page.evaluate((name) => {
+    const bridge = globalThis.__quataPostVideoEditorE2eProduct;
+    if (typeof bridge?.[name] !== "function") return false;
+    bridge[name]();
+    return true;
+  }, action);
+  if (!invoked) throw new Error(`missing_stable_anchor:${id || action}`);
 }
 
 function parseArgs(args) {
@@ -373,7 +454,7 @@ async function clickComposerEditAction(page) {
 
 async function ensureWebVideoSelected(page, expected, preferredMissing) {
   const state = await postComposerProductState(page).catch(() => null);
-  if (state?.hasVideo === true && state?.videoUri === expected) return null;
+  if (isExpectedVideoState(state, expected)) return null;
   const injected = await page.evaluate((value) => {
     const bridge = globalThis.__quataPostComposerE2eProduct;
     if (typeof bridge?.setVideo !== "function") return false;
@@ -381,8 +462,19 @@ async function ensureWebVideoSelected(page, expected, preferredMissing) {
     return true;
   }, expected);
   if (!injected) throw new Error(`missing_stable_anchor:${preferredMissing}`);
-  await page.waitForFunction((value) => globalThis.__quataPostComposerE2eProduct?.state?.()?.videoUri === value, expected, { timeout: 5_000 });
+  await page.waitForFunction((value) => {
+    const state = globalThis.__quataPostComposerE2eProduct?.state?.();
+    return state?.hasVideo === true
+      && typeof state.videoUri === "string"
+      && (state.videoUri === value || state.videoUri.startsWith("data:video/") || state.videoUri.startsWith("blob:"));
+  }, expected, { timeout: 20_000 });
   return { kind: "localhostProductBridge", value: "setVideo", preferredMissing };
+}
+
+function isExpectedVideoState(state, expected) {
+  return state?.hasVideo === true
+    && typeof state.videoUri === "string"
+    && (state.videoUri === expected || state.videoUri.startsWith("data:video/") || state.videoUri.startsWith("blob:"));
 }
 
 async function composerMediaActionVisible(page, kind) {
@@ -459,4 +551,27 @@ function safeFailure(error) {
   return String(error?.message ?? error)
     .replace(/(bearer\s+|authorization\s*[:=]\s*|token\s*[:=]\s*|password\s*[:=]\s*|apikey\s*[:=]\s*)[^\s,;]+/gi, "$1[REDACTED]")
     .slice(0, 500);
+}
+
+function loadPlaywrightCore() {
+  const require = createRequire(import.meta.url);
+  try {
+    return require("playwright-core");
+  } catch (firstError) {
+    const extra = process.env.QUATA_NODE_MODULES?.trim();
+    if (extra) {
+      try {
+        return require(require.resolve("playwright-core", { paths: [extra] }));
+      } catch {}
+    }
+    throw firstError;
+  }
+}
+
+async function validMp4FixtureDataUrl() {
+  const fixture = await readFile(resolve(DEFAULT_VIDEO_FIXTURE));
+  if (fixture.length < 8_000 || fixture.subarray(4, 8).toString("ascii") !== "ftyp") {
+    throw new Error("invalid_mp4_fixture");
+  }
+  return `data:video/mp4;base64,${fixture.toString("base64")}`;
 }
