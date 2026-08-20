@@ -36,18 +36,23 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
         source: PlatformFile,
         callback: any IosPostVideoEditorTranscriptCallback
     ) {
+        Self.writeEvidenceEvent("transcribe_start")
         guard let sourceUrl = URL(string: source.reference), sourceUrl.isFileURL else {
+            Self.writeEvidenceEvent("transcribe_source_invalid")
             callback.onFailure(reason: "ios_post_video_editor_caption_source_invalid")
             return
         }
         let localeIdentifier = Self.transcriptionLocaleIdentifier()
+        Self.writeEvidenceEvent("transcribe_locale", details: ["locale": localeIdentifier])
         let recognizer = SFSpeechRecognizer(locale: Locale(identifier: localeIdentifier))
             ?? SFSpeechRecognizer(locale: Locale(identifier: "en_US"))
         guard let recognizer else {
+            Self.writeEvidenceEvent("transcribe_recognizer_unavailable")
             callback.onFailure(reason: "ios_post_video_editor_caption_recognizer_unavailable")
             return
         }
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
+            Self.writeEvidenceEvent("transcribe_authorization", details: ["status": "\(status.rawValue)"])
             guard status == .authorized else {
                 DispatchQueue.main.async {
                     callback.onFailure(reason: "ios_post_video_editor_caption_speech_permission_denied")
@@ -63,6 +68,7 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
             var task: SFSpeechRecognitionTask?
             var latestWire = ""
             var didFinish = false
+            let timeoutSeconds = Self.transcriptionTimeoutSeconds(for: sourceUrl)
             let timeout = DispatchWorkItem { [weak self] in
                 guard !didFinish else { return }
                 didFinish = true
@@ -70,8 +76,10 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
                 self?.activeSpeechTasks.removeValue(forKey: taskId)
                 DispatchQueue.main.async {
                     if latestWire.isEmpty {
+                        Self.writeEvidenceEvent("transcribe_timeout_failure")
                         callback.onFailure(reason: "ios_post_video_editor_caption_transcript_timeout")
                     } else {
+                        Self.writeEvidenceEvent("transcribe_timeout_success", details: ["wireLines": "\(latestWire.components(separatedBy: .newlines).count)"])
                         callback.onSuccess(text: latestWire)
                     }
                 }
@@ -84,8 +92,10 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
                 self?.activeSpeechTasks.removeValue(forKey: taskId)
                 DispatchQueue.main.async {
                     if let wire, !wire.isEmpty {
+                        Self.writeEvidenceEvent("transcribe_success", details: ["wireLines": "\(wire.components(separatedBy: .newlines).count)"])
                         callback.onSuccess(text: wire)
                     } else {
+                        Self.writeEvidenceEvent("transcribe_failure", details: ["reason": failure ?? "ios_post_video_editor_caption_transcript_failed"])
                         callback.onFailure(reason: failure ?? "ios_post_video_editor_caption_transcript_failed")
                     }
                 }
@@ -93,6 +103,10 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
             task = recognizer.recognitionTask(with: request) { result, error in
                 if let result {
                     latestWire = Self.captionWire(from: result.bestTranscription)
+                    Self.writeEvidenceEvent("transcribe_result", details: [
+                        "isFinal": "\(result.isFinal)",
+                        "segments": "\(result.bestTranscription.segments.count)",
+                    ])
                     if result.isFinal {
                         finish(
                             latestWire,
@@ -110,12 +124,14 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
             }
             if let task {
                 self?.activeSpeechTasks[taskId] = task
+                Self.writeEvidenceEvent("transcribe_task_created", details: ["timeoutSeconds": "\(timeoutSeconds)"])
                 DispatchQueue.global(qos: .utility).asyncAfter(
-                    deadline: .now() + Self.transcriptionTimeoutSeconds(for: sourceUrl),
+                    deadline: .now() + timeoutSeconds,
                     execute: timeout
                 )
             } else {
                 timeout.cancel()
+                Self.writeEvidenceEvent("transcribe_task_missing")
                 DispatchQueue.main.async {
                     callback.onFailure(reason: "ios_post_video_editor_caption_transcript_failed")
                 }
@@ -137,6 +153,34 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
         let duration = CMTimeGetSeconds(asset.duration)
         guard duration.isFinite, duration > 0 else { return 30 }
         return max(20, min(90, duration * 3 + 10))
+    }
+
+    static func writeEvidenceEvent(_ event: String, details: [String: String] = [:]) {
+        guard let diagnosticsPath = ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS"],
+              !diagnosticsPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+        var payload = details
+        payload["event"] = event
+        payload["timestamp"] = ISO8601DateFormatter().string(from: Date())
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+              let line = String(data: data, encoding: .utf8) else {
+            return
+        }
+        let url = URL(fileURLWithPath: diagnosticsPath + ".events.jsonl")
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if FileManager.default.fileExists(atPath: url.path),
+               let handle = try? FileHandle(forWritingTo: url) {
+                try handle.seekToEnd()
+                try handle.write(contentsOf: Data((line + "\n").utf8))
+                try handle.close()
+            } else {
+                try (line + "\n").write(to: url, atomically: true, encoding: .utf8)
+            }
+        } catch {
+            // Evidence-only diagnostics must never alter app behavior.
+        }
     }
 
     private static func captionWire(from transcription: SFTranscription) -> String {
@@ -232,8 +276,10 @@ private final class IosPostVideoEditorExportOperation {
     }
 
     func start() {
+        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_start")
         let asset = AVURLAsset(url: sourceUrl)
         guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_video_track_missing")
             callback.onFailure(reason: "ios_post_video_editor_video_track_missing")
             return
         }
@@ -257,6 +303,7 @@ private final class IosPostVideoEditorExportOperation {
             withMediaType: .video,
             preferredTrackID: kCMPersistentTrackID_Invalid
         ) else {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_composition_video_track_failed")
             callback.onFailure(reason: "ios_post_video_editor_composition_video_track_failed")
             return
         }
@@ -270,6 +317,7 @@ private final class IosPostVideoEditorExportOperation {
                 try compositionBackground.insertTimeRange(range, of: videoTrack, at: .zero)
             }
         } catch {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_video_insert_failed")
             callback.onFailure(reason: "ios_post_video_editor_video_insert_failed")
             return
         }
@@ -281,6 +329,7 @@ private final class IosPostVideoEditorExportOperation {
         }
         if let captionStyle = request.captionStyle, !captionStyle.isEmpty,
            request.captionDocumentWire?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_caption_transcript_missing")
             callback.onFailure(reason: "ios_post_video_editor_caption_transcript_missing")
             return
         }
@@ -288,6 +337,7 @@ private final class IosPostVideoEditorExportOperation {
         let outputUrl = temporaryOutputUrl()
         try? FileManager.default.removeItem(at: outputUrl)
         guard let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")
             callback.onFailure(reason: "ios_post_video_editor_export_session_unavailable")
             return
         }
@@ -301,11 +351,16 @@ private final class IosPostVideoEditorExportOperation {
             backgroundTrack: compositionBackground,
             duration: range.duration
         )
+        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_started", details: [
+            "durationMs": "\(Int64(CMTimeGetSeconds(range.duration) * 1_000))",
+            "captionDocument": request.captionDocumentWire?.isEmpty == false ? "true" : "false",
+        ])
         exportSession.exportAsynchronously { [callback] in
             DispatchQueue.main.async {
                 switch exportSession.status {
                 case .completed:
                     let size = (try? FileManager.default.attributesOfItem(atPath: outputUrl.path)[.size] as? NSNumber)?.int64Value
+                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_completed", details: ["sizeBytes": "\(size ?? 0)"])
                     self.writeExportDiagnostics(outputUrl: outputUrl, sizeBytes: size)
                     callback.onSuccess(file: PlatformFile(
                         reference: outputUrl.absoluteString,
@@ -314,8 +369,10 @@ private final class IosPostVideoEditorExportOperation {
                         sizeBytes: size.map { KotlinLong(value: $0) }
                     ))
                 case .failed, .cancelled:
+                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_failed", details: ["reason": exportSession.error?.localizedDescription ?? "ios_post_video_editor_export_failed"])
                     callback.onFailure(reason: exportSession.error?.localizedDescription ?? "ios_post_video_editor_export_failed")
                 default:
+                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_incomplete", details: ["status": "\(exportSession.status.rawValue)"])
                     callback.onFailure(reason: "ios_post_video_editor_export_incomplete")
                 }
             }
