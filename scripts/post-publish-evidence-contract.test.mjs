@@ -58,6 +58,8 @@ const commonPostVideoEditorContent = readFileSync(new URL("../feature/postcompos
 const commonPostVideoEditorSpec = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/videoeditor/PostVideoEditorExportSpec.kt", import.meta.url), "utf8");
 const webPostVideoEditor = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostVideoEditor.kt", import.meta.url), "utf8");
 const iosPostVideoEditor = readFileSync(new URL("../feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostVideoEditor.kt", import.meta.url), "utf8");
+const iosPostVideoEditorNativeDriver = readFileSync(new URL("../iosApp/iosApp/IosPostVideoEditorNativeDriver.swift", import.meta.url), "utf8");
+const iosQuataApp = readFileSync(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
 const androidVideoEditorRunner = readFileSync(new URL("./post-video-editor-android-evidence.mjs", import.meta.url), "utf8");
 const webVideoEditorRunner = readFileSync(new URL("./post-video-editor-web-evidence.mjs", import.meta.url), "utf8");
 const iosVideoEditorRunner = readFileSync(new URL("./post-video-editor-ios-evidence.mjs", import.meta.url), "utf8");
@@ -589,12 +591,17 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /composer-media\.edit-video/);
   assert.match(iosPostPublishTest, /post-video-editor\.root/);
   assert.match(iosPostPublishTest, /post-video-editor\.export/);
-  assert.match(iosPostPublishTest, /post-video-editor\.error/);
-  assert.match(iosPostPublishTest, /native_export_required/);
+  assert.match(iosPostPublishTest, /IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED/);
   assert.match(iosComposerHost, /IosPostVideoEditor/);
   assert.match(iosPostVideoEditor, /PostVideoEditorDialogContent/);
   assert.match(iosPostVideoEditor, /IosVideoThumbnailService/);
-  assert.match(iosPostVideoEditor, /ios_post_video_editor_native_export_required/);
+  assert.match(iosPostVideoEditor, /IosPostVideoEditorNativeDriver/);
+  assert.match(iosPostVideoEditor, /UIKitView/);
+  assert.match(iosPostVideoEditorNativeDriver, /AVAssetExportSession/);
+  assert.match(iosPostVideoEditorNativeDriver, /AVVideoCompositionCoreAnimationTool/);
+  assert.match(iosPostVideoEditorNativeDriver, /request\.removeAudio/);
+  assert.match(iosPostVideoEditorNativeDriver, /captionAnimationTool/);
+  assert.match(iosQuataApp, /IosPostVideoEditorNativeDriverBridge\.shared/);
   assert.doesNotMatch(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
 
   for (const runner of [androidVideoEditorRunner, webVideoEditorRunner, iosVideoEditorRunner]) {

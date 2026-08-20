@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.UIKitView
 import com.quata.core.captions.templates.CaptionTemplateStyle
 import com.quata.core.platform.IosVideoThumbnailService
 import com.quata.core.platform.PlatformFile
@@ -27,11 +28,59 @@ import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimE
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimStart
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSURL
+import platform.UIKit.UIView
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+
+interface IosPostVideoEditorNativeDriver {
+    fun createPreview(reference: String): IosPostVideoEditorPreviewSurface
+    fun export(source: PlatformFile, request: IosPostVideoEditorExportRequest, callback: IosPostVideoEditorExportCallback)
+}
+
+interface IosPostVideoEditorPreviewSurface {
+    fun nativeView(): UIView
+    fun configure(isPlaying: Boolean, isMuted: Boolean, positionMs: Long)
+    fun dispose()
+}
+
+interface IosPostVideoEditorExportCallback {
+    fun onSuccess(file: PlatformFile)
+    fun onFailure(reason: String)
+}
+
+data class IosPostVideoEditorExportRequest(
+    val trimStartMs: Long,
+    val trimEndMs: Long,
+    val sourceDurationMs: Long,
+    val removeAudio: Boolean,
+    val cropLeft: Float,
+    val cropTop: Float,
+    val cropRight: Float,
+    val cropBottom: Float,
+    val captionStyle: String?,
+    val outputWidth: Int,
+    val outputHeight: Int,
+)
+
+object UnsupportedIosPostVideoEditorNativeDriver : IosPostVideoEditorNativeDriver {
+    override fun createPreview(reference: String): IosPostVideoEditorPreviewSurface = UnsupportedIosPostVideoEditorPreviewSurface
+    override fun export(source: PlatformFile, request: IosPostVideoEditorExportRequest, callback: IosPostVideoEditorExportCallback) {
+        callback.onFailure("ios_post_video_editor_native_export_required")
+    }
+}
+
+private object UnsupportedIosPostVideoEditorPreviewSurface : IosPostVideoEditorPreviewSurface {
+    override fun nativeView(): UIView = UIView()
+    override fun configure(isPlaying: Boolean, isMuted: Boolean, positionMs: Long) = Unit
+    override fun dispose() = Unit
+}
 
 @Composable
 internal fun IosPostVideoEditor(
     source: PlatformFile,
+    nativeDriver: IosPostVideoEditorNativeDriver,
     onDismiss: () -> Unit,
     onEdited: (PlatformFile) -> Unit,
 ) {
@@ -51,7 +100,7 @@ internal fun IosPostVideoEditor(
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
         val spec = postVideoEditorExportSpec(state, videoAspectRatio, durationMs)
         scope.launch {
-            runCatching { iosPostVideoEditorExportEdited(source, spec) }
+            runCatching { iosPostVideoEditorExportEdited(source, spec, nativeDriver) }
                 .onSuccess {
                     state = state.copy(isExporting = false, exportProgress = 1f)
                     onEdited(it)
@@ -80,24 +129,76 @@ internal fun IosPostVideoEditor(
         onCaptionStyleChange = { state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null) },
         onSeekChange = { state = state.copy(currentPositionFraction = it.coerceIn(0f, 1f)) },
         preview = { modifier: Modifier ->
-            val previewFile = thumbnail
-            if (previewFile != null) {
-                IosComposerLocalImagePreview(previewFile, modifier = modifier)
-            } else {
-                IosComposerLocalImagePreview(source, modifier = modifier)
-            }
+            IosPostVideoEditorNativePreview(
+                source = source,
+                nativeDriver = nativeDriver,
+                state = state,
+                durationMs = durationMs,
+                fallbackThumbnail = thumbnail,
+                modifier = modifier,
+            )
         },
     )
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private suspend fun iosPostVideoEditorExportEdited(source: PlatformFile, spec: PostVideoEditorExportSpec): PlatformFile {
-    val hasTrim = spec.trimStartMs > 0L || spec.trimEndMs < spec.sourceDurationMs
-    if (hasTrim || spec.removeAudio || spec.hasCrop || spec.hasCaptions) {
-        error("ios_post_video_editor_native_export_required")
+@Composable
+private fun IosPostVideoEditorNativePreview(
+    source: PlatformFile,
+    nativeDriver: IosPostVideoEditorNativeDriver,
+    state: PostVideoEditorUiState,
+    durationMs: Long,
+    fallbackThumbnail: PlatformFile?,
+    modifier: Modifier,
+) {
+    val localReference = iosPostVideoEditorLocalUrl(source.reference)?.absoluteString
+    if (localReference == null) {
+        fallbackThumbnail?.let { IosComposerLocalImagePreview(it, modifier = modifier) }
+            ?: IosComposerLocalImagePreview(source, modifier = modifier)
+        return
     }
-    iosPostVideoEditorLocalUrl(source.reference) ?: error("ios_post_video_editor_source_invalid")
-    return source
+    val surface = remember(localReference, nativeDriver) { nativeDriver.createPreview(localReference) }
+    androidx.compose.runtime.DisposableEffect(surface) { onDispose(surface::dispose) }
+    UIKitView(
+        factory = surface::nativeView,
+        update = {
+            surface.configure(
+                isPlaying = state.isPlaying,
+                isMuted = state.isMuted,
+                positionMs = (state.currentPositionFraction.coerceIn(0f, 1f) * durationMs).toLong(),
+            )
+        },
+        modifier = modifier,
+    )
+}
+
+private suspend fun iosPostVideoEditorExportEdited(
+    source: PlatformFile,
+    spec: PostVideoEditorExportSpec,
+    nativeDriver: IosPostVideoEditorNativeDriver,
+): PlatformFile = suspendCancellableCoroutine { continuation ->
+    val request = IosPostVideoEditorExportRequest(
+        trimStartMs = spec.trimStartMs,
+        trimEndMs = spec.trimEndMs,
+        sourceDurationMs = spec.sourceDurationMs,
+        removeAudio = spec.removeAudio,
+        cropLeft = spec.cropRect.left,
+        cropTop = spec.cropRect.top,
+        cropRight = spec.cropRect.right,
+        cropBottom = spec.cropRect.bottom,
+        captionStyle = spec.captionStyle?.name,
+        outputWidth = spec.outputWidth,
+        outputHeight = spec.outputHeight,
+    )
+    nativeDriver.export(source, request, object : IosPostVideoEditorExportCallback {
+        override fun onSuccess(file: PlatformFile) {
+            if (continuation.isActive) continuation.resume(file)
+        }
+
+        override fun onFailure(reason: String) {
+            if (continuation.isActive) continuation.resumeWithException(IllegalStateException(reason))
+        }
+    })
 }
 
 @OptIn(ExperimentalForeignApi::class)

@@ -40,6 +40,7 @@ class IosComposerHostDependencies(
     val onClose: () -> Unit,
     val initialImageReference: String? = null,
     val initialLocationLabel: String? = null,
+    val videoEditorNativeDriver: IosPostVideoEditorNativeDriver = UnsupportedIosPostVideoEditorNativeDriver,
 )
 
 fun createIosComposerHostDependencies(
@@ -52,6 +53,28 @@ fun createIosComposerHostDependencies(
     languageTag: String?,
     onClose: () -> Unit,
 ): IosComposerHostDependencies = IosComposerHostDependencies(repository, filePicker, cameraCapture, videoThumbnails, location, permissions, languageTag, onClose)
+
+fun createIosComposerHostDependenciesWithVideoEditor(
+    repository: PostComposerRepository,
+    filePicker: FilePickerService,
+    cameraCapture: CameraCaptureService,
+    videoThumbnails: VideoThumbnailService,
+    location: LocationService,
+    permissions: PermissionService,
+    languageTag: String?,
+    onClose: () -> Unit,
+    videoEditorNativeDriver: IosPostVideoEditorNativeDriver,
+): IosComposerHostDependencies = IosComposerHostDependencies(
+    repository,
+    filePicker,
+    cameraCapture,
+    videoThumbnails,
+    location,
+    permissions,
+    languageTag,
+    onClose,
+    videoEditorNativeDriver = videoEditorNativeDriver,
+)
 
 fun createIosComposerHostDependenciesWithInitialDraft(
     repository: PostComposerRepository,
@@ -75,6 +98,32 @@ fun createIosComposerHostDependenciesWithInitialDraft(
     onClose,
     initialImageReference,
     initialLocationLabel,
+)
+
+fun createIosComposerHostDependenciesWithInitialDraftAndVideoEditor(
+    repository: PostComposerRepository,
+    filePicker: FilePickerService,
+    cameraCapture: CameraCaptureService,
+    videoThumbnails: VideoThumbnailService,
+    location: LocationService,
+    permissions: PermissionService,
+    languageTag: String?,
+    onClose: () -> Unit,
+    initialImageReference: String?,
+    initialLocationLabel: String?,
+    videoEditorNativeDriver: IosPostVideoEditorNativeDriver,
+): IosComposerHostDependencies = IosComposerHostDependencies(
+    repository,
+    filePicker,
+    cameraCapture,
+    videoThumbnails,
+    location,
+    permissions,
+    languageTag,
+    onClose,
+    initialImageReference,
+    initialLocationLabel,
+    videoEditorNativeDriver,
 )
 
 fun QuataComposerViewController(dependencies: IosComposerHostDependencies): UIViewController = ComposeUIViewController {
@@ -248,6 +297,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     videoEditorFile?.let { current ->
         IosPostVideoEditor(
             source = current,
+            nativeDriver = dependencies.videoEditorNativeDriver,
             onDismiss = { videoEditorFile = null },
             onEdited = { edited ->
                 videoEditorFile = null
