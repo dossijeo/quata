@@ -506,11 +506,12 @@ private fun CommonCaptionControls(
                 row.forEach { option ->
                     val id = option.id.ifBlank { null }
                     val styleTag = "post-video-editor.caption-style.${id ?: "none"}"
+                    val selectedStyleTag = "post-video-editor.caption-style-selected.${id ?: "none"}"
                     val selected = id == selectedId
                     val itemModifier = Modifier
                         .weight(1f)
-                        .testTag(styleTag)
-                        .semantics { contentDescription = styleTag }
+                        .testTag(if (selected) selectedStyleTag else styleTag)
+                        .semantics { contentDescription = if (selected) selectedStyleTag else styleTag }
                     if (selected) {
                         Button(
                             onClick = { onStyleChange(id) },

@@ -536,6 +536,7 @@ test("post video editor exposes stable common anchors and Android forwards them 
   assert.match(commonPostVideoEditorContent, /captionsPanelOpen/);
   assert.match(commonPostVideoEditorContent, /captionOptions: List<CaptionStyleOption>/);
   assert.match(commonPostVideoEditorContent, /post-video-editor\.caption-style\.\$\{id \?: "none"\}/);
+  assert.match(commonPostVideoEditorContent, /post-video-editor\.caption-style-selected\.\$\{id \?: "none"\}/);
   assert.match(commonPostVideoEditorContent, /PostVideoEditorTimelineContent\(/);
   assert.match(commonPostVideoEditorContent, /timelineFrameContent: @Composable \(Int, Modifier\) -> Unit/);
   assert.doesNotMatch(commonPostVideoEditorContent, /timeline: @Composable \(Modifier\) -> Unit/);
@@ -638,6 +639,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /composer-media\.edit-video/);
   assert.match(iosPostPublishTest, /post-video-editor\.root/);
   assert.match(iosPostPublishTest, /post-video-editor\.caption-style\.Karaoke/);
+  assert.match(iosPostPublishTest, /post-video-editor\.caption-style-selected\.Karaoke/);
   assert.match(iosPostPublishTest, /post-video-editor\.export/);
   assert.match(iosPostPublishTest, /post-video-editor\.export-progress/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE/);
