@@ -4,12 +4,12 @@
     "SCR-CREATE-POST",
     "POST-VIDEO-EDITOR"
   ],
-  "productSha": "262a7b5f25acdc601f728841f5f1c5c885610900",
+  "productSha": "94cfd418cade6ce856e1ac4d50f8e603a379fb1e",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "262a7b5f25acdc601f728841f5f1c5c885610900",
-      "report": "build-reports/web/POST-VIDEO-EDITOR-evidence-262a7b5f.json",
+      "sha": "94cfd418cade6ce856e1ac4d50f8e603a379fb1e",
+      "report": "build-reports/web/POST-VIDEO-EDITOR-evidence-94cfd418.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -17,8 +17,8 @@
     },
     "android": {
       "status": "passed",
-      "sha": "262a7b5f25acdc601f728841f5f1c5c885610900",
-      "report": "build-reports/android/POST-VIDEO-EDITOR-evidence-262a7b5f.json",
+      "sha": "94cfd418cade6ce856e1ac4d50f8e603a379fb1e",
+      "report": "build-reports/android/POST-VIDEO-EDITOR-evidence-94cfd418.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -26,8 +26,8 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "262a7b5f25acdc601f728841f5f1c5c885610900",
-      "report": "build-reports/ios/POST-VIDEO-EDITOR-evidence-262a7b5f.json",
+      "sha": "94cfd418cade6ce856e1ac4d50f8e603a379fb1e",
+      "report": "build-reports/ios/POST-VIDEO-EDITOR-evidence-94cfd418.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -35,7 +35,7 @@
     }
   },
   "notes": [
-    "POST-VIDEO-EDITOR is a focal GO candidate on 2026-08-20 over Product/Evidence SHA 262a7b5f25acdc601f728841f5f1c5c885610900.",
+    "POST-VIDEO-EDITOR is a focal GO candidate on 2026-08-20 over Product/Evidence SHA 94cfd418cade6ce856e1ac4d50f8e603a379fb1e.",
     "The prior d4be1902 evidence is superseded and must not be reused because Web/Wasm and iOS had not proven that exported files applied trim, mute, crop and captions.",
     "Android, Web/Wasm and iOS now mount the same common PostVideoEditorDialogContent for preview chrome, play/mute, timeline, crop, captions, reset/cancel and export flow.",
     "Android diverges only through native ExoPlayer preview, Media3/Transformer export and platform media helpers. Web/Wasm diverges through browser video/canvas/MediaRecorder export. iOS diverges through AVPlayer preview and AVFoundation export.",
