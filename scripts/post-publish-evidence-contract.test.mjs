@@ -632,12 +632,14 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorRunner, /run-ios-post-video-editor-ui-test\.sh/);
   assert.match(iosVideoEditorWrapper, /testAuthenticatedSessionExercisesPostVideoEditorFromCommonComposer/);
   assert.match(iosVideoEditorWrapper, /speech-recognition/);
+  assert.match(iosVideoEditorWrapper, /QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS:=420/);
   assert.match(iosVideoEditorWrapper, /IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_UI_E2E/);
   assert.match(iosPostPublishTest, /composer-media\.edit-video/);
   assert.match(iosPostPublishTest, /post-video-editor\.root/);
   assert.match(iosPostPublishTest, /post-video-editor\.caption-style\.Karaoke/);
   assert.match(iosPostPublishTest, /post-video-editor\.export/);
+  assert.match(iosPostPublishTest, /addingTimeInterval\(180\)/);
   assert.match(iosPostPublishTest, /IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED/);
   assert.match(iosComposerHost, /IosPostVideoEditor/);
   assert.match(iosPostVideoEditor, /PostVideoEditorDialogContent/);
@@ -675,6 +677,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosQuataApp, /IosPostVideoEditorNativeDriverBridge\.shared/);
   assert.match(iosInfoPlist, /NSSpeechRecognitionUsageDescription/);
   assert.doesNotMatch(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
+  assert.match(androidPostPublishTest, /compose\.waitUntil\(240_000\)/);
 
   for (const runner of [androidVideoEditorRunner, webVideoEditorRunner, iosVideoEditorRunner]) {
     assert.doesNotMatch(runner, /community_posts/);

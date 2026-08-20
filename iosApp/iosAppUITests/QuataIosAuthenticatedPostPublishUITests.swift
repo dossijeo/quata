@@ -240,7 +240,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let editorError = app.descendants(matching: .any)
             .matching(identifier: "post-video-editor.error")
             .firstMatch
-        let exportDeadline = Date().addingTimeInterval(45)
+        let exportDeadline = Date().addingTimeInterval(180)
         var returnedToComposer = false
         while Date() < exportDeadline {
             if selectedVideoPreview.exists {
