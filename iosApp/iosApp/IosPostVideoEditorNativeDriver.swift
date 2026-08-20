@@ -10,6 +10,7 @@ import QuataShared
 final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNativeDriver {
     static let shared = IosPostVideoEditorNativeDriverBridge()
     private var activeSpeechTasks: [UUID: SFSpeechRecognitionTask] = [:]
+    private var activeExportOperations: [UUID: IosPostVideoEditorExportOperation] = [:]
 
     func createPreview(reference: String) -> any IosPostVideoEditorPreviewSurface {
         IosPostVideoEditorPreviewSurfaceImpl(url: URL(string: reference))
@@ -206,7 +207,16 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
             callback.onFailure(reason: "ios_post_video_editor_source_invalid")
             return
         }
-        let exporter = IosPostVideoEditorExportOperation(sourceUrl: sourceUrl, request: request, callback: callback)
+        let operationId = UUID()
+        let exporter = IosPostVideoEditorExportOperation(
+            sourceUrl: sourceUrl,
+            request: request,
+            callback: callback,
+            onFinished: { [weak self] in
+                self?.activeExportOperations.removeValue(forKey: operationId)
+            }
+        )
+        activeExportOperations[operationId] = exporter
         exporter.start()
     }
 }
@@ -268,11 +278,19 @@ private final class IosPostVideoEditorExportOperation {
     private let sourceUrl: URL
     private let request: IosPostVideoEditorExportRequest
     private let callback: any IosPostVideoEditorExportCallback
+    private let onFinished: () -> Void
+    private var exportSession: AVAssetExportSession?
 
-    init(sourceUrl: URL, request: IosPostVideoEditorExportRequest, callback: any IosPostVideoEditorExportCallback) {
+    init(
+        sourceUrl: URL,
+        request: IosPostVideoEditorExportRequest,
+        callback: any IosPostVideoEditorExportCallback,
+        onFinished: @escaping () -> Void
+    ) {
         self.sourceUrl = sourceUrl
         self.request = request
         self.callback = callback
+        self.onFinished = onFinished
     }
 
     func start() {
@@ -280,7 +298,7 @@ private final class IosPostVideoEditorExportOperation {
         let asset = AVURLAsset(url: sourceUrl)
         guard let videoTrack = asset.tracks(withMediaType: .video).first else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_video_track_missing")
-            callback.onFailure(reason: "ios_post_video_editor_video_track_missing")
+            finishFailure(reason: "ios_post_video_editor_video_track_missing")
             return
         }
         let actualDurationMs = max(500, Int64(CMTimeGetSeconds(asset.duration) * 1_000))
@@ -304,7 +322,7 @@ private final class IosPostVideoEditorExportOperation {
             preferredTrackID: kCMPersistentTrackID_Invalid
         ) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_composition_video_track_failed")
-            callback.onFailure(reason: "ios_post_video_editor_composition_video_track_failed")
+            finishFailure(reason: "ios_post_video_editor_composition_video_track_failed")
             return
         }
         let needsBackgroundTrack = request.hasBackgroundCrop
@@ -318,7 +336,7 @@ private final class IosPostVideoEditorExportOperation {
             }
         } catch {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_video_insert_failed")
-            callback.onFailure(reason: "ios_post_video_editor_video_insert_failed")
+            finishFailure(reason: "ios_post_video_editor_video_insert_failed")
             return
         }
         compositionVideo.preferredTransform = videoTrack.preferredTransform
@@ -330,7 +348,7 @@ private final class IosPostVideoEditorExportOperation {
         if let captionStyle = request.captionStyle, !captionStyle.isEmpty,
            request.captionDocumentWire?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_caption_transcript_missing")
-            callback.onFailure(reason: "ios_post_video_editor_caption_transcript_missing")
+            finishFailure(reason: "ios_post_video_editor_caption_transcript_missing")
             return
         }
 
@@ -338,9 +356,10 @@ private final class IosPostVideoEditorExportOperation {
         try? FileManager.default.removeItem(at: outputUrl)
         guard let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")
-            callback.onFailure(reason: "ios_post_video_editor_export_session_unavailable")
+            finishFailure(reason: "ios_post_video_editor_export_session_unavailable")
             return
         }
+        self.exportSession = exportSession
         exportSession.outputURL = outputUrl
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
@@ -357,6 +376,7 @@ private final class IosPostVideoEditorExportOperation {
         ])
         exportSession.exportAsynchronously { [callback] in
             DispatchQueue.main.async {
+                defer { self.onFinished() }
                 switch exportSession.status {
                 case .completed:
                     let size = (try? FileManager.default.attributesOfItem(atPath: outputUrl.path)[.size] as? NSNumber)?.int64Value
@@ -377,6 +397,11 @@ private final class IosPostVideoEditorExportOperation {
                 }
             }
         }
+    }
+
+    private func finishFailure(reason: String) {
+        callback.onFailure(reason: reason)
+        onFinished()
     }
 
     private func makeVideoComposition(

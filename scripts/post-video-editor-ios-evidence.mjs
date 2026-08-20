@@ -96,7 +96,8 @@ async function runAttempt() {
   const source = "gallery";
   const outcome = "success";
   const remoteLogDir = options.remoteLogDir;
-  const remoteDiagnostics = `${remoteLogDir}/export-diagnostics.json`;
+  const remoteDiagnosticsDir = remoteLogDir.startsWith("/") ? remoteLogDir : `${options.project}/${remoteLogDir}`;
+  const remoteDiagnostics = `${remoteDiagnosticsDir}/export-diagnostics.json`;
   try {
     await runSshScript(options.host, `
 set -euo pipefail
