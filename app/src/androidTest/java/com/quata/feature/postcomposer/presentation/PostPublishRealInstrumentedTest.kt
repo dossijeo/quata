@@ -12,6 +12,7 @@ import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -21,10 +22,14 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import com.quata.MainActivity
 import com.quata.QuataApp
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorCancelTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorRootTestTag
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorResetTestTag
+import com.quata.feature.postcomposer.imageeditor.PostImageEditorRotateTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorSaveTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorMuteTestTag
@@ -284,13 +289,24 @@ class PostPublishRealInstrumentedTest {
                 runCatching { compose.onNodeWithTag(ComposerSelectedImagePreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
             saveScreenshot("android-post-image-editor-image-selected")
-            compose.onNodeWithTag(ComposerEditImageTestTag, useUnmergedTree = true)
-                .performScrollTo()
-                .performClick()
-            compose.waitUntil(20_000) {
-                runCatching { compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
-            }
+            openImageEditor()
+            waitForImageEditorDialog()
             saveScreenshot("android-post-image-editor-opened")
+            clickImageEditorCancel()
+            compose.waitUntil(20_000) {
+                runCatching { compose.onNodeWithTag(ComposerSelectedImagePreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
+                    runCatching { compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+            }
+            saveScreenshot("android-post-image-editor-after-cancel")
+            openImageEditor()
+            waitForImageEditorDialog()
+            saveScreenshot("android-post-image-editor-reopened")
+            compose.onAllNodesWithTag(PostImageEditorRotateTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+            compose.onAllNodesWithTag(PostImageEditorResetTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
             compose.onAllNodesWithTag(PostImageEditorSaveTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
@@ -302,6 +318,49 @@ class PostPublishRealInstrumentedTest {
         }
 
         writePickerReport("image-editor", "success")
+    }
+
+    private fun openImageEditor() {
+        if (runCatching {
+            compose.onNodeWithTag(ComposerEditImageTestTag, useUnmergedTree = true)
+                .performScrollTo()
+                .performClick()
+            waitForImageEditorDialog(timeoutMillis = 2_000)
+        }.isSuccess) return
+        clickLocalizedText("Editar imagen", "Edit image")
+        waitForImageEditorDialog(timeoutMillis = 5_000)
+    }
+
+    private fun waitForImageEditorDialog(timeoutMillis: Long = 20_000) {
+        compose.waitUntil(timeoutMillis) {
+            runCatching {
+                compose.onNodeWithTag(PostImageEditorRootTestTag, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+    }
+
+    private fun clickLocalizedAction(spanish: String, english: String) {
+        if (runCatching { compose.onNodeWithContentDescription(spanish, useUnmergedTree = true).performClick() }.isSuccess) return
+        if (runCatching { compose.onNodeWithContentDescription(english, useUnmergedTree = true).performClick() }.isSuccess) return
+        clickLocalizedText(spanish, english)
+    }
+
+    private fun clickImageEditorCancel() {
+        if (runCatching {
+            compose.onAllNodesWithTag(PostImageEditorCancelTestTag, useUnmergedTree = true)
+                .filterToOne(hasClickAction())
+                .performClick()
+        }.isSuccess) return
+        clickLocalizedAction("Cancelar", "Cancel")
+    }
+
+    private fun clickLocalizedText(spanish: String, english: String) {
+        if (runCatching { compose.onNodeWithText(spanish, useUnmergedTree = true).performClick() }.isSuccess) return
+        if (runCatching { compose.onNodeWithText(english, useUnmergedTree = true).performClick() }.isSuccess) return
+        val uiObject = device.findObject(By.textContains(spanish)) ?: device.findObject(By.textContains(english))
+        check(uiObject != null) { "android_missing_localized_text_anchor:$spanish|$english" }
+        uiObject.click()
     }
 
     @Test

@@ -89,6 +89,13 @@ fun WebPostComposerRoute(
                     webPostComposerImageEditorEvidenceReference(current)
                 } else null
             },
+            imageEditor = { source, dismiss, edited ->
+                WebPostImageEditor(
+                    sourceReference = source,
+                    onDismiss = dismiss,
+                    onEdited = edited,
+                )
+            },
             editVideo = { current ->
                 if (webPostComposerVideoEditorEvidenceShouldHandle()) {
                     webPostComposerVideoEditorEvidenceReference(current)

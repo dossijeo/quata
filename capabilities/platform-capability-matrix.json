@@ -647,7 +647,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRoute.kt",
-              "sha256": "f718d41c460af9dfe84bbfce0f2c521cd7c652792b2aef597f83c57be09d6b71",
+              "sha256": "706ba484830b63a6886230173bea3e31ce139420cab9b6e3017dabe67cbf1b6e",
               "role": "composition"
             },
             {

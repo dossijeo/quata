@@ -5,6 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.quata.core.accessibility.CriticalControlsAccessibilityCatalog
 import com.quata.feature.postcomposer.domain.PostComposerRepository
@@ -26,6 +29,7 @@ data class WebComposerMediaSlots(
     val captureVideo: suspend () -> String?,
     val editImage: (suspend (String) -> String?)? = null,
     val editVideo: (suspend (String) -> String?)? = null,
+    val imageEditor: (@Composable (String, () -> Unit, (String) -> Unit) -> Unit)? = null,
     val imagePreview: @Composable (String, Modifier) -> Unit,
     val videoPreview: @Composable (String, Modifier) -> Unit,
     val export: (@Composable ColumnScope.(String, PostComposerType) -> Unit)? = null,
@@ -47,12 +51,14 @@ fun WebPostComposerHost(
     val copy = createPostRootCopyForLanguageTag(browserCapabilityLanguageTag())
     val viewModel = remember(repository, copy) { CreatePostViewModel(repository, messages = copy.viewModelMessages()) }
     val scope = rememberCoroutineScope()
+    var imageEditorReference by remember { mutableStateOf<String?>(null) }
     DisposableEffect(viewModel, canPublish, onAuthRequired) {
         val uninstall = installWebPostComposerE2eBridge(
             setText = { value -> viewModel.onEvent(CreatePostUiEvent.TextChanged(value)) },
             setImage = { value -> viewModel.onEvent(CreatePostUiEvent.ImageSelected(value.takeIf(String::isNotBlank))) },
             setVideo = { value -> viewModel.onEvent(CreatePostUiEvent.VideoSelected(value.takeIf(String::isNotBlank))) },
             setLocation = { value -> viewModel.onEvent(CreatePostUiEvent.LocationLabelChanged(value)) },
+            editImage = { stateUri(viewModel, true)?.let { imageEditorReference = it } },
             submitText = { if (canPublish) viewModel.submit(PostComposerType.Text) else onAuthRequired() },
             submitImage = { if (canPublish) viewModel.submit(PostComposerType.Image) else onAuthRequired() },
             state = {
@@ -91,7 +97,16 @@ fun WebPostComposerHost(
         slots = CreatePostPlatformSlots(
             pickImage = { scope.launch { mediaSlots.pickImage()?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
             captureImage = { scope.launch { mediaSlots.captureImage()?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } },
-            editImage = mediaSlots.editImage?.let { edit -> { scope.launch { stateUri(viewModel, true)?.let { current -> edit(current)?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } } } },
+            editImage = when {
+                mediaSlots.imageEditor != null -> ({
+                    stateUri(viewModel, true)?.let { imageEditorReference = it }
+                })
+                mediaSlots.editImage != null -> ({
+                    val edit = mediaSlots.editImage
+                    scope.launch { stateUri(viewModel, true)?.let { current -> edit(current)?.let { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } } }
+                })
+                else -> null
+            },
             pickVideo = { scope.launch { mediaSlots.pickVideo()?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } },
             captureVideo = { scope.launch { mediaSlots.captureVideo()?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } },
             editVideo = mediaSlots.editVideo?.let { edit -> { scope.launch { stateUri(viewModel, false)?.let { current -> edit(current)?.let { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } } } } },
@@ -102,6 +117,16 @@ fun WebPostComposerHost(
         ),
         modifier = modifier,
     )
+    imageEditorReference?.let { reference ->
+        mediaSlots.imageEditor?.invoke(
+            reference,
+            { imageEditorReference = null },
+            { edited ->
+                imageEditorReference = null
+                viewModel.onEvent(CreatePostUiEvent.ImageSelected(edited))
+            },
+        )
+    }
 }
 
 private fun stateUri(viewModel: CreatePostViewModel, image: Boolean): String? =

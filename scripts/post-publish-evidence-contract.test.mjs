@@ -33,6 +33,7 @@ const iosPickerCameraRunner = readFileSync(new URL("./post-picker-camera-ios-evi
 const iosPickerCameraWrapper = readFileSync(new URL("./run-ios-post-picker-camera-ui-test.sh", import.meta.url), "utf8");
 const androidImageEditorDialog = readFileSync(new URL("../app/src/main/java/com/quata/feature/postcomposer/imageeditor/QuataImageEditorDialog.kt", import.meta.url), "utf8");
 const commonImageEditorModels = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/imageeditor/ImageEditorModels.kt", import.meta.url), "utf8");
+const commonPostImageEditorContent = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/imageeditor/PostImageEditorContent.kt", import.meta.url), "utf8");
 const commonEditorScaffold = readFileSync(new URL("../designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataEditorScaffold.kt", import.meta.url), "utf8");
 const androidImageEditorRunner = readFileSync(new URL("./post-image-editor-android-evidence.mjs", import.meta.url), "utf8");
 const webImageEditorRunner = readFileSync(new URL("./post-image-editor-web-evidence.mjs", import.meta.url), "utf8");
@@ -355,6 +356,11 @@ test("post image editor exposes stable common anchors and Android forwards them 
   assert.match(androidImageEditorDialog, /\.testTag\(PostImageEditorPreviewTestTag\)/);
   assert.match(androidImageEditorDialog, /Modifier\.testTag\(PostImageEditorSaveTestTag\)/);
   assert.match(commonEditorScaffold, /modifier = modifier\.widthIn\(min = 66\.dp\)/);
+  assert.match(commonPostImageEditorContent, /PostImageEditorDialogContent/);
+  assert.match(commonPostImageEditorContent, /PostImageEditorRootTestTag/);
+  assert.match(commonPostImageEditorContent, /PostImageEditorRotateTestTag/);
+  assert.match(commonPostImageEditorContent, /PostImageEditorResetTestTag/);
+  assert.match(commonPostImageEditorContent, /PostImageEditorSaveTestTag/);
 });
 
 test("post image editor runners exercise editor anchors without backend mutation", () => {
@@ -368,21 +374,29 @@ test("post image editor runners exercise editor anchors without backend mutation
 
   assert.match(webImageEditorRunner, /POST-IMAGE-EDITOR-WEB-REAL-001/);
   assert.match(webImageEditorRunner, /quata-post-image-editor-e2e/);
-  assert.match(webImageEditorRunner, /I_ACCEPT_WEB_POST_COMPOSER_IMAGE_EDITOR_FIXTURE/);
   assert.match(webImageEditorRunner, /composer-media\.edit-image/);
-  assert.match(webImageEditorRunner, /imageUri === expected/);
+  assert.match(webImageEditorRunner, /post-image-editor\.root/);
+  assert.match(webImageEditorRunner, /post-image-editor\.rotate/);
+  assert.match(webImageEditorRunner, /post-image-editor\.reset/);
+  assert.match(webImageEditorRunner, /post-image-editor\.save/);
+  assert.match(webImageEditorRunner, /state\.imageUri !== previous/);
   assert.match(webPostComposerRoute, /editImage =/);
+  assert.match(webPostComposerRoute, /imageEditor =/);
+  assert.match(webPostComposerRoute, /WebPostImageEditor/);
   assert.match(webPostComposerRoute, /quata_post_composer_image_editor_e2e_opt_in/);
   assert.match(webPostComposerHost, /put\("imageUri", it\.take\(220\)\)/);
+  assert.match(webPostComposerHost, /imageEditorReference/);
 
   assert.match(iosImageEditorRunner, /POST-IMAGE-EDITOR-IOS-REAL-001/);
   assert.match(iosImageEditorRunner, /run-ios-post-image-editor-ui-test\.sh/);
-  assert.match(iosImageEditorRunner, /I_ACCEPT_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE/);
   assert.match(iosImageEditorWrapper, /testAuthenticatedSessionExercisesPostImageEditorFromCommonComposer/);
   assert.match(iosImageEditorWrapper, /IOS_POST_IMAGE_EDITOR_UI_GATE_PASSED/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_IMAGE_EDITOR_UI_E2E/);
   assert.match(iosPostPublishTest, /composer-media\.edit-image/);
-  assert.match(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE/);
+  assert.match(iosPostPublishTest, /post-image-editor\.root/);
+  assert.match(iosPostPublishTest, /post-image-editor\.save/);
+  assert.match(iosComposerHost, /IosPostImageEditor/);
+  assert.doesNotMatch(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_IMAGE_EDITOR_FIXTURE/);
 
   for (const runner of [androidImageEditorRunner, webImageEditorRunner, iosImageEditorRunner]) {
     assert.doesNotMatch(runner, /community_posts/);
