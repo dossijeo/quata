@@ -1230,6 +1230,9 @@ private final class IosAppCompositionRoot {
                             appearancePreferences.applyTheme(to: window)
                         }
                     },
+                    onLogout: { [weak self] in
+                        self?.authenticatedHost.performLogout()
+                    },
                 ),
             )
         }

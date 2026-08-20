@@ -1,6 +1,5 @@
 package com.quata.feature.settings.presentation
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +32,7 @@ class IosSettingsHostDependencies(
     val openLegalDocument: (LegalDocument, DocumentOpenService) -> Unit,
     val onTouchFlowEnabledChange: (Boolean) -> Unit,
     val onThemeModeChange: (QuataThemeMode) -> Unit,
+    val onLogout: () -> Unit,
 )
 
 /**
@@ -47,6 +47,7 @@ fun createIosSettingsHostDependencies(
     openLegalDocument: (LegalDocument, DocumentOpenService) -> Unit,
     onTouchFlowEnabledChange: (Boolean) -> Unit,
     onThemeModeStorageValueChange: (String) -> Unit,
+    onLogout: () -> Unit,
 ): IosSettingsHostDependencies = IosSettingsHostDependencies(
     touchFlowEnabled = touchFlowEnabled,
     themeMode = QuataThemeMode.fromStorageValue(themeModeStorageValue),
@@ -62,6 +63,7 @@ fun createIosSettingsHostDependencies(
     openLegalDocument = openLegalDocument,
     onTouchFlowEnabledChange = onTouchFlowEnabledChange,
     onThemeModeChange = { mode -> onThemeModeStorageValueChange(mode.storageValue) },
+    onLogout = onLogout,
 )
 
 fun QuataSettingsViewController(dependencies: IosSettingsHostDependencies): UIViewController = ComposeUIViewController {
@@ -70,43 +72,43 @@ fun QuataSettingsViewController(dependencies: IosSettingsHostDependencies): UIVi
     var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     val scope = rememberCoroutineScope()
     QuataTheme(mode = themeMode) {
-        Column {
-            AppearanceSettingsSectionContent(
-                touchFlowEnabled = touchFlowEnabled,
-                themeMode = themeMode,
-                strings = dependencies.strings,
-                onTouchFlowEnabledChange = { enabled ->
-                    touchFlowEnabled = enabled
-                    dependencies.onTouchFlowEnabledChange(enabled)
-                },
-                onThemeModeChange = { mode ->
-                    themeMode = mode
-                    dependencies.onThemeModeChange(mode)
-                },
-            )
-            dependencies.documentOpener?.let { opener ->
-                SettingsLegalDocumentsSectionContent(
-                    language = dependencies.language,
-                    strings = settingsLegalDocumentsStrings(dependencies.language),
-                    onOpenDocument = { document ->
-                        scope.launch {
-                            val file = iosLegalDocumentFile(document, dependencies.language)
-                            if (file == null) {
-                                val placeholder = iosLegalDocumentPlaceholderFile(document, dependencies.language)
-                                documentViewerState = DocumentViewerState.Failed(
-                                    file = placeholder,
-                                    descriptor = documentViewerOpeningState(placeholder).descriptor,
-                                    reason = DocumentViewerFailureReason.PlatformUnsupported,
-                                )
-                            } else {
-                                documentViewerState = documentViewerOpeningState(file)
-                                documentViewerState = opener.openWithViewerState(file).completed
-                            }
+        SettingsScreenHost(
+            touchFlowEnabled = touchFlowEnabled,
+            themeMode = themeMode,
+            strings = SettingsScreenStrings(
+                appearance = dependencies.strings,
+                legalDocuments = settingsLegalDocumentsStrings(dependencies.language),
+                logout = "Log out",
+            ),
+            language = dependencies.language,
+            onTouchFlowEnabledChange = { enabled ->
+                touchFlowEnabled = enabled
+                dependencies.onTouchFlowEnabledChange(enabled)
+            },
+            onThemeModeChange = { mode ->
+                themeMode = mode
+                dependencies.onThemeModeChange(mode)
+            },
+            onOpenDocument = { document ->
+                dependencies.documentOpener?.let { opener ->
+                    scope.launch {
+                        val file = iosLegalDocumentFile(document, dependencies.language)
+                        if (file == null) {
+                            val placeholder = iosLegalDocumentPlaceholderFile(document, dependencies.language)
+                            documentViewerState = DocumentViewerState.Failed(
+                                file = placeholder,
+                                descriptor = documentViewerOpeningState(placeholder).descriptor,
+                                reason = DocumentViewerFailureReason.PlatformUnsupported,
+                            )
+                        } else {
+                            documentViewerState = documentViewerOpeningState(file)
+                            documentViewerState = opener.openWithViewerState(file).completed
                         }
-                    },
-                )
-            }
-        }
+                    }
+                }
+            },
+            onLogout = dependencies.onLogout,
+        )
         QuataDocumentViewerStatusContent(
             state = documentViewerState,
             strings = quataDocumentViewerStatusStrings(dependencies.language),

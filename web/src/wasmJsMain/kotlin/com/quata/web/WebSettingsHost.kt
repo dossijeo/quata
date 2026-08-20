@@ -8,26 +8,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.documentViewerOpeningState
 import com.quata.core.platform.openWithViewerState
-import com.quata.core.ui.components.QuataAccountLifecycleConfirmationDialogContent
 import com.quata.core.ui.components.QuataDocumentViewerStatusContent
-import com.quata.feature.profile.presentation.ProfileAccountManagementContent
-import com.quata.feature.profile.presentation.ProfileManagementAction
-import com.quata.feature.settings.presentation.AppearanceSettingsSectionContent
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
-import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
+import com.quata.feature.settings.presentation.SettingsAccountLifecycleActions
+import com.quata.feature.settings.presentation.SettingsAccountLifecycleStrings
+import com.quata.feature.settings.presentation.SettingsNotificationsStrings
+import com.quata.feature.settings.presentation.SettingsScreenHost
+import com.quata.feature.settings.presentation.SettingsScreenStrings
 import com.quata.feature.settings.presentation.settingsLegalDocumentsStrings
 import kotlinx.coroutines.launch
 
@@ -42,8 +35,6 @@ internal class WebAuthAccountLifecycleActions(
     override suspend fun deactivateAccount(password: String): Result<Unit> = repository.deactivateAccount(password)
     override suspend fun deleteAccountData(password: String): Result<Unit> = repository.deleteAccountData(password)
 }
-
-private enum class WebAccountLifecycleAction { Deactivate, DeleteData }
 
 /** Browser settings route: shared appearance and account-lifecycle presentation with injected work. */
 @Composable
@@ -61,10 +52,6 @@ fun WebSettingsHost(
 ) {
     val scope = rememberCoroutineScope()
     val language = remember { browserWhatsNewLanguageTags().toQuataLanguage() }
-    var pendingAction by remember { mutableStateOf<WebAccountLifecycleAction?>(null) }
-    var isWorking by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var successMessage by remember { mutableStateOf<String?>(null) }
     var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     DisposableEffect(Unit) {
         val uninstall = installWebDocumentStatusE2eBridge("settings") {
@@ -89,98 +76,63 @@ fun WebSettingsHost(
         )
         onDispose { uninstall() }
     }
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        AppearanceSettingsSectionContent(
-            touchFlowEnabled = touchFlowEnabled,
-            themeMode = themeMode,
-            strings = AppearanceSettingsStrings(
+    SettingsScreenHost(
+        touchFlowEnabled = touchFlowEnabled,
+        themeMode = themeMode,
+        strings = SettingsScreenStrings(
+            appearance = AppearanceSettingsStrings(
                 touchFlow = "Touch Flow",
                 theme = "Tema",
                 system = "Sistema",
                 dark = "Oscuro",
                 light = "Claro",
             ),
-            onTouchFlowEnabledChange = onTouchFlowEnabledChange,
-            onThemeModeChange = onThemeModeChange,
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Notificaciones del navegador", style = MaterialTheme.typography.titleMedium)
-            Text(
-                if (webPushOptedIn) "Las notificaciones Web están activadas para este navegador."
-                else "Activa las notificaciones solo si quieres recibir avisos en este navegador.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            WebNativeButton(
-                label = if (webPushOptedIn) "Desactivar notificaciones" else "Activar notificaciones",
-                enabled = true,
-                onClick = { onWebPushOptInChange(!webPushOptedIn) },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-            )
-        }
-        SettingsLegalDocumentsSectionContent(
-            language = language,
-            strings = settingsLegalDocumentsStrings(language),
-            onOpenDocument = openLegalDocument,
-        )
-        accountLifecycleActions?.let { actions ->
-            ProfileAccountManagementContent(
+            legalDocuments = settingsLegalDocumentsStrings(language),
+            notifications = SettingsNotificationsStrings(
+                title = "Notificaciones del navegador",
+                enabledBody = "Las notificaciones Web están activadas para este navegador.",
+                disabledBody = "Activa las notificaciones solo si quieres recibir avisos en este navegador.",
+                enableLabel = "Activar notificaciones",
+                disableLabel = "Desactivar notificaciones",
+            ),
+            accountLifecycle = accountLifecycleActions?.let {
+                SettingsAccountLifecycleStrings(
                 title = "Gestión de cuenta",
                 description = "Puedes desactivar tu cuenta o eliminar sus datos definitivamente.",
-                descriptionColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                actions = listOf(
-                    ProfileManagementAction("Desactivar cuenta") {
-                        pendingAction = WebAccountLifecycleAction.Deactivate
-                        errorMessage = null
-                    },
-                    ProfileManagementAction("Eliminar datos de la cuenta") {
-                        pendingAction = WebAccountLifecycleAction.DeleteData
-                        errorMessage = null
-                    },
-                ),
-                backButton = {},
+                    deactivate = "Desactivar cuenta",
+                    deleteData = "Eliminar datos de la cuenta",
+                    deactivateTitle = "Desactivar cuenta",
+                    deactivateBody = "Tu cuenta dejará de estar activa hasta que la reactives.",
+                    deleteTitle = "Eliminar datos de la cuenta",
+                    deleteBody = "Esta acción elimina tus datos y no se puede deshacer.",
+                    passwordPrompt = "Confirma tu contraseña para continuar.",
+                    passwordLabel = "Contraseña",
+                    cancel = "Cancelar",
+                    deactivateConfirm = "Desactivar",
+                    deleteConfirm = "Eliminar",
+                    deleteConfirmationPrompt = "Escribe ELIMINAR para confirmar.",
+                    deleteConfirmationWord = "ELIMINAR",
+                    deactivateSuccess = "Cuenta desactivada correctamente.",
+                    deleteSuccess = "Datos eliminados correctamente.",
+                    genericError = "No se pudo completar la operación.",
+                )
+            },
+        ),
+        language = language,
+        onTouchFlowEnabledChange = onTouchFlowEnabledChange,
+        onThemeModeChange = onThemeModeChange,
+        onOpenDocument = openLegalDocument,
+        modifier = modifier,
+        notificationsEnabled = webPushOptedIn,
+        onNotificationsEnabledChange = onWebPushOptInChange,
+        accountLifecycleActions = accountLifecycleActions?.let { actions ->
+            SettingsAccountLifecycleActions(
+                deactivateAccount = actions::deactivateAccount,
+                deleteAccountData = actions::deleteAccountData,
             )
-        }
-        successMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-    }
-    pendingAction?.let { action -> accountLifecycleActions?.let { actions ->
-        val isDeletion = action == WebAccountLifecycleAction.DeleteData
-        QuataAccountLifecycleConfirmationDialogContent(
-            title = if (isDeletion) "Eliminar datos de la cuenta" else "Desactivar cuenta",
-            body = if (isDeletion) {
-                "Esta acción elimina tus datos y no se puede deshacer."
-            } else {
-                "Tu cuenta dejará de estar activa hasta que la reactives."
-            },
-            passwordPrompt = "Confirma tu contraseña para continuar.",
-            passwordLabel = "Contraseña",
-            cancelLabel = "Cancelar",
-            confirmLabel = if (isDeletion) "Eliminar" else "Desactivar",
-            isWorking = isWorking,
-            errorMessage = errorMessage,
-            onDismiss = {
-                if (!isWorking) pendingAction = null
-                Unit
-            },
-            onConfirm = { password ->
-                scope.launch {
-                    isWorking = true
-                    errorMessage = null
-                    val result = if (isDeletion) actions.deleteAccountData(password) else actions.deactivateAccount(password)
-                    isWorking = false
-                    result.onSuccess {
-                        pendingAction = null
-                        successMessage = if (isDeletion) "Datos eliminados correctamente." else "Cuenta desactivada correctamente."
-                        onAccountLifecycleSuccess()
-                    }.onFailure { failure ->
-                        errorMessage = failure.message ?: "No se pudo completar la operación."
-                    }
-                    Unit
-                }
-            },
-            confirmationPrompt = if (isDeletion) "Escribe ELIMINAR para confirmar." else null,
-            requiredConfirmation = if (isDeletion) "ELIMINAR" else null,
-        )
-    } }
+        },
+        onAccountLifecycleSuccess = onAccountLifecycleSuccess,
+    )
     QuataDocumentViewerStatusContent(
         state = documentViewerState,
         strings = webDocumentViewerStatusStrings(browserWhatsNewLanguageTags()),
