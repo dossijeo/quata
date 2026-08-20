@@ -426,17 +426,13 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let button = app.buttons.matching(identifier: buttonIdentifier).firstMatch
         XCTAssertTrue(button.waitForExistence(timeout: 8), "Expected common video caption style \(style) to exist.")
         for _ in 0..<2 {
-            if button.isHittable {
-                button.tap()
-            } else {
-                button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            }
+            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.18)
             if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
                 return
             }
             let visibleText = app.staticTexts.matching(identifier: style).firstMatch
             if visibleText.exists {
-                visibleText.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                visibleText.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.18)
             }
             if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
                 return
