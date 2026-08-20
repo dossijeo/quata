@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-CREATE-POST",
+    "POST-PICKER-CAMERA"
+  ],
+  "productSha": "8e97d7166effe801af92980963054ff94737bd2b",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "8e97d7166effe801af92980963054ff94737bd2b",
+      "report": "build-reports/web/post-picker-camera-real-video-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "8e97d7166effe801af92980963054ff94737bd2b",
+      "report": "build-reports/android/post-picker-camera-real-video-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "8e97d7166effe801af92980963054ff94737bd2b",
+      "report": "build-reports/ios/post-picker-camera-real-video-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate closes the real long-video picker/camera limit for POST-PICKER-CAMERA. Web/Wasm serves a versioned MP4 fixture from the local evidence server, Android copies the same MP4 into the app sandbox for instrumentation, and iOS drives the simulator fixture path through the Mac VM runner.",
+    "The flow uses existing common composer actions and selected-video preview anchors. The media file is local-only and the evidence does not mutate backend data."
+  ]
+}
