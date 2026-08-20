@@ -425,7 +425,12 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let buttonIdentifier = "post-video-editor.caption-style.\(style)"
         let button = app.buttons.matching(identifier: buttonIdentifier).firstMatch
         XCTAssertTrue(button.waitForExistence(timeout: 8), "Expected common video caption style \(style) to exist.")
-        for _ in 0..<2 {
+        for _ in 0..<4 {
+            if !button.isHittable {
+                app.swipeUp()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+                continue
+            }
             button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.18)
             if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
                 return
