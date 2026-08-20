@@ -13,6 +13,7 @@ sealed class CreatePostUiEvent {
         val longitude: Double? = null
     ) : CreatePostUiEvent()
     data class LocationLabelChanged(val value: String) : CreatePostUiEvent()
+    data object ReloadDestinations : CreatePostUiEvent()
     data object ClearDraft : CreatePostUiEvent()
     data object ClearMediaError : CreatePostUiEvent()
     data object Submit : CreatePostUiEvent()

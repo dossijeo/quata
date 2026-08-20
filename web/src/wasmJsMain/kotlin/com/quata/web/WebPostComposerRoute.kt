@@ -21,6 +21,7 @@ import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PermissionStatus
 import com.quata.feature.postcomposer.data.ActorBoundPostComposerRepository
+import com.quata.feature.postcomposer.data.DestinationEvidencePostComposerRepository
 import com.quata.feature.postcomposer.data.FailInsertAfterUploadComposerTransport
 import com.quata.feature.postcomposer.data.FailOncePostComposerRepository
 import kotlinx.browser.document
@@ -48,11 +49,14 @@ fun WebPostComposerRoute(
                 }
             }
             val real = ActorBoundPostComposerRepository(transport)
-            if (webPostComposerProgressRollbackEvidenceShouldFailOnce()) {
+            val progressRepository = if (webPostComposerProgressRollbackEvidenceShouldFailOnce()) {
                 FailOncePostComposerRepository(real)
             } else {
                 real
             }
+            webPostComposerDestinationEvidenceMode()
+                ?.let { mode -> DestinationEvidencePostComposerRepository(progressRepository, mode) }
+                ?: progressRepository
         },
         mediaSlots = WebComposerMediaSlots(
             pickImage = {
@@ -187,6 +191,19 @@ private fun webPostComposerStorageRollbackEvidenceShouldFailAfterUpload(): Boole
       return local &&
         params.get('quata-post-storage-rollback-e2e') === '1' &&
         globalThis.localStorage?.getItem('quata_post_storage_rollback_fail_after_upload') === '1';
+    })()
+    """,
+)
+
+private fun webPostComposerDestinationEvidenceMode(): String? = js(
+    """
+    (() => {
+      const local = globalThis.location?.hostname === 'localhost' || globalThis.location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(globalThis.location?.search || '');
+      if (!local || params.get('quata-post-destination-e2e') !== '1') return null;
+      if (globalThis.localStorage?.getItem('quata_post_destination_e2e_opt_in') !== 'I_ACCEPT_WEB_POST_DESTINATION_FIXTURE') return null;
+      const mode = String(globalThis.localStorage?.getItem('quata_post_destination_e2e_mode') || '').toLowerCase();
+      return ['empty', 'failure', 'multiple'].includes(mode) ? mode : null;
     })()
     """,
 )

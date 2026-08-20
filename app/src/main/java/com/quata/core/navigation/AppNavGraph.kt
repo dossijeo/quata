@@ -123,6 +123,7 @@ import com.quata.core.common.toUserFacingMessage
 import com.quata.core.device.QuataProximityState
 import com.quata.core.di.AppContainer
 import com.quata.feature.postcomposer.data.FailOncePostComposerRepository
+import com.quata.feature.postcomposer.data.DestinationEvidencePostComposerRepository
 import com.quata.core.location.quataLastLocation
 import com.quata.core.location.SosLocationRecoveryService
 import com.quata.core.localization.QuataLanguageManager
@@ -212,6 +213,7 @@ fun AppNavGraph(
     postComposerPickerEvidenceSource: String? = null,
     postComposerPickerEvidenceOutcome: String? = null,
     postComposerPickerEvidencePath: String? = null,
+    postDestinationEvidenceMode: String? = null,
     postProgressRollbackFailOnceForEvidence: Boolean = false,
 ) {
     val navController = rememberNavController()
@@ -824,12 +826,15 @@ fun AppNavGraph(
                 composable(AppDestinations.CreatePost.route) {
                     CreatePostScreen(
                         padding = padding,
-                        repository = remember(container.postComposerRepository, postProgressRollbackFailOnceForEvidence) {
-                            if (postProgressRollbackFailOnceForEvidence) {
+                        repository = remember(container.postComposerRepository, postProgressRollbackFailOnceForEvidence, postDestinationEvidenceMode) {
+                            val progressRepository = if (postProgressRollbackFailOnceForEvidence) {
                                 FailOncePostComposerRepository(container.postComposerRepository)
                             } else {
                                 container.postComposerRepository
                             }
+                            postDestinationEvidenceMode
+                                ?.let { mode -> DestinationEvidencePostComposerRepository(progressRepository, mode) }
+                                ?: progressRepository
                         },
                         locationService = container.locationService,
                         permissionService = container.permissionService,

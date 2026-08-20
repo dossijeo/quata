@@ -114,6 +114,11 @@ data class CreatePostRootCopy(
     val feed: String = "Feed",
     val destination: String = "Destino",
     val destinationHelper: String = "Elige dónde se publicará.",
+    val destinationLoading: String = "Cargando destinos…",
+    val destinationEmpty: String = "No hay destinos disponibles para publicar.",
+    val destinationLoadFailed: String = "No se pudieron cargar los destinos.",
+    val destinationRetry: String = "Reintentar destinos",
+    val destinationRequired: String = "Elige un destino antes de publicar.",
 )
 
 val SpanishCreatePostRootCopy = CreatePostRootCopy(
@@ -152,6 +157,13 @@ val EnglishCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
     mediaSelectionFailed = "The file could not be loaded. Try again.",
     mediaUnsupported = "This media source is not available on this device.",
     mediaPermissionDenied = "Permission denied. Enable camera, microphone or gallery access to continue.",
+    destination = "Destination",
+    destinationHelper = "Choose where this will be published.",
+    destinationLoading = "Loading destinations…",
+    destinationEmpty = "No publishing destinations are available.",
+    destinationLoadFailed = "Destinations could not be loaded.",
+    destinationRetry = "Retry destinations",
+    destinationRequired = "Choose a destination before publishing.",
 )
 
 val FrenchCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
@@ -171,6 +183,13 @@ val FrenchCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
     mediaSelectionFailed = "Impossible de charger le fichier. Réessayez.",
     mediaUnsupported = "Cette source média n'est pas disponible sur cet appareil.",
     mediaPermissionDenied = "Autorisation refusée. Activez l'accès caméra, micro ou galerie pour continuer.",
+    destination = "Destination",
+    destinationHelper = "Choisissez où publier.",
+    destinationLoading = "Chargement des destinations…",
+    destinationEmpty = "Aucune destination de publication disponible.",
+    destinationLoadFailed = "Impossible de charger les destinations.",
+    destinationRetry = "Réessayer les destinations",
+    destinationRequired = "Choisissez une destination avant de publier.",
 )
 
 fun createPostRootCopyForLanguageTag(languageTag: String?): CreatePostRootCopy = when {
@@ -180,7 +199,7 @@ fun createPostRootCopyForLanguageTag(languageTag: String?): CreatePostRootCopy =
 }
 
 fun CreatePostRootCopy.viewModelMessages(): CreatePostMessages =
-    CreatePostMessages(created = publicationCreated, failed = publicationFailed)
+    CreatePostMessages(created = publicationCreated, failed = publicationFailed, destinationRequired = destinationRequired)
 
 data class CreatePostPlatformSlots(
     val pickImage: () -> Unit,
@@ -288,6 +307,12 @@ fun CreatePostRoot(
                     helper = copy.destinationHelper,
                     destinations = state.destinations,
                     selectedDestination = state.selectedDestination,
+                    loading = state.destinationsLoading,
+                    errorMessage = state.destinationsError?.takeIf { it.isNotBlank() }?.let { copy.destinationLoadFailed },
+                    emptyMessage = copy.destinationEmpty,
+                    loadingMessage = copy.destinationLoading,
+                    retryLabel = copy.destinationRetry,
+                    onRetry = { viewModel.onEvent(CreatePostUiEvent.ReloadDestinations) },
                     onDestinationSelected = { viewModel.onEvent(CreatePostUiEvent.DestinationSelected(it)) },
                 )
             }

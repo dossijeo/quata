@@ -22,6 +22,7 @@ const commonLocationSection = readFileSync(new URL("../feature/postcomposer/src/
 const commonLocationEditor = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerLocationTextEditorContent.kt", import.meta.url), "utf8");
 const commonComposerRepository = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/data/ActorBoundPostComposerRepository.kt", import.meta.url), "utf8");
 const commonFailOnceComposerRepository = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/data/FailOncePostComposerRepository.kt", import.meta.url), "utf8");
+const commonDestinationEvidenceRepository = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/data/DestinationEvidencePostComposerRepository.kt", import.meta.url), "utf8");
 const commonFailAfterUploadTransport = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/data/FailInsertAfterUploadComposerTransport.kt", import.meta.url), "utf8");
 const commonSubmissionFeedback = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/presentation/ComposerSubmissionFeedbackContent.kt", import.meta.url), "utf8");
 const iosComposerHost = readFileSync(new URL("../feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosComposerHost.kt", import.meta.url), "utf8");
@@ -33,6 +34,10 @@ const androidPickerCameraRunner = readFileSync(new URL("./post-picker-camera-and
 const webPickerCameraRunner = readFileSync(new URL("./post-picker-camera-web-evidence.mjs", import.meta.url), "utf8");
 const iosPickerCameraRunner = readFileSync(new URL("./post-picker-camera-ios-evidence.mjs", import.meta.url), "utf8");
 const iosPickerCameraWrapper = readFileSync(new URL("./run-ios-post-picker-camera-ui-test.sh", import.meta.url), "utf8");
+const androidDestinationRunner = readFileSync(new URL("./post-destination-android-evidence.mjs", import.meta.url), "utf8");
+const webDestinationRunner = readFileSync(new URL("./post-destination-web-evidence.mjs", import.meta.url), "utf8");
+const iosDestinationRunner = readFileSync(new URL("./post-destination-ios-evidence.mjs", import.meta.url), "utf8");
+const iosDestinationWrapper = readFileSync(new URL("./run-ios-post-destination-ui-test.sh", import.meta.url), "utf8");
 const androidImageEditorDialog = readFileSync(new URL("../app/src/main/java/com/quata/feature/postcomposer/imageeditor/QuataImageEditorDialog.kt", import.meta.url), "utf8");
 const commonImageEditorModels = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/imageeditor/ImageEditorModels.kt", import.meta.url), "utf8");
 const commonPostImageEditorContent = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/imageeditor/PostImageEditorContent.kt", import.meta.url), "utf8");
@@ -152,8 +157,49 @@ test("web composer submit uses a localhost opt-in bridge without replacing commo
 test("common destination selector exposes stable anchors for all platform replays", () => {
   assert.match(commonDestinationSelector, /ComposerDestinationSelectorTestTag = "composer-destination-selector"/);
   assert.match(commonDestinationSelector, /ComposerDestinationSelectedTestTag = "composer-destination-selected"/);
+  assert.match(commonDestinationSelector, /ComposerDestinationLoadingTestTag = "composer-destination-loading"/);
+  assert.match(commonDestinationSelector, /ComposerDestinationErrorTestTag = "composer-destination-error"/);
+  assert.match(commonDestinationSelector, /ComposerDestinationEmptyTestTag = "composer-destination-empty"/);
+  assert.match(commonDestinationSelector, /ComposerDestinationRetryTestTag = "composer-destination-retry"/);
   assert.match(commonDestinationSelector, /composer-destination-option\.\$\{destination\.wallId\}/);
   assert.match(commonDestinationSelector, /contentDescription = "Destino:/);
+  assert.match(commonCreatePostViewModel, /ReloadDestinations -> loadDestinations\(\)/);
+  assert.match(commonCreatePostViewModel, /destinationRequired/);
+});
+
+test("post destination evidence uses common repository states and platform semantic anchors", () => {
+  assert.match(commonDestinationEvidenceRepository, /class DestinationEvidencePostComposerRepository/);
+  assert.match(commonDestinationEvidenceRepository, /"empty" -> Result\.success\(emptyList\(\)\)/);
+  assert.match(commonDestinationEvidenceRepository, /"failure" -> Result\.failure/);
+  assert.match(commonDestinationEvidenceRepository, /"multiple" -> Result\.success/);
+  assert.match(commonDestinationEvidenceRepository, /e2e-wall-bata/);
+  assert.match(webPostComposerRoute, /quata-post-destination-e2e/);
+  assert.match(webPostComposerRoute, /I_ACCEPT_WEB_POST_DESTINATION_FIXTURE/);
+  assert.match(webPostComposerRoute, /DestinationEvidencePostComposerRepository/);
+  assert.match(mainActivity, /EXTRA_POST_DESTINATION_EVIDENCE_MODE/);
+  assert.match(androidAppNavGraph, /postDestinationEvidenceMode/);
+  assert.match(androidAppNavGraph, /DestinationEvidencePostComposerRepository/);
+  assert.match(androidPostPublishTest, /authenticatedUserExercisesDestinationStatesFromCommonComposer/);
+  assert.match(androidPostPublishTest, /ComposerDestinationErrorTestTag/);
+  assert.match(androidPostPublishTest, /ComposerDestinationEmptyTestTag/);
+  assert.match(androidPostPublishTest, /e2e-wall-bata/);
+  assert.match(iosApp, /QUATA_IOS_POST_DESTINATION_E2E_MODE/);
+  assert.match(iosPostPublishTest, /testAuthenticatedSessionExercisesDestinationStatesFromCommonComposer/);
+  assert.match(iosPostPublishTest, /composer-destination-error/);
+  assert.match(iosPostPublishTest, /composer-destination-empty/);
+  assert.match(iosPostPublishTest, /e2e-wall-bata/);
+  assert.match(webDestinationRunner, /POST-DESTINATION-WEB-REAL-001/);
+  assert.match(webDestinationRunner, /composer-destination-error/);
+  assert.match(webDestinationRunner, /composer-feedback-error/);
+  assert.match(androidDestinationRunner, /POST-DESTINATION-ANDROID-REAL-001/);
+  assert.match(androidDestinationRunner, /authenticatedUserExercisesDestinationStatesFromCommonComposer/);
+  assert.match(iosDestinationRunner, /POST-DESTINATION-IOS-REAL-001/);
+  assert.match(iosDestinationWrapper, /testAuthenticatedSessionExercisesDestinationStatesFromCommonComposer/);
+  assert.match(iosDestinationWrapper, /IOS_POST_DESTINATION_UI_GATE_PASSED/);
+  for (const runner of [webDestinationRunner, androidDestinationRunner, iosDestinationRunner]) {
+    assert.doesNotMatch(runner, /community_posts/);
+    assert.doesNotMatch(runner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
+  }
 });
 
 test("post location uses common anchors and the shared remote metadata codec", () => {
