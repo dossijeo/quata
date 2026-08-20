@@ -540,14 +540,18 @@ private fun CommonCaptionControls(
                                     CompactIcon(Icons.Filled.Subtitles, null)
                                     Spacer(Modifier.width(4.dp))
                                 }
-                                Text(option.label, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            if (selected) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(1.dp)
-                                        .testTag(selectedStyleTag)
-                                        .semantics { contentDescription = selectedStyleTag },
+                                Text(
+                                    option.label,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = if (selected) {
+                                        Modifier
+                                            .testTag(selectedStyleTag)
+                                            .semantics { contentDescription = selectedStyleTag }
+                                    } else {
+                                        Modifier
+                                    },
                                 )
                             }
                         }

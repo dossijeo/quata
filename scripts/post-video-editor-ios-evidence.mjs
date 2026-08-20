@@ -143,7 +143,7 @@ function assertIosExportDiagnostics(diagnostics) {
     throw new Error(`ios_video_editor_export_unexpected_dimensions:${diagnostics.outputWidth}x${diagnostics.outputHeight}`);
   }
   if (diagnostics.removeAudio !== true) throw new Error("ios_video_editor_export_mute_not_applied");
-  if (String(diagnostics.captionStyle || "") !== "Karaoke") {
+  if (String(diagnostics.captionStyle || "") !== "Hormozi") {
     throw new Error(`ios_video_editor_caption_style_not_selected:${diagnostics.captionStyle || ""}`);
   }
   const text = String(diagnostics.captionText || "").trim().toLowerCase();

@@ -89,6 +89,7 @@ fun postVideoEditorStateAfterCaptionsToggle(state: PostVideoEditorUiState): Post
         captionsEnabled = true,
         captionsPanelOpen = !state.captionsPanelOpen,
         cropPanelOpen = false,
+        selectedCaptionStyleId = state.selectedCaptionStyleId ?: DefaultPostVideoEditorCaptionStyleId,
     )
 
 fun postVideoEditorStateAfterCropModeChange(
@@ -151,3 +152,5 @@ const val MaximumPostVideoEditorDurationMs = 90_000L
 const val PostVideoEditorOutputWidth = 1080
 const val PostVideoEditorOutputHeight = 1920
 const val PostVideoEditorOutputAspectRatio = 9f / 16f
+
+val DefaultPostVideoEditorCaptionStyleId: String = CaptionTemplateStyle.entries.first().name

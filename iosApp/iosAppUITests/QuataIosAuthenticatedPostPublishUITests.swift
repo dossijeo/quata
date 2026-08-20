@@ -234,13 +234,12 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         tapComposerAction("post-video-editor.mute", in: app)
         tapComposerAction("post-video-editor.play-pause", in: app)
         tapComposerAction("post-video-editor.captions", in: app)
-        tapComposerAction("post-video-editor.caption-style.Karaoke", in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)
-                .matching(identifier: "post-video-editor.caption-style-selected.Karaoke")
+                .matching(identifier: "post-video-editor.caption-style-selected.Hormozi")
                 .firstMatch
                 .waitForExistence(timeout: 8),
-            "The common video editor must mark the selected Karaoke caption style before export.",
+            "The common video editor must mark the selected default caption style before export.",
         )
         tapComposerAction("post-video-editor.crop", in: app)
         tapComposerAction("post-video-editor.export", in: app)

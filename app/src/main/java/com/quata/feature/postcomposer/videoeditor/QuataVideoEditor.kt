@@ -625,6 +625,9 @@ fun QuataVideoEditorDialog(
         onCaptionsToggle = {
             isCropPanelOpen = false
             isCaptionPanelOpen = !isCaptionPanelOpen
+            if (captionStyle == null) {
+                captionStyle = CaptionTemplateStyle.entries.first()
+            }
         },
         onReset = {
             isMuted = false
