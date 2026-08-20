@@ -10,7 +10,7 @@ import { setTimeout as delay } from "node:timers/promises";
 const CHECK = "POST-VIDEO-EDITOR-WEB-REAL-001";
 const PICKER_OPT_IN = "I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
-const DEFAULT_VIDEO_FIXTURE = "play-store/05-assets/source-media/sample-video-vertical.mp4";
+const CAPTION_FIXTURE_TEXT = "quata video editor captions are real";
 const { chromium } = loadPlaywrightCore();
 
 const options = parseArgs(process.argv.slice(2));
@@ -37,7 +37,7 @@ try {
     headless: true,
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-renderer-accessibility"],
   });
-  const context = await browser.newContext({ locale: "es-ES", viewport: { width: 430, height: 930 }, deviceScaleFactor: 1 });
+  const context = await browser.newContext({ locale: "en-US", viewport: { width: 430, height: 930 }, deviceScaleFactor: 1 });
   await context.addInitScript((state) => {
     localStorage.setItem("quata_web_access_token", state.accessToken);
     localStorage.setItem("quata_web_refresh_token", state.refreshToken);
@@ -85,7 +85,7 @@ async function runAttempt(context) {
     if (entry.type() === "error") faults.push(`console_error:${entry.text().slice(0, 180)}`);
   });
   try {
-    const reference = await validMp4FixtureDataUrl();
+    const reference = await validSpeechMp4FixtureDataUrl();
     await page.addInitScript(({ source, outcome, reference, pickerOptIn }) => {
       sessionStorage.setItem("quata.post_publish.e2e", "1");
       localStorage.setItem("quata_post_composer_picker_e2e_opt_in", pickerOptIn);
@@ -195,30 +195,14 @@ async function exerciseVideoEditor(page) {
   await invokeVideoEditorAction(page, "cropMode", "Square");
   await invokeVideoEditorAction(page, "cropZoom", 1.32);
   await invokeVideoEditorAction(page, "cropPan", 0.08, -0.04);
-  anchors.captionsFailClosed = await assertCaptionsFailClosed(page);
-  await invokeVideoEditorAction(page, "captionStyle", null);
-  await invokeVideoEditorAction(page, "captions");
-  await invokeVideoEditorAction(page, "export");
-  await page.waitForFunction(() => globalThis.__quataPostVideoEditorExport?.status === "success", null, { timeout: 15_000 });
-  anchors.export = anchors["post-video-editor.export"];
-  anchors.exportState = await page.evaluate(() => globalThis.__quataPostVideoEditorExport || null);
-  assertWebVideoEditorExportParity(anchors.exportState);
-  return anchors;
-}
-
-async function assertCaptionsFailClosed(page) {
   await invokeVideoEditorAction(page, "captions");
   await invokeVideoEditorAction(page, "captionStyle", "Karaoke");
   await invokeVideoEditorAction(page, "export");
-  const failure = await page.waitForFunction(() => {
-    const state = globalThis.__quataPostVideoEditorExport;
-    return state?.status === "failed" && /caption_transcript_missing/.test(String(state.message || ""));
-  }, null, { timeout: 10_000 }).then((handle) => handle.jsonValue());
-  return {
-    kind: "failClosed",
-    value: failure?.message || "caption_transcript_missing",
-    reason: "web_ios_require_real_caption_transcript_before_burn_in",
-  };
+  await page.waitForFunction(() => globalThis.__quataPostVideoEditorExport?.status === "success", null, { timeout: 180_000 });
+  anchors.export = anchors["post-video-editor.export"];
+  anchors.exportState = await page.evaluate(() => globalThis.__quataPostVideoEditorExport || null);
+  assertWebVideoEditorExportParity(anchors.exportState, { expectCaptions: true });
+  return anchors;
 }
 
 async function waitForVideoEditorReady(page) {
@@ -254,16 +238,26 @@ async function invokeVideoEditorAction(page, action, ...args) {
   if (!invoked) throw new Error(`missing_stable_anchor:${id || action}`);
 }
 
-function assertWebVideoEditorExportParity(exportState) {
+function assertWebVideoEditorExportParity(exportState, { expectCaptions = false } = {}) {
   if (!exportState || exportState.status !== "success") throw new Error("web_video_editor_export_missing_success_state");
   const requiredOperations = ["trim", "mute", "crop"];
+  if (expectCaptions) requiredOperations.push("captions");
   for (const operation of requiredOperations) {
     if (exportState.operations?.[operation] !== true) {
       throw new Error(`web_video_editor_export_missing_operation:${operation}`);
     }
   }
-  if (exportState.operations?.captions === true) {
+  if (!expectCaptions && exportState.operations?.captions === true) {
     throw new Error("web_video_editor_caption_false_positive");
+  }
+  if (expectCaptions) {
+    const captionText = String(exportState.spec?.captionText || "").trim().toLowerCase();
+    if (!captionText || captionText === String(exportState.spec?.captionStyle || "").trim().toLowerCase()) {
+      throw new Error("web_video_editor_caption_text_not_real_transcript");
+    }
+    if (!captionText.includes("quata") && !captionText.includes("video") && !captionText.includes("captions")) {
+      throw new Error(`web_video_editor_caption_unexpected_transcript:${captionText.slice(0, 80)}`);
+    }
   }
   if (!exportState.output || exportState.output.size <= 0) throw new Error("web_video_editor_export_empty_output");
   if (exportState.output.outputWidth !== 1080 || exportState.output.outputHeight !== 1920) {
@@ -316,6 +310,7 @@ async function saveAndProbeWebExport(page, exportState) {
   if (physicalDurationMs < expectedDurationMs * 0.45 || physicalDurationMs > expectedDurationMs * 1.45) {
     throw new Error(`web_video_editor_physical_trim_duration:${physicalDurationMs}:${expectedDurationMs}`);
   }
+  const captionPixelProbe = exportState.operations?.captions === true ? probeCaptionPixels(outputPath) : null;
   return {
     path: outputPath,
     sizeBytes: outputStats.size,
@@ -325,7 +320,39 @@ async function saveAndProbeWebExport(page, exportState) {
     expectedTrimDurationMs: expectedDurationMs,
     video: { codec: videoStream.codec_name, width, height },
     audioStreamPresent: Boolean(audioStream),
+    captionPixelProbe,
   };
+}
+
+function probeCaptionPixels(outputPath) {
+  const width = 180;
+  const height = 80;
+  const pixels = execFileSync("ffmpeg", [
+    "-v", "error",
+    "-i", outputPath,
+    "-vf", `crop=iw*0.84:ih*0.12:iw*0.08:ih*0.70,scale=${width}:${height}`,
+    "-frames:v", "1",
+    "-f", "rawvideo",
+    "-pix_fmt", "rgba",
+    "pipe:1",
+  ]);
+  if (pixels.length !== width * height * 4) {
+    throw new Error(`web_video_editor_caption_pixel_probe_unexpected_size:${pixels.length}`);
+  }
+  let bright = 0;
+  let dark = 0;
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    const luminance = 0.2126 * pixels[offset] + 0.7152 * pixels[offset + 1] + 0.0722 * pixels[offset + 2];
+    if (luminance > 230) bright += 1;
+    if (luminance < 50) dark += 1;
+  }
+  const total = width * height;
+  const brightFraction = bright / total;
+  const darkFraction = dark / total;
+  if (brightFraction < 0.004 || darkFraction < 0.12) {
+    throw new Error(`web_video_editor_caption_pixels_missing:${brightFraction.toFixed(4)}:${darkFraction.toFixed(4)}`);
+  }
+  return { width, height, brightFraction, darkFraction };
 }
 
 function parseArgs(args) {
@@ -672,10 +699,46 @@ function loadPlaywrightCore() {
   }
 }
 
-async function validMp4FixtureDataUrl() {
-  const fixture = await readFile(resolve(DEFAULT_VIDEO_FIXTURE));
+async function validSpeechMp4FixtureDataUrl() {
+  await mkdir(options.evidenceDir, { recursive: true });
+  const wavPath = resolve(options.evidenceDir, "web-post-video-editor-caption-source.wav");
+  const videoPath = resolve(options.evidenceDir, "web-post-video-editor-caption-source.mp4");
+  const speechScript = [
+    "$ErrorActionPreference = 'Stop'",
+    "Add-Type -AssemblyName System.Speech",
+    "$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer",
+    "try { $synth.SelectVoiceByHints([System.Speech.Synthesis.VoiceGender]::NotSet, [System.Speech.Synthesis.VoiceAge]::NotSet, 0, [System.Globalization.CultureInfo]::GetCultureInfo('en-US')) } catch {}",
+    `$synth.SetOutputToWaveFile(${powershellQuote(wavPath)})`,
+    `$synth.Speak(${powershellQuote(CAPTION_FIXTURE_TEXT)})`,
+    "$synth.Dispose()",
+  ].join("; ");
+  execFileSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", speechScript], { stdio: "pipe" });
+  execFileSync("ffmpeg", [
+    "-y",
+    "-f", "lavfi",
+    "-i", "color=c=0x153a78:s=720x1280:r=30:d=6",
+    "-i", wavPath,
+    "-shortest",
+    "-c:v", "libx264",
+    "-pix_fmt", "yuv420p",
+    "-c:a", "aac",
+    "-b:a", "128k",
+    "-movflags", "+faststart",
+    videoPath,
+  ], { stdio: "pipe" });
+  const fixture = await readFile(videoPath);
   if (fixture.length < 8_000 || fixture.subarray(4, 8).toString("ascii") !== "ftyp") {
-    throw new Error("invalid_mp4_fixture");
+    throw new Error("invalid_speech_mp4_fixture");
   }
+  report.evidence.captionFixture = {
+    source: "generated_windows_sapi_en_us_fixture",
+    text: CAPTION_FIXTURE_TEXT,
+    path: videoPath,
+    sizeBytes: fixture.length,
+  };
   return `data:video/mp4;base64,${fixture.toString("base64")}`;
+}
+
+function powershellQuote(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
 }

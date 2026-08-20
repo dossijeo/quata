@@ -1,5 +1,8 @@
 @file:OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
 
+import org.gradle.api.file.RelativePath
+import org.gradle.api.tasks.bundling.Compression
+import org.gradle.api.tasks.bundling.Tar
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
 
 plugins {
@@ -74,6 +77,7 @@ kotlin {
             // Web-only dynamic import. Keep DocMentis and its WASM runtime out of commonMain so
             // Android/iOS never resolve a browser package.
             implementation(npm("@docmentis/udoc-viewer", "0.7.9"))
+            implementation(npm("vosk-browser", "0.0.8"))
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -89,6 +93,7 @@ tasks.named("check") {
 // Bind the emitted production distribution to the exact committed source revision. The
 // authenticated browser gate rejects a missing/stale marker and a dirty tracked source tree.
 tasks.named("wasmJsBrowserDistribution") {
+    dependsOn("packageWebVoskModels")
     inputs.property("quataSourceRevision", webSourceRevision)
     outputs.file(webDistributionRevision)
     doLast {
@@ -96,7 +101,44 @@ tasks.named("wasmJsBrowserDistribution") {
             parentFile.mkdirs()
             writeText("${webSourceRevision.get()}\n")
         }
+        copy {
+            from(layout.buildDirectory.dir("generated/web-vosk-models"))
+            into(layout.buildDirectory.dir("dist/wasmJs/productionExecutable/vosk"))
+        }
     }
+}
+
+val webVoskModelSpecs = mapOf(
+    "en" to rootProject.file("vosk_model_en/src/main/res/raw/vosk_model_en.zip"),
+    "es" to rootProject.file("vosk_model_es/src/main/res/raw/vosk_model_es.zip"),
+    "fr" to rootProject.file("vosk_model_fr/src/main/res/raw/vosk_model_fr.zip"),
+)
+
+val webVoskModelTasks = webVoskModelSpecs.map { (language, sourceZip) ->
+    tasks.register<Tar>("packageWebVoskModel${language.uppercase()}") {
+        group = "web"
+        description = "Packages the Android Vosk $language model as a browser Vosk model tarball."
+        compression = Compression.GZIP
+        archiveFileName.set("vosk-model-$language.tar.gz")
+        destinationDirectory.set(layout.buildDirectory.dir("generated/web-vosk-models"))
+        from(zipTree(sourceZip)) {
+            includeEmptyDirs = false
+            eachFile {
+                val pathSegments = relativePath.segments
+                if (pathSegments.size <= 1) {
+                    exclude()
+                } else {
+                    relativePath = RelativePath(true, "model", *pathSegments.drop(1).toTypedArray())
+                }
+            }
+        }
+    }
+}
+
+tasks.register("packageWebVoskModels") {
+    group = "web"
+    description = "Packages all browser Vosk models used by the Web post video editor."
+    dependsOn(webVoskModelTasks)
 }
 
 // Keep the published production directory free of source-map artifacts. This runs after

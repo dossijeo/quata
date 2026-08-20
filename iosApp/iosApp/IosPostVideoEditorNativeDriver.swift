@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import QuartzCore
+import Speech
 import UIKit
 import QuataShared
 
@@ -8,6 +9,7 @@ import QuataShared
 /// Compose/Kotlin owns the editor state, timeline, crop/caption controls and export spec.
 final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNativeDriver {
     static let shared = IosPostVideoEditorNativeDriverBridge()
+    private var activeSpeechTasks: [UUID: SFSpeechRecognitionTask] = [:]
 
     func createPreview(reference: String) -> any IosPostVideoEditorPreviewSurface {
         IosPostVideoEditorPreviewSurfaceImpl(url: URL(string: reference))
@@ -28,6 +30,60 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
             width: Int32(max(1, Int(abs(transformed.width)))),
             height: Int32(max(1, Int(abs(transformed.height))))
         )
+    }
+
+    func transcribe(
+        source: PlatformFile,
+        callback: any IosPostVideoEditorTranscriptCallback
+    ) {
+        guard let sourceUrl = URL(string: source.reference), sourceUrl.isFileURL else {
+            callback.onFailure(reason: "ios_post_video_editor_caption_source_invalid")
+            return
+        }
+        let localeIdentifier = Locale.preferredLanguages.first ?? Locale.current.identifier
+        let recognizer = SFSpeechRecognizer(locale: Locale(identifier: localeIdentifier))
+            ?? SFSpeechRecognizer(locale: Locale(identifier: "en_US"))
+        guard let recognizer else {
+            callback.onFailure(reason: "ios_post_video_editor_caption_recognizer_unavailable")
+            return
+        }
+        SFSpeechRecognizer.requestAuthorization { [weak self] status in
+            guard status == .authorized else {
+                DispatchQueue.main.async {
+                    callback.onFailure(reason: "ios_post_video_editor_caption_speech_permission_denied")
+                }
+                return
+            }
+            let request = SFSpeechURLRecognitionRequest(url: sourceUrl)
+            request.shouldReportPartialResults = false
+            if #available(iOS 13.0, *) {
+                request.requiresOnDeviceRecognition = false
+            }
+            let taskId = UUID()
+            let task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+                if let result, result.isFinal {
+                    self?.activeSpeechTasks.removeValue(forKey: taskId)
+                    let text = result.bestTranscription.formattedString.trimmingCharacters(in: .whitespacesAndNewlines)
+                    DispatchQueue.main.async {
+                        if text.isEmpty {
+                            callback.onFailure(reason: "ios_post_video_editor_caption_transcript_missing")
+                        } else {
+                            callback.onSuccess(text: text)
+                        }
+                    }
+                    return
+                }
+                if let error {
+                    self?.activeSpeechTasks.removeValue(forKey: taskId)
+                    DispatchQueue.main.async {
+                        callback.onFailure(reason: error.localizedDescription.isEmpty
+                            ? "ios_post_video_editor_caption_transcript_failed"
+                            : error.localizedDescription)
+                    }
+                }
+            }
+            self?.activeSpeechTasks[taskId] = task
+        }
     }
 
     func export(

@@ -37,6 +37,7 @@ import kotlin.coroutines.resumeWithException
 interface IosPostVideoEditorNativeDriver {
     fun createPreview(reference: String): IosPostVideoEditorPreviewSurface
     fun metadata(source: PlatformFile): IosPostVideoEditorMetadata?
+    fun transcribe(source: PlatformFile, callback: IosPostVideoEditorTranscriptCallback)
     fun export(source: PlatformFile, request: IosPostVideoEditorExportRequest, callback: IosPostVideoEditorExportCallback)
 }
 
@@ -48,6 +49,11 @@ interface IosPostVideoEditorPreviewSurface {
 
 interface IosPostVideoEditorExportCallback {
     fun onSuccess(file: PlatformFile)
+    fun onFailure(reason: String)
+}
+
+interface IosPostVideoEditorTranscriptCallback {
+    fun onSuccess(text: String)
     fun onFailure(reason: String)
 }
 
@@ -81,6 +87,10 @@ data class IosPostVideoEditorMetadata(
 object UnsupportedIosPostVideoEditorNativeDriver : IosPostVideoEditorNativeDriver {
     override fun createPreview(reference: String): IosPostVideoEditorPreviewSurface = UnsupportedIosPostVideoEditorPreviewSurface
     override fun metadata(source: PlatformFile): IosPostVideoEditorMetadata? = null
+    override fun transcribe(source: PlatformFile, callback: IosPostVideoEditorTranscriptCallback) {
+        callback.onFailure("ios_post_video_editor_caption_transcript_missing")
+    }
+
     override fun export(source: PlatformFile, request: IosPostVideoEditorExportRequest, callback: IosPostVideoEditorExportCallback) {
         callback.onFailure("ios_post_video_editor_native_export_required")
     }
@@ -115,9 +125,16 @@ internal fun IosPostVideoEditor(
     fun export() {
         if (state.isExporting) return
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
-        val spec = postVideoEditorExportSpec(state, videoAspectRatio, durationMs)
         scope.launch {
-            runCatching { iosPostVideoEditorExportEdited(source, spec, nativeDriver) }
+            runCatching {
+                val captionText = if (state.captionsEnabled && state.selectedCaptionStyleId != null) {
+                    iosPostVideoEditorTranscribeCaptions(source, nativeDriver)
+                } else {
+                    null
+                }
+                val spec = postVideoEditorExportSpec(state, videoAspectRatio, durationMs, captionText)
+                iosPostVideoEditorExportEdited(source, spec, nativeDriver)
+            }
                 .onSuccess {
                     state = state.copy(isExporting = false, exportProgress = 1f)
                     onEdited(it)
@@ -187,6 +204,28 @@ private fun IosPostVideoEditorNativePreview(
         },
         modifier = modifier,
     )
+}
+
+private suspend fun iosPostVideoEditorTranscribeCaptions(
+    source: PlatformFile,
+    nativeDriver: IosPostVideoEditorNativeDriver,
+): String = suspendCancellableCoroutine { continuation ->
+    nativeDriver.transcribe(source, object : IosPostVideoEditorTranscriptCallback {
+        override fun onSuccess(text: String) {
+            val transcript = text.trim()
+            if (continuation.isActive) {
+                if (transcript.isNotEmpty()) {
+                    continuation.resume(transcript)
+                } else {
+                    continuation.resumeWithException(IllegalStateException("ios_post_video_editor_caption_transcript_missing"))
+                }
+            }
+        }
+
+        override fun onFailure(reason: String) {
+            if (continuation.isActive) continuation.resumeWithException(IllegalStateException(reason))
+        }
+    })
 }
 
 private suspend fun iosPostVideoEditorExportEdited(

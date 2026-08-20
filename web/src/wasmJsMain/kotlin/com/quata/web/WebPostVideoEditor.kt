@@ -48,15 +48,25 @@ internal fun WebPostVideoEditor(
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
         webPostVideoEditorRecordExportStarted()
         scope.launch {
-            val freshMetadata = runCatching { webPostVideoEditorReadMetadata(sourceReference) }.getOrNull()
-            val exportDurationMs = freshMetadata?.durationMs?.also { durationMs = it } ?: durationMs
-            val exportAspectRatio = freshMetadata?.aspectRatio?.also { videoAspectRatio = it } ?: videoAspectRatio
-            val spec = postVideoEditorExportSpec(state, exportAspectRatio, exportDurationMs)
-            runCatching { webPostVideoEditorExportEdited(sourceReference, spec) }
+            runCatching {
+                val freshMetadata = runCatching { webPostVideoEditorReadMetadata(sourceReference) }.getOrNull()
+                val exportDurationMs = freshMetadata?.durationMs?.also { durationMs = it } ?: durationMs
+                val exportAspectRatio = freshMetadata?.aspectRatio?.also { videoAspectRatio = it } ?: videoAspectRatio
+                val shouldGenerateCaptions = state.captionsEnabled && state.selectedCaptionStyleId != null
+                val captionText = if (shouldGenerateCaptions) {
+                    webPostVideoEditorTranscribeCaptions(sourceReference)
+                } else {
+                    null
+                }
+                val spec = postVideoEditorExportSpec(state, exportAspectRatio, exportDurationMs, captionText)
+                spec to webPostVideoEditorExportEdited(sourceReference, spec)
+            }
                 .onSuccess {
+                    val spec = it.first
+                    val reference = it.second
                     state = state.copy(isExporting = false, exportProgress = 1f)
                     webPostVideoEditorRecordExportSuccess(
-                        reference = it,
+                        reference = reference,
                         trimStartMs = spec.trimStartMs,
                         trimEndMs = spec.trimEndMs,
                         sourceDurationMs = spec.sourceDurationMs,
@@ -74,7 +84,7 @@ internal fun WebPostVideoEditor(
                         outputWidth = spec.outputWidth,
                         outputHeight = spec.outputHeight,
                     )
-                    onEdited(it)
+                    onEdited(reference)
                 }
                 .onFailure {
                     val message = it.message ?: "web_post_video_editor_export_failed"
@@ -572,6 +582,86 @@ private fun webPostVideoEditorReadMetadataJs(
         }).catch(error => onFailure(String(error?.message || error || 'web_post_video_editor_metadata_failed').slice(0, 160)));
       } catch (error) {
         onFailure(String(error?.message || error || 'web_post_video_editor_metadata_failed').slice(0, 160));
+      }
+    })()
+    """,
+)
+
+private suspend fun webPostVideoEditorTranscribeCaptions(reference: String): String =
+    suspendCoroutine { continuation ->
+        webPostVideoEditorTranscribeCaptionsJs(
+            reference = reference,
+            onSuccess = { text -> continuation.resume(text) },
+            onFailure = { reason -> continuation.resumeWith(Result.failure(IllegalStateException(reason))) },
+        )
+    }
+
+private fun webPostVideoEditorTranscribeCaptionsJs(
+    reference: String,
+    onSuccess: (String) -> Unit,
+    onFailure: (String) -> Unit,
+): Unit = js(
+    """
+    (() => {
+      const fail = reason => onFailure(String(reason || 'web_post_video_editor_caption_transcript_missing').slice(0, 180));
+      const preferredLanguage = () => {
+        const language = String(globalThis.navigator?.language || 'es').slice(0, 2).toLowerCase();
+        return ['en', 'es', 'fr'].includes(language) ? language : 'en';
+      };
+      try {
+        const sourcePromise = String(reference || '').startsWith('blob:') || String(reference || '').startsWith('data:')
+          ? fetch(reference).then(response => response.arrayBuffer())
+          : fetch(String(reference || '')).then(response => {
+              if (!response.ok) throw Error('web_post_video_editor_caption_source_' + response.status);
+              return response.arrayBuffer();
+            });
+        sourcePromise.then(async arrayBuffer => {
+          const AudioContextCtor = globalThis.AudioContext || globalThis.webkitAudioContext;
+          if (!AudioContextCtor) throw Error('web_post_video_editor_caption_audio_context_missing');
+          const audioContext = new AudioContextCtor({ sampleRate: 16000 });
+          const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+          const Vosk = await import('vosk-browser');
+          const language = preferredLanguage();
+          globalThis.__quataWebPostVideoEditorVoskModels = globalThis.__quataWebPostVideoEditorVoskModels || {};
+          const modelUrl = `vosk/vosk-model-${'$'}{language}.tar.gz`;
+          const model = globalThis.__quataWebPostVideoEditorVoskModels[language]
+            || await Vosk.createModel(modelUrl, -1);
+          globalThis.__quataWebPostVideoEditorVoskModels[language] = model;
+          const recognizer = new model.KaldiRecognizer(decoded.sampleRate || 16000);
+          recognizer.setWords(true);
+          const words = [];
+          let finalRequested = false;
+          let settled = false;
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            recognizer.remove();
+            runCatchingCloseAudioContext(audioContext);
+            const text = words.map(word => String(word.word || word.text || '').trim()).filter(Boolean).join(' ').trim();
+            if (text) onSuccess(text);
+            else fail('web_post_video_editor_caption_transcript_missing');
+          };
+          recognizer.on('result', message => {
+            const resultWords = Array.isArray(message?.result?.result) ? message.result.result : [];
+            for (const word of resultWords) {
+              if (word && word.word) words.push(word);
+            }
+            if (finalRequested) globalThis.setTimeout(finish, 120);
+          });
+          recognizer.acceptWaveform(decoded);
+          finalRequested = true;
+          recognizer.retrieveFinalResult();
+          globalThis.setTimeout(finish, 30000);
+        }).catch(error => fail(error?.message || error || 'web_post_video_editor_caption_transcript_failed'));
+      } catch (error) {
+        fail(error?.message || error || 'web_post_video_editor_caption_transcript_failed');
+      }
+
+      function runCatchingCloseAudioContext(audioContext) {
+        try {
+          if (audioContext && audioContext.close) audioContext.close();
+        } catch (_) {
+        }
       }
     })()
     """,

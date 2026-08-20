@@ -57,9 +57,11 @@ const commonVideoEditorModels = readFileSync(new URL("../feature/postcomposer/sr
 const commonPostVideoEditorContent = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/videoeditor/PostVideoEditorContent.kt", import.meta.url), "utf8");
 const commonPostVideoEditorSpec = readFileSync(new URL("../feature/postcomposer/src/commonMain/kotlin/com/quata/feature/postcomposer/videoeditor/PostVideoEditorExportSpec.kt", import.meta.url), "utf8");
 const webPostVideoEditor = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostVideoEditor.kt", import.meta.url), "utf8");
+const webBuildGradle = readFileSync(new URL("../web/build.gradle.kts", import.meta.url), "utf8");
 const iosPostVideoEditor = readFileSync(new URL("../feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostVideoEditor.kt", import.meta.url), "utf8");
 const iosPostVideoEditorNativeDriver = readFileSync(new URL("../iosApp/iosApp/IosPostVideoEditorNativeDriver.swift", import.meta.url), "utf8");
 const iosQuataApp = readFileSync(new URL("../iosApp/iosApp/QuataIosApp.swift", import.meta.url), "utf8");
+const iosInfoPlist = readFileSync(new URL("../iosApp/iosApp/Info.plist", import.meta.url), "utf8");
 const androidVideoEditorRunner = readFileSync(new URL("./post-video-editor-android-evidence.mjs", import.meta.url), "utf8");
 const webVideoEditorRunner = readFileSync(new URL("./post-video-editor-web-evidence.mjs", import.meta.url), "utf8");
 const iosVideoEditorRunner = readFileSync(new URL("./post-video-editor-ios-evidence.mjs", import.meta.url), "utf8");
@@ -567,12 +569,17 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /post-video-editor\.export/);
   assert.match(webVideoEditorRunner, /__quataPostVideoEditorExport/);
   assert.match(webVideoEditorRunner, /assertWebVideoEditorExportParity/);
-  assert.match(webVideoEditorRunner, /assertCaptionsFailClosed/);
-  assert.match(webVideoEditorRunner, /caption_transcript_missing/);
+  assert.match(webVideoEditorRunner, /validSpeechMp4FixtureDataUrl/);
+  assert.match(webVideoEditorRunner, /CAPTION_FIXTURE_TEXT/);
+  assert.match(webVideoEditorRunner, /expectCaptions: true/);
+  assert.match(webVideoEditorRunner, /web_video_editor_caption_text_not_real_transcript/);
   assert.match(webVideoEditorRunner, /const requiredOperations = \["trim", "mute", "crop"\]/);
+  assert.match(webVideoEditorRunner, /requiredOperations\.push\("captions"\)/);
   assert.match(webVideoEditorRunner, /web_video_editor_caption_false_positive/);
   assert.match(webVideoEditorRunner, /saveAndProbeWebExport/);
   assert.match(webVideoEditorRunner, /ffprobe/);
+  assert.match(webVideoEditorRunner, /probeCaptionPixels/);
+  assert.match(webVideoEditorRunner, /web_video_editor_caption_pixels_missing/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_present_after_mute/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_trim_duration/);
   assert.match(webVideoEditorRunner, /web_video_editor_export_missing_operation:\$\{operation\}/);
@@ -586,10 +593,15 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /videoAspectRatio = it\.videoWidth\.toFloat\(\) \/ it\.videoHeight\.toFloat\(\)/);
   assert.match(webPostVideoEditor, /backgroundCropLeft/);
   assert.match(webPostVideoEditor, /webPostVideoEditorReadMetadata/);
+  assert.match(webPostVideoEditor, /webPostVideoEditorTranscribeCaptions/);
+  assert.match(webPostVideoEditor, /vosk-browser/);
   assert.match(webPostVideoEditor, /effectiveDurationMs/);
   assert.match(webPostVideoEditor, /drawCropFill\(backgroundCrop\)/);
   assert.match(webPostVideoEditor, /drawCropFit\(crop\)/);
   assert.match(webPostVideoEditor, /web_post_video_editor_caption_transcript_missing/);
+  assert.match(webBuildGradle, /packageWebVoskModels/);
+  assert.match(webBuildGradle, /vosk-browser/);
+  assert.match(webBuildGradle, /vosk_model_es/);
   assert.doesNotMatch(webPostVideoEditor, /val captionText = "Q/);
   assert.doesNotMatch(webPostVideoEditor, /captionWords = String\(captionStyle/);
   assert.match(webVideoEditorRunner, /invokeVideoEditorAction\(page, "cropMode", "Square"\)/);
@@ -613,10 +625,16 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditor, /IosVideoThumbnailService/);
   assert.match(iosPostVideoEditor, /IosPostVideoEditorNativeDriver/);
   assert.match(iosPostVideoEditor, /metadata\(source: PlatformFile\)/);
+  assert.match(iosPostVideoEditor, /transcribe\(source: PlatformFile/);
+  assert.match(iosPostVideoEditor, /iosPostVideoEditorTranscribeCaptions/);
   assert.match(iosPostVideoEditor, /metadata\?\.durationMs/);
   assert.match(iosPostVideoEditor, /metadata\?\.aspectRatio/);
+  assert.match(iosPostVideoEditor, /postVideoEditorExportSpec\(state, videoAspectRatio, durationMs, captionText\)/);
   assert.doesNotMatch(iosPostVideoEditor, /val captionText = "Q/);
   assert.match(iosPostVideoEditor, /UIKitView/);
+  assert.match(iosPostVideoEditorNativeDriver, /SFSpeechRecognizer/);
+  assert.match(iosPostVideoEditorNativeDriver, /SFSpeechURLRecognitionRequest/);
+  assert.match(iosPostVideoEditorNativeDriver, /bestTranscription\.formattedString/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetExportSession/);
   assert.match(iosPostVideoEditorNativeDriver, /AVVideoCompositionCoreAnimationTool/);
   assert.match(iosPostVideoEditorNativeDriver, /request\.removeAudio/);
@@ -628,6 +646,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /captionStyle\.uppercased\(\)/);
   assert.match(iosPostVideoEditorNativeDriver, /captionAnimationTool/);
   assert.match(iosQuataApp, /IosPostVideoEditorNativeDriverBridge\.shared/);
+  assert.match(iosInfoPlist, /NSSpeechRecognitionUsageDescription/);
   assert.doesNotMatch(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
 
   for (const runner of [androidVideoEditorRunner, webVideoEditorRunner, iosVideoEditorRunner]) {
