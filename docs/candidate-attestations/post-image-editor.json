@@ -4,11 +4,11 @@
     "SCR-CREATE-POST",
     "POST-IMAGE-EDITOR"
   ],
-  "productSha": "9b84cbdc379bda8e796fda8fbe2f4f6b05a40707",
+  "productSha": "cfa5e282b3f5699263add002ca9abedc6670bc0a",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "9b84cbdc379bda8e796fda8fbe2f4f6b05a40707",
+      "sha": "cfa5e282b3f5699263add002ca9abedc6670bc0a",
       "report": "build-reports/web/post-image-editor-common-surface-evidence.json",
       "cleanup": {
         "verified": true,
@@ -17,7 +17,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "9b84cbdc379bda8e796fda8fbe2f4f6b05a40707",
+      "sha": "cfa5e282b3f5699263add002ca9abedc6670bc0a",
       "report": "build-reports/android/post-image-editor-common-surface-evidence.json",
       "cleanup": {
         "verified": true,
@@ -26,7 +26,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "9b84cbdc379bda8e796fda8fbe2f4f6b05a40707",
+      "sha": "cfa5e282b3f5699263add002ca9abedc6670bc0a",
       "report": "build-reports/ios/post-image-editor-common-surface-evidence.json",
       "cleanup": {
         "verified": true,
@@ -37,8 +37,8 @@
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate closes the POST-IMAGE-EDITOR focal unit through common CreatePostRoot media edit anchors, shared selected preview semantics, common transform/geometry/control surface, and real editor save/cancel/reopen evidence on Web/Wasm, Android and iOS.",
-    "Android now uses the same common PostImageEditorDialogContent surface as Web/Wasm and iOS. Android, Web/Wasm and iOS diverge only at the bitmap decode/preview/export edge behind the shared PostImageEditorTransform and ImageEditorOutputSpec contracts.",
+    "This candidate closes the POST-IMAGE-EDITOR focal unit through common CreatePostRoot media edit anchors, shared selected preview semantics, common transform/geometry/control surface, explicit crop mode, crop overlay, landscape layout, zoom/pan framing, locked square Avatar mode, and real editor save/cancel/reopen evidence on Web/Wasm, Android and iOS.",
+    "Android now uses the same common PostImageEditorDialogContent surface as Web/Wasm and iOS. The common surface preserves explicit crop/apply controls, crop overlay, landscape control layout, zoom/pan framing and locked Avatar crop; Android, Web/Wasm and iOS diverge only at the bitmap decode/preview/export edge behind the shared PostImageEditorTransform and ImageEditorOutputSpec contracts.",
     "No backend mutation is performed by this unit; cleanup is verified as zero physical residue because the fixture is local media only."
   ]
 }
