@@ -407,7 +407,6 @@
     <string name="composer_edit_image">Edit image</string>
     <string name="composer_pending_location">Pending location</string>
     <string name="composer_selected_image">Selected image</string>
-    <string name="composer_image_preview_title">Photo with location</string>
     <string name="composer_pick_video">Choose video</string>
     <string name="composer_video_ready">Video ready</string>
     <string name="composer_publishing">Publishing…</string>

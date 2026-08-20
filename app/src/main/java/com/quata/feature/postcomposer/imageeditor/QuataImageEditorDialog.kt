@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.graphics.withTranslation
 import androidx.core.graphics.drawable.toBitmap
 import androidx.exifinterface.media.ExifInterface
 import coil.imageLoader
@@ -142,16 +143,15 @@ private fun AndroidPostImageEditorPreview(
             val drawWidth = bitmap.width * scale
             val drawHeight = bitmap.height * scale
             val canvas = drawContext.canvas.nativeCanvas
-            canvas.save()
-            canvas.translate(size.width / 2f, size.height / 2f)
-            canvas.rotate(turns * 90f)
-            canvas.drawBitmap(
-                bitmap,
-                null,
-                android.graphics.RectF(-drawWidth / 2f, -drawHeight / 2f, drawWidth / 2f, drawHeight / 2f),
-                PreviewPaint,
-            )
-            canvas.restore()
+            canvas.withTranslation(size.width / 2f, size.height / 2f) {
+                rotate(turns * 90f)
+                drawBitmap(
+                    bitmap,
+                    null,
+                    android.graphics.RectF(-drawWidth / 2f, -drawHeight / 2f, drawWidth / 2f, drawHeight / 2f),
+                    PreviewPaint,
+                )
+            }
             return@Canvas
         }
         val frameScale = minOf(size.width / outputSpec.width, size.height / outputSpec.height)
@@ -160,19 +160,18 @@ private fun AndroidPostImageEditorPreview(
         val maxPanX = geometry.maxPanX * frameScale
         val maxPanY = geometry.maxPanY * frameScale
         val canvas = drawContext.canvas.nativeCanvas
-        canvas.save()
-        canvas.translate(
+        canvas.withTranslation(
             size.width / 2f + transform.panX * maxPanX,
             size.height / 2f + transform.panY * maxPanY,
-        )
-        canvas.rotate(transform.quarterTurns * 90f)
-        canvas.drawBitmap(
-            bitmap,
-            null,
-            android.graphics.RectF(-drawWidth / 2f, -drawHeight / 2f, drawWidth / 2f, drawHeight / 2f),
-            PreviewPaint,
-        )
-        canvas.restore()
+        ) {
+            rotate(transform.quarterTurns * 90f)
+            drawBitmap(
+                bitmap,
+                null,
+                android.graphics.RectF(-drawWidth / 2f, -drawHeight / 2f, drawWidth / 2f, drawHeight / 2f),
+                PreviewPaint,
+            )
+        }
     }
 }
 
@@ -222,19 +221,18 @@ private fun Context.exportEditedImage(
         val maxPanX = ((outputDrawnWidth - outputSpec.width) / 2f).coerceAtLeast(0f)
         val maxPanY = ((outputDrawnHeight - outputSpec.height) / 2f).coerceAtLeast(0f)
         canvas.drawColor(android.graphics.Color.BLACK)
-        canvas.save()
-        canvas.translate(
+        canvas.withTranslation(
             outputSpec.width / 2f + transform.panX.coerceIn(-1f, 1f) * maxPanX,
             outputSpec.height / 2f + transform.panY.coerceIn(-1f, 1f) * maxPanY,
-        )
-        canvas.rotate(turns * 90f)
-        canvas.drawBitmap(
-            source,
-            null,
-            android.graphics.RectF(-sourceDrawnWidth / 2f, -sourceDrawnHeight / 2f, sourceDrawnWidth / 2f, sourceDrawnHeight / 2f),
-            ExportPaint,
-        )
-        canvas.restore()
+        ) {
+            rotate(turns * 90f)
+            drawBitmap(
+                source,
+                null,
+                android.graphics.RectF(-sourceDrawnWidth / 2f, -sourceDrawnHeight / 2f, sourceDrawnWidth / 2f, sourceDrawnHeight / 2f),
+                ExportPaint,
+            )
+        }
         outputFile.outputStream().use { output.compress(Bitmap.CompressFormat.JPEG, ImageEditorJpegQuality, it) }
         copyImageGpsMetadata(sourceUri, outputFile)
         return Uri.fromFile(outputFile)
