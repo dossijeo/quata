@@ -522,9 +522,11 @@ private final class IosPostVideoEditorExportOperation {
 
     private func addVisibilityAnimation(to layer: CALayer, startMs: Int64, endMs: Int64, duration: CMTime) {
         let totalMs = max(1, Int64(CMTimeGetSeconds(duration) * 1_000))
-        let start = max(0, min(1, Double(startMs) / Double(totalMs)))
-        let end = max(start, min(1, Double(endMs) / Double(totalMs)))
+        let epsilon = 0.001
+        let start = max(epsilon, min(1 - epsilon * 2, Double(startMs) / Double(totalMs)))
+        let end = max(start + epsilon, min(1 - epsilon, Double(endMs) / Double(totalMs)))
         let animation = CAKeyframeAnimation(keyPath: "opacity")
+        animation.calculationMode = .linear
         animation.values = [0, 1, 1, 0]
         animation.keyTimes = [
             0,
