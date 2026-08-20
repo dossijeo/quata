@@ -203,14 +203,19 @@ fun CreatePostScreen(
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia(), ::selectImage)
     val videoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia(), ::selectVideo)
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result.values.all { it }) cameraMode = if (pendingCapture == CaptureTarget.Photo) QuataCameraMode.Photo else QuataCameraMode.Video
+        if (result.values.all { it }) {
+            cameraMode = if (pendingCapture == CaptureTarget.Photo) QuataCameraMode.Photo else QuataCameraMode.Video
+        } else {
+            viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(rootCopy.mediaPermissionDenied))
+            pendingCapture = null
+        }
     }
     fun capture(target: CaptureTarget) {
         val evidenceSource = if (target == CaptureTarget.Photo) AndroidPostComposerPickerEvidence.Source.CameraImage else AndroidPostComposerPickerEvidence.Source.CameraVideo
-        if (target == CaptureTarget.Photo && evidencePicker?.handle(evidenceSource) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } == true) {
+        if (target == CaptureTarget.Photo && evidencePicker?.handle(evidenceSource, rootCopy, viewModel) { viewModel.onEvent(CreatePostUiEvent.ImageSelected(it)) } == true) {
             return
         }
-        if (target == CaptureTarget.Video && evidencePicker?.handle(evidenceSource) { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } == true) {
+        if (target == CaptureTarget.Video && evidencePicker?.handle(evidenceSource, rootCopy, viewModel) { viewModel.onEvent(CreatePostUiEvent.VideoSelected(it)) } == true) {
             return
         }
         pendingCapture = target
@@ -246,7 +251,7 @@ fun CreatePostScreen(
             initialStep = if (evidenceImageUri != null) CreatePostStep.Image else null,
             slots = CreatePostPlatformSlots(
                 pickImage = {
-                    if (evidencePicker?.handle(AndroidPostComposerPickerEvidence.Source.GalleryImage) {
+                    if (evidencePicker?.handle(AndroidPostComposerPickerEvidence.Source.GalleryImage, rootCopy, viewModel) {
                             viewModel.onEvent(CreatePostUiEvent.ImageSelected(it))
                         } != true) {
                         imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -255,7 +260,7 @@ fun CreatePostScreen(
                 captureImage = { capture(CaptureTarget.Photo) },
                 editImage = { state.imageUri?.let(Uri::parse)?.let { imageEditorUri = it } },
                 pickVideo = {
-                    if (evidencePicker?.handle(AndroidPostComposerPickerEvidence.Source.GalleryVideo) {
+                    if (evidencePicker?.handle(AndroidPostComposerPickerEvidence.Source.GalleryVideo, rootCopy, viewModel) {
                             viewModel.onEvent(CreatePostUiEvent.VideoSelected(it))
                         } != true) {
                         videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
@@ -676,17 +681,28 @@ private data class AndroidPostComposerPickerEvidence(
     val outcome: String,
     val path: String?,
 ) {
-    fun handle(expectedSource: Source, consume: (String) -> Unit): Boolean {
+    fun handle(
+        expectedSource: Source,
+        copy: CreatePostRootCopy,
+        viewModel: CreatePostAndroidViewModel,
+        consume: (String) -> Unit,
+    ): Boolean {
         if (source != expectedSource) return false
-        if (outcome != "success") return true
-        val reference = path
-            ?.takeIf { it.isNotBlank() }
-            ?.let { rawPath ->
-                val file = File(rawPath)
-                if (file.isFile && file.length() > 0L) Uri.fromFile(file).toString() else rawPath
+        when (outcome) {
+            "success" -> {
+                val reference = path
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { rawPath ->
+                        val file = File(rawPath)
+                        if (file.isFile && file.length() > 0L) Uri.fromFile(file).toString() else rawPath
+                    }
+                    ?: "evidence://${expectedSource.testValue}"
+                consume(reference)
             }
-            ?: "evidence://${expectedSource.testValue}"
-        consume(reference)
+            "cancelled" -> viewModel.onEvent(CreatePostUiEvent.ClearMediaError)
+            "failure" -> viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaSelectionFailed))
+            "unsupported" -> viewModel.onEvent(CreatePostUiEvent.MediaSelectionFailed(copy.mediaUnsupported))
+        }
         return true
     }
 

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { validPngFixture } from "./e2e-fixtures/chat-attachments.mjs";
+import { longMp4FixturePath, validPngFixture } from "./e2e-fixtures/chat-attachments.mjs";
 
 const CHECK = "POST-PICKER-CAMERA-IOS-REAL-001";
 const OPT_IN = "I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE";
@@ -24,6 +24,7 @@ const report = {
 let localCredentials;
 let remoteCredentials;
 let localFixture;
+let localFixtureTempDir;
 let remoteFixture;
 
 try {
@@ -42,9 +43,16 @@ try {
   await run("scp", [localCredentials, `${options.host}:${remoteCredentials}`]);
   report.steps.push("ios_real_credentials_copied_to_mac_tempfile_without_logging_contents");
 
-  localFixture = join(await mkdirTemp("quata-ios-post-picker-fixture-"), "post-picker-camera-fixture.png");
-  await writeFile(localFixture, validPngFixture(), { mode: 0o600 });
-  remoteFixture = (await runCapture("ssh", [options.host, "mktemp /tmp/quata-ios-post-picker-fixture.XXXXXX.png"])).trim();
+  const fixtureExtension = options.mediaType === "video" ? "mp4" : "png";
+  const fixtureName = options.mediaType === "video" ? "post-picker-camera-fixture.mp4" : "post-picker-camera-fixture.png";
+  if (options.mediaType === "video") {
+    localFixture = options.videoFixture;
+  } else {
+    localFixtureTempDir = await mkdirTemp("quata-ios-post-picker-fixture-");
+    localFixture = join(localFixtureTempDir, fixtureName);
+    await writeFile(localFixture, validPngFixture(), { mode: 0o600 });
+  }
+  remoteFixture = (await runCapture("ssh", [options.host, `mktemp /tmp/quata-ios-post-picker-fixture.XXXXXX.${fixtureExtension}`])).trim();
   await run("scp", [localFixture, `${options.host}:${remoteFixture}`]);
   report.steps.push("ios_picker_fixture_copied_to_mac_tempfile");
 
@@ -82,7 +90,7 @@ scripts/build-ios-intel-simulator-signed.sh
   if (remoteCredentials) await run("ssh", [options.host, "rm", "-f", remoteCredentials]).catch(() => {});
   if (remoteFixture) await run("ssh", [options.host, "rm", "-f", remoteFixture]).catch(() => {});
   if (localCredentials) await rm(dirname(localCredentials), { recursive: true, force: true }).catch(() => {});
-  if (localFixture) await rm(dirname(localFixture), { recursive: true, force: true }).catch(() => {});
+  if (localFixtureTempDir) await rm(localFixtureTempDir, { recursive: true, force: true }).catch(() => {});
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
@@ -113,14 +121,15 @@ export QUATA_IOS_POST_PICKER_CAMERA_UI_RESULT_BUNDLE_DIR=${shellQuote(`${remoteL
 export QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN=${shellQuote(OPT_IN)}
 export QUATA_IOS_POST_COMPOSER_PICKER_SOURCE=${shellQuote(source)}
 export QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME=${shellQuote(outcome)}
+export QUATA_IOS_POST_COMPOSER_PICKER_MEDIA_TYPE=${shellQuote(options.mediaType)}
 export QUATA_IOS_POST_COMPOSER_PICKER_PATH=${shellQuote(remoteFixture)}
-export QUATA_IOS_POST_COMPOSER_PICKER_NAME='post-picker-camera-fixture.png'
-export QUATA_IOS_POST_COMPOSER_PICKER_MIME='image/png'
+export QUATA_IOS_POST_COMPOSER_PICKER_NAME=${shellQuote(options.mediaType === "video" ? "post-picker-camera-fixture.mp4" : "post-picker-camera-fixture.png")}
+export QUATA_IOS_POST_COMPOSER_PICKER_MIME=${shellQuote(options.mediaType === "video" ? "video/mp4" : "image/png")}
 bash scripts/run-ios-post-picker-camera-ui-test.sh
 `);
-    return { source, outcome, status: "passed", remoteLogDir };
+    return { source, outcome, mediaType: options.mediaType, status: "passed", remoteLogDir };
   } catch (error) {
-    return { source, outcome, status: "failed", remoteLogDir, error: safeFailure(error) };
+    return { source, outcome, mediaType: options.mediaType, status: "failed", remoteLogDir, error: safeFailure(error) };
   }
 }
 
@@ -132,6 +141,8 @@ function parseArgs(args) {
     remoteLogDir: process.env.QUATA_IOS_POST_PICKER_CAMERA_UI_LOG_DIR?.trim() || "build/reports/ios/post-picker-camera-ui",
     output: join("build-reports", "ios", "post-picker-camera-evidence.json"),
     evidenceDir: join("build-reports", "ios", "post-picker-camera-evidence"),
+    mediaType: process.env.QUATA_POST_PICKER_CAMERA_MEDIA_TYPE?.trim() || "image",
+    videoFixture: resolve(process.env.QUATA_POST_PICKER_CAMERA_VIDEO_FIXTURE?.trim() || longMp4FixturePath()),
     simulatorUdid: process.env.QUATA_IOS_SIMULATOR_UDID?.trim() || "",
     buildFirst: process.env.QUATA_IOS_BUILD_FIRST === "1",
     sources: ["gallery", "camera", "camera:cancelled"],
@@ -139,7 +150,7 @@ function parseArgs(args) {
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
-    if (["--host", "--project", "--derived-data", "--remote-log-dir", "--out", "--evidence-dir", "--simulator", "--sources"].includes(key)) {
+    if (["--host", "--project", "--derived-data", "--remote-log-dir", "--out", "--evidence-dir", "--simulator", "--sources", "--media", "--video-fixture"].includes(key)) {
       if (!value || value.startsWith("--")) throw new Error(`missing_value:${key}`);
       index += 1;
       if (key === "--host") parsed.host = value;
@@ -150,6 +161,8 @@ function parseArgs(args) {
       if (key === "--evidence-dir") parsed.evidenceDir = value;
       if (key === "--simulator") parsed.simulatorUdid = value;
       if (key === "--sources") parsed.sources = value.split(",").map((item) => item.trim()).filter(Boolean);
+      if (key === "--media") parsed.mediaType = value;
+      if (key === "--video-fixture") parsed.videoFixture = resolve(value);
     } else if (key === "--build-first") {
       parsed.buildFirst = true;
     } else {
@@ -157,6 +170,7 @@ function parseArgs(args) {
     }
   }
   if (!parsed.simulatorUdid) throw new Error("missing_environment:QUATA_IOS_SIMULATOR_UDID");
+  if (!["image", "video"].includes(parsed.mediaType)) throw new Error(`invalid_media:${parsed.mediaType}`);
   parsed.output = resolve(parsed.output);
   parsed.evidenceDir = resolve(parsed.evidenceDir);
   return parsed;

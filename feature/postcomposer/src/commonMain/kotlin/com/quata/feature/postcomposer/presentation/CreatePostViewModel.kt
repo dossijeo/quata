@@ -52,14 +52,22 @@ class CreatePostViewModel(
             is CreatePostUiEvent.ImageSelected -> _uiState.value = _uiState.value.copy(
                 imageUri = event.uri,
                 error = null,
+                mediaError = null,
                 lastFailedSubmitType = null,
                 successMessage = null
             )
             is CreatePostUiEvent.VideoSelected -> _uiState.value = _uiState.value.copy(
                 videoUri = event.uri,
                 error = null,
+                mediaError = null,
                 lastFailedSubmitType = null,
                 successMessage = null
+            )
+            is CreatePostUiEvent.MediaSelectionFailed -> _uiState.value = _uiState.value.copy(
+                mediaError = event.message.takeIf { it.isNotBlank() },
+                error = null,
+                lastFailedSubmitType = null,
+                successMessage = null,
             )
             is CreatePostUiEvent.LocationResolved -> _uiState.value = _uiState.value.copy(
                 locationLabel = event.label,
@@ -79,11 +87,13 @@ class CreatePostViewModel(
                 destinations = _uiState.value.destinations,
                 selectedDestinationWallId = _uiState.value.selectedDestinationWallId,
             )
+            CreatePostUiEvent.ClearMediaError -> _uiState.value = _uiState.value.copy(mediaError = null)
             CreatePostUiEvent.Submit -> submit(PostComposerType.Text)
             CreatePostUiEvent.RetrySubmit -> _uiState.value.lastFailedSubmitType?.let(::submit)
             CreatePostUiEvent.ClearMessage -> _uiState.value = _uiState.value.copy(
                 successMessage = null,
                 error = null,
+                mediaError = null,
                 lastFailedSubmitType = null,
             )
         }
@@ -122,7 +132,7 @@ class CreatePostViewModel(
         if (submitJob?.isActive == true) return
         val state = _uiState.value
         val destination = state.selectedDestination
-        _uiState.value = state.copy(isLoading = true, error = null, successMessage = null)
+        _uiState.value = state.copy(isLoading = true, error = null, mediaError = null, successMessage = null)
         lateinit var runningJob: Job
         runningJob = scope.launch(start = CoroutineStart.LAZY) {
             try {

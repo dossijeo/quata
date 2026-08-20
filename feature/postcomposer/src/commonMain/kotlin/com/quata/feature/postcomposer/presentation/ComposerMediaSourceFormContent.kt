@@ -7,9 +7,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 /**
@@ -25,6 +30,7 @@ fun ComposerMediaSourceFormContent(
     secondarySourceAction: (@Composable (Modifier) -> Unit)?,
     modifier: Modifier = Modifier,
     beforeEdit: (@Composable ColumnScope.() -> Unit)? = null,
+    errorMessage: String? = null,
     editAction: (@Composable (Modifier) -> Unit)? = null,
     afterEdit: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
@@ -50,6 +56,17 @@ fun ComposerMediaSourceFormContent(
         beforeEdit?.let {
             Spacer(Modifier.height(12.dp))
             it(this)
+        }
+        errorMessage?.takeIf(String::isNotBlank)?.let { message ->
+            Spacer(Modifier.height(12.dp))
+            Text(
+                message,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .testTag(ComposerMediaErrorTestTag)
+                    .semantics { contentDescription = ComposerMediaErrorTestTag },
+            )
         }
         editAction?.let { action ->
             Spacer(Modifier.height(12.dp))

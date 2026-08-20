@@ -57,6 +57,7 @@ const val ComposerCaptureVideoTestTag = "composer-media.capture-video"
 const val ComposerEditVideoTestTag = "composer-media.edit-video"
 const val ComposerSelectedImagePreviewTestTag = "composer-media.selected-image-preview"
 const val ComposerSelectedVideoPreviewTestTag = "composer-media.selected-video-preview"
+const val ComposerMediaErrorTestTag = "composer-media.error"
 
 fun createPostStepFor(type: PostComposerType): CreatePostStep = when (type) {
     PostComposerType.Text -> CreatePostStep.Text
@@ -106,6 +107,9 @@ data class CreatePostRootCopy(
     val back: String,
     val publicationCreated: String,
     val publicationFailed: String,
+    val mediaSelectionFailed: String,
+    val mediaUnsupported: String,
+    val mediaPermissionDenied: String,
     val author: String = "Qüata",
     val feed: String = "Feed",
     val destination: String = "Destino",
@@ -127,6 +131,9 @@ val SpanishCreatePostRootCopy = CreatePostRootCopy(
     videoPreviewEmpty = "Selecciona o graba un vídeo para previsualizarlo.", publish = "Publicar",
     publishing = "Publicando…", retry = "Reintentar", back = "Volver al feed",
     publicationCreated = "Publicación creada", publicationFailed = "No se pudo publicar",
+    mediaSelectionFailed = "No se pudo cargar el archivo. Inténtalo de nuevo.",
+    mediaUnsupported = "Esta fuente de medios no está disponible en este dispositivo.",
+    mediaPermissionDenied = "Permiso denegado. Activa el acceso a cámara, micrófono o galería para continuar.",
 )
 
 val EnglishCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
@@ -142,6 +149,9 @@ val EnglishCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
     descriptionPlaceholder = "Add a title or description…", videoPreviewEmpty = "Choose or record a video to preview it.",
     publish = "Publish", publishing = "Publishing…", retry = "Retry", back = "Back to feed",
     publicationCreated = "Post created", publicationFailed = "Could not publish", feed = "Feed",
+    mediaSelectionFailed = "The file could not be loaded. Try again.",
+    mediaUnsupported = "This media source is not available on this device.",
+    mediaPermissionDenied = "Permission denied. Enable camera, microphone or gallery access to continue.",
 )
 
 val FrenchCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
@@ -158,6 +168,9 @@ val FrenchCreatePostRootCopy = SpanishCreatePostRootCopy.copy(
     videoPreviewEmpty = "Choisissez ou enregistrez une vidéo pour l'aperçu.", publish = "Publier",
     publishing = "Publication…", retry = "Réessayer", back = "Retour au fil",
     publicationCreated = "Publication créée", publicationFailed = "Impossible de publier", feed = "Fil",
+    mediaSelectionFailed = "Impossible de charger le fichier. Réessayez.",
+    mediaUnsupported = "Cette source média n'est pas disponible sur cet appareil.",
+    mediaPermissionDenied = "Autorisation refusée. Activez l'accès caméra, micro ou galerie pour continuer.",
 )
 
 fun createPostRootCopyForLanguageTag(languageTag: String?): CreatePostRootCopy = when {
@@ -398,6 +411,7 @@ private fun ColumnScope.CommonImageComposerForm(state: CreatePostUiState, slots:
                 title = copy.image, isLandscapeLayout = landscape,
                 primarySourceAction = { m -> ComposerActionButtonContent(copy.pickImage, { Icon(Icons.Filled.PhotoLibrary, null) }, slots.pickImage, m.testTag(ComposerPickImageTestTag)) },
                 secondarySourceAction = { m -> ComposerActionButtonContent(copy.takePhoto, { Icon(Icons.Filled.PhotoCamera, null) }, slots.captureImage, m.testTag(ComposerCaptureImageTestTag)) },
+                errorMessage = state.mediaError,
                 editAction = state.imageUri?.let { slots.editImage }?.let { edit -> { m: Modifier -> ComposerActionButtonContent(copy.editImage, { Icon(Icons.Filled.Edit, null) }, edit, m.testTag(ComposerEditImageTestTag)) } },
                 afterEdit = { state.imageUri?.let { uri -> slots.mediaExport?.invoke(this, uri, PostComposerType.Image) } },
             )
@@ -442,6 +456,7 @@ private fun ColumnScope.CommonVideoComposerForm(state: CreatePostUiState, slots:
                 primarySourceAction = { m -> ComposerActionButtonContent(copy.pickVideo, { Icon(Icons.Filled.VideoLibrary, null) }, slots.pickVideo, m.testTag(ComposerPickVideoTestTag)) },
                 secondarySourceAction = slots.captureVideo?.let { capture -> { m -> ComposerActionButtonContent(copy.recordVideo, { Icon(Icons.Filled.Videocam, null) }, capture, m.testTag(ComposerCaptureVideoTestTag)) } },
                 beforeEdit = { Text(state.videoUri?.substringAfterLast('/') ?: copy.noFile, maxLines = 1) },
+                errorMessage = state.mediaError,
                 editAction = state.videoUri?.let { slots.editVideo }?.let { edit -> { m: Modifier -> ComposerActionButtonContent(copy.editVideo, { Icon(Icons.Filled.Edit, null) }, edit, m.testTag(ComposerEditVideoTestTag)) } },
                 afterEdit = { state.videoUri?.let { uri -> slots.mediaExport?.invoke(this, uri, PostComposerType.Video) } },
             )

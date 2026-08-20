@@ -3,14 +3,15 @@ import { createServer } from "node:http";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { extname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { chromium } from "playwright-core";
-import { validPngFixture } from "./e2e-fixtures/chat-attachments.mjs";
+import { longMp4FixturePath, validPngFixture } from "./e2e-fixtures/chat-attachments.mjs";
 
 const CHECK = "POST-PICKER-CAMERA-WEB-REAL-001";
 const OPT_IN = "I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
+const { chromium } = loadPlaywrightCore();
 
 const options = parseArgs(process.argv.slice(2));
 const report = {
@@ -90,7 +91,7 @@ async function runAttempt(context, descriptor) {
   try {
     const reference = source.endsWith("image")
       ? `data:image/png;base64,${validPngFixture().toString("base64")}`
-      : "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDE=";
+      : `${server.origin}/__quata-fixtures/post-picker-camera-long-video.mp4`;
     await page.addInitScript(({ source, outcome, reference }) => {
       sessionStorage.setItem("quata.post_publish.e2e", "1");
       localStorage.setItem("quata_post_composer_picker_e2e_opt_in", "I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE");
@@ -129,6 +130,14 @@ async function runAttempt(context, descriptor) {
       if (editAnchor.kind === "missingStableAnchor") report.steps.push(`web_edit_anchor_not_blocking_picker_state:${source}`);
     } else {
       await page.waitForFunction((field) => globalThis.__quataPostComposerE2eProduct?.state?.()?.[field] !== true, selectedField, { timeout: 5_000 });
+      if (outcome === "failure" || outcome === "unsupported") {
+        await page.waitForFunction(() => globalThis.__quataPostComposerE2eProduct?.state?.()?.hasMediaError === true, null, { timeout: 8_000 });
+        await page.locator('[id="composer-media.error"], [aria-label*="composer-media.error"]').first()
+          .waitFor({ state: "attached", timeout: 8_000 });
+      } else {
+        const state = await postComposerProductState(page);
+        if (state?.hasMediaError === true) throw new Error(`cancelled_picker_must_not_show_media_error:${source}`);
+      }
     }
     const afterAction = await screenshot(page, `web-post-picker-camera-after-action-${source}-${outcome}`);
     const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
@@ -138,6 +147,7 @@ async function runAttempt(context, descriptor) {
       outcome,
       status: "passed",
       selectedField,
+      fixture: source.endsWith("video") ? { path: options.videoFixture, kind: "long-mp4" } : { kind: "png" },
       anchors: { type: resolvedTypeAnchor, action: resolvedActionAnchor },
       evidence: { opened, afterTap, afterAction },
       state: await postComposerProductState(page),
@@ -162,12 +172,13 @@ function parseArgs(args) {
     chrome: process.env.QUATA_CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe",
     output: resolve("build-reports/web/post-picker-camera-evidence.json"),
     evidenceDir: resolve("build-reports/web/post-picker-camera-evidence"),
+    videoFixture: resolve(process.env.QUATA_POST_PICKER_CAMERA_VIDEO_FIXTURE?.trim() || longMp4FixturePath()),
     sources: ["gallery-image", "camera-image", "camera-image:cancelled"],
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
-    if (!["--dist", "--chrome", "--out", "--evidence-dir", "--sources"].includes(key) || !value || value.startsWith("--")) {
+    if (!["--dist", "--chrome", "--out", "--evidence-dir", "--sources", "--video-fixture"].includes(key) || !value || value.startsWith("--")) {
       throw new Error("invalid_arguments");
     }
     index += 1;
@@ -175,6 +186,7 @@ function parseArgs(args) {
     if (key === "--chrome") parsed.chrome = resolve(value);
     if (key === "--out") parsed.output = resolve(value);
     if (key === "--evidence-dir") parsed.evidenceDir = resolve(value);
+    if (key === "--video-fixture") parsed.videoFixture = resolve(value);
     if (key === "--sources") parsed.sources = value.split(",").map((item) => item.trim()).filter(Boolean);
   }
   return parsed;
@@ -250,6 +262,10 @@ async function startServer(root, wordpressBase, publicBackend) {
       if (!origin) throw new Error("server_origin_missing");
       const url = new URL(request.url ?? "/", origin);
       if (url.pathname === "/favicon.ico") return response.writeHead(204).end();
+      if (url.pathname === "/__quata-fixtures/post-picker-camera-long-video.mp4") {
+        response.writeHead(200, { "Content-Type": "video/mp4", "Cache-Control": "no-store" });
+        return response.end(await readFile(options.videoFixture));
+      }
       if (url.pathname.startsWith("/wordpress-proxy/")) return proxyWordpressRequest(request, response, wordpressBase, url);
       const file = resolve(root, `.${url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname)}`);
       if (!file.startsWith(`${root}\\`) && !file.startsWith(`${root}/`) && file !== root) return response.writeHead(403).end();
@@ -433,4 +449,19 @@ function safeFailure(error) {
   return String(error?.message ?? error)
     .replace(/(bearer\s+|authorization\s*[:=]\s*|token\s*[:=]\s*|password\s*[:=]\s*|apikey\s*[:=]\s*)[^\s,;]+/gi, "$1[REDACTED]")
     .slice(0, 500);
+}
+
+function loadPlaywrightCore() {
+  const require = createRequire(import.meta.url);
+  try {
+    return require("playwright-core");
+  } catch (error) {
+    const extra = process.env.QUATA_NODE_MODULES?.trim();
+    if (extra) {
+      try {
+        return require(require.resolve("playwright-core", { paths: [extra] }));
+      } catch {}
+    }
+    throw error;
+  }
 }

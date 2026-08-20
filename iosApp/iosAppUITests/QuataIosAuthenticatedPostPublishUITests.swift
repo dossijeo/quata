@@ -67,28 +67,44 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         }
         let source = environment["QUATA_IOS_POST_COMPOSER_PICKER_SOURCE"] ?? ""
         let outcome = environment["QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME"] ?? "success"
+        let mediaType = environment["QUATA_IOS_POST_COMPOSER_PICKER_MEDIA_TYPE"] ?? "image"
         XCTAssertTrue(["gallery", "camera"].contains(source), "Unsupported picker source \(source).")
         XCTAssertTrue(["success", "cancelled", "failure", "unsupported"].contains(outcome), "Unsupported picker outcome \(outcome).")
+        XCTAssertTrue(["image", "video"].contains(mediaType), "Unsupported picker media type \(mediaType).")
 
-        let app = openComposer(mode: "image", locationLabel: "")
+        let app = openComposer(mode: mediaType, locationLabel: "")
         assertSharedComposerSurface(in: app)
-        tapImageType(in: app)
-        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-picker-camera-image-form-\(source)-\(outcome)")
+        if mediaType == "video" {
+            tapVideoType(in: app)
+        } else {
+            tapImageType(in: app)
+        }
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-picker-camera-\(mediaType)-form-\(source)-\(outcome)")
 
-        let actionIdentifier = source == "gallery" ? "composer-media.pick-image" : "composer-media.capture-image"
+        let actionIdentifier = source == "gallery"
+            ? "composer-media.pick-\(mediaType)"
+            : "composer-media.capture-\(mediaType)"
         tapComposerAction(actionIdentifier, in: app)
-        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-picker-camera-after-tap-\(source)-\(outcome)")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-picker-camera-\(mediaType)-after-tap-\(source)-\(outcome)")
 
-        let selectedImagePreview = app.descendants(matching: .any)
-            .matching(identifier: "composer-media.selected-image-preview")
+        let selectedPreview = app.descendants(matching: .any)
+            .matching(identifier: "composer-media.selected-\(mediaType)-preview")
             .firstMatch
         if outcome == "success" {
-            XCTAssertTrue(selectedImagePreview.waitForExistence(timeout: 12), "A successful \(source) picker replay must select an image in common composer state.")
+            XCTAssertTrue(selectedPreview.waitForExistence(timeout: 12), "A successful \(source) picker replay must select \(mediaType) in common composer state.")
         } else {
-            XCTAssertFalse(selectedImagePreview.waitForExistence(timeout: 2), "A non-success \(source) picker replay must not select an image.")
+            XCTAssertFalse(selectedPreview.waitForExistence(timeout: 2), "A non-success \(source) picker replay must not select \(mediaType).")
+            let mediaError = app.descendants(matching: .any)
+                .matching(identifier: "composer-media.error")
+                .firstMatch
+            if outcome == "failure" || outcome == "unsupported" {
+                XCTAssertTrue(mediaError.waitForExistence(timeout: 8), "A \(outcome) picker replay must expose the shared media error anchor.")
+            } else {
+                XCTAssertFalse(mediaError.waitForExistence(timeout: 2), "A cancelled picker replay must stay silent and not expose a media error.")
+            }
         }
-        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-picker-camera-after-action-\(source)-\(outcome)")
-        print("IOS_POST_PICKER_CAMERA_UI_GATE_PASSED \(source) \(outcome)")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-picker-camera-\(mediaType)-after-action-\(source)-\(outcome)")
+        print("IOS_POST_PICKER_CAMERA_UI_GATE_PASSED \(mediaType) \(source) \(outcome)")
     }
 
     func testAuthenticatedSessionExercisesPostImageEditorFromCommonComposer() throws {

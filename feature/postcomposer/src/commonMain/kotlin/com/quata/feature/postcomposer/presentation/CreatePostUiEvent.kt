@@ -6,6 +6,7 @@ sealed class CreatePostUiEvent {
     data class DestinationSelected(val wallId: String) : CreatePostUiEvent()
     data class ImageSelected(val uri: String?) : CreatePostUiEvent()
     data class VideoSelected(val uri: String?) : CreatePostUiEvent()
+    data class MediaSelectionFailed(val message: String) : CreatePostUiEvent()
     data class LocationResolved(
         val label: String,
         val latitude: Double? = null,
@@ -13,6 +14,7 @@ sealed class CreatePostUiEvent {
     ) : CreatePostUiEvent()
     data class LocationLabelChanged(val value: String) : CreatePostUiEvent()
     data object ClearDraft : CreatePostUiEvent()
+    data object ClearMediaError : CreatePostUiEvent()
     data object Submit : CreatePostUiEvent()
     data object RetrySubmit : CreatePostUiEvent()
     data object ClearMessage : CreatePostUiEvent()
