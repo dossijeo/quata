@@ -232,7 +232,13 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
         let operations = Array(activeExportOperations.values)
         activeExportOperations.removeAll()
         operations.forEach { $0.cancel() }
-        Self.writeEvidenceEvent("export_cancel_requested", details: ["operations": "\(operations.count)"])
+        let speechTasks = Array(activeSpeechTasks.values)
+        activeSpeechTasks.removeAll()
+        speechTasks.forEach { $0.cancel() }
+        Self.writeEvidenceEvent("export_cancel_requested", details: [
+            "operations": "\(operations.count)",
+            "speechTasks": "\(speechTasks.count)",
+        ])
     }
 }
 
@@ -291,6 +297,7 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
     private var backgroundPlayer: AVPlayer?
     private var foregroundLayer: AVPlayerLayer?
     private var backgroundLayer: AVPlayerLayer?
+    private var timeObserver: Any?
     private var lastCropConfiguration = PreviewCropConfiguration(
         videoAspectRatio: 9.0 / 16.0,
         left: 0,
@@ -333,26 +340,60 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         isPlaying: Bool,
         isMuted: Bool,
         positionMs: Int64,
+        trimStartMs: Int64,
+        trimEndMs: Int64,
+        durationMs: Int64,
         videoAspectRatio: Float,
         cropLeft: Float,
         cropTop: Float,
         cropRight: Float,
         cropBottom: Float,
-        cropVisible: Bool
+        cropVisible: Bool,
+        callback: any IosPostVideoEditorPreviewCallback
     ) {
         guard let player else { return }
         let backgroundPlayer = backgroundPlayer
         player.isMuted = isMuted
         backgroundPlayer?.isMuted = true
-        let target = CMTime(value: CMTimeValue(max(0, positionMs)), timescale: 1_000)
-        player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-        backgroundPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+        let trimStart = max(0, trimStartMs)
+        let trimEnd = max(trimStart + 50, trimEndMs > 0 ? trimEndMs : durationMs)
+        let currentMs = Int64(max(0, CMTimeGetSeconds(player.currentTime()) * 1_000))
+        let outsideTrim = currentMs < trimStart - 50 || currentMs >= trimEnd + 50
+        let shouldSeekToState = !isPlaying && abs(currentMs - max(0, positionMs)) > 120
+        let shouldSeekToTrimStart = isPlaying && outsideTrim
+        if shouldSeekToState || shouldSeekToTrimStart {
+            let targetMs = shouldSeekToTrimStart ? trimStart : max(0, positionMs)
+            let target = CMTime(value: CMTimeValue(targetMs), timescale: 1_000)
+            player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+            backgroundPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+        if let timeObserver {
+            player.removeTimeObserver(timeObserver)
+            self.timeObserver = nil
+        }
         if isPlaying {
             player.play()
             backgroundPlayer?.play()
+            let interval = CMTime(value: 120, timescale: 1_000)
+            timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self, weak player, weak backgroundPlayer, callback] time in
+                guard let player else { return }
+                let current = Int64(max(0, CMTimeGetSeconds(time) * 1_000))
+                if current >= trimEnd || current < trimStart - 50 {
+                    let target = CMTime(value: CMTimeValue(trimStart), timescale: 1_000)
+                    player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+                    backgroundPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+                    player.play()
+                    backgroundPlayer?.play()
+                    callback.onPositionMs(positionMs: trimStart)
+                } else {
+                    callback.onPositionMs(positionMs: min(max(0, current), max(1, durationMs)))
+                }
+                self?.applyCropPreview()
+            }
         } else {
             player.pause()
             backgroundPlayer?.pause()
+            callback.onPositionMs(positionMs: min(max(0, positionMs), max(1, durationMs)))
         }
         lastCropConfiguration = PreviewCropConfiguration(
             videoAspectRatio: CGFloat(videoAspectRatio),
@@ -429,6 +470,10 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
     }
 
     func dispose() {
+        if let timeObserver, let player {
+            player.removeTimeObserver(timeObserver)
+        }
+        timeObserver = nil
         player?.pause()
         backgroundPlayer?.pause()
         foregroundLayer?.removeFromSuperlayer()
@@ -821,7 +866,9 @@ private final class IosPostVideoEditorExportOperation {
     private struct CaptionRenderSpec {
         let textSizeRatio: CGFloat
         let maxWidthRatio: CGFloat
+        let maxLines: Int
         let verticalPosition: CGFloat
+        let lineHeightMultiplier: CGFloat
         let uppercase: Bool
         let fontName: String
         let segmentBackground: UIColor?
@@ -833,13 +880,13 @@ private final class IosPostVideoEditorExportOperation {
     private static func captionRenderSpec(style: String) -> CaptionRenderSpec {
         switch style {
         case "PopWord":
-            return CaptionRenderSpec(textSizeRatio: 0.092, maxWidthRatio: 0.92, verticalPosition: 0.67, uppercase: true, fontName: "HelveticaNeue-CondensedBlack", segmentBackground: nil, activeBackground: UIColor(red: 1, green: 0.54, blue: 0.10, alpha: 0.92), activeText: .black, normalText: .white)
+            return CaptionRenderSpec(textSizeRatio: 0.092, maxWidthRatio: 0.92, maxLines: 1, verticalPosition: 0.67, lineHeightMultiplier: 1.0, uppercase: true, fontName: "HelveticaNeue-CondensedBlack", segmentBackground: nil, activeBackground: UIColor(red: 1, green: 0.54, blue: 0.10, alpha: 0.92), activeText: .black, normalText: .white)
         case "Hormozi":
-            return CaptionRenderSpec(textSizeRatio: 0.066, maxWidthRatio: 0.88, verticalPosition: 0.70, uppercase: true, fontName: "HelveticaNeue-CondensedBlack", segmentBackground: UIColor.black.withAlphaComponent(0.82), activeBackground: UIColor(red: 1, green: 0.90, blue: 0, alpha: 0.94), activeText: .black, normalText: .white)
+            return CaptionRenderSpec(textSizeRatio: 0.066, maxWidthRatio: 0.88, maxLines: 2, verticalPosition: 0.70, lineHeightMultiplier: 1.14, uppercase: true, fontName: "HelveticaNeue-CondensedBlack", segmentBackground: UIColor.black.withAlphaComponent(0.82), activeBackground: UIColor(red: 1, green: 0.90, blue: 0, alpha: 0.94), activeText: .black, normalText: .white)
         case "Typewriter":
-            return CaptionRenderSpec(textSizeRatio: 0.060, maxWidthRatio: 0.82, verticalPosition: 0.76, uppercase: false, fontName: "Menlo-Bold", segmentBackground: UIColor(red: 0.15, green: 0.16, blue: 0.20, alpha: 0.80), activeBackground: nil, activeText: .white, normalText: .white)
+            return CaptionRenderSpec(textSizeRatio: 0.060, maxWidthRatio: 0.82, maxLines: 2, verticalPosition: 0.76, lineHeightMultiplier: 1.16, uppercase: false, fontName: "Menlo-Bold", segmentBackground: UIColor(red: 0.15, green: 0.16, blue: 0.20, alpha: 0.80), activeBackground: nil, activeText: .white, normalText: .white)
         default:
-            return CaptionRenderSpec(textSizeRatio: 0.058, maxWidthRatio: 0.84, verticalPosition: 0.74, uppercase: true, fontName: "HelveticaNeue-CondensedBlack", segmentBackground: UIColor.black.withAlphaComponent(0.69), activeBackground: nil, activeText: UIColor(red: 1, green: 0.48, blue: 0.09, alpha: 1), normalText: .white)
+            return CaptionRenderSpec(textSizeRatio: 0.058, maxWidthRatio: 0.84, maxLines: 2, verticalPosition: 0.74, lineHeightMultiplier: 1.12, uppercase: true, fontName: "HelveticaNeue-CondensedBlack", segmentBackground: UIColor.black.withAlphaComponent(0.69), activeBackground: nil, activeText: UIColor(red: 1, green: 0.48, blue: 0.09, alpha: 1), normalText: .white)
         }
     }
 
@@ -870,38 +917,60 @@ private final class IosPostVideoEditorExportOperation {
             let line = CTLineCreateWithAttributedString(attributed)
             return CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
         }
-        let totalWidth = widths.reduce(0, +) + gap * CGFloat(max(0, words.count - 1))
-        let boxWidth = min(outputSize.width * spec.maxWidthRatio, max(outputSize.width * 0.24, totalWidth + outputSize.width * 0.08))
-        let boxHeight = max(fontSize * 1.45, outputSize.height * 0.074)
-        let box = CGRect(
-            x: (outputSize.width - boxWidth) / 2,
-            y: outputSize.height * spec.verticalPosition - boxHeight / 2,
-            width: boxWidth,
-            height: boxHeight
-        )
-        if let background = spec.segmentBackground ?? (style == "PopWord" ? UIColor(red: 1, green: 0.54, blue: 0.10, alpha: 0.88) : nil) {
-            context.setFillColor(background.cgColor)
-            context.addPath(CGPath(roundedRect: box, cornerWidth: outputSize.width * 0.018, cornerHeight: outputSize.width * 0.018, transform: nil))
-            context.fillPath()
+        let maxLineWidth = outputSize.width * spec.maxWidthRatio
+        var lines: [(items: [Int], width: CGFloat)] = []
+        var currentItems: [Int] = []
+        var currentWidth: CGFloat = 0
+        for index in words.indices {
+            let nextWidth = currentItems.isEmpty ? widths[index] : currentWidth + gap + widths[index]
+            if !currentItems.isEmpty, nextWidth > maxLineWidth, lines.count < spec.maxLines - 1 {
+                lines.append((currentItems, currentWidth))
+                currentItems = []
+                currentWidth = 0
+            }
+            currentItems.append(index)
+            currentWidth = currentWidth == 0 ? widths[index] : currentWidth + gap + widths[index]
         }
-        var x = (outputSize.width - totalWidth) / 2
-        let y = box.midY - fontSize * 0.36
-        for (index, word) in words.enumerated() {
-            let active = timeMs >= word.startMs && timeMs <= word.endMs
-            if active, let background = spec.activeBackground {
-                let activeBox = CGRect(x: x - gap * 0.32, y: y - fontSize * 0.24, width: widths[index] + gap * 0.64, height: fontSize * 1.12)
+        if !currentItems.isEmpty {
+            lines.append((currentItems, currentWidth))
+        }
+        let visibleLines = Array(lines.prefix(spec.maxLines))
+        let lineHeight = fontSize * spec.lineHeightMultiplier
+        let top = outputSize.height * spec.verticalPosition - (lineHeight * CGFloat(visibleLines.count)) / 2
+        for (lineIndex, lineInfo) in visibleLines.enumerated() {
+            let boxWidth = min(maxLineWidth, max(outputSize.width * 0.24, lineInfo.width + outputSize.width * 0.08))
+            let boxHeight = max(lineHeight * 1.08, outputSize.height * 0.066)
+            let box = CGRect(
+                x: (outputSize.width - boxWidth) / 2,
+                y: top + lineHeight * CGFloat(lineIndex) - boxHeight * 0.14,
+                width: boxWidth,
+                height: boxHeight
+            )
+            if let background = spec.segmentBackground ?? (style == "PopWord" ? UIColor(red: 1, green: 0.54, blue: 0.10, alpha: 0.88) : nil) {
                 context.setFillColor(background.cgColor)
-                context.addPath(CGPath(roundedRect: activeBox, cornerWidth: outputSize.width * 0.018, cornerHeight: outputSize.width * 0.018, transform: nil))
+                context.addPath(CGPath(roundedRect: box, cornerWidth: outputSize.width * 0.018, cornerHeight: outputSize.width * 0.018, transform: nil))
                 context.fillPath()
             }
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: (active ? spec.activeText : spec.normalText).cgColor,
-            ]
-            let line = CTLineCreateWithAttributedString(NSAttributedString(string: displayWords[index], attributes: attributes))
-            context.textPosition = CGPoint(x: x, y: y)
-            CTLineDraw(line, context)
-            x += widths[index] + gap
+            var x = (outputSize.width - lineInfo.width) / 2
+            let y = top + lineHeight * CGFloat(lineIndex) + fontSize * 0.82
+            for index in lineInfo.items {
+                let word = words[index]
+                let active = timeMs >= word.startMs && timeMs <= word.endMs
+                if active, let background = spec.activeBackground {
+                    let activeBox = CGRect(x: x - gap * 0.32, y: y - fontSize * 0.88, width: widths[index] + gap * 0.64, height: fontSize * 1.12)
+                    context.setFillColor(background.cgColor)
+                    context.addPath(CGPath(roundedRect: activeBox, cornerWidth: outputSize.width * 0.018, cornerHeight: outputSize.width * 0.018, transform: nil))
+                    context.fillPath()
+                }
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: font,
+                    .foregroundColor: (active ? spec.activeText : spec.normalText).cgColor,
+                ]
+                let line = CTLineCreateWithAttributedString(NSAttributedString(string: displayWords[index], attributes: attributes))
+                context.textPosition = CGPoint(x: x, y: y)
+                CTLineDraw(line, context)
+                x += widths[index] + gap
+            }
         }
         guard let image = context.makeImage() else { return CIImage.empty() }
         return CIImage(cgImage: image)

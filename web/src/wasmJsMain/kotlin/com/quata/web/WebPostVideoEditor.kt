@@ -212,12 +212,22 @@ internal fun WebPostVideoEditor(
                         isMuted = state.isMuted,
                         isPlaying = state.isPlaying,
                         positionMs = (state.currentPositionFraction.coerceIn(0f, 1f) * durationMs).toLong(),
+                        trimStartMs = (state.trimStartFraction.coerceIn(0f, 1f) * durationMs).toLong(),
+                        trimEndMs = (state.trimEndFraction.coerceIn(0f, 1f) * durationMs).toLong(),
+                        durationMs = durationMs,
                         videoAspectRatio = videoAspectRatio,
                         cropLeft = state.cropMode.cropRect(videoAspectRatio, state.cropZoom, androidx.compose.ui.geometry.Offset(state.cropCenterX, state.cropCenterY)).left,
                         cropTop = state.cropMode.cropRect(videoAspectRatio, state.cropZoom, androidx.compose.ui.geometry.Offset(state.cropCenterX, state.cropCenterY)).top,
                         cropRight = state.cropMode.cropRect(videoAspectRatio, state.cropZoom, androidx.compose.ui.geometry.Offset(state.cropCenterX, state.cropCenterY)).right,
                         cropBottom = state.cropMode.cropRect(videoAspectRatio, state.cropZoom, androidx.compose.ui.geometry.Offset(state.cropCenterX, state.cropCenterY)).bottom,
                         cropVisible = state.cropPanelOpen && state.cropMode != VideoCropMode.Original,
+                        onPositionMsChange = { nextPositionMs ->
+                            val bounded = nextPositionMs.toLong().coerceIn(0L, durationMs.coerceAtLeast(1L))
+                            val nextFraction = bounded.toFloat() / durationMs.coerceAtLeast(1L).toFloat()
+                            if (kotlin.math.abs(nextFraction - state.currentPositionFraction) > 0.002f) {
+                                state = state.copy(currentPositionFraction = nextFraction)
+                            }
+                        },
                     )
                 },
                 modifier = modifier,
@@ -345,12 +355,16 @@ private fun webPostVideoEditorConfigurePreview(
     isMuted: Boolean,
     isPlaying: Boolean,
     positionMs: Long,
+    trimStartMs: Long,
+    trimEndMs: Long,
+    durationMs: Long,
     videoAspectRatio: Float,
     cropLeft: Float,
     cropTop: Float,
     cropRight: Float,
     cropBottom: Float,
     cropVisible: Boolean,
+    onPositionMsChange: (Double) -> Unit,
 ): Unit = js(
     """(() => {
       const videos = Array.from(root.querySelectorAll('video'));
@@ -360,11 +374,19 @@ private fun webPostVideoEditorConfigurePreview(
       const overlay = root.querySelector('[data-layer="crop"]');
       const referenceValue = String(reference || '');
       const positionSeconds = Math.max(0, Number(positionMs) || 0) / 1000;
+      const trimStartSeconds = Math.max(0, Number(trimStartMs) || 0) / 1000;
+      const trimEndSeconds = Math.max(trimStartSeconds + 0.05, Number(trimEndMs) || Number(durationMs) || 0) / 1000;
+      const durationValueMs = Math.max(1, Number(durationMs) || 1);
       for (const video of videos) {
         if (video.src !== referenceValue) video.src = referenceValue;
         video.muted = Boolean(isMuted);
-        if (Number.isFinite(positionSeconds) && Math.abs((video.currentTime || 0) - positionSeconds) > 0.35) {
-          try { video.currentTime = positionSeconds; } catch (_) {}
+        video.loop = false;
+        const currentSeconds = Number(video.currentTime || 0);
+        const outsideTrim = currentSeconds < trimStartSeconds - 0.05 || currentSeconds >= trimEndSeconds + 0.05;
+        const shouldSeekToState = !isPlaying && Number.isFinite(positionSeconds) && Math.abs(currentSeconds - positionSeconds) > 0.12;
+        const shouldSeekToTrimStart = isPlaying && outsideTrim;
+        if (shouldSeekToState || shouldSeekToTrimStart) {
+          try { video.currentTime = shouldSeekToTrimStart ? trimStartSeconds : positionSeconds; } catch (_) {}
         }
         if (isPlaying) {
           const result = video.play?.();
@@ -372,6 +394,27 @@ private fun webPostVideoEditorConfigurePreview(
         } else {
           video.pause?.();
         }
+      }
+      if (root.__quataPreviewTicker) {
+        clearInterval(root.__quataPreviewTicker);
+        root.__quataPreviewTicker = null;
+      }
+      if (isPlaying && fg) {
+        root.__quataPreviewTicker = setInterval(() => {
+          const current = Number(fg.currentTime || 0);
+          if (current >= trimEndSeconds || current < trimStartSeconds - 0.05) {
+            for (const video of videos) {
+              try { video.currentTime = trimStartSeconds; } catch (_) {}
+              const result = video.play?.();
+              if (result && typeof result.catch === 'function') result.catch(() => {});
+            }
+            onPositionMsChange(trimStartSeconds * 1000);
+          } else {
+            onPositionMsChange(Math.max(0, Math.min(durationValueMs, current * 1000)));
+          }
+        }, 120);
+      } else if (Number.isFinite(positionSeconds)) {
+        onPositionMsChange(Math.max(0, Math.min(durationValueMs, positionSeconds * 1000)));
       }
       const left = Math.max(0, Math.min(1, Number(cropLeft) || 0));
       const top = Math.max(0, Math.min(1, Number(cropTop) || 0));
@@ -765,10 +808,10 @@ private fun webPostVideoEditorExportEditedJs(
             return captionSegments.find(segment => timeMs >= segment.startMs && timeMs <= segment.endMs) || null;
           }
           function captionRenderSpec(style) {
-            if (style === 'PopWord') return { textSizeRatio: 0.092, maxWidthRatio: 0.92, verticalPosition: 0.67, uppercase: true, background: '#ff8a1a', segmentBackground: null, active: '#000000', normal: '#ffffff', font: '900 ' };
-            if (style === 'Hormozi') return { textSizeRatio: 0.066, maxWidthRatio: 0.88, verticalPosition: 0.70, uppercase: true, background: '#ffe500', segmentBackground: 'rgba(0,0,0,0.82)', active: '#000000', normal: '#ffffff', font: '900 ' };
-            if (style === 'Typewriter') return { textSizeRatio: 0.060, maxWidthRatio: 0.82, verticalPosition: 0.76, uppercase: false, background: null, segmentBackground: 'rgba(38,41,50,0.80)', active: '#ffffff', normal: '#ffffff', font: '700 ' };
-            return { textSizeRatio: 0.058, maxWidthRatio: 0.84, verticalPosition: 0.74, uppercase: true, background: null, segmentBackground: 'rgba(0,0,0,0.69)', active: '#ff7a18', normal: '#ffffff', font: '900 ' };
+            if (style === 'PopWord') return { textSizeRatio: 0.092, maxWidthRatio: 0.92, maxLines: 1, verticalPosition: 0.67, lineHeightMultiplier: 1.0, uppercase: true, background: '#ff8a1a', segmentBackground: null, active: '#000000', normal: '#ffffff', font: '900 ' };
+            if (style === 'Hormozi') return { textSizeRatio: 0.066, maxWidthRatio: 0.88, maxLines: 2, verticalPosition: 0.70, lineHeightMultiplier: 1.14, uppercase: true, background: '#ffe500', segmentBackground: 'rgba(0,0,0,0.82)', active: '#000000', normal: '#ffffff', font: '900 ' };
+            if (style === 'Typewriter') return { textSizeRatio: 0.060, maxWidthRatio: 0.82, maxLines: 2, verticalPosition: 0.76, lineHeightMultiplier: 1.16, uppercase: false, background: null, segmentBackground: 'rgba(38,41,50,0.80)', active: '#ffffff', normal: '#ffffff', font: '700 ' };
+            return { textSizeRatio: 0.058, maxWidthRatio: 0.84, maxLines: 2, verticalPosition: 0.74, lineHeightMultiplier: 1.12, uppercase: true, background: null, segmentBackground: 'rgba(0,0,0,0.69)', active: '#ff7a18', normal: '#ffffff', font: '900 ' };
           }
           function drawCaptionSegment(segment, timeMs) {
             if (!segment) return;
@@ -780,27 +823,47 @@ private fun webPostVideoEditorExportEditedJs(
             context.textAlign = 'left';
             const gap = fontSize * 0.34;
             const widths = displayWords.map(word => context.measureText(word).width);
-            const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, words.length - 1);
-            const boxWidth = Math.min(canvas.width * spec.maxWidthRatio, Math.max(canvas.width * 0.24, totalWidth + canvas.width * 0.08));
-            const boxHeight = Math.max(fontSize * 1.45, canvas.height * 0.074);
-            const boxX = (canvas.width - boxWidth) / 2;
-            const boxY = canvas.height * spec.verticalPosition - boxHeight / 2;
-            if (spec.segmentBackground || caption === 'PopWord') {
-              context.fillStyle = spec.segmentBackground || 'rgba(255,138,26,0.88)';
-              context.fillRect(boxX, boxY, boxWidth, boxHeight);
-            }
-            let x = (canvas.width - totalWidth) / 2;
-            const y = boxY + boxHeight * 0.66;
+            const maxLineWidth = canvas.width * spec.maxWidthRatio;
+            const lines = [];
+            let current = [];
+            let currentWidth = 0;
             for (let index = 0; index < words.length; index += 1) {
-              const word = words[index];
-              const active = timeMs >= word.startMs && timeMs <= word.endMs;
-              if (active && spec.background) {
-                context.fillStyle = spec.background;
-                context.fillRect(x - gap * 0.32, y - fontSize * 0.88, widths[index] + gap * 0.64, fontSize * 1.12);
+              const nextWidth = current.length === 0 ? widths[index] : currentWidth + gap + widths[index];
+              if (current.length > 0 && nextWidth > maxLineWidth && lines.length < spec.maxLines - 1) {
+                lines.push({ items: current, width: currentWidth });
+                current = [];
+                currentWidth = 0;
               }
-              context.fillStyle = active ? spec.active : spec.normal;
-              context.fillText(displayWords[index], x, y);
-              x += widths[index] + gap;
+              current.push(index);
+              currentWidth = currentWidth === 0 ? widths[index] : currentWidth + gap + widths[index];
+            }
+            if (current.length) lines.push({ items: current, width: currentWidth });
+            const visibleLines = lines.slice(0, spec.maxLines);
+            const lineHeight = fontSize * spec.lineHeightMultiplier;
+            const top = canvas.height * spec.verticalPosition - (lineHeight * visibleLines.length) / 2;
+            for (let lineIndex = 0; lineIndex < visibleLines.length; lineIndex += 1) {
+              const line = visibleLines[lineIndex];
+              const boxWidth = Math.min(maxLineWidth, Math.max(canvas.width * 0.24, line.width + canvas.width * 0.08));
+              const boxHeight = Math.max(lineHeight * 1.08, canvas.height * 0.066);
+              const boxX = (canvas.width - boxWidth) / 2;
+              const boxY = top + lineHeight * lineIndex - boxHeight * 0.14;
+              if (spec.segmentBackground || caption === 'PopWord') {
+                context.fillStyle = spec.segmentBackground || 'rgba(255,138,26,0.88)';
+                context.fillRect(boxX, boxY, boxWidth, boxHeight);
+              }
+              let x = (canvas.width - line.width) / 2;
+              const y = top + lineHeight * lineIndex + fontSize * 0.82;
+              for (const index of line.items) {
+                const word = words[index];
+                const active = timeMs >= word.startMs && timeMs <= word.endMs;
+                if (active && spec.background) {
+                  context.fillStyle = spec.background;
+                  context.fillRect(x - gap * 0.32, y - fontSize * 0.88, widths[index] + gap * 0.64, fontSize * 1.12);
+                }
+                context.fillStyle = active ? spec.active : spec.normal;
+                context.fillText(displayWords[index], x, y, Math.max(1, maxLineWidth));
+                x += widths[index] + gap;
+              }
             }
           }
           function drawCropFit(rect) {
@@ -852,11 +915,6 @@ private fun webPostVideoEditorExportEditedJs(
             if (caption) {
               drawCaptionSegment(segmentAt(exportTimeMs), exportTimeMs);
             }
-            const markerX = 2 + (drawnFrameCount % 24) * 6;
-            context.fillStyle = drawnFrameCount % 2 === 0
-              ? 'rgba(255,255,255,0.10)'
-              : 'rgba(0,0,0,0.10)';
-            context.fillRect(markerX, 2, 5, 5);
             canvasTrack?.requestFrame?.();
           }
           video.onseeked = () => {

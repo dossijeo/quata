@@ -585,6 +585,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidPostPublishTest, /PostVideoEditorResetTestTag/);
   assert.match(androidPostPublishTest, /copyLatestEditedVideoEvidence/);
   assert.match(androidPostPublishTest, /onAllNodesWithTag\(PostVideoEditorExportTestTag/);
+  assert.match(androidVideoEditorDialog, /onCancelExport = \{ isCancelExportDialogOpen = true \}/);
+  assert.match(androidVideoEditorDialog, /exportError = resetState\.error/);
   assert.match(androidVideoEditorRunner, /probeAndroidExport/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_frame_rate/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_trim_not_applied/);
@@ -626,6 +628,14 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /const stopPaddingMs = Math\.min\(450, Math\.max\(160, durationMs \* 0\.22, 1000 \/ fps \* 6\)\)/);
   assert.match(webPostVideoEditor, /requestAnimationFrame\?\.\(tick\)/);
   assert.match(webPostVideoEditor, /canvasTrack\?\.requestFrame\?\.\(\)/);
+  assert.match(webPostVideoEditor, /trimStartSeconds/);
+  assert.match(webPostVideoEditor, /trimEndSeconds/);
+  assert.match(webPostVideoEditor, /onPositionMsChange/);
+  assert.match(webPostVideoEditor, /root\.__quataPreviewTicker/);
+  assert.match(webPostVideoEditor, /video\.loop = false/);
+  assert.match(webPostVideoEditor, /maxLines: 2/);
+  assert.match(webPostVideoEditor, /visibleLines = lines\.slice\(0, spec\.maxLines\)/);
+  assert.doesNotMatch(webPostVideoEditor, /markerX/);
   assert.doesNotMatch(webPostVideoEditor, /reachedSourceEndAfterMostOfTrim/);
   assert.match(webVideoEditorRunner, /web_video_editor_export_missing_operation:\$\{operation\}/);
   assert.match(webPostComposerRoute, /videoEditor =/);
@@ -659,6 +669,14 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(commonCaptionDocumentWireCodec, /object CaptionDocumentWireCodec/);
   assert.match(commonCaptionDocumentWireCodec, /fun encodeDocument\(document: CaptionDocument\): String/);
   assert.match(commonCaptionDocumentWireCodec, /fun decodeDocument\(value: String\): CaptionDocument/);
+  assert.match(iosPostVideoEditor, /IosPostVideoEditorPreviewCallback/);
+  assert.match(iosPostVideoEditor, /trimStartMs = \(state\.trimStartFraction/);
+  assert.match(iosPostVideoEditor, /trimEndMs = \(state\.trimEndFraction/);
+  assert.match(iosPostVideoEditorNativeDriver, /activeSpeechTasks\.removeAll\(\)/);
+  assert.match(iosPostVideoEditorNativeDriver, /addPeriodicTimeObserver/);
+  assert.match(iosPostVideoEditorNativeDriver, /callback\.onPositionMs/);
+  assert.match(iosPostVideoEditorNativeDriver, /maxLines: 2/);
+  assert.match(iosPostVideoEditorNativeDriver, /visibleLines = Array\(lines\.prefix\(spec\.maxLines\)\)/);
   assert.match(commonPostVideoEditorSpec, /val captionDocument: CaptionDocument\?/);
   assert.match(commonPostVideoEditorSpec, /QuataVideoExportPolicy/);
   assert.match(commonPostVideoEditorSpec, /postVideoEditorMinimumTrimFraction/);

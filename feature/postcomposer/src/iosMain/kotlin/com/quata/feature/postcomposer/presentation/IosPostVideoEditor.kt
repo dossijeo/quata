@@ -58,14 +58,22 @@ interface IosPostVideoEditorPreviewSurface {
         isPlaying: Boolean,
         isMuted: Boolean,
         positionMs: Long,
+        trimStartMs: Long,
+        trimEndMs: Long,
+        durationMs: Long,
         videoAspectRatio: Float,
         cropLeft: Float,
         cropTop: Float,
         cropRight: Float,
         cropBottom: Float,
         cropVisible: Boolean,
+        callback: IosPostVideoEditorPreviewCallback,
     )
     fun dispose()
+}
+
+interface IosPostVideoEditorPreviewCallback {
+    fun onPositionMs(positionMs: Long)
 }
 
 interface IosPostVideoEditorExportCallback {
@@ -130,12 +138,16 @@ private object UnsupportedIosPostVideoEditorPreviewSurface : IosPostVideoEditorP
         isPlaying: Boolean,
         isMuted: Boolean,
         positionMs: Long,
+        trimStartMs: Long,
+        trimEndMs: Long,
+        durationMs: Long,
         videoAspectRatio: Float,
         cropLeft: Float,
         cropTop: Float,
         cropRight: Float,
         cropBottom: Float,
         cropVisible: Boolean,
+        callback: IosPostVideoEditorPreviewCallback,
     ) = Unit
     override fun dispose() = Unit
 }
@@ -272,6 +284,11 @@ internal fun IosPostVideoEditor(
                 durationMs = durationMs,
                 videoAspectRatio = videoAspectRatio,
                 fallbackThumbnail = thumbnail,
+                onPositionFractionChange = { nextFraction ->
+                    if (kotlin.math.abs(nextFraction - state.currentPositionFraction) > 0.002f) {
+                        state = state.copy(currentPositionFraction = nextFraction)
+                    }
+                },
                 modifier = modifier,
             )
         },
@@ -287,6 +304,7 @@ private fun IosPostVideoEditorNativePreview(
     durationMs: Long,
     videoAspectRatio: Float,
     fallbackThumbnail: PlatformFile?,
+    onPositionFractionChange: (Float) -> Unit,
     modifier: Modifier,
 ) {
     val localReference = iosPostVideoEditorLocalUrl(source.reference)?.absoluteString
@@ -309,12 +327,24 @@ private fun IosPostVideoEditorNativePreview(
                 isPlaying = state.isPlaying,
                 isMuted = state.isMuted,
                 positionMs = (state.currentPositionFraction.coerceIn(0f, 1f) * durationMs).toLong(),
+                trimStartMs = (state.trimStartFraction.coerceIn(0f, 1f) * durationMs).toLong(),
+                trimEndMs = (state.trimEndFraction.coerceIn(0f, 1f) * durationMs).toLong(),
+                durationMs = durationMs,
                 videoAspectRatio = videoAspectRatio,
                 cropLeft = cropRect.left,
                 cropTop = cropRect.top,
                 cropRight = cropRect.right,
                 cropBottom = cropRect.bottom,
                 cropVisible = state.cropPanelOpen && state.cropMode != com.quata.feature.postcomposer.videoeditor.VideoCropMode.Original,
+                callback = object : IosPostVideoEditorPreviewCallback {
+                    override fun onPositionMs(positionMs: Long) {
+                        val bounded = positionMs.coerceIn(0L, durationMs.coerceAtLeast(1L))
+                        val nextFraction = bounded.toFloat() / durationMs.coerceAtLeast(1L).toFloat()
+                        if (kotlin.math.abs(nextFraction - state.currentPositionFraction) > 0.002f) {
+                            onPositionFractionChange(nextFraction)
+                        }
+                    }
+                },
             )
         },
         modifier = modifier,

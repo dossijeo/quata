@@ -642,10 +642,14 @@ fun QuataVideoEditorDialog(
                 CaptionTemplateStyle.entries.firstOrNull { it.name == id }
             }
             isCaptionPanelOpen = resetState.captionsPanelOpen
+            exportError = resetState.error
+            exportProgress = resetState.exportProgress
+            isCancelExportDialogOpen = false
             seekPreviewTo(trimStartMs)
         },
         onDismiss = ::requestBack,
         onExport = ::export,
+        onCancelExport = { isCancelExportDialogOpen = true },
         captionOptions = CaptionTemplateStyle.entries.map { style ->
             CaptionStyleOption(style.name, stringResource(style.labelRes))
         },
