@@ -261,6 +261,7 @@ private final class IosPostVideoEditorPreviewView: UIView {
     let blurView = UIVisualEffectView(effect: UIBlurEffect(style: .dark))
     let veilView = UIView()
     let foregroundHost = UIView()
+    let foregroundFrameView = UIImageView()
     let cropOverlayView = UIView()
 
     override init(frame: CGRect) {
@@ -274,6 +275,9 @@ private final class IosPostVideoEditorPreviewView: UIView {
         foregroundHost.isUserInteractionEnabled = false
         foregroundHost.clipsToBounds = true
         foregroundHost.backgroundColor = .clear
+        foregroundFrameView.isUserInteractionEnabled = false
+        foregroundFrameView.contentMode = .scaleToFill
+        foregroundFrameView.backgroundColor = .clear
         cropOverlayView.isUserInteractionEnabled = false
         cropOverlayView.layer.borderColor = UIColor(red: 1, green: 0.48, blue: 0.09, alpha: 1).cgColor
         cropOverlayView.layer.borderWidth = 3
@@ -281,6 +285,7 @@ private final class IosPostVideoEditorPreviewView: UIView {
         addSubview(blurView)
         addSubview(veilView)
         addSubview(foregroundHost)
+        foregroundHost.addSubview(foregroundFrameView)
         addSubview(cropOverlayView)
     }
 
@@ -327,6 +332,7 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         guard let url else { return }
         let player = AVPlayer(url: url)
         let backgroundPlayer = AVPlayer(url: url)
+        root.foregroundFrameView.image = Self.previewImage(url: url)
         player.actionAtItemEnd = .pause
         backgroundPlayer.actionAtItemEnd = .pause
         let backgroundLayer = AVPlayerLayer(player: backgroundPlayer)
@@ -338,12 +344,30 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         foregroundLayer.backgroundColor = UIColor.clear.cgColor
         root.layer.insertSublayer(backgroundLayer, at: 0)
         root.foregroundHost.layer.addSublayer(foregroundLayer)
+        root.foregroundHost.bringSubviewToFront(root.foregroundFrameView)
         root.backgroundLayer = backgroundLayer
         root.foregroundLayer = foregroundLayer
         self.player = player
         self.backgroundPlayer = backgroundPlayer
         self.foregroundLayer = foregroundLayer
         self.backgroundLayer = backgroundLayer
+    }
+
+    private static func previewImage(url: URL) -> UIImage? {
+        let asset = AVAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 720, height: 1280)
+        for time in [
+            CMTime(value: 180, timescale: 1_000),
+            CMTime(value: 420, timescale: 1_000),
+            CMTime(value: 0, timescale: 1_000),
+        ] {
+            if let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) {
+                return UIImage(cgImage: cgImage)
+            }
+        }
+        return nil
     }
 
     func nativeView() -> UIView { root }
@@ -471,6 +495,7 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
             width: foregroundFrame.width / appliedWidth,
             height: foregroundFrame.height / appliedHeight
         )
+        root.foregroundFrameView.frame = foregroundLayer?.frame ?? root.foregroundHost.bounds
         root.cropOverlayView.isHidden = !visible
         root.cropOverlayView.frame = CGRect(
             x: foregroundFrame.minX + safeLeft * foregroundFrame.width,

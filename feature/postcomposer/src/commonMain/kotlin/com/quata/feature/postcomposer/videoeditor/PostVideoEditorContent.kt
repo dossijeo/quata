@@ -72,6 +72,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import com.quata.core.captions.templates.CaptionTemplateSpecs
+import com.quata.core.captions.templates.CaptionTemplateStyle
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.designsystem.theme.quataTheme
@@ -294,6 +296,10 @@ private fun PostVideoEditorBody(
                 contentAlignment = Alignment.Center,
             ) {
                 preview(Modifier.fillMaxSize())
+                CommonCaptionPreviewOverlay(
+                    state = state,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
             Column(
                 modifier = Modifier
@@ -337,13 +343,17 @@ private fun PostVideoEditorBody(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(strings.helper)
-            Box(
-                modifier = previewModifier,
-                contentAlignment = Alignment.Center,
-            ) {
-                preview(Modifier.fillMaxSize())
-            }
-            PostVideoEditorControls(
+        Box(
+            modifier = previewModifier,
+            contentAlignment = Alignment.Center,
+        ) {
+            preview(Modifier.fillMaxSize())
+            CommonCaptionPreviewOverlay(
+                state = state,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        PostVideoEditorControls(
                 state = state,
                 strings = strings,
                 captionOptions = captionOptions,
@@ -368,6 +378,65 @@ private fun PostVideoEditorBody(
         }
     }
 }
+
+@Composable
+private fun CommonCaptionPreviewOverlay(
+    state: PostVideoEditorUiState,
+    modifier: Modifier = Modifier,
+) {
+    val style = state.selectedCaptionStyleId
+        ?.let { selected -> CaptionTemplateStyle.entries.firstOrNull { it.name == selected } }
+        ?: return
+    if (!state.captionsEnabled) return
+    val spec = CaptionTemplateSpecs.get(style)
+    val sample = when (style) {
+        CaptionTemplateStyle.Typewriter -> "Create captions"
+        else -> "CREATE CAPTIONS"
+    }
+    val activeWord = when (style) {
+        CaptionTemplateStyle.PopWord -> "CAPTIONS"
+        else -> "CREATE"
+    }
+    val segmentBackground = spec.segmentBackgroundColorArgb?.let(::captionColor)
+    val activeBackground = spec.activeBackgroundColorArgb?.let(::captionColor)
+    val normalColor = captionColor(spec.textColorArgb)
+    val activeColor = captionColor(spec.activeTextColorArgb)
+    val targetWidth = (spec.maxWidthRatio.coerceIn(0.55f, 0.96f) * 320).dp
+    val verticalOffset = ((spec.verticalPosition.coerceIn(0.48f, 0.84f) - 0.5f) * 280).dp
+    Row(
+        modifier = modifier
+            .offset(y = verticalOffset)
+            .widthIn(max = targetWidth)
+            .clip(RoundedCornerShape((spec.cornerRadiusRatio * 720).dp))
+            .background(segmentBackground ?: Color.Transparent)
+            .padding(horizontal = 10.dp, vertical = 7.dp)
+            .testTag("post-video-editor.caption-preview.${style.name}")
+            .semantics { contentDescription = "post-video-editor.caption-preview.${style.name}" },
+        horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        sample.split(" ").forEach { word ->
+            val active = word.equals(activeWord, ignoreCase = true)
+            Text(
+                text = word,
+                color = if (active) activeColor else normalColor,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+                modifier = if (active && activeBackground != null) {
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(activeBackground)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                } else {
+                    Modifier
+                },
+            )
+        }
+    }
+}
+
+private fun captionColor(argb: Long): Color =
+    Color(argb.toULong())
 
 @Composable
 private fun PostVideoEditorControls(

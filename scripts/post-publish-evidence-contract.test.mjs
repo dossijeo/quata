@@ -935,3 +935,30 @@ test("post video editor runners exercise editor anchors without backend mutation
     assert.doesNotMatch(runner, /QUATA_POST_PUBLISH_REAL_MUTATION_OPT_IN/);
   }
 });
+
+test("post video editor Solo parity gaps stay fail-closed", () => {
+  assert.match(commonPostVideoEditorContent, /CommonCaptionPreviewOverlay\(/);
+  assert.match(commonPostVideoEditorContent, /CaptionTemplateSpecs\.get\(style\)/);
+  assert.match(commonPostVideoEditorContent, /post-video-editor\.caption-preview\.\$\{style\.name\}/);
+  assert.doesNotMatch(androidVideoEditorDialog, /CaptionPreviewRenderer/);
+  assert.doesNotMatch(androidVideoEditorDialog, /captionPreviewFrame/);
+
+  assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView = UIImageView\(\)/);
+  assert.match(iosPostVideoEditorNativeDriver, /previewImage\(url:/);
+  assert.match(iosPostVideoEditorNativeDriver, /AVAssetImageGenerator/);
+  assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.frame = foregroundLayer\?\.frame/);
+  assert.match(iosPostPublishTest, /assertElementHasNonBlackPixels\(/);
+  assert.match(iosPostPublishTest, /post-video-editor\.caption-preview\.Hormozi/);
+  assert.match(iosPostPublishTest, /exerciseVideoExportCancellationIfRequested/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CANCEL='1'/);
+
+  assert.match(iosPostVideoEditor, /if \(!metadataLoaded \|\| metadata == null\)/);
+  assert.match(iosPostVideoEditor, /ios_post_video_editor_metadata_unavailable/);
+  assert.match(iosPostVideoEditor, /if \(it is CancellationException\) return@onFailure/);
+  assert.match(webPostVideoEditor, /resumeWithException\(IllegalStateException\(it\)\)/);
+  assert.match(webPostVideoEditor, /web_post_video_editor_metadata_loading/);
+  assert.match(webPostVideoEditor, /isExporting: \(\) => Boolean\(isExporting\(\)\)/);
+  assert.match(webVideoEditorRunner, /exerciseVideoExportCancellation\(/);
+  assert.match(webVideoEditorRunner, /web_video_editor_cancel_state/);
+  assert.doesNotMatch(webPostVideoEditor, /WebPostVideoEditorMetadata\(MaximumPostVideoEditorDurationMs, 9f \/ 16f, 720, 1280\)/);
+});

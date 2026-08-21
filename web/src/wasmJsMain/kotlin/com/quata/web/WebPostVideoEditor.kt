@@ -42,6 +42,7 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLVideoElement
 import kotlinx.browser.document
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -55,21 +56,33 @@ internal fun WebPostVideoEditor(
     var state by remember(sourceReference) { mutableStateOf(PostVideoEditorUiState()) }
     var durationMs by remember(sourceReference) { mutableStateOf(MaximumPostVideoEditorDurationMs) }
     var videoAspectRatio by remember(sourceReference) { mutableStateOf(9f / 16f) }
+    var metadataLoaded by remember(sourceReference) { mutableStateOf(false) }
     var timelineFrames by remember(sourceReference) { mutableStateOf<List<String>>(emptyList()) }
     var exportProfile by remember(sourceReference) { mutableStateOf(DefaultPostVideoEditorExportProfile) }
     var exportJob by remember(sourceReference) { mutableStateOf<Job?>(null) }
     var activeExportToken by remember(sourceReference) { mutableStateOf<Any?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(sourceReference) {
-        val metadata = webPostVideoEditorReadMetadata(sourceReference)
-        durationMs = metadata.durationMs
-        state = postVideoEditorStateForSourceDuration(state, metadata.durationMs)
-        videoAspectRatio = metadata.aspectRatio
-        exportProfile = QuataVideoExportPolicy.selectForSource(metadata.width, metadata.height)
-        timelineFrames = webPostVideoEditorCreateTimelineFrames(sourceReference, metadata.durationMs, 6)
+        runCatching { webPostVideoEditorReadMetadata(sourceReference) }
+            .onSuccess { metadata ->
+                metadataLoaded = true
+                durationMs = metadata.durationMs
+                state = postVideoEditorStateForSourceDuration(state, metadata.durationMs)
+                videoAspectRatio = metadata.aspectRatio
+                exportProfile = QuataVideoExportPolicy.selectForSource(metadata.width, metadata.height)
+                timelineFrames = webPostVideoEditorCreateTimelineFrames(sourceReference, metadata.durationMs, 6)
+            }
+            .onFailure {
+                metadataLoaded = true
+                state = state.copy(error = it.message ?: "web_post_video_editor_metadata_unavailable")
+            }
     }
     fun export() {
         if (state.isExporting || exportJob != null) return
+        if (!metadataLoaded) {
+            state = state.copy(error = "web_post_video_editor_metadata_loading")
+            return
+        }
         val exportToken = Any()
         activeExportToken = exportToken
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
@@ -77,16 +90,15 @@ internal fun WebPostVideoEditor(
         webPostVideoEditorRecordExportStarted()
         val job = scope.launch {
             runCatching {
-                val freshMetadata = runCatching { webPostVideoEditorReadMetadata(sourceReference) }.getOrNull()
-                val exportDurationMs = freshMetadata?.durationMs?.also {
+                val freshMetadata = webPostVideoEditorReadMetadata(sourceReference)
+                val exportDurationMs = freshMetadata.durationMs.also {
                     durationMs = it
                     state = postVideoEditorStateForSourceDuration(state, it)
-                } ?: durationMs
-                val exportAspectRatio = freshMetadata?.aspectRatio?.also { videoAspectRatio = it } ?: videoAspectRatio
+                }
+                val exportAspectRatio = freshMetadata.aspectRatio.also { videoAspectRatio = it }
                 val selectedProfile = freshMetadata
-                    ?.let { QuataVideoExportPolicy.selectForSource(it.width, it.height) }
-                    ?.also { exportProfile = it }
-                    ?: exportProfile
+                    .let { QuataVideoExportPolicy.selectForSource(it.width, it.height) }
+                    .also { exportProfile = it }
                 val shouldGenerateCaptions = state.captionsEnabled && state.selectedCaptionStyleId != null
                 val captionDocument = if (shouldGenerateCaptions) {
                     webPostVideoEditorTranscribeCaptions(sourceReference)
@@ -177,6 +189,8 @@ internal fun WebPostVideoEditor(
                 }
             },
             timelineFrameCount = { timelineFrames.size },
+            isExporting = { state.isExporting },
+            exportProgress = { state.exportProgress },
         )
         onDispose { uninstall() }
     }
@@ -265,6 +279,8 @@ internal fun installWebPostVideoEditorE2eBridge(
     export: () -> Unit,
     dismiss: () -> Unit,
     timelineFrameCount: () -> Int,
+    isExporting: () -> Boolean,
+    exportProgress: () -> Float,
 ): () -> Unit = installPostVideoEditorBridgeWhenAllowed(
     mute,
     playPause,
@@ -280,10 +296,12 @@ internal fun installWebPostVideoEditorE2eBridge(
     export,
     dismiss,
     timelineFrameCount,
+    isExporting,
+    exportProgress,
 )
 
 @JsFun(
-    """(mute, playPause, trimStart, trimEnd, crop, cropMode, cropZoom, cropPan, captions, captionStyle, reset, exportVideo, dismiss, timelineFrameCount) => {
+    """(mute, playPause, trimStart, trimEnd, crop, cropMode, cropZoom, cropPan, captions, captionStyle, reset, exportVideo, dismiss, timelineFrameCount, isExporting, exportProgress) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const params = new URLSearchParams(location?.search || '');
       const optedIn = params.get('quata-post-video-editor-e2e') === '1' ||
@@ -306,6 +324,8 @@ internal fun installWebPostVideoEditorE2eBridge(
         export: () => exportVideo(),
         dismiss: () => dismiss(),
         timelineFrameCount: () => Number(timelineFrameCount()),
+        isExporting: () => Boolean(isExporting()),
+        exportProgress: () => Number(exportProgress()),
       });
       globalThis.__quataPostVideoEditorE2eProduct = bridge;
       globalThis.document?.documentElement?.setAttribute('data-quata-post-video-editor-e2e', 'ready');
@@ -330,6 +350,8 @@ private external fun installPostVideoEditorBridgeWhenAllowed(
     export: () -> Unit,
     dismiss: () -> Unit,
     timelineFrameCount: () -> Int,
+    isExporting: () -> Boolean,
+    exportProgress: () -> Float,
 ): () -> Unit
 
 private fun webPostVideoEditorCreatePreviewElement(): HTMLElement = js(
@@ -1038,7 +1060,7 @@ private suspend fun webPostVideoEditorReadMetadata(reference: String): WebPostVi
                 val safeAspectRatio = if (width > 0 && height > 0) width.toFloat() / height.toFloat() else 9f / 16f
                 continuation.resume(WebPostVideoEditorMetadata(safeDuration, safeAspectRatio, width, height))
             },
-            onFailure = { continuation.resume(WebPostVideoEditorMetadata(MaximumPostVideoEditorDurationMs, 9f / 16f, 720, 1280)) },
+            onFailure = { continuation.resumeWithException(IllegalStateException(it)) },
         )
     }
 

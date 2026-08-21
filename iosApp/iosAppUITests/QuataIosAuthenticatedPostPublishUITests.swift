@@ -241,6 +241,14 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             XCTAssertTrue(frame.waitForExistence(timeout: 12), "Missing shared video editor timeline frame \(index).")
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-opened")
+        let editorPreview = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.preview")
+            .firstMatch
+        QuataIosHostUITestSupport.assertElementHasNonBlackPixels(
+            editorPreview,
+            named: "ios-post-video-editor-preview-opened",
+            minimumNonBlackRatio: 0.08,
+        )
         tapComposerAction("post-video-editor.reset", in: app)
         if ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"] == "1" {
             tapComposerAction("post-video-editor.mute", in: app)
@@ -249,12 +257,22 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         dragVideoTrimEnd(toNormalizedX: 0.64, in: app)
         tapComposerAction("post-video-editor.captions", in: app)
         try tapVideoCaptionStyle("Hormozi", in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "post-video-editor.caption-preview.Hormozi")
+                .firstMatch
+                .waitForExistence(timeout: 8),
+            "Selecting a caption style must render the common caption preview overlay before export.",
+        )
         tapComposerAction("post-video-editor.crop", in: app)
         tapComposerAction("post-video-editor.crop-mode.Square", in: app)
+        QuataIosHostUITestSupport.assertElementHasNonBlackPixels(
+            editorPreview,
+            named: "ios-post-video-editor-preview-after-crop-captions",
+            minimumNonBlackRatio: 0.08,
+        )
+        exerciseVideoExportCancellationIfRequested(in: app, editorRoot: editorRoot)
         tapComposerAction("post-video-editor.export", in: app)
-        let editorPreview = app.descendants(matching: .any)
-            .matching(identifier: "post-video-editor.preview")
-            .firstMatch
         let editorExport = app.descendants(matching: .any)
             .matching(identifier: "post-video-editor.export")
             .firstMatch
@@ -282,6 +300,22 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         XCTAssertTrue(returnedToComposer, "Saving the iOS video editor must return to the common selected-video preview after the native export finishes.")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-after-edit")
         print("IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED")
+    }
+
+    private func exerciseVideoExportCancellationIfRequested(in app: XCUIApplication, editorRoot: XCUIElement) {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CANCEL"] == "1" else {
+            return
+        }
+        tapComposerAction("post-video-editor.export", in: app)
+        let exportProgress = commonElement("post-video-editor.export-progress", in: app)
+        XCTAssertTrue(exportProgress.waitForExistence(timeout: 8), "The shared editor must expose export progress before cancellation.")
+        tapComposerAction("post-video-editor.cancel-export", in: app)
+        let editorError = commonElement("post-video-editor.error", in: app)
+        let exportButton = commonElement("post-video-editor.export", in: app)
+        XCTAssertTrue(exportButton.waitForExistence(timeout: 8), "Cancelling export must return to the editable video editor state.")
+        XCTAssertTrue(editorRoot.exists, "Cancelling export must keep the shared video editor open.")
+        XCTAssertFalse(editorError.exists, "Cancelling export must not surface a user-visible error: \(elementText(editorError))")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-after-cancel-export")
     }
 
     private func selectDestination(_ wallId: String, in app: XCUIApplication) {

@@ -155,7 +155,6 @@ import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.VideoEncoderSettings
 import com.quata.R
-import com.quata.core.captions.android.CaptionPreviewRenderer
 import com.quata.core.captions.media3.CaptionBurnInTrack
 import com.quata.core.captions.media3.CaptionMedia3BurnIn
 import com.quata.core.captions.templates.CaptionTemplateStyle
@@ -241,12 +240,6 @@ fun QuataVideoEditorDialog(
     var captionModelDownloadProgress by remember(editorSourceUri) { mutableStateOf<Float?>(null) }
     var isPreviewPlayerEnabled by remember(editorSourceUri) { mutableStateOf(true) }
     val voskModelDeliveryManager = remember(appContext) { VoskModelDeliveryManager(appContext) }
-    val captionPreviewFrame = remember(appContext, captionStyle) {
-        captionStyle?.let { style ->
-            CaptionPreviewRenderer.renderPreviewBitmap(appContext, style, CaptionPreviewWidth, CaptionPreviewHeight)
-        }
-    }
-
     val player = remember(editorSourceUri, isPreviewPlayerEnabled) {
         if (!isPreviewPlayerEnabled) return@remember null
         ExoPlayer.Builder(context).build().apply {
@@ -735,7 +728,6 @@ fun QuataVideoEditorDialog(
                 isPlaying = isPlaying,
                 cropRect = cropRect,
                 videoRotationDegrees = metadata.rotation,
-                captionPreviewFrame = captionPreviewFrame,
                 isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
                 onCropDrag = { dx, dy ->
                     val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
@@ -816,7 +808,6 @@ private fun VideoPreviewPane(
     isPlaying: Boolean,
     cropRect: NormalizedCropRect,
     videoRotationDegrees: Int,
-    captionPreviewFrame: Bitmap?,
     isCropVisible: Boolean,
     onCropDrag: (Float, Float) -> Unit,
     modifier: Modifier = Modifier
@@ -942,16 +933,6 @@ private fun VideoPreviewPane(
                         modifier = Modifier.fillMaxSize()
                     )
                 }
-            }
-            captionPreviewFrame?.let { preview ->
-                Image(
-                    bitmap = preview.asImageBitmap(),
-                    contentDescription = null,
-                    contentScale = ContentScale.FillBounds,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .align(Alignment.Center)
-                )
             }
         }
     }
@@ -3058,8 +3039,6 @@ private const val TransformerStableOutputCompletionMs = 3_500L
 private const val TransformerStableOutputMinBytes = 128 * 1024L
 private const val DownsampleExportProgressShare = 0.28f
 private const val VideoEditorForceGlBrightness = 0.0001f
-private const val CaptionPreviewWidth = 540
-private const val CaptionPreviewHeight = 960
 private const val EditorForegroundInputId = 0
 private const val EditorBackgroundInputId = 1
 private const val EditorOutputAspectRatio = 9f / 16f

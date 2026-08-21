@@ -213,12 +213,31 @@ async function exerciseVideoEditor(page, { mute }) {
   if (!mute) {
     await invokeVideoEditorAction(page, "mute");
   }
+  anchors.cancelExport = await exerciseVideoExportCancellation(page);
   await invokeVideoEditorAction(page, "export");
   await page.waitForFunction(() => globalThis.__quataPostVideoEditorExport?.status === "success", null, { timeout: 180_000 });
   anchors.export = anchors["post-video-editor.export"];
   anchors.exportState = await page.evaluate(() => globalThis.__quataPostVideoEditorExport || null);
   assertWebVideoEditorExportParity(anchors.exportState, { expectCaptions: true, expectMute: mute });
   return anchors;
+}
+
+async function exerciseVideoExportCancellation(page) {
+  await invokeVideoEditorAction(page, "export");
+  await page.waitForFunction(() => {
+    const bridge = globalThis.__quataPostVideoEditorE2eProduct;
+    return bridge?.isExporting?.() === true || globalThis.__quataPostVideoEditorExport?.status === "started";
+  }, null, { timeout: 8_000 });
+  await invokeVideoEditorAction(page, "cancelExport");
+  await page.waitForFunction(() => {
+    const bridge = globalThis.__quataPostVideoEditorE2eProduct;
+    return bridge?.isExporting?.() === false;
+  }, null, { timeout: 10_000 });
+  const cancelState = await page.evaluate(() => globalThis.__quataPostVideoEditorExport || null);
+  if (cancelState?.status !== "failed" || !String(cancelState.message || "").includes("cancelled")) {
+    throw new Error(`web_video_editor_cancel_state:${JSON.stringify(cancelState)}`);
+  }
+  return { kind: "testTagOrBridge", value: "post-video-editor.cancel-export", state: cancelState };
 }
 
 async function waitForVideoEditorReady(page) {
@@ -249,6 +268,7 @@ async function invokeVideoEditorAction(page, action, ...args) {
     captions: "post-video-editor.captions",
     reset: "post-video-editor.reset",
     export: "post-video-editor.export",
+    cancelExport: "post-video-editor.cancel-export",
   }[action];
   if (id && await semanticLocator(page, id).then(async (locator) => {
     await locator.click({ force: true, timeout: 800 });
@@ -256,8 +276,9 @@ async function invokeVideoEditorAction(page, action, ...args) {
   }).catch(() => false)) return;
   const invoked = await page.evaluate(({ name, args: bridgeArgs }) => {
     const bridge = globalThis.__quataPostVideoEditorE2eProduct;
-    if (typeof bridge?.[name] !== "function") return false;
-    bridge[name](...bridgeArgs);
+    const bridgeName = name === "cancelExport" ? "dismiss" : name;
+    if (typeof bridge?.[bridgeName] !== "function") return false;
+    bridge[bridgeName](...bridgeArgs);
     return true;
   }, { name: action, args });
   if (!invoked) throw new Error(`missing_stable_anchor:${id || action}`);

@@ -36,6 +36,7 @@ import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterReset
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimEnd
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimStart
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -167,6 +168,7 @@ internal fun IosPostVideoEditor(
     var thumbnail by remember(source.reference) { mutableStateOf<PlatformFile?>(null) }
     var timelineFrames by remember(source.reference) { mutableStateOf<List<PlatformFile>>(emptyList()) }
     var metadata by remember(source.reference) { mutableStateOf<IosPostVideoEditorMetadata?>(null) }
+    var metadataLoaded by remember(source.reference) { mutableStateOf(false) }
     var exportProfile by remember(source.reference) { mutableStateOf(DefaultPostVideoEditorExportProfile) }
     var exportJob by remember(source.reference) { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
@@ -184,6 +186,10 @@ internal fun IosPostVideoEditor(
         releaseGeneratedFrames()
         val loadedMetadata = nativeDriver.metadata(source)
         metadata = loadedMetadata
+        metadataLoaded = true
+        if (loadedMetadata == null) {
+            state = state.copy(error = "ios_post_video_editor_metadata_unavailable")
+        }
         loadedMetadata?.durationMs?.takeIf { it > 0L }?.let {
             state = postVideoEditorStateForSourceDuration(state, it)
         }
@@ -218,6 +224,16 @@ internal fun IosPostVideoEditor(
     }
     fun export() {
         if (state.isExporting) return
+        if (!metadataLoaded || metadata == null) {
+            state = state.copy(
+                error = if (metadataLoaded) {
+                    "ios_post_video_editor_metadata_unavailable"
+                } else {
+                    "ios_post_video_editor_metadata_loading"
+                },
+            )
+            return
+        }
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
         val job = scope.launch {
             runCatching {
@@ -243,6 +259,7 @@ internal fun IosPostVideoEditor(
                     onEdited(it)
                 }
                 .onFailure {
+                    if (it is CancellationException) return@onFailure
                     state = state.copy(isExporting = false, error = it.message ?: "ios_post_video_editor_export_failed")
                 }
         }
