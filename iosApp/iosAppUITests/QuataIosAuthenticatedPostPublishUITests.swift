@@ -266,6 +266,9 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         )
         tapComposerAction("post-video-editor.crop", in: app)
         tapComposerAction("post-video-editor.crop-mode.Square", in: app)
+        tapComposerAction("post-video-editor.crop-zoom-in", in: app)
+        tapComposerAction("post-video-editor.crop-zoom-in", in: app)
+        panVideoCropPreview(in: app)
         revealVideoEditorPreview(in: app)
         QuataIosHostUITestSupport.assertElementHasNonBlackPixels(
             editorPreview,
@@ -367,6 +370,8 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS",
             "QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE",
             "QUATA_IOS_POST_VIDEO_EDITOR_MUTE",
+            "QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CANCEL",
+            "QUATA_IOS_POST_VIDEO_EDITOR_CANCEL_ONLY",
             "QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE",
             "QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD",
             "QUATA_IOS_POST_DESTINATION_E2E_MODE",
@@ -579,6 +584,16 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(forDuration: 0.18, thenDragTo: destination)
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-trimmed")
+    }
+
+    private func panVideoCropPreview(in app: XCUIApplication) {
+        let editorPreview = commonElement("post-video-editor.preview", in: app)
+        XCTAssertTrue(editorPreview.waitForExistence(timeout: 8), "The shared video editor preview must be exposed before pan evidence.")
+        let start = editorPreview.coordinate(withNormalizedOffset: CGVector(dx: 0.58, dy: 0.52))
+        let end = editorPreview.coordinate(withNormalizedOffset: CGVector(dx: 0.46, dy: 0.45))
+        start.press(forDuration: 0.08, thenDragTo: end)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-crop-zoomed")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-crop-panned")
     }
 
     private func commonElement(_ identifier: String, in app: XCUIApplication) -> XCUIElement {

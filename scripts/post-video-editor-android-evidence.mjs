@@ -71,6 +71,7 @@ try {
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   for (const attemptSpec of [
+    { label: "cancel", mute: true, cancelOnly: true },
     { label: "muted", mute: true },
     { label: "unmuted", mute: false },
   ]) {
@@ -82,13 +83,15 @@ try {
       "-e", "quataPostVideoEditorEvidence", "1",
       "-e", "quataPostVideoEditorFixturePath", deviceVideoPath,
       "-e", "quataPostVideoEditorMute", attemptSpec.mute ? "1" : "0",
+      "-e", "quataPostVideoEditorCancelOnly", attemptSpec.cancelOnly ? "1" : "0",
       "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
-    ]);
+    ], { timeoutMs: 600_000, timeoutError: `android_instrumentation_timeout:${attemptSpec.label}` });
     const attempt = {
       source: "gallery-video",
       outcome: "success",
       label: attemptSpec.label,
       mute: attemptSpec.mute,
+      cancelOnly: Boolean(attemptSpec.cancelOnly),
       instrumentationTail: redactedTail(instrumentationOutput),
     };
     if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) {
@@ -100,6 +103,10 @@ try {
       throw new Error(`android_instrumentation_semantic_failure:${attemptSpec.label}`);
     }
     await copyDeviceEvidence(evidenceDir);
+    if (attemptSpec.cancelOnly) {
+      report.attempts.push({ ...attempt, status: "passed" });
+      continue;
+    }
     const exportPath = join(evidenceDir, `android-post-video-editor-export-${attemptSpec.label}.mp4`);
     try {
       const physicalExport = probeAndroidExport(exportPath, videoFixture, { mute: attemptSpec.mute });
@@ -269,6 +276,7 @@ function probeAndroidExport(outputPath, sourcePath, { mute }) {
   }
   const captionPixelProbe = probeCaptionPixels(outputPath);
   const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
+  const cropGeometryPixelProbe = probeCropGeometryPixels(outputPath);
   const audioProbe = !mute ? probeAudioSignal(outputPath, "android_video_editor_physical_audio_silent") : null;
   return {
     path: outputPath,
@@ -279,6 +287,7 @@ function probeAndroidExport(outputPath, sourcePath, { mute }) {
     audioProbe,
     captionPixelProbe,
     backgroundBlurPixelProbe,
+    cropGeometryPixelProbe,
   };
 }
 
@@ -328,10 +337,24 @@ function parseFrameRate(value) {
 }
 
 function probeCaptionPixels(outputPath) {
+  const samples = [0.1, 0.8, 1.3].map((seekSeconds) => probeCaptionPixelsAt(outputPath, seekSeconds));
+  const best = samples.reduce((current, next) => {
+    const currentScore = current.brightFraction + current.darkFraction;
+    const nextScore = next.brightFraction + next.darkFraction;
+    return nextScore > currentScore ? next : current;
+  });
+  if (best.brightFraction < 0.004 || best.darkFraction < 0.12) {
+    throw new Error(`android_video_editor_caption_pixels_missing:${best.brightFraction.toFixed(4)}:${best.darkFraction.toFixed(4)}`);
+  }
+  return { ...best, samples };
+}
+
+function probeCaptionPixelsAt(outputPath, seekSeconds) {
   const width = 180;
   const height = 80;
   const pixels = execFileSync("ffmpeg", [
     "-v", "error",
+    "-ss", String(seekSeconds),
     "-i", outputPath,
     "-vf", `crop=iw*0.84:ih*0.12:iw*0.08:ih*0.70,scale=${width}:${height}`,
     "-frames:v", "1",
@@ -352,10 +375,7 @@ function probeCaptionPixels(outputPath) {
   const total = width * height;
   const brightFraction = bright / total;
   const darkFraction = dark / total;
-  if (brightFraction < 0.004 || darkFraction < 0.12) {
-    throw new Error(`android_video_editor_caption_pixels_missing:${brightFraction.toFixed(4)}:${darkFraction.toFixed(4)}`);
-  }
-  return { width, height, brightFraction, darkFraction };
+  return { seekSeconds, width, height, brightFraction, darkFraction };
 }
 
 function probeBackgroundBlurPixels(outputPath) {
@@ -382,6 +402,28 @@ function probeBackgroundBlurPixels(outputPath) {
     throw new Error(`android_video_editor_background_blur_pixels_missing:${backgroundSharpness.toFixed(2)}:${foregroundSharpness.toFixed(2)}`);
   }
   return { width, height, backgroundSharpness, foregroundSharpness };
+}
+
+function probeCropGeometryPixels(outputPath) {
+  const width = 160;
+  const height = 90;
+  const sample = (crop) => execFileSync("ffmpeg", [
+    "-v", "error",
+    "-i", outputPath,
+    "-vf", `${crop},scale=${width}:${height}`,
+    "-frames:v", "1",
+    "-f", "rawvideo",
+    "-pix_fmt", "rgba",
+    "pipe:1",
+  ]);
+  const centerForeground = sample("crop=iw*0.56:ih*0.34:iw*0.22:ih*0.32");
+  const upperBackground = sample("crop=iw*0.86:ih*0.16:iw*0.07:ih*0.06");
+  const foregroundSharpness = averageAdjacentLumaDelta(centerForeground, width, height);
+  const backgroundSharpness = averageAdjacentLumaDelta(upperBackground, width, height);
+  if (!(foregroundSharpness > 1.2 && backgroundSharpness < foregroundSharpness * 0.9)) {
+    throw new Error(`android_video_editor_crop_geometry_pixels_missing:${foregroundSharpness.toFixed(2)}:${backgroundSharpness.toFixed(2)}`);
+  }
+  return { width, height, foregroundSharpness, backgroundSharpness };
 }
 
 function averageAdjacentLumaDelta(pixels, width, height) {
@@ -417,12 +459,43 @@ function run(command, args, options = {}) {
 
 function runCapture(command, args, options = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32", ...options });
+    const { timeoutMs, timeoutError, ...spawnOptions } = options;
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32", ...spawnOptions });
     let output = "";
+    let timedOut = false;
+    const timeout = Number(timeoutMs) > 0
+      ? setTimeout(() => {
+        timedOut = true;
+        terminateChildProcessTree(child);
+        setTimeout(() => {
+          if (!child.killed) {
+            terminateChildProcessTree(child, { force: true });
+          }
+        }, 2_000).unref?.();
+      }, Number(timeoutMs))
+      : null;
     child.stdout.on("data", (chunk) => { output += chunk; });
     child.stderr.on("data", (chunk) => { output += chunk; });
-    child.on("close", (code) => code === 0 ? resolvePromise(output) : reject(new Error(`${command} ${args.join(" ")} failed:${code}\n${redactedTail(output)}`)));
+    child.on("close", (code) => {
+      if (timeout) clearTimeout(timeout);
+      if (timedOut) {
+        reject(new Error(`${timeoutError || "command_timeout"}\n${redactedTail(output)}`));
+      } else if (code === 0) {
+        resolvePromise(output);
+      } else {
+        reject(new Error(`${command} ${args.join(" ")} failed:${code}\n${redactedTail(output)}`));
+      }
+    });
   });
+}
+
+function terminateChildProcessTree(child, { force = false } = {}) {
+  if (!child?.pid) return;
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/PID", String(child.pid), "/T", force ? "/F" : "/F"], { stdio: "ignore" });
+    return;
+  }
+  try { child.kill(force ? "SIGKILL" : "SIGTERM"); } catch {}
 }
 
 function runBuffer(command, args, options = {}) {

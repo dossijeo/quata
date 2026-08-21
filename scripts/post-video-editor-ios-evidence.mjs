@@ -130,7 +130,16 @@ export QUATA_IOS_POST_COMPOSER_PICKER_MIME='video/mp4'
 bash scripts/run-ios-post-video-editor-ui-test.sh
 `);
     if (cancelOnly) {
-      return { source, outcome, label, mute, cancelOnly, status: "passed", remoteLogDir };
+      const cancelLog = await runSshScript(options.host, `
+set -euo pipefail
+cat ${shellQuote(`${remoteDiagnosticsDir}/ui.log`)}
+`);
+      const diagnosticsExists = (await runSshScript(options.host, `
+set -euo pipefail
+if test -e ${shellQuote(remoteDiagnostics)}; then printf 'exists'; else printf 'missing'; fi
+`)).trim();
+      assertIosCancelEvidence(cancelLog, diagnosticsExists);
+      return { source, outcome, label, mute, cancelOnly, status: "passed", remoteLogDir, cancelEvidence: "ios-post-video-editor-after-cancel-export" };
     }
     const diagnosticsText = await runSshScript(options.host, `
 set -euo pipefail
@@ -151,6 +160,21 @@ cat ${shellQuote(`${remoteDiagnostics}.events.jsonl`)}
     return { source, outcome, label, mute, status: "passed", remoteLogDir, diagnostics, events: events.slice(-30), physicalExport };
   } catch (error) {
     return { source, outcome, label, mute, status: "failed", remoteLogDir, error: safeFailure(error) };
+  }
+}
+
+function assertIosCancelEvidence(logText, diagnosticsExists) {
+  if (!String(logText || "").includes("ios-post-video-editor-after-cancel-export")) {
+    throw new Error("ios_video_editor_cancel_screenshot_missing");
+  }
+  if (String(logText || "").includes("Saving the iOS video editor must return")) {
+    throw new Error("ios_video_editor_cancel_fell_through_to_save");
+  }
+  if (String(logText || "").includes("export_completed")) {
+    throw new Error("ios_video_editor_cancel_export_completed");
+  }
+  if (diagnosticsExists !== "missing") {
+    throw new Error("ios_video_editor_cancel_export_diagnostics_created");
   }
 }
 
@@ -231,6 +255,7 @@ function probeIosExport(outputPath, diagnostics, { mute }) {
   }
   const captionPixelProbe = probeCaptionPixels(outputPath, firstCaptionProbeSecond(diagnostics.captionDocumentWire));
   const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
+  const cropGeometryPixelProbe = probeCropGeometryPixels(outputPath, diagnostics, "ios_video_editor_crop_geometry_pixels_missing");
   const audioProbe = !mute ? probeAudioSignal(outputPath, "ios_video_editor_physical_audio_silent") : null;
   return {
     path: outputPath,
@@ -242,6 +267,7 @@ function probeIosExport(outputPath, diagnostics, { mute }) {
     audioProbe,
     captionPixelProbe,
     backgroundBlurPixelProbe,
+    cropGeometryPixelProbe,
   };
 }
 
@@ -334,6 +360,38 @@ function probeBackgroundBlurPixels(outputPath) {
     throw new Error(`ios_video_editor_background_blur_pixels_missing:${backgroundSharpness.toFixed(2)}:${foregroundSharpness.toFixed(2)}`);
   }
   return { width, height, backgroundSharpness, foregroundSharpness };
+}
+
+function probeCropGeometryPixels(outputPath, diagnostics, errorCode) {
+  const cropWidth = Math.max(0, Number(diagnostics?.cropRight ?? 1) - Number(diagnostics?.cropLeft ?? 0));
+  const cropHeight = Math.max(0, Number(diagnostics?.cropBottom ?? 1) - Number(diagnostics?.cropTop ?? 0));
+  const backgroundWidth = Math.max(0, Number(diagnostics?.backgroundCropRight ?? 1) - Number(diagnostics?.backgroundCropLeft ?? 0));
+  const backgroundHeight = Math.max(0, Number(diagnostics?.backgroundCropBottom ?? 1) - Number(diagnostics?.backgroundCropTop ?? 0));
+  if (!(cropWidth > 0 && cropHeight > 0 && (cropWidth < 0.95 || cropHeight < 0.54))) {
+    throw new Error(`${errorCode}:crop_spec_not_zoomed:${cropWidth.toFixed(3)}:${cropHeight.toFixed(3)}`);
+  }
+  if (!(Boolean(diagnostics?.hasBackgroundCrop) && (Math.abs(backgroundWidth - cropWidth) > 0.02 || Math.abs(backgroundHeight - cropHeight) > 0.02))) {
+    throw new Error(`${errorCode}:background_crop_not_distinct:${backgroundWidth.toFixed(3)}:${backgroundHeight.toFixed(3)}`);
+  }
+  const width = 160;
+  const height = 90;
+  const sample = (crop) => execFileSync("ffmpeg", [
+    "-v", "error",
+    "-i", outputPath,
+    "-vf", `${crop},scale=${width}:${height}`,
+    "-frames:v", "1",
+    "-f", "rawvideo",
+    "-pix_fmt", "rgba",
+    "pipe:1",
+  ]);
+  const centerForeground = sample("crop=iw*0.56:ih*0.34:iw*0.22:ih*0.32");
+  const upperBackground = sample("crop=iw*0.86:ih*0.16:iw*0.07:ih*0.06");
+  const foregroundSharpness = averageAdjacentLumaDelta(centerForeground, width, height);
+  const backgroundSharpness = averageAdjacentLumaDelta(upperBackground, width, height);
+  if (!(foregroundSharpness > 1.2 && backgroundSharpness < foregroundSharpness * 0.9)) {
+    throw new Error(`${errorCode}:${foregroundSharpness.toFixed(2)}:${backgroundSharpness.toFixed(2)}`);
+  }
+  return { width, height, cropWidth, cropHeight, backgroundWidth, backgroundHeight, foregroundSharpness, backgroundSharpness };
 }
 
 function averageAdjacentLumaDelta(pixels, width, height) {

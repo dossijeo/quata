@@ -1646,10 +1646,18 @@ private suspend fun Context.ensureEditedVideoAudio(
     request: VideoEditorExportRequest,
     exportedUri: Uri
 ): Uri {
-    if (request.removeAudio || exportedUri.hasMediaTrack(this, audio = true)) return exportedUri
+    if (request.removeAudio) return exportedUri
     check(request.sourceUri.hasMediaTrack(this, audio = true)) { "android_post_video_editor_audio_source_missing" }
+    if (!request.shouldRemuxAudioAfterTransformer() && exportedUri.hasMediaTrack(this, audio = true)) return exportedUri
     val outputFile = createVideoEditorExportFile()
-    return remuxEditedVideoWithSourceAudio(request, exportedUri, outputFile)
+    return remuxEditedVideoWithSourceAudio(request, exportedUri, outputFile).also {
+        runCatching {
+            val sourceFile = exportedUri.path?.let(::File)
+            if (sourceFile != null && sourceFile.absolutePath != outputFile.absolutePath) {
+                sourceFile.delete()
+            }
+        }
+    }
 }
 
 private tailrec fun Context.findActivity(): Activity? =
@@ -1884,6 +1892,7 @@ private suspend fun Context.exportEditedVideoWithTransformer(
             val frameRateEffects = request.frameRateEffects()
             val needsBackground = request.needsBlurredBackground()
             val useLegacySingleInputBackground = request.canUseLegacySingleInputBackground()
+            val removeAudioInTransformer = request.removeAudio || request.shouldRemuxAudioAfterTransformer()
             val compositionEffects = CaptionMedia3BurnIn.effectsFor(request.captionTrack)
             val composition = if (useLegacySingleInputBackground) {
                 val foregroundEffects = buildList {
@@ -1905,7 +1914,7 @@ private suspend fun Context.exportEditedVideoWithTransformer(
                     )
                 }
                 val foregroundItem = EditedMediaItem.Builder(mediaItem)
-                    .setRemoveAudio(request.removeAudio)
+                    .setRemoveAudio(removeAudioInTransformer)
                     .applyOutputFrameRateIfNeeded(request)
                     .setEffects(Effects(emptyList(), foregroundEffects))
                     .build()
@@ -1934,7 +1943,7 @@ private suspend fun Context.exportEditedVideoWithTransformer(
                     .setEffects(Effects(emptyList(), backgroundEffects))
                     .build()
                 val foregroundItem = EditedMediaItem.Builder(mediaItem)
-                    .setRemoveAudio(request.removeAudio)
+                    .setRemoveAudio(removeAudioInTransformer)
                     .applyOutputFrameRateIfNeeded(request)
                     .setEffects(Effects(emptyList(), frameRateEffects + cropEffects))
                     .build()
@@ -1966,7 +1975,7 @@ private suspend fun Context.exportEditedVideoWithTransformer(
                     )
                 }
                 val foregroundItem = EditedMediaItem.Builder(mediaItem)
-                    .setRemoveAudio(request.removeAudio)
+                    .setRemoveAudio(removeAudioInTransformer)
                     .applyOutputFrameRateIfNeeded(request)
                     .setEffects(Effects(emptyList(), foregroundEffects))
                     .build()
@@ -3040,6 +3049,9 @@ private data class VideoEditorExportRequest(
     val exportProfile: VideoExportProfile,
     val captionTrack: CaptionBurnInTrack?
 )
+
+private fun VideoEditorExportRequest.shouldRemuxAudioAfterTransformer(): Boolean =
+    !removeAudio
 
 
 private const val TimelineFrameCount = 6

@@ -280,7 +280,17 @@ async function waitForTimelineFrames(page) {
     const count = Number(globalThis.__quataPostVideoEditorE2eProduct?.timelineFrameCount?.() || 0);
     return Number.isFinite(count) && count >= 6;
   }, null, { timeout: 20_000 });
-  return page.evaluate(() => Number(globalThis.__quataPostVideoEditorE2eProduct?.timelineFrameCount?.() || 0));
+  return page.evaluate(() => {
+    const bridge = globalThis.__quataPostVideoEditorE2eProduct;
+    const count = Number(bridge?.timelineFrameCount?.() || 0);
+    const evidence = String(bridge?.timelineFrameEvidence?.() || "");
+    const frames = evidence.split("|").filter(Boolean);
+    const unique = new Set(frames).size;
+    if (count < 6 || frames.length < 6 || unique < 3 || !frames.every((frame) => frame.includes("data:image/"))) {
+      throw new Error(`web_video_editor_timeline_frames_not_real:${count}:${frames.length}:${unique}`);
+    }
+    return { count, unique, evidence: frames.slice(0, 6) };
+  });
 }
 
 async function resolveVideoEditorAnchor(page, id) {
@@ -409,11 +419,13 @@ async function saveAndProbeWebExport(page, exportState, { label, mute }) {
   }
   const physicalDurationMs = ffprobeDurationMs;
   const expectedDurationMs = Math.max(500, Number(exportState.spec?.trimEndMs || 0) - Number(exportState.spec?.trimStartMs || 0));
-  if (physicalDurationMs < expectedDurationMs * 0.8 || physicalDurationMs > expectedDurationMs * 1.2) {
+  const durationToleranceMs = Math.min(180, Math.max(90, Math.round(expectedDurationMs * 0.1)));
+  if (physicalDurationMs < 500 || Math.abs(physicalDurationMs - expectedDurationMs) > durationToleranceMs) {
     throw new Error(`web_video_editor_physical_trim_duration:${physicalDurationMs}:${expectedDurationMs}`);
   }
   const captionPixelProbe = exportState.operations?.captions === true ? probeCaptionPixels(outputPath) : null;
   const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
+  const cropGeometryPixelProbe = probeCropGeometryPixels(outputPath, exportState.spec, "web_video_editor_crop_geometry_pixels_missing");
   const audioProbe = !mute ? probeAudioSignal(outputPath, "web_video_editor_physical_audio_silent") : null;
   return {
     path: outputPath,
@@ -427,6 +439,7 @@ async function saveAndProbeWebExport(page, exportState, { label, mute }) {
     audioProbe,
     captionPixelProbe,
     backgroundBlurPixelProbe,
+    cropGeometryPixelProbe,
   };
 }
 
@@ -526,6 +539,38 @@ function probeBackgroundBlurPixels(outputPath) {
     throw new Error(`web_video_editor_background_blur_pixels_missing:${backgroundSharpness.toFixed(2)}:${foregroundSharpness.toFixed(2)}`);
   }
   return { width, height, backgroundSharpness, foregroundSharpness };
+}
+
+function probeCropGeometryPixels(outputPath, spec, errorCode) {
+  const cropWidth = Math.max(0, Number(spec?.cropRight ?? 1) - Number(spec?.cropLeft ?? 0));
+  const cropHeight = Math.max(0, Number(spec?.cropBottom ?? 1) - Number(spec?.cropTop ?? 0));
+  const backgroundWidth = Math.max(0, Number(spec?.backgroundCropRight ?? 1) - Number(spec?.backgroundCropLeft ?? 0));
+  const backgroundHeight = Math.max(0, Number(spec?.backgroundCropBottom ?? 1) - Number(spec?.backgroundCropTop ?? 0));
+  if (!(cropWidth > 0 && cropHeight > 0 && (cropWidth < 0.95 || cropHeight < 0.95))) {
+    throw new Error(`${errorCode}:crop_spec_not_zoomed:${cropWidth.toFixed(3)}:${cropHeight.toFixed(3)}`);
+  }
+  if (!(Math.abs(backgroundWidth - cropWidth) > 0.02 || Math.abs(backgroundHeight - cropHeight) > 0.02)) {
+    throw new Error(`${errorCode}:background_crop_not_distinct:${backgroundWidth.toFixed(3)}:${backgroundHeight.toFixed(3)}`);
+  }
+  const width = 160;
+  const height = 90;
+  const sample = (crop) => execFileSync("ffmpeg", [
+    "-v", "error",
+    "-i", outputPath,
+    "-vf", `${crop},scale=${width}:${height}`,
+    "-frames:v", "1",
+    "-f", "rawvideo",
+    "-pix_fmt", "rgba",
+    "pipe:1",
+  ]);
+  const centerForeground = sample("crop=iw*0.56:ih*0.34:iw*0.22:ih*0.32");
+  const upperBackground = sample("crop=iw*0.86:ih*0.16:iw*0.07:ih*0.06");
+  const foregroundSharpness = averageAdjacentLumaDelta(centerForeground, width, height);
+  const backgroundSharpness = averageAdjacentLumaDelta(upperBackground, width, height);
+  if (!(foregroundSharpness > 1.2 && backgroundSharpness < foregroundSharpness * 0.9)) {
+    throw new Error(`${errorCode}:${foregroundSharpness.toFixed(2)}:${backgroundSharpness.toFixed(2)}`);
+  }
+  return { width, height, cropWidth, cropHeight, backgroundWidth, backgroundHeight, foregroundSharpness, backgroundSharpness };
 }
 
 function averageAdjacentLumaDelta(pixels, width, height) {

@@ -29,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Crop
@@ -37,6 +38,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
@@ -641,12 +643,31 @@ private fun CommonCropControls(
         if (mode != VideoCropMode.Original) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(strings.cropZoom, modifier = Modifier.width(64.dp))
+                CompactIconButton(
+                    onClick = { onZoomChange((zoom - 0.25f).coerceIn(1f, 3f)) },
+                    enabled = zoom > 1.01f,
+                    testTag = "post-video-editor.crop-zoom-out",
+                    contentDescription = "post-video-editor.crop-zoom-out",
+                ) {
+                    CompactIcon(Icons.Filled.Remove, null)
+                }
                 Slider(
                     value = zoom.coerceIn(1f, 3f),
                     onValueChange = { onZoomChange(it.coerceIn(1f, 3f)) },
                     valueRange = 1f..3f,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("post-video-editor.crop-zoom")
+                        .semantics { contentDescription = "post-video-editor.crop-zoom" },
                 )
+                CompactIconButton(
+                    onClick = { onZoomChange((zoom + 0.35f).coerceIn(1f, 3f)) },
+                    enabled = zoom < 2.99f,
+                    testTag = "post-video-editor.crop-zoom-in",
+                    contentDescription = "post-video-editor.crop-zoom-in",
+                ) {
+                    CompactIcon(Icons.Filled.Add, null)
+                }
             }
         }
     }

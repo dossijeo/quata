@@ -300,7 +300,7 @@ internal fun IosPostVideoEditor(
             state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null)
         },
         onSeekChange = { state = state.copy(currentPositionFraction = it.coerceIn(0f, 1f)) },
-        timelineFrameCount = timelineFrames.size.takeIf { it > 0 } ?: 6,
+        timelineFrameCount = timelineFrames.size,
         timelineFrameContent = { index, frameModifier ->
             timelineFrames.getOrNull(index)?.let { frame ->
                 IosComposerLocalImagePreview(frame, modifier = frameModifier)

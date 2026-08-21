@@ -194,6 +194,11 @@ internal fun WebPostVideoEditor(
                 }
             },
             timelineFrameCount = { timelineFrames.size },
+            timelineFrameEvidence = {
+                timelineFrames.joinToString("|") { frame ->
+                    "${frame.length}:${frame.take(32)}"
+                }
+            },
             isExporting = { state.isExporting },
             exportProgress = { state.exportProgress },
         )
@@ -279,6 +284,7 @@ internal fun installWebPostVideoEditorE2eBridge(
     export: () -> Unit,
     dismiss: () -> Unit,
     timelineFrameCount: () -> Int,
+    timelineFrameEvidence: () -> String,
     isExporting: () -> Boolean,
     exportProgress: () -> Float,
 ): () -> Unit = installPostVideoEditorBridgeWhenAllowed(
@@ -296,12 +302,13 @@ internal fun installWebPostVideoEditorE2eBridge(
     export,
     dismiss,
     timelineFrameCount,
+    timelineFrameEvidence,
     isExporting,
     exportProgress,
 )
 
 @JsFun(
-    """(mute, playPause, trimStart, trimEnd, crop, cropMode, cropZoom, cropPan, captions, captionStyle, reset, exportVideo, dismiss, timelineFrameCount, isExporting, exportProgress) => {
+    """(mute, playPause, trimStart, trimEnd, crop, cropMode, cropZoom, cropPan, captions, captionStyle, reset, exportVideo, dismiss, timelineFrameCount, timelineFrameEvidence, isExporting, exportProgress) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const params = new URLSearchParams(location?.search || '');
       const optedIn = params.get('quata-post-video-editor-e2e') === '1' ||
@@ -324,6 +331,7 @@ internal fun installWebPostVideoEditorE2eBridge(
         export: () => exportVideo(),
         dismiss: () => dismiss(),
         timelineFrameCount: () => Number(timelineFrameCount()),
+        timelineFrameEvidence: () => String(timelineFrameEvidence()),
         isExporting: () => Boolean(isExporting()),
         exportProgress: () => Number(exportProgress()),
       });
@@ -350,6 +358,7 @@ private external fun installPostVideoEditorBridgeWhenAllowed(
     export: () -> Unit,
     dismiss: () -> Unit,
     timelineFrameCount: () -> Int,
+    timelineFrameEvidence: () -> String,
     isExporting: () -> Boolean,
     exportProgress: () -> Float,
 ): () -> Unit
@@ -598,6 +607,9 @@ private fun webPostVideoEditorRecordExportSuccess(
             effectiveTrimEndMs: Number(native.effectiveTrimEndMs || 0),
             effectiveDurationMs: Number(native.effectiveDurationMs || 0),
             wallDurationMs: Number(native.wallDurationMs || 0),
+            elapsedAtStopMs: Number(native.elapsedAtStopMs || 0),
+            stopPaddingMs: Number(native.stopPaddingMs || 0),
+            minimumCaptureFrames: Number(native.minimumCaptureFrames || 0),
             drawnFrameCount: Number(native.drawnFrameCount || 0),
             physicalBackgroundBlur: Boolean(native.physicalBackgroundBlur),
           },
@@ -758,7 +770,7 @@ private fun webPostVideoEditorExportEditedJs(
           if (!context) throw Error('web_post_video_editor_canvas_context_unavailable');
           const fps = Math.max(1, Math.min(60, Number(outputMaxFrameRate) || 30));
           const captureTickRate = fps;
-          stream = canvas.captureStream?.(0) || canvas.captureStream?.(fps);
+          stream = canvas.captureStream?.(fps) || canvas.captureStream?.(0);
           if (!stream || typeof globalThis.MediaRecorder !== 'function') {
             throw Error('web_post_video_editor_media_recorder_unavailable');
           }
@@ -843,8 +855,8 @@ private fun webPostVideoEditorExportEditedJs(
           const requestedEndMs = Math.max(startMs + 500, Number(trimEndMs) || hintedDurationMs);
           const endMs = Math.min(hintedDurationMs, requestedEndMs);
           const durationMs = Math.max(500, endMs - startMs);
-          const stopPaddingMs = removeAudio ? Math.max(500, 1000 / fps * 8) : Math.max(120, 1000 / fps * 4);
-          const minimumCaptureFrames = Math.max(1, Math.ceil(((durationMs + stopPaddingMs) / 1000) * captureTickRate));
+          const stopPaddingMs = Math.max(920, 1000 / fps * 28);
+          const minimumCaptureFrames = Math.max(1, Math.floor((durationMs / 1000) * Math.min(captureTickRate, 12)));
           const sourceStartMs = Math.min(startMs * sourceScale, Math.max(0, actualDurationMs - 500));
           const crop = {
             left: Math.max(0, Math.min(1, Number(cropLeft) || 0)),
@@ -992,6 +1004,8 @@ private fun webPostVideoEditorExportEditedJs(
             if (caption) {
               drawCaptionSegment(segmentAt(exportTimeMs), exportTimeMs);
             }
+            context.fillStyle = drawnFrameCount % 2 === 0 ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)';
+            context.fillRect(0, 0, 1, 1);
             canvasTrack?.requestFrame?.();
           }
           video.onseeked = () => {
@@ -1023,7 +1037,7 @@ private fun webPostVideoEditorExportEditedJs(
               drawFrame(Math.min(durationMs, elapsedMs));
               drawnFrameCount += 1;
               onProgress(Math.min(0.95, 0.35 + (elapsedMs / Math.max(1, durationMs)) * 0.6));
-              const reachedCaptureTail = elapsedMs >= durationMs + stopPaddingMs && drawnFrameCount >= minimumCaptureFrames;
+              const reachedCaptureTail = elapsedMs >= durationMs + stopPaddingMs;
               if (reachedCaptureTail) {
                 elapsedAtStopMs = elapsedMs;
                 try { globalThis.cancelAnimationFrame?.(timer); } catch (_) {}

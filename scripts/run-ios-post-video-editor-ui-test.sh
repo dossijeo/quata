@@ -91,6 +91,8 @@ def patch_target(target, hint=''):
             'QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS',
             'QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE',
             'QUATA_IOS_POST_VIDEO_EDITOR_MUTE',
+            'QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CANCEL',
+            'QUATA_IOS_POST_VIDEO_EDITOR_CANCEL_ONLY',
         ]:
             if os.environ.get(key):
                 env[key] = os.environ[key]
