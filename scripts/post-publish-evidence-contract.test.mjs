@@ -679,7 +679,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /web_post_video_editor_audio_stream_missing_without_mute/);
   assert.match(webPostVideoEditor, /let sourceFrozenAtTrimEnd = false/);
   assert.match(webPostVideoEditor, /video\.currentTime = Math\.min\(\(sourceStartMs \+ durationMs\) \/ 1000/);
-  assert.match(webPostVideoEditor, /const stopPaddingMs = Math\.max\(500, 1000 \/ fps \* 8\)/);
+  assert.match(webPostVideoEditor, /const stopPaddingMs = removeAudio \? Math\.max\(500, 1000 \/ fps \* 8\) : Math\.max\(120, 1000 \/ fps \* 4\)/);
   assert.doesNotMatch(webPostVideoEditor, /Math\.max\(3000, 1000 \/ fps \* 90\)/);
   assert.doesNotMatch(webPostVideoEditor, /Math\.max\(2500, 1000 \/ fps \* 75\)/);
   assert.match(webPostVideoEditor, /const minimumCaptureFrames = Math\.max\(1, Math\.ceil\(\(\(durationMs \+ stopPaddingMs\) \/ 1000\) \* captureTickRate\)\)/);
