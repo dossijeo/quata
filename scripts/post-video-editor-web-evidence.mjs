@@ -103,7 +103,7 @@ async function runAttempt(context) {
     }, { source, outcome, reference, pickerOptIn: PICKER_OPT_IN });
     await page.locator("#create-post-common-root").first().waitFor({ state: "attached", timeout: 45_000 });
     await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-post-composer-e2e") === "ready", null, { timeout: 20_000 });
-    const opened = await screenshot(page, "web-post-video-editor-opened");
+    const composerOpened = await screenshot(page, "web-post-video-editor-composer-opened");
     const resolvedTypeAnchor = await clickComposerType(page, "video");
     const resolvedActionAnchor = await clickComposerMediaAction(page, "composer-media.pick-video");
     const selectedByBridge = await ensureWebVideoSelected(page, reference, "composer-media.pick-video");
@@ -117,6 +117,7 @@ async function runAttempt(context) {
     }, reference, { timeout: 10_000 });
     const resolvedEditAnchor = await clickComposerEditAction(page);
     const resolvedEditorOpen = await ensureWebVideoEditorOpen(page, resolvedEditAnchor, reference);
+    const editorOpened = await screenshot(page, "web-post-video-editor-opened");
     const editorAnchors = await exerciseVideoEditor(page);
     const exported = await page.waitForFunction(() => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
@@ -133,7 +134,7 @@ async function runAttempt(context) {
       status: "passed",
       selectedField: "hasVideo",
       anchors: { type: resolvedTypeAnchor, action: selectedByBridge ?? resolvedActionAnchor, edit: resolvedEditorOpen, editor: editorAnchors },
-      evidence: { opened, afterSelect, afterEdit, physicalOutput },
+      evidence: { composerOpened, editorOpened, afterSelect, afterEdit, physicalOutput },
       state: exported,
     };
   } catch (error) {
