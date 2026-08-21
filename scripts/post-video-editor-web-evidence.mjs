@@ -80,6 +80,7 @@ async function runAttempt(context) {
   const outcome = "success";
   const page = await context.newPage();
   const faults = [];
+  let lastExportState = null;
   page.on("pageerror", (error) => faults.push(`pageerror:${String(error?.message ?? error).slice(0, 160)}`));
   page.on("console", (entry) => {
     if (entry.type() === "error") faults.push(`console_error:${entry.text().slice(0, 180)}`);
@@ -122,6 +123,7 @@ async function runAttempt(context) {
       return state?.hasVideo === true && typeof state?.videoUri === "string" && state.videoUri.startsWith("blob:");
     }, null, { timeout: 15_000 }).then(() => postComposerProductState(page));
     const afterEdit = await screenshot(page, "web-post-video-editor-after-edit");
+    lastExportState = editorAnchors.exportState;
     const physicalOutput = await saveAndProbeWebExport(page, editorAnchors.exportState);
     const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
@@ -141,6 +143,7 @@ async function runAttempt(context) {
       status: "failed",
       error: safeFailure(error),
       errorDetail: String(error?.stack ?? error?.message ?? error).slice(0, 1_500),
+      exportState: lastExportState,
       state: await postComposerProductState(page).catch(() => null),
       candidates: await semanticCandidates(page).catch(() => []),
     };
@@ -321,7 +324,7 @@ async function saveAndProbeWebExport(page, exportState) {
   }
   const physicalDurationMs = ffprobeDurationMs;
   const expectedDurationMs = Math.max(500, Number(exportState.spec?.trimEndMs || 0) - Number(exportState.spec?.trimStartMs || 0));
-  if (physicalDurationMs < expectedDurationMs * 0.45 || physicalDurationMs > expectedDurationMs * 1.45) {
+  if (physicalDurationMs < expectedDurationMs * 0.8 || physicalDurationMs > expectedDurationMs * 1.35) {
     throw new Error(`web_video_editor_physical_trim_duration:${physicalDurationMs}:${expectedDurationMs}`);
   }
   const captionPixelProbe = exportState.operations?.captions === true ? probeCaptionPixels(outputPath) : null;

@@ -2,12 +2,12 @@
 import { spawn } from "node:child_process";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 const CHECK = "POST-VIDEO-EDITOR-ANDROID-REAL-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
-const DEFAULT_VIDEO_FIXTURE = "play-store/05-assets/source-media/sample-video-vertical.mp4";
+const CAPTION_FIXTURE_TEXT = "quata video editor captions are real";
 const deviceCredentialsPath = "app-internal:post-video-editor-credentials.json";
 const deviceTempCredentialsPath = "/data/local/tmp/post-video-editor-credentials.json";
 const deviceTempVideoPath = "/data/local/tmp/post-video-editor-fixture.mp4";
@@ -43,16 +43,24 @@ try {
   );
 
   const gradle = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
-  await run(gradle, [":app:assembleDebug", ":app:assembleDebugAndroidTest", "--console=plain"]);
-  report.steps.push("android_debug_and_test_apks_built");
+  await run(gradle, [":app:assembleDebug", ":app:assembleDebugAndroidTest", ":vosk_model_en:assembleDebug", "--console=plain"]);
+  report.steps.push("android_debug_test_and_vosk_model_en_apks_built");
 
-  await run(adb, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
-  await run(adb, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
+  const appApk = "app/build/outputs/apk/debug/app-debug.apk";
+  const voskModelEnApk = "vosk_model_en/build/outputs/apk/debug/vosk_model_en-debug.apk";
+  const testApk = "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk";
+  await assertFileExists(appApk);
+  await assertFileExists(voskModelEnApk);
+  await assertFileExists(testApk);
+
+  await run(adb, ["install-multiple", "-r", appApk, voskModelEnApk]);
+  await run(adb, ["install", "-r", "-t", testApk]);
   await run(adb, ["push", localCredentials, deviceTempCredentialsPath]);
   await run(adb, ["shell", "chmod", "644", deviceTempCredentialsPath]);
   await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempCredentialsPath, `files/${deviceCredentialsPath.replace("app-internal:", "")}`]);
   await run(adb, ["shell", "rm", "-f", deviceTempCredentialsPath]);
-  await run(adb, ["push", options.videoFixture, deviceTempVideoPath]);
+  const videoFixture = options.videoFixture ?? await validSpeechMp4FixturePath();
+  await run(adb, ["push", videoFixture, deviceTempVideoPath]);
   await run(adb, ["shell", "chmod", "644", deviceTempVideoPath]);
   await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempVideoPath, "files/post-video-editor-fixture.mp4"]);
   await run(adb, ["shell", "rm", "-f", deviceTempVideoPath]);
@@ -81,7 +89,7 @@ try {
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   await copyDeviceEvidence(evidenceDir);
-  report.evidence.physicalExport = probeAndroidExport(join(evidenceDir, "android-post-video-editor-export.mp4"));
+  report.evidence.physicalExport = probeAndroidExport(join(evidenceDir, "android-post-video-editor-export.mp4"), videoFixture);
   report.evidence.directory = evidenceDir;
   report.status = "passed";
 } catch (error) {
@@ -113,7 +121,9 @@ function parseArgs(args) {
     output: resolve(join("build-reports", "android", "post-video-editor-evidence.json")),
     evidenceDir: resolve(join("build-reports", "android", "post-video-editor-evidence")),
     credentialsFile: process.env.QUATA_POST_PUBLISH_CREDENTIALS_FILE?.trim() || DEFAULT_CREDENTIALS_FILE,
-    videoFixture: resolve(process.env.QUATA_POST_VIDEO_EDITOR_FIXTURE?.trim() || DEFAULT_VIDEO_FIXTURE),
+    videoFixture: process.env.QUATA_POST_VIDEO_EDITOR_FIXTURE?.trim()
+      ? resolve(process.env.QUATA_POST_VIDEO_EDITOR_FIXTURE.trim())
+      : null,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
@@ -130,12 +140,65 @@ function parseArgs(args) {
   return parsed;
 }
 
+async function validSpeechMp4FixturePath() {
+  const fixtureDir = resolve(dirname(options.evidenceDir), "post-video-editor-fixtures");
+  await mkdir(fixtureDir, { recursive: true });
+  const wavPath = resolve(fixtureDir, "android-post-video-editor-caption-source.wav");
+  const videoPath = resolve(fixtureDir, "android-post-video-editor-caption-source.mp4");
+  const speechScript = [
+    "$ErrorActionPreference = 'Stop'",
+    "Add-Type -AssemblyName System.Speech",
+    "$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer",
+    "try { $synth.SelectVoiceByHints([System.Speech.Synthesis.VoiceGender]::NotSet, [System.Speech.Synthesis.VoiceAge]::NotSet, 0, [System.Globalization.CultureInfo]::GetCultureInfo('en-US')) } catch {}",
+    `$synth.SetOutputToWaveFile(${powershellQuote(wavPath)})`,
+    `$synth.Speak(${powershellQuote(CAPTION_FIXTURE_TEXT)})`,
+    "$synth.Dispose()",
+  ].join("; ");
+  execFileSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", speechScript], { stdio: "pipe" });
+  execFileSync("ffmpeg", [
+    "-y",
+    "-f", "lavfi",
+    "-i", "testsrc2=s=720x1280:r=30:d=6",
+    "-i", wavPath,
+    "-shortest",
+    "-c:v", "libx264",
+    "-pix_fmt", "yuv420p",
+    "-c:a", "aac",
+    "-b:a", "128k",
+    "-movflags", "+faststart",
+    videoPath,
+  ], { stdio: "pipe" });
+  const fixture = await readFile(videoPath);
+  if (fixture.length < 8_000 || fixture.subarray(4, 8).toString("ascii") !== "ftyp") {
+    throw new Error("invalid_speech_mp4_fixture");
+  }
+  report.evidence.captionFixture = {
+    source: "generated_windows_sapi_en_us_fixture",
+    text: CAPTION_FIXTURE_TEXT,
+    path: videoPath,
+    sizeBytes: fixture.length,
+  };
+  return videoPath;
+}
+
+function powershellQuote(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
 async function loadCredentials(path) {
   const credentials = JSON.parse(await readFile(path, "utf8"));
   for (const field of ["country_code", "phone", "password"]) {
     if (!credentials?.a?.[field]) throw new Error(`credentials_missing:a.${field}`);
   }
   return credentials.a;
+}
+
+async function assertFileExists(path) {
+  try {
+    await access(path);
+  } catch {
+    throw new Error(`required_file_missing:${path}`);
+  }
 }
 
 async function copyDeviceEvidence(evidenceDir) {
@@ -146,7 +209,7 @@ async function copyDeviceEvidence(evidenceDir) {
   }
 }
 
-function probeAndroidExport(outputPath) {
+function probeAndroidExport(outputPath, sourcePath) {
   const ffprobe = JSON.parse(execFileSync("ffprobe", [
     "-v", "error",
     "-print_format", "json",
@@ -167,6 +230,10 @@ function probeAndroidExport(outputPath) {
   if (durationMs <= 0 || durationMs > 90_500) {
     throw new Error(`android_video_editor_physical_duration:${durationMs}`);
   }
+  const sourceDurationMs = probeMediaDurationMs(sourcePath);
+  if (sourceDurationMs > 0 && durationMs >= sourceDurationMs * 0.85) {
+    throw new Error(`android_video_editor_physical_trim_not_applied:${durationMs}:${sourceDurationMs}`);
+  }
   const frameRate = parseFrameRate(videoStream.avg_frame_rate || videoStream.r_frame_rate);
   if (frameRate > 30.5) {
     throw new Error(`android_video_editor_physical_frame_rate:${frameRate}`);
@@ -174,9 +241,20 @@ function probeAndroidExport(outputPath) {
   return {
     path: outputPath,
     durationMs,
+    sourceDurationMs,
     video: { codec: videoStream.codec_name, width, height, frameRate },
     audioStreamPresent: Boolean(audioStream),
   };
+}
+
+function probeMediaDurationMs(path) {
+  const ffprobe = JSON.parse(execFileSync("ffprobe", [
+    "-v", "error",
+    "-print_format", "json",
+    "-show_format",
+    path,
+  ], { encoding: "utf8" }));
+  return Math.round(Number(ffprobe.format?.duration || 0) * 1000);
 }
 
 function isSupportedVideoEditorProfile(width, height) {

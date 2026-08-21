@@ -510,6 +510,8 @@ private fun webPostVideoEditorRecordExportSuccess(
             effectiveTrimStartMs: Number(native.effectiveTrimStartMs || 0),
             effectiveTrimEndMs: Number(native.effectiveTrimEndMs || 0),
             effectiveDurationMs: Number(native.effectiveDurationMs || 0),
+            wallDurationMs: Number(native.wallDurationMs || 0),
+            drawnFrameCount: Number(native.drawnFrameCount || 0),
             physicalBackgroundBlur: Boolean(native.physicalBackgroundBlur),
           },
           spec: {
@@ -625,7 +627,11 @@ private fun webPostVideoEditorExportEditedJs(
           const failOnce = reason => {
             if (finished) return;
             finished = true;
-            if (timer) clearInterval(timer);
+            if (timer) {
+              try { globalThis.cancelAnimationFrame?.(timer); } catch (_) {}
+              try { clearInterval(timer); } catch (_) {}
+              try { clearTimeout(timer); } catch (_) {}
+            }
             try { video.pause?.(); } catch (_) {}
             try { stream?.getTracks?.().forEach(track => track.stop?.()); } catch (_) {}
             if (globalThis.__quataPostVideoEditorActiveExport === activeExport) {
@@ -647,7 +653,8 @@ private fun webPostVideoEditorExportEditedJs(
           const context = canvas.getContext('2d');
           if (!context) throw Error('web_post_video_editor_canvas_context_unavailable');
           const fps = Math.max(1, Math.min(60, Number(outputMaxFrameRate) || 30));
-          stream = canvas.captureStream?.(fps);
+          const captureTickRate = Math.min(120, fps * 2);
+          stream = canvas.captureStream?.(0) || canvas.captureStream?.(fps);
           if (!stream || typeof globalThis.MediaRecorder !== 'function') {
             throw Error('web_post_video_editor_media_recorder_unavailable');
           }
@@ -659,8 +666,10 @@ private fun webPostVideoEditorExportEditedJs(
             } catch (_) {}
           }
           const chunks = [];
-          const mimeType = globalThis.MediaRecorder.isTypeSupported?.('video/webm;codecs=vp9')
-            ? 'video/webm;codecs=vp9'
+          let drawnFrameCount = 0;
+          let exportStartedAt = 0;
+          const mimeType = globalThis.MediaRecorder.isTypeSupported?.('video/webm;codecs=vp8')
+            ? 'video/webm;codecs=vp8'
             : 'video/webm';
           recorder = new globalThis.MediaRecorder(stream, {
             mimeType,
@@ -688,6 +697,8 @@ private fun webPostVideoEditorExportEditedJs(
                 effectiveTrimStartMs: startMs,
                 effectiveTrimEndMs: endMs,
                 effectiveDurationMs: durationMs,
+                wallDurationMs: exportStartedAt > 0 ? Math.max(0, performance.now() - exportStartedAt) : 0,
+                drawnFrameCount,
                 physicalBackgroundBlur: true,
               };
               const reference = globalThis.URL.createObjectURL(blob);
@@ -713,6 +724,7 @@ private fun webPostVideoEditorExportEditedJs(
           const requestedEndMs = Math.max(startMs + 500, Number(trimEndMs) || hintedDurationMs);
           const endMs = Math.min(hintedDurationMs, requestedEndMs);
           const durationMs = Math.max(500, endMs - startMs);
+          const stopPaddingMs = Math.min(450, Math.max(160, durationMs * 0.22, 1000 / fps * 6));
           const sourceStartMs = Math.min(startMs * sourceScale, Math.max(0, actualDurationMs - 500));
           const crop = {
             left: Math.max(0, Math.min(1, Number(cropLeft) || 0)),
@@ -840,32 +852,39 @@ private fun webPostVideoEditorExportEditedJs(
             if (caption) {
               drawCaptionSegment(segmentAt(exportTimeMs), exportTimeMs);
             }
-            context.fillStyle = Math.floor(exportTimeMs / Math.max(1, 1000 / fps)) % 2 === 0
-              ? 'rgba(0,0,0,0.01)'
-              : 'rgba(0,0,0,0.00)';
-            context.fillRect(0, 0, 1, 1);
+            const markerX = 2 + (drawnFrameCount % 24) * 6;
+            context.fillStyle = drawnFrameCount % 2 === 0
+              ? 'rgba(255,255,255,0.10)'
+              : 'rgba(0,0,0,0.10)';
+            context.fillRect(markerX, 2, 5, 5);
             canvasTrack?.requestFrame?.();
           }
           video.onseeked = () => {
             recorder.start(250);
             video.play?.().catch(() => {});
-            const startedAt = performance.now();
-            timer = setInterval(() => {
+            exportStartedAt = performance.now();
+            const tick = () => {
               if (globalThis.__quataPostVideoEditorCancelRequested) {
                 try { recorder.stop(); } catch (_) {}
                 failOnce('web_post_video_editor_export_cancelled');
                 return;
               }
-              const elapsedMs = Math.max(0, performance.now() - startedAt);
+              const elapsedMs = Math.max(0, performance.now() - exportStartedAt);
               drawFrame(Math.min(durationMs, elapsedMs));
+              drawnFrameCount += 1;
               onProgress(Math.min(0.95, 0.35 + (elapsedMs / Math.max(1, durationMs)) * 0.6));
               const reachedRequestedDuration = elapsedMs >= durationMs;
-              if (reachedRequestedDuration) {
-                clearInterval(timer);
+              const reachedCaptureTail = elapsedMs >= durationMs + stopPaddingMs;
+              if (reachedCaptureTail) {
+                try { globalThis.cancelAnimationFrame?.(timer); } catch (_) {}
+                try { clearTimeout(timer); } catch (_) {}
                 video.pause?.();
                 recorder.stop();
+                return;
               }
-            }, 1000 / fps);
+              timer = globalThis.requestAnimationFrame?.(tick) || setTimeout(tick, 1000 / captureTickRate);
+            };
+            timer = globalThis.requestAnimationFrame?.(tick) || setTimeout(tick, 1000 / captureTickRate);
           };
           video.currentTime = sourceStartMs / 1000;
         })).then(onSuccess).catch(error => onFailure(String(error?.message || error || 'web_post_video_editor_export_failed').slice(0, 160)));

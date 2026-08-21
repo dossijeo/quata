@@ -566,13 +566,20 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidVideoEditorRunner, /POST-VIDEO-EDITOR-ANDROID-REAL-001/);
   assert.match(androidVideoEditorRunner, /authenticatedUserExercisesPostVideoEditorFromCommonComposer/);
   assert.match(androidVideoEditorRunner, /quataPostVideoEditorEvidence/);
-  assert.match(androidVideoEditorRunner, /sample-video-vertical\.mp4/);
+  assert.match(androidVideoEditorRunner, /CAPTION_FIXTURE_TEXT/);
+  assert.match(androidVideoEditorRunner, /validSpeechMp4FixturePath/);
+  assert.match(androidVideoEditorRunner, /generated_windows_sapi_en_us_fixture/);
+  assert.match(androidVideoEditorRunner, /:vosk_model_en:assembleDebug/);
+  assert.match(androidVideoEditorRunner, /vosk_model_en-debug\.apk/);
+  assert.match(androidVideoEditorRunner, /install-multiple/);
   assert.match(androidPostPublishTest, /ComposerEditVideoTestTag/);
   assert.match(androidPostPublishTest, /PostVideoEditorRootTestTag/);
   assert.match(androidPostPublishTest, /PostVideoEditorExportTestTag/);
   assert.match(androidPostPublishTest, /onAllNodesWithTag\(PostVideoEditorMuteTestTag/);
   assert.match(androidPostPublishTest, /PostVideoEditorCropTestTag/);
   assert.match(androidPostPublishTest, /post-video-editor\.crop-mode\.Square/);
+  assert.match(androidPostPublishTest, /PostVideoEditorTrimStartHandleTestTag/);
+  assert.match(androidPostPublishTest, /PostVideoEditorTrimEndHandleTestTag/);
   assert.match(androidPostPublishTest, /PostVideoEditorCaptionsTestTag/);
   assert.match(androidPostPublishTest, /post-video-editor\.caption-style\.Karaoke/);
   assert.match(androidPostPublishTest, /PostVideoEditorResetTestTag/);
@@ -580,6 +587,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidPostPublishTest, /onAllNodesWithTag\(PostVideoEditorExportTestTag/);
   assert.match(androidVideoEditorRunner, /probeAndroidExport/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_frame_rate/);
+  assert.match(androidVideoEditorRunner, /android_video_editor_physical_trim_not_applied/);
 
   assert.match(webVideoEditorRunner, /POST-VIDEO-EDITOR-WEB-REAL-001/);
   assert.match(webVideoEditorRunner, /quata-post-video-editor-e2e/);
@@ -605,13 +613,18 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /web_video_editor_caption_pixels_missing/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_present_after_mute/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_trim_duration/);
+  assert.match(webVideoEditorRunner, /expectedDurationMs \* 0\.8/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_duration_unmeasured/);
   assert.match(webVideoEditorRunner, /"-show_packets"/);
   assert.match(webVideoEditorRunner, /physicalDurationMsFromProbe/);
   assert.match(webPostVideoEditor, /const sourceScale = actualDurationMs > 0 && hintedDurationMs > actualDurationMs \* 1\.5/);
   assert.match(webPostVideoEditor, /const sourceStartMs = Math\.min\(startMs \* sourceScale/);
   assert.match(webPostVideoEditor, /drawFrame\(Math\.min\(durationMs, elapsedMs\)\)/);
+  assert.match(webPostVideoEditor, /canvas\.captureStream\?\.\(0\) \|\| canvas\.captureStream\?\.\(fps\)/);
   assert.match(webPostVideoEditor, /const canvasTrack = stream\.getVideoTracks\?\.\(\)\[0\]/);
+  assert.match(webPostVideoEditor, /const captureTickRate = Math\.min\(120, fps \* 2\)/);
+  assert.match(webPostVideoEditor, /const stopPaddingMs = Math\.min\(450, Math\.max\(160, durationMs \* 0\.22, 1000 \/ fps \* 6\)\)/);
+  assert.match(webPostVideoEditor, /requestAnimationFrame\?\.\(tick\)/);
   assert.match(webPostVideoEditor, /canvasTrack\?\.requestFrame\?\.\(\)/);
   assert.doesNotMatch(webPostVideoEditor, /reachedSourceEndAfterMostOfTrim/);
   assert.match(webVideoEditorRunner, /web_video_editor_export_missing_operation:\$\{operation\}/);

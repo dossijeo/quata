@@ -8,6 +8,8 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -19,6 +21,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -42,6 +45,8 @@ import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportProgressT
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorResetTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorRootTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorTimelineTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorTrimEndHandleTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorTrimStartHandleTestTag
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertTrue
@@ -522,6 +527,18 @@ class PostPublishRealInstrumentedTest {
             compose.onAllNodesWithTag(PostVideoEditorResetTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
+            compose.onNodeWithTag(PostVideoEditorTrimStartHandleTestTag, useUnmergedTree = true)
+                .performTouchInput {
+                    down(center)
+                    moveBy(Offset(72f, 0f))
+                    up()
+                }
+            compose.onNodeWithTag(PostVideoEditorTrimEndHandleTestTag, useUnmergedTree = true)
+                .performTouchInput {
+                    down(center)
+                    moveBy(Offset((-336).toFloat(), 0f))
+                    up()
+                }
             compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performScrollTo()
@@ -558,13 +575,24 @@ class PostPublishRealInstrumentedTest {
                 val errorVisible = runCatching {
                     compose.onNodeWithTag(PostVideoEditorErrorTestTag, useUnmergedTree = true).fetchSemanticsNode()
                 }.isSuccess
-                throw AssertionError("android_video_editor_export_did_not_close:progress=$progressVisible:error=$errorVisible")
+                val errorText = runCatching {
+                    compose.onNodeWithTag(PostVideoEditorErrorTestTag, useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                        .config[SemanticsProperties.Text]
+                        .joinToString(" ") { it.text }
+                }.getOrNull().orEmpty().take(180)
+                throw AssertionError("android_video_editor_export_did_not_close:progress=$progressVisible:error=$errorVisible:errorText=$errorText")
             }
-            assertTrue(
-                "android_video_editor_export_returned_to_selected_preview",
-                runCatching { compose.onNodeWithTag(ComposerSelectedVideoPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
-                    runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
-            )
+            val returnedToPreview = runCatching {
+                compose.waitUntil(30_000) {
+                    runCatching { compose.onNodeWithTag(ComposerSelectedVideoPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
+                        runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+                }
+            }.isSuccess
+            if (!returnedToPreview) {
+                saveScreenshot("android-post-video-editor-return-timeout")
+            }
+            assertTrue("android_video_editor_export_returned_to_selected_preview", returnedToPreview)
             saveScreenshot("android-post-video-editor-exported-preview")
             copyLatestEditedVideoEvidence()
         }
