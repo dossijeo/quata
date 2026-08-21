@@ -760,6 +760,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditor, /metadata\?\.durationMs/);
   assert.match(iosPostVideoEditor, /metadata\?\.aspectRatio/);
   assert.match(iosPostVideoEditor, /QuataVideoExportPolicy\.selectForSource/);
+  assert.match(iosPostVideoEditor, /recommendedExportProfileLabel\(\)/);
+  assert.match(iosPostVideoEditor, /iosPostVideoEditorExportProfileFor/);
   assert.match(iosPostVideoEditor, /postVideoEditorStateForSourceDuration/);
   assert.match(iosPostVideoEditor, /postVideoEditorExportSpec\(\s*state,\s*videoAspectRatio,\s*durationMs,\s*captionDocument,\s*exportProfile,/);
   assert.match(iosPostVideoEditor, /CaptionDocument\.fromWords/);
@@ -786,6 +788,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /backgroundLayer/);
   assert.match(iosPostVideoEditorNativeDriver, /outputMaxFrameRate/);
   assert.match(iosPostVideoEditorNativeDriver, /outputTargetBitrate/);
+  assert.match(iosPostVideoEditorNativeDriver, /recommendedExportProfileLabel\(\)/);
+  assert.match(iosPostVideoEditorNativeDriver, /export_profile_recommended/);
   assert.match(iosPostVideoEditorNativeDriver, /cancelExport\(\)/);
   assert.match(iosPostVideoEditorNativeDriver, /cancelExport\(\)/);
   assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_export_cancelled/);

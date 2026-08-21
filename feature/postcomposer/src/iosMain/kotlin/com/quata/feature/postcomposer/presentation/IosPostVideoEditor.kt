@@ -14,6 +14,7 @@ import com.quata.core.captions.core.CaptionDocument
 import com.quata.core.captions.core.CaptionDocumentWireCodec
 import com.quata.core.captions.templates.CaptionTemplateStyle
 import com.quata.core.media.QuataVideoExportPolicy
+import com.quata.core.media.VideoExportProfile
 import com.quata.core.platform.IosVideoThumbnailService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
@@ -46,6 +47,7 @@ import kotlin.coroutines.resumeWithException
 interface IosPostVideoEditorNativeDriver {
     fun createPreview(reference: String): IosPostVideoEditorPreviewSurface
     fun metadata(source: PlatformFile): IosPostVideoEditorMetadata?
+    fun recommendedExportProfileLabel(): String?
     fun recordCaptionStyleChange(styleId: String?)
     fun transcribe(source: PlatformFile, callback: IosPostVideoEditorTranscriptCallback)
     fun export(source: PlatformFile, request: IosPostVideoEditorExportRequest, callback: IosPostVideoEditorExportCallback)
@@ -120,6 +122,7 @@ data class IosPostVideoEditorMetadata(
 object UnsupportedIosPostVideoEditorNativeDriver : IosPostVideoEditorNativeDriver {
     override fun createPreview(reference: String): IosPostVideoEditorPreviewSurface = UnsupportedIosPostVideoEditorPreviewSurface
     override fun metadata(source: PlatformFile): IosPostVideoEditorMetadata? = null
+    override fun recommendedExportProfileLabel(): String? = null
     override fun recordCaptionStyleChange(styleId: String?) = Unit
     override fun transcribe(source: PlatformFile, callback: IosPostVideoEditorTranscriptCallback) {
         callback.onFailure("ios_post_video_editor_caption_transcript_missing")
@@ -185,7 +188,10 @@ internal fun IosPostVideoEditor(
             state = postVideoEditorStateForSourceDuration(state, it)
         }
         loadedMetadata?.let {
-            exportProfile = QuataVideoExportPolicy.selectForSource(it.width, it.height)
+            exportProfile = iosPostVideoEditorExportProfileFor(
+                sourceProfile = QuataVideoExportPolicy.selectForSource(it.width, it.height),
+                recommendedLabel = nativeDriver.recommendedExportProfileLabel(),
+            )
         }
         val service = IosVideoThumbnailService()
         thumbnail = when (val result = service.createThumbnail(source, maxWidth = 720)) {
@@ -349,6 +355,23 @@ private fun IosPostVideoEditorNativePreview(
         },
         modifier = modifier,
     )
+}
+
+private fun iosPostVideoEditorExportProfileFor(
+    sourceProfile: VideoExportProfile,
+    recommendedLabel: String?,
+): VideoExportProfile {
+    val recommended = when (recommendedLabel) {
+        QuataVideoExportPolicy.sd432Aligned.label -> QuataVideoExportPolicy.sd432Aligned
+        QuataVideoExportPolicy.conservativeProfile.label -> QuataVideoExportPolicy.conservativeProfile
+        QuataVideoExportPolicy.defaultProfile.label -> QuataVideoExportPolicy.defaultProfile
+        else -> null
+    } ?: return sourceProfile
+    return if (recommended.width * recommended.height < sourceProfile.width * sourceProfile.height) {
+        recommended
+    } else {
+        sourceProfile
+    }
 }
 
 private suspend fun iosPostVideoEditorTranscribeCaptions(

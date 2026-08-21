@@ -35,6 +35,17 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
         )
     }
 
+    func recommendedExportProfileLabel() -> String? {
+        let isSimulator = ProcessInfo.processInfo.environment["SIMULATOR_UDID"] != nil ||
+            ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] != nil
+        let profile = isSimulator ? "480p" : "720p"
+        Self.writeEvidenceEvent("export_profile_recommended", details: [
+            "profile": profile,
+            "isSimulator": isSimulator ? "true" : "false",
+        ])
+        return profile
+    }
+
     func recordCaptionStyleChange(styleId: String?) {
         Self.writeEvidenceEvent("caption_style_change", details: ["style": styleId ?? "none"])
     }
