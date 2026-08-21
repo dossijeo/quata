@@ -55,6 +55,8 @@ try {
 
   await run(adb, ["install-multiple", "-r", appApk, voskModelEnApk]);
   await run(adb, ["install", "-r", "-t", testApk]);
+  await clearAppDataOnEmulator();
+  report.steps.push("android_emulator_app_data_cleared_before_evidence_to_avoid_stale_background_jobs");
   await run(adb, ["shell", "run-as", "com.quata", "mkdir", "-p", "files"]);
   await run(adb, ["push", localCredentials, deviceTempCredentialsPath]);
   await run(adb, ["shell", "chmod", "644", deviceTempCredentialsPath]);
@@ -216,6 +218,15 @@ async function assertFileExists(path) {
   } catch {
     throw new Error(`required_file_missing:${path}`);
   }
+}
+
+async function clearAppDataOnEmulator() {
+  const qemu = (await runCapture(adb, ["shell", "getprop", "ro.kernel.qemu"])).trim();
+  if (qemu !== "1") {
+    throw new Error("android_post_video_editor_evidence_requires_emulator_for_pm_clear");
+  }
+  await run(adb, ["shell", "am", "force-stop", "com.quata"]);
+  await run(adb, ["shell", "pm", "clear", "com.quata"]);
 }
 
 async function copyDeviceEvidence(evidenceDir) {
