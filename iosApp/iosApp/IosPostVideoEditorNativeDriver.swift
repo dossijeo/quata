@@ -711,14 +711,24 @@ private final class IosPostVideoEditorExportOperation {
         let videoComposition = AVMutableVideoComposition(asset: asset) { renderRequest in
             let source = renderRequest.sourceImage.clampedToExtent()
             let extent = renderRequest.sourceImage.extent
+            let blurScale: CGFloat = 0.25
+            let blurSize = CGSize(
+                width: max(2, outputSize.width * blurScale),
+                height: max(2, outputSize.height * blurScale)
+            )
             let background = Self.drawCrop(
                 source: source,
                 sourceExtent: extent,
                 crop: backgroundCrop,
-                outputSize: outputSize,
+                outputSize: blurSize,
                 mode: .fill
             )
-                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 22])
+                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 6])
+                .cropped(to: CGRect(origin: .zero, size: blurSize))
+                .transformed(by: CGAffineTransform(
+                    scaleX: outputSize.width / blurSize.width,
+                    y: outputSize.height / blurSize.height
+                ))
                 .cropped(to: CGRect(origin: .zero, size: outputSize))
             let foreground = Self.drawCrop(
                 source: renderRequest.sourceImage,
