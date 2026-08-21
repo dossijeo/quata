@@ -441,7 +441,7 @@ private fun CommonCaptionPreviewOverlay(
 }
 
 private fun captionColor(argb: Long): Color =
-    Color(argb.toULong())
+    Color(argb.toInt())
 
 @Composable
 private fun PostVideoEditorControls(
