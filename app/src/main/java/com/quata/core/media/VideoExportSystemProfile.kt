@@ -15,6 +15,16 @@ object VideoExportSystemProfile {
             cachedProfile ?: detectProfile().also { cachedProfile = it }
     }
 
+    fun forSource(width: Int, height: Int): VideoExportProfile {
+        val systemProfile = current()
+        val sourceProfile = QuataVideoExportPolicy.selectForSource(width, height)
+        return if (systemProfile.width * systemProfile.height < sourceProfile.width * sourceProfile.height) {
+            systemProfile
+        } else {
+            sourceProfile
+        }
+    }
+
     private fun detectProfile(): VideoExportProfile {
         if (Build.VERSION.SDK_INT == Build.VERSION_CODES.O_MR1) return QuataVideoExportPolicy.sd432Aligned
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return QuataVideoExportPolicy.conservativeProfile

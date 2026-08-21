@@ -1,5 +1,6 @@
 package com.quata.feature.postcomposer.videoeditor
 
+import com.quata.core.media.QuataVideoExportPolicy
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -93,6 +94,31 @@ class PostVideoEditorExportSpecTest {
         assertEquals(false, reset.isMuted)
         assertEquals(false, reset.cropEnabled)
         assertEquals(false, reset.captionsEnabled)
+    }
+
+    @Test
+    fun sharedExportPolicySelectsSourceEnvelope() {
+        assertEquals(QuataVideoExportPolicy.hd720, QuataVideoExportPolicy.selectForSource(1920, 1080))
+        assertEquals(QuataVideoExportPolicy.sd480, QuataVideoExportPolicy.selectForSource(854, 480))
+        assertEquals(QuataVideoExportPolicy.sd432Aligned, QuataVideoExportPolicy.selectForSource(320, 568))
+    }
+
+    @Test
+    fun exportSpecPropagatesSelectedProfileToNativeEdges() {
+        val profile = QuataVideoExportPolicy.sd432Aligned
+
+        val spec = postVideoEditorExportSpec(
+            state = PostVideoEditorUiState(),
+            videoAspectRatio = 9f / 16f,
+            durationMs = 3_000L,
+            exportProfile = profile,
+        )
+
+        assertEquals(profile.width, spec.outputWidth)
+        assertEquals(profile.height, spec.outputHeight)
+        assertEquals(profile.maxFrameRate, spec.outputMaxFrameRate)
+        assertEquals(profile.targetBitrate, spec.outputTargetBitrate)
+        assertEquals(profile.intermediateBitrate, spec.outputIntermediateBitrate)
     }
 
     private fun assertClose(expected: Float, actual: Float, tolerance: Float = 0.00001f) {

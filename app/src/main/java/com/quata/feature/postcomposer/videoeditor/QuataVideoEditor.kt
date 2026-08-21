@@ -217,8 +217,10 @@ fun QuataVideoEditorDialog(
     val appContext = remember(context) { context.applicationContext }
     val scope = rememberCoroutineScope()
     val metadata = rememberVideoEditorMetadata(editorSourceUri)
-    val exportProfile = remember { VideoExportSystemProfile.current() }
     val videoAspect = metadata.aspectRatio ?: (9f / 16f)
+    val exportProfile = remember(metadata.displayWidth, metadata.displayHeight) {
+        VideoExportSystemProfile.forSource(metadata.displayWidth, metadata.displayHeight)
+    }
 
     var trimStartMs by remember(editorSourceUri) { mutableLongStateOf(0L) }
     var trimEndMs by remember(editorSourceUri) { mutableLongStateOf(0L) }
@@ -456,54 +458,63 @@ fun QuataVideoEditorDialog(
         isCaptionPanelOpen = false
         isExporting = true
         exportProgress = 0f
-        val selectedCaptionStyle = captionStyle
-        val selectedCropRect = cropRect.takeUnless { it.isFullFrame }
-        val backgroundCropRect = if (cropRect.isFullFrame && metadata.hasNineSixteenAspect()) {
-            null
-        } else {
-            cropRect
-                .centerCropToAspect(EditorOutputAspectRatio, videoAspect)
-                .takeUnless { it.isFullFrame }
-        }
-        val targetOutputWidth = exportProfile.width
-        val targetOutputHeight = exportProfile.height
+        val exportState = PostVideoEditorUiState(
+            isMuted = isMuted,
+            trimStartFraction = if (durationMs > 0L) trimStartMs.toFloat() / durationMs else 0f,
+            trimEndFraction = if (durationMs > 0L) trimEndMs.toFloat() / durationMs else 1f,
+            cropEnabled = cropMode != VideoCropMode.Original,
+            captionsEnabled = captionStyle != null,
+            cropMode = cropMode,
+            cropZoom = cropZoom,
+            cropCenterX = cropCenter.x,
+            cropCenterY = cropCenter.y,
+            selectedCaptionStyleId = captionStyle?.name,
+        )
         exportJob = scope.launch {
             try {
                 if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
                     delay(250L)
                 }
-                val captionTrack = selectedCaptionStyle?.let { style ->
+                val captionDocument = captionStyle?.let {
                     exportProgress = 0.03f
-                    val captionDocument = VoskVideoTranscriber(appContext)
-                        .transcribe(editorSourceUri)
-                        .trimTo(trimStartMs, trimEndMs)
+                    VoskVideoTranscriber(appContext).transcribe(editorSourceUri)
+                }
+                val spec = postVideoEditorExportSpec(
+                    exportState,
+                    videoAspect,
+                    durationMs,
+                    captionDocument,
+                    exportProfile,
+                )
+                val captionTrack = spec.captionStyle?.let { style ->
+                    val document = spec.captionDocument ?: error("android_post_video_editor_caption_transcript_missing")
                     CaptionBurnInTrack(
-                        document = captionDocument,
+                        document = document,
                         style = style,
-                        outputWidth = targetOutputWidth,
-                        outputHeight = targetOutputHeight
+                        outputWidth = spec.outputWidth,
+                        outputHeight = spec.outputHeight
                     )
                 }
                 val request = VideoEditorExportRequest(
                     sourceUri = editorSourceUri,
-                    trimStartMs = trimStartMs,
-                    trimEndMs = trimEndMs,
-                    sourceDurationMs = durationMs,
-                    removeAudio = isMuted,
-                    cropRect = selectedCropRect,
-                    backgroundCropRect = backgroundCropRect,
+                    trimStartMs = spec.trimStartMs,
+                    trimEndMs = spec.trimEndMs,
+                    sourceDurationMs = spec.sourceDurationMs,
+                    removeAudio = spec.removeAudio,
+                    cropRect = spec.cropRect.takeUnless { it.isFullFrame },
+                    backgroundCropRect = spec.backgroundCropRect,
                     sourceWidth = metadata.displayWidth,
                     sourceHeight = metadata.displayHeight,
                     sourceRotation = metadata.rotation,
                     sourceFrameRate = metadata.frameRate,
                     sourceBitrate = metadata.bitrate,
-                    outputWidth = targetOutputWidth,
-                    outputHeight = targetOutputHeight,
-                    exportProfile = exportProfile,
+                    outputWidth = spec.outputWidth,
+                    outputHeight = spec.outputHeight,
+                    exportProfile = spec.exportProfile,
                     captionTrack = captionTrack
                 )
                 val exportedUri = appContext.exportEditedVideo(request) { progress ->
-                    exportProgress = if (selectedCaptionStyle != null) {
+                    exportProgress = if (captionTrack != null) {
                         0.12f + progress * 0.88f
                     } else {
                         progress
