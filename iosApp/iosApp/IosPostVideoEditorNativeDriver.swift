@@ -556,8 +556,9 @@ private final class IosPostVideoEditorExportOperation {
             return
         }
         let needsBackgroundTrack = request.hasBackgroundCrop
-        let needsCoreImageBackground = needsBackgroundTrack
-        let compositionBackground: AVMutableCompositionTrack? = nil
+        let compositionBackground: AVMutableCompositionTrack? = needsBackgroundTrack
+            ? composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+            : nil
         do {
             try compositionVideo.insertTimeRange(range, of: videoTrack, at: .zero)
             if let compositionBackground {
@@ -596,16 +597,12 @@ private final class IosPostVideoEditorExportOperation {
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
         exportSession.timeRange = CMTimeRange(start: .zero, duration: range.duration)
-        exportSession.videoComposition = if needsCoreImageBackground {
-            makeBlurredBackgroundVideoComposition(asset: composition, duration: range.duration)
-        } else {
-            makeVideoComposition(
-                track: videoTrack,
-                foregroundTrack: compositionVideo,
-                backgroundTrack: compositionBackground,
-                duration: range.duration
-            )
-        }
+        exportSession.videoComposition = makeVideoComposition(
+            track: videoTrack,
+            foregroundTrack: compositionVideo,
+            backgroundTrack: compositionBackground,
+            duration: range.duration
+        )
         startProgressTimer(session: exportSession, floor: 0.35, ceiling: captionDocument == nil ? 0.95 : 0.72)
         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_started", details: [
             "durationMs": "\(Int64(CMTimeGetSeconds(range.duration) * 1_000))",
@@ -624,12 +621,13 @@ private final class IosPostVideoEditorExportOperation {
                         self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
                         return
                     }
-                    if let captionStyle = self.request.captionStyle, !captionStyle.isEmpty, let captionDocument {
-                        self.burnCaptions(
+                    if self.request.hasBackgroundCrop || captionDocument != nil {
+                        self.applyVisualEffects(
                             inputUrl: outputUrl,
                             outputUrl: finalOutputUrl,
-                            captionStyle: captionStyle,
+                            captionStyle: self.request.captionStyle,
                             captionDocument: captionDocument,
+                            sourceDisplaySize: self.displaySize(for: videoTrack),
                             callback: callback
                         )
                     } else {
@@ -817,32 +815,59 @@ private final class IosPostVideoEditorExportOperation {
         return CGSize(width: max(1, width), height: max(1, height))
     }
 
-    private func burnCaptions(
+    private func applyVisualEffects(
         inputUrl: URL,
         outputUrl: URL,
-        captionStyle: String,
-        captionDocument: CaptionDocumentWire,
+        captionStyle: String?,
+        captionDocument: CaptionDocumentWire?,
+        sourceDisplaySize: CGSize,
         callback: any IosPostVideoEditorExportCallback
     ) {
-        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_start", details: [
-            "segments": "\(captionDocument.segments.count)",
-        ])
-        let asset = AVURLAsset(url: inputUrl)
-        let videoComposition = AVMutableVideoComposition(asset: asset) { request in
-            let timeMs = max(0, Int64((CMTimeGetSeconds(request.compositionTime) * 1_000).rounded()))
-            guard let segment = captionDocument.segment(at: timeMs) else {
-                request.finish(with: request.sourceImage, context: nil)
-                return
-            }
-            let overlay = Self.captionOverlayImage(
-                outputSize: request.sourceImage.extent.size,
-                segment: segment,
-                timeMs: timeMs,
-                style: captionStyle
-            )
-            request.finish(with: overlay.composited(over: request.sourceImage), context: nil)
+        if request.hasBackgroundCrop {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_start")
         }
-        videoComposition.renderSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
+        if let captionDocument {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_start", details: [
+                "segments": "\(captionDocument.segments.count)",
+            ])
+        }
+        let asset = AVURLAsset(url: inputUrl)
+        let renderSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
+        let foregroundRect = foregroundContentRect(outputSize: renderSize, sourceDisplaySize: sourceDisplaySize)
+        let shouldBlurBackground = request.hasBackgroundCrop
+        let selectedCaptionStyle = captionStyle?.isEmpty == false ? captionStyle! : "Karaoke"
+        let videoComposition = AVMutableVideoComposition(asset: asset) { renderRequest in
+            var image = renderRequest.sourceImage
+            if shouldBlurBackground {
+                let extent = renderRequest.sourceImage.extent
+                let blurred = renderRequest.sourceImage
+                    .clampedToExtent()
+                    .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 10])
+                    .cropped(to: extent)
+                let rect = CGRect(
+                    x: extent.minX + foregroundRect.minX,
+                    y: extent.minY + foregroundRect.minY,
+                    width: foregroundRect.width,
+                    height: foregroundRect.height
+                ).intersection(extent)
+                let foreground = renderRequest.sourceImage.cropped(to: rect)
+                image = foreground.composited(over: blurred)
+            }
+            if let captionDocument {
+                let timeMs = max(0, Int64((CMTimeGetSeconds(renderRequest.compositionTime) * 1_000).rounded()))
+                if let segment = captionDocument.segment(at: timeMs) {
+                    let overlay = Self.captionOverlayImage(
+                        outputSize: renderRequest.sourceImage.extent.size,
+                        segment: segment,
+                        timeMs: timeMs,
+                        style: selectedCaptionStyle
+                    )
+                    image = overlay.composited(over: image)
+                }
+            }
+            renderRequest.finish(with: image, context: nil)
+        }
+        videoComposition.renderSize = renderSize
         videoComposition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
         guard let captionExportSession = AVAssetExportSession(asset: asset, presetName: exportPresetName()) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_session_unavailable")
@@ -864,7 +889,12 @@ private final class IosPostVideoEditorExportOperation {
                         self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
                         return
                     }
-                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_completed")
+                    if self.request.hasBackgroundCrop {
+                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_completed")
+                    }
+                    if captionDocument != nil {
+                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_completed")
+                    }
                     self.finishSuccess(outputUrl: outputUrl, callback: callback)
                     try? FileManager.default.removeItem(at: inputUrl)
                 case .failed, .cancelled:
@@ -883,6 +913,20 @@ private final class IosPostVideoEditorExportOperation {
                 }
             }
         }
+    }
+
+    private func foregroundContentRect(outputSize: CGSize, sourceDisplaySize: CGSize) -> CGRect {
+        let crop = request.foregroundCrop
+        let cropWidth = max(1, crop.width * max(1, sourceDisplaySize.width))
+        let cropHeight = max(1, crop.height * max(1, sourceDisplaySize.height))
+        let cropAspectRatio = cropWidth / cropHeight
+        let outputAspectRatio = outputSize.width / outputSize.height
+        if cropAspectRatio > outputAspectRatio {
+            let height = outputSize.width / cropAspectRatio
+            return CGRect(x: 0, y: (outputSize.height - height) / 2, width: outputSize.width, height: height)
+        }
+        let width = outputSize.height * cropAspectRatio
+        return CGRect(x: (outputSize.width - width) / 2, y: 0, width: width, height: outputSize.height)
     }
 
     private struct CaptionRenderSpec {
