@@ -916,6 +916,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosInfoPlist, /NSSpeechRecognitionUsageDescription/);
   assert.doesNotMatch(iosComposerHost, /I_ACCEPT_IOS_POST_COMPOSER_VIDEO_EDITOR_FIXTURE/);
   assert.match(androidPostPublishTest, /compose\.waitUntil\(240_000\)/);
+  assert.match(androidPostPublishTest, /fun isEditorDialogVisible\(\)/);
+  assert.match(androidPostPublishTest, /PostVideoEditorPreviewTestTag/);
+  assert.match(androidPostPublishTest, /hasReturnedToComposerPreview\(\)/);
 
   for (const runner of [androidVideoEditorRunner, webVideoEditorRunner, iosVideoEditorRunner]) {
     assert.doesNotMatch(runner, /community_posts/);

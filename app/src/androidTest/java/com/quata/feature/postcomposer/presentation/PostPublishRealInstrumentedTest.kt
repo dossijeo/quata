@@ -594,10 +594,18 @@ class PostPublishRealInstrumentedTest {
             compose.onAllNodesWithTag(PostVideoEditorExportTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
+            fun isEditorDialogVisible(): Boolean =
+                runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess ||
+                    runCatching { compose.onNodeWithTag(PostVideoEditorPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess ||
+                    runCatching { compose.onNodeWithTag(PostVideoEditorExportTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+
+            fun hasReturnedToComposerPreview(): Boolean =
+                runCatching { compose.onNodeWithTag(ComposerSelectedVideoPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
+                    !isEditorDialogVisible()
+
             val exportClosed = runCatching {
                 compose.waitUntil(240_000) {
-                    runCatching { compose.onNodeWithTag(ComposerSelectedVideoPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
-                        runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+                    hasReturnedToComposerPreview()
                 }
             }.isSuccess
             if (!exportClosed) {
@@ -618,8 +626,7 @@ class PostPublishRealInstrumentedTest {
             }
             val returnedToPreview = runCatching {
                 compose.waitUntil(30_000) {
-                    runCatching { compose.onNodeWithTag(ComposerSelectedVideoPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
-                        runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+                    hasReturnedToComposerPreview()
                 }
             }.isSuccess
             if (!returnedToPreview) {
