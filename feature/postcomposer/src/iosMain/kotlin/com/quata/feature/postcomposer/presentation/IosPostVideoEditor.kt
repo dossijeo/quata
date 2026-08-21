@@ -362,6 +362,7 @@ private fun iosPostVideoEditorExportProfileFor(
     recommendedLabel: String?,
 ): VideoExportProfile {
     val recommended = when (recommendedLabel) {
+        QuataVideoExportPolicy.sd480Simulator.label -> QuataVideoExportPolicy.sd480Simulator
         QuataVideoExportPolicy.sd432Aligned.label -> QuataVideoExportPolicy.sd432Aligned
         QuataVideoExportPolicy.conservativeProfile.label -> QuataVideoExportPolicy.conservativeProfile
         QuataVideoExportPolicy.defaultProfile.label -> QuataVideoExportPolicy.defaultProfile

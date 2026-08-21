@@ -29,6 +29,14 @@ object QuataVideoExportPolicy {
         targetBitrate = 800_000,
         intermediateBitrate = 1_200_000,
     )
+    val sd480Simulator = VideoExportProfile(
+        width = 480,
+        height = 854,
+        maxFrameRate = 6,
+        label = "480p-simulator",
+        targetBitrate = 800_000,
+        intermediateBitrate = 1_200_000,
+    )
     val sd432Aligned = VideoExportProfile(
         width = 432,
         height = 768,
