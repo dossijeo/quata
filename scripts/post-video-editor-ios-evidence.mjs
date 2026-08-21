@@ -44,7 +44,10 @@ try {
   report.steps.push("ios_real_credentials_copied_to_mac_tempfile_without_logging_contents");
 
   localFixture = options.videoFixture ?? await validSpeechMp4FixturePath();
-  remoteFixture = (await runCapture("ssh", [options.host, "mktemp -t quata-ios-post-picker-fixture"])).trim();
+  remoteFixture = (await runCapture("ssh", [
+    options.host,
+    "tmp=$(mktemp -t quata-ios-post-picker-fixture) && mv \"$tmp\" \"$tmp.mp4\" && printf '%s\\n' \"$tmp.mp4\"",
+  ])).trim();
   await run("scp", [localFixture, `${options.host}:${remoteFixture}`]);
   report.steps.push("ios_picker_fixture_copied_to_mac_tempfile");
 
