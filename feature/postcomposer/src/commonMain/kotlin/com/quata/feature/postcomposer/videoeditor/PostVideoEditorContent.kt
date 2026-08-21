@@ -403,34 +403,39 @@ private fun CommonCaptionPreviewOverlay(
     val activeColor = captionColor(spec.activeTextColorArgb)
     val targetWidth = (spec.maxWidthRatio.coerceIn(0.55f, 0.96f) * 320).dp
     val verticalOffset = ((spec.verticalPosition.coerceIn(0.48f, 0.84f) - 0.5f) * 280).dp
-    Row(
+    Box(
         modifier = modifier
-            .offset(y = verticalOffset)
-            .widthIn(max = targetWidth)
-            .clip(RoundedCornerShape((spec.cornerRadiusRatio * 720).dp))
-            .background(segmentBackground ?: Color.Transparent)
-            .padding(horizontal = 10.dp, vertical = 7.dp)
             .testTag("post-video-editor.caption-preview.${style.name}")
             .semantics { contentDescription = "post-video-editor.caption-preview.${style.name}" },
-        horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        sample.split(" ").forEach { word ->
-            val active = word.equals(activeWord, ignoreCase = true)
-            Text(
-                text = word,
-                color = if (active) activeColor else normalColor,
-                fontWeight = FontWeight.Black,
-                maxLines = 1,
-                modifier = if (active && activeBackground != null) {
-                    Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(activeBackground)
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                } else {
-                    Modifier
-                },
-            )
+        Row(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = verticalOffset)
+                .widthIn(max = targetWidth)
+                .clip(RoundedCornerShape((spec.cornerRadiusRatio * 720).dp))
+                .background(segmentBackground ?: Color.Transparent)
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            sample.split(" ").forEach { word ->
+                val active = word.equals(activeWord, ignoreCase = true)
+                Text(
+                    text = word,
+                    color = if (active) activeColor else normalColor,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    modifier = if (active && activeBackground != null) {
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(activeBackground)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    } else {
+                        Modifier
+                    },
+                )
+            }
         }
     }
 }
