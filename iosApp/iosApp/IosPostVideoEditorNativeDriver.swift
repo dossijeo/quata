@@ -574,9 +574,24 @@ private final class IosPostVideoEditorExportOperation {
         }
         compositionVideo.preferredTransform = videoTrack.preferredTransform
         compositionBackground?.preferredTransform = videoTrack.preferredTransform
-        if !request.removeAudio, let audioTrack = asset.tracks(withMediaType: .audio).first,
-           let compositionAudio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
-            try? compositionAudio.insertTimeRange(range, of: audioTrack, at: .zero)
+        if !request.removeAudio, let audioTrack = asset.tracks(withMediaType: .audio).first {
+            guard let compositionAudio = composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            ) else {
+                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_audio_track_failed")
+                finishFailure(reason: "ios_post_video_editor_audio_track_failed")
+                return
+            }
+            do {
+                try insertAudioTimeRange(range, of: audioTrack, into: compositionAudio)
+            } catch {
+                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_audio_insert_failed", details: [
+                    "reason": error.localizedDescription,
+                ])
+                finishFailure(reason: "ios_post_video_editor_audio_insert_failed")
+                return
+            }
         }
         let captionDocument = CaptionDocumentWire.parse(request.captionDocumentWire)
         if let captionStyle = request.captionStyle, !captionStyle.isEmpty, captionDocument == nil {
@@ -1055,7 +1070,7 @@ private final class IosPostVideoEditorExportOperation {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_skipped", details: [
                 "reason": "source_audio_missing",
             ])
-            finishSuccess(outputUrl: videoOutputUrl, callback: callback)
+            finishFailure(reason: "ios_post_video_editor_audio_remux_source_missing")
             try? FileManager.default.removeItem(at: audioSourceUrl)
             return
         }
@@ -1095,7 +1110,13 @@ private final class IosPostVideoEditorExportOperation {
                 withMediaType: .audio,
                 preferredTrackID: kCMPersistentTrackID_Invalid
                ) {
-                try compositionAudio.insertTimeRange(videoRange, of: sourceAudioTrack, at: .zero)
+                try insertAudioTimeRange(videoRange, of: sourceAudioTrack, into: compositionAudio)
+            } else {
+                throw NSError(
+                    domain: "IosPostVideoEditorNativeDriver",
+                    code: 41,
+                    userInfo: [NSLocalizedDescriptionKey: "ios_post_video_editor_audio_remux_source_missing"]
+                )
             }
         } catch {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_failed", details: [
@@ -1122,6 +1143,14 @@ private final class IosPostVideoEditorExportOperation {
                 }
                 switch exportSession.status {
                 case .completed:
+                    let remuxedAsset = AVURLAsset(url: outputUrl)
+                    guard remuxedAsset.tracks(withMediaType: .audio).first != nil else {
+                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_failed", details: [
+                            "reason": "output_audio_missing",
+                        ])
+                        self.finishFailure(reason: "ios_post_video_editor_audio_remux_output_missing")
+                        return
+                    }
                     IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_completed")
                     self.finishSuccess(outputUrl: outputUrl, callback: callback)
                     try? FileManager.default.removeItem(at: videoOnlyUrl)
@@ -1137,6 +1166,30 @@ private final class IosPostVideoEditorExportOperation {
                 }
             }
         }
+    }
+
+    private func insertAudioTimeRange(
+        _ requestedRange: CMTimeRange,
+        of audioTrack: AVAssetTrack,
+        into compositionAudio: AVMutableCompositionTrack
+    ) throws {
+        let trackRange = audioTrack.timeRange
+        let start = CMTimeMaximum(requestedRange.start, trackRange.start)
+        let end = CMTimeMinimum(CMTimeRangeGetEnd(requestedRange), CMTimeRangeGetEnd(trackRange))
+        guard CMTimeCompare(end, start) > 0 else {
+            throw NSError(
+                domain: "IosPostVideoEditorNativeDriver",
+                code: 40,
+                userInfo: [NSLocalizedDescriptionKey: "ios_post_video_editor_audio_range_empty"]
+            )
+        }
+        let insertAtOffset = CMTimeSubtract(start, requestedRange.start)
+        let insertAt = CMTimeCompare(insertAtOffset, .zero) > 0 ? insertAtOffset : .zero
+        try compositionAudio.insertTimeRange(
+            CMTimeRange(start: start, duration: CMTimeSubtract(end, start)),
+            of: audioTrack,
+            at: insertAt
+        )
     }
 
     private func renderVisualEffectsFrame(

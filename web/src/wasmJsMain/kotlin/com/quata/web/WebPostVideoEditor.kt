@@ -73,6 +73,7 @@ internal fun WebPostVideoEditor(
         val exportToken = Any()
         activeExportToken = exportToken
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
+        webPostVideoEditorPrepareExportStart()
         webPostVideoEditorRecordExportStarted()
         val job = scope.launch {
             runCatching {
@@ -162,7 +163,18 @@ internal fun WebPostVideoEditor(
             captions = { state = postVideoEditorStateAfterCaptionsToggle(state) },
             captionStyle = { state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null) },
             export = { export() },
-            dismiss = onDismiss,
+            dismiss = {
+                if (state.isExporting) {
+                    activeExportToken = null
+                    exportJob?.cancel()
+                    exportJob = null
+                    state = state.copy(isExporting = false, exportProgress = 0f)
+                    webPostVideoEditorCancelActiveExport()
+                    webPostVideoEditorRecordExportFailure("web_post_video_editor_export_cancelled")
+                } else {
+                    onDismiss()
+                }
+            },
             timelineFrameCount = { timelineFrames.size },
         )
         onDispose { uninstall() }
@@ -612,6 +624,12 @@ private fun webPostVideoEditorRecordExportFailure(message: String): Unit = js(
     """(() => { globalThis.__quataPostVideoEditorExport = { status: 'failed', message: String(message).slice(0, 160) }; })()""",
 )
 
+private fun webPostVideoEditorPrepareExportStart(): Unit = js(
+    """(() => {
+      globalThis.__quataPostVideoEditorCancelRequested = false;
+    })()""",
+)
+
 private fun webPostVideoEditorCancelActiveExport(): Unit = js(
     """(() => {
       const active = globalThis.__quataPostVideoEditorActiveExport;
@@ -650,6 +668,9 @@ private fun webPostVideoEditorExportEditedJs(
         if (!globalThis.URL?.createObjectURL || typeof fetch !== 'function') {
           onFailure('web_post_video_editor_blob_unsupported'); return;
         }
+        if (globalThis.__quataPostVideoEditorCancelRequested) {
+          onFailure('web_post_video_editor_export_cancelled'); return;
+        }
         const value = String(reference || '');
         const sourceUrlPromise = value.startsWith('blob:') || value.startsWith('data:')
           ? Promise.resolve(value)
@@ -671,7 +692,6 @@ private fun webPostVideoEditorExportEditedJs(
           let timer = null;
           let recorder = null;
           let stream = null;
-          globalThis.__quataPostVideoEditorCancelRequested = false;
           const failOnce = reason => {
             if (finished) return;
             finished = true;
@@ -695,13 +715,17 @@ private fun webPostVideoEditorExportEditedJs(
             }
           };
           globalThis.__quataPostVideoEditorActiveExport = activeExport;
+          if (globalThis.__quataPostVideoEditorCancelRequested) {
+            failOnce('web_post_video_editor_export_cancelled');
+            return;
+          }
           const canvas = globalThis.document.createElement('canvas');
           canvas.width = Math.max(2, Number(outputWidth) || 720);
           canvas.height = Math.max(2, Number(outputHeight) || 1280);
           const context = canvas.getContext('2d');
           if (!context) throw Error('web_post_video_editor_canvas_context_unavailable');
           const fps = Math.max(1, Math.min(60, Number(outputMaxFrameRate) || 30));
-          const captureTickRate = Math.min(120, fps * 2);
+          const captureTickRate = fps;
           stream = canvas.captureStream?.(0) || canvas.captureStream?.(fps);
           if (!stream || typeof globalThis.MediaRecorder !== 'function') {
             throw Error('web_post_video_editor_media_recorder_unavailable');
@@ -772,7 +796,7 @@ private fun webPostVideoEditorExportEditedJs(
           const requestedEndMs = Math.max(startMs + 500, Number(trimEndMs) || hintedDurationMs);
           const endMs = Math.min(hintedDurationMs, requestedEndMs);
           const durationMs = Math.max(500, endMs - startMs);
-          const stopPaddingMs = Math.min(450, Math.max(160, durationMs * 0.22, 1000 / fps * 6));
+          const stopPaddingMs = Math.min(1600, Math.max(500, durationMs * 0.85, 1000 / fps * 12));
           const sourceStartMs = Math.min(startMs * sourceScale, Math.max(0, actualDurationMs - 500));
           const crop = {
             left: Math.max(0, Math.min(1, Number(cropLeft) || 0)),
@@ -945,9 +969,9 @@ private fun webPostVideoEditorExportEditedJs(
                 recorder.stop();
                 return;
               }
-              timer = globalThis.requestAnimationFrame?.(tick) || setTimeout(tick, 1000 / captureTickRate);
+              timer = setTimeout(tick, 1000 / captureTickRate);
             };
-            timer = globalThis.requestAnimationFrame?.(tick) || setTimeout(tick, 1000 / captureTickRate);
+            timer = setTimeout(tick, 1000 / captureTickRate);
           };
           video.currentTime = sourceStartMs / 1000;
         })).then(onSuccess).catch(error => onFailure(String(error?.message || error || 'web_post_video_editor_export_failed').slice(0, 160)));

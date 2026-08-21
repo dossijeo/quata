@@ -589,6 +589,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidPostPublishTest, /onAllNodesWithTag\(PostVideoEditorExportTestTag/);
   assert.match(androidVideoEditorDialog, /onCancelExport = \{ isCancelExportDialogOpen = true \}/);
   assert.match(androidVideoEditorDialog, /exportError = resetState\.error/);
+  assert.match(androidVideoEditorDialog, /strings = PostVideoEditorStrings\(/);
+  assert.match(androidVideoEditorDialog, /stringResource\(R\.string\.video_editor_helper\)/);
+  assert.match(androidVideoEditorDialog, /stringResource\(R\.string\.video_editor_max_duration_warning\)/);
   assert.match(androidVideoEditorRunner, /probeAndroidExport/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_frame_rate/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_trim_not_applied/);
@@ -632,11 +635,15 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /const sourceScale = actualDurationMs > 0 && hintedDurationMs > actualDurationMs \* 1\.5/);
   assert.match(webPostVideoEditor, /const sourceStartMs = Math\.min\(startMs \* sourceScale/);
   assert.match(webPostVideoEditor, /drawFrame\(Math\.min\(durationMs, elapsedMs\)\)/);
+  assert.match(webPostVideoEditor, /webPostVideoEditorPrepareExportStart\(\)/);
+  assert.match(webPostVideoEditor, /dismiss = \{\s*if \(state\.isExporting\)/);
+  assert.match(webPostVideoEditor, /if \(globalThis\.__quataPostVideoEditorCancelRequested\) \{\s*onFailure\('web_post_video_editor_export_cancelled'\); return;/);
+  assert.doesNotMatch(webPostVideoEditor, /globalThis\.__quataPostVideoEditorCancelRequested = false;\s*const failOnce/);
   assert.match(webPostVideoEditor, /canvas\.captureStream\?\.\(0\) \|\| canvas\.captureStream\?\.\(fps\)/);
   assert.match(webPostVideoEditor, /const canvasTrack = stream\.getVideoTracks\?\.\(\)\[0\]/);
-  assert.match(webPostVideoEditor, /const captureTickRate = Math\.min\(120, fps \* 2\)/);
-  assert.match(webPostVideoEditor, /const stopPaddingMs = Math\.min\(450, Math\.max\(160, durationMs \* 0\.22, 1000 \/ fps \* 6\)\)/);
-  assert.match(webPostVideoEditor, /requestAnimationFrame\?\.\(tick\)/);
+  assert.match(webPostVideoEditor, /const captureTickRate = fps/);
+  assert.match(webPostVideoEditor, /const stopPaddingMs = Math\.min\(1600, Math\.max\(500, durationMs \* 0\.85, 1000 \/ fps \* 12\)\)/);
+  assert.doesNotMatch(webPostVideoEditor, /requestAnimationFrame\?\.\(tick\)/);
   assert.match(webPostVideoEditor, /canvasTrack\?\.requestFrame\?\.\(\)/);
   assert.match(webPostVideoEditor, /trimStartSeconds/);
   assert.match(webPostVideoEditor, /trimEndSeconds/);
@@ -691,6 +698,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /exportPresetName\(\)/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetExportPresetMediumQuality/);
   assert.match(iosPostVideoEditorNativeDriver, /outputExportPreset/);
+  assert.match(iosPostVideoEditorNativeDriver, /insertAudioTimeRange\(/);
+  assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_audio_insert_failed/);
+  assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_audio_remux_output_missing/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /try\?\s*compositionAudio\.insertTimeRange/);
   assert.match(iosVideoEditorRunner, /durationMs < expectedDurationMs \* 0\.8/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_physical_bitrate/);
   assert.match(commonPostVideoEditorSpec, /val captionDocument: CaptionDocument\?/);
@@ -700,7 +711,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(commonPostVideoEditorSpec, /postVideoEditorStateForSourceDuration/);
   assert.match(commonPostVideoEditorSpec, /MinimumPostVideoEditorTrimMs = QuataVideoExportPolicy\.MinimumTrimMs/);
   assert.match(commonPostVideoEditorSpec, /MaximumPostVideoEditorDurationMs = QuataVideoExportPolicy\.MaximumDurationMs/);
-  assert.match(commonPostVideoEditorSpec, /coerceAtMost\(trimStartMs \+ MaximumPostVideoEditorDurationMs\)/);
+  assert.match(commonPostVideoEditorSpec, /requestedEndMs - MaximumPostVideoEditorDurationMs/);
   assert.doesNotMatch(commonPostVideoEditorSpec, /durationMs\.coerceIn\(1L, MaximumPostVideoEditorDurationMs\)/);
   assert.doesNotMatch(commonPostVideoEditorSpec, /0\.05f/);
   assert.match(commonPostVideoEditorSpec, /captionDocument[\s\S]*\?\.trimTo\(trimStartMs, trimEndMs\)/);

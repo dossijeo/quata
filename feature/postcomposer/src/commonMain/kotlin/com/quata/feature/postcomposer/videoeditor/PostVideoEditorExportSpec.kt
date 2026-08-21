@@ -36,10 +36,18 @@ fun postVideoEditorExportSpec(
     exportProfile: VideoExportProfile = QuataVideoExportPolicy.defaultProfile,
 ): PostVideoEditorExportSpec {
     val safeDuration = durationMs.coerceAtLeast(1L)
-    val trimStartMs = (state.trimStartFraction.coerceIn(0f, 1f) * safeDuration).roundToLong()
-    val trimEndMs = (state.trimEndFraction.coerceIn(0f, 1f) * safeDuration).roundToLong()
+    val requestedStartMs = (state.trimStartFraction.coerceIn(0f, 1f) * safeDuration).roundToLong()
+        .coerceIn(0L, safeDuration)
+    val requestedEndMs = (state.trimEndFraction.coerceIn(0f, 1f) * safeDuration).roundToLong()
+        .coerceAtLeast(requestedStartMs + MinimumPostVideoEditorTrimMs)
+        .coerceAtMost(safeDuration)
+    val trimStartMs = if (requestedEndMs - requestedStartMs > MaximumPostVideoEditorDurationMs) {
+        (requestedEndMs - MaximumPostVideoEditorDurationMs).coerceAtLeast(0L)
+    } else {
+        requestedStartMs
+    }.coerceAtMost((requestedEndMs - MinimumPostVideoEditorTrimMs).coerceAtLeast(0L))
+    val trimEndMs = requestedEndMs
         .coerceAtLeast(trimStartMs + MinimumPostVideoEditorTrimMs)
-        .coerceAtMost(trimStartMs + MaximumPostVideoEditorDurationMs)
         .coerceAtMost(safeDuration)
     val cropCenter = Offset(state.cropCenterX, state.cropCenterY)
     val cropRect = state.cropMode.cropRect(videoAspectRatio, state.cropZoom, cropCenter)
@@ -93,9 +101,17 @@ fun postVideoEditorStateAfterTrimEnd(
 ): PostVideoEditorUiState {
     val minimumFraction = postVideoEditorMinimumTrimFraction(durationMs)
     val maximumFraction = postVideoEditorMaximumTrimFraction(durationMs)
-    val start = state.trimStartFraction.coerceIn(0f, 1f - minimumFraction)
-    val maxEnd = (start + maximumFraction).coerceAtMost(1f)
-    return state.copy(trimEndFraction = fraction.coerceIn(start + minimumFraction, maxEnd))
+    val end = fraction.coerceIn(minimumFraction, 1f)
+    val currentStart = state.trimStartFraction.coerceIn(0f, end - minimumFraction)
+    val start = if (end - currentStart > maximumFraction) {
+        (end - maximumFraction).coerceAtLeast(0f)
+    } else {
+        currentStart
+    }.coerceAtMost(end - minimumFraction)
+    return state.copy(
+        trimStartFraction = start,
+        trimEndFraction = end.coerceAtLeast(start + minimumFraction),
+    )
 }
 
 fun postVideoEditorMinimumTrimFraction(durationMs: Long): Float =

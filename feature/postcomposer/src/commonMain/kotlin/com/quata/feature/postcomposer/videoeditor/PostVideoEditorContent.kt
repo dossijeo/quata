@@ -160,6 +160,7 @@ fun PostVideoEditorDialogContent(
     timelineFrameContent: @Composable (Int, Modifier) -> Unit = { _, frameModifier -> CommonTimelineFramePlaceholder(frameModifier) },
     preview: @Composable (Modifier) -> Unit,
 ) {
+    val dismissAction = if (state.isExporting) onCancelExport else onDismiss
     val content: @Composable () -> Unit = {
         PostVideoEditorBody(
             state = state,
@@ -186,12 +187,12 @@ fun PostVideoEditorDialogContent(
         )
     }
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = dismissAction,
         title = { Text(strings.title) },
         text = content,
         dismissButton = {
             OutlinedButton(
-                onClick = onDismiss,
+                onClick = dismissAction,
                 modifier = Modifier.semantics { contentDescription = strings.cancel },
             ) {
                 Text(strings.cancel)

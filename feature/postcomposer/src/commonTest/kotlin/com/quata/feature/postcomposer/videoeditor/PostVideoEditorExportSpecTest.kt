@@ -49,8 +49,8 @@ class PostVideoEditorExportSpecTest {
 
         val next = postVideoEditorStateAfterTrimEnd(state, 1f, 180_000L)
 
-        assertClose(0.25f, next.trimStartFraction)
-        assertClose(0.75f, next.trimEndFraction)
+        assertClose(0.5f, next.trimStartFraction)
+        assertClose(1f, next.trimEndFraction)
     }
 
     @Test
