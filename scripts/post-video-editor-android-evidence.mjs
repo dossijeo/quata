@@ -55,6 +55,7 @@ try {
 
   await run(adb, ["install-multiple", "-r", appApk, voskModelEnApk]);
   await run(adb, ["install", "-r", "-t", testApk]);
+  await run(adb, ["shell", "run-as", "com.quata", "mkdir", "-p", "files"]);
   await run(adb, ["push", localCredentials, deviceTempCredentialsPath]);
   await run(adb, ["shell", "chmod", "644", deviceTempCredentialsPath]);
   await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempCredentialsPath, `files/${deviceCredentialsPath.replace("app-internal:", "")}`]);

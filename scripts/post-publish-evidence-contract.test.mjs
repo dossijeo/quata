@@ -575,6 +575,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidVideoEditorRunner, /:vosk_model_en:assembleDebug/);
   assert.match(androidVideoEditorRunner, /vosk_model_en-debug\.apk/);
   assert.match(androidVideoEditorRunner, /install-multiple/);
+  assert.match(androidVideoEditorRunner, /"run-as", "com\.quata", "mkdir", "-p", "files"/);
   assert.match(androidVideoEditorRunner, /label: "muted", mute: true/);
   assert.match(androidVideoEditorRunner, /label: "unmuted", mute: false/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_audio_stream_missing_without_mute/);
