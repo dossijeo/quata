@@ -162,6 +162,7 @@ internal fun WebPostVideoEditor(
             cropPan = { dx, dy -> state = postVideoEditorStateAfterCropPan(state, dx, dy, videoAspectRatio) },
             captions = { state = postVideoEditorStateAfterCaptionsToggle(state) },
             captionStyle = { state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null) },
+            reset = { state = postVideoEditorStateAfterReset(state, durationMs) },
             export = { export() },
             dismiss = {
                 if (state.isExporting) {
@@ -260,6 +261,7 @@ internal fun installWebPostVideoEditorE2eBridge(
     cropPan: (Float, Float) -> Unit,
     captions: () -> Unit,
     captionStyle: (String?) -> Unit,
+    reset: () -> Unit,
     export: () -> Unit,
     dismiss: () -> Unit,
     timelineFrameCount: () -> Int,
@@ -274,13 +276,14 @@ internal fun installWebPostVideoEditorE2eBridge(
     cropPan,
     captions,
     captionStyle,
+    reset,
     export,
     dismiss,
     timelineFrameCount,
 )
 
 @JsFun(
-    """(mute, playPause, trimStart, trimEnd, crop, cropMode, cropZoom, cropPan, captions, captionStyle, exportVideo, dismiss, timelineFrameCount) => {
+    """(mute, playPause, trimStart, trimEnd, crop, cropMode, cropZoom, cropPan, captions, captionStyle, reset, exportVideo, dismiss, timelineFrameCount) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const params = new URLSearchParams(location?.search || '');
       const optedIn = params.get('quata-post-video-editor-e2e') === '1' ||
@@ -299,6 +302,7 @@ internal fun installWebPostVideoEditorE2eBridge(
         cropPan: (dx, dy) => cropPan(Number(dx), Number(dy)),
         captions: () => captions(),
         captionStyle: value => captionStyle(value == null || value === '' ? null : String(value)),
+        reset: () => reset(),
         export: () => exportVideo(),
         dismiss: () => dismiss(),
         timelineFrameCount: () => Number(timelineFrameCount()),
@@ -322,6 +326,7 @@ private external fun installPostVideoEditorBridgeWhenAllowed(
     cropPan: (Float, Float) -> Unit,
     captions: () -> Unit,
     captionStyle: (String?) -> Unit,
+    reset: () -> Unit,
     export: () -> Unit,
     dismiss: () -> Unit,
     timelineFrameCount: () -> Int,

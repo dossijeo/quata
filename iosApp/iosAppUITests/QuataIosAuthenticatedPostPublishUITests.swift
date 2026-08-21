@@ -229,6 +229,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "post-video-editor.timeline",
             "post-video-editor.crop",
             "post-video-editor.captions",
+            "post-video-editor.reset",
             "post-video-editor.export",
         ] {
             XCTAssertTrue(app.descendants(matching: .any).matching(identifier: identifier).firstMatch.waitForExistence(timeout: 8), "Missing shared video editor anchor \(identifier).")
@@ -240,6 +241,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             XCTAssertTrue(frame.waitForExistence(timeout: 12), "Missing shared video editor timeline frame \(index).")
         }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-opened")
+        tapComposerAction("post-video-editor.reset", in: app)
         if ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"] == "1" {
             tapComposerAction("post-video-editor.mute", in: app)
         }
@@ -250,6 +252,12 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         tapComposerAction("post-video-editor.crop", in: app)
         tapComposerAction("post-video-editor.crop-mode.Square", in: app)
         tapComposerAction("post-video-editor.export", in: app)
+        let editorPreview = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.preview")
+            .firstMatch
+        let editorExport = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.export")
+            .firstMatch
         let exportProgress = app.descendants(matching: .any)
             .matching(identifier: "post-video-editor.export-progress")
             .firstMatch
@@ -260,7 +268,8 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let exportDeadline = Date().addingTimeInterval(180)
         var returnedToComposer = false
         while Date() < exportDeadline {
-            if selectedVideoPreview.exists {
+            let editorStillVisible = editorRoot.exists || editorPreview.exists || editorExport.exists
+            if selectedVideoPreview.exists && !editorStillVisible {
                 returnedToComposer = true
                 break
             }

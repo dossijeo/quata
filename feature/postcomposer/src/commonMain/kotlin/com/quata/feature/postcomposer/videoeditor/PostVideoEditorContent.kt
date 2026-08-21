@@ -162,9 +162,17 @@ fun PostVideoEditorDialogContent(
     preview: @Composable (Modifier) -> Unit,
 ) {
     val dismissAction = if (state.isExporting) onCancelExport else onDismiss
+    val boundedDurationMs = durationMs.coerceAtLeast(0L)
+    val currentPositionMs = (state.currentPositionFraction.coerceIn(0f, 1f) * boundedDurationMs).toLong()
+    val selectedDurationMs = ((state.trimEndFraction - state.trimStartFraction).coerceAtLeast(0f) * boundedDurationMs).toLong()
+    val displayState = state.copy(
+        currentPositionLabel = state.currentPositionLabel ?: currentPositionMs.formatPostVideoEditorTime(),
+        selectedDurationLabel = state.selectedDurationLabel ?: selectedDurationMs.formatPostVideoEditorTime(),
+        showMaxDurationWarning = state.showMaxDurationWarning || boundedDurationMs > MaximumPostVideoEditorDurationMs,
+    )
     val content: @Composable () -> Unit = {
         PostVideoEditorBody(
-            state = state,
+            state = displayState,
             strings = strings,
             isLandscapeLayout = isLandscapeLayout,
             captionOptions = captionOptions,
@@ -216,6 +224,18 @@ fun PostVideoEditorDialogContent(
             .heightIn(max = 860.dp)
             .testTag(PostVideoEditorRootTestTag),
     )
+}
+
+private fun Long.formatPostVideoEditorTime(): String {
+    val totalSeconds = (this / 1000L).coerceAtLeast(0L)
+    val hours = totalSeconds / 3600L
+    val minutes = (totalSeconds % 3600L) / 60L
+    val seconds = totalSeconds % 60L
+    return if (hours > 0L) {
+        "${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+    } else {
+        "${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+    }
 }
 
 @Composable

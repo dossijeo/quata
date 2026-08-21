@@ -127,7 +127,7 @@ async function runAttempt(context, { label, mute }) {
     }, null, { timeout: 15_000 }).then(() => postComposerProductState(page));
     const afterEdit = await screenshot(page, "web-post-video-editor-after-edit");
     lastExportState = editorAnchors.exportState;
-    const physicalOutput = await saveAndProbeWebExport(page, editorAnchors.exportState, { mute });
+    const physicalOutput = await saveAndProbeWebExport(page, editorAnchors.exportState, { label, mute });
     const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
     return {
@@ -195,9 +195,11 @@ async function exerciseVideoEditor(page, { mute }) {
     "post-video-editor.timeline",
     "post-video-editor.crop",
     "post-video-editor.captions",
+    "post-video-editor.reset",
   ]) {
     anchors[id] = await resolveVideoEditorAnchor(page, id);
   }
+  await invokeVideoEditorAction(page, "reset");
   await invokeVideoEditorAction(page, "mute");
   await invokeVideoEditorAction(page, "playPause");
   await invokeVideoEditorAction(page, "trimStart", 0.08);
@@ -245,6 +247,7 @@ async function invokeVideoEditorAction(page, action, ...args) {
     playPause: "post-video-editor.play-pause",
     crop: "post-video-editor.crop",
     captions: "post-video-editor.captions",
+    reset: "post-video-editor.reset",
     export: "post-video-editor.export",
   }[action];
   if (id && await semanticLocator(page, id).then(async (locator) => {
@@ -301,13 +304,13 @@ function assertWebVideoEditorExportParity(exportState, { expectCaptions = false,
   if (exportState.output.physicalBackgroundBlur !== true) throw new Error("web_video_editor_background_blur_not_exported");
 }
 
-async function saveAndProbeWebExport(page, exportState, { mute }) {
+async function saveAndProbeWebExport(page, exportState, { label, mute }) {
   const reference = exportState?.reference ?? exportState?.output?.reference;
   if (typeof reference !== "string" || !reference.startsWith("blob:")) {
     throw new Error("web_video_editor_export_missing_blob_reference");
   }
   await mkdir(options.evidenceDir, { recursive: true });
-  const outputPath = resolve(options.evidenceDir, "web-post-video-editor-export.webm");
+  const outputPath = resolve(options.evidenceDir, `web-post-video-editor-export-${label}.webm`);
   const base64 = await page.evaluate(async (blobReference) => {
     const response = await fetch(blobReference);
     if (!response.ok) throw new Error(`web_video_editor_blob_fetch_${response.status}`);
