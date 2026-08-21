@@ -606,7 +606,7 @@ private final class IosPostVideoEditorExportOperation {
             backgroundTrack: compositionBackground,
             duration: range.duration
         )
-        startProgressTimer(session: exportSession, floor: 0.35, ceiling: captionDocument == nil ? 0.95 : 0.72)
+        startProgressTimer(session: exportSession, floor: 0.35, ceiling: 0.72)
         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_started", details: [
             "durationMs": "\(Int64(CMTimeGetSeconds(range.duration) * 1_000))",
             "captionDocument": request.captionDocumentWire?.isEmpty == false ? "true" : "false",
@@ -624,18 +624,14 @@ private final class IosPostVideoEditorExportOperation {
                         self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
                         return
                     }
-                    if self.request.hasBackgroundCrop || captionDocument != nil {
-                        self.applyVisualEffects(
-                            inputUrl: outputUrl,
-                            outputUrl: finalOutputUrl,
-                            captionStyle: self.request.captionStyle,
-                            captionDocument: captionDocument,
-                            sourceDisplaySize: self.displaySize(for: videoTrack),
-                            callback: callback
-                        )
-                    } else {
-                        self.finishSuccess(outputUrl: outputUrl, callback: callback)
-                    }
+                    self.applyVisualEffects(
+                        inputUrl: outputUrl,
+                        outputUrl: finalOutputUrl,
+                        captionStyle: self.request.captionStyle,
+                        captionDocument: captionDocument,
+                        sourceDisplaySize: self.displaySize(for: videoTrack),
+                        callback: callback
+                    )
                 case .failed, .cancelled:
                     let reason = self.didCancel
                         ? "ios_post_video_editor_export_cancelled"
@@ -828,6 +824,11 @@ private final class IosPostVideoEditorExportOperation {
         sourceDisplaySize: CGSize,
         callback: any IosPostVideoEditorExportCallback
     ) {
+        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("adaptive_writer_pass_start", details: [
+            "removeAudio": request.removeAudio ? "true" : "false",
+            "targetBitrate": "\(request.outputTargetBitrate)",
+            "maxFrameRate": "\(request.outputMaxFrameRate)",
+        ])
         if request.hasBackgroundCrop {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_start")
         }
@@ -939,8 +940,11 @@ private final class IosPostVideoEditorExportOperation {
                                 if captionDocument != nil {
                                     IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_completed")
                                 }
-                                self.finishSuccess(outputUrl: outputUrl, callback: callback)
-                                try? FileManager.default.removeItem(at: inputUrl)
+                                self.finishVisualEffectsSuccess(
+                                    videoOutputUrl: outputUrl,
+                                    audioSourceUrl: inputUrl,
+                                    callback: callback
+                                )
                             } else {
                                 let reason = reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_failed"
                                 IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
@@ -1033,6 +1037,105 @@ private final class IosPostVideoEditorExportOperation {
                 "reason": error.localizedDescription,
             ])
             finishFailure(reason: error.localizedDescription)
+        }
+    }
+
+    private func finishVisualEffectsSuccess(
+        videoOutputUrl: URL,
+        audioSourceUrl: URL,
+        callback: any IosPostVideoEditorExportCallback
+    ) {
+        guard !request.removeAudio else {
+            finishSuccess(outputUrl: videoOutputUrl, callback: callback)
+            try? FileManager.default.removeItem(at: audioSourceUrl)
+            return
+        }
+        let audioAsset = AVURLAsset(url: audioSourceUrl)
+        guard audioAsset.tracks(withMediaType: .audio).first != nil else {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_skipped", details: [
+                "reason": "source_audio_missing",
+            ])
+            finishSuccess(outputUrl: videoOutputUrl, callback: callback)
+            try? FileManager.default.removeItem(at: audioSourceUrl)
+            return
+        }
+        let remuxedOutputUrl = temporaryOutputUrl(suffix: "final-audio")
+        remuxAudio(
+            videoOnlyUrl: videoOutputUrl,
+            audioSourceUrl: audioSourceUrl,
+            outputUrl: remuxedOutputUrl,
+            callback: callback
+        )
+    }
+
+    private func remuxAudio(
+        videoOnlyUrl: URL,
+        audioSourceUrl: URL,
+        outputUrl: URL,
+        callback: any IosPostVideoEditorExportCallback
+    ) {
+        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_start")
+        let videoAsset = AVURLAsset(url: videoOnlyUrl)
+        let audioAsset = AVURLAsset(url: audioSourceUrl)
+        let composition = AVMutableComposition()
+        guard let sourceVideoTrack = videoAsset.tracks(withMediaType: .video).first,
+              let compositionVideo = composition.addMutableTrack(
+                withMediaType: .video,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+              ) else {
+            finishFailure(reason: "ios_post_video_editor_audio_remux_video_missing")
+            return
+        }
+        do {
+            let videoRange = CMTimeRange(start: .zero, duration: videoAsset.duration)
+            try compositionVideo.insertTimeRange(videoRange, of: sourceVideoTrack, at: .zero)
+            compositionVideo.preferredTransform = sourceVideoTrack.preferredTransform
+            if let sourceAudioTrack = audioAsset.tracks(withMediaType: .audio).first,
+               let compositionAudio = composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+               ) {
+                try compositionAudio.insertTimeRange(videoRange, of: sourceAudioTrack, at: .zero)
+            }
+        } catch {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_failed", details: [
+                "reason": error.localizedDescription,
+            ])
+            finishFailure(reason: error.localizedDescription)
+            return
+        }
+        try? FileManager.default.removeItem(at: outputUrl)
+        guard let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
+            finishFailure(reason: "ios_post_video_editor_audio_remux_session_unavailable")
+            return
+        }
+        self.exportSession = exportSession
+        exportSession.outputURL = outputUrl
+        exportSession.outputFileType = .mp4
+        exportSession.shouldOptimizeForNetworkUse = true
+        callback.onProgress(progress: 0.97)
+        exportSession.exportAsynchronously { [callback] in
+            DispatchQueue.main.async {
+                if self.didCancel {
+                    self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
+                    return
+                }
+                switch exportSession.status {
+                case .completed:
+                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_completed")
+                    self.finishSuccess(outputUrl: outputUrl, callback: callback)
+                    try? FileManager.default.removeItem(at: videoOnlyUrl)
+                    try? FileManager.default.removeItem(at: audioSourceUrl)
+                case .failed, .cancelled:
+                    let reason = exportSession.error?.localizedDescription ?? "ios_post_video_editor_audio_remux_failed"
+                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_failed", details: [
+                        "reason": reason,
+                    ])
+                    self.finishFailure(reason: reason)
+                default:
+                    self.finishFailure(reason: "ios_post_video_editor_audio_remux_incomplete")
+                }
+            }
         }
     }
 

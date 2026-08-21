@@ -145,7 +145,7 @@ internal fun WebPostVideoEditor(
             if (exportJob === job) exportJob = null
         }
     }
-    DisposableEffect(sourceReference, state, onDismiss, onEdited) {
+    DisposableEffect(sourceReference, state, timelineFrames.size, onDismiss, onEdited) {
         val uninstall = installWebPostVideoEditorE2eBridge(
             mute = { state = state.copy(isMuted = !state.isMuted) },
             playPause = { state = state.copy(isPlaying = !state.isPlaying) },
@@ -163,6 +163,7 @@ internal fun WebPostVideoEditor(
             captionStyle = { state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null) },
             export = { export() },
             dismiss = onDismiss,
+            timelineFrameCount = { timelineFrames.size },
         )
         onDispose { uninstall() }
     }
@@ -249,6 +250,7 @@ internal fun installWebPostVideoEditorE2eBridge(
     captionStyle: (String?) -> Unit,
     export: () -> Unit,
     dismiss: () -> Unit,
+    timelineFrameCount: () -> Int,
 ): () -> Unit = installPostVideoEditorBridgeWhenAllowed(
     mute,
     playPause,
@@ -262,10 +264,11 @@ internal fun installWebPostVideoEditorE2eBridge(
     captionStyle,
     export,
     dismiss,
+    timelineFrameCount,
 )
 
 @JsFun(
-    """(mute, playPause, trimStart, trimEnd, crop, cropMode, cropZoom, cropPan, captions, captionStyle, exportVideo, dismiss) => {
+    """(mute, playPause, trimStart, trimEnd, crop, cropMode, cropZoom, cropPan, captions, captionStyle, exportVideo, dismiss, timelineFrameCount) => {
       const local = location?.hostname === 'localhost' || location?.hostname === '127.0.0.1';
       const params = new URLSearchParams(location?.search || '');
       const optedIn = params.get('quata-post-video-editor-e2e') === '1' ||
@@ -286,6 +289,7 @@ internal fun installWebPostVideoEditorE2eBridge(
         captionStyle: value => captionStyle(value == null || value === '' ? null : String(value)),
         export: () => exportVideo(),
         dismiss: () => dismiss(),
+        timelineFrameCount: () => Number(timelineFrameCount()),
       });
       globalThis.__quataPostVideoEditorE2eProduct = bridge;
       globalThis.document?.documentElement?.setAttribute('data-quata-post-video-editor-e2e', 'ready');
@@ -308,6 +312,7 @@ private external fun installPostVideoEditorBridgeWhenAllowed(
     captionStyle: (String?) -> Unit,
     export: () -> Unit,
     dismiss: () -> Unit,
+    timelineFrameCount: () -> Int,
 ): () -> Unit
 
 private fun webPostVideoEditorCreatePreviewElement(): HTMLElement = js(

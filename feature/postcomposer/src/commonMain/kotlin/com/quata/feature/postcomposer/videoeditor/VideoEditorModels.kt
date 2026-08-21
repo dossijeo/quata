@@ -14,3 +14,6 @@ const val PostVideoEditorPlayPauseTestTag = "post-video-editor.play-pause"
 const val PostVideoEditorErrorTestTag = "post-video-editor.error"
 const val PostVideoEditorResetTestTag = "post-video-editor.reset"
 const val PostVideoEditorCancelExportTestTag = "post-video-editor.cancel-export"
+
+fun PostVideoEditorTimelineFrameTestTag(index: Int): String =
+    "post-video-editor.timeline-frame.${index.coerceAtLeast(0)}"

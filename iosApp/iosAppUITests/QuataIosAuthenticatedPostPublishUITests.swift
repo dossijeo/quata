@@ -233,8 +233,16 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         ] {
             XCTAssertTrue(app.descendants(matching: .any).matching(identifier: identifier).firstMatch.waitForExistence(timeout: 8), "Missing shared video editor anchor \(identifier).")
         }
+        for index in 0..<6 {
+            let frame = app.descendants(matching: .any)
+                .matching(identifier: "post-video-editor.timeline-frame.\(index)")
+                .firstMatch
+            XCTAssertTrue(frame.waitForExistence(timeout: 12), "Missing shared video editor timeline frame \(index).")
+        }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-opened")
-        tapComposerAction("post-video-editor.mute", in: app)
+        if ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"] == "1" {
+            tapComposerAction("post-video-editor.mute", in: app)
+        }
         tapComposerAction("post-video-editor.play-pause", in: app)
         dragVideoTrimEnd(toNormalizedX: 0.64, in: app)
         tapComposerAction("post-video-editor.captions", in: app)
@@ -310,6 +318,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_MIME",
             "QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS",
             "QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE",
+            "QUATA_IOS_POST_VIDEO_EDITOR_MUTE",
             "QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE",
             "QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD",
             "QUATA_IOS_POST_DESTINATION_E2E_MODE",

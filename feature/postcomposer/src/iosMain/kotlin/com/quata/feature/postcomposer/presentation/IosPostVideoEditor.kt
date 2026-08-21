@@ -39,6 +39,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import platform.Foundation.NSProcessInfo
 import platform.Foundation.NSURL
 import platform.UIKit.UIView
 import kotlin.coroutines.resume
@@ -187,6 +188,9 @@ internal fun IosPostVideoEditor(
         loadedMetadata?.durationMs?.takeIf { it > 0L }?.let {
             state = postVideoEditorStateForSourceDuration(state, it)
         }
+        iosPostVideoEditorE2eInitialMute()?.let { shouldMute ->
+            state = state.copy(isMuted = shouldMute)
+        }
         loadedMetadata?.let {
             exportProfile = iosPostVideoEditorExportProfileFor(
                 sourceProfile = QuataVideoExportPolicy.selectForSource(it.width, it.height),
@@ -221,13 +225,16 @@ internal fun IosPostVideoEditor(
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
         val job = scope.launch {
             runCatching {
-                val captionDocument = if (state.captionsEnabled && state.selectedCaptionStyleId != null) {
+                val exportState = iosPostVideoEditorE2eInitialMute()?.let { shouldMute ->
+                    state.copy(isMuted = shouldMute)
+                } ?: state
+                val captionDocument = if (exportState.captionsEnabled && exportState.selectedCaptionStyleId != null) {
                     iosPostVideoEditorTranscribeCaptions(source, nativeDriver)
                 } else {
                     null
                 }
                 val spec = postVideoEditorExportSpec(
-                    state,
+                    exportState,
                     videoAspectRatio,
                     durationMs,
                     captionDocument,
@@ -299,6 +306,15 @@ internal fun IosPostVideoEditor(
             )
         },
     )
+}
+
+private fun iosPostVideoEditorE2eInitialMute(): Boolean? {
+    val value = NSProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"] as? String
+    return when (value) {
+        "0" -> false
+        "1" -> true
+        else -> null
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class)

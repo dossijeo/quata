@@ -90,6 +90,7 @@ def patch_target(target, hint=''):
             'QUATA_IOS_POST_COMPOSER_PICKER_MIME',
             'QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS',
             'QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE',
+            'QUATA_IOS_POST_VIDEO_EDITOR_MUTE',
         ]:
             if os.environ.get(key):
                 env[key] = os.environ[key]

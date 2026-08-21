@@ -69,7 +69,8 @@ scripts/build-ios-intel-simulator-signed.sh
     report.steps.push("ios_simulator_signed_build_succeeded_on_mac");
   }
 
-  report.attempts.push(await runAttempt());
+  report.attempts.push(await runAttempt({ label: "muted", mute: true }));
+  report.attempts.push(await runAttempt({ label: "unmuted", mute: false }));
   const failedAttempt = report.attempts.find((attempt) => attempt.status !== "passed");
   if (failedAttempt) throw new Error(`ios_attempt_failed:${failedAttempt.source}:${failedAttempt.outcome}`);
   report.status = "passed";
@@ -96,10 +97,10 @@ if (report.status !== "passed") {
   console.log("Post video editor iOS evidence passed.");
 }
 
-async function runAttempt() {
+async function runAttempt({ label, mute }) {
   const source = "gallery";
   const outcome = "success";
-  const remoteLogDir = options.remoteLogDir;
+  const remoteLogDir = `${options.remoteLogDir}/${label}`;
   const remoteDiagnosticsDir = remoteLogDir.startsWith("/") ? remoteLogDir : `${options.project}/${remoteLogDir}`;
   const remoteDiagnostics = `${remoteDiagnosticsDir}/export-diagnostics.json`;
   try {
@@ -116,6 +117,7 @@ export QUATA_IOS_POST_VIDEO_EDITOR_UI_LOG_DIR=${shellQuote(remoteLogDir)}
 export QUATA_IOS_POST_VIDEO_EDITOR_UI_RESULT_BUNDLE_DIR=${shellQuote(`${remoteLogDir}/xcresults`)}
 export QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS=${shellQuote(remoteDiagnostics)}
 export QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE='en_US'
+export QUATA_IOS_POST_VIDEO_EDITOR_MUTE=${mute ? "'1'" : "'0'"}
 export QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN=${shellQuote(PICKER_OPT_IN)}
 export QUATA_IOS_POST_COMPOSER_PICKER_SOURCE=${shellQuote(source)}
 export QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME=${shellQuote(outcome)}
@@ -134,25 +136,27 @@ set -euo pipefail
 cat ${shellQuote(`${remoteDiagnostics}.events.jsonl`)}
 `);
     const events = parseEvidenceEvents(eventText);
-    assertIosExportDiagnostics(diagnostics, events);
+    assertIosExportDiagnostics(diagnostics, events, { mute });
     await mkdir(options.evidenceDir, { recursive: true });
-    const localExport = resolve(options.evidenceDir, "ios-post-video-editor-export.mp4");
+    const localExport = resolve(options.evidenceDir, `ios-post-video-editor-export-${label}.mp4`);
     await run("scp", [`${options.host}:${diagnostics.outputPath}`, localExport]);
     await run("ssh", [options.host, "rm", "-f", diagnostics.outputPath]).catch(() => {});
-    const physicalExport = probeIosExport(localExport, diagnostics);
-    return { source, outcome, status: "passed", remoteLogDir, diagnostics, events: events.slice(-30), physicalExport };
+    const physicalExport = probeIosExport(localExport, diagnostics, { mute });
+    return { source, outcome, label, mute, status: "passed", remoteLogDir, diagnostics, events: events.slice(-30), physicalExport };
   } catch (error) {
-    return { source, outcome, status: "failed", remoteLogDir, error: safeFailure(error) };
+    return { source, outcome, label, mute, status: "failed", remoteLogDir, error: safeFailure(error) };
   }
 }
 
-function assertIosExportDiagnostics(diagnostics, events) {
+function assertIosExportDiagnostics(diagnostics, events, { mute }) {
   if (!diagnostics || typeof diagnostics !== "object") throw new Error("ios_video_editor_export_diagnostics_missing");
   if (Number(diagnostics.sizeBytes || 0) <= 0) throw new Error("ios_video_editor_export_empty_output");
   if (!isSupportedVideoEditorProfile(Number(diagnostics.outputWidth || 0), Number(diagnostics.outputHeight || 0))) {
     throw new Error(`ios_video_editor_export_unexpected_dimensions:${diagnostics.outputWidth}x${diagnostics.outputHeight}`);
   }
-  if (diagnostics.removeAudio !== true) throw new Error("ios_video_editor_export_mute_not_applied");
+  if (Boolean(diagnostics.removeAudio) !== mute) {
+    throw new Error(`ios_video_editor_export_mute_state:${diagnostics.removeAudio}:${mute}`);
+  }
   if (diagnostics.physicalBackgroundBlur !== true) throw new Error("ios_video_editor_background_blur_not_exported");
   if (String(diagnostics.captionStyle || "") !== EXPECTED_CAPTION_STYLE) {
     throw new Error(`ios_video_editor_caption_style_not_selected:${diagnostics.captionStyle || ""}`);
@@ -188,7 +192,7 @@ function parseEvidenceEvents(value) {
     });
 }
 
-function probeIosExport(outputPath, diagnostics) {
+function probeIosExport(outputPath, diagnostics, { mute }) {
   const ffprobe = JSON.parse(execFileSync("ffprobe", [
     "-v", "error",
     "-print_format", "json",
@@ -199,7 +203,8 @@ function probeIosExport(outputPath, diagnostics) {
   const videoStream = ffprobe.streams?.find((stream) => stream.codec_type === "video");
   const audioStream = ffprobe.streams?.find((stream) => stream.codec_type === "audio");
   if (!videoStream) throw new Error("ios_video_editor_physical_video_stream_missing");
-  if (audioStream) throw new Error("ios_video_editor_physical_audio_stream_present_after_mute");
+  if (mute && audioStream) throw new Error("ios_video_editor_physical_audio_stream_present_after_mute");
+  if (!mute && !audioStream) throw new Error("ios_video_editor_physical_audio_stream_missing_without_mute");
   const width = Number(videoStream.width || 0);
   const height = Number(videoStream.height || 0);
   if (width !== Number(diagnostics.outputWidth || 0) || height !== Number(diagnostics.outputHeight || 0)) {
@@ -421,11 +426,13 @@ function e164Phone(countryCode, phone) {
 }
 
 async function copyRemoteEvidence({ host, project, remoteLogDir, evidenceDir }) {
-  await rm(evidenceDir, { recursive: true, force: true });
-  await mkdir(evidenceDir, { recursive: true });
+  const remoteEvidenceDir = resolve(evidenceDir, "remote-logs");
+  await rm(remoteEvidenceDir, { recursive: true, force: true });
+  await mkdir(remoteEvidenceDir, { recursive: true });
   const source = remoteLogDir.startsWith("/") ? remoteLogDir : `${project}/${remoteLogDir}`;
-  await run("scp", ["-r", `${host}:${source}/.`, evidenceDir]);
+  await run("scp", ["-r", `${host}:${source}/.`, remoteEvidenceDir]);
   report.evidence.directory = resolve(evidenceDir);
+  report.evidence.remoteLogsDirectory = remoteEvidenceDir;
 }
 
 async function mkdirTemp(prefix) {

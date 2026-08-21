@@ -117,6 +117,7 @@ async function runAttempt(context) {
     }, reference, { timeout: 10_000 });
     const resolvedEditAnchor = await clickComposerEditAction(page);
     const resolvedEditorOpen = await ensureWebVideoEditorOpen(page, resolvedEditAnchor, reference);
+    const timelineFrameCount = await waitForTimelineFrames(page);
     const editorOpened = await screenshot(page, "web-post-video-editor-opened");
     const editorAnchors = await exerciseVideoEditor(page);
     const exported = await page.waitForFunction(() => {
@@ -135,6 +136,7 @@ async function runAttempt(context) {
       selectedField: "hasVideo",
       anchors: { type: resolvedTypeAnchor, action: selectedByBridge ?? resolvedActionAnchor, edit: resolvedEditorOpen, editor: editorAnchors },
       evidence: { composerOpened, editorOpened, afterSelect, afterEdit, physicalOutput },
+      timelineFrameCount,
       state: exported,
     };
   } catch (error) {
@@ -212,6 +214,14 @@ async function exerciseVideoEditor(page) {
 async function waitForVideoEditorReady(page) {
   if (await semanticLocator(page, "post-video-editor.root").then((locator) => locator.waitFor({ state: "attached", timeout: 1_500 }).then(() => true)).catch(() => false)) return;
   await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-post-video-editor-e2e") === "ready", null, { timeout: 10_000 });
+}
+
+async function waitForTimelineFrames(page) {
+  await page.waitForFunction(() => {
+    const count = Number(globalThis.__quataPostVideoEditorE2eProduct?.timelineFrameCount?.() || 0);
+    return Number.isFinite(count) && count >= 6;
+  }, null, { timeout: 20_000 });
+  return page.evaluate(() => Number(globalThis.__quataPostVideoEditorE2eProduct?.timelineFrameCount?.() || 0));
 }
 
 async function resolveVideoEditorAnchor(page, id) {

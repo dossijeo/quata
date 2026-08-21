@@ -44,6 +44,7 @@ import com.quata.feature.postcomposer.videoeditor.PostVideoEditorPreviewTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportProgressTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorResetTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorRootTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorTimelineFrameTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorTimelineTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorTrimEndHandleTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorTrimStartHandleTestTag
@@ -500,6 +501,14 @@ class PostPublishRealInstrumentedTest {
             }
             compose.onNodeWithTag(PostVideoEditorPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode()
             compose.onNodeWithTag(PostVideoEditorTimelineTestTag, useUnmergedTree = true).fetchSemanticsNode()
+            for (index in 0 until 6) {
+                compose.waitUntil(15_000) {
+                    runCatching {
+                        compose.onNodeWithTag(PostVideoEditorTimelineFrameTestTag(index), useUnmergedTree = true)
+                            .fetchSemanticsNode()
+                    }.isSuccess
+                }
+            }
             compose.onAllNodesWithTag(PostVideoEditorMuteTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()

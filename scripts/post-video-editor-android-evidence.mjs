@@ -238,12 +238,16 @@ function probeAndroidExport(outputPath, sourcePath) {
   if (frameRate > 30.5) {
     throw new Error(`android_video_editor_physical_frame_rate:${frameRate}`);
   }
+  const captionPixelProbe = probeCaptionPixels(outputPath);
+  const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
   return {
     path: outputPath,
     durationMs,
     sourceDurationMs,
     video: { codec: videoStream.codec_name, width, height, frameRate },
     audioStreamPresent: Boolean(audioStream),
+    captionPixelProbe,
+    backgroundBlurPixelProbe,
   };
 }
 
@@ -270,6 +274,78 @@ function parseFrameRate(value) {
   const numerator = Number(rawNumerator || 0);
   const denominator = Number(rawDenominator || 1);
   return denominator ? numerator / denominator : 0;
+}
+
+function probeCaptionPixels(outputPath) {
+  const width = 180;
+  const height = 80;
+  const pixels = execFileSync("ffmpeg", [
+    "-v", "error",
+    "-i", outputPath,
+    "-vf", `crop=iw*0.84:ih*0.12:iw*0.08:ih*0.70,scale=${width}:${height}`,
+    "-frames:v", "1",
+    "-f", "rawvideo",
+    "-pix_fmt", "rgba",
+    "pipe:1",
+  ]);
+  if (pixels.length !== width * height * 4) {
+    throw new Error(`android_video_editor_caption_pixel_probe_unexpected_size:${pixels.length}`);
+  }
+  let bright = 0;
+  let dark = 0;
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    const luminance = 0.2126 * pixels[offset] + 0.7152 * pixels[offset + 1] + 0.0722 * pixels[offset + 2];
+    if (luminance > 230) bright += 1;
+    if (luminance < 50) dark += 1;
+  }
+  const total = width * height;
+  const brightFraction = bright / total;
+  const darkFraction = dark / total;
+  if (brightFraction < 0.004 || darkFraction < 0.12) {
+    throw new Error(`android_video_editor_caption_pixels_missing:${brightFraction.toFixed(4)}:${darkFraction.toFixed(4)}`);
+  }
+  return { width, height, brightFraction, darkFraction };
+}
+
+function probeBackgroundBlurPixels(outputPath) {
+  const width = 180;
+  const height = 80;
+  const sample = (crop) => execFileSync("ffmpeg", [
+    "-v", "error",
+    "-i", outputPath,
+    "-vf", `${crop},scale=${width}:${height}`,
+    "-frames:v", "1",
+    "-f", "rawvideo",
+    "-pix_fmt", "rgba",
+    "pipe:1",
+  ]);
+  const leftBackground = sample("crop=iw*0.18:ih*0.30:iw*0.03:ih*0.35");
+  const rightBackground = sample("crop=iw*0.18:ih*0.30:iw*0.79:ih*0.35");
+  const centerForeground = sample("crop=iw*0.34:ih*0.30:iw*0.33:ih*0.35");
+  const backgroundSharpness = (
+    averageAdjacentLumaDelta(leftBackground, width, height) +
+    averageAdjacentLumaDelta(rightBackground, width, height)
+  ) / 2;
+  const foregroundSharpness = averageAdjacentLumaDelta(centerForeground, width, height);
+  if (!(backgroundSharpness < foregroundSharpness * 0.82)) {
+    throw new Error(`android_video_editor_background_blur_pixels_missing:${backgroundSharpness.toFixed(2)}:${foregroundSharpness.toFixed(2)}`);
+  }
+  return { width, height, backgroundSharpness, foregroundSharpness };
+}
+
+function averageAdjacentLumaDelta(pixels, width, height) {
+  if (pixels.length !== width * height * 4) throw new Error(`video_editor_blur_probe_unexpected_size:${pixels.length}`);
+  let total = 0;
+  let count = 0;
+  const luma = (offset) => 0.2126 * pixels[offset] + 0.7152 * pixels[offset + 1] + 0.0722 * pixels[offset + 2];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 1; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      total += Math.abs(luma(offset) - luma(offset - 4));
+      count += 1;
+    }
+  }
+  return total / Math.max(1, count);
 }
 
 async function adbRunAsCat(devicePath, localPath) {

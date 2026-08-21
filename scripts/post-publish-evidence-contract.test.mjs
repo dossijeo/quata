@@ -550,8 +550,10 @@ test("post video editor exposes stable common anchors and Android forwards them 
   assert.match(commonPostVideoEditorContent, /heightIn\(max = 720\.dp\)\s*\.verticalScroll\(rememberScrollState\(\)\)/);
   assert.match(commonVideoEditorModels, /PostVideoEditorTrimStartHandleTestTag/);
   assert.match(commonVideoEditorModels, /PostVideoEditorTrimEndHandleTestTag/);
+  assert.match(commonVideoEditorModels, /PostVideoEditorTimelineFrameTestTag/);
   assert.match(commonPostVideoEditorContent, /PostVideoEditorTrimStartHandleTestTag/);
   assert.match(commonPostVideoEditorContent, /PostVideoEditorTrimEndHandleTestTag/);
+  assert.match(commonPostVideoEditorContent, /PostVideoEditorTimelineFrameTestTag\(frameIndex\)/);
   assert.match(commonPostVideoEditorContent, /DialogProperties\(usePlatformDefaultWidth = false\)/);
   assert.match(androidVideoEditorDialog, /PostVideoEditorDialogContent\(/);
   assert.match(androidVideoEditorDialog, /CaptionStyleOption/);
@@ -590,6 +592,11 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidVideoEditorRunner, /probeAndroidExport/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_frame_rate/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_trim_not_applied/);
+  assert.match(androidVideoEditorRunner, /probeCaptionPixels/);
+  assert.match(androidVideoEditorRunner, /probeBackgroundBlurPixels/);
+  assert.match(androidVideoEditorRunner, /android_video_editor_caption_pixels_missing/);
+  assert.match(androidVideoEditorRunner, /android_video_editor_background_blur_pixels_missing/);
+  assert.match(androidPostPublishTest, /PostVideoEditorTimelineFrameTestTag\(index\)/);
 
   assert.match(webVideoEditorRunner, /POST-VIDEO-EDITOR-WEB-REAL-001/);
   assert.match(webVideoEditorRunner, /quata-post-video-editor-e2e/);
@@ -611,6 +618,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /ffprobe/);
   assert.match(webVideoEditorRunner, /probeCaptionPixels/);
   assert.match(webVideoEditorRunner, /probeBackgroundBlurPixels/);
+  assert.match(webVideoEditorRunner, /waitForTimelineFrames/);
+  assert.match(webVideoEditorRunner, /const count = Number\(globalThis\.__quataPostVideoEditorE2eProduct\?\.timelineFrameCount\?\.\(\) \|\| 0\)/);
+  assert.match(webVideoEditorRunner, /count >= 6/);
   assert.match(webVideoEditorRunner, /web_video_editor_background_blur_pixels_missing/);
   assert.match(webVideoEditorRunner, /web_video_editor_caption_pixels_missing/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_present_after_mute/);
@@ -659,6 +669,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /physicalBackgroundBlur/);
   assert.match(webVideoEditorRunner, /web_video_editor_background_blur_not_exported/);
   assert.match(webPostVideoEditor, /webPostVideoEditorCreateTimelineFrames/);
+  assert.match(webPostVideoEditor, /timelineFrameCount: \(\) => Number\(timelineFrameCount\(\)\)/);
   assert.match(webPostVideoEditor, /BrowserCanvasImage\(frame, null, ContentScale\.Crop/);
   assert.match(webPostVideoEditor, /QuataVideoExportPolicy\.selectForSource/);
   assert.match(webVideoEditorRunner, /isSupportedVideoEditorProfile/);
@@ -721,6 +732,12 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostComposerHost, /put\("videoUri", it\.take\(220\)\)/);
 
   assert.match(iosVideoEditorRunner, /POST-VIDEO-EDITOR-IOS-REAL-001/);
+  assert.match(iosVideoEditorRunner, /runAttempt\(\{ label: "muted", mute: true \}\)/);
+  assert.match(iosVideoEditorRunner, /runAttempt\(\{ label: "unmuted", mute: false \}\)/);
+  assert.match(iosVideoEditorRunner, /ios_video_editor_physical_audio_stream_missing_without_mute/);
+  assert.match(iosVideoEditorRunner, /ios_video_editor_physical_audio_stream_present_after_mute/);
+  assert.match(iosVideoEditorRunner, /remote-logs/);
+  assert.doesNotMatch(iosVideoEditorRunner, /await rm\(evidenceDir, \{ recursive: true, force: true \}\)/);
   assert.match(iosVideoEditorRunner, /validSpeechMp4FixturePath/);
   assert.match(iosVideoEditorRunner, /CAPTION_FIXTURE_TEXT/);
   assert.match(iosVideoEditorRunner, /run-ios-post-video-editor-ui-test\.sh/);
@@ -728,20 +745,27 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorWrapper, /speech-recognition/);
   assert.match(iosVideoEditorWrapper, /QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS:=420/);
   assert.match(iosVideoEditorWrapper, /IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED/);
+  assert.match(iosVideoEditorWrapper, /QUATA_IOS_POST_VIDEO_EDITOR_MUTE/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_UI_E2E/);
   assert.match(iosPostPublishTest, /composer-media\.edit-video/);
   assert.match(iosPostPublishTest, /post-video-editor\.root/);
   assert.match(iosVideoEditorRunner, /EXPECTED_CAPTION_STYLE = "Hormozi"/);
   assert.match(iosVideoEditorRunner, /caption_style_change/);
   assert.match(iosPostVideoEditor, /recordCaptionStyleChange/);
+  assert.match(iosPostVideoEditor, /iosPostVideoEditorE2eInitialMute/);
+  assert.match(iosPostVideoEditor, /QUATA_IOS_POST_VIDEO_EDITOR_MUTE/);
   assert.match(iosPostPublishTest, /tapVideoCaptionStyle\("Hormozi"/);
   assert.match(iosPostPublishTest, /dragVideoTrimEnd\(toNormalizedX: 0\.64/);
   assert.match(iosPostPublishTest, /post-video-editor\.trim-end/);
+  assert.match(iosPostPublishTest, /post-video-editor\.timeline-frame\.\S+index/);
   assert.match(iosPostPublishTest, /post-video-editor\.crop-mode\.Square/);
   assert.match(iosPostPublishTest, /post-video-editor\.caption-style\.\S+style/);
   assert.match(iosPostPublishTest, /post-video-editor\.export/);
   assert.match(iosPostPublishTest, /post-video-editor\.export-progress/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE/);
+  assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_MUTE/);
+  assert.match(iosPostPublishTest, /ProcessInfo\.processInfo\.environment\["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"\] == "1"/);
+  assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.mute"/);
   assert.match(iosPostPublishTest, /addingTimeInterval\(180\)/);
   assert.match(iosPostPublishTest, /IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED/);
   assert.match(iosComposerHost, /IosPostVideoEditor/);
@@ -763,7 +787,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditor, /recommendedExportProfileLabel\(\)/);
   assert.match(iosPostVideoEditor, /iosPostVideoEditorExportProfileFor/);
   assert.match(iosPostVideoEditor, /postVideoEditorStateForSourceDuration/);
-  assert.match(iosPostVideoEditor, /postVideoEditorExportSpec\(\s*state,\s*videoAspectRatio,\s*durationMs,\s*captionDocument,\s*exportProfile,/);
+  assert.match(iosPostVideoEditor, /val exportState = iosPostVideoEditorE2eInitialMute\(\)\?\.let/);
+  assert.match(iosPostVideoEditor, /state\.copy\(isMuted = shouldMute\)/);
+  assert.match(iosPostVideoEditor, /postVideoEditorExportSpec\(\s*exportState,\s*videoAspectRatio,\s*durationMs,\s*captionDocument,\s*exportProfile,/);
   assert.match(iosPostVideoEditor, /CaptionDocument\.fromWords/);
   assert.match(iosPostVideoEditor, /CaptionDocumentWireCodec\.decodeWords/);
   assert.match(iosPostVideoEditor, /CaptionDocumentWireCodec::encodeDocument/);
@@ -788,6 +814,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /backgroundLayer/);
   assert.match(iosPostVideoEditorNativeDriver, /outputMaxFrameRate/);
   assert.match(iosPostVideoEditorNativeDriver, /outputTargetBitrate/);
+  assert.match(iosPostVideoEditorNativeDriver, /adaptive_writer_pass_start/);
+  assert.match(iosPostVideoEditorNativeDriver, /audio_remux_start/);
+  assert.match(iosPostVideoEditorNativeDriver, /audio_remux_completed/);
+  assert.match(iosPostVideoEditorNativeDriver, /AVAssetExportPresetPassthrough/);
   assert.match(iosPostVideoEditorNativeDriver, /recommendedExportProfileLabel\(\)/);
   assert.match(iosPostVideoEditorNativeDriver, /export_profile_recommended/);
   assert.match(iosPostVideoEditorNativeDriver, /cancelExport\(\)/);

@@ -803,12 +803,15 @@ fun PostVideoEditorTimelineContent(
 
         Row(Modifier.fillMaxSize()) {
             repeat(frameSlots) { index ->
+                val frameIndex = index.coerceAtMost((frameCount - 1).coerceAtLeast(0))
                 frameContent(
-                    index.coerceAtMost((frameCount - 1).coerceAtLeast(0)),
+                    frameIndex,
                     Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .padding(horizontal = 1.dp),
+                        .padding(horizontal = 1.dp)
+                        .testTag(PostVideoEditorTimelineFrameTestTag(frameIndex))
+                        .semantics { contentDescription = PostVideoEditorTimelineFrameTestTag(frameIndex) },
                 )
             }
         }
