@@ -556,9 +556,8 @@ private final class IosPostVideoEditorExportOperation {
             return
         }
         let needsBackgroundTrack = request.hasBackgroundCrop
-        let compositionBackground = needsBackgroundTrack
-            ? composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
-            : nil
+        let needsCoreImageBackground = needsBackgroundTrack
+        let compositionBackground: AVMutableCompositionTrack? = nil
         do {
             try compositionVideo.insertTimeRange(range, of: videoTrack, at: .zero)
             if let compositionBackground {
@@ -597,7 +596,7 @@ private final class IosPostVideoEditorExportOperation {
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
         exportSession.timeRange = CMTimeRange(start: .zero, duration: range.duration)
-        exportSession.videoComposition = if needsBackgroundTrack {
+        exportSession.videoComposition = if needsCoreImageBackground {
             makeBlurredBackgroundVideoComposition(asset: composition, duration: range.duration)
         } else {
             makeVideoComposition(
