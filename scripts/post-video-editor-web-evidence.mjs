@@ -302,6 +302,7 @@ async function saveAndProbeWebExport(page, exportState) {
     "-print_format", "json",
     "-show_format",
     "-show_streams",
+    "-show_packets",
     outputPath,
   ], { encoding: "utf8" }));
   const videoStream = ffprobe.streams?.find((stream) => stream.codec_type === "video");
@@ -313,7 +314,7 @@ async function saveAndProbeWebExport(page, exportState) {
   if (width !== Number(exportState.output?.outputWidth || 0) || height !== Number(exportState.output?.outputHeight || 0)) {
     throw new Error(`web_video_editor_physical_dimensions:${width}x${height}`);
   }
-  const ffprobeDurationMs = Math.round(Number(ffprobe.format?.duration || videoStream.duration || 0) * 1000);
+  const ffprobeDurationMs = physicalDurationMsFromProbe(ffprobe, videoStream);
   const bridgeDurationMs = Math.round(Number(exportState.output?.effectiveDurationMs || 0));
   if (ffprobeDurationMs <= 0) {
     throw new Error("web_video_editor_physical_duration_unmeasured");
@@ -337,6 +338,21 @@ async function saveAndProbeWebExport(page, exportState) {
     captionPixelProbe,
     backgroundBlurPixelProbe,
   };
+}
+
+function physicalDurationMsFromProbe(ffprobe, videoStream) {
+  const directSeconds = Number(ffprobe.format?.duration || videoStream.duration || 0);
+  if (directSeconds > 0) return Math.round(directSeconds * 1000);
+  const packetEndMs = (ffprobe.packets || [])
+    .filter((packet) => packet.codec_type === "video")
+    .map((packet) => {
+      const timestamp = Number(packet.pts_time || packet.dts_time || 0);
+      const duration = Number(packet.duration_time || 0);
+      return Math.round((timestamp + duration) * 1000);
+    })
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .reduce((max, value) => Math.max(max, value), 0);
+  return packetEndMs;
 }
 
 function isSupportedVideoEditorProfile(width, height) {

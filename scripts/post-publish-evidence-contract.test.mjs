@@ -544,6 +544,9 @@ test("post video editor exposes stable common anchors and Android forwards them 
   assert.match(commonPostVideoEditorSpec, /postVideoEditorStateAfterCropPan/);
   assert.match(commonPostVideoEditorSpec, /postVideoEditorStateAfterCropZoomChange/);
   assert.match(commonPostVideoEditorContent, /post-video-editor\.crop-mode\.\$\{option\.name\}/);
+  assert.match(commonPostVideoEditorContent, /contentDescription = tag/);
+  assert.match(commonPostVideoEditorContent, /role = Role\.Button/);
+  assert.match(commonPostVideoEditorContent, /onClick \{\s*onModeChange\(option\)\s*true\s*\}/);
   assert.match(commonVideoEditorModels, /PostVideoEditorTrimStartHandleTestTag/);
   assert.match(commonVideoEditorModels, /PostVideoEditorTrimEndHandleTestTag/);
   assert.match(commonPostVideoEditorContent, /PostVideoEditorTrimStartHandleTestTag/);
@@ -602,6 +605,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_present_after_mute/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_trim_duration/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_duration_unmeasured/);
+  assert.match(webVideoEditorRunner, /"-show_packets"/);
+  assert.match(webVideoEditorRunner, /physicalDurationMsFromProbe/);
   assert.match(webVideoEditorRunner, /web_video_editor_export_missing_operation:\$\{operation\}/);
   assert.match(webPostComposerRoute, /videoEditor =/);
   assert.match(webPostVideoEditor, /PostVideoEditorDialogContent/);

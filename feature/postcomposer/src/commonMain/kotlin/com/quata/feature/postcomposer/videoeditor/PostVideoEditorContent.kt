@@ -485,25 +485,37 @@ private fun CommonCropControls(
                 val label = strings.labelFor(option)
                 val shape = RoundedCornerShape(9.dp)
                 val tag = "post-video-editor.crop-mode.${option.name}"
-                if (selected) {
-                    Button(
-                        onClick = { onModeChange(option) },
-                        modifier = Modifier.testTag(tag),
-                        shape = shape,
-                        contentPadding = ButtonDefaults.TextButtonContentPadding,
-                    ) {
-                        CompactIcon(Icons.Filled.AspectRatio, null)
-                        Spacer(Modifier.width(4.dp))
-                        Text(label, fontWeight = FontWeight.Bold, maxLines = 1)
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = { onModeChange(option) },
-                        modifier = Modifier.testTag(tag),
-                        shape = shape,
-                        contentPadding = ButtonDefaults.TextButtonContentPadding,
-                    ) {
-                        Text(label, fontWeight = FontWeight.Bold, maxLines = 1)
+                Box(
+                    modifier = Modifier
+                        .testTag(tag)
+                        .semantics {
+                            contentDescription = tag
+                            role = Role.Button
+                            this.selected = selected
+                            onClick {
+                                onModeChange(option)
+                                true
+                            }
+                        },
+                ) {
+                    if (selected) {
+                        Button(
+                            onClick = { onModeChange(option) },
+                            shape = shape,
+                            contentPadding = ButtonDefaults.TextButtonContentPadding,
+                        ) {
+                            CompactIcon(Icons.Filled.AspectRatio, null)
+                            Spacer(Modifier.width(4.dp))
+                            Text(label, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { onModeChange(option) },
+                            shape = shape,
+                            contentPadding = ButtonDefaults.TextButtonContentPadding,
+                        ) {
+                            Text(label, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
                     }
                 }
             }
