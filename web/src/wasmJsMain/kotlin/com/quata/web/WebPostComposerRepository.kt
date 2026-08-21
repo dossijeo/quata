@@ -87,7 +87,7 @@ class WebPostComposerTransport(
     }
 
     override suspend fun prepareImage(reference: String): Result<ComposerPreparedMedia> = Result.success(webPrepared(reference, "image/jpeg", "imagen.jpg"))
-    override suspend fun prepareVideo(reference: String): Result<ComposerPreparedMedia> = Result.success(webPrepared(reference, "video/mp4", "video.mp4"))
+    override suspend fun prepareVideo(reference: String): Result<ComposerPreparedMedia> = Result.success(webPreparedVideo(reference))
 
     override suspend fun uploadImage(actorProfileId: String, media: ComposerPreparedMedia): Result<ComposerUploadedMedia> = runCatching {
         val credentials = auth.currentWebPushCredentials() ?: error("web_session_missing")
@@ -136,7 +136,44 @@ internal fun webPrepared(reference: String, fallbackMime: String, fallbackName: 
     val name = rawName.takeIf { "." in it } ?: fallbackName
     return ComposerPreparedMedia(reference, name, mediaMime(name).takeIf(String::isNotBlank) ?: fallbackMime)
 }
-private fun mediaMime(reference: String?): String = when (reference?.substringBefore('?')?.substringAfterLast('.')?.lowercase()) { "png" -> "image/png"; "webp" -> "image/webp"; "gif" -> "image/gif"; "mov" -> "video/quicktime"; "mp4" -> "video/mp4"; else -> "" }
+internal fun webPreparedVideo(reference: String): ComposerPreparedMedia {
+    val metadata = webComposerBlobMetadata(reference)
+    if (metadata.mimeType.isNotBlank()) {
+        return ComposerPreparedMedia(
+            reference = reference,
+            name = metadata.name,
+            mimeType = metadata.mimeType,
+        )
+    }
+    return webPrepared(reference, "video/mp4", "video.mp4")
+}
+
+private data class WebComposerBlobMetadata(
+    val mimeType: String,
+    val name: String,
+)
+
+private fun webComposerBlobMetadata(reference: String): WebComposerBlobMetadata {
+    val raw = webComposerBlobMetadataJson(reference).takeIf(String::isNotBlank) ?: return WebComposerBlobMetadata("", "")
+    val obj = runCatching { Json.parseToJsonElement(raw).jsonObject }.getOrNull()
+    val mimeType = obj?.get("mimeType")?.jsonPrimitive?.contentOrNull?.takeIf { it.startsWith("video/") }.orEmpty()
+    val extension = when {
+        mimeType.contains("webm") -> "webm"
+        mimeType.contains("quicktime") -> "mov"
+        mimeType.contains("mp4") -> "mp4"
+        else -> "video"
+    }
+    val name = obj?.get("name")?.jsonPrimitive?.contentOrNull
+        ?.takeIf { "." in it }
+        ?: "video.$extension"
+    return WebComposerBlobMetadata(mimeType, name)
+}
+
+private fun mediaMime(reference: String?): String = when (reference?.substringBefore('?')?.substringAfterLast('.')?.lowercase()) { "png" -> "image/png"; "webp" -> "image/webp"; "gif" -> "image/gif"; "mov" -> "video/quicktime"; "mp4" -> "video/mp4"; "webm" -> "video/webm"; else -> "" }
+private fun webComposerBlobMetadataJson(reference: String): String = js("""(() => {
+  const metadata = globalThis.__quataPostVideoEditorBlobMetadata?.get?.(reference);
+  return metadata ? JSON.stringify(metadata) : '';
+})()""")
 internal const val WEB_COMPOSER_WALL_STATS_TABLE = "community_walls_stats"
 internal const val WEB_COMPOSER_POSTS_TABLE = "community_posts"
 internal const val WEB_COMPOSER_PROFILES_TABLE = "community_profiles"

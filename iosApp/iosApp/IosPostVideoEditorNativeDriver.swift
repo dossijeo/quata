@@ -769,7 +769,8 @@ private final class IosPostVideoEditorExportOperation {
             }
             let overlay = Self.captionOverlayImage(
                 outputSize: request.sourceImage.extent.size,
-                text: segment.text.uppercased(),
+                segment: segment,
+                timeMs: timeMs,
                 style: captionStyle
             )
             request.finish(with: overlay.composited(over: request.sourceImage), context: nil)
@@ -817,7 +818,32 @@ private final class IosPostVideoEditorExportOperation {
         }
     }
 
-    private static func captionOverlayImage(outputSize: CGSize, text: String, style: String) -> CIImage {
+    private struct CaptionRenderSpec {
+        let textSizeRatio: CGFloat
+        let maxWidthRatio: CGFloat
+        let verticalPosition: CGFloat
+        let uppercase: Bool
+        let fontName: String
+        let segmentBackground: UIColor?
+        let activeBackground: UIColor?
+        let activeText: UIColor
+        let normalText: UIColor
+    }
+
+    private static func captionRenderSpec(style: String) -> CaptionRenderSpec {
+        switch style {
+        case "PopWord":
+            return CaptionRenderSpec(textSizeRatio: 0.092, maxWidthRatio: 0.92, verticalPosition: 0.67, uppercase: true, fontName: "HelveticaNeue-CondensedBlack", segmentBackground: nil, activeBackground: UIColor(red: 1, green: 0.54, blue: 0.10, alpha: 0.92), activeText: .black, normalText: .white)
+        case "Hormozi":
+            return CaptionRenderSpec(textSizeRatio: 0.066, maxWidthRatio: 0.88, verticalPosition: 0.70, uppercase: true, fontName: "HelveticaNeue-CondensedBlack", segmentBackground: UIColor.black.withAlphaComponent(0.82), activeBackground: UIColor(red: 1, green: 0.90, blue: 0, alpha: 0.94), activeText: .black, normalText: .white)
+        case "Typewriter":
+            return CaptionRenderSpec(textSizeRatio: 0.060, maxWidthRatio: 0.82, verticalPosition: 0.76, uppercase: false, fontName: "Menlo-Bold", segmentBackground: UIColor(red: 0.15, green: 0.16, blue: 0.20, alpha: 0.80), activeBackground: nil, activeText: .white, normalText: .white)
+        default:
+            return CaptionRenderSpec(textSizeRatio: 0.058, maxWidthRatio: 0.84, verticalPosition: 0.74, uppercase: true, fontName: "HelveticaNeue-CondensedBlack", segmentBackground: UIColor.black.withAlphaComponent(0.69), activeBackground: nil, activeText: UIColor(red: 1, green: 0.48, blue: 0.09, alpha: 1), normalText: .white)
+        }
+    }
+
+    private static func captionOverlayImage(outputSize: CGSize, segment: CaptionSegmentWire, timeMs: Int64, style: String) -> CIImage {
         let width = max(2, Int(outputSize.width))
         let height = max(2, Int(outputSize.height))
         let bytesPerRow = width * 4
@@ -833,29 +859,50 @@ private final class IosPostVideoEditorExportOperation {
         ) else {
             return CIImage.empty()
         }
+        let spec = captionRenderSpec(style: style)
+        let fontSize = outputSize.width * spec.textSizeRatio
+        let font = UIFont(name: spec.fontName, size: fontSize) ?? UIFont.boldSystemFont(ofSize: fontSize)
+        let words = segment.words
+        let displayWords = words.map { spec.uppercase ? $0.text.uppercased() : $0.text }
+        let gap = fontSize * 0.34
+        let widths = displayWords.map { word -> CGFloat in
+            let attributed = NSAttributedString(string: word, attributes: [.font: font])
+            let line = CTLineCreateWithAttributedString(attributed)
+            return CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
+        }
+        let totalWidth = widths.reduce(0, +) + gap * CGFloat(max(0, words.count - 1))
+        let boxWidth = min(outputSize.width * spec.maxWidthRatio, max(outputSize.width * 0.24, totalWidth + outputSize.width * 0.08))
+        let boxHeight = max(fontSize * 1.45, outputSize.height * 0.074)
         let box = CGRect(
-            x: outputSize.width * 0.08,
-            y: outputSize.height * 0.185,
-            width: outputSize.width * 0.84,
-            height: outputSize.height * 0.095
+            x: (outputSize.width - boxWidth) / 2,
+            y: outputSize.height * spec.verticalPosition - boxHeight / 2,
+            width: boxWidth,
+            height: boxHeight
         )
-        context.setFillColor(UIColor.black.withAlphaComponent(0.72).cgColor)
-        context.addPath(CGPath(roundedRect: box, cornerWidth: outputSize.width * 0.018, cornerHeight: outputSize.width * 0.018, transform: nil))
-        context.fillPath()
-
-        let fontSize = outputSize.width * (style == "PopWord" ? 0.072 : 0.056)
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.boldSystemFont(ofSize: fontSize),
-            .foregroundColor: UIColor.white.cgColor,
-        ]
-        let attributed = NSAttributedString(string: text, attributes: attributes)
-        let line = CTLineCreateWithAttributedString(attributed)
-        let textBounds = CTLineGetTypographicBounds(line, nil, nil, nil)
-        context.textPosition = CGPoint(
-            x: box.midX - CGFloat(textBounds) / 2,
-            y: box.midY - fontSize * 0.36
-        )
-        CTLineDraw(line, context)
+        if let background = spec.segmentBackground ?? (style == "PopWord" ? UIColor(red: 1, green: 0.54, blue: 0.10, alpha: 0.88) : nil) {
+            context.setFillColor(background.cgColor)
+            context.addPath(CGPath(roundedRect: box, cornerWidth: outputSize.width * 0.018, cornerHeight: outputSize.width * 0.018, transform: nil))
+            context.fillPath()
+        }
+        var x = (outputSize.width - totalWidth) / 2
+        let y = box.midY - fontSize * 0.36
+        for (index, word) in words.enumerated() {
+            let active = timeMs >= word.startMs && timeMs <= word.endMs
+            if active, let background = spec.activeBackground {
+                let activeBox = CGRect(x: x - gap * 0.32, y: y - fontSize * 0.24, width: widths[index] + gap * 0.64, height: fontSize * 1.12)
+                context.setFillColor(background.cgColor)
+                context.addPath(CGPath(roundedRect: activeBox, cornerWidth: outputSize.width * 0.018, cornerHeight: outputSize.width * 0.018, transform: nil))
+                context.fillPath()
+            }
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: (active ? spec.activeText : spec.normalText).cgColor,
+            ]
+            let line = CTLineCreateWithAttributedString(NSAttributedString(string: displayWords[index], attributes: attributes))
+            context.textPosition = CGPoint(x: x, y: y)
+            CTLineDraw(line, context)
+            x += widths[index] + gap
+        }
         guard let image = context.makeImage() else { return CIImage.empty() }
         return CIImage(cgImage: image)
     }

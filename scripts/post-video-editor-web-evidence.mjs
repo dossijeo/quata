@@ -315,7 +315,10 @@ async function saveAndProbeWebExport(page, exportState) {
   }
   const ffprobeDurationMs = Math.round(Number(ffprobe.format?.duration || videoStream.duration || 0) * 1000);
   const bridgeDurationMs = Math.round(Number(exportState.output?.effectiveDurationMs || 0));
-  const physicalDurationMs = ffprobeDurationMs > 0 ? ffprobeDurationMs : bridgeDurationMs;
+  if (ffprobeDurationMs <= 0) {
+    throw new Error("web_video_editor_physical_duration_unmeasured");
+  }
+  const physicalDurationMs = ffprobeDurationMs;
   const expectedDurationMs = Math.max(500, Number(exportState.spec?.trimEndMs || 0) - Number(exportState.spec?.trimStartMs || 0));
   if (physicalDurationMs < expectedDurationMs * 0.45 || physicalDurationMs > expectedDurationMs * 1.45) {
     throw new Error(`web_video_editor_physical_trim_duration:${physicalDurationMs}:${expectedDurationMs}`);

@@ -35,6 +35,8 @@ import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterCropZ
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterReset
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimEnd
 import com.quata.feature.postcomposer.videoeditor.postVideoEditorStateAfterTrimStart
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLVideoElement
@@ -46,6 +48,7 @@ import kotlin.coroutines.suspendCoroutine
 @Composable
 internal fun WebPostVideoEditor(
     sourceReference: String,
+    isLandscapeLayout: Boolean,
     onDismiss: () -> Unit,
     onEdited: (String) -> Unit,
 ) {
@@ -54,6 +57,8 @@ internal fun WebPostVideoEditor(
     var videoAspectRatio by remember(sourceReference) { mutableStateOf(9f / 16f) }
     var timelineFrames by remember(sourceReference) { mutableStateOf<List<String>>(emptyList()) }
     var exportProfile by remember(sourceReference) { mutableStateOf(DefaultPostVideoEditorExportProfile) }
+    var exportJob by remember(sourceReference) { mutableStateOf<Job?>(null) }
+    var activeExportToken by remember(sourceReference) { mutableStateOf<Any?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(sourceReference) {
         val metadata = webPostVideoEditorReadMetadata(sourceReference)
@@ -64,10 +69,12 @@ internal fun WebPostVideoEditor(
         timelineFrames = webPostVideoEditorCreateTimelineFrames(sourceReference, metadata.durationMs, 6)
     }
     fun export() {
-        if (state.isExporting) return
+        if (state.isExporting || exportJob != null) return
+        val exportToken = Any()
+        activeExportToken = exportToken
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
         webPostVideoEditorRecordExportStarted()
-        scope.launch {
+        val job = scope.launch {
             runCatching {
                 val freshMetadata = runCatching { webPostVideoEditorReadMetadata(sourceReference) }.getOrNull()
                 val exportDurationMs = freshMetadata?.durationMs?.also {
@@ -97,8 +104,10 @@ internal fun WebPostVideoEditor(
                 }
             }
                 .onSuccess {
+                    if (activeExportToken !== exportToken) return@onSuccess
                     val spec = it.first
                     val reference = it.second
+                    activeExportToken = null
                     state = state.copy(isExporting = false, exportProgress = 1f)
                     webPostVideoEditorRecordExportSuccess(
                         reference = reference,
@@ -122,10 +131,18 @@ internal fun WebPostVideoEditor(
                     onEdited(reference)
                 }
                 .onFailure {
+                    if (activeExportToken !== exportToken) return@onFailure
+                    activeExportToken = null
+                    if (it is CancellationException) return@onFailure
                     val message = it.message ?: "web_post_video_editor_export_failed"
                     state = state.copy(isExporting = false, error = message)
                     webPostVideoEditorRecordExportFailure(message)
                 }
+        }
+        exportJob = job
+        job.invokeOnCompletion {
+            if (activeExportToken === exportToken) activeExportToken = null
+            if (exportJob === job) exportJob = null
         }
     }
     DisposableEffect(sourceReference, state, onDismiss, onEdited) {
@@ -162,10 +179,14 @@ internal fun WebPostVideoEditor(
         onDismiss = onDismiss,
         onExport = ::export,
         onCancelExport = {
+            activeExportToken = null
+            exportJob?.cancel()
+            exportJob = null
             state = state.copy(isExporting = false, exportProgress = 0f)
             webPostVideoEditorCancelActiveExport()
             webPostVideoEditorRecordExportFailure("web_post_video_editor_export_cancelled")
         },
+        isLandscapeLayout = isLandscapeLayout,
         durationMs = durationMs,
         captionOptions = CaptionTemplateStyle.entries.map { CaptionStyleOption(it.name, it.name) },
         onCropModeChange = { state = postVideoEditorStateAfterCropModeChange(state, it, videoAspectRatio) },
@@ -668,7 +689,15 @@ private fun webPostVideoEditorExportEditedJs(
                 effectiveDurationMs: durationMs,
                 physicalBackgroundBlur: true,
               };
-              resolve(globalThis.URL.createObjectURL(blob));
+              const reference = globalThis.URL.createObjectURL(blob);
+              const extension = mimeType.includes('webm') ? 'webm' : 'mp4';
+              globalThis.__quataPostVideoEditorBlobMetadata = globalThis.__quataPostVideoEditorBlobMetadata || new Map();
+              globalThis.__quataPostVideoEditorBlobMetadata.set(reference, {
+                mimeType,
+                name: 'video.' + extension,
+                size: blob.size
+              });
+              resolve(reference);
             }
           };
           const actualDurationMs = Math.max(500, (Number(video.duration) || 0) * 1000);
@@ -721,28 +750,41 @@ private fun webPostVideoEditorExportEditedJs(
           function segmentAt(timeMs) {
             return captionSegments.find(segment => timeMs >= segment.startMs && timeMs <= segment.endMs) || null;
           }
+          function captionRenderSpec(style) {
+            if (style === 'PopWord') return { textSizeRatio: 0.092, maxWidthRatio: 0.92, verticalPosition: 0.67, uppercase: true, background: '#ff8a1a', segmentBackground: null, active: '#000000', normal: '#ffffff', font: '900 ' };
+            if (style === 'Hormozi') return { textSizeRatio: 0.066, maxWidthRatio: 0.88, verticalPosition: 0.70, uppercase: true, background: '#ffe500', segmentBackground: 'rgba(0,0,0,0.82)', active: '#000000', normal: '#ffffff', font: '900 ' };
+            if (style === 'Typewriter') return { textSizeRatio: 0.060, maxWidthRatio: 0.82, verticalPosition: 0.76, uppercase: false, background: null, segmentBackground: 'rgba(38,41,50,0.80)', active: '#ffffff', normal: '#ffffff', font: '700 ' };
+            return { textSizeRatio: 0.058, maxWidthRatio: 0.84, verticalPosition: 0.74, uppercase: true, background: null, segmentBackground: 'rgba(0,0,0,0.69)', active: '#ff7a18', normal: '#ffffff', font: '900 ' };
+          }
           function drawCaptionSegment(segment, timeMs) {
             if (!segment) return;
+            const spec = captionRenderSpec(caption);
             const words = segment.words;
-            const displayWords = words.map(word => String(word.text || '').toUpperCase());
-            const fontSize = Math.round(canvas.width * 0.056);
-            context.font = fontSize + 'px sans-serif';
+            const displayWords = words.map(word => spec.uppercase ? String(word.text || '').toUpperCase() : String(word.text || ''));
+            const fontSize = Math.round(canvas.width * spec.textSizeRatio);
+            context.font = spec.font + fontSize + 'px ' + (caption === 'Typewriter' ? 'monospace' : 'sans-serif');
             context.textAlign = 'left';
             const gap = fontSize * 0.34;
             const widths = displayWords.map(word => context.measureText(word).width);
             const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, words.length - 1);
-            const boxWidth = Math.min(canvas.width * 0.88, Math.max(canvas.width * 0.24, totalWidth + canvas.width * 0.08));
-            const boxHeight = canvas.height * 0.095;
+            const boxWidth = Math.min(canvas.width * spec.maxWidthRatio, Math.max(canvas.width * 0.24, totalWidth + canvas.width * 0.08));
+            const boxHeight = Math.max(fontSize * 1.45, canvas.height * 0.074);
             const boxX = (canvas.width - boxWidth) / 2;
-            const boxY = canvas.height * 0.72;
-            context.fillStyle = caption === 'PopWord' ? 'rgba(255,138,26,0.88)' : 'rgba(0,0,0,0.72)';
-            context.fillRect(boxX, boxY, boxWidth, boxHeight);
+            const boxY = canvas.height * spec.verticalPosition - boxHeight / 2;
+            if (spec.segmentBackground || caption === 'PopWord') {
+              context.fillStyle = spec.segmentBackground || 'rgba(255,138,26,0.88)';
+              context.fillRect(boxX, boxY, boxWidth, boxHeight);
+            }
             let x = (canvas.width - totalWidth) / 2;
-            const y = canvas.height * 0.78;
+            const y = boxY + boxHeight * 0.66;
             for (let index = 0; index < words.length; index += 1) {
               const word = words[index];
               const active = timeMs >= word.startMs && timeMs <= word.endMs;
-              context.fillStyle = active && (caption === 'Karaoke' || caption === 'Hormozi') ? '#ff7a18' : '#ffffff';
+              if (active && spec.background) {
+                context.fillStyle = spec.background;
+                context.fillRect(x - gap * 0.32, y - fontSize * 0.88, widths[index] + gap * 0.64, fontSize * 1.12);
+              }
+              context.fillStyle = active ? spec.active : spec.normal;
               context.fillText(displayWords[index], x, y);
               x += widths[index] + gap;
             }

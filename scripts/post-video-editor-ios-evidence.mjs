@@ -202,12 +202,21 @@ function probeIosExport(outputPath, diagnostics) {
   if (width !== Number(diagnostics.outputWidth || 0) || height !== Number(diagnostics.outputHeight || 0)) {
     throw new Error(`ios_video_editor_physical_dimensions:${width}x${height}`);
   }
+  const durationMs = Math.round(Number(ffprobe.format?.duration || videoStream.duration || 0) * 1000);
+  const expectedDurationMs = Math.max(500, Number(diagnostics.trimEndMs || 0) - Number(diagnostics.trimStartMs || 0));
+  if (durationMs <= 0) {
+    throw new Error("ios_video_editor_physical_duration_unmeasured");
+  }
+  if (durationMs < expectedDurationMs * 0.45 || durationMs > expectedDurationMs * 1.45) {
+    throw new Error(`ios_video_editor_physical_trim_duration:${durationMs}:${expectedDurationMs}`);
+  }
   const captionPixelProbe = probeCaptionPixels(outputPath, firstCaptionProbeSecond(diagnostics.captionDocumentWire));
   const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
   return {
     path: outputPath,
     video: { codec: videoStream.codec_name, width, height },
-    durationMs: Math.round(Number(ffprobe.format?.duration || videoStream.duration || 0) * 1000),
+    durationMs,
+    expectedTrimDurationMs: expectedDurationMs,
     audioStreamPresent: Boolean(audioStream),
     captionPixelProbe,
     backgroundBlurPixelProbe,

@@ -630,13 +630,18 @@ fun QuataVideoEditorDialog(
             }
         },
         onReset = {
-            isMuted = false
-            isCropPanelOpen = false
-            cropMode = VideoCropMode.Original
-            cropZoom = 1f
-            cropCenter = Offset(0.5f, 0.5f)
-            captionStyle = null
-            isCaptionPanelOpen = false
+            val resetState = postVideoEditorStateAfterReset(editorState, durationMs)
+            trimStartMs = (resetState.trimStartFraction * durationMs.coerceAtLeast(1L)).roundToLong()
+            trimEndMs = (resetState.trimEndFraction * durationMs.coerceAtLeast(1L)).roundToLong()
+            isMuted = resetState.isMuted
+            isCropPanelOpen = resetState.cropPanelOpen
+            cropMode = resetState.cropMode
+            cropZoom = resetState.cropZoom
+            cropCenter = Offset(resetState.cropCenterX, resetState.cropCenterY)
+            captionStyle = resetState.selectedCaptionStyleId?.let { id ->
+                CaptionTemplateStyle.entries.firstOrNull { it.name == id }
+            }
+            isCaptionPanelOpen = resetState.captionsPanelOpen
             seekPreviewTo(trimStartMs)
         },
         onDismiss = ::requestBack,
@@ -2136,7 +2141,8 @@ private fun VideoEditorExportRequest.canUseDirectStreamCopy(): Boolean =
                     sourceRotation.normalizedVideoRotation() == 0 &&
                     hasNineSixteenSourceAspect() &&
                     isWithinDirectStreamSizeLimit() &&
-                    isWithinDirectStreamBitrateLimit()
+                    isWithinDirectStreamBitrateLimit() &&
+                    isWithinDirectStreamFrameRateLimit()
             ) ||
                 canUseLegacyUntransformedStreamCopy()
         )
@@ -2172,6 +2178,11 @@ private fun VideoEditorExportRequest.isWithinDirectStreamSizeLimit(): Boolean =
 private fun VideoEditorExportRequest.isWithinDirectStreamBitrateLimit(): Boolean {
     val bitrate = sourceBitrate ?: return false
     return bitrate <= exportProfile.targetBitrate + DirectStreamAudioBitrateAllowance
+}
+
+private fun VideoEditorExportRequest.isWithinDirectStreamFrameRateLimit(): Boolean {
+    val sourceRate = sourceFrameRate ?: return false
+    return sourceRate <= exportProfile.maxFrameRate.toFloat() + 0.5f
 }
 
 private fun VideoEditorExportRequest.needsBlurredBackground(): Boolean =
@@ -2233,8 +2244,7 @@ private fun VideoEditorExportRequest.foregroundScale(): Float {
 private fun VideoEditorExportRequest.shouldDownsampleFrameRate(): Boolean {
     val sourceRate = sourceFrameRate ?: return false
     val targetRate = exportProfile.maxFrameRate.toFloat()
-    return targetRate == EditorTargetFrameRate.toFloat() &&
-        sourceRate in SourceSixtyFpsLowerBound..SourceSixtyFpsUpperBound
+    return sourceRate > targetRate + 0.5f
 }
 
 private fun VideoEditorExportRequest.frameRateEffects(): List<Effect> {
@@ -2866,9 +2876,6 @@ private const val TransformerCompletionFallbackProgress = 95
 private const val TransformerStableOutputCompletionMs = 3_500L
 private const val TransformerStableOutputMinBytes = 128 * 1024L
 private const val DownsampleExportProgressShare = 0.28f
-private const val EditorTargetFrameRate = 30
-private const val SourceSixtyFpsLowerBound = 50f
-private const val SourceSixtyFpsUpperBound = 70f
 private const val VideoEditorForceGlBrightness = 0.0001f
 private const val CaptionPreviewWidth = 540
 private const val CaptionPreviewHeight = 960

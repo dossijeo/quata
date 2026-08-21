@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -274,7 +275,8 @@ private fun PostVideoEditorBody(
                 modifier = Modifier
                     .width(330.dp)
                     .fillMaxHeight()
-                    .heightIn(max = 660.dp),
+                    .heightIn(max = 660.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 PostVideoEditorControls(
@@ -482,14 +484,25 @@ private fun CommonCropControls(
                 val selected = option == mode
                 val label = strings.labelFor(option)
                 val shape = RoundedCornerShape(9.dp)
+                val tag = "post-video-editor.crop-mode.${option.name}"
                 if (selected) {
-                    Button(onClick = { onModeChange(option) }, shape = shape, contentPadding = ButtonDefaults.TextButtonContentPadding) {
+                    Button(
+                        onClick = { onModeChange(option) },
+                        modifier = Modifier.testTag(tag),
+                        shape = shape,
+                        contentPadding = ButtonDefaults.TextButtonContentPadding,
+                    ) {
                         CompactIcon(Icons.Filled.AspectRatio, null)
                         Spacer(Modifier.width(4.dp))
                         Text(label, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
                 } else {
-                    OutlinedButton(onClick = { onModeChange(option) }, shape = shape, contentPadding = ButtonDefaults.TextButtonContentPadding) {
+                    OutlinedButton(
+                        onClick = { onModeChange(option) },
+                        modifier = Modifier.testTag(tag),
+                        shape = shape,
+                        contentPadding = ButtonDefaults.TextButtonContentPadding,
+                    ) {
                         Text(label, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
                 }
@@ -813,6 +826,8 @@ fun PostVideoEditorTimelineContent(
                     .offset(x = maxWidth * trimStart - handleHitPadding)
                     .width(handleHitWidth)
                     .fillMaxHeight()
+                    .testTag(PostVideoEditorTrimStartHandleTestTag)
+                    .semantics { contentDescription = PostVideoEditorTrimStartHandleTestTag }
                     .handleDrag(startHandle = true),
             )
             Box(
@@ -820,6 +835,8 @@ fun PostVideoEditorTimelineContent(
                     .offset(x = maxWidth * trimEnd - handleWidth - handleHitPadding)
                     .width(handleHitWidth)
                     .fillMaxHeight()
+                    .testTag(PostVideoEditorTrimEndHandleTestTag)
+                    .semantics { contentDescription = PostVideoEditorTrimEndHandleTestTag }
                     .handleDrag(startHandle = false),
             )
         }

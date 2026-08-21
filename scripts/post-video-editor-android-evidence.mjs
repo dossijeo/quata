@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -80,6 +81,7 @@ try {
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   await copyDeviceEvidence(evidenceDir);
+  report.evidence.physicalExport = probeAndroidExport(join(evidenceDir, "android-post-video-editor-export.mp4"));
   report.evidence.directory = evidenceDir;
   report.status = "passed";
 } catch (error) {
@@ -142,6 +144,54 @@ async function copyDeviceEvidence(evidenceDir) {
   for (const name of listing.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)) {
     await adbRunAsCat(`${deviceEvidencePath}/${name}`, join(evidenceDir, name)).catch(() => {});
   }
+}
+
+function probeAndroidExport(outputPath) {
+  const ffprobe = JSON.parse(execFileSync("ffprobe", [
+    "-v", "error",
+    "-print_format", "json",
+    "-show_format",
+    "-show_streams",
+    outputPath,
+  ], { encoding: "utf8" }));
+  const videoStream = ffprobe.streams?.find((stream) => stream.codec_type === "video");
+  const audioStream = ffprobe.streams?.find((stream) => stream.codec_type === "audio");
+  if (!videoStream) throw new Error("android_video_editor_physical_video_stream_missing");
+  if (audioStream) throw new Error("android_video_editor_physical_audio_stream_present_after_mute");
+  const width = Number(videoStream.width || 0);
+  const height = Number(videoStream.height || 0);
+  if (!isSupportedVideoEditorProfile(width, height)) {
+    throw new Error(`android_video_editor_physical_dimensions:${width}x${height}`);
+  }
+  const durationMs = Math.round(Number(ffprobe.format?.duration || videoStream.duration || 0) * 1000);
+  if (durationMs <= 0 || durationMs > 90_500) {
+    throw new Error(`android_video_editor_physical_duration:${durationMs}`);
+  }
+  const frameRate = parseFrameRate(videoStream.avg_frame_rate || videoStream.r_frame_rate);
+  if (frameRate > 30.5) {
+    throw new Error(`android_video_editor_physical_frame_rate:${frameRate}`);
+  }
+  return {
+    path: outputPath,
+    durationMs,
+    video: { codec: videoStream.codec_name, width, height, frameRate },
+    audioStreamPresent: Boolean(audioStream),
+  };
+}
+
+function isSupportedVideoEditorProfile(width, height) {
+  return [
+    [720, 1280],
+    [480, 854],
+    [432, 768],
+  ].some(([expectedWidth, expectedHeight]) => width === expectedWidth && height === expectedHeight);
+}
+
+function parseFrameRate(value) {
+  const [rawNumerator, rawDenominator] = String(value || "0/1").split("/");
+  const numerator = Number(rawNumerator || 0);
+  const denominator = Number(rawDenominator || 1);
+  return denominator ? numerator / denominator : 0;
 }
 
 async function adbRunAsCat(devicePath, localPath) {

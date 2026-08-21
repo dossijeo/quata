@@ -144,6 +144,7 @@ private object UnsupportedIosPostVideoEditorPreviewSurface : IosPostVideoEditorP
 internal fun IosPostVideoEditor(
     source: PlatformFile,
     nativeDriver: IosPostVideoEditorNativeDriver,
+    isLandscapeLayout: Boolean,
     onDismiss: () -> Unit,
     onEdited: (PlatformFile) -> Unit,
 ) {
@@ -246,6 +247,7 @@ internal fun IosPostVideoEditor(
             nativeDriver.cancelExport()
             state = state.copy(isExporting = false, exportProgress = 0f)
         },
+        isLandscapeLayout = isLandscapeLayout,
         durationMs = durationMs,
         captionOptions = CaptionTemplateStyle.entries.map { CaptionStyleOption(it.name, it.name) },
         onCropModeChange = { state = postVideoEditorStateAfterCropModeChange(state, it, videoAspectRatio) },

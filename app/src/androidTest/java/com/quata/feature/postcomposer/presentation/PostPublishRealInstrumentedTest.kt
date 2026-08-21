@@ -499,7 +499,8 @@ class PostPublishRealInstrumentedTest {
             compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
-            clickLocalizedText("1:1", "1:1")
+            compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true)
+                .performClick()
             compose.onNodeWithTag(PostVideoEditorPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode()
             compose.onAllNodesWithTag(PostVideoEditorCaptionsTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
@@ -517,7 +518,8 @@ class PostPublishRealInstrumentedTest {
             compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
-            clickLocalizedText("1:1", "1:1")
+            compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true)
+                .performClick()
             compose.onAllNodesWithTag(PostVideoEditorCaptionsTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
@@ -535,6 +537,7 @@ class PostPublishRealInstrumentedTest {
                     runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
             }
             saveScreenshot("android-post-video-editor-exported-preview")
+            copyLatestEditedVideoEvidence()
         }
 
         writePickerReport("video-editor", "success")
@@ -611,6 +614,16 @@ class PostPublishRealInstrumentedTest {
                 .put("evidenceDirectory", evidenceDir().absolutePath)
                 .toString(2) + "\n",
         )
+    }
+
+    private fun copyLatestEditedVideoEvidence() {
+        val latest = targetContext.cacheDir
+            .listFiles { file -> file.name.startsWith("quata-edited-video-") && file.extension == "mp4" }
+            ?.maxByOrNull { it.lastModified() }
+            ?: error("android_post_video_editor_export_file_missing")
+        val output = File(evidenceDir(), "android-post-video-editor-export.mp4")
+        latest.copyTo(output, overwrite = true)
+        check(output.length() > 0L) { "android_post_video_editor_export_file_empty" }
     }
 
     private fun writeDestinationReport(mode: String) {

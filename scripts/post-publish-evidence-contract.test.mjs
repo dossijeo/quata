@@ -31,6 +31,7 @@ const iosApp = readFileSync(new URL("../iosApp/iosApp/QuataIosApp.swift", import
 const webPostComposerHost = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerHost.kt", import.meta.url), "utf8");
 const webPostComposerBridge = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerE2eBridge.kt", import.meta.url), "utf8");
 const webPostComposerRoute = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRoute.kt", import.meta.url), "utf8");
+const webPostComposerTransport = readFileSync(new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRepository.kt", import.meta.url), "utf8");
 const corePlatformServiceContracts = readFileSync(new URL("../core/src/commonMain/kotlin/com/quata/core/platform/PlatformServiceContracts.kt", import.meta.url), "utf8");
 const androidPermissionHost = readFileSync(new URL("../app/src/main/java/com/quata/core/platform/MainActivityPermissionHost.kt", import.meta.url), "utf8");
 const androidPlatformServices = readFileSync(new URL("../core/src/androidMain/kotlin/com/quata/core/platform/AndroidPlatformServices.kt", import.meta.url), "utf8");
@@ -542,6 +543,11 @@ test("post video editor exposes stable common anchors and Android forwards them 
   assert.doesNotMatch(commonPostVideoEditorContent, /timeline: @Composable \(Modifier\) -> Unit/);
   assert.match(commonPostVideoEditorSpec, /postVideoEditorStateAfterCropPan/);
   assert.match(commonPostVideoEditorSpec, /postVideoEditorStateAfterCropZoomChange/);
+  assert.match(commonPostVideoEditorContent, /post-video-editor\.crop-mode\.\$\{option\.name\}/);
+  assert.match(commonVideoEditorModels, /PostVideoEditorTrimStartHandleTestTag/);
+  assert.match(commonVideoEditorModels, /PostVideoEditorTrimEndHandleTestTag/);
+  assert.match(commonPostVideoEditorContent, /PostVideoEditorTrimStartHandleTestTag/);
+  assert.match(commonPostVideoEditorContent, /PostVideoEditorTrimEndHandleTestTag/);
   assert.match(commonPostVideoEditorContent, /DialogProperties\(usePlatformDefaultWidth = false\)/);
   assert.match(androidVideoEditorDialog, /PostVideoEditorDialogContent\(/);
   assert.match(androidVideoEditorDialog, /CaptionStyleOption/);
@@ -562,10 +568,14 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidPostPublishTest, /PostVideoEditorExportTestTag/);
   assert.match(androidPostPublishTest, /onAllNodesWithTag\(PostVideoEditorMuteTestTag/);
   assert.match(androidPostPublishTest, /PostVideoEditorCropTestTag/);
+  assert.match(androidPostPublishTest, /post-video-editor\.crop-mode\.Square/);
   assert.match(androidPostPublishTest, /PostVideoEditorCaptionsTestTag/);
   assert.match(androidPostPublishTest, /post-video-editor\.caption-style\.Karaoke/);
   assert.match(androidPostPublishTest, /PostVideoEditorResetTestTag/);
+  assert.match(androidPostPublishTest, /copyLatestEditedVideoEvidence/);
   assert.match(androidPostPublishTest, /onAllNodesWithTag\(PostVideoEditorExportTestTag/);
+  assert.match(androidVideoEditorRunner, /probeAndroidExport/);
+  assert.match(androidVideoEditorRunner, /android_video_editor_physical_frame_rate/);
 
   assert.match(webVideoEditorRunner, /POST-VIDEO-EDITOR-WEB-REAL-001/);
   assert.match(webVideoEditorRunner, /quata-post-video-editor-e2e/);
@@ -591,11 +601,16 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /web_video_editor_caption_pixels_missing/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_present_after_mute/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_trim_duration/);
+  assert.match(webVideoEditorRunner, /web_video_editor_physical_duration_unmeasured/);
   assert.match(webVideoEditorRunner, /web_video_editor_export_missing_operation:\$\{operation\}/);
   assert.match(webPostComposerRoute, /videoEditor =/);
   assert.match(webPostVideoEditor, /PostVideoEditorDialogContent/);
   assert.match(webPostVideoEditor, /webPostVideoEditorExportEdited/);
   assert.match(webPostVideoEditor, /__quataPostVideoEditorExportNative/);
+  assert.match(webPostVideoEditor, /__quataPostVideoEditorBlobMetadata/);
+  assert.match(webPostComposerTransport, /webPreparedVideo/);
+  assert.match(webPostComposerTransport, /mimeType\.contains\("webm"\) -> "webm"/);
+  assert.match(webPostComposerTransport, /"webm" -> "video\/webm"/);
   assert.match(webPostVideoEditor, /trimStart: value => trimStart/);
   assert.match(webPostVideoEditor, /cropMode: value => cropMode/);
   assert.match(webPostVideoEditor, /webPostVideoEditorCreatePreviewElement/);
@@ -672,6 +687,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorRunner, /caption_style_change/);
   assert.match(iosPostVideoEditor, /recordCaptionStyleChange/);
   assert.match(iosPostPublishTest, /tapVideoCaptionStyle\("Hormozi"/);
+  assert.match(iosPostPublishTest, /dragVideoTrimEnd\(toNormalizedX: 0\.64/);
+  assert.match(iosPostPublishTest, /post-video-editor\.trim-end/);
+  assert.match(iosPostPublishTest, /post-video-editor\.crop-mode\.Square/);
   assert.match(iosPostPublishTest, /post-video-editor\.caption-style\.\S+style/);
   assert.match(iosPostPublishTest, /post-video-editor\.export/);
   assert.match(iosPostPublishTest, /post-video-editor\.export-progress/);
@@ -680,7 +698,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED/);
   assert.match(iosComposerHost, /IosPostVideoEditor/);
   assert.match(iosComposerHost, /BoxWithConstraints/);
-  assert.match(iosComposerHost, /isLandscapeLayout = maxWidth > maxHeight/);
+  assert.match(iosComposerHost, /currentIsLandscapeLayout = maxWidth > maxHeight/);
+  assert.match(iosComposerHost, /SideEffect \{ isLandscapeLayout = currentIsLandscapeLayout \}/);
+  assert.match(iosComposerHost, /isLandscapeLayout = isLandscapeLayout/);
+  assert.match(iosPostVideoEditor, /isLandscapeLayout: Boolean/);
   assert.doesNotMatch(iosComposerHost, /isLandscapeLayout = false/);
   assert.match(iosPostVideoEditor, /PostVideoEditorDialogContent/);
   assert.match(iosPostVideoEditor, /IosVideoThumbnailService/);
@@ -707,6 +728,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /CIGaussianBlur/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_background_blur_not_exported/);
   assert.match(iosVideoEditorRunner, /probeBackgroundBlurPixels/);
+  assert.match(iosVideoEditorRunner, /ios_video_editor_physical_trim_duration/);
+  assert.match(iosVideoEditorRunner, /expectedTrimDurationMs/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_background_blur_pixels_missing/);
   assert.match(iosVideoEditorRunner, /testsrc2=s=720x1280/);
   assert.match(iosPostVideoEditorNativeDriver, /foregroundLayer/);
@@ -741,7 +764,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /hasBackgroundCrop/);
   assert.match(iosPostVideoEditorNativeDriver, /backgroundTrack/);
   assert.match(iosPostVideoEditorNativeDriver, /VideoLayerScaleMode/);
-  assert.match(iosPostVideoEditorNativeDriver, /segment\.text\.uppercased\(\)/);
+  assert.match(iosPostVideoEditorNativeDriver, /captionRenderSpec/);
+  assert.match(iosPostVideoEditorNativeDriver, /activeBackground/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /segment\.text\.uppercased\(\)/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /captionStyle\.uppercased\(\)/);
   assert.match(iosPostVideoEditorNativeDriver, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_caption_document_missing_timings/);

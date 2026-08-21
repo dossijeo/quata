@@ -3,6 +3,7 @@ package com.quata.feature.postcomposer.presentation
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
@@ -199,6 +200,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     var videoEditorFile by remember { mutableStateOf<PlatformFile?>(null) }
     var videoFile by remember { mutableStateOf<PlatformFile?>(null) }
     var videoThumbnail by remember { mutableStateOf<PlatformFile?>(null) }
+    var isLandscapeLayout by remember { mutableStateOf(false) }
 
     fun releaseVideoThumbnail() {
         iosComposerThumbnailToRelease(videoThumbnail)?.let(::releaseIosComposerVideoThumbnail)
@@ -224,11 +226,12 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
     DisposableEffect(Unit) { onDispose(::releaseVideoThumbnail) }
 
     BoxWithConstraints {
-        val isLandscapeLayout = maxWidth > maxHeight
+        val currentIsLandscapeLayout = maxWidth > maxHeight
+        SideEffect { isLandscapeLayout = currentIsLandscapeLayout }
         CreatePostRoot(
             viewModel = viewModel,
             accessibility = CriticalControlsAccessibilityCatalog.forLanguageTag(dependencies.languageTag),
-            isLandscapeLayout = isLandscapeLayout,
+            isLandscapeLayout = currentIsLandscapeLayout,
             onAuthRequired = dependencies.onClose,
             onBack = dependencies.onClose,
             onPostCreated = { dependencies.onClose() },
@@ -302,6 +305,7 @@ private fun IosPostComposerHost(dependencies: IosComposerHostDependencies) {
         IosPostVideoEditor(
             source = current,
             nativeDriver = dependencies.videoEditorNativeDriver,
+            isLandscapeLayout = isLandscapeLayout,
             onDismiss = { videoEditorFile = null },
             onEdited = { edited ->
                 videoEditorFile = null

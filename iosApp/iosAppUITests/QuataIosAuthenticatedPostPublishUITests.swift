@@ -236,9 +236,11 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-opened")
         tapComposerAction("post-video-editor.mute", in: app)
         tapComposerAction("post-video-editor.play-pause", in: app)
+        dragVideoTrimEnd(toNormalizedX: 0.64, in: app)
         tapComposerAction("post-video-editor.captions", in: app)
         try tapVideoCaptionStyle("Hormozi", in: app)
         tapComposerAction("post-video-editor.crop", in: app)
+        tapComposerAction("post-video-editor.crop-mode.Square", in: app)
         tapComposerAction("post-video-editor.export", in: app)
         let exportProgress = app.descendants(matching: .any)
             .matching(identifier: "post-video-editor.export-progress")
@@ -445,6 +447,21 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         }
         XCTFail("Selecting common video caption style \(style) did not update the shared editor state.")
         throw ReplayError.captionStyleSelectionFailed(style)
+    }
+
+    private func dragVideoTrimEnd(toNormalizedX targetX: CGFloat, in app: XCUIApplication) {
+        let timeline = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.timeline")
+            .firstMatch
+        let handle = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.trim-end")
+            .firstMatch
+        XCTAssertTrue(timeline.waitForExistence(timeout: 8), "The shared video editor timeline must be exposed before trimming.")
+        XCTAssertTrue(handle.waitForExistence(timeout: 8), "The shared video editor trim-end handle must be exposed before trimming.")
+        let destination = timeline.coordinate(withNormalizedOffset: CGVector(dx: min(max(targetX, 0.52), 0.95), dy: 0.5))
+        handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.18, thenDragTo: destination)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-trimmed")
     }
 
     private func commonElement(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
