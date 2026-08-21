@@ -852,7 +852,9 @@ private fun webPostVideoEditorExportEditedJs(
               drawFrame();
               const elapsedMs = Math.max(0, performance.now() - startedAt);
               onProgress(Math.min(0.95, 0.35 + (elapsedMs / Math.max(1, durationMs)) * 0.6));
-              if ((performance.now() - startedAt) >= durationMs || (video.currentTime * 1000) >= endMs) {
+              const reachedRequestedDuration = elapsedMs >= durationMs;
+              const reachedSourceEndAfterMostOfTrim = (video.currentTime * 1000) >= endMs && elapsedMs >= Math.min(durationMs, Math.max(500, durationMs * 0.9));
+              if (reachedRequestedDuration || reachedSourceEndAfterMostOfTrim) {
                 clearInterval(timer);
                 video.pause?.();
                 recorder.stop();
