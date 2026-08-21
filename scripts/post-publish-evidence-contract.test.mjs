@@ -857,6 +857,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorRunner, /ios_video_editor_background_blur_not_exported/);
   assert.match(iosVideoEditorRunner, /probeBackgroundBlurPixels/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_physical_trim_duration/);
+  assert.match(iosVideoEditorRunner, /ios_video_editor_physical_audio_stream_missing_without_mute/);
+  assert.match(iosVideoEditorRunner, /ios_video_editor_physical_audio_silent/);
+  assert.match(iosVideoEditorRunner, /probeAudioSignal/);
+  assert.match(iosVideoEditorRunner, /meanVolumeDb/);
   assert.match(iosVideoEditorRunner, /expectedTrimDurationMs/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_background_blur_pixels_missing/);
   assert.match(iosVideoEditorRunner, /testsrc2=s=720x1280/);

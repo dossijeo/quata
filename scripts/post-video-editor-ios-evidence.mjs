@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -225,6 +225,7 @@ function probeIosExport(outputPath, diagnostics, { mute }) {
   }
   const captionPixelProbe = probeCaptionPixels(outputPath, firstCaptionProbeSecond(diagnostics.captionDocumentWire));
   const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
+  const audioProbe = !mute ? probeAudioSignal(outputPath, "ios_video_editor_physical_audio_silent") : null;
   return {
     path: outputPath,
     video: { codec: videoStream.codec_name, width, height, bitRate: physicalBitrate },
@@ -232,9 +233,30 @@ function probeIosExport(outputPath, diagnostics, { mute }) {
     expectedTrimDurationMs: expectedDurationMs,
     targetBitrate,
     audioStreamPresent: Boolean(audioStream),
+    audioProbe,
     captionPixelProbe,
     backgroundBlurPixelProbe,
   };
+}
+
+function probeAudioSignal(outputPath, errorCode) {
+  const result = spawnSync("ffmpeg", [
+    "-hide_banner",
+    "-nostats",
+    "-i", outputPath,
+    "-af", "volumedetect",
+    "-vn",
+    "-sn",
+    "-dn",
+    "-f", "null",
+    "NUL",
+  ], { encoding: "utf8" });
+  const output = `${result.stdout || ""}\n${result.stderr || ""}`;
+  if (result.status !== 0) throw new Error(`${errorCode}:ffmpeg_${result.status}`);
+  const mean = Number(/mean_volume:\s*(-?\d+(?:\.\d+)?) dB/.exec(output)?.[1] ?? NaN);
+  const max = Number(/max_volume:\s*(-?\d+(?:\.\d+)?) dB/.exec(output)?.[1] ?? NaN);
+  if (!Number.isFinite(mean) || mean < -55) throw new Error(`${errorCode}:${mean}`);
+  return { meanVolumeDb: mean, maxVolumeDb: max };
 }
 
 function isSupportedVideoEditorProfile(width, height) {
