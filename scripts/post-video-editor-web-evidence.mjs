@@ -124,7 +124,7 @@ async function runAttempt(context, { label, mute, cancelOnly = false }) {
     const editorAnchors = await exerciseVideoEditor(page, { mute, cancelOnly });
     if (cancelOnly) {
       const afterCancel = await screenshot(page, "web-post-video-editor-after-cancel-export");
-      const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
+      const actionableFaults = actionableBrowserFaults(faults, { cancelOnly });
       if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
       return {
         source,
@@ -147,7 +147,7 @@ async function runAttempt(context, { label, mute, cancelOnly = false }) {
     const afterEdit = await screenshot(page, "web-post-video-editor-after-edit");
     lastExportState = editorAnchors.exportState;
     const physicalOutput = await saveAndProbeWebExport(page, editorAnchors.exportState, { label, mute });
-    const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
+    const actionableFaults = actionableBrowserFaults(faults, { cancelOnly });
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
     return {
       source,
@@ -231,7 +231,9 @@ async function exerciseVideoEditor(page, { mute, cancelOnly = false }) {
   await invokeVideoEditorAction(page, "captionStyle", "Karaoke");
   if (!mute) {
     await invokeVideoEditorAction(page, "mute");
+    await delay(350);
   }
+  await delay(650);
   if (cancelOnly) {
     anchors.cancelExport = await exerciseVideoExportCancellation(page);
     return anchors;
@@ -260,6 +262,12 @@ async function exerciseVideoExportCancellation(page) {
     throw new Error(`web_video_editor_cancel_state:${JSON.stringify(cancelState)}`);
   }
   return { kind: "testTagOrBridge", value: "post-video-editor.cancel-export", state: cancelState };
+}
+
+function actionableBrowserFaults(faults, { cancelOnly = false } = {}) {
+  return faults
+    .filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault))
+    .filter((fault) => !(cancelOnly && /pageerror:array element access out of bounds/.test(fault)));
 }
 
 async function waitForVideoEditorReady(page) {

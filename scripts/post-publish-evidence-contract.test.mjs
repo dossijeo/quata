@@ -964,6 +964,8 @@ test("post video editor Solo parity gaps stay fail-closed", () => {
   assert.match(webVideoEditorRunner, /exerciseVideoExportCancellation\(/);
   assert.match(webVideoEditorRunner, /action === "export" \|\| action === "cancelExport"/);
   assert.match(webVideoEditorRunner, /invokeVideoEditorBridgeAction\(/);
+  assert.match(webVideoEditorRunner, /await delay\(650\)/);
+  assert.match(webVideoEditorRunner, /actionableBrowserFaults\(faults, \{ cancelOnly \}\)/);
   assert.match(webVideoEditorRunner, /web_video_editor_cancel_state/);
   assert.doesNotMatch(webPostVideoEditor, /WebPostVideoEditorMetadata\(MaximumPostVideoEditorDurationMs, 9f \/ 16f, 720, 1280\)/);
 });
