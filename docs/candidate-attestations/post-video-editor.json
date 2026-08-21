@@ -4,41 +4,81 @@
     "SCR-CREATE-POST",
     "POST-VIDEO-EDITOR"
   ],
-  "productSha": "86898ad99a548b5c57d598da05675767ed32159c",
+  "status": "passed",
+  "productSha": "f29335421ae564c7d1af5f4fb2dca4ee811eb8c3",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "86898ad99a548b5c57d598da05675767ed32159c",
-      "report": "build-reports/web/post-video-editor-evidence.json",
+      "sha": "f29335421ae564c7d1af5f4fb2dca4ee811eb8c3",
+      "report": "build-reports/web/POST-VIDEO-EDITOR-evidence-f2933542-web.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
-      }
+      },
+      "coverage": [
+        "common editor surface mounted from the shared composer",
+        "real metadata duration/aspect consumed before export",
+        "cancel-export attempt fails closed without a successful edited callback",
+        "trim applied to the physical WebM export",
+        "muted export removes the audio stream and unmuted export preserves an audible stream",
+        "foreground crop, zoom/pan and background crop are passed to the Web edge and physically exported",
+        "Web/Vosk produces a timed CaptionDocument consumed by the shared caption burn-in contract",
+        "physical output validates adaptive WebM dimensions, controlled frame capture, subtitle pixels and background blur pixels"
+      ]
     },
     "android": {
       "status": "passed",
-      "sha": "86898ad99a548b5c57d598da05675767ed32159c",
-      "report": "build-reports/android/post-video-editor-evidence.json",
+      "sha": "f29335421ae564c7d1af5f4fb2dca4ee811eb8c3",
+      "report": "build-reports/android/POST-VIDEO-EDITOR-evidence-f2933542-android.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
-      }
+      },
+      "coverage": [
+        "Android mounts the shared PostVideoEditorDialogContent from the composer",
+        "Android passes the localized video editor string set into the shared dialog",
+        "Android trim drag delegates to the shared 500ms/90s common rules",
+        "Android reference edge keeps native ExoPlayer preview, Vosk transcription/model delivery and Media3/Transformer export",
+        "instrumentation exercises muted and unmuted exports from the real authenticated composer",
+        "physical output validates trim, audio absent/present, caption pixels and background blur pixels"
+      ]
     },
     "ios": {
       "status": "passed",
-      "sha": "86898ad99a548b5c57d598da05675767ed32159c",
-      "report": "build-reports/ios/POST-VIDEO-EDITOR-evidence.json",
+      "sha": "f29335421ae564c7d1af5f4fb2dca4ee811eb8c3",
+      "report": "build-reports/ios/POST-VIDEO-EDITOR-evidence-f2933542-ios.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
-      }
+      },
+      "coverage": [
+        "iOS mounts the shared PostVideoEditorDialogContent from the composer",
+        "AVFoundation metadata supplies real duration/aspect instead of a 90s fallback",
+        "XCTest selects the shared Karaoke caption style anchor and verifies the caption preview anchor",
+        "iOS native transcription converges to the common timed CaptionDocument wire format",
+        "AVFoundation export applies trim, mute/unmute, foreground crop, background crop, caption style and caption burn-in",
+        "unmuted export fails closed if source audio, audio range or remux output audio is missing",
+        "physical output validates adaptive H.264 dimensions, muted no-audio, unmuted audible audio, subtitle pixels and background blur pixels"
+      ]
+    }
+  },
+  "review": {
+    "solo": {
+      "status": "SOLO_GO",
+      "sha": "f29335421ae564c7d1af5f4fb2dca4ee811eb8c3",
+      "notes": [
+        "Solo verified Web fail-closed cancellation, controlled captureStream(0) + requestFrame FPS, iOS unmuted audio fail-closed behavior, Android localized strings, and Android trim delegation to common rules.",
+        "Residual risks are non-blocking: Web cancel evidence is one immediate attempt, Web JSON does not persist measured fps despite physical artifact auditability, iOS evidence is simulator 480p/6fps, and Android does not include a cancel attempt."
+      ]
     }
   },
   "notes": [
-    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
-    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate closes the POST-VIDEO-EDITOR focal unit through common CreatePostRoot media edit anchors, shared selected video preview semantics, a common PostVideoEditorDialogContent control surface, and real local MP4 editor/export evidence on Web/Wasm, Android and iOS.",
-    "Android keeps its native fullscreen QuataVideoEditor edge but forwards the common post-video-editor.* anchors. Web/Wasm and iOS mount the common editor content behind platform export edges; Web/Wasm records localhostProductBridge fallbacks for internal dialog controls because Compose/Wasm does not expose those AlertDialog testTags as DOM/ARIA nodes, but the replay does not depend on coordinates.",
-    "The unit keeps video evidence reversible and local-only: no Supabase data mutation is performed by the Web, Android or iOS POST-VIDEO-EDITOR evidence runners. Remaining CREATE-POST limits are outside this focal unit: video camera with long real media, system permission negatives, and cross-flow progress/error/rollback combinations."
+    "POST-VIDEO-EDITOR reaches GO at Product/Evidence SHA f29335421ae564c7d1af5f4fb2dca4ee811eb8c3.",
+    "Android, Web/Wasm and iOS share the editor UI/logic in commonMain; native edges are limited to preview, metadata, transcription/decode/transcode/export APIs.",
+    "The common contract centralizes the 500ms minimum trim, 90s maximum selection and adaptive export policy.",
+    "Captions converge through the common CaptionDocument contract instead of platform-local captionText strings or template-name burn-in.",
+    "Web/Wasm and iOS no longer burn CaptionTemplateStyle names as fake subtitles.",
+    "Web/Wasm exports via browser video/canvas/MediaRecorder with controlled frame capture; Android keeps Media3/Transformer; iOS keeps AVFoundation.",
+    "The exact-SHA lanes validate physical output rather than only operations=true: duration, audio mute/unmute, crop, captions and background blur are probed from exported files."
   ]
 }

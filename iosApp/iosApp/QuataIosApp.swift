@@ -1182,7 +1182,7 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installComposerFactory { [weak self] in
             let evidenceDraft = IosPostPublishEvidenceComposerSeed.imageLocationDraft()
             return IosComposerHostKt.QuataComposerViewController(
-                dependencies: IosComposerHostKt.createIosComposerHostDependenciesWithInitialDraft(
+                dependencies: IosComposerHostKt.createIosComposerHostDependenciesWithInitialDraftAndVideoEditor(
                     repository: evidenceRepository,
                     filePicker: services.filePicker,
                     cameraCapture: services.cameraCapture,
@@ -1196,6 +1196,7 @@ private final class IosAppCompositionRoot {
                     },
                     initialImageReference: evidenceDraft?.imageReference,
                     initialLocationLabel: evidenceDraft?.locationLabel,
+                    videoEditorNativeDriver: IosPostVideoEditorNativeDriverBridge.shared,
                 ),
             )
         }

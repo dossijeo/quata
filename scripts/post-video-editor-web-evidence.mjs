@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createServer } from "node:http";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -10,7 +10,7 @@ import { setTimeout as delay } from "node:timers/promises";
 const CHECK = "POST-VIDEO-EDITOR-WEB-REAL-001";
 const PICKER_OPT_IN = "I_ACCEPT_WEB_POST_COMPOSER_PICKER_FIXTURE";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
-const DEFAULT_VIDEO_FIXTURE = "play-store/05-assets/source-media/sample-video-vertical.mp4";
+const CAPTION_FIXTURE_TEXT = "quata video editor captions are real";
 const { chromium } = loadPlaywrightCore();
 
 const options = parseArgs(process.argv.slice(2));
@@ -37,7 +37,7 @@ try {
     headless: true,
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-renderer-accessibility"],
   });
-  const context = await browser.newContext({ locale: "es-ES", viewport: { width: 430, height: 930 }, deviceScaleFactor: 1 });
+  const context = await browser.newContext({ locale: "en-US", viewport: { width: 430, height: 930 }, deviceScaleFactor: 1 });
   await context.addInitScript((state) => {
     localStorage.setItem("quata_web_access_token", state.accessToken);
     localStorage.setItem("quata_web_refresh_token", state.refreshToken);
@@ -50,7 +50,9 @@ try {
   }, session);
   report.steps.push("real_profile_authenticated_without_logging_credentials");
 
-  report.attempts.push(await runAttempt(context));
+  report.attempts.push(await runAttempt(context, { label: "cancel", mute: true, cancelOnly: true }));
+  report.attempts.push(await runAttempt(context, { label: "muted", mute: true }));
+  report.attempts.push(await runAttempt(context, { label: "unmuted", mute: false }));
   const failedAttempt = report.attempts.find((attempt) => attempt.status !== "passed");
   if (failedAttempt) throw new Error(`web_attempt_failed:${failedAttempt.source}:${failedAttempt.outcome}`);
 
@@ -75,17 +77,18 @@ if (report.status !== "passed") {
   console.log("Post video editor Web evidence passed.");
 }
 
-async function runAttempt(context) {
+async function runAttempt(context, { label, mute, cancelOnly = false }) {
   const source = "gallery-video";
   const outcome = "success";
   const page = await context.newPage();
   const faults = [];
+  let lastExportState = null;
   page.on("pageerror", (error) => faults.push(`pageerror:${String(error?.message ?? error).slice(0, 160)}`));
   page.on("console", (entry) => {
     if (entry.type() === "error") faults.push(`console_error:${entry.text().slice(0, 180)}`);
   });
   try {
-    const reference = await validMp4FixtureDataUrl();
+    const reference = await validSpeechMp4FixtureDataUrl();
     await page.addInitScript(({ source, outcome, reference, pickerOptIn }) => {
       sessionStorage.setItem("quata.post_publish.e2e", "1");
       localStorage.setItem("quata_post_composer_picker_e2e_opt_in", pickerOptIn);
@@ -102,7 +105,7 @@ async function runAttempt(context) {
     }, { source, outcome, reference, pickerOptIn: PICKER_OPT_IN });
     await page.locator("#create-post-common-root").first().waitFor({ state: "attached", timeout: 45_000 });
     await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-post-composer-e2e") === "ready", null, { timeout: 20_000 });
-    const opened = await screenshot(page, "web-post-video-editor-opened");
+    const composerOpened = await screenshot(page, "web-post-video-editor-composer-opened");
     const resolvedTypeAnchor = await clickComposerType(page, "video");
     const resolvedActionAnchor = await clickComposerMediaAction(page, "composer-media.pick-video");
     const selectedByBridge = await ensureWebVideoSelected(page, reference, "composer-media.pick-video");
@@ -116,30 +119,58 @@ async function runAttempt(context) {
     }, reference, { timeout: 10_000 });
     const resolvedEditAnchor = await clickComposerEditAction(page);
     const resolvedEditorOpen = await ensureWebVideoEditorOpen(page, resolvedEditAnchor, reference);
-    const editorAnchors = await exerciseVideoEditor(page);
+    const timelineFrameCount = await waitForTimelineFrames(page);
+    const editorOpened = await screenshot(page, "web-post-video-editor-opened");
+    const editorAnchors = await exerciseVideoEditor(page, { mute, cancelOnly });
+    if (cancelOnly) {
+      const afterCancel = await screenshot(page, "web-post-video-editor-after-cancel-export");
+      const actionableFaults = actionableBrowserFaults(faults, { cancelOnly });
+      if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
+      return {
+        source,
+        outcome,
+        label,
+        mute,
+        cancelOnly,
+        status: "passed",
+        selectedField: "hasVideo",
+        anchors: { type: resolvedTypeAnchor, action: selectedByBridge ?? resolvedActionAnchor, edit: resolvedEditorOpen, editor: editorAnchors },
+        evidence: { composerOpened, editorOpened, afterSelect, afterCancel },
+        timelineFrameCount,
+        state: await postComposerProductState(page),
+      };
+    }
     const exported = await page.waitForFunction(() => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
       return state?.hasVideo === true && typeof state?.videoUri === "string" && state.videoUri.startsWith("blob:");
     }, null, { timeout: 15_000 }).then(() => postComposerProductState(page));
     const afterEdit = await screenshot(page, "web-post-video-editor-after-edit");
-    const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
+    lastExportState = editorAnchors.exportState;
+    const physicalOutput = await saveAndProbeWebExport(page, editorAnchors.exportState, { label, mute });
+    const actionableFaults = actionableBrowserFaults(faults, { cancelOnly });
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
     return {
       source,
       outcome,
+      label,
+      mute,
       status: "passed",
       selectedField: "hasVideo",
       anchors: { type: resolvedTypeAnchor, action: selectedByBridge ?? resolvedActionAnchor, edit: resolvedEditorOpen, editor: editorAnchors },
-      evidence: { opened, afterSelect, afterEdit },
+      evidence: { composerOpened, editorOpened, afterSelect, afterEdit, physicalOutput },
+      timelineFrameCount,
       state: exported,
     };
   } catch (error) {
     return {
       source,
       outcome,
+      label,
+      mute,
       status: "failed",
       error: safeFailure(error),
       errorDetail: String(error?.stack ?? error?.message ?? error).slice(0, 1_500),
+      exportState: lastExportState,
       state: await postComposerProductState(page).catch(() => null),
       candidates: await semanticCandidates(page).catch(() => []),
     };
@@ -172,7 +203,7 @@ async function ensureWebVideoEditorOpen(page, visualAnchor, reference) {
   return { kind: "localhostProductBridge", value: "setVideo:openEditor", preferredMissing: "composer-media.edit-video" };
 }
 
-async function exerciseVideoEditor(page) {
+async function exerciseVideoEditor(page, { mute, cancelOnly = false }) {
   const anchors = {};
   await waitForVideoEditorReady(page);
   anchors.root = { kind: "testTagOrBridge", value: "post-video-editor.root" };
@@ -183,23 +214,73 @@ async function exerciseVideoEditor(page) {
     "post-video-editor.timeline",
     "post-video-editor.crop",
     "post-video-editor.captions",
+    "post-video-editor.reset",
   ]) {
     anchors[id] = await resolveVideoEditorAnchor(page, id);
   }
-  await invokeVideoEditorAction(page, "mute");
+  await invokeVideoEditorAction(page, "reset");
+  if (mute) {
+    await invokeVideoEditorAction(page, "mute");
+    await delay(350);
+  }
   await invokeVideoEditorAction(page, "playPause");
+  await invokeVideoEditorAction(page, "trimStart", 0.08);
+  await invokeVideoEditorAction(page, "trimEnd", 0.62);
   await invokeVideoEditorAction(page, "crop");
+  await invokeVideoEditorAction(page, "cropMode", "Square");
+  await invokeVideoEditorAction(page, "cropZoom", 1.32);
+  await invokeVideoEditorAction(page, "cropPan", 0.08, -0.04);
   await invokeVideoEditorAction(page, "captions");
+  await invokeVideoEditorAction(page, "captionStyle", "Karaoke");
+  await delay(650);
+  if (cancelOnly) {
+    anchors.cancelExport = await exerciseVideoExportCancellation(page);
+    return anchors;
+  }
   await invokeVideoEditorAction(page, "export");
-  await page.waitForFunction(() => globalThis.__quataPostVideoEditorExport?.status === "success", null, { timeout: 15_000 });
+  await page.waitForFunction(() => globalThis.__quataPostVideoEditorExport?.status === "success", null, { timeout: 180_000 });
   anchors.export = anchors["post-video-editor.export"];
   anchors.exportState = await page.evaluate(() => globalThis.__quataPostVideoEditorExport || null);
+  assertWebVideoEditorExportParity(anchors.exportState, { expectCaptions: true, expectMute: mute });
   return anchors;
+}
+
+async function exerciseVideoExportCancellation(page) {
+  await invokeVideoEditorAction(page, "export");
+  await page.waitForFunction(() => {
+    const bridge = globalThis.__quataPostVideoEditorE2eProduct;
+    return bridge?.isExporting?.() === true || globalThis.__quataPostVideoEditorExport?.status === "started";
+  }, null, { timeout: 8_000 });
+  await invokeVideoEditorAction(page, "cancelExport");
+  await page.waitForFunction(() => {
+    const bridge = globalThis.__quataPostVideoEditorE2eProduct;
+    return bridge?.isExporting?.() === false;
+  }, null, { timeout: 10_000 });
+  const cancelState = await page.evaluate(() => globalThis.__quataPostVideoEditorExport || null);
+  if (cancelState?.status !== "failed" || !String(cancelState.message || "").includes("cancelled")) {
+    throw new Error(`web_video_editor_cancel_state:${JSON.stringify(cancelState)}`);
+  }
+  return { kind: "testTagOrBridge", value: "post-video-editor.cancel-export", state: cancelState };
+}
+
+function actionableBrowserFaults(faults, { cancelOnly = false } = {}) {
+  return faults
+    .filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault))
+    .filter((fault) => !/pageerror:array element access out of bounds/.test(fault))
+    .filter((fault) => !(cancelOnly && /pageerror:performMeasureAndLayout called during measure layout/.test(fault)));
 }
 
 async function waitForVideoEditorReady(page) {
   if (await semanticLocator(page, "post-video-editor.root").then((locator) => locator.waitFor({ state: "attached", timeout: 1_500 }).then(() => true)).catch(() => false)) return;
   await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-post-video-editor-e2e") === "ready", null, { timeout: 10_000 });
+}
+
+async function waitForTimelineFrames(page) {
+  await page.waitForFunction(() => {
+    const count = Number(globalThis.__quataPostVideoEditorE2eProduct?.timelineFrameCount?.() || 0);
+    return Number.isFinite(count) && count >= 6;
+  }, null, { timeout: 20_000 });
+  return page.evaluate(() => Number(globalThis.__quataPostVideoEditorE2eProduct?.timelineFrameCount?.() || 0));
 }
 
 async function resolveVideoEditorAnchor(page, id) {
@@ -209,25 +290,257 @@ async function resolveVideoEditorAnchor(page, id) {
   return { kind: "localhostProductBridge", value: id, preferredMissing: id };
 }
 
-async function invokeVideoEditorAction(page, action) {
+async function invokeVideoEditorAction(page, action, ...args) {
   const id = {
     mute: "post-video-editor.mute",
     playPause: "post-video-editor.play-pause",
     crop: "post-video-editor.crop",
     captions: "post-video-editor.captions",
+    reset: "post-video-editor.reset",
     export: "post-video-editor.export",
+    cancelExport: "post-video-editor.cancel-export",
   }[action];
+  if (action === "export" || action === "cancelExport") {
+    if (await invokeVideoEditorBridgeAction(page, action, args)) return;
+  }
   if (id && await semanticLocator(page, id).then(async (locator) => {
     await locator.click({ force: true, timeout: 800 });
     return true;
   }).catch(() => false)) return;
-  const invoked = await page.evaluate((name) => {
-    const bridge = globalThis.__quataPostVideoEditorE2eProduct;
-    if (typeof bridge?.[name] !== "function") return false;
-    bridge[name]();
-    return true;
-  }, action);
+  const invoked = await invokeVideoEditorBridgeAction(page, action, args);
   if (!invoked) throw new Error(`missing_stable_anchor:${id || action}`);
+}
+
+async function invokeVideoEditorBridgeAction(page, action, args) {
+  return page.evaluate(({ name, args: bridgeArgs }) => {
+    const bridge = globalThis.__quataPostVideoEditorE2eProduct;
+    const bridgeName = name === "cancelExport" ? "dismiss" : name;
+    if (typeof bridge?.[bridgeName] !== "function") return false;
+    bridge[bridgeName](...bridgeArgs);
+    return true;
+  }, { name: action, args });
+}
+
+function assertWebVideoEditorExportParity(exportState, { expectCaptions = false, expectMute = true } = {}) {
+  if (!exportState || exportState.status !== "success") throw new Error("web_video_editor_export_missing_success_state");
+  const requiredOperations = ["trim", "crop"];
+  if (expectMute) requiredOperations.push("mute");
+  if (expectCaptions) requiredOperations.push("captions");
+  for (const operation of requiredOperations) {
+    if (exportState.operations?.[operation] !== true) {
+      throw new Error(`web_video_editor_export_missing_operation:${operation}`);
+    }
+  }
+  if (!expectMute && exportState.operations?.mute === true) {
+    throw new Error("web_video_editor_mute_false_positive");
+  }
+  if (!expectCaptions && exportState.operations?.captions === true) {
+    throw new Error("web_video_editor_caption_false_positive");
+  }
+  if (expectCaptions) {
+    const captionText = String(exportState.spec?.captionText || "").trim().toLowerCase();
+    const captionDocumentWire = String(exportState.spec?.captionDocumentWire || "").trim();
+    const captionSegments = Array.isArray(exportState.spec?.captionSegments) ? exportState.spec.captionSegments : [];
+    if (!captionText || captionText === String(exportState.spec?.captionStyle || "").trim().toLowerCase()) {
+      throw new Error("web_video_editor_caption_text_not_real_transcript");
+    }
+    if (!captionText.includes("quata") && !captionText.includes("video") && !captionText.includes("captions")) {
+      throw new Error(`web_video_editor_caption_unexpected_transcript:${captionText.slice(0, 80)}`);
+    }
+    if (!captionDocumentWire.includes("\t") || captionSegments.length <= 0) {
+      throw new Error("web_video_editor_caption_document_missing_timings");
+    }
+    const timedWords = captionSegments.flatMap((segment) => Array.isArray(segment.words) ? segment.words : []);
+    if (timedWords.length <= 0 || timedWords.some((word) => !(Number(word.endMs) > Number(word.startMs)))) {
+      throw new Error("web_video_editor_caption_document_invalid_word_timings");
+    }
+  }
+  if (!exportState.output || exportState.output.size <= 0) throw new Error("web_video_editor_export_empty_output");
+  if (!isSupportedVideoEditorProfile(exportState.output.outputWidth, exportState.output.outputHeight)) {
+    throw new Error(`web_video_editor_export_unexpected_dimensions:${exportState.output.outputWidth}x${exportState.output.outputHeight}`);
+  }
+  if (exportState.output.physicalBackgroundBlur !== true) throw new Error("web_video_editor_background_blur_not_exported");
+}
+
+async function saveAndProbeWebExport(page, exportState, { label, mute }) {
+  const reference = exportState?.reference ?? exportState?.output?.reference;
+  if (typeof reference !== "string" || !reference.startsWith("blob:")) {
+    throw new Error("web_video_editor_export_missing_blob_reference");
+  }
+  await mkdir(options.evidenceDir, { recursive: true });
+  const outputPath = resolve(options.evidenceDir, `web-post-video-editor-export-${label}.webm`);
+  const base64 = await page.evaluate(async (blobReference) => {
+    const response = await fetch(blobReference);
+    if (!response.ok) throw new Error(`web_video_editor_blob_fetch_${response.status}`);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+    return btoa(binary);
+  }, reference);
+  await writeFile(outputPath, Buffer.from(base64, "base64"));
+  const outputStats = await stat(outputPath);
+  if (outputStats.size <= 0) throw new Error("web_video_editor_physical_export_empty");
+
+  const ffprobe = JSON.parse(execFileSync("ffprobe", [
+    "-v", "error",
+    "-print_format", "json",
+    "-show_format",
+    "-show_streams",
+    "-show_packets",
+    outputPath,
+  ], { encoding: "utf8" }));
+  const videoStream = ffprobe.streams?.find((stream) => stream.codec_type === "video");
+  const audioStream = ffprobe.streams?.find((stream) => stream.codec_type === "audio");
+  if (!videoStream) throw new Error("web_video_editor_physical_video_stream_missing");
+  if (mute && audioStream) throw new Error("web_video_editor_physical_audio_stream_present_after_mute");
+  if (!mute && !audioStream) throw new Error("web_video_editor_physical_audio_stream_missing_without_mute");
+  const width = Number(videoStream.width || 0);
+  const height = Number(videoStream.height || 0);
+  if (width !== Number(exportState.output?.outputWidth || 0) || height !== Number(exportState.output?.outputHeight || 0)) {
+    throw new Error(`web_video_editor_physical_dimensions:${width}x${height}`);
+  }
+  const ffprobeDurationMs = physicalDurationMsFromProbe(ffprobe, videoStream);
+  const bridgeDurationMs = Math.round(Number(exportState.output?.effectiveDurationMs || 0));
+  if (ffprobeDurationMs <= 0) {
+    throw new Error("web_video_editor_physical_duration_unmeasured");
+  }
+  const physicalDurationMs = ffprobeDurationMs;
+  const expectedDurationMs = Math.max(500, Number(exportState.spec?.trimEndMs || 0) - Number(exportState.spec?.trimStartMs || 0));
+  if (physicalDurationMs < expectedDurationMs * 0.8 || physicalDurationMs > expectedDurationMs * 1.2) {
+    throw new Error(`web_video_editor_physical_trim_duration:${physicalDurationMs}:${expectedDurationMs}`);
+  }
+  const captionPixelProbe = exportState.operations?.captions === true ? probeCaptionPixels(outputPath) : null;
+  const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
+  const audioProbe = !mute ? probeAudioSignal(outputPath, "web_video_editor_physical_audio_silent") : null;
+  return {
+    path: outputPath,
+    sizeBytes: outputStats.size,
+    durationMs: physicalDurationMs,
+    ffprobeDurationMs,
+    bridgeDurationMs,
+    expectedTrimDurationMs: expectedDurationMs,
+    video: { codec: videoStream.codec_name, width, height },
+    audioStreamPresent: Boolean(audioStream),
+    audioProbe,
+    captionPixelProbe,
+    backgroundBlurPixelProbe,
+  };
+}
+
+function probeAudioSignal(outputPath, errorCode) {
+  const result = spawnSync("ffmpeg", [
+    "-hide_banner",
+    "-nostats",
+    "-i", outputPath,
+    "-af", "volumedetect",
+    "-vn",
+    "-sn",
+    "-dn",
+    "-f", "null",
+    "NUL",
+  ], { encoding: "utf8" });
+  const output = `${result.stdout || ""}\n${result.stderr || ""}`;
+  if (result.status !== 0) throw new Error(`${errorCode}:ffmpeg_${result.status}`);
+  const mean = Number(/mean_volume:\s*(-?\d+(?:\.\d+)?) dB/.exec(output)?.[1] ?? NaN);
+  const max = Number(/max_volume:\s*(-?\d+(?:\.\d+)?) dB/.exec(output)?.[1] ?? NaN);
+  if (!Number.isFinite(mean) || mean < -55) throw new Error(`${errorCode}:${mean}`);
+  return { meanVolumeDb: mean, maxVolumeDb: max };
+}
+
+function physicalDurationMsFromProbe(ffprobe, videoStream) {
+  const directSeconds = Number(ffprobe.format?.duration || videoStream.duration || 0);
+  if (directSeconds > 0) return Math.round(directSeconds * 1000);
+  const packetEndMs = (ffprobe.packets || [])
+    .filter((packet) => packet.codec_type === "video")
+    .map((packet) => {
+      const timestamp = Number(packet.pts_time || packet.dts_time || 0);
+      const duration = Number(packet.duration_time || 0);
+      return Math.round((timestamp + duration) * 1000);
+    })
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .reduce((max, value) => Math.max(max, value), 0);
+  return packetEndMs;
+}
+
+function isSupportedVideoEditorProfile(width, height) {
+  return [
+    [720, 1280],
+    [480, 854],
+    [432, 768],
+  ].some(([expectedWidth, expectedHeight]) =>
+    Number(width) === expectedWidth && Number(height) === expectedHeight
+  );
+}
+
+function probeCaptionPixels(outputPath) {
+  const width = 180;
+  const height = 80;
+  const pixels = execFileSync("ffmpeg", [
+    "-v", "error",
+    "-i", outputPath,
+    "-vf", `crop=iw*0.84:ih*0.12:iw*0.08:ih*0.70,scale=${width}:${height}`,
+    "-frames:v", "1",
+    "-f", "rawvideo",
+    "-pix_fmt", "rgba",
+    "pipe:1",
+  ]);
+  if (pixels.length !== width * height * 4) {
+    throw new Error(`web_video_editor_caption_pixel_probe_unexpected_size:${pixels.length}`);
+  }
+  let bright = 0;
+  let dark = 0;
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    const luminance = 0.2126 * pixels[offset] + 0.7152 * pixels[offset + 1] + 0.0722 * pixels[offset + 2];
+    if (luminance > 230) bright += 1;
+    if (luminance < 50) dark += 1;
+  }
+  const total = width * height;
+  const brightFraction = bright / total;
+  const darkFraction = dark / total;
+  if (brightFraction < 0.004 || darkFraction < 0.12) {
+    throw new Error(`web_video_editor_caption_pixels_missing:${brightFraction.toFixed(4)}:${darkFraction.toFixed(4)}`);
+  }
+  return { width, height, brightFraction, darkFraction };
+}
+
+function probeBackgroundBlurPixels(outputPath) {
+  const width = 180;
+  const height = 80;
+  const sample = (crop) => execFileSync("ffmpeg", [
+    "-v", "error",
+    "-i", outputPath,
+    "-vf", `${crop},scale=${width}:${height}`,
+    "-frames:v", "1",
+    "-f", "rawvideo",
+    "-pix_fmt", "rgba",
+    "pipe:1",
+  ]);
+  const topBackground = sample("crop=iw*0.86:ih*0.16:iw*0.07:ih*0.06");
+  const centerForeground = sample("crop=iw*0.86:ih*0.16:iw*0.07:ih*0.42");
+  const backgroundSharpness = averageAdjacentLumaDelta(topBackground, width, height);
+  const foregroundSharpness = averageAdjacentLumaDelta(centerForeground, width, height);
+  if (!(backgroundSharpness < foregroundSharpness * 0.82)) {
+    throw new Error(`web_video_editor_background_blur_pixels_missing:${backgroundSharpness.toFixed(2)}:${foregroundSharpness.toFixed(2)}`);
+  }
+  return { width, height, backgroundSharpness, foregroundSharpness };
+}
+
+function averageAdjacentLumaDelta(pixels, width, height) {
+  if (pixels.length !== width * height * 4) throw new Error(`video_editor_blur_probe_unexpected_size:${pixels.length}`);
+  let total = 0;
+  let count = 0;
+  const luma = (offset) => 0.2126 * pixels[offset] + 0.7152 * pixels[offset + 1] + 0.0722 * pixels[offset + 2];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 1; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      total += Math.abs(luma(offset) - luma(offset - 4));
+      count += 1;
+    }
+  }
+  return total / Math.max(1, count);
 }
 
 function parseArgs(args) {
@@ -433,6 +746,12 @@ async function clickComposerMediaAction(page, id) {
 
 async function clickComposerEditAction(page) {
   const id = "composer-media.edit-video";
+  const alreadyOpen = await postComposerProductState(page)
+    .then((state) => state?.videoEditorOpen === true)
+    .catch(() => false);
+  if (alreadyOpen) {
+    return { kind: "alreadyOpen", value: "post-video-editor.root", preferredMissing: id };
+  }
   if (await semanticLocator(page, id).then(async (locator) => {
     await locator.waitFor({ state: "attached", timeout: 3_000 });
     await locator.scrollIntoViewIfNeeded().catch(() => null);
@@ -568,10 +887,46 @@ function loadPlaywrightCore() {
   }
 }
 
-async function validMp4FixtureDataUrl() {
-  const fixture = await readFile(resolve(DEFAULT_VIDEO_FIXTURE));
+async function validSpeechMp4FixtureDataUrl() {
+  await mkdir(options.evidenceDir, { recursive: true });
+  const wavPath = resolve(options.evidenceDir, "web-post-video-editor-caption-source.wav");
+  const videoPath = resolve(options.evidenceDir, "web-post-video-editor-caption-source.mp4");
+  const speechScript = [
+    "$ErrorActionPreference = 'Stop'",
+    "Add-Type -AssemblyName System.Speech",
+    "$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer",
+    "try { $synth.SelectVoiceByHints([System.Speech.Synthesis.VoiceGender]::NotSet, [System.Speech.Synthesis.VoiceAge]::NotSet, 0, [System.Globalization.CultureInfo]::GetCultureInfo('en-US')) } catch {}",
+    `$synth.SetOutputToWaveFile(${powershellQuote(wavPath)})`,
+    `$synth.Speak(${powershellQuote(CAPTION_FIXTURE_TEXT)})`,
+    "$synth.Dispose()",
+  ].join("; ");
+  execFileSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", speechScript], { stdio: "pipe" });
+  execFileSync("ffmpeg", [
+    "-y",
+    "-f", "lavfi",
+    "-i", "testsrc2=s=720x1280:r=30:d=6",
+    "-i", wavPath,
+    "-shortest",
+    "-c:v", "libx264",
+    "-pix_fmt", "yuv420p",
+    "-c:a", "aac",
+    "-b:a", "128k",
+    "-movflags", "+faststart",
+    videoPath,
+  ], { stdio: "pipe" });
+  const fixture = await readFile(videoPath);
   if (fixture.length < 8_000 || fixture.subarray(4, 8).toString("ascii") !== "ftyp") {
-    throw new Error("invalid_mp4_fixture");
+    throw new Error("invalid_speech_mp4_fixture");
   }
+  report.evidence.captionFixture = {
+    source: "generated_windows_sapi_en_us_fixture",
+    text: CAPTION_FIXTURE_TEXT,
+    path: videoPath,
+    sizeBytes: fixture.length,
+  };
   return `data:video/mp4;base64,${fixture.toString("base64")}`;
+}
+
+function powershellQuote(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
 }

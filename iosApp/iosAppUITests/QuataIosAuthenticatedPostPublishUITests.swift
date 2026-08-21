@@ -4,6 +4,9 @@ import XCTest
 /// The companion runner seeds the normal app Keychain first, then opens the real composer route.
 final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
     private static let realPublishOptIn = "I_ACCEPT_REVERSIBLE_POST_PUBLISH_MUTATION"
+    private enum ReplayError: Error {
+        case captionStyleSelectionFailed(String)
+    }
 
     func testAuthenticatedSessionPublishesRealTextPost() throws {
         let environment = ProcessInfo.processInfo.environment
@@ -226,19 +229,98 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "post-video-editor.timeline",
             "post-video-editor.crop",
             "post-video-editor.captions",
+            "post-video-editor.reset",
             "post-video-editor.export",
         ] {
             XCTAssertTrue(app.descendants(matching: .any).matching(identifier: identifier).firstMatch.waitForExistence(timeout: 8), "Missing shared video editor anchor \(identifier).")
         }
+        for index in 0..<6 {
+            let frame = app.descendants(matching: .any)
+                .matching(identifier: "post-video-editor.timeline-frame.\(index)")
+                .firstMatch
+            XCTAssertTrue(frame.waitForExistence(timeout: 12), "Missing shared video editor timeline frame \(index).")
+        }
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-opened")
-        tapComposerAction("post-video-editor.mute", in: app)
+        let editorPreview = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.preview")
+            .firstMatch
+        QuataIosHostUITestSupport.assertElementHasNonBlackPixels(
+            editorPreview,
+            named: "ios-post-video-editor-preview-opened",
+            minimumNonBlackRatio: 0.08,
+        )
+        tapComposerAction("post-video-editor.reset", in: app)
+        if ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"] == "1" {
+            tapComposerAction("post-video-editor.mute", in: app)
+        }
         tapComposerAction("post-video-editor.play-pause", in: app)
-        tapComposerAction("post-video-editor.crop", in: app)
+        dragVideoTrimEnd(toNormalizedX: 0.64, in: app)
         tapComposerAction("post-video-editor.captions", in: app)
+        revealVideoEditorPreview(in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "post-video-editor.caption-preview.Karaoke")
+                .firstMatch
+                .waitForExistence(timeout: 8),
+            "Selecting a caption style must render the common caption preview overlay before export.",
+        )
+        tapComposerAction("post-video-editor.crop", in: app)
+        tapComposerAction("post-video-editor.crop-mode.Square", in: app)
+        revealVideoEditorPreview(in: app)
+        QuataIosHostUITestSupport.assertElementHasNonBlackPixels(
+            editorPreview,
+            named: "ios-post-video-editor-preview-after-crop-captions",
+            minimumNonBlackRatio: 0.08,
+        )
+        exerciseVideoExportCancellationIfRequested(in: app, editorRoot: editorRoot)
+        if ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_CANCEL_ONLY"] == "1" {
+            print("IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED")
+            return
+        }
         tapComposerAction("post-video-editor.export", in: app)
-        XCTAssertTrue(selectedVideoPreview.waitForExistence(timeout: 12), "Saving the iOS video editor must return to the common selected-video preview.")
+        let editorExport = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.export")
+            .firstMatch
+        let exportProgress = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.export-progress")
+            .firstMatch
+        XCTAssertTrue(exportProgress.waitForExistence(timeout: 8), "Tapping the shared video editor export action must enter the exporting state.")
+        let editorError = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.error")
+            .firstMatch
+        let exportDeadline = Date().addingTimeInterval(180)
+        var returnedToComposer = false
+        while Date() < exportDeadline {
+            let editorStillVisible = editorRoot.exists || editorPreview.exists || editorExport.exists
+            if selectedVideoPreview.exists && !editorStillVisible {
+                returnedToComposer = true
+                break
+            }
+            if editorError.exists {
+                XCTFail("Saving the iOS video editor surfaced the common editor error: \(elementText(editorError))")
+                break
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        XCTAssertTrue(returnedToComposer, "Saving the iOS video editor must return to the common selected-video preview after the native export finishes.")
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-after-edit")
         print("IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED")
+    }
+
+    private func exerciseVideoExportCancellationIfRequested(in app: XCUIApplication, editorRoot: XCUIElement) {
+        guard ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CANCEL"] == "1" else {
+            return
+        }
+        tapComposerAction("post-video-editor.export", in: app)
+        let exportProgress = commonElement("post-video-editor.export-progress", in: app)
+        XCTAssertTrue(exportProgress.waitForExistence(timeout: 8), "The shared editor must expose export progress before cancellation.")
+        tapComposerAction("post-video-editor.cancel-export", in: app)
+        let editorError = commonElement("post-video-editor.error", in: app)
+        let exportButton = commonElement("post-video-editor.export", in: app)
+        XCTAssertTrue(exportButton.waitForExistence(timeout: 8), "Cancelling export must return to the editable video editor state.")
+        XCTAssertTrue(editorRoot.exists, "Cancelling export must keep the shared video editor open.")
+        XCTAssertFalse(editorError.exists, "Cancelling export must not surface a user-visible error: \(elementText(editorError))")
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-after-cancel-export")
     }
 
     private func selectDestination(_ wallId: String, in app: XCUIApplication) {
@@ -282,6 +364,9 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_PATH",
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_NAME",
             "QUATA_IOS_POST_COMPOSER_VIDEO_EDITOR_MIME",
+            "QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS",
+            "QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE",
+            "QUATA_IOS_POST_VIDEO_EDITOR_MUTE",
             "QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE",
             "QUATA_IOS_POST_STORAGE_ROLLBACK_FAIL_AFTER_UPLOAD",
             "QUATA_IOS_POST_DESTINATION_E2E_MODE",
@@ -374,19 +459,126 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
     }
 
     private func tapComposerAction(_ identifier: String, in app: XCUIApplication) {
-        let action = app.descendants(matching: .any)
-            .matching(identifier: identifier)
-            .firstMatch
+        let buttonAction = app.buttons.matching(identifier: identifier).firstMatch
+        let fallbackAction = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         for _ in 0..<8 {
+            let action = buttonAction.waitForExistence(timeout: 1) ? buttonAction : fallbackAction
             if action.waitForExistence(timeout: 1), action.isHittable {
-                action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                action.tap()
                 return
             }
             app.swipeUp()
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
+        let action = buttonAction.exists ? buttonAction : fallbackAction
         XCTAssertTrue(action.exists, "Expected common composer action \(identifier) to exist.")
-        action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.15)
+    }
+
+    private func tapVideoCaptionStyle(_ style: String, in app: XCUIApplication) throws {
+        let selectedIdentifier = "post-video-editor.caption-style-selected.\(style)"
+        let buttonIdentifier = "post-video-editor.caption-style.\(style)"
+        var target: XCUIElement?
+        for _ in 0..<8 {
+            let button = app.buttons.matching(identifier: buttonIdentifier).firstMatch
+            let semanticTarget = app.descendants(matching: .any).matching(identifier: buttonIdentifier).firstMatch
+            if button.waitForExistence(timeout: 1) {
+                target = button
+                break
+            }
+            if semanticTarget.waitForExistence(timeout: 1) {
+                target = semanticTarget
+                break
+            }
+            scrollVideoEditorControlsDown(in: app)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        guard let target = target else {
+            XCTFail("Expected common video caption style \(style) to exist.")
+            throw ReplayError.captionStyleSelectionFailed(style)
+        }
+        for _ in 0..<4 {
+            if !target.isHittable {
+                scrollVideoEditorControlsDown(in: app)
+                RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+                continue
+            }
+            target.tap()
+            if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
+                return
+            }
+            target.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
+                return
+            }
+            let visibleText = app.staticTexts.matching(identifier: style).firstMatch
+            if visibleText.exists {
+                visibleText.tap()
+            }
+            if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
+                return
+            }
+        }
+        XCTFail("Selecting common video caption style \(style) did not update the shared editor state.")
+        throw ReplayError.captionStyleSelectionFailed(style)
+    }
+
+    private func scrollVideoEditorControlsDown(in app: XCUIApplication) {
+        let editorRoot = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.root")
+            .firstMatch
+        if editorRoot.exists {
+            let start = editorRoot.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.78))
+            let end = editorRoot.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
+            start.press(forDuration: 0.05, thenDragTo: end)
+            return
+        }
+        let editorPreview = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.preview")
+            .firstMatch
+        if editorPreview.exists {
+            let start = editorPreview.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.86))
+            let end = editorPreview.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.20))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+    }
+
+    private func revealVideoEditorPreview(in app: XCUIApplication) {
+        let editorPreview = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.preview")
+            .firstMatch
+        for _ in 0..<8 {
+            if editorPreview.exists && editorPreview.isHittable {
+                return
+            }
+            let editorRoot = app.descendants(matching: .any)
+                .matching(identifier: "post-video-editor.root")
+                .firstMatch
+            if editorRoot.exists {
+                let start = editorRoot.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.30))
+                let end = editorRoot.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.82))
+                start.press(forDuration: 0.05, thenDragTo: end)
+            } else {
+                app.swipeDown()
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        XCTAssertTrue(editorPreview.exists, "The shared video editor preview must be reachable before visual overlay assertions.")
+    }
+
+    private func dragVideoTrimEnd(toNormalizedX targetX: CGFloat, in app: XCUIApplication) {
+        let timeline = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.timeline")
+            .firstMatch
+        let handle = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.trim-end")
+            .firstMatch
+        XCTAssertTrue(timeline.waitForExistence(timeout: 8), "The shared video editor timeline must be exposed before trimming.")
+        XCTAssertTrue(handle.waitForExistence(timeout: 8), "The shared video editor trim-end handle must be exposed before trimming.")
+        let destination = timeline.coordinate(withNormalizedOffset: CGVector(dx: min(max(targetX, 0.52), 0.95), dy: 0.5))
+        handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.18, thenDragTo: destination)
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-post-video-editor-trimmed")
     }
 
     private func commonElement(_ identifier: String, in app: XCUIApplication) -> XCUIElement {

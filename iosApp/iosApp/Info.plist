@@ -44,6 +44,8 @@
     <string>Quata necesita acceso al micrófono para grabar mensajes de audio.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Quata needs access to your photos when you choose to attach content.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Quata necesita reconocimiento de voz cuando eliges generar subtítulos para un vídeo.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Quata necesita tu ubicación para las funciones de proximidad y SOS.</string>
     <key>QUATA_SUPABASE_URL</key>

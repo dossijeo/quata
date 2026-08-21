@@ -35,7 +35,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -58,12 +57,10 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Info
@@ -72,16 +69,12 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -114,11 +107,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Effect
 import androidx.media3.common.C
@@ -165,7 +155,6 @@ import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.VideoEncoderSettings
 import com.quata.R
-import com.quata.core.captions.android.CaptionPreviewRenderer
 import com.quata.core.captions.media3.CaptionBurnInTrack
 import com.quata.core.captions.media3.CaptionMedia3BurnIn
 import com.quata.core.captions.templates.CaptionTemplateStyle
@@ -181,11 +170,7 @@ import com.quata.core.media.VideoExportProfile
 import com.quata.core.media.VideoExportSystemProfile
 import com.quata.core.media.withQuataMediaMetadataRetriever
 import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
-import com.quata.core.ui.components.CompactButtonContentPadding
 import com.quata.core.ui.components.CompactIcon
-import com.quata.core.ui.components.CompactIconButton
-import com.quata.core.ui.components.QuataEditorScaffold
-import com.quata.core.ui.components.QuataEditorToolButton
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -232,8 +217,10 @@ fun QuataVideoEditorDialog(
     val appContext = remember(context) { context.applicationContext }
     val scope = rememberCoroutineScope()
     val metadata = rememberVideoEditorMetadata(editorSourceUri)
-    val exportProfile = remember { VideoExportSystemProfile.current() }
     val videoAspect = metadata.aspectRatio ?: (9f / 16f)
+    val exportProfile = remember(metadata.displayWidth, metadata.displayHeight) {
+        VideoExportSystemProfile.forSource(metadata.displayWidth, metadata.displayHeight)
+    }
 
     var trimStartMs by remember(editorSourceUri) { mutableLongStateOf(0L) }
     var trimEndMs by remember(editorSourceUri) { mutableLongStateOf(0L) }
@@ -255,12 +242,6 @@ fun QuataVideoEditorDialog(
     var captionModelDownloadProgress by remember(editorSourceUri) { mutableStateOf<Float?>(null) }
     var isPreviewPlayerEnabled by remember(editorSourceUri) { mutableStateOf(true) }
     val voskModelDeliveryManager = remember(appContext) { VoskModelDeliveryManager(appContext) }
-    val captionPreviewFrame = remember(appContext, captionStyle) {
-        captionStyle?.let { style ->
-            CaptionPreviewRenderer.renderPreviewBitmap(appContext, style, CaptionPreviewWidth, CaptionPreviewHeight)
-        }
-    }
-
     val player = remember(editorSourceUri, isPreviewPlayerEnabled) {
         if (!isPreviewPlayerEnabled) return@remember null
         ExoPlayer.Builder(context).build().apply {
@@ -408,28 +389,32 @@ fun QuataVideoEditorDialog(
 
     fun applyTrimStartDrag(targetMs: Long) {
         if (durationMs <= 0L) return
-        val boundedStart = targetMs.coerceIn(0L, (trimEndMs - MinimumTrimMs).coerceAtLeast(0L))
-        val nextEnd = if (trimEndMs - boundedStart > MaximumTrimDurationMs) {
-            (boundedStart + MaximumTrimDurationMs).coerceAtMost(durationMs)
-        } else {
-            trimEndMs
-        }
-        trimStartMs = boundedStart
-        trimEndMs = nextEnd
-        seekPreviewTo(boundedStart)
+        val nextState = postVideoEditorStateAfterTrimStart(
+            state = PostVideoEditorUiState(
+                trimStartFraction = if (durationMs > 0L) trimStartMs.toFloat() / durationMs else 0f,
+                trimEndFraction = if (durationMs > 0L) trimEndMs.toFloat() / durationMs else 1f,
+            ),
+            fraction = targetMs.toFloat() / durationMs.coerceAtLeast(1L),
+            durationMs = durationMs,
+        )
+        trimStartMs = (nextState.trimStartFraction * durationMs).roundToLong()
+        trimEndMs = (nextState.trimEndFraction * durationMs).roundToLong()
+        seekPreviewTo(trimStartMs)
     }
 
     fun applyTrimEndDrag(targetMs: Long) {
         if (durationMs <= 0L) return
-        val boundedEnd = targetMs.coerceIn((trimStartMs + MinimumTrimMs).coerceAtMost(durationMs), durationMs)
-        val nextStart = if (boundedEnd - trimStartMs > MaximumTrimDurationMs) {
-            (boundedEnd - MaximumTrimDurationMs).coerceAtLeast(0L)
-        } else {
-            trimStartMs
-        }
-        trimStartMs = nextStart
-        trimEndMs = boundedEnd
-        seekPreviewTo((boundedEnd - 33L).coerceAtLeast(nextStart))
+        val nextState = postVideoEditorStateAfterTrimEnd(
+            state = PostVideoEditorUiState(
+                trimStartFraction = if (durationMs > 0L) trimStartMs.toFloat() / durationMs else 0f,
+                trimEndFraction = if (durationMs > 0L) trimEndMs.toFloat() / durationMs else 1f,
+            ),
+            fraction = targetMs.toFloat() / durationMs.coerceAtLeast(1L),
+            durationMs = durationMs,
+        )
+        trimStartMs = (nextState.trimStartFraction * durationMs).roundToLong()
+        trimEndMs = (nextState.trimEndFraction * durationMs).roundToLong()
+        seekPreviewTo((trimEndMs - 33L).coerceAtLeast(trimStartMs))
     }
 
     fun suspendPreviewForExport() {
@@ -473,54 +458,63 @@ fun QuataVideoEditorDialog(
         isCaptionPanelOpen = false
         isExporting = true
         exportProgress = 0f
-        val selectedCaptionStyle = captionStyle
-        val selectedCropRect = cropRect.takeUnless { it.isFullFrame }
-        val backgroundCropRect = if (cropRect.isFullFrame && metadata.hasNineSixteenAspect()) {
-            null
-        } else {
-            cropRect
-                .centerCropToAspect(EditorOutputAspectRatio, videoAspect)
-                .takeUnless { it.isFullFrame }
-        }
-        val targetOutputWidth = exportProfile.width
-        val targetOutputHeight = exportProfile.height
+        val exportState = PostVideoEditorUiState(
+            isMuted = isMuted,
+            trimStartFraction = if (durationMs > 0L) trimStartMs.toFloat() / durationMs else 0f,
+            trimEndFraction = if (durationMs > 0L) trimEndMs.toFloat() / durationMs else 1f,
+            cropEnabled = cropMode != VideoCropMode.Original,
+            captionsEnabled = captionStyle != null,
+            cropMode = cropMode,
+            cropZoom = cropZoom,
+            cropCenterX = cropCenter.x,
+            cropCenterY = cropCenter.y,
+            selectedCaptionStyleId = captionStyle?.name,
+        )
         exportJob = scope.launch {
             try {
                 if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
                     delay(250L)
                 }
-                val captionTrack = selectedCaptionStyle?.let { style ->
+                val captionDocument = captionStyle?.let {
                     exportProgress = 0.03f
-                    val captionDocument = VoskVideoTranscriber(appContext)
-                        .transcribe(editorSourceUri)
-                        .trimTo(trimStartMs, trimEndMs)
+                    VoskVideoTranscriber(appContext).transcribe(editorSourceUri)
+                }
+                val spec = postVideoEditorExportSpec(
+                    exportState,
+                    videoAspect,
+                    durationMs,
+                    captionDocument,
+                    exportProfile,
+                )
+                val captionTrack = spec.captionStyle?.let { style ->
+                    val document = spec.captionDocument ?: error("android_post_video_editor_caption_transcript_missing")
                     CaptionBurnInTrack(
-                        document = captionDocument,
+                        document = document,
                         style = style,
-                        outputWidth = targetOutputWidth,
-                        outputHeight = targetOutputHeight
+                        outputWidth = spec.outputWidth,
+                        outputHeight = spec.outputHeight
                     )
                 }
                 val request = VideoEditorExportRequest(
                     sourceUri = editorSourceUri,
-                    trimStartMs = trimStartMs,
-                    trimEndMs = trimEndMs,
-                    sourceDurationMs = durationMs,
-                    removeAudio = isMuted,
-                    cropRect = selectedCropRect,
-                    backgroundCropRect = backgroundCropRect,
+                    trimStartMs = spec.trimStartMs,
+                    trimEndMs = spec.trimEndMs,
+                    sourceDurationMs = spec.sourceDurationMs,
+                    removeAudio = spec.removeAudio,
+                    cropRect = spec.cropRect.takeUnless { it.isFullFrame },
+                    backgroundCropRect = spec.backgroundCropRect,
                     sourceWidth = metadata.displayWidth,
                     sourceHeight = metadata.displayHeight,
                     sourceRotation = metadata.rotation,
                     sourceFrameRate = metadata.frameRate,
                     sourceBitrate = metadata.bitrate,
-                    outputWidth = targetOutputWidth,
-                    outputHeight = targetOutputHeight,
-                    exportProfile = exportProfile,
+                    outputWidth = spec.outputWidth,
+                    outputHeight = spec.outputHeight,
+                    exportProfile = spec.exportProfile,
                     captionTrack = captionTrack
                 )
                 val exportedUri = appContext.exportEditedVideo(request) { progress ->
-                    exportProgress = if (selectedCaptionStyle != null) {
+                    exportProgress = if (captionTrack != null) {
                         0.12f + progress * 0.88f
                     } else {
                         progress
@@ -598,237 +592,166 @@ fun QuataVideoEditorDialog(
     }
     val showMaxDurationWarning = durationMs > MaximumTrimDurationMs
 
-    QuataEditorScaffold(
-        title = stringResource(R.string.video_editor_title),
-        showTitle = !isLandscapeLayout,
-        onBack = ::requestBack,
-        backContentDescription = stringResource(R.string.video_editor_back),
-        modifier = Modifier.testTag(PostVideoEditorRootTestTag),
-        actions = {
-            if (!isExporting) {
-                QuataEditorToolButton(
-                    label = stringResource(if (isMuted) R.string.video_editor_unmute else R.string.video_editor_mute),
-                    enabled = true,
-                    onClick = { isMuted = !isMuted },
-                    modifier = Modifier.testTag(PostVideoEditorMuteTestTag),
-                ) {
-                    CompactIcon(if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
-                }
-                QuataEditorToolButton(
-                    label = stringResource(if (isCropPanelOpen) R.string.video_editor_crop_done else R.string.video_editor_crop),
-                    enabled = true,
-                    modifier = Modifier.testTag(PostVideoEditorCropTestTag),
-                    onClick = {
-                    isCaptionPanelOpen = false
-                    isCropPanelOpen = !isCropPanelOpen
-                    }
-                ) {
-                    CompactIcon(if (isCropPanelOpen) Icons.Filled.Check else Icons.Filled.Crop, contentDescription = null)
-                }
-                QuataEditorToolButton(
-                    label = stringResource(if (isCaptionPanelOpen) R.string.video_editor_captions_done else R.string.video_editor_captions),
-                    enabled = true,
-                    selected = captionStyle != null,
-                    modifier = Modifier.testTag(PostVideoEditorCaptionsTestTag),
-                    onClick = {
-                    isCropPanelOpen = false
-                    isCaptionPanelOpen = !isCaptionPanelOpen
-                    }
-                ) {
-                    CompactIcon(if (isCaptionPanelOpen) Icons.Filled.Check else Icons.Filled.Subtitles, contentDescription = null)
-                }
-                QuataEditorToolButton(
-                    label = stringResource(R.string.video_editor_export),
-                    enabled = true,
-                    onClick = ::export,
-                    modifier = Modifier.testTag(PostVideoEditorExportTestTag),
-                ) {
-                    CompactIcon(Icons.Filled.Save, contentDescription = null)
-                }
+    val editorState = PostVideoEditorUiState(
+        isMuted = isMuted,
+        isPlaying = isPlaying,
+        trimStartFraction = if (durationMs > 0L) trimStartMs.toFloat() / durationMs else 0f,
+        trimEndFraction = if (durationMs > 0L) trimEndMs.toFloat() / durationMs else 1f,
+        currentPositionFraction = if (durationMs > 0L) timelinePositionMs.toFloat() / durationMs else 0f,
+        cropEnabled = cropMode != VideoCropMode.Original,
+        captionsEnabled = captionStyle != null,
+        cropPanelOpen = isCropPanelOpen,
+        captionsPanelOpen = isCaptionPanelOpen,
+        cropMode = cropMode,
+        cropZoom = cropZoom,
+        cropCenterX = cropCenter.x,
+        cropCenterY = cropCenter.y,
+        selectedCaptionStyleId = captionStyle?.name,
+        currentPositionLabel = infoPositionMs.formatVideoTime(),
+        selectedDurationLabel = selectedDurationMs.formatVideoTime(),
+        showMaxDurationWarning = showMaxDurationWarning,
+        isExporting = isExporting,
+        exportProgress = exportProgress,
+        error = exportError,
+    )
+
+    PostVideoEditorDialogContent(
+        state = editorState,
+        strings = PostVideoEditorStrings(
+            title = stringResource(R.string.video_editor_title),
+            helper = stringResource(R.string.video_editor_helper),
+            trimStart = stringResource(R.string.video_editor_trim_start),
+            trimEnd = stringResource(R.string.video_editor_trim_end),
+            mute = stringResource(R.string.video_editor_mute),
+            unmute = stringResource(R.string.video_editor_unmute),
+            play = stringResource(R.string.video_editor_play),
+            pause = stringResource(R.string.video_editor_pause),
+            crop = stringResource(R.string.video_editor_crop),
+            cropDone = stringResource(R.string.video_editor_apply),
+            captions = stringResource(R.string.video_editor_captions),
+            captionsDone = stringResource(R.string.video_editor_apply),
+            reset = stringResource(R.string.video_editor_reset),
+            cancel = stringResource(R.string.video_editor_cancel),
+            export = stringResource(R.string.video_editor_export),
+            exporting = stringResource(R.string.video_editor_exporting),
+            currentTime = stringResource(R.string.video_editor_current_time),
+            selectedDuration = stringResource(R.string.video_editor_selected_duration),
+            maxDurationWarning = stringResource(R.string.video_editor_max_duration_warning),
+            cropOriginal = stringResource(R.string.video_editor_crop_original),
+            cropSquare = stringResource(R.string.video_editor_crop_square),
+            cropFourFive = stringResource(R.string.video_editor_crop_four_five),
+            cropPortrait = stringResource(R.string.video_editor_crop_portrait),
+            cropLandscape = stringResource(R.string.video_editor_crop_landscape),
+            cropZoom = stringResource(R.string.video_editor_zoom),
+            captionsNone = stringResource(R.string.video_editor_captions_none),
+        ),
+        isLandscapeLayout = isLandscapeLayout,
+        onMutedChange = { isMuted = it },
+        onPlayPause = ::playOrPause,
+        onTrimStartChange = { fraction ->
+            applyTrimStartDrag((fraction.coerceIn(0f, 1f) * durationMs.coerceAtLeast(1L)).roundToLong())
+        },
+        onTrimEndChange = { fraction ->
+            applyTrimEndDrag((fraction.coerceIn(0f, 1f) * durationMs.coerceAtLeast(1L)).roundToLong())
+        },
+        onCropToggle = {
+            isCaptionPanelOpen = false
+            isCropPanelOpen = !isCropPanelOpen
+        },
+        onCaptionsToggle = {
+            isCropPanelOpen = false
+            isCaptionPanelOpen = !isCaptionPanelOpen
+            if (captionStyle == null) {
+                captionStyle = CaptionTemplateStyle.entries.first()
             }
-        }
-    ) {
-
-            if (isLandscapeLayout) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    VideoPreviewPane(
-                        player = player,
-                        aspectRatio = videoAspect,
-                        previewFrame = previewFrame,
-                        isPlaying = isPlaying,
-                        cropRect = cropRect,
-                        videoRotationDegrees = metadata.rotation,
-                        captionPreviewFrame = captionPreviewFrame,
-                        isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
-                        onCropDrag = { dx, dy ->
-                            val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
-                            cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
-                        },
-                        modifier = Modifier
-                            .testTag(PostVideoEditorPreviewTestTag)
-                            .weight(1f)
-                            .fillMaxHeight()
-                    )
-
-                    Column(
-                        modifier = Modifier
-                            .width(312.dp)
-                            .fillMaxHeight()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (showMaxDurationWarning) {
-                            VideoMaxDurationWarningBanner(
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        VideoTimeline(
-                            frames = frames,
-                            durationMs = durationMs,
-                            trimStartMs = trimStartMs,
-                            trimEndMs = trimEndMs,
-                            currentPositionMs = timelinePositionMs,
-                            isExporting = isExporting,
-                            onTrimStartChange = ::applyTrimStartDrag,
-                            onTrimEndChange = ::applyTrimEndDrag,
-                            onSeek = { target ->
-                                seekPreviewTo(target)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag(PostVideoEditorTimelineTestTag)
-                                .height(82.dp)
-                        )
-
-                        if (isCropPanelOpen && !isExporting) {
-                            CropControls(
-                                mode = cropMode,
-                                zoom = cropZoom,
-                                onModeChange = { mode ->
-                                    cropMode = mode
-                                    cropZoom = 1f
-                                    cropCenter = Offset(0.5f, 0.5f)
-                                },
-                                onZoomChange = { nextZoom ->
-                                    cropZoom = nextZoom
-                                    cropCenter = cropMode.clampCenter(videoAspect, nextZoom, cropCenter)
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        if (isCaptionPanelOpen && !isExporting) {
-                            CaptionControls(
-                                selectedStyle = captionStyle,
-                                onStyleChange = { captionStyle = it },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        VideoEditorInfoBar(
-                            currentPositionMs = infoPositionMs,
-                            selectedDurationMs = selectedDurationMs,
-                            isPlaying = isPlaying,
-                            isExporting = isExporting,
-                            exportProgress = exportProgress,
-                            error = exportError,
-                            onPlayPause = ::playOrPause
-                        )
-                    }
-                }
+        },
+        onReset = {
+            val resetState = postVideoEditorStateAfterReset(editorState, durationMs)
+            trimStartMs = (resetState.trimStartFraction * durationMs.coerceAtLeast(1L)).roundToLong()
+            trimEndMs = (resetState.trimEndFraction * durationMs.coerceAtLeast(1L)).roundToLong()
+            isMuted = resetState.isMuted
+            isCropPanelOpen = resetState.cropPanelOpen
+            cropMode = resetState.cropMode
+            cropZoom = resetState.cropZoom
+            cropCenter = Offset(resetState.cropCenterX, resetState.cropCenterY)
+            captionStyle = resetState.selectedCaptionStyleId?.let { id ->
+                CaptionTemplateStyle.entries.firstOrNull { it.name == id }
+            }
+            isCaptionPanelOpen = resetState.captionsPanelOpen
+            exportError = resetState.error
+            exportProgress = resetState.exportProgress
+            isCancelExportDialogOpen = false
+            seekPreviewTo(trimStartMs)
+        },
+        onDismiss = ::requestBack,
+        onExport = ::export,
+        onCancelExport = { isCancelExportDialogOpen = true },
+        captionOptions = CaptionTemplateStyle.entries.map { style ->
+            CaptionStyleOption(style.name, stringResource(style.labelRes))
+        },
+        onCropModeChange = { mode ->
+            val nextState = postVideoEditorStateAfterCropModeChange(editorState, mode, videoAspect)
+            cropMode = nextState.cropMode
+            cropZoom = nextState.cropZoom
+            cropCenter = Offset(nextState.cropCenterX, nextState.cropCenterY)
+        },
+        onCropZoomChange = { nextZoom ->
+            val nextState = postVideoEditorStateAfterCropZoomChange(
+                editorState.copy(cropZoom = cropZoom, cropCenterX = cropCenter.x, cropCenterY = cropCenter.y),
+                nextZoom,
+                videoAspect,
+            )
+            cropZoom = nextState.cropZoom
+            cropCenter = Offset(nextState.cropCenterX, nextState.cropCenterY)
+        },
+        onCropPanChange = { dx, dy ->
+            val nextState = postVideoEditorStateAfterCropPan(
+                editorState.copy(cropZoom = cropZoom, cropCenterX = cropCenter.x, cropCenterY = cropCenter.y),
+                dx,
+                dy,
+                videoAspect,
+            )
+            cropCenter = Offset(nextState.cropCenterX, nextState.cropCenterY)
+        },
+        onCaptionStyleChange = { id ->
+            captionStyle = id?.let { selected -> CaptionTemplateStyle.entries.firstOrNull { it.name == selected } }
+        },
+        onSeekChange = { fraction ->
+            seekPreviewTo((fraction.coerceIn(0f, 1f) * durationMs.coerceAtLeast(1L)).roundToLong())
+        },
+        timelineFrameCount = frames.size.takeIf { it > 0 } ?: TimelineFrameCount,
+        timelineFrameContent = { index, frameModifier ->
+            val frame = frames.getOrNull(index)
+            if (frame == null) {
+                Box(
+                    modifier = frameModifier.background(Color.Black.copy(alpha = 0.36f))
+                )
             } else {
-                VideoPreviewPane(
-                    player = player,
-                    aspectRatio = videoAspect,
-                    previewFrame = previewFrame,
-                    isPlaying = isPlaying,
-                    cropRect = cropRect,
-                    videoRotationDegrees = metadata.rotation,
-                    captionPreviewFrame = captionPreviewFrame,
-                    isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
-                    onCropDrag = { dx, dy ->
-                        val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
-                        cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
-                    },
-                    modifier = Modifier
-                        .testTag(PostVideoEditorPreviewTestTag)
-                        .weight(1f)
-                        .fillMaxSize()
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                )
-
-                if (showMaxDurationWarning) {
-                    VideoMaxDurationWarningBanner(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 48.dp, top = 2.dp, end = 48.dp, bottom = 6.dp)
-                    )
-                }
-
-                VideoTimeline(
-                    frames = frames,
-                    durationMs = durationMs,
-                    trimStartMs = trimStartMs,
-                    trimEndMs = trimEndMs,
-                    currentPositionMs = timelinePositionMs,
-                    isExporting = isExporting,
-                    onTrimStartChange = ::applyTrimStartDrag,
-                    onTrimEndChange = ::applyTrimEndDrag,
-                    onSeek = { target ->
-                        seekPreviewTo(target)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag(PostVideoEditorTimelineTestTag)
-                        .height(88.dp)
-                        .padding(horizontal = 48.dp)
-                )
-
-                if (isCropPanelOpen && !isExporting) {
-                    CropControls(
-                        mode = cropMode,
-                        zoom = cropZoom,
-                        onModeChange = { mode ->
-                            cropMode = mode
-                            cropZoom = 1f
-                            cropCenter = Offset(0.5f, 0.5f)
-                        },
-                        onZoomChange = { nextZoom ->
-                            cropZoom = nextZoom
-                            cropCenter = cropMode.clampCenter(videoAspect, nextZoom, cropCenter)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 10.dp)
-                    )
-                }
-                if (isCaptionPanelOpen && !isExporting) {
-                    CaptionControls(
-                        selectedStyle = captionStyle,
-                        onStyleChange = { captionStyle = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 10.dp)
-                    )
-                }
-
-                VideoEditorInfoBar(
-                    currentPositionMs = infoPositionMs,
-                    selectedDurationMs = selectedDurationMs,
-                    isPlaying = isPlaying,
-                    isExporting = isExporting,
-                    exportProgress = exportProgress,
-                    error = exportError,
-                    onPlayPause = ::playOrPause
+                Image(
+                    bitmap = frame.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = frameModifier
                 )
             }
-    }
+        },
+        preview = { previewModifier ->
+            VideoPreviewPane(
+                player = player,
+                aspectRatio = videoAspect,
+                previewFrame = previewFrame,
+                isPlaying = isPlaying,
+                cropRect = cropRect,
+                videoRotationDegrees = metadata.rotation,
+                isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,
+                onCropDrag = { dx, dy ->
+                    val nextCenter = Offset(cropCenter.x + dx, cropCenter.y + dy)
+                    cropCenter = cropMode.clampCenter(videoAspect, cropZoom, nextCenter)
+                },
+                modifier = previewModifier,
+            )
+        },
+    )
 
     if (isCancelExportDialogOpen) {
         AlertDialog(
@@ -900,7 +823,6 @@ private fun VideoPreviewPane(
     isPlaying: Boolean,
     cropRect: NormalizedCropRect,
     videoRotationDegrees: Int,
-    captionPreviewFrame: Bitmap?,
     isCropVisible: Boolean,
     onCropDrag: (Float, Float) -> Unit,
     modifier: Modifier = Modifier
@@ -1027,16 +949,6 @@ private fun VideoPreviewPane(
                     )
                 }
             }
-            captionPreviewFrame?.let { preview ->
-                Image(
-                    bitmap = preview.asImageBitmap(),
-                    contentDescription = null,
-                    contentScale = ContentScale.FillBounds,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .align(Alignment.Center)
-                )
-            }
         }
     }
 }
@@ -1098,7 +1010,7 @@ private fun CropCorner(modifier: Modifier) {
 }
 
 @Composable
-private fun VideoTimeline(
+private fun LegacyVideoTimeline(
     frames: List<Bitmap>,
     durationMs: Long,
     trimStartMs: Long,
@@ -1239,14 +1151,14 @@ private fun VideoTimeline(
         )
 
         if (!isExporting) {
-            TimelineHandle(
+            LegacyTimelineHandle(
                 modifier = Modifier
                     .offset(x = maxWidth * startFraction)
                     .width(handleWidth)
                     .fillMaxHeight(),
                 alignStart = true
             )
-            TimelineHandle(
+            LegacyTimelineHandle(
                 modifier = Modifier
                     .offset(x = maxWidth * endFraction - handleWidth)
                     .width(handleWidth)
@@ -1273,15 +1185,7 @@ private fun VideoTimeline(
 }
 
 @Composable
-private fun VideoMaxDurationWarningBanner(modifier: Modifier = Modifier) {
-    VideoMaxDurationWarningContent(
-        message = stringResource(R.string.video_editor_max_duration_warning),
-        modifier = modifier,
-    )
-}
-
-@Composable
-private fun TimelineHandle(
+private fun LegacyTimelineHandle(
     modifier: Modifier,
     alignStart: Boolean
 ) {
@@ -1296,272 +1200,6 @@ private fun TimelineHandle(
                 .height(42.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color.Black.copy(alpha = 0.38f))
-        )
-    }
-}
-
-@Composable
-private fun CropControls(
-    mode: VideoCropMode,
-    zoom: Float,
-    onModeChange: (VideoCropMode) -> Unit,
-    onZoomChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(template.colors.surface)
-            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
-            .padding(12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            VideoCropMode.entries.forEach { option ->
-                val selected = option == mode
-                val colors = if (selected) {
-                    ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent)
-                } else {
-                    ButtonDefaults.outlinedButtonColors(contentColor = template.colors.textPrimary)
-                }
-                val shape = RoundedCornerShape(9.dp)
-                if (selected) {
-                    Button(
-                        onClick = { onModeChange(option) },
-                        colors = colors,
-                        shape = shape,
-                        contentPadding = CompactButtonContentPadding,
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        CompactIcon(Icons.Filled.AspectRatio, contentDescription = null)
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(option.labelRes()), fontWeight = FontWeight.ExtraBold)
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = { onModeChange(option) },
-                        colors = colors,
-                        shape = shape,
-                        contentPadding = CompactButtonContentPadding,
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Text(stringResource(option.labelRes()), fontWeight = FontWeight.ExtraBold)
-                    }
-                }
-            }
-        }
-
-        if (mode != VideoCropMode.Original) {
-            Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.video_editor_zoom),
-                    color = template.colors.textSecondary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.width(56.dp)
-                )
-                Slider(
-                    value = zoom,
-                    onValueChange = onZoomChange,
-                    valueRange = 1f..3f,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CaptionControls(
-    selectedStyle: CaptionTemplateStyle?,
-    onStyleChange: (CaptionTemplateStyle?) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(template.colors.surface)
-            .border(1.dp, template.colors.divider, RoundedCornerShape(18.dp))
-            .padding(12.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.video_editor_captions),
-            color = template.colors.textPrimary,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 13.sp
-        )
-        Spacer(Modifier.height(10.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            CaptionStyleButton(
-                label = stringResource(R.string.caption_template_none),
-                selected = selectedStyle == null,
-                onClick = { onStyleChange(null) }
-            )
-            CaptionTemplateStyle.entries.forEach { style ->
-                CaptionStyleButton(
-                    label = stringResource(style.labelRes),
-                    selected = selectedStyle == style,
-                    onClick = { onStyleChange(style) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CaptionStyleButton(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val template = quataTheme()
-    val shape = RoundedCornerShape(9.dp)
-    if (selected) {
-        Button(
-            onClick = onClick,
-            colors = ButtonDefaults.buttonColors(containerColor = template.colors.accent, contentColor = template.colors.accentContent),
-            shape = shape,
-            contentPadding = CompactButtonContentPadding,
-            modifier = Modifier.height(36.dp)
-        ) {
-            CompactIcon(Icons.Filled.Subtitles, contentDescription = null)
-            Spacer(Modifier.width(4.dp))
-            Text(label, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-        }
-    } else {
-        OutlinedButton(
-            onClick = onClick,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = template.colors.textPrimary),
-            shape = shape,
-            contentPadding = CompactButtonContentPadding,
-            modifier = Modifier.height(36.dp)
-        ) {
-            Text(label, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-        }
-    }
-}
-
-@Composable
-private fun VideoEditorInfoBar(
-    currentPositionMs: Long,
-    selectedDurationMs: Long,
-    isPlaying: Boolean,
-    isExporting: Boolean,
-    exportProgress: Float,
-    error: String?,
-    onPlayPause: () -> Unit
-) {
-    val template = quataTheme()
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(template.colors.surfaceRaised)
-            .padding(horizontal = 18.dp, vertical = 6.dp)
-    ) {
-        if (isExporting) {
-            LinearProgressIndicator(
-                progress = { exportProgress.coerceIn(0f, 1f) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(5.dp),
-                color = template.colors.accent,
-                trackColor = template.colors.divider
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.video_editor_exporting, (exportProgress * 100).toInt().coerceIn(0, 100)),
-                color = template.colors.textPrimary,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(6.dp))
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(58.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TimeReadout(
-                text = stringResource(R.string.video_editor_current_time, currentPositionMs.formatVideoTime()),
-                horizontalAlignment = Alignment.Start,
-                modifier = Modifier.weight(1f)
-            )
-            if (isExporting) {
-                Spacer(modifier = Modifier.size(44.dp))
-            } else {
-                Surface(
-                    color = template.colors.accent,
-                    contentColor = template.colors.accentContent,
-                    shape = CircleShape,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    CompactIconButton(
-                        onClick = onPlayPause,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .testTag(PostVideoEditorPlayPauseTestTag),
-                    ) {
-                        CompactIcon(
-                            if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                            contentDescription = stringResource(R.string.video_editor_play_pause),
-                            modifier = Modifier.size(38.dp)
-                        )
-                    }
-                }
-            }
-            TimeReadout(
-                text = stringResource(R.string.video_editor_duration, selectedDurationMs.formatVideoTime()),
-                horizontalAlignment = Alignment.End,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun TimeReadout(
-    text: String,
-    horizontalAlignment: Alignment.Horizontal,
-    modifier: Modifier = Modifier
-) {
-    val template = quataTheme()
-    val label = text.substringBefore(':', text).trim()
-    val value = text.substringAfter(':', "").trim()
-    Column(
-        modifier = modifier,
-        horizontalAlignment = horizontalAlignment,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = label,
-            color = template.colors.textSecondary,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 11.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = value.ifBlank { text },
-            color = template.colors.textPrimary,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 16.sp,
-            maxLines = 1
         )
     }
 }
@@ -1986,14 +1624,16 @@ private suspend fun Context.exportEditedVideo(
                 sourceFrameRate = request.exportProfile.maxFrameRate.toFloat(),
                 sourceBitrate = request.exportProfile.intermediateBitrate.toLong()
             )
-            exportEditedVideoWithTransformer(finalRequest, outputFile) { progress ->
+            val transformed = exportEditedVideoWithTransformer(finalRequest, outputFile) { progress ->
                 onProgress(DownsampleExportProgressShare + progress * (1f - DownsampleExportProgressShare))
             }
+            ensureEditedVideoAudio(finalRequest, transformed)
         } finally {
             runCatching { intermediateFile.delete() }
         }
     }
-    return exportEditedVideoWithTransformer(request, outputFile, onProgress)
+    val transformed = exportEditedVideoWithTransformer(request, outputFile, onProgress)
+    return ensureEditedVideoAudio(request, transformed)
 }
 
 private fun Context.createVideoEditorExportFile(): File =
@@ -2001,6 +1641,16 @@ private fun Context.createVideoEditorExportFile(): File =
 
 private fun Context.createVideoEditorIntermediateFile(): File =
     File(cacheDir, "quata-editor-intermediate-${System.currentTimeMillis()}-${Random.nextInt(1000, 9999)}.mp4")
+
+private suspend fun Context.ensureEditedVideoAudio(
+    request: VideoEditorExportRequest,
+    exportedUri: Uri
+): Uri {
+    if (request.removeAudio || exportedUri.hasMediaTrack(this, audio = true)) return exportedUri
+    check(request.sourceUri.hasMediaTrack(this, audio = true)) { "android_post_video_editor_audio_source_missing" }
+    val outputFile = createVideoEditorExportFile()
+    return remuxEditedVideoWithSourceAudio(request, exportedUri, outputFile)
+}
 
 private tailrec fun Context.findActivity(): Activity? =
     when (this) {
@@ -2044,7 +1694,7 @@ private suspend fun Context.exportDownsampledIntermediate(
                 }
                 val nowMs = System.currentTimeMillis()
                 val outputSizeBytes = outputFile.length()
-                if (outputSizeBytes <= 0L) {
+                if (outputSizeBytes < TransformerStableOutputMinBytes) {
                     stableOutputSizeBytes = -1L
                     stableOutputSinceMs = 0L
                     return false
@@ -2068,14 +1718,12 @@ private suspend fun Context.exportDownsampledIntermediate(
                     if (progressState == Transformer.PROGRESS_STATE_AVAILABLE) {
                         onProgress(progressHolder.progress / 100f)
                     }
-                    if (checkStableOutputCompletion("progress")) return
                     handler.postDelayed(this, 250L)
                 }
             }
             completionFallbackRunnable = object : Runnable {
                 override fun run() {
                     if (!continuation.isActive) return
-                    if (checkStableOutputCompletion("watchdog")) return
                     handler.postDelayed(this, 500L)
                 }
             }
@@ -2191,6 +1839,11 @@ private suspend fun Context.exportEditedVideoWithTransformer(
                 val nowMs = System.currentTimeMillis()
                 val outputSizeBytes = outputFile.length()
                 if (outputSizeBytes < TransformerStableOutputMinBytes) {
+                    stableOutputSizeBytes = -1L
+                    stableOutputSinceMs = 0L
+                    return false
+                }
+                if (!Uri.fromFile(outputFile).hasMediaTrack(this@exportEditedVideoWithTransformer, audio = false)) {
                     stableOutputSizeBytes = -1L
                     stableOutputSinceMs = 0L
                     return false
@@ -2498,6 +2151,140 @@ private suspend fun Context.directStreamCopyEditedVideo(
     }
 }
 
+private suspend fun Context.remuxEditedVideoWithSourceAudio(
+    request: VideoEditorExportRequest,
+    videoOnlyUri: Uri,
+    outputFile: File
+): Uri = withContext(Dispatchers.IO) {
+    var muxer: MediaMuxer? = null
+    var muxerStarted = false
+    var completed = false
+    val videoExtractor = MediaExtractor()
+    val audioExtractor = MediaExtractor()
+    try {
+        currentCoroutineContext().ensureActive()
+        videoExtractor.setDataSource(this@remuxEditedVideoWithSourceAudio, videoOnlyUri, null)
+        audioExtractor.setDataSource(this@remuxEditedVideoWithSourceAudio, request.sourceUri, null)
+        muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+
+        val videoTrackIndex = (0 until videoExtractor.trackCount).firstOrNull { index ->
+            videoExtractor.getTrackFormat(index).mimeType()?.startsWith("video/") == true
+        } ?: error("android_post_video_editor_remux_video_missing")
+        val audioTrackIndex = (0 until audioExtractor.trackCount).firstOrNull { index ->
+            audioExtractor.getTrackFormat(index).mimeType()?.startsWith("audio/") == true
+        } ?: error("android_post_video_editor_remux_audio_missing")
+
+        val muxedVideoTrack = muxer.addTrack(videoExtractor.getTrackFormat(videoTrackIndex))
+        val muxedAudioTrack = muxer.addTrack(audioExtractor.getTrackFormat(audioTrackIndex))
+        muxer.start()
+        muxerStarted = true
+
+        videoExtractor.selectTrack(videoTrackIndex)
+        copySelectedSamplesToMuxer(
+            extractor = videoExtractor,
+            muxer = muxer,
+            muxedTrackIndex = muxedVideoTrack,
+            startUs = 0L,
+            endUs = Long.MAX_VALUE,
+            normalizeFromFirstSample = true
+        )
+
+        audioExtractor.selectTrack(audioTrackIndex)
+        val startUs = (request.trimStartMs * 1000L).coerceAtLeast(0L)
+        val endUs = (request.trimEndMs * 1000L).coerceAtLeast(startUs + 1L)
+        if (startUs > 0L) {
+            audioExtractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+        }
+        copySelectedSamplesToMuxer(
+            extractor = audioExtractor,
+            muxer = muxer,
+            muxedTrackIndex = muxedAudioTrack,
+            startUs = startUs,
+            endUs = endUs,
+            normalizeFromFirstSample = false
+        )
+
+        muxer.stop()
+        muxerStarted = false
+        completed = true
+        Uri.fromFile(outputFile)
+    } finally {
+        runCatching {
+            if (!completed && muxerStarted) muxer?.stop()
+        }
+        runCatching { muxer?.release() }
+        runCatching { videoExtractor.release() }
+        runCatching { audioExtractor.release() }
+        if (!completed) {
+            runCatching { outputFile.delete() }
+        }
+    }
+}
+
+private fun copySelectedSamplesToMuxer(
+    extractor: MediaExtractor,
+    muxer: MediaMuxer,
+    muxedTrackIndex: Int,
+    startUs: Long,
+    endUs: Long,
+    normalizeFromFirstSample: Boolean
+) {
+    val maxInputSize = extractor.selectedTrackMaxInputSize().coerceAtLeast(DirectStreamCopyDefaultBufferSize)
+    val buffer = ByteBuffer.allocateDirect(maxInputSize)
+    val bufferInfo = MediaCodec.BufferInfo()
+    var firstPresentationTimeUs: Long? = null
+    var wroteSample = false
+    while (true) {
+        val sampleTimeUs = extractor.sampleTime
+        if (sampleTimeUs < 0L) break
+        if (sampleTimeUs < startUs) {
+            extractor.advance()
+            continue
+        }
+        if (sampleTimeUs > endUs) break
+        buffer.clear()
+        val sampleSize = extractor.readSampleData(buffer, 0)
+        if (sampleSize < 0) break
+        val firstTimeUs = if (normalizeFromFirstSample) {
+            firstPresentationTimeUs ?: sampleTimeUs.also { firstPresentationTimeUs = it }
+        } else {
+            startUs
+        }
+        buffer.position(0)
+        buffer.limit(sampleSize)
+        bufferInfo.set(
+            0,
+            sampleSize,
+            (sampleTimeUs - firstTimeUs).coerceAtLeast(0L),
+            extractor.sampleFlags.toMediaCodecBufferFlags()
+        )
+        muxer.writeSampleData(muxedTrackIndex, buffer, bufferInfo)
+        wroteSample = true
+        extractor.advance()
+    }
+    check(wroteSample) { "android_post_video_editor_remux_track_empty" }
+}
+
+private fun MediaExtractor.selectedTrackMaxInputSize(): Int {
+    val trackIndex = sampleTrackIndex.takeIf { it >= 0 } ?: return DirectStreamCopyDefaultBufferSize
+    return getTrackFormat(trackIndex).maxInputSizeOrNull() ?: DirectStreamCopyDefaultBufferSize
+}
+
+private fun Uri.hasMediaTrack(context: Context, audio: Boolean): Boolean {
+    val extractor = MediaExtractor()
+    return try {
+        extractor.setDataSource(context, this, null)
+        (0 until extractor.trackCount).any { index ->
+            val mimeType = extractor.getTrackFormat(index).mimeType()
+            if (audio) mimeType?.startsWith("audio/") == true else mimeType?.startsWith("video/") == true
+        }
+    } catch (_: Throwable) {
+        false
+    } finally {
+        runCatching { extractor.release() }
+    }
+}
+
 private fun MediaFormat.mimeType(): String? =
     if (containsKey(MediaFormat.KEY_MIME)) getString(MediaFormat.KEY_MIME) else null
 
@@ -2531,7 +2318,8 @@ private fun VideoEditorExportRequest.canUseDirectStreamCopy(): Boolean =
                     sourceRotation.normalizedVideoRotation() == 0 &&
                     hasNineSixteenSourceAspect() &&
                     isWithinDirectStreamSizeLimit() &&
-                    isWithinDirectStreamBitrateLimit()
+                    isWithinDirectStreamBitrateLimit() &&
+                    isWithinDirectStreamFrameRateLimit()
             ) ||
                 canUseLegacyUntransformedStreamCopy()
         )
@@ -2567,6 +2355,11 @@ private fun VideoEditorExportRequest.isWithinDirectStreamSizeLimit(): Boolean =
 private fun VideoEditorExportRequest.isWithinDirectStreamBitrateLimit(): Boolean {
     val bitrate = sourceBitrate ?: return false
     return bitrate <= exportProfile.targetBitrate + DirectStreamAudioBitrateAllowance
+}
+
+private fun VideoEditorExportRequest.isWithinDirectStreamFrameRateLimit(): Boolean {
+    val sourceRate = sourceFrameRate ?: return false
+    return sourceRate <= exportProfile.maxFrameRate.toFloat() + 0.5f
 }
 
 private fun VideoEditorExportRequest.needsBlurredBackground(): Boolean =
@@ -2628,8 +2421,7 @@ private fun VideoEditorExportRequest.foregroundScale(): Float {
 private fun VideoEditorExportRequest.shouldDownsampleFrameRate(): Boolean {
     val sourceRate = sourceFrameRate ?: return false
     val targetRate = exportProfile.maxFrameRate.toFloat()
-    return targetRate == EditorTargetFrameRate.toFloat() &&
-        sourceRate in SourceSixtyFpsLowerBound..SourceSixtyFpsUpperBound
+    return sourceRate > targetRate + 0.5f
 }
 
 private fun VideoEditorExportRequest.frameRateEffects(): List<Effect> {
@@ -3255,18 +3047,13 @@ private const val TimelineFrameMaxDimension = 120
 private const val TimelineFrameLoadDelayMs = 350L
 private const val PreviewPosterMaxDimension = 480
 private const val PreviewPlaybackFrameIntervalMs = 120L
-private const val MinimumTrimMs = 500L
-private const val MaximumTrimDurationMs = 90 * 1000L
+private const val MinimumTrimMs = MinimumPostVideoEditorTrimMs
+private const val MaximumTrimDurationMs = MaximumPostVideoEditorDurationMs
 private const val TransformerCompletionFallbackProgress = 95
 private const val TransformerStableOutputCompletionMs = 3_500L
 private const val TransformerStableOutputMinBytes = 128 * 1024L
 private const val DownsampleExportProgressShare = 0.28f
-private const val EditorTargetFrameRate = 30
-private const val SourceSixtyFpsLowerBound = 50f
-private const val SourceSixtyFpsUpperBound = 70f
 private const val VideoEditorForceGlBrightness = 0.0001f
-private const val CaptionPreviewWidth = 540
-private const val CaptionPreviewHeight = 960
 private const val EditorForegroundInputId = 0
 private const val EditorBackgroundInputId = 1
 private const val EditorOutputAspectRatio = 9f / 16f

@@ -9,7 +9,7 @@ set -euo pipefail
 : "${QUATA_IOS_POST_COMPOSER_PICKER_SOURCE:?Set QUATA_IOS_POST_COMPOSER_PICKER_SOURCE.}"
 : "${QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME:=success}"
 : "${QUATA_IOS_POST_VIDEO_EDITOR_UI_LOG_DIR:=build/reports/ios/POST-VIDEO-EDITOR-ui}"
-: "${QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS:=240}"
+: "${QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS:=420}"
 : "${QUATA_IOS_POST_VIDEO_EDITOR_UI_RESULT_BUNDLE_DIR:=}"
 
 if [[ "$QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME" == "success" ]]; then
@@ -64,6 +64,9 @@ run_bounded() {
 run_bounded bootstatus 120 "$QUATA_IOS_POST_VIDEO_EDITOR_UI_LOG_DIR/bootstatus.log" \
   xcrun simctl bootstatus "$QUATA_IOS_SIMULATOR_UDID" -b
 
+xcrun simctl privacy "$QUATA_IOS_SIMULATOR_UDID" grant speech-recognition com.quata.ios \
+  >> "$QUATA_IOS_POST_VIDEO_EDITOR_UI_LOG_DIR/privacy.log" 2>&1 || true
+
 /usr/bin/python3 - "$xctestrun" "$QUATA_IOS_AUTH_E2E_FILE" <<'PY'
 import os, plistlib, sys
 path, credentials = sys.argv[1:]
@@ -85,6 +88,9 @@ def patch_target(target, hint=''):
             'QUATA_IOS_POST_COMPOSER_PICKER_PATH',
             'QUATA_IOS_POST_COMPOSER_PICKER_NAME',
             'QUATA_IOS_POST_COMPOSER_PICKER_MIME',
+            'QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS',
+            'QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE',
+            'QUATA_IOS_POST_VIDEO_EDITOR_MUTE',
         ]:
             if os.environ.get(key):
                 env[key] = os.environ[key]

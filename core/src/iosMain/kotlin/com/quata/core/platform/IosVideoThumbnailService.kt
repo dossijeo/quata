@@ -23,7 +23,15 @@ import kotlin.random.Random
 @OptIn(ExperimentalForeignApi::class)
 class IosVideoThumbnailService : VideoThumbnailService {
     override suspend fun createThumbnail(video: PlatformFile, maxWidth: Int): PlatformResult<PlatformFile> {
-        val input = inspectIosVideoThumbnailInput(video, maxWidth)
+        return createThumbnailAt(video, maxWidth, requestedTimeSeconds = 0.0)
+    }
+
+    suspend fun createThumbnailAt(
+        video: PlatformFile,
+        maxWidth: Int,
+        requestedTimeSeconds: Double,
+    ): PlatformResult<PlatformFile> {
+        val input = inspectIosVideoThumbnailInput(video, maxWidth, requestedTimeSeconds)
         input.rejectionResult()?.let { return it }
         val source = input.sourceUrl?.let { url -> NSURL(string = url) }
             ?: return PlatformResult.Failure("video_thumbnail_source_path_missing")
@@ -89,7 +97,21 @@ data class IosVideoThumbnailInput(
  * malformed and missing files have a stable fallback before AVFoundation is invoked.
  */
 @OptIn(ExperimentalForeignApi::class)
-fun inspectIosVideoThumbnailInput(video: PlatformFile, maxWidth: Int): IosVideoThumbnailInput {
+fun inspectIosVideoThumbnailInput(
+    video: PlatformFile,
+    maxWidth: Int,
+): IosVideoThumbnailInput = inspectIosVideoThumbnailInput(
+    video = video,
+    maxWidth = maxWidth,
+    requestedTimeSeconds = 0.0,
+)
+
+@OptIn(ExperimentalForeignApi::class)
+fun inspectIosVideoThumbnailInput(
+    video: PlatformFile,
+    maxWidth: Int,
+    requestedTimeSeconds: Double,
+): IosVideoThumbnailInput {
     if (maxWidth <= 0) return IosVideoThumbnailInput(IosVideoThumbnailInputStatus.InvalidThumbnailWidth)
     if (!VideoThumbnailSupport.isVideo(video)) {
         return IosVideoThumbnailInput(IosVideoThumbnailInputStatus.UnsupportedVideo)
@@ -114,6 +136,7 @@ fun inspectIosVideoThumbnailInput(video: PlatformFile, maxWidth: Int): IosVideoT
         sourceUrl = source.absoluteString,
         sourcePath = sourcePath,
         maxWidth = maxWidth,
+        requestedTimeSeconds = requestedTimeSeconds.coerceAtLeast(0.0),
     )
 }
 

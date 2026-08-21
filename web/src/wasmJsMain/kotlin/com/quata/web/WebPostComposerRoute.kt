@@ -42,6 +42,7 @@ fun WebPostComposerRoute(
     onAuthRequired: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val isLandscapeLayout = browserComposerIsLandscape()
     WebPostComposerHost(
         repository = remember(runtimeConfiguration, authRepository) {
             val transport = WebPostComposerTransport(runtimeConfiguration, authRepository).let { base ->
@@ -124,6 +125,7 @@ fun WebPostComposerRoute(
             videoEditor = { source, dismiss, edited ->
                 WebPostVideoEditor(
                     sourceReference = source,
+                    isLandscapeLayout = isLandscapeLayout,
                     onDismiss = dismiss,
                     onEdited = edited,
                 )
@@ -145,7 +147,7 @@ fun WebPostComposerRoute(
                 }
             },
         ),
-        isLandscapeLayout = browserComposerIsLandscape(),
+        isLandscapeLayout = isLandscapeLayout,
         onBack = onBack,
         onAuthRequired = onAuthRequired,
         onPostCreated = { onBack() },
