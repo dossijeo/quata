@@ -1043,7 +1043,7 @@ private final class IosPostVideoEditorExportOperation {
         let targetBitrate = max(200_000, Int64(request.outputTargetBitrate))
         let audioAllowance: Int64 = request.removeAudio ? 0 : 160_000
         let bytes = Double(targetBitrate + audioAllowance) * seconds / 8.0
-        return max(96_000, Int64(bytes.rounded(.up)))
+        return max(256_000, Int64((bytes * 2.0).rounded(.up)))
     }
 }
 
