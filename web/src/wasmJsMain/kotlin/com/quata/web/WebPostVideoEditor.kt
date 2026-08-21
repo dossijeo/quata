@@ -841,8 +841,8 @@ private fun webPostVideoEditorExportEditedJs(
           const endMs = Math.min(hintedDurationMs, requestedEndMs);
           const durationMs = Math.max(500, endMs - startMs);
           const stopPaddingMs = removeAudio
-            ? Math.max(2200, 1000 / fps * 66)
-            : Math.max(1800, 1000 / fps * 54);
+            ? Math.max(3000, 1000 / fps * 90)
+            : Math.max(2500, 1000 / fps * 75);
           const minimumCaptureFrames = Math.max(1, Math.ceil(((durationMs + stopPaddingMs) / 1000) * captureTickRate));
           const sourceStartMs = Math.min(startMs * sourceScale, Math.max(0, actualDurationMs - 500));
           const crop = {

@@ -676,8 +676,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /let sourceFrozenAtTrimEnd = false/);
   assert.match(webPostVideoEditor, /video\.currentTime = Math\.min\(\(sourceStartMs \+ durationMs\) \/ 1000/);
   assert.match(webPostVideoEditor, /const stopPaddingMs = removeAudio/);
-  assert.match(webPostVideoEditor, /Math\.max\(2200, 1000 \/ fps \* 66\)/);
-  assert.match(webPostVideoEditor, /Math\.max\(1800, 1000 \/ fps \* 54\)/);
+  assert.match(webPostVideoEditor, /Math\.max\(3000, 1000 \/ fps \* 90\)/);
+  assert.match(webPostVideoEditor, /Math\.max\(2500, 1000 \/ fps \* 75\)/);
   assert.match(webPostVideoEditor, /const minimumCaptureFrames = Math\.max\(1, Math\.ceil\(\(\(durationMs \+ stopPaddingMs\) \/ 1000\) \* captureTickRate\)\)/);
   assert.match(webPostVideoEditor, /drawnFrameCount >= minimumCaptureFrames/);
   assert.match(webPostVideoEditor, /elapsedAtStopMs/);
@@ -967,6 +967,7 @@ test("post video editor Solo parity gaps stay fail-closed", () => {
   assert.match(webVideoEditorRunner, /invokeVideoEditorBridgeAction\(/);
   assert.match(webVideoEditorRunner, /await delay\(650\)/);
   assert.match(webVideoEditorRunner, /actionableBrowserFaults\(faults, \{ cancelOnly \}\)/);
+  assert.match(webVideoEditorRunner, /pageerror:array element access out of bounds/);
   assert.match(webVideoEditorRunner, /web_video_editor_cancel_state/);
   assert.doesNotMatch(webPostVideoEditor, /WebPostVideoEditorMetadata\(MaximumPostVideoEditorDurationMs, 9f \/ 16f, 720, 1280\)/);
 });

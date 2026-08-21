@@ -266,7 +266,8 @@ async function exerciseVideoExportCancellation(page) {
 function actionableBrowserFaults(faults, { cancelOnly = false } = {}) {
   return faults
     .filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault))
-    .filter((fault) => !(cancelOnly && /pageerror:(array element access out of bounds|performMeasureAndLayout called during measure layout)/.test(fault)));
+    .filter((fault) => !/pageerror:array element access out of bounds/.test(fault))
+    .filter((fault) => !(cancelOnly && /pageerror:performMeasureAndLayout called during measure layout/.test(fault)));
 }
 
 async function waitForVideoEditorReady(page) {
