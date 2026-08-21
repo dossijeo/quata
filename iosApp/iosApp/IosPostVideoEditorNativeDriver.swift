@@ -1,6 +1,7 @@
 import AVFoundation
 import CoreImage
 import CoreText
+import CoreVideo
 import Foundation
 import QuartzCore
 import Speech
@@ -505,6 +506,8 @@ private final class IosPostVideoEditorExportOperation {
     private let onFinished: () -> Void
     private var exportSession: AVAssetExportSession?
     private var captionExportSession: AVAssetExportSession?
+    private var visualEffectsReader: AVAssetReader?
+    private var visualEffectsWriter: AVAssetWriter?
     private var progressTimer: Timer?
     private var didFinish = false
     private var didCancel = false
@@ -652,6 +655,8 @@ private final class IosPostVideoEditorExportOperation {
         didCancel = true
         exportSession?.cancelExport()
         captionExportSession?.cancelExport()
+        visualEffectsReader?.cancelReading()
+        visualEffectsWriter?.cancelWriting()
         finishFailure(reason: "ios_post_video_editor_export_cancelled")
     }
 
@@ -833,86 +838,207 @@ private final class IosPostVideoEditorExportOperation {
         }
         let asset = AVURLAsset(url: inputUrl)
         let renderSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
+                "reason": "ios_post_video_editor_visual_effects_video_track_missing",
+            ])
+            finishFailure(reason: "ios_post_video_editor_visual_effects_video_track_missing")
+            return
+        }
         let foregroundRect = foregroundContentRect(outputSize: renderSize, sourceDisplaySize: sourceDisplaySize)
         let shouldBlurBackground = request.hasBackgroundCrop
         let selectedCaptionStyle = captionStyle?.isEmpty == false ? captionStyle! : "Karaoke"
-        let videoComposition = AVMutableVideoComposition(asset: asset) { renderRequest in
-            var image = renderRequest.sourceImage
-            if shouldBlurBackground {
-                let extent = renderRequest.sourceImage.extent
-                let blurred = renderRequest.sourceImage
-                    .clampedToExtent()
-                    .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 10])
-                    .cropped(to: extent)
-                let rect = CGRect(
-                    x: extent.minX + foregroundRect.minX,
-                    y: extent.minY + foregroundRect.minY,
-                    width: foregroundRect.width,
-                    height: foregroundRect.height
-                ).intersection(extent)
-                let foreground = renderRequest.sourceImage.cropped(to: rect)
-                image = foreground.composited(over: blurred)
+
+        do {
+            try? FileManager.default.removeItem(at: outputUrl)
+            let reader = try AVAssetReader(asset: asset)
+            let readerOutput = AVAssetReaderTrackOutput(
+                track: videoTrack,
+                outputSettings: [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                    kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+                ]
+            )
+            readerOutput.alwaysCopiesSampleData = false
+            guard reader.canAdd(readerOutput) else {
+                finishFailure(reason: "ios_post_video_editor_visual_effects_reader_output_unavailable")
+                return
             }
-            if let captionDocument {
-                let timeMs = max(0, Int64((CMTimeGetSeconds(renderRequest.compositionTime) * 1_000).rounded()))
-                if let segment = captionDocument.segment(at: timeMs) {
-                    let overlay = Self.captionOverlayImage(
-                        outputSize: renderRequest.sourceImage.extent.size,
-                        segment: segment,
-                        timeMs: timeMs,
-                        style: selectedCaptionStyle
-                    )
-                    image = overlay.composited(over: image)
-                }
+            reader.add(readerOutput)
+
+            let writer = try AVAssetWriter(outputURL: outputUrl, fileType: .mp4)
+            let writerInput = AVAssetWriterInput(
+                mediaType: .video,
+                outputSettings: [
+                    AVVideoCodecKey: AVVideoCodecType.h264,
+                    AVVideoWidthKey: Int(renderSize.width),
+                    AVVideoHeightKey: Int(renderSize.height),
+                    AVVideoCompressionPropertiesKey: [
+                        AVVideoAverageBitRateKey: Int(request.outputTargetBitrate),
+                        AVVideoMaxKeyFrameIntervalKey: Int(max(1, request.outputMaxFrameRate)),
+                        AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+                    ],
+                ]
+            )
+            writerInput.expectsMediaDataInRealTime = false
+            guard writer.canAdd(writerInput) else {
+                finishFailure(reason: "ios_post_video_editor_visual_effects_writer_input_unavailable")
+                return
             }
-            renderRequest.finish(with: image, context: nil)
-        }
-        videoComposition.renderSize = renderSize
-        videoComposition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
-        guard let captionExportSession = AVAssetExportSession(asset: asset, presetName: exportPresetName()) else {
-            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_session_unavailable")
-            callback.onFailure(reason: "ios_post_video_editor_caption_burn_unavailable")
-            onFinished()
-            return
-        }
-        self.captionExportSession = captionExportSession
-        captionExportSession.outputURL = outputUrl
-        captionExportSession.outputFileType = .mp4
-        captionExportSession.shouldOptimizeForNetworkUse = true
-        captionExportSession.videoComposition = videoComposition
-        startProgressTimer(session: captionExportSession, floor: 0.72, ceiling: 0.95)
-        captionExportSession.exportAsynchronously { [callback] in
-            DispatchQueue.main.async {
-                switch captionExportSession.status {
-                case .completed:
+            writer.add(writerInput)
+
+            let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+                assetWriterInput: writerInput,
+                sourcePixelBufferAttributes: [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                    kCVPixelBufferWidthKey as String: Int(renderSize.width),
+                    kCVPixelBufferHeightKey as String: Int(renderSize.height),
+                    kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+                ]
+            )
+            visualEffectsReader = reader
+            visualEffectsWriter = writer
+            let ciContext = CIContext(options: [.cacheIntermediates: false])
+            let durationSeconds = max(0.001, CMTimeGetSeconds(asset.duration))
+            guard reader.startReading(), writer.startWriting() else {
+                finishFailure(reason: reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_start_failed")
+                return
+            }
+            writer.startSession(atSourceTime: .zero)
+            progressTimer?.invalidate()
+            progressTimer = nil
+            callback.onProgress(progress: 0.72)
+            let queue = DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects")
+            writerInput.requestMediaDataWhenReady(on: queue) { [weak self, weak writerInput, weak adaptor] in
+                guard let self, let writerInput, let adaptor else { return }
+                while writerInput.isReadyForMoreMediaData {
                     if self.didCancel {
-                        self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
+                        reader.cancelReading()
+                        writer.cancelWriting()
                         return
                     }
-                    if self.request.hasBackgroundCrop {
-                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_completed")
+                    guard let sampleBuffer = readerOutput.copyNextSampleBuffer() else {
+                        writerInput.markAsFinished()
+                        writer.finishWriting {
+                            DispatchQueue.main.async {
+                                self.visualEffectsReader = nil
+                                self.visualEffectsWriter = nil
+                                if self.didCancel {
+                                    self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
+                                } else if reader.status == .completed && writer.status == .completed {
+                                    if self.request.hasBackgroundCrop {
+                                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_completed")
+                                    }
+                                    if captionDocument != nil {
+                                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_completed")
+                                    }
+                                    self.finishSuccess(outputUrl: outputUrl, callback: callback)
+                                    try? FileManager.default.removeItem(at: inputUrl)
+                                } else {
+                                    let reason = reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_failed"
+                                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
+                                        "reason": reason,
+                                    ])
+                                    self.finishFailure(reason: reason)
+                                }
+                            }
+                        }
+                        return
                     }
-                    if captionDocument != nil {
-                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_completed")
+                    guard let sourceBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
+                          let pool = adaptor.pixelBufferPool else {
+                        reader.cancelReading()
+                        writer.cancelWriting()
+                        DispatchQueue.main.async {
+                            self.finishFailure(reason: "ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
+                        }
+                        return
                     }
-                    self.finishSuccess(outputUrl: outputUrl, callback: callback)
-                    try? FileManager.default.removeItem(at: inputUrl)
-                case .failed, .cancelled:
-                    let reason = self.didCancel
-                        ? "ios_post_video_editor_export_cancelled"
-                        : captionExportSession.error?.localizedDescription ?? "ios_post_video_editor_caption_burn_failed"
-                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
-                        "reason": reason,
-                    ])
-                    self.finishFailure(reason: reason)
-                default:
-                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_incomplete", details: [
-                        "status": "\(captionExportSession.status.rawValue)",
-                    ])
-                    self.finishFailure(reason: "ios_post_video_editor_caption_burn_incomplete")
+                    var outputBuffer: CVPixelBuffer?
+                    guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &outputBuffer) == kCVReturnSuccess,
+                          let destinationBuffer = outputBuffer else {
+                        reader.cancelReading()
+                        writer.cancelWriting()
+                        DispatchQueue.main.async {
+                            self.finishFailure(reason: "ios_post_video_editor_visual_effects_output_buffer_unavailable")
+                        }
+                        return
+                    }
+                    let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+                    let timeMs = max(0, Int64((CMTimeGetSeconds(presentationTime) * 1_000).rounded()))
+                    let rendered = self.renderVisualEffectsFrame(
+                        sourceBuffer: sourceBuffer,
+                        outputSize: renderSize,
+                        foregroundRect: foregroundRect,
+                        shouldBlurBackground: shouldBlurBackground,
+                        captionStyle: selectedCaptionStyle,
+                        captionDocument: captionDocument,
+                        timeMs: timeMs
+                    )
+                    ciContext.render(
+                        rendered,
+                        to: destinationBuffer,
+                        bounds: CGRect(origin: .zero, size: renderSize),
+                        colorSpace: CGColorSpaceCreateDeviceRGB()
+                    )
+                    if !adaptor.append(destinationBuffer, withPresentationTime: presentationTime) {
+                        reader.cancelReading()
+                        writer.cancelWriting()
+                        DispatchQueue.main.async {
+                            self.finishFailure(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_append_failed")
+                        }
+                        return
+                    }
+                    let progress = 0.72 + Float(min(1, max(0, CMTimeGetSeconds(presentationTime) / durationSeconds))) * 0.23
+                    DispatchQueue.main.async {
+                        if !self.didFinish {
+                            callback.onProgress(progress: progress)
+                        }
+                    }
                 }
             }
+        } catch {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
+                "reason": error.localizedDescription,
+            ])
+            finishFailure(reason: error.localizedDescription)
         }
+    }
+
+    private func renderVisualEffectsFrame(
+        sourceBuffer: CVPixelBuffer,
+        outputSize: CGSize,
+        foregroundRect: CGRect,
+        shouldBlurBackground: Bool,
+        captionStyle: String,
+        captionDocument: CaptionDocumentWire?,
+        timeMs: Int64
+    ) -> CIImage {
+        let outputExtent = CGRect(origin: .zero, size: outputSize)
+        var source = CIImage(cvPixelBuffer: sourceBuffer)
+        if source.extent.origin != .zero {
+            source = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX, y: -source.extent.minY))
+        }
+        source = source.cropped(to: outputExtent)
+        var image = source
+        if shouldBlurBackground {
+            let blurred = source
+                .clampedToExtent()
+                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 10])
+                .cropped(to: outputExtent)
+            let foreground = source.cropped(to: foregroundRect.intersection(outputExtent))
+            image = foreground.composited(over: blurred)
+        }
+        if let segment = captionDocument?.segment(at: timeMs) {
+            let overlay = Self.captionOverlayImage(
+                outputSize: outputSize,
+                segment: segment,
+                timeMs: timeMs,
+                style: captionStyle
+            )
+            image = overlay.composited(over: image)
+        }
+        return image.cropped(to: outputExtent)
     }
 
     private func foregroundContentRect(outputSize: CGSize, sourceDisplaySize: CGSize) -> CGRect {
