@@ -9,7 +9,7 @@ const CHECK = "POST-VIDEO-EDITOR-IOS-REAL-001";
 const PICKER_OPT_IN = "I_ACCEPT_IOS_POST_COMPOSER_PICKER_FIXTURE";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
 const CAPTION_FIXTURE_TEXT = "quata video editor captions are real";
-const EXPECTED_CAPTION_STYLE = "Hormozi";
+const EXPECTED_CAPTION_STYLE = "Karaoke";
 
 const options = parseArgs(process.argv.slice(2));
 const report = {

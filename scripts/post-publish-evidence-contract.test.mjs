@@ -805,12 +805,12 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_UI_E2E/);
   assert.match(iosPostPublishTest, /composer-media\.edit-video/);
   assert.match(iosPostPublishTest, /post-video-editor\.root/);
-  assert.match(iosVideoEditorRunner, /EXPECTED_CAPTION_STYLE = "Hormozi"/);
+  assert.match(iosVideoEditorRunner, /EXPECTED_CAPTION_STYLE = "Karaoke"/);
   assert.match(iosVideoEditorRunner, /caption_style_change/);
   assert.match(iosPostVideoEditor, /recordCaptionStyleChange/);
   assert.doesNotMatch(iosPostVideoEditor, /iosPostVideoEditorE2eInitialMute/);
   assert.doesNotMatch(iosPostVideoEditor, /QUATA_IOS_POST_VIDEO_EDITOR_MUTE/);
-  assert.match(iosPostPublishTest, /tapVideoCaptionStyle\("Hormozi"/);
+  assert.match(iosPostPublishTest, /tapVideoCaptionStyle\("Karaoke"/);
   assert.match(iosPostPublishTest, /dragVideoTrimEnd\(toNormalizedX: 0\.64/);
   assert.match(iosPostPublishTest, /post-video-editor\.trim-end/);
   assert.match(iosPostPublishTest, /post-video-editor\.timeline-frame\.\S+index/);
@@ -948,7 +948,7 @@ test("post video editor Solo parity gaps stay fail-closed", () => {
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetImageGenerator/);
   assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.frame = foregroundLayer\?\.frame/);
   assert.match(iosPostPublishTest, /assertElementHasNonBlackPixels\(/);
-  assert.match(iosPostPublishTest, /post-video-editor\.caption-preview\.Hormozi/);
+  assert.match(iosPostPublishTest, /post-video-editor\.caption-preview\.Karaoke/);
   assert.match(iosPostPublishTest, /exerciseVideoExportCancellationIfRequested/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_CANCEL_ONLY/);
   assert.match(iosVideoEditorRunner, /label: "cancel", mute: true, cancelOnly: true/);
