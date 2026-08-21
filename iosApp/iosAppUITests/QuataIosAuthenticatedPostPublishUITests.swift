@@ -477,10 +477,25 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
     private func tapVideoCaptionStyle(_ style: String, in app: XCUIApplication) throws {
         let selectedIdentifier = "post-video-editor.caption-style-selected.\(style)"
         let buttonIdentifier = "post-video-editor.caption-style.\(style)"
-        let button = app.buttons.matching(identifier: buttonIdentifier).firstMatch
-        let semanticTarget = app.descendants(matching: .any).matching(identifier: buttonIdentifier).firstMatch
-        let target = button.waitForExistence(timeout: 1) ? button : semanticTarget
-        XCTAssertTrue(target.waitForExistence(timeout: 8), "Expected common video caption style \(style) to exist.")
+        var target: XCUIElement?
+        for _ in 0..<8 {
+            let button = app.buttons.matching(identifier: buttonIdentifier).firstMatch
+            let semanticTarget = app.descendants(matching: .any).matching(identifier: buttonIdentifier).firstMatch
+            if button.waitForExistence(timeout: 1) {
+                target = button
+                break
+            }
+            if semanticTarget.waitForExistence(timeout: 1) {
+                target = semanticTarget
+                break
+            }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        guard let target = target else {
+            XCTFail("Expected common video caption style \(style) to exist.")
+            throw ReplayError.captionStyleSelectionFailed(style)
+        }
         for _ in 0..<4 {
             if !target.isHittable {
                 app.swipeUp()
