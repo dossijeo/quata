@@ -498,6 +498,7 @@ class PostPublishRealInstrumentedTest {
                 .performClick()
             compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
+                .performScrollTo()
                 .performClick()
             compose.waitUntil(5_000) {
                 runCatching { compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
@@ -521,6 +522,7 @@ class PostPublishRealInstrumentedTest {
                 .performClick()
             compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
+                .performScrollTo()
                 .performClick()
             compose.waitUntil(5_000) {
                 runCatching { compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
