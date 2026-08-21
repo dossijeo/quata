@@ -740,6 +740,7 @@ private fun webPostVideoEditorExportEditedJs(
           const chunks = [];
           let drawnFrameCount = 0;
           let exportStartedAt = 0;
+          let elapsedAtStopMs = 0;
           const mimeType = globalThis.MediaRecorder.isTypeSupported?.('video/webm;codecs=vp8')
             ? 'video/webm;codecs=vp8'
             : 'video/webm';
@@ -770,6 +771,9 @@ private fun webPostVideoEditorExportEditedJs(
                 effectiveTrimEndMs: endMs,
                 effectiveDurationMs: durationMs,
                 wallDurationMs: exportStartedAt > 0 ? Math.max(0, performance.now() - exportStartedAt) : 0,
+                elapsedAtStopMs,
+                stopPaddingMs,
+                minimumCaptureFrames,
                 drawnFrameCount,
                 physicalBackgroundBlur: true,
               };
@@ -797,6 +801,7 @@ private fun webPostVideoEditorExportEditedJs(
           const endMs = Math.min(hintedDurationMs, requestedEndMs);
           const durationMs = Math.max(500, endMs - startMs);
           const stopPaddingMs = Math.min(1600, Math.max(500, durationMs * 0.85, 1000 / fps * 12));
+          const minimumCaptureFrames = Math.max(1, Math.ceil(((durationMs + stopPaddingMs) / 1000) * captureTickRate));
           const sourceStartMs = Math.min(startMs * sourceScale, Math.max(0, actualDurationMs - 500));
           const crop = {
             left: Math.max(0, Math.min(1, Number(cropLeft) || 0)),
@@ -960,9 +965,9 @@ private fun webPostVideoEditorExportEditedJs(
               drawFrame(Math.min(durationMs, elapsedMs));
               drawnFrameCount += 1;
               onProgress(Math.min(0.95, 0.35 + (elapsedMs / Math.max(1, durationMs)) * 0.6));
-              const reachedRequestedDuration = elapsedMs >= durationMs;
-              const reachedCaptureTail = elapsedMs >= durationMs + stopPaddingMs;
+              const reachedCaptureTail = elapsedMs >= durationMs + stopPaddingMs && drawnFrameCount >= minimumCaptureFrames;
               if (reachedCaptureTail) {
+                elapsedAtStopMs = elapsedMs;
                 try { globalThis.cancelAnimationFrame?.(timer); } catch (_) {}
                 try { clearTimeout(timer); } catch (_) {}
                 video.pause?.();

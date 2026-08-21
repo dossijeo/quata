@@ -643,6 +643,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /const canvasTrack = stream\.getVideoTracks\?\.\(\)\[0\]/);
   assert.match(webPostVideoEditor, /const captureTickRate = fps/);
   assert.match(webPostVideoEditor, /const stopPaddingMs = Math\.min\(1600, Math\.max\(500, durationMs \* 0\.85, 1000 \/ fps \* 12\)\)/);
+  assert.match(webPostVideoEditor, /const minimumCaptureFrames = Math\.max\(1, Math\.ceil\(\(\(durationMs \+ stopPaddingMs\) \/ 1000\) \* captureTickRate\)\)/);
+  assert.match(webPostVideoEditor, /drawnFrameCount >= minimumCaptureFrames/);
+  assert.match(webPostVideoEditor, /elapsedAtStopMs/);
   assert.doesNotMatch(webPostVideoEditor, /requestAnimationFrame\?\.\(tick\)/);
   assert.match(webPostVideoEditor, /canvasTrack\?\.requestFrame\?\.\(\)/);
   assert.match(webPostVideoEditor, /trimStartSeconds/);
