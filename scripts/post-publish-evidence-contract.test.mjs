@@ -677,8 +677,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /callback\.onPositionMs/);
   assert.match(iosPostVideoEditorNativeDriver, /maxLines: 2/);
   assert.match(iosPostVideoEditorNativeDriver, /visibleLines = Array\(lines\.prefix\(spec\.maxLines\)\)/);
-  assert.match(iosPostVideoEditorNativeDriver, /fileLengthLimit = targetFileLengthLimitBytes/);
-  assert.match(iosPostVideoEditorNativeDriver, /outputFileLengthLimitBytes/);
+  assert.match(iosPostVideoEditorNativeDriver, /exportPresetName\(\)/);
+  assert.match(iosPostVideoEditorNativeDriver, /AVAssetExportPresetMediumQuality/);
+  assert.match(iosPostVideoEditorNativeDriver, /outputExportPreset/);
   assert.match(iosVideoEditorRunner, /durationMs < expectedDurationMs \* 0\.8/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_physical_bitrate/);
   assert.match(commonPostVideoEditorSpec, /val captionDocument: CaptionDocument\?/);

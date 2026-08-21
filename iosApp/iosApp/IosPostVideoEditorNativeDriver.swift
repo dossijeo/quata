@@ -575,7 +575,8 @@ private final class IosPostVideoEditorExportOperation {
         let finalOutputUrl = temporaryOutputUrl(suffix: "final")
         try? FileManager.default.removeItem(at: outputUrl)
         try? FileManager.default.removeItem(at: finalOutputUrl)
-        guard let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+        let exportPresetName = exportPresetName()
+        guard let exportSession = AVAssetExportSession(asset: composition, presetName: exportPresetName) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")
             finishFailure(reason: "ios_post_video_editor_export_session_unavailable")
             return
@@ -585,7 +586,6 @@ private final class IosPostVideoEditorExportOperation {
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
         exportSession.timeRange = CMTimeRange(start: .zero, duration: range.duration)
-        exportSession.fileLengthLimit = targetFileLengthLimitBytes(duration: range.duration)
         exportSession.videoComposition = if needsBackgroundTrack {
             makeBlurredBackgroundVideoComposition(asset: composition, duration: range.duration)
         } else {
@@ -604,7 +604,7 @@ private final class IosPostVideoEditorExportOperation {
             "outputHeight": "\(request.outputHeight)",
             "maxFrameRate": "\(request.outputMaxFrameRate)",
             "targetBitrate": "\(request.outputTargetBitrate)",
-            "fileLengthLimitBytes": "\(exportSession.fileLengthLimit)",
+            "exportPreset": exportPresetName,
         ])
         exportSession.exportAsynchronously { [callback] in
             DispatchQueue.main.async {
@@ -824,7 +824,7 @@ private final class IosPostVideoEditorExportOperation {
         }
         videoComposition.renderSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
         videoComposition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
-        guard let captionExportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
+        guard let captionExportSession = AVAssetExportSession(asset: asset, presetName: exportPresetName()) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_session_unavailable")
             callback.onFailure(reason: "ios_post_video_editor_caption_burn_unavailable")
             onFinished()
@@ -834,7 +834,6 @@ private final class IosPostVideoEditorExportOperation {
         captionExportSession.outputURL = outputUrl
         captionExportSession.outputFileType = .mp4
         captionExportSession.shouldOptimizeForNetworkUse = true
-        captionExportSession.fileLengthLimit = targetFileLengthLimitBytes(duration: asset.duration)
         captionExportSession.videoComposition = videoComposition
         startProgressTimer(session: captionExportSession, floor: 0.72, ceiling: 0.95)
         captionExportSession.exportAsynchronously { [callback] in
@@ -1016,7 +1015,7 @@ private final class IosPostVideoEditorExportOperation {
             "outputMaxFrameRate": request.outputMaxFrameRate,
             "outputTargetBitrate": request.outputTargetBitrate,
             "outputIntermediateBitrate": request.outputIntermediateBitrate,
-            "outputFileLengthLimitBytes": targetFileLengthLimitBytes(duration: CMTime(value: CMTimeValue(max(500, request.trimEndMs - request.trimStartMs)), timescale: 1_000)),
+            "outputExportPreset": exportPresetName(),
             "trimStartMs": request.trimStartMs,
             "trimEndMs": request.trimEndMs,
             "removeAudio": request.removeAudio,
@@ -1038,12 +1037,11 @@ private final class IosPostVideoEditorExportOperation {
         }
     }
 
-    private func targetFileLengthLimitBytes(duration: CMTime) -> Int64 {
-        let seconds = max(0.5, CMTimeGetSeconds(duration))
-        let targetBitrate = max(200_000, Int64(request.outputTargetBitrate))
-        let audioAllowance: Int64 = request.removeAudio ? 0 : 160_000
-        let bytes = Double(targetBitrate + audioAllowance) * seconds / 8.0
-        return max(256_000, Int64((bytes * 2.0).rounded(.up)))
+    private func exportPresetName() -> String {
+        if request.outputTargetBitrate <= 1_500_000 || request.outputMaxFrameRate <= 30 {
+            return AVAssetExportPresetMediumQuality
+        }
+        return AVAssetExportPresetHighestQuality
     }
 }
 
