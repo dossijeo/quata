@@ -478,18 +478,20 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let selectedIdentifier = "post-video-editor.caption-style-selected.\(style)"
         let buttonIdentifier = "post-video-editor.caption-style.\(style)"
         let button = app.buttons.matching(identifier: buttonIdentifier).firstMatch
-        XCTAssertTrue(button.waitForExistence(timeout: 8), "Expected common video caption style \(style) to exist.")
+        let semanticTarget = app.descendants(matching: .any).matching(identifier: buttonIdentifier).firstMatch
+        let target = button.waitForExistence(timeout: 1) ? button : semanticTarget
+        XCTAssertTrue(target.waitForExistence(timeout: 8), "Expected common video caption style \(style) to exist.")
         for _ in 0..<4 {
-            if !button.isHittable {
+            if !target.isHittable {
                 app.swipeUp()
                 RunLoop.current.run(until: Date().addingTimeInterval(0.25))
                 continue
             }
-            button.tap()
+            target.tap()
             if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
                 return
             }
-            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            target.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
                 return
             }
