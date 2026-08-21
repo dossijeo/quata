@@ -69,6 +69,7 @@ scripts/build-ios-intel-simulator-signed.sh
     report.steps.push("ios_simulator_signed_build_succeeded_on_mac");
   }
 
+  report.attempts.push(await runAttempt({ label: "cancel", mute: true, cancelOnly: true }));
   report.attempts.push(await runAttempt({ label: "muted", mute: true }));
   report.attempts.push(await runAttempt({ label: "unmuted", mute: false }));
   const failedAttempt = report.attempts.find((attempt) => attempt.status !== "passed");
@@ -97,7 +98,7 @@ if (report.status !== "passed") {
   console.log("Post video editor iOS evidence passed.");
 }
 
-async function runAttempt({ label, mute }) {
+async function runAttempt({ label, mute, cancelOnly = false }) {
   const source = "gallery";
   const outcome = "success";
   const remoteLogDir = `${options.remoteLogDir}/${label}`;
@@ -118,7 +119,8 @@ export QUATA_IOS_POST_VIDEO_EDITOR_UI_RESULT_BUNDLE_DIR=${shellQuote(`${remoteLo
 export QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS=${shellQuote(remoteDiagnostics)}
 export QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE='en_US'
 export QUATA_IOS_POST_VIDEO_EDITOR_MUTE=${mute ? "'1'" : "'0'"}
-export QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CANCEL='1'
+export QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CANCEL=${cancelOnly ? "'1'" : "'0'"}
+export QUATA_IOS_POST_VIDEO_EDITOR_CANCEL_ONLY=${cancelOnly ? "'1'" : "'0'"}
 export QUATA_IOS_POST_COMPOSER_PICKER_FIXTURE_OPT_IN=${shellQuote(PICKER_OPT_IN)}
 export QUATA_IOS_POST_COMPOSER_PICKER_SOURCE=${shellQuote(source)}
 export QUATA_IOS_POST_COMPOSER_PICKER_OUTCOME=${shellQuote(outcome)}
@@ -127,6 +129,9 @@ export QUATA_IOS_POST_COMPOSER_PICKER_NAME='POST-VIDEO-EDITOR-fixture.mp4'
 export QUATA_IOS_POST_COMPOSER_PICKER_MIME='video/mp4'
 bash scripts/run-ios-post-video-editor-ui-test.sh
 `);
+    if (cancelOnly) {
+      return { source, outcome, label, mute, cancelOnly, status: "passed", remoteLogDir };
+    }
     const diagnosticsText = await runSshScript(options.host, `
 set -euo pipefail
 cat ${shellQuote(remoteDiagnostics)}

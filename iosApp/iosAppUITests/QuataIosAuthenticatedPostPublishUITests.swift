@@ -272,6 +272,10 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             minimumNonBlackRatio: 0.08,
         )
         exerciseVideoExportCancellationIfRequested(in: app, editorRoot: editorRoot)
+        if ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_CANCEL_ONLY"] == "1" {
+            print("IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED")
+            return
+        }
         tapComposerAction("post-video-editor.export", in: app)
         let editorExport = app.descendants(matching: .any)
             .matching(identifier: "post-video-editor.export")

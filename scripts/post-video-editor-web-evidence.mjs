@@ -50,6 +50,7 @@ try {
   }, session);
   report.steps.push("real_profile_authenticated_without_logging_credentials");
 
+  report.attempts.push(await runAttempt(context, { label: "cancel", mute: true, cancelOnly: true }));
   report.attempts.push(await runAttempt(context, { label: "muted", mute: true }));
   report.attempts.push(await runAttempt(context, { label: "unmuted", mute: false }));
   const failedAttempt = report.attempts.find((attempt) => attempt.status !== "passed");
@@ -76,7 +77,7 @@ if (report.status !== "passed") {
   console.log("Post video editor Web evidence passed.");
 }
 
-async function runAttempt(context, { label, mute }) {
+async function runAttempt(context, { label, mute, cancelOnly = false }) {
   const source = "gallery-video";
   const outcome = "success";
   const page = await context.newPage();
@@ -120,7 +121,25 @@ async function runAttempt(context, { label, mute }) {
     const resolvedEditorOpen = await ensureWebVideoEditorOpen(page, resolvedEditAnchor, reference);
     const timelineFrameCount = await waitForTimelineFrames(page);
     const editorOpened = await screenshot(page, "web-post-video-editor-opened");
-    const editorAnchors = await exerciseVideoEditor(page, { mute });
+    const editorAnchors = await exerciseVideoEditor(page, { mute, cancelOnly });
+    if (cancelOnly) {
+      const afterCancel = await screenshot(page, "web-post-video-editor-after-cancel-export");
+      const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
+      if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
+      return {
+        source,
+        outcome,
+        label,
+        mute,
+        cancelOnly,
+        status: "passed",
+        selectedField: "hasVideo",
+        anchors: { type: resolvedTypeAnchor, action: selectedByBridge ?? resolvedActionAnchor, edit: resolvedEditorOpen, editor: editorAnchors },
+        evidence: { composerOpened, editorOpened, afterSelect, afterCancel },
+        timelineFrameCount,
+        state: await postComposerProductState(page),
+      };
+    }
     const exported = await page.waitForFunction(() => {
       const state = globalThis.__quataPostComposerE2eProduct?.state?.();
       return state?.hasVideo === true && typeof state?.videoUri === "string" && state.videoUri.startsWith("blob:");
@@ -184,7 +203,7 @@ async function ensureWebVideoEditorOpen(page, visualAnchor, reference) {
   return { kind: "localhostProductBridge", value: "setVideo:openEditor", preferredMissing: "composer-media.edit-video" };
 }
 
-async function exerciseVideoEditor(page, { mute }) {
+async function exerciseVideoEditor(page, { mute, cancelOnly = false }) {
   const anchors = {};
   await waitForVideoEditorReady(page);
   anchors.root = { kind: "testTagOrBridge", value: "post-video-editor.root" };
@@ -213,7 +232,10 @@ async function exerciseVideoEditor(page, { mute }) {
   if (!mute) {
     await invokeVideoEditorAction(page, "mute");
   }
-  anchors.cancelExport = await exerciseVideoExportCancellation(page);
+  if (cancelOnly) {
+    anchors.cancelExport = await exerciseVideoExportCancellation(page);
+    return anchors;
+  }
   await invokeVideoEditorAction(page, "export");
   await page.waitForFunction(() => globalThis.__quataPostVideoEditorExport?.status === "success", null, { timeout: 180_000 });
   anchors.export = anchors["post-video-editor.export"];

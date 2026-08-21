@@ -950,7 +950,9 @@ test("post video editor Solo parity gaps stay fail-closed", () => {
   assert.match(iosPostPublishTest, /assertElementHasNonBlackPixels\(/);
   assert.match(iosPostPublishTest, /post-video-editor\.caption-preview\.Hormozi/);
   assert.match(iosPostPublishTest, /exerciseVideoExportCancellationIfRequested/);
-  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CANCEL='1'/);
+  assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_CANCEL_ONLY/);
+  assert.match(iosVideoEditorRunner, /label: "cancel", mute: true, cancelOnly: true/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CANCEL=\$\{cancelOnly \? "'1'" : "'0'"\}/);
 
   assert.match(iosPostVideoEditor, /if \(!metadataLoaded \|\| metadata == null\)/);
   assert.match(iosPostVideoEditor, /ios_post_video_editor_metadata_unavailable/);
@@ -958,6 +960,7 @@ test("post video editor Solo parity gaps stay fail-closed", () => {
   assert.match(webPostVideoEditor, /resumeWithException\(IllegalStateException\(it\)\)/);
   assert.match(webPostVideoEditor, /web_post_video_editor_metadata_loading/);
   assert.match(webPostVideoEditor, /isExporting: \(\) => Boolean\(isExporting\(\)\)/);
+  assert.match(webVideoEditorRunner, /label: "cancel", mute: true, cancelOnly: true/);
   assert.match(webVideoEditorRunner, /exerciseVideoExportCancellation\(/);
   assert.match(webVideoEditorRunner, /web_video_editor_cancel_state/);
   assert.doesNotMatch(webPostVideoEditor, /WebPostVideoEditorMetadata\(MaximumPostVideoEditorDurationMs, 9f \/ 16f, 720, 1280\)/);
