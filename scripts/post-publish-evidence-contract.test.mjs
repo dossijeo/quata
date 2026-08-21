@@ -611,6 +611,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /const sourceScale = actualDurationMs > 0 && hintedDurationMs > actualDurationMs \* 1\.5/);
   assert.match(webPostVideoEditor, /const sourceStartMs = Math\.min\(startMs \* sourceScale/);
   assert.match(webPostVideoEditor, /drawFrame\(Math\.min\(durationMs, elapsedMs\)\)/);
+  assert.match(webPostVideoEditor, /const canvasTrack = stream\.getVideoTracks\?\.\(\)\[0\]/);
+  assert.match(webPostVideoEditor, /canvasTrack\?\.requestFrame\?\.\(\)/);
   assert.doesNotMatch(webPostVideoEditor, /reachedSourceEndAfterMostOfTrim/);
   assert.match(webVideoEditorRunner, /web_video_editor_export_missing_operation:\$\{operation\}/);
   assert.match(webPostComposerRoute, /videoEditor =/);

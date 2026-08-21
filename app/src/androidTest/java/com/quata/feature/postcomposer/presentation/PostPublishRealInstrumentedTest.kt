@@ -35,8 +35,10 @@ import com.quata.feature.postcomposer.imageeditor.PostImageEditorSaveTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorCaptionsTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorCropTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorErrorTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorMuteTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorPreviewTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportProgressTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorResetTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorRootTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorTimelineTestTag
@@ -542,10 +544,27 @@ class PostPublishRealInstrumentedTest {
             compose.onAllNodesWithTag(PostVideoEditorExportTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
-            compose.waitUntil(240_000) {
+            val exportClosed = runCatching {
+                compose.waitUntil(240_000) {
+                    runCatching { compose.onNodeWithTag(ComposerSelectedVideoPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
+                        runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+                }
+            }.isSuccess
+            if (!exportClosed) {
+                saveScreenshot("android-post-video-editor-export-timeout")
+                val progressVisible = runCatching {
+                    compose.onNodeWithTag(PostVideoEditorExportProgressTestTag, useUnmergedTree = true).fetchSemanticsNode()
+                }.isSuccess
+                val errorVisible = runCatching {
+                    compose.onNodeWithTag(PostVideoEditorErrorTestTag, useUnmergedTree = true).fetchSemanticsNode()
+                }.isSuccess
+                throw AssertionError("android_video_editor_export_did_not_close:progress=$progressVisible:error=$errorVisible")
+            }
+            assertTrue(
+                "android_video_editor_export_returned_to_selected_preview",
                 runCatching { compose.onNodeWithTag(ComposerSelectedVideoPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
                     runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
-            }
+            )
             saveScreenshot("android-post-video-editor-exported-preview")
             copyLatestEditedVideoEvidence()
         }

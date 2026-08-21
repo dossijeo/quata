@@ -651,6 +651,7 @@ private fun webPostVideoEditorExportEditedJs(
           if (!stream || typeof globalThis.MediaRecorder !== 'function') {
             throw Error('web_post_video_editor_media_recorder_unavailable');
           }
+          const canvasTrack = stream.getVideoTracks?.()[0] || null;
           if (!removeAudio && typeof video.captureStream === 'function') {
             try {
               const mediaStream = video.captureStream();
@@ -839,6 +840,11 @@ private fun webPostVideoEditorExportEditedJs(
             if (caption) {
               drawCaptionSegment(segmentAt(exportTimeMs), exportTimeMs);
             }
+            context.fillStyle = Math.floor(exportTimeMs / Math.max(1, 1000 / fps)) % 2 === 0
+              ? 'rgba(0,0,0,0.01)'
+              : 'rgba(0,0,0,0.00)';
+            context.fillRect(0, 0, 1, 1);
+            canvasTrack?.requestFrame?.();
           }
           video.onseeked = () => {
             recorder.start(250);

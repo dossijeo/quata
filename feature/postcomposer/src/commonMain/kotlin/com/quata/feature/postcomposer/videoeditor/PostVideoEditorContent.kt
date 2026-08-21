@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -389,7 +391,7 @@ private fun PostVideoEditorControls(
                 .height(88.dp)
                 .testTag(PostVideoEditorTimelineTestTag),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        VideoEditorActionRow {
             OutlinedButton(
                 onClick = onPlayPause,
                 enabled = !state.isExporting,
@@ -407,7 +409,7 @@ private fun PostVideoEditorControls(
                 Text(" ${if (state.isMuted) strings.unmute else strings.mute}")
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        VideoEditorActionRow {
             OutlinedButton(
                 onClick = onCropToggle,
                 enabled = !state.isExporting,
@@ -460,6 +462,18 @@ private fun PostVideoEditorControls(
             }
         }
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun VideoEditorActionRow(content: @Composable () -> Unit) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+        content = { content() },
+    )
 }
 
 @Composable
