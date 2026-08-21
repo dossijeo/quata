@@ -62,6 +62,14 @@ internal fun WebPostVideoEditor(
     var exportJob by remember(sourceReference) { mutableStateOf<Job?>(null) }
     var activeExportToken by remember(sourceReference) { mutableStateOf<Any?>(null) }
     val scope = rememberCoroutineScope()
+    fun cancelExport() {
+        activeExportToken = null
+        exportJob?.cancel()
+        exportJob = null
+        state = state.copy(isExporting = false, exportProgress = 0f)
+        webPostVideoEditorCancelActiveExport()
+        webPostVideoEditorRecordExportFailure("web_post_video_editor_export_cancelled")
+    }
     LaunchedEffect(sourceReference) {
         runCatching { webPostVideoEditorReadMetadata(sourceReference) }
             .onSuccess { metadata ->
@@ -91,6 +99,7 @@ internal fun WebPostVideoEditor(
         val job = scope.launch {
             runCatching {
                 val freshMetadata = webPostVideoEditorReadMetadata(sourceReference)
+                if (activeExportToken !== exportToken) throw CancellationException("web_post_video_editor_export_cancelled")
                 val exportDurationMs = freshMetadata.durationMs.also {
                     durationMs = it
                     state = postVideoEditorStateForSourceDuration(state, it)
@@ -105,6 +114,7 @@ internal fun WebPostVideoEditor(
                 } else {
                     null
                 }
+                if (activeExportToken !== exportToken) throw CancellationException("web_post_video_editor_export_cancelled")
                 val spec = postVideoEditorExportSpec(
                     state,
                     exportAspectRatio,
@@ -178,12 +188,7 @@ internal fun WebPostVideoEditor(
             export = { export() },
             dismiss = {
                 if (state.isExporting) {
-                    activeExportToken = null
-                    exportJob?.cancel()
-                    exportJob = null
-                    state = state.copy(isExporting = false, exportProgress = 0f)
-                    webPostVideoEditorCancelActiveExport()
-                    webPostVideoEditorRecordExportFailure("web_post_video_editor_export_cancelled")
+                    cancelExport()
                 } else {
                     onDismiss()
                 }
@@ -204,16 +209,11 @@ internal fun WebPostVideoEditor(
         onCropToggle = { state = postVideoEditorStateAfterCropToggle(state) },
         onCaptionsToggle = { state = postVideoEditorStateAfterCaptionsToggle(state) },
         onReset = { state = postVideoEditorStateAfterReset(state, durationMs) },
-        onDismiss = onDismiss,
-        onExport = ::export,
-        onCancelExport = {
-            activeExportToken = null
-            exportJob?.cancel()
-            exportJob = null
-            state = state.copy(isExporting = false, exportProgress = 0f)
-            webPostVideoEditorCancelActiveExport()
-            webPostVideoEditorRecordExportFailure("web_post_video_editor_export_cancelled")
+        onDismiss = {
+            if (state.isExporting) cancelExport() else onDismiss()
         },
+        onExport = ::export,
+        onCancelExport = ::cancelExport,
         isLandscapeLayout = isLandscapeLayout,
         durationMs = durationMs,
         captionOptions = CaptionTemplateStyle.entries.map { CaptionStyleOption(it.name, it.name) },
@@ -653,7 +653,10 @@ private fun webPostVideoEditorRecordExportFailure(message: String): Unit = js(
 
 private fun webPostVideoEditorPrepareExportStart(): Unit = js(
     """(() => {
-      globalThis.__quataPostVideoEditorCancelRequested = false;
+      const active = globalThis.__quataPostVideoEditorActiveExport;
+      if (!active || active.finished) {
+        globalThis.__quataPostVideoEditorCancelRequested = false;
+      }
     })()""",
 )
 
@@ -755,7 +758,7 @@ private fun webPostVideoEditorExportEditedJs(
           if (!context) throw Error('web_post_video_editor_canvas_context_unavailable');
           const fps = Math.max(1, Math.min(60, Number(outputMaxFrameRate) || 30));
           const captureTickRate = fps;
-          stream = canvas.captureStream?.(fps) || canvas.captureStream?.(0);
+          stream = canvas.captureStream?.(0) || canvas.captureStream?.(fps);
           if (!stream || typeof globalThis.MediaRecorder !== 'function') {
             throw Error('web_post_video_editor_media_recorder_unavailable');
           }

@@ -387,28 +387,32 @@ fun QuataVideoEditorDialog(
 
     fun applyTrimStartDrag(targetMs: Long) {
         if (durationMs <= 0L) return
-        val boundedStart = targetMs.coerceIn(0L, (trimEndMs - MinimumTrimMs).coerceAtLeast(0L))
-        val nextEnd = if (trimEndMs - boundedStart > MaximumTrimDurationMs) {
-            (boundedStart + MaximumTrimDurationMs).coerceAtMost(durationMs)
-        } else {
-            trimEndMs
-        }
-        trimStartMs = boundedStart
-        trimEndMs = nextEnd
-        seekPreviewTo(boundedStart)
+        val nextState = postVideoEditorStateAfterTrimStart(
+            state = PostVideoEditorUiState(
+                trimStartFraction = if (durationMs > 0L) trimStartMs.toFloat() / durationMs else 0f,
+                trimEndFraction = if (durationMs > 0L) trimEndMs.toFloat() / durationMs else 1f,
+            ),
+            fraction = targetMs.toFloat() / durationMs.coerceAtLeast(1L),
+            durationMs = durationMs,
+        )
+        trimStartMs = (nextState.trimStartFraction * durationMs).roundToLong()
+        trimEndMs = (nextState.trimEndFraction * durationMs).roundToLong()
+        seekPreviewTo(trimStartMs)
     }
 
     fun applyTrimEndDrag(targetMs: Long) {
         if (durationMs <= 0L) return
-        val boundedEnd = targetMs.coerceIn((trimStartMs + MinimumTrimMs).coerceAtMost(durationMs), durationMs)
-        val nextStart = if (boundedEnd - trimStartMs > MaximumTrimDurationMs) {
-            (boundedEnd - MaximumTrimDurationMs).coerceAtLeast(0L)
-        } else {
-            trimStartMs
-        }
-        trimStartMs = nextStart
-        trimEndMs = boundedEnd
-        seekPreviewTo((boundedEnd - 33L).coerceAtLeast(nextStart))
+        val nextState = postVideoEditorStateAfterTrimEnd(
+            state = PostVideoEditorUiState(
+                trimStartFraction = if (durationMs > 0L) trimStartMs.toFloat() / durationMs else 0f,
+                trimEndFraction = if (durationMs > 0L) trimEndMs.toFloat() / durationMs else 1f,
+            ),
+            fraction = targetMs.toFloat() / durationMs.coerceAtLeast(1L),
+            durationMs = durationMs,
+        )
+        trimStartMs = (nextState.trimStartFraction * durationMs).roundToLong()
+        trimEndMs = (nextState.trimEndFraction * durationMs).roundToLong()
+        seekPreviewTo((trimEndMs - 33L).coerceAtLeast(trimStartMs))
     }
 
     fun suspendPreviewForExport() {

@@ -669,7 +669,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /dismiss = \{\s*if \(state\.isExporting\)/);
   assert.match(webPostVideoEditor, /if \(globalThis\.__quataPostVideoEditorCancelRequested\) \{\s*onFailure\('web_post_video_editor_export_cancelled'\); return;/);
   assert.doesNotMatch(webPostVideoEditor, /globalThis\.__quataPostVideoEditorCancelRequested = false;\s*const failOnce/);
-  assert.match(webPostVideoEditor, /canvas\.captureStream\?\.\(fps\) \|\| canvas\.captureStream\?\.\(0\)/);
+  assert.match(webPostVideoEditor, /canvas\.captureStream\?\.\(0\) \|\| canvas\.captureStream\?\.\(fps\)/);
   assert.match(webPostVideoEditor, /const canvasTrack = stream\.getVideoTracks\?\.\(\)\[0\]/);
   assert.match(webPostVideoEditor, /const captureTickRate = fps/);
   assert.match(webPostVideoEditor, /web_post_video_editor_audio_stream_missing_without_mute/);
@@ -683,6 +683,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /elapsedAtStopMs/);
   assert.doesNotMatch(webPostVideoEditor, /requestAnimationFrame\?\.\(tick\)/);
   assert.match(webPostVideoEditor, /canvasTrack\?\.requestFrame\?\.\(\)/);
+  assert.match(webPostVideoEditor, /stream = canvas\.captureStream\?\.\(0\) \|\| canvas\.captureStream\?\.\(fps\)/);
+  assert.doesNotMatch(webPostVideoEditor, /stream = canvas\.captureStream\?\.\(fps\) \|\| canvas\.captureStream\?\.\(0\)/);
   assert.match(webPostVideoEditor, /trimStartSeconds/);
   assert.match(webPostVideoEditor, /trimEndSeconds/);
   assert.match(webPostVideoEditor, /onPositionMsChange/);
@@ -738,6 +740,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /outputExportPreset/);
   assert.match(iosPostVideoEditorNativeDriver, /insertAudioTimeRange\(/);
   assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_audio_insert_failed/);
+  assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_audio_remux_source_missing/);
   assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_audio_remux_output_missing/);
   assert.match(iosPostVideoEditorNativeDriver, /private var visualEffectsAdaptor: AVAssetWriterInputPixelBufferAdaptor\?/);
   assert.match(iosPostVideoEditorNativeDriver, /visualEffectsAdaptor = adaptor/);
@@ -754,6 +757,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(commonPostVideoEditorSpec, /MinimumPostVideoEditorTrimMs = QuataVideoExportPolicy\.MinimumTrimMs/);
   assert.match(commonPostVideoEditorSpec, /MaximumPostVideoEditorDurationMs = QuataVideoExportPolicy\.MaximumDurationMs/);
   assert.match(commonPostVideoEditorSpec, /requestedEndMs - MaximumPostVideoEditorDurationMs/);
+  assert.match(androidVideoEditorDialog, /postVideoEditorStateAfterTrimStart\(/);
+  assert.match(androidVideoEditorDialog, /postVideoEditorStateAfterTrimEnd\(/);
+  assert.doesNotMatch(androidVideoEditorDialog, /trimEndMs - boundedStart > MaximumTrimDurationMs/);
+  assert.doesNotMatch(androidVideoEditorDialog, /boundedEnd - trimStartMs > MaximumTrimDurationMs/);
   assert.doesNotMatch(commonPostVideoEditorSpec, /durationMs\.coerceIn\(1L, MaximumPostVideoEditorDurationMs\)/);
   assert.doesNotMatch(commonPostVideoEditorSpec, /0\.05f/);
   assert.match(commonPostVideoEditorSpec, /captionDocument[\s\S]*\?\.trimTo\(trimStartMs, trimEndMs\)/);
@@ -782,6 +789,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /MediaRecorder/);
   assert.match(webPostVideoEditor, /webPostVideoEditorCancelActiveExport/);
   assert.match(webPostVideoEditor, /__quataPostVideoEditorActiveExport/);
+  assert.match(webPostVideoEditor, /activeExportToken !== exportToken[\s\S]*web_post_video_editor_export_cancelled/);
+  assert.match(webPostVideoEditor, /onDismiss = \{\s*if \(state\.isExporting\) cancelExport\(\) else onDismiss\(\)/);
   assert.match(webPostVideoEditor, /reset: \(\) => reset\(\)/);
   assert.match(webPostVideoEditor, /canvas\.captureStream/);
   assert.doesNotMatch(webPostComposerRoute, /quata_post_composer_video_editor_e2e_opt_in/);
@@ -960,7 +969,11 @@ test("post video editor Solo parity gaps stay fail-closed", () => {
   assert.match(webPostVideoEditor, /resumeWithException\(IllegalStateException\(it\)\)/);
   assert.match(webPostVideoEditor, /web_post_video_editor_metadata_loading/);
   assert.match(webPostVideoEditor, /isExporting: \(\) => Boolean\(isExporting\(\)\)/);
-  assert.match(webPostVideoEditor, /canvas\.captureStream\?\.\(fps\) \|\| canvas\.captureStream\?\.\(0\)/);
+  assert.match(webPostVideoEditor, /canvas\.captureStream\?\.\(0\) \|\| canvas\.captureStream\?\.\(fps\)/);
+  assert.match(webPostVideoEditor, /activeExportToken !== exportToken[\s\S]*CancellationException\("web_post_video_editor_export_cancelled"\)/);
+  assert.match(androidVideoEditorDialog, /title = stringResource\(R\.string\.video_editor_title\)/);
+  assert.match(androidVideoEditorDialog, /maxDurationWarning = stringResource\(R\.string\.video_editor_max_duration_warning\)/);
+  assert.match(androidVideoEditorDialog, /captionsNone = stringResource\(R\.string\.video_editor_captions_none\)/);
   assert.match(webVideoEditorRunner, /label: "cancel", mute: true, cancelOnly: true/);
   assert.match(webVideoEditorRunner, /exerciseVideoExportCancellation\(/);
   assert.match(webVideoEditorRunner, /action === "export" \|\| action === "cancelExport"/);
