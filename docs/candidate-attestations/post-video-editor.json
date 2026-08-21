@@ -5,12 +5,12 @@
     "POST-VIDEO-EDITOR"
   ],
   "status": "passed",
-  "productSha": "c5950d639919d9572bb6227cc062b0a2d8182f53",
+  "productSha": "f29335421ae564c7d1af5f4fb2dca4ee811eb8c3",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "c5950d639919d9572bb6227cc062b0a2d8182f53",
-      "report": "build-reports/web/POST-VIDEO-EDITOR-evidence-c5950d63.json",
+      "sha": "f29335421ae564c7d1af5f4fb2dca4ee811eb8c3",
+      "report": "build-reports/web/POST-VIDEO-EDITOR-evidence-f2933542-web.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -18,52 +18,67 @@
       "coverage": [
         "common editor surface mounted from the shared composer",
         "real metadata duration/aspect consumed before export",
+        "cancel-export attempt fails closed without a successful edited callback",
         "trim applied to the physical WebM export",
-        "mute removes the audio stream",
-        "foreground crop and background crop are passed to the Web edge and physically exported",
-        "Web/Vosk path produces a timed CaptionDocument consumed by the shared caption burn-in contract",
-        "physical output validates 1080x1920 video, no audio stream after mute and subtitle pixels"
+        "muted export removes the audio stream and unmuted export preserves an audible stream",
+        "foreground crop, zoom/pan and background crop are passed to the Web edge and physically exported",
+        "Web/Vosk produces a timed CaptionDocument consumed by the shared caption burn-in contract",
+        "physical output validates adaptive WebM dimensions, controlled frame capture, subtitle pixels and background blur pixels"
       ]
     },
     "android": {
       "status": "passed",
-      "sha": "c5950d639919d9572bb6227cc062b0a2d8182f53",
-      "report": "build-reports/android/POST-VIDEO-EDITOR-evidence-c5950d63.json",
+      "sha": "f29335421ae564c7d1af5f4fb2dca4ee811eb8c3",
+      "report": "build-reports/android/POST-VIDEO-EDITOR-evidence-f2933542-android.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
       },
       "coverage": [
         "Android mounts the shared PostVideoEditorDialogContent from the composer",
-        "Android reference edge keeps native preview/decode/transcode/export and Vosk caption transcription",
-        "instrumentation exercises the shared editor anchors from the real authenticated composer",
-        "instrumentation completed POST-VIDEO-EDITOR real flow successfully"
+        "Android passes the localized video editor string set into the shared dialog",
+        "Android trim drag delegates to the shared 500ms/90s common rules",
+        "Android reference edge keeps native ExoPlayer preview, Vosk transcription/model delivery and Media3/Transformer export",
+        "instrumentation exercises muted and unmuted exports from the real authenticated composer",
+        "physical output validates trim, audio absent/present, caption pixels and background blur pixels"
       ]
     },
     "ios": {
       "status": "passed",
-      "sha": "c5950d639919d9572bb6227cc062b0a2d8182f53",
-      "report": "build-reports/ios/POST-VIDEO-EDITOR-evidence-c5950d63.json",
+      "sha": "f29335421ae564c7d1af5f4fb2dca4ee811eb8c3",
+      "report": "build-reports/ios/POST-VIDEO-EDITOR-evidence-f2933542-ios.json",
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
       },
       "coverage": [
         "iOS mounts the shared PostVideoEditorDialogContent from the composer",
-        "AVFoundation metadata supplies real duration/aspect instead of the former 90s fallback",
-        "XCTest selects the shared caption style anchor post-video-editor.caption-style.Hormozi",
+        "AVFoundation metadata supplies real duration/aspect instead of a 90s fallback",
+        "XCTest selects the shared Karaoke caption style anchor and verifies the caption preview anchor",
         "iOS native transcription converges to the common timed CaptionDocument wire format",
-        "AVFoundation export applies mute, trim, foreground crop, caption style and caption burn-in",
-        "physical output validates 1080x1920 H.264 video, no audio stream after mute and subtitle pixels"
+        "AVFoundation export applies trim, mute/unmute, foreground crop, background crop, caption style and caption burn-in",
+        "unmuted export fails closed if source audio, audio range or remux output audio is missing",
+        "physical output validates adaptive H.264 dimensions, muted no-audio, unmuted audible audio, subtitle pixels and background blur pixels"
+      ]
+    }
+  },
+  "review": {
+    "solo": {
+      "status": "SOLO_GO",
+      "sha": "f29335421ae564c7d1af5f4fb2dca4ee811eb8c3",
+      "notes": [
+        "Solo verified Web fail-closed cancellation, controlled captureStream(0) + requestFrame FPS, iOS unmuted audio fail-closed behavior, Android localized strings, and Android trim delegation to common rules.",
+        "Residual risks are non-blocking: Web cancel evidence is one immediate attempt, Web JSON does not persist measured fps despite physical artifact auditability, iOS evidence is simulator 480p/6fps, and Android does not include a cancel attempt."
       ]
     }
   },
   "notes": [
-    "POST-VIDEO-EDITOR reaches GO at Product/Evidence SHA c5950d639919d9572bb6227cc062b0a2d8182f53.",
+    "POST-VIDEO-EDITOR reaches GO at Product/Evidence SHA f29335421ae564c7d1af5f4fb2dca4ee811eb8c3.",
     "Android, Web/Wasm and iOS share the editor UI/logic in commonMain; native edges are limited to preview, metadata, transcription/decode/transcode/export APIs.",
-    "Captions now converge through the common CaptionDocument contract instead of platform-local captionText strings or template-name burn-in.",
+    "The common contract centralizes the 500ms minimum trim, 90s maximum selection and adaptive export policy.",
+    "Captions converge through the common CaptionDocument contract instead of platform-local captionText strings or template-name burn-in.",
     "Web/Wasm and iOS no longer burn CaptionTemplateStyle names as fake subtitles.",
-    "The iOS runner selects the Hormozi style through a shared semantic anchor and verifies the exported file, not only operations=true.",
-    "The common caption style panel uses a compact two-column layout so style choices remain hittable in the iOS AlertDialog viewport."
+    "Web/Wasm exports via browser video/canvas/MediaRecorder with controlled frame capture; Android keeps Media3/Transformer; iOS keeps AVFoundation.",
+    "The exact-SHA lanes validate physical output rather than only operations=true: duration, audio mute/unmute, crop, captions and background blur are probed from exported files."
   ]
 }
