@@ -469,6 +469,14 @@ private fun PostVideoEditorControls(
         if (state.showMaxDurationWarning) {
             Text(strings.maxDurationWarning, color = MaterialTheme.colorScheme.error)
         }
+        if (state.captionsPanelOpen && !state.isExporting) {
+            CommonCaptionControls(
+                options = captionOptions,
+                selectedId = state.selectedCaptionStyleId,
+                strings = strings,
+                onStyleChange = onCaptionStyleChange,
+            )
+        }
         PostVideoEditorTimelineContent(
             state = state,
             onTrimStartChange = onTrimStartChange,
@@ -537,14 +545,6 @@ private fun PostVideoEditorControls(
                 strings = strings,
                 onModeChange = onCropModeChange,
                 onZoomChange = onCropZoomChange,
-            )
-        }
-        if (state.captionsPanelOpen && !state.isExporting) {
-            CommonCaptionControls(
-                options = captionOptions,
-                selectedId = state.selectedCaptionStyleId,
-                strings = strings,
-                onStyleChange = onCaptionStyleChange,
             )
         }
         PostVideoEditorInfoBar(state, strings, onPlayPause)
