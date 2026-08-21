@@ -701,6 +701,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /insertAudioTimeRange\(/);
   assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_audio_insert_failed/);
   assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_audio_remux_output_missing/);
+  assert.match(iosPostVideoEditorNativeDriver, /private var visualEffectsAdaptor: AVAssetWriterInputPixelBufferAdaptor\?/);
+  assert.match(iosPostVideoEditorNativeDriver, /visualEffectsAdaptor = adaptor/);
+  assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_visual_effects_adaptor_missing/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /weak adaptor/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /try\?\s*compositionAudio\.insertTimeRange/);
   assert.match(iosVideoEditorRunner, /durationMs < expectedDurationMs \* 0\.8/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_physical_bitrate/);

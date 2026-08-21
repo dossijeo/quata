@@ -508,6 +508,7 @@ private final class IosPostVideoEditorExportOperation {
     private var captionExportSession: AVAssetExportSession?
     private var visualEffectsReader: AVAssetReader?
     private var visualEffectsWriter: AVAssetWriter?
+    private var visualEffectsAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var progressTimer: Timer?
     private var didFinish = false
     private var didCancel = false
@@ -668,6 +669,7 @@ private final class IosPostVideoEditorExportOperation {
         captionExportSession?.cancelExport()
         visualEffectsReader?.cancelReading()
         visualEffectsWriter?.cancelWriting()
+        visualEffectsAdaptor = nil
         finishFailure(reason: "ios_post_video_editor_export_cancelled")
     }
 
@@ -676,6 +678,7 @@ private final class IosPostVideoEditorExportOperation {
         didFinish = true
         progressTimer?.invalidate()
         progressTimer = nil
+        visualEffectsAdaptor = nil
         callback.onFailure(reason: reason)
         onFinished()
     }
@@ -914,6 +917,7 @@ private final class IosPostVideoEditorExportOperation {
             )
             visualEffectsReader = reader
             visualEffectsWriter = writer
+            visualEffectsAdaptor = adaptor
             let ciContext = CIContext(options: [.cacheIntermediates: false])
             let durationSeconds = max(0.001, CMTimeGetSeconds(asset.duration))
             let maxFrameCount = max(
@@ -931,8 +935,20 @@ private final class IosPostVideoEditorExportOperation {
             let queue = DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects")
             var frameCount = 0
             var didRequestFinish = false
-            writerInput.requestMediaDataWhenReady(on: queue) { [weak self, weak writerInput, weak adaptor] in
-                guard let self, let writerInput, let adaptor else { return }
+            writerInput.requestMediaDataWhenReady(on: queue) { [weak self, weak writerInput] in
+                guard let self, let writerInput else { return }
+                guard let adaptor = self.visualEffectsAdaptor else {
+                    reader.cancelReading()
+                    writer.cancelWriting()
+                    DispatchQueue.main.async {
+                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
+                            "reason": "ios_post_video_editor_visual_effects_adaptor_missing",
+                            "frames": "\(frameCount)",
+                        ])
+                        self.finishFailure(reason: "ios_post_video_editor_visual_effects_adaptor_missing")
+                    }
+                    return
+                }
                 func finishVisualEffects() {
                     guard !didRequestFinish else { return }
                     didRequestFinish = true
@@ -941,6 +957,7 @@ private final class IosPostVideoEditorExportOperation {
                         DispatchQueue.main.async {
                             self.visualEffectsReader = nil
                             self.visualEffectsWriter = nil
+                            self.visualEffectsAdaptor = nil
                             if self.didCancel {
                                 self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
                             } else if reader.status == .completed || reader.status == .cancelled || frameCount >= maxFrameCount,
