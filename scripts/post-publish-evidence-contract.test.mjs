@@ -547,6 +547,7 @@ test("post video editor exposes stable common anchors and Android forwards them 
   assert.match(commonPostVideoEditorContent, /contentDescription = tag/);
   assert.match(commonPostVideoEditorContent, /role = Role\.Button/);
   assert.match(commonPostVideoEditorContent, /onClick \{\s*onModeChange\(option\)\s*true\s*\}/);
+  assert.match(commonPostVideoEditorContent, /stateDescription = if \(state\.isMuted\) strings\.unmute else strings\.mute/);
   assert.match(commonPostVideoEditorContent, /heightIn\(max = 720\.dp\)\s*\.verticalScroll\(rememberScrollState\(\)\)/);
   assert.match(commonVideoEditorModels, /PostVideoEditorTrimStartHandleTestTag/);
   assert.match(commonVideoEditorModels, /PostVideoEditorTrimEndHandleTestTag/);
@@ -574,6 +575,11 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidVideoEditorRunner, /:vosk_model_en:assembleDebug/);
   assert.match(androidVideoEditorRunner, /vosk_model_en-debug\.apk/);
   assert.match(androidVideoEditorRunner, /install-multiple/);
+  assert.match(androidVideoEditorRunner, /label: "muted", mute: true/);
+  assert.match(androidVideoEditorRunner, /label: "unmuted", mute: false/);
+  assert.match(androidVideoEditorRunner, /android_video_editor_physical_audio_stream_missing_without_mute/);
+  assert.match(androidVideoEditorRunner, /android_video_editor_physical_audio_silent/);
+  assert.match(androidVideoEditorRunner, /probeError: safeFailure\(probeError\)/);
   assert.match(androidPostPublishTest, /ComposerEditVideoTestTag/);
   assert.match(androidPostPublishTest, /PostVideoEditorRootTestTag/);
   assert.match(androidPostPublishTest, /PostVideoEditorExportTestTag/);
@@ -585,6 +591,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidPostPublishTest, /PostVideoEditorCaptionsTestTag/);
   assert.match(androidPostPublishTest, /post-video-editor\.caption-style\.Karaoke/);
   assert.match(androidPostPublishTest, /PostVideoEditorResetTestTag/);
+  assert.match(androidPostPublishTest, /fun setEditorMuted\(muted: Boolean\)/);
+  assert.match(androidPostPublishTest, /SemanticsProperties\.StateDescription/);
+  assert.match(androidPostPublishTest, /setEditorMuted\(shouldMuteExport\)/);
   assert.match(androidPostPublishTest, /copyLatestEditedVideoEvidence/);
   assert.match(androidPostPublishTest, /onAllNodesWithTag\(PostVideoEditorExportTestTag/);
   assert.match(androidVideoEditorDialog, /onCancelExport = \{ isCancelExportDialogOpen = true \}/);
@@ -600,6 +609,14 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidVideoEditorRunner, /android_video_editor_caption_pixels_missing/);
   assert.match(androidVideoEditorRunner, /android_video_editor_background_blur_pixels_missing/);
   assert.match(androidPostPublishTest, /PostVideoEditorTimelineFrameTestTag\(index\)/);
+  assert.match(androidVideoEditorDialog, /outputSizeBytes < TransformerStableOutputMinBytes/);
+  const downsampleExport = androidVideoEditorDialog.slice(
+    androidVideoEditorDialog.indexOf("private suspend fun Context.exportDownsampledIntermediate"),
+    androidVideoEditorDialog.indexOf("private suspend fun Context.exportEditedVideoWithTransformer")
+  );
+  assert.doesNotMatch(downsampleExport, /checkStableOutputCompletion\("progress"\)/);
+  assert.doesNotMatch(downsampleExport, /checkStableOutputCompletion\("watchdog"\)/);
+  assert.match(androidVideoEditorDialog, /Uri\.fromFile\(outputFile\)\.hasMediaTrack\(this@exportEditedVideoWithTransformer, audio = false\)/);
 
   assert.match(webVideoEditorRunner, /POST-VIDEO-EDITOR-WEB-REAL-001/);
   assert.match(webVideoEditorRunner, /quata-post-video-editor-e2e/);
@@ -612,9 +629,11 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /assertWebVideoEditorExportParity/);
   assert.match(webVideoEditorRunner, /validSpeechMp4FixtureDataUrl/);
   assert.match(webVideoEditorRunner, /CAPTION_FIXTURE_TEXT/);
-  assert.match(webVideoEditorRunner, /expectCaptions: true/);
+  assert.match(webVideoEditorRunner, /expectCaptions: true, expectMute: mute/);
   assert.match(webVideoEditorRunner, /web_video_editor_caption_text_not_real_transcript/);
-  assert.match(webVideoEditorRunner, /const requiredOperations = \["trim", "mute", "crop"\]/);
+  assert.match(webVideoEditorRunner, /const requiredOperations = \["trim", "crop"\]/);
+  assert.match(webVideoEditorRunner, /if \(expectMute\) requiredOperations\.push\("mute"\)/);
+  assert.match(webVideoEditorRunner, /web_video_editor_mute_false_positive/);
   assert.match(webVideoEditorRunner, /requiredOperations\.push\("captions"\)/);
   assert.match(webVideoEditorRunner, /web_video_editor_caption_false_positive/);
   assert.match(webVideoEditorRunner, /saveAndProbeWebExport/);
@@ -627,14 +646,24 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /web_video_editor_background_blur_pixels_missing/);
   assert.match(webVideoEditorRunner, /web_video_editor_caption_pixels_missing/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_present_after_mute/);
+  assert.match(webVideoEditorRunner, /label: "muted", mute: true/);
+  assert.match(webVideoEditorRunner, /label: "unmuted", mute: false/);
+  assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_missing_without_mute/);
+  assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_silent/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_trim_duration/);
   assert.match(webVideoEditorRunner, /expectedDurationMs \* 0\.8/);
+  assert.match(webVideoEditorRunner, /expectedDurationMs \* 1\.2/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_duration_unmeasured/);
   assert.match(webVideoEditorRunner, /"-show_packets"/);
   assert.match(webVideoEditorRunner, /physicalDurationMsFromProbe/);
   assert.match(webPostVideoEditor, /const sourceScale = actualDurationMs > 0 && hintedDurationMs > actualDurationMs \* 1\.5/);
   assert.match(webPostVideoEditor, /const sourceStartMs = Math\.min\(startMs \* sourceScale/);
   assert.match(webPostVideoEditor, /drawFrame\(Math\.min\(durationMs, elapsedMs\)\)/);
+  assert.match(webPostVideoEditor, /let recorderStarted = false/);
+  assert.match(webPostVideoEditor, /if \(recorderStarted\) return/);
+  assert.match(webPostVideoEditor, /if \(recorder\.state !== 'inactive'\) return/);
+  assert.match(webPostVideoEditor, /web_post_video_editor_recorder_start_failed/);
+  assert.match(webPostVideoEditor, /function stopRecorderOnce\(\)/);
   assert.match(webPostVideoEditor, /webPostVideoEditorPrepareExportStart\(\)/);
   assert.match(webPostVideoEditor, /dismiss = \{\s*if \(state\.isExporting\)/);
   assert.match(webPostVideoEditor, /if \(globalThis\.__quataPostVideoEditorCancelRequested\) \{\s*onFailure\('web_post_video_editor_export_cancelled'\); return;/);
@@ -642,7 +671,12 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /canvas\.captureStream\?\.\(0\) \|\| canvas\.captureStream\?\.\(fps\)/);
   assert.match(webPostVideoEditor, /const canvasTrack = stream\.getVideoTracks\?\.\(\)\[0\]/);
   assert.match(webPostVideoEditor, /const captureTickRate = fps/);
-  assert.match(webPostVideoEditor, /const stopPaddingMs = Math\.min\(1600, Math\.max\(500, durationMs \* 0\.85, 1000 \/ fps \* 12\)\)/);
+  assert.match(webPostVideoEditor, /web_post_video_editor_audio_stream_missing_without_mute/);
+  assert.match(webPostVideoEditor, /let sourceFrozenAtTrimEnd = false/);
+  assert.match(webPostVideoEditor, /video\.currentTime = Math\.min\(\(sourceStartMs \+ durationMs\) \/ 1000/);
+  assert.match(webPostVideoEditor, /const stopPaddingMs = removeAudio/);
+  assert.match(webPostVideoEditor, /Math\.min\(650, Math\.max\(480, 1000 \/ fps \* 16\)\)/);
+  assert.match(webPostVideoEditor, /Math\.min\(350, Math\.max\(120, 1000 \/ fps \* 4\)\)/);
   assert.match(webPostVideoEditor, /const minimumCaptureFrames = Math\.max\(1, Math\.ceil\(\(\(durationMs \+ stopPaddingMs\) \/ 1000\) \* captureTickRate\)\)/);
   assert.match(webPostVideoEditor, /drawnFrameCount >= minimumCaptureFrames/);
   assert.match(webPostVideoEditor, /elapsedAtStopMs/);

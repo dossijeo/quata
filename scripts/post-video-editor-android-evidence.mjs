@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -64,32 +64,48 @@ try {
   await run(adb, ["shell", "chmod", "644", deviceTempVideoPath]);
   await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempVideoPath, "files/post-video-editor-fixture.mp4"]);
   await run(adb, ["shell", "rm", "-f", deviceTempVideoPath]);
-  await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
-
-  const instrumentationOutput = await runCapture(adb, [
-    "shell", "am", "instrument", "-w", "-r",
-    "-e", "class", "com.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest#authenticatedUserExercisesPostVideoEditorFromCommonComposer",
-    "-e", "quataPostPublishCredentialsFile", deviceCredentialsPath,
-    "-e", "quataPostVideoEditorEvidence", "1",
-    "-e", "quataPostVideoEditorFixturePath", deviceVideoPath,
-    "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
-  ]);
-  const attempt = { source: "gallery-video", outcome: "success", instrumentationTail: redactedTail(instrumentationOutput) };
-  if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) {
-    report.attempts.push({ ...attempt, status: "failed" });
-    throw new Error("android_instrumentation_not_ok");
-  }
-  if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentationOutput)) {
-    report.attempts.push({ ...attempt, status: "failed" });
-    throw new Error("android_instrumentation_semantic_failure");
-  }
-  report.attempts.push({ ...attempt, status: "passed" });
-
   const evidenceDir = resolve(options.evidenceDir);
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
-  await copyDeviceEvidence(evidenceDir);
-  report.evidence.physicalExport = probeAndroidExport(join(evidenceDir, "android-post-video-editor-export.mp4"), videoFixture);
+  for (const attemptSpec of [
+    { label: "muted", mute: true },
+    { label: "unmuted", mute: false },
+  ]) {
+    await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
+    const instrumentationOutput = await runCapture(adb, [
+      "shell", "am", "instrument", "-w", "-r",
+      "-e", "class", "com.quata.feature.postcomposer.presentation.PostPublishRealInstrumentedTest#authenticatedUserExercisesPostVideoEditorFromCommonComposer",
+      "-e", "quataPostPublishCredentialsFile", deviceCredentialsPath,
+      "-e", "quataPostVideoEditorEvidence", "1",
+      "-e", "quataPostVideoEditorFixturePath", deviceVideoPath,
+      "-e", "quataPostVideoEditorMute", attemptSpec.mute ? "1" : "0",
+      "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
+    ]);
+    const attempt = {
+      source: "gallery-video",
+      outcome: "success",
+      label: attemptSpec.label,
+      mute: attemptSpec.mute,
+      instrumentationTail: redactedTail(instrumentationOutput),
+    };
+    if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) {
+      report.attempts.push({ ...attempt, status: "failed" });
+      throw new Error(`android_instrumentation_not_ok:${attemptSpec.label}`);
+    }
+    if (/FAILURES!!!|SKIPPED|AssumptionViolatedException/i.test(instrumentationOutput)) {
+      report.attempts.push({ ...attempt, status: "failed" });
+      throw new Error(`android_instrumentation_semantic_failure:${attemptSpec.label}`);
+    }
+    await copyDeviceEvidence(evidenceDir);
+    const exportPath = join(evidenceDir, `android-post-video-editor-export-${attemptSpec.label}.mp4`);
+    try {
+      const physicalExport = probeAndroidExport(exportPath, videoFixture, { mute: attemptSpec.mute });
+      report.attempts.push({ ...attempt, status: "passed", physicalExport });
+    } catch (probeError) {
+      report.attempts.push({ ...attempt, status: "failed", probeError: safeFailure(probeError) });
+      throw probeError;
+    }
+  }
   report.evidence.directory = evidenceDir;
   report.status = "passed";
 } catch (error) {
@@ -209,7 +225,7 @@ async function copyDeviceEvidence(evidenceDir) {
   }
 }
 
-function probeAndroidExport(outputPath, sourcePath) {
+function probeAndroidExport(outputPath, sourcePath, { mute }) {
   const ffprobe = JSON.parse(execFileSync("ffprobe", [
     "-v", "error",
     "-print_format", "json",
@@ -220,7 +236,8 @@ function probeAndroidExport(outputPath, sourcePath) {
   const videoStream = ffprobe.streams?.find((stream) => stream.codec_type === "video");
   const audioStream = ffprobe.streams?.find((stream) => stream.codec_type === "audio");
   if (!videoStream) throw new Error("android_video_editor_physical_video_stream_missing");
-  if (audioStream) throw new Error("android_video_editor_physical_audio_stream_present_after_mute");
+  if (mute && audioStream) throw new Error("android_video_editor_physical_audio_stream_present_after_mute");
+  if (!mute && !audioStream) throw new Error("android_video_editor_physical_audio_stream_missing_without_mute");
   const width = Number(videoStream.width || 0);
   const height = Number(videoStream.height || 0);
   if (!isSupportedVideoEditorProfile(width, height)) {
@@ -240,15 +257,37 @@ function probeAndroidExport(outputPath, sourcePath) {
   }
   const captionPixelProbe = probeCaptionPixels(outputPath);
   const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
+  const audioProbe = !mute ? probeAudioSignal(outputPath, "android_video_editor_physical_audio_silent") : null;
   return {
     path: outputPath,
     durationMs,
     sourceDurationMs,
     video: { codec: videoStream.codec_name, width, height, frameRate },
     audioStreamPresent: Boolean(audioStream),
+    audioProbe,
     captionPixelProbe,
     backgroundBlurPixelProbe,
   };
+}
+
+function probeAudioSignal(outputPath, errorCode) {
+  const result = spawnSync("ffmpeg", [
+    "-hide_banner",
+    "-nostats",
+    "-i", outputPath,
+    "-af", "volumedetect",
+    "-vn",
+    "-sn",
+    "-dn",
+    "-f", "null",
+    "NUL",
+  ], { encoding: "utf8" });
+  const output = `${result.stdout || ""}\n${result.stderr || ""}`;
+  if (result.status !== 0) throw new Error(`${errorCode}:ffmpeg_${result.status}`);
+  const mean = Number(/mean_volume:\s*(-?\d+(?:\.\d+)?) dB/.exec(output)?.[1] ?? NaN);
+  const max = Number(/max_volume:\s*(-?\d+(?:\.\d+)?) dB/.exec(output)?.[1] ?? NaN);
+  if (!Number.isFinite(mean) || mean < -55) throw new Error(`${errorCode}:${mean}`);
+  return { meanVolumeDb: mean, maxVolumeDb: max };
 }
 
 function probeMediaDurationMs(path) {

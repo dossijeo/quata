@@ -66,6 +66,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -404,7 +405,11 @@ private fun PostVideoEditorControls(
             OutlinedButton(
                 onClick = { onMutedChange(!state.isMuted) },
                 enabled = !state.isExporting,
-                modifier = Modifier.testTag(PostVideoEditorMuteTestTag),
+                modifier = Modifier
+                    .testTag(PostVideoEditorMuteTestTag)
+                    .semantics {
+                        stateDescription = if (state.isMuted) strings.unmute else strings.mute
+                    },
             ) {
                 CompactIcon(if (state.isMuted) Icons.Filled.VolumeOff else Icons.Filled.VolumeUp, null)
                 Text(" ${if (state.isMuted) strings.unmute else strings.mute}")

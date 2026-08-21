@@ -1628,14 +1628,16 @@ private suspend fun Context.exportEditedVideo(
                 sourceFrameRate = request.exportProfile.maxFrameRate.toFloat(),
                 sourceBitrate = request.exportProfile.intermediateBitrate.toLong()
             )
-            exportEditedVideoWithTransformer(finalRequest, outputFile) { progress ->
+            val transformed = exportEditedVideoWithTransformer(finalRequest, outputFile) { progress ->
                 onProgress(DownsampleExportProgressShare + progress * (1f - DownsampleExportProgressShare))
             }
+            ensureEditedVideoAudio(finalRequest, transformed)
         } finally {
             runCatching { intermediateFile.delete() }
         }
     }
-    return exportEditedVideoWithTransformer(request, outputFile, onProgress)
+    val transformed = exportEditedVideoWithTransformer(request, outputFile, onProgress)
+    return ensureEditedVideoAudio(request, transformed)
 }
 
 private fun Context.createVideoEditorExportFile(): File =
@@ -1643,6 +1645,16 @@ private fun Context.createVideoEditorExportFile(): File =
 
 private fun Context.createVideoEditorIntermediateFile(): File =
     File(cacheDir, "quata-editor-intermediate-${System.currentTimeMillis()}-${Random.nextInt(1000, 9999)}.mp4")
+
+private suspend fun Context.ensureEditedVideoAudio(
+    request: VideoEditorExportRequest,
+    exportedUri: Uri
+): Uri {
+    if (request.removeAudio || exportedUri.hasMediaTrack(this, audio = true)) return exportedUri
+    check(request.sourceUri.hasMediaTrack(this, audio = true)) { "android_post_video_editor_audio_source_missing" }
+    val outputFile = createVideoEditorExportFile()
+    return remuxEditedVideoWithSourceAudio(request, exportedUri, outputFile)
+}
 
 private tailrec fun Context.findActivity(): Activity? =
     when (this) {
@@ -1686,7 +1698,7 @@ private suspend fun Context.exportDownsampledIntermediate(
                 }
                 val nowMs = System.currentTimeMillis()
                 val outputSizeBytes = outputFile.length()
-                if (outputSizeBytes <= 0L) {
+                if (outputSizeBytes < TransformerStableOutputMinBytes) {
                     stableOutputSizeBytes = -1L
                     stableOutputSinceMs = 0L
                     return false
@@ -1710,14 +1722,12 @@ private suspend fun Context.exportDownsampledIntermediate(
                     if (progressState == Transformer.PROGRESS_STATE_AVAILABLE) {
                         onProgress(progressHolder.progress / 100f)
                     }
-                    if (checkStableOutputCompletion("progress")) return
                     handler.postDelayed(this, 250L)
                 }
             }
             completionFallbackRunnable = object : Runnable {
                 override fun run() {
                     if (!continuation.isActive) return
-                    if (checkStableOutputCompletion("watchdog")) return
                     handler.postDelayed(this, 500L)
                 }
             }
@@ -1833,6 +1843,11 @@ private suspend fun Context.exportEditedVideoWithTransformer(
                 val nowMs = System.currentTimeMillis()
                 val outputSizeBytes = outputFile.length()
                 if (outputSizeBytes < TransformerStableOutputMinBytes) {
+                    stableOutputSizeBytes = -1L
+                    stableOutputSinceMs = 0L
+                    return false
+                }
+                if (!Uri.fromFile(outputFile).hasMediaTrack(this@exportEditedVideoWithTransformer, audio = false)) {
                     stableOutputSizeBytes = -1L
                     stableOutputSinceMs = 0L
                     return false
@@ -2137,6 +2152,140 @@ private suspend fun Context.directStreamCopyEditedVideo(
         if (!completed) {
             runCatching { outputFile.delete() }
         }
+    }
+}
+
+private suspend fun Context.remuxEditedVideoWithSourceAudio(
+    request: VideoEditorExportRequest,
+    videoOnlyUri: Uri,
+    outputFile: File
+): Uri = withContext(Dispatchers.IO) {
+    var muxer: MediaMuxer? = null
+    var muxerStarted = false
+    var completed = false
+    val videoExtractor = MediaExtractor()
+    val audioExtractor = MediaExtractor()
+    try {
+        currentCoroutineContext().ensureActive()
+        videoExtractor.setDataSource(this@remuxEditedVideoWithSourceAudio, videoOnlyUri, null)
+        audioExtractor.setDataSource(this@remuxEditedVideoWithSourceAudio, request.sourceUri, null)
+        muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+
+        val videoTrackIndex = (0 until videoExtractor.trackCount).firstOrNull { index ->
+            videoExtractor.getTrackFormat(index).mimeType()?.startsWith("video/") == true
+        } ?: error("android_post_video_editor_remux_video_missing")
+        val audioTrackIndex = (0 until audioExtractor.trackCount).firstOrNull { index ->
+            audioExtractor.getTrackFormat(index).mimeType()?.startsWith("audio/") == true
+        } ?: error("android_post_video_editor_remux_audio_missing")
+
+        val muxedVideoTrack = muxer.addTrack(videoExtractor.getTrackFormat(videoTrackIndex))
+        val muxedAudioTrack = muxer.addTrack(audioExtractor.getTrackFormat(audioTrackIndex))
+        muxer.start()
+        muxerStarted = true
+
+        videoExtractor.selectTrack(videoTrackIndex)
+        copySelectedSamplesToMuxer(
+            extractor = videoExtractor,
+            muxer = muxer,
+            muxedTrackIndex = muxedVideoTrack,
+            startUs = 0L,
+            endUs = Long.MAX_VALUE,
+            normalizeFromFirstSample = true
+        )
+
+        audioExtractor.selectTrack(audioTrackIndex)
+        val startUs = (request.trimStartMs * 1000L).coerceAtLeast(0L)
+        val endUs = (request.trimEndMs * 1000L).coerceAtLeast(startUs + 1L)
+        if (startUs > 0L) {
+            audioExtractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+        }
+        copySelectedSamplesToMuxer(
+            extractor = audioExtractor,
+            muxer = muxer,
+            muxedTrackIndex = muxedAudioTrack,
+            startUs = startUs,
+            endUs = endUs,
+            normalizeFromFirstSample = false
+        )
+
+        muxer.stop()
+        muxerStarted = false
+        completed = true
+        Uri.fromFile(outputFile)
+    } finally {
+        runCatching {
+            if (!completed && muxerStarted) muxer?.stop()
+        }
+        runCatching { muxer?.release() }
+        runCatching { videoExtractor.release() }
+        runCatching { audioExtractor.release() }
+        if (!completed) {
+            runCatching { outputFile.delete() }
+        }
+    }
+}
+
+private fun copySelectedSamplesToMuxer(
+    extractor: MediaExtractor,
+    muxer: MediaMuxer,
+    muxedTrackIndex: Int,
+    startUs: Long,
+    endUs: Long,
+    normalizeFromFirstSample: Boolean
+) {
+    val maxInputSize = extractor.selectedTrackMaxInputSize().coerceAtLeast(DirectStreamCopyDefaultBufferSize)
+    val buffer = ByteBuffer.allocateDirect(maxInputSize)
+    val bufferInfo = MediaCodec.BufferInfo()
+    var firstPresentationTimeUs: Long? = null
+    var wroteSample = false
+    while (true) {
+        val sampleTimeUs = extractor.sampleTime
+        if (sampleTimeUs < 0L) break
+        if (sampleTimeUs < startUs) {
+            extractor.advance()
+            continue
+        }
+        if (sampleTimeUs > endUs) break
+        buffer.clear()
+        val sampleSize = extractor.readSampleData(buffer, 0)
+        if (sampleSize < 0) break
+        val firstTimeUs = if (normalizeFromFirstSample) {
+            firstPresentationTimeUs ?: sampleTimeUs.also { firstPresentationTimeUs = it }
+        } else {
+            startUs
+        }
+        buffer.position(0)
+        buffer.limit(sampleSize)
+        bufferInfo.set(
+            0,
+            sampleSize,
+            (sampleTimeUs - firstTimeUs).coerceAtLeast(0L),
+            extractor.sampleFlags.toMediaCodecBufferFlags()
+        )
+        muxer.writeSampleData(muxedTrackIndex, buffer, bufferInfo)
+        wroteSample = true
+        extractor.advance()
+    }
+    check(wroteSample) { "android_post_video_editor_remux_track_empty" }
+}
+
+private fun MediaExtractor.selectedTrackMaxInputSize(): Int {
+    val trackIndex = sampleTrackIndex.takeIf { it >= 0 } ?: return DirectStreamCopyDefaultBufferSize
+    return getTrackFormat(trackIndex).maxInputSizeOrNull() ?: DirectStreamCopyDefaultBufferSize
+}
+
+private fun Uri.hasMediaTrack(context: Context, audio: Boolean): Boolean {
+    val extractor = MediaExtractor()
+    return try {
+        extractor.setDataSource(context, this, null)
+        (0 until extractor.trackCount).any { index ->
+            val mimeType = extractor.getTrackFormat(index).mimeType()
+            if (audio) mimeType?.startsWith("audio/") == true else mimeType?.startsWith("video/") == true
+        }
+    } catch (_: Throwable) {
+        false
+    } finally {
+        runCatching { extractor.release() }
     }
 }
 

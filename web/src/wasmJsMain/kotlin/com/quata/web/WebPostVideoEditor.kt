@@ -710,7 +710,9 @@ private fun webPostVideoEditorExportEditedJs(
           const activeExport = {
             cancel: () => {
               globalThis.__quataPostVideoEditorCancelRequested = true;
-              try { recorder?.stop?.(); } catch (_) {}
+              try {
+                if (recorder && recorder.state !== 'inactive') recorder.stop?.();
+              } catch (_) {}
               failOnce('web_post_video_editor_export_cancelled');
             }
           };
@@ -737,10 +739,16 @@ private fun webPostVideoEditorExportEditedJs(
               mediaStream?.getAudioTracks?.().forEach(track => stream.addTrack(track));
             } catch (_) {}
           }
+          if (!removeAudio && !stream.getAudioTracks?.().length) {
+            throw Error('web_post_video_editor_audio_stream_missing_without_mute');
+          }
           const chunks = [];
           let drawnFrameCount = 0;
           let exportStartedAt = 0;
           let elapsedAtStopMs = 0;
+          let sourceFrozenAtTrimEnd = false;
+          let recorderStarted = false;
+          let recorderStopRequested = false;
           const mimeType = globalThis.MediaRecorder.isTypeSupported?.('video/webm;codecs=vp8')
             ? 'video/webm;codecs=vp8'
             : 'video/webm';
@@ -750,6 +758,11 @@ private fun webPostVideoEditorExportEditedJs(
           });
           recorder.ondataavailable = event => { if (event.data && event.data.size) chunks.push(event.data); };
           recorder.onerror = event => failOnce(event?.error?.message || 'web_post_video_editor_recorder_failed');
+          function stopRecorderOnce() {
+            if (recorderStopRequested) return;
+            recorderStopRequested = true;
+            if (recorder && recorder.state !== 'inactive') recorder.stop();
+          }
           recorder.onstop = () => {
             if (finished || globalThis.__quataPostVideoEditorCancelRequested) return;
             const blob = new Blob(chunks, { type: mimeType });
@@ -800,7 +813,9 @@ private fun webPostVideoEditorExportEditedJs(
           const requestedEndMs = Math.max(startMs + 500, Number(trimEndMs) || hintedDurationMs);
           const endMs = Math.min(hintedDurationMs, requestedEndMs);
           const durationMs = Math.max(500, endMs - startMs);
-          const stopPaddingMs = Math.min(1600, Math.max(500, durationMs * 0.85, 1000 / fps * 12));
+          const stopPaddingMs = removeAudio
+            ? Math.min(650, Math.max(480, 1000 / fps * 16))
+            : Math.min(350, Math.max(120, 1000 / fps * 4));
           const minimumCaptureFrames = Math.max(1, Math.ceil(((durationMs + stopPaddingMs) / 1000) * captureTickRate));
           const sourceStartMs = Math.min(startMs * sourceScale, Math.max(0, actualDurationMs - 500));
           const crop = {
@@ -952,16 +967,31 @@ private fun webPostVideoEditorExportEditedJs(
             canvasTrack?.requestFrame?.();
           }
           video.onseeked = () => {
-            recorder.start(250);
+            if (recorderStarted) return;
+            recorderStarted = true;
+            if (recorder.state !== 'inactive') return;
+            try {
+              recorder.start(250);
+            } catch (error) {
+              failOnce(error?.message || 'web_post_video_editor_recorder_start_failed');
+              return;
+            }
             video.play?.().catch(() => {});
             exportStartedAt = performance.now();
             const tick = () => {
               if (globalThis.__quataPostVideoEditorCancelRequested) {
-                try { recorder.stop(); } catch (_) {}
+                try { stopRecorderOnce(); } catch (_) {}
                 failOnce('web_post_video_editor_export_cancelled');
                 return;
               }
               const elapsedMs = Math.max(0, performance.now() - exportStartedAt);
+              if (!sourceFrozenAtTrimEnd && elapsedMs >= durationMs) {
+                sourceFrozenAtTrimEnd = true;
+                try {
+                  video.pause?.();
+                  video.currentTime = Math.min((sourceStartMs + durationMs) / 1000, Math.max(0, Number(video.duration) || 0));
+                } catch (_) {}
+              }
               drawFrame(Math.min(durationMs, elapsedMs));
               drawnFrameCount += 1;
               onProgress(Math.min(0.95, 0.35 + (elapsedMs / Math.max(1, durationMs)) * 0.6));
@@ -971,7 +1001,7 @@ private fun webPostVideoEditorExportEditedJs(
                 try { globalThis.cancelAnimationFrame?.(timer); } catch (_) {}
                 try { clearTimeout(timer); } catch (_) {}
                 video.pause?.();
-                recorder.stop();
+                stopRecorderOnce();
                 return;
               }
               timer = setTimeout(tick, 1000 / captureTickRate);

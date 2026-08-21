@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -457,6 +458,8 @@ class PostPublishRealInstrumentedTest {
     fun authenticatedUserExercisesPostVideoEditorFromCommonComposer() = runBlocking {
         val credentialsFile = optionalArgument("quataPostPublishCredentialsFile")
         val fixturePath = optionalArgument("quataPostVideoEditorFixturePath")
+        val shouldMuteExport = optionalArgument("quataPostVideoEditorMute") == "1"
+        val evidenceLabel = if (shouldMuteExport) "muted" else "unmuted"
         assumeTrue(
             "POST-VIDEO-EDITOR-ANDROID-REAL-001 is opt-in and requires local credentials plus a valid MP4 fixture.",
             !credentialsFile.isNullOrBlank() &&
@@ -509,9 +512,29 @@ class PostPublishRealInstrumentedTest {
                     }.isSuccess
                 }
             }
-            compose.onAllNodesWithTag(PostVideoEditorMuteTestTag, useUnmergedTree = true)
-                .filterToOne(hasClickAction())
-                .performClick()
+            fun editorMuteActionLabel(): String {
+                val node = compose.onAllNodesWithTag(PostVideoEditorMuteTestTag, useUnmergedTree = true)
+                    .filterToOne(hasClickAction())
+                    .fetchSemanticsNode()
+                val state = node.config.getOrNull(SemanticsProperties.StateDescription).orEmpty()
+                val text = node.config.getOrNull(SemanticsProperties.Text)
+                    .orEmpty()
+                    .joinToString(" ") { it.text }
+                return "$state $text".lowercase()
+            }
+            fun editorIsMuted(): Boolean {
+                val label = editorMuteActionLabel()
+                return label.contains("activar") || label.contains("unmute")
+            }
+            fun setEditorMuted(muted: Boolean) {
+                if (editorIsMuted() != muted) {
+                    compose.onAllNodesWithTag(PostVideoEditorMuteTestTag, useUnmergedTree = true)
+                        .filterToOne(hasClickAction())
+                        .performClick()
+                }
+                compose.waitUntil(5_000) { editorIsMuted() == muted }
+            }
+            setEditorMuted(true)
             compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performScrollTo()
@@ -566,6 +589,7 @@ class PostPublishRealInstrumentedTest {
             }
             compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true)
                 .performClick()
+            setEditorMuted(shouldMuteExport)
             saveScreenshot("android-post-video-editor-opened")
             compose.onAllNodesWithTag(PostVideoEditorExportTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
@@ -603,7 +627,7 @@ class PostPublishRealInstrumentedTest {
             }
             assertTrue("android_video_editor_export_returned_to_selected_preview", returnedToPreview)
             saveScreenshot("android-post-video-editor-exported-preview")
-            copyLatestEditedVideoEvidence()
+            copyLatestEditedVideoEvidence(evidenceLabel)
         }
 
         writePickerReport("video-editor", "success")
@@ -682,12 +706,12 @@ class PostPublishRealInstrumentedTest {
         )
     }
 
-    private fun copyLatestEditedVideoEvidence() {
+    private fun copyLatestEditedVideoEvidence(label: String) {
         val latest = targetContext.cacheDir
             .listFiles { file -> file.name.startsWith("quata-edited-video-") && file.extension == "mp4" }
             ?.maxByOrNull { it.lastModified() }
             ?: error("android_post_video_editor_export_file_missing")
-        val output = File(evidenceDir(), "android-post-video-editor-export.mp4")
+        val output = File(evidenceDir(), "android-post-video-editor-export-$label.mp4")
         latest.copyTo(output, overwrite = true)
         check(output.length() > 0L) { "android_post_video_editor_export_file_empty" }
     }
