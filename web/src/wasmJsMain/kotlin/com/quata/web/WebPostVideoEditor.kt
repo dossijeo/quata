@@ -701,17 +701,18 @@ private fun webPostVideoEditorExportEditedJs(
             }
           };
           const actualDurationMs = Math.max(500, (Number(video.duration) || 0) * 1000);
-          const hintedDurationMs = Math.max(1, Number(sourceDurationMs) || actualDurationMs);
-          const scale = actualDurationMs > 0 && hintedDurationMs > actualDurationMs * 1.5
+          const hintedDurationMs = Math.max(actualDurationMs, Number(sourceDurationMs) || actualDurationMs);
+          const sourceScale = actualDurationMs > 0 && hintedDurationMs > actualDurationMs * 1.5
             ? actualDurationMs / hintedDurationMs
             : 1;
           const startMs = Math.min(
-            Math.max(0, Number(trimStartMs) || 0) * scale,
-            Math.max(0, actualDurationMs - 500)
+            Math.max(0, Number(trimStartMs) || 0),
+            Math.max(0, hintedDurationMs - 500)
           );
-          const requestedEndMs = Math.max(startMs + 500, (Number(trimEndMs) || actualDurationMs) * scale);
-          const endMs = Math.min(actualDurationMs, requestedEndMs);
-          const durationMs = endMs - startMs;
+          const requestedEndMs = Math.max(startMs + 500, Number(trimEndMs) || hintedDurationMs);
+          const endMs = Math.min(hintedDurationMs, requestedEndMs);
+          const durationMs = Math.max(500, endMs - startMs);
+          const sourceStartMs = Math.min(startMs * sourceScale, Math.max(0, actualDurationMs - 500));
           const crop = {
             left: Math.max(0, Math.min(1, Number(cropLeft) || 0)),
             top: Math.max(0, Math.min(1, Number(cropTop) || 0)),
@@ -825,7 +826,7 @@ private fun webPostVideoEditorExportEditedJs(
               drawHeight
             );
           }
-          function drawFrame() {
+          function drawFrame(exportTimeMs) {
             context.fillStyle = '#000000';
             context.fillRect(0, 0, canvas.width, canvas.height);
             context.save();
@@ -836,7 +837,7 @@ private fun webPostVideoEditorExportEditedJs(
             context.fillRect(0, 0, canvas.width, canvas.height);
             drawCropFit(crop);
             if (caption) {
-              drawCaptionSegment(segmentAt((video.currentTime * 1000) - startMs), (video.currentTime * 1000) - startMs);
+              drawCaptionSegment(segmentAt(exportTimeMs), exportTimeMs);
             }
           }
           video.onseeked = () => {
@@ -849,19 +850,18 @@ private fun webPostVideoEditorExportEditedJs(
                 failOnce('web_post_video_editor_export_cancelled');
                 return;
               }
-              drawFrame();
               const elapsedMs = Math.max(0, performance.now() - startedAt);
+              drawFrame(Math.min(durationMs, elapsedMs));
               onProgress(Math.min(0.95, 0.35 + (elapsedMs / Math.max(1, durationMs)) * 0.6));
               const reachedRequestedDuration = elapsedMs >= durationMs;
-              const reachedSourceEndAfterMostOfTrim = (video.currentTime * 1000) >= endMs && elapsedMs >= Math.min(durationMs, Math.max(500, durationMs * 0.9));
-              if (reachedRequestedDuration || reachedSourceEndAfterMostOfTrim) {
+              if (reachedRequestedDuration) {
                 clearInterval(timer);
                 video.pause?.();
                 recorder.stop();
               }
             }, 1000 / fps);
           };
-          video.currentTime = startMs / 1000;
+          video.currentTime = sourceStartMs / 1000;
         })).then(onSuccess).catch(error => onFailure(String(error?.message || error || 'web_post_video_editor_export_failed').slice(0, 160)));
       } catch (error) {
         onFailure(String(error?.message || error || 'web_post_video_editor_export_failed').slice(0, 160));

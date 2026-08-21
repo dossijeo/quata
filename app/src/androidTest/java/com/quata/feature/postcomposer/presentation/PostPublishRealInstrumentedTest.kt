@@ -499,7 +499,11 @@ class PostPublishRealInstrumentedTest {
             compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
+            compose.waitUntil(5_000) {
+                runCatching { compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
             compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true)
+                .performScrollTo()
                 .performClick()
             compose.onNodeWithTag(PostVideoEditorPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode()
             compose.onAllNodesWithTag(PostVideoEditorCaptionsTestTag, useUnmergedTree = true)
@@ -518,7 +522,11 @@ class PostPublishRealInstrumentedTest {
             compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
+            compose.waitUntil(5_000) {
+                runCatching { compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
             compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true)
+                .performScrollTo()
                 .performClick()
             compose.onAllNodesWithTag(PostVideoEditorCaptionsTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
