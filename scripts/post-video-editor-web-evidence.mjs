@@ -292,18 +292,25 @@ async function invokeVideoEditorAction(page, action, ...args) {
     export: "post-video-editor.export",
     cancelExport: "post-video-editor.cancel-export",
   }[action];
+  if (action === "export" || action === "cancelExport") {
+    if (await invokeVideoEditorBridgeAction(page, action, args)) return;
+  }
   if (id && await semanticLocator(page, id).then(async (locator) => {
     await locator.click({ force: true, timeout: 800 });
     return true;
   }).catch(() => false)) return;
-  const invoked = await page.evaluate(({ name, args: bridgeArgs }) => {
+  const invoked = await invokeVideoEditorBridgeAction(page, action, args);
+  if (!invoked) throw new Error(`missing_stable_anchor:${id || action}`);
+}
+
+async function invokeVideoEditorBridgeAction(page, action, args) {
+  return page.evaluate(({ name, args: bridgeArgs }) => {
     const bridge = globalThis.__quataPostVideoEditorE2eProduct;
     const bridgeName = name === "cancelExport" ? "dismiss" : name;
     if (typeof bridge?.[bridgeName] !== "function") return false;
     bridge[bridgeName](...bridgeArgs);
     return true;
   }, { name: action, args });
-  if (!invoked) throw new Error(`missing_stable_anchor:${id || action}`);
 }
 
 function assertWebVideoEditorExportParity(exportState, { expectCaptions = false, expectMute = true } = {}) {
