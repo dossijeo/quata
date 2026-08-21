@@ -810,7 +810,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditor, /recordCaptionStyleChange/);
   assert.doesNotMatch(iosPostVideoEditor, /iosPostVideoEditorE2eInitialMute/);
   assert.doesNotMatch(iosPostVideoEditor, /QUATA_IOS_POST_VIDEO_EDITOR_MUTE/);
-  assert.match(iosPostPublishTest, /tapVideoCaptionStyle\("Karaoke"/);
+  assert.match(iosPostPublishTest, /post-video-editor\.caption-preview\.Karaoke/);
   assert.match(iosPostPublishTest, /dragVideoTrimEnd\(toNormalizedX: 0\.64/);
   assert.match(iosPostPublishTest, /post-video-editor\.trim-end/);
   assert.match(iosPostPublishTest, /post-video-editor\.timeline-frame\.\S+index/);

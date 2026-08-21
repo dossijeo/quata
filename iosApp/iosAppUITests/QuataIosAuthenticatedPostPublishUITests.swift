@@ -256,7 +256,6 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         tapComposerAction("post-video-editor.play-pause", in: app)
         dragVideoTrimEnd(toNormalizedX: 0.64, in: app)
         tapComposerAction("post-video-editor.captions", in: app)
-        try tapVideoCaptionStyle("Karaoke", in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)
                 .matching(identifier: "post-video-editor.caption-preview.Karaoke")

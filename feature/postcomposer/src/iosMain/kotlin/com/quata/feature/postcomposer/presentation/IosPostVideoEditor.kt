@@ -274,7 +274,13 @@ internal fun IosPostVideoEditor(
         onTrimStartChange = { state = postVideoEditorStateAfterTrimStart(state, it, durationMs) },
         onTrimEndChange = { state = postVideoEditorStateAfterTrimEnd(state, it, durationMs) },
         onCropToggle = { state = postVideoEditorStateAfterCropToggle(state) },
-        onCaptionsToggle = { state = postVideoEditorStateAfterCaptionsToggle(state) },
+        onCaptionsToggle = {
+            val nextState = postVideoEditorStateAfterCaptionsToggle(state)
+            if (!state.captionsEnabled && nextState.selectedCaptionStyleId != null) {
+                nativeDriver.recordCaptionStyleChange(nextState.selectedCaptionStyleId)
+            }
+            state = nextState
+        },
         onReset = { state = postVideoEditorStateAfterReset(state, durationMs) },
         onDismiss = onDismiss,
         onExport = ::export,
