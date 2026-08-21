@@ -256,6 +256,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         tapComposerAction("post-video-editor.play-pause", in: app)
         dragVideoTrimEnd(toNormalizedX: 0.64, in: app)
         tapComposerAction("post-video-editor.captions", in: app)
+        revealVideoEditorPreview(in: app)
         XCTAssertTrue(
             app.descendants(matching: .any)
                 .matching(identifier: "post-video-editor.caption-preview.Karaoke")
@@ -265,6 +266,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         )
         tapComposerAction("post-video-editor.crop", in: app)
         tapComposerAction("post-video-editor.crop-mode.Square", in: app)
+        revealVideoEditorPreview(in: app)
         QuataIosHostUITestSupport.assertElementHasNonBlackPixels(
             editorPreview,
             named: "ios-post-video-editor-preview-after-crop-captions",
@@ -539,6 +541,29 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             let end = editorPreview.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.20))
             start.press(forDuration: 0.05, thenDragTo: end)
         }
+    }
+
+    private func revealVideoEditorPreview(in app: XCUIApplication) {
+        let editorPreview = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.preview")
+            .firstMatch
+        for _ in 0..<8 {
+            if editorPreview.exists && editorPreview.isHittable {
+                return
+            }
+            let editorRoot = app.descendants(matching: .any)
+                .matching(identifier: "post-video-editor.root")
+                .firstMatch
+            if editorRoot.exists {
+                let start = editorRoot.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.30))
+                let end = editorRoot.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.82))
+                start.press(forDuration: 0.05, thenDragTo: end)
+            } else {
+                app.swipeDown()
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        XCTAssertTrue(editorPreview.exists, "The shared video editor preview must be reachable before visual overlay assertions.")
     }
 
     private func dragVideoTrimEnd(toNormalizedX targetX: CGFloat, in app: XCUIApplication) {
