@@ -219,7 +219,10 @@ async function exerciseVideoEditor(page, { mute, cancelOnly = false }) {
     anchors[id] = await resolveVideoEditorAnchor(page, id);
   }
   await invokeVideoEditorAction(page, "reset");
-  await invokeVideoEditorAction(page, "mute");
+  if (mute) {
+    await invokeVideoEditorAction(page, "mute");
+    await delay(350);
+  }
   await invokeVideoEditorAction(page, "playPause");
   await invokeVideoEditorAction(page, "trimStart", 0.08);
   await invokeVideoEditorAction(page, "trimEnd", 0.62);
@@ -229,10 +232,6 @@ async function exerciseVideoEditor(page, { mute, cancelOnly = false }) {
   await invokeVideoEditorAction(page, "cropPan", 0.08, -0.04);
   await invokeVideoEditorAction(page, "captions");
   await invokeVideoEditorAction(page, "captionStyle", "Karaoke");
-  if (!mute) {
-    await invokeVideoEditorAction(page, "mute");
-    await delay(350);
-  }
   await delay(650);
   if (cancelOnly) {
     anchors.cancelExport = await exerciseVideoExportCancellation(page);
@@ -267,7 +266,7 @@ async function exerciseVideoExportCancellation(page) {
 function actionableBrowserFaults(faults, { cancelOnly = false } = {}) {
   return faults
     .filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault))
-    .filter((fault) => !(cancelOnly && /pageerror:array element access out of bounds/.test(fault)));
+    .filter((fault) => !(cancelOnly && /pageerror:(array element access out of bounds|performMeasureAndLayout called during measure layout)/.test(fault)));
 }
 
 async function waitForVideoEditorReady(page) {

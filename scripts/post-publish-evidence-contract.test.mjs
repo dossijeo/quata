@@ -669,7 +669,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /dismiss = \{\s*if \(state\.isExporting\)/);
   assert.match(webPostVideoEditor, /if \(globalThis\.__quataPostVideoEditorCancelRequested\) \{\s*onFailure\('web_post_video_editor_export_cancelled'\); return;/);
   assert.doesNotMatch(webPostVideoEditor, /globalThis\.__quataPostVideoEditorCancelRequested = false;\s*const failOnce/);
-  assert.match(webPostVideoEditor, /canvas\.captureStream\?\.\(0\) \|\| canvas\.captureStream\?\.\(fps\)/);
+  assert.match(webPostVideoEditor, /canvas\.captureStream\?\.\(fps\) \|\| canvas\.captureStream\?\.\(0\)/);
   assert.match(webPostVideoEditor, /const canvasTrack = stream\.getVideoTracks\?\.\(\)\[0\]/);
   assert.match(webPostVideoEditor, /const captureTickRate = fps/);
   assert.match(webPostVideoEditor, /web_post_video_editor_audio_stream_missing_without_mute/);
@@ -960,6 +960,7 @@ test("post video editor Solo parity gaps stay fail-closed", () => {
   assert.match(webPostVideoEditor, /resumeWithException\(IllegalStateException\(it\)\)/);
   assert.match(webPostVideoEditor, /web_post_video_editor_metadata_loading/);
   assert.match(webPostVideoEditor, /isExporting: \(\) => Boolean\(isExporting\(\)\)/);
+  assert.match(webPostVideoEditor, /canvas\.captureStream\?\.\(fps\) \|\| canvas\.captureStream\?\.\(0\)/);
   assert.match(webVideoEditorRunner, /label: "cancel", mute: true, cancelOnly: true/);
   assert.match(webVideoEditorRunner, /exerciseVideoExportCancellation\(/);
   assert.match(webVideoEditorRunner, /action === "export" \|\| action === "cancelExport"/);

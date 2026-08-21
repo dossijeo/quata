@@ -755,7 +755,7 @@ private fun webPostVideoEditorExportEditedJs(
           if (!context) throw Error('web_post_video_editor_canvas_context_unavailable');
           const fps = Math.max(1, Math.min(60, Number(outputMaxFrameRate) || 30));
           const captureTickRate = fps;
-          stream = canvas.captureStream?.(0) || canvas.captureStream?.(fps);
+          stream = canvas.captureStream?.(fps) || canvas.captureStream?.(0);
           if (!stream || typeof globalThis.MediaRecorder !== 'function') {
             throw Error('web_post_video_editor_media_recorder_unavailable');
           }
