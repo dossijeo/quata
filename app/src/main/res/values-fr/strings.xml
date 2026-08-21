@@ -538,7 +538,7 @@
     <string name="official_translation_message">Le texte semble etre en %1$s. Voulez-vous generer automatiquement les versions en %2$s ?</string>
     <string name="official_translation_confirm">Generer</string>
     <string name="official_translation_skip">Publier ainsi</string>
-    <string name="official_translation_progress">Traduction...</string>
+    <string name="official_translation_progress">Traduction…</string>
     <string name="official_language_spanish">espagnol</string>
     <string name="official_language_english">anglais</string>
     <string name="official_language_french">francais</string>

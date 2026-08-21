@@ -391,7 +391,7 @@
     <string name="image_editor_reset">Original</string>
     <string name="image_editor_rotate">Rotar</string>
     <string name="video_editor_export">Guardar</string>
-    <string name="video_editor_helper">Revisa el video, ajusta el tramo y guarda una copia editada.</string>
+    <string name="video_editor_helper">Revisa el vídeo, ajusta el tramo y guarda una copia editada.</string>
     <string name="video_editor_trim_start">Inicio</string>
     <string name="video_editor_trim_end">Fin</string>
     <string name="video_editor_mute">Silenciar</string>
@@ -400,14 +400,14 @@
     <string name="video_editor_pause">Pausar</string>
     <string name="video_editor_crop">Recorte</string>
     <string name="video_editor_apply">Aplicar</string>
-    <string name="video_editor_captions">Subtitulos</string>
+    <string name="video_editor_captions">Subtítulos</string>
     <string name="video_editor_reset">Restablecer</string>
     <string name="video_editor_cancel">Cancelar</string>
-    <string name="video_editor_exporting">Exportando...</string>
+    <string name="video_editor_exporting">Exportando…</string>
     <string name="video_editor_current_time">Actual</string>
-    <string name="video_editor_selected_duration">Duracion</string>
-    <string name="video_editor_max_duration_warning">El video supera la duracion maxima. Ajusta el tramo antes de guardar.</string>
-    <string name="video_editor_captions_none">Sin subtitulos</string>
+    <string name="video_editor_selected_duration">Duración</string>
+    <string name="video_editor_max_duration_warning">El vídeo supera la duración máxima. Ajusta el tramo antes de guardar.</string>
+    <string name="video_editor_captions_none">Sin subtítulos</string>
     <string name="video_editor_export_failed">No se pudo exportar el vídeo</string>
     <string name="video_editor_cancel_export_title">¿Cancelar exportación?</string>
     <string name="video_editor_cancel_export_message">La exportación del vídeo sigue en curso. Si la cancelas, se eliminará el archivo temporal.</string>
@@ -539,7 +539,7 @@
     <string name="official_translation_message">El texto parece estar en %1$s. &#191;Quieres generar autom&#225;ticamente las versiones en %2$s?</string>
     <string name="official_translation_confirm">Generar</string>
     <string name="official_translation_skip">Publicar as&#237;</string>
-    <string name="official_translation_progress">Traduciendo...</string>
+    <string name="official_translation_progress">Traduciendo…</string>
     <string name="official_language_spanish">espa&#241;ol</string>
     <string name="official_language_english">ingl&#233;s</string>
     <string name="official_language_french">franc&#233;s</string>

@@ -572,7 +572,7 @@
     <string name="official_translation_message">The text looks like it is in %1$s. Do you want to generate the %2$s versions automatically?</string>
     <string name="official_translation_confirm">Generate</string>
     <string name="official_translation_skip">Publish as is</string>
-    <string name="official_translation_progress">Translating...</string>
+    <string name="official_translation_progress">Translating…</string>
     <string name="official_language_spanish">Spanish</string>
     <string name="official_language_english">English</string>
     <string name="official_language_french">French</string>
