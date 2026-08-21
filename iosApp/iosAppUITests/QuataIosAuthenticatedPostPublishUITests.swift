@@ -425,11 +425,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         for _ in 0..<8 {
             let action = buttonAction.waitForExistence(timeout: 1) ? buttonAction : fallbackAction
             if action.waitForExistence(timeout: 1), action.isHittable {
-                if identifier.hasPrefix("post-video-editor.caption-style.") {
-                    action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.15)
-                } else {
-                    action.tap()
-                }
+                action.tap()
                 return
             }
             app.swipeUp()
@@ -451,13 +447,17 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.25))
                 continue
             }
-            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.18)
+            button.tap()
+            if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
+                return
+            }
+            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
                 return
             }
             let visibleText = app.staticTexts.matching(identifier: style).firstMatch
             if visibleText.exists {
-                visibleText.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.18)
+                visibleText.tap()
             }
             if app.descendants(matching: .any).matching(identifier: selectedIdentifier).firstMatch.waitForExistence(timeout: 1) {
                 return

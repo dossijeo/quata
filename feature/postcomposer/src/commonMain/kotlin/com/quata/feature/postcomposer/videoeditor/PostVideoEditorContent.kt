@@ -606,68 +606,72 @@ private fun CommonCaptionControls(
                     val styleTag = "post-video-editor.caption-style.${id ?: "none"}"
                     val selectedStyleTag = "post-video-editor.caption-style-selected.${id ?: "none"}"
                     val selected = id == selectedId
-                    val itemModifier = Modifier
-                        .weight(1f)
-                        .height(44.dp)
-                        .testTag(styleTag)
-                        .semantics(mergeDescendants = true) {
-                            role = Role.Button
-                            this.selected = selected
-                            contentDescription = styleTag
-                            onClick {
-                                onStyleChange(id)
-                                true
-                            }
-                            if (selected) {
-                                contentDescription = selectedStyleTag
-                            }
-                        }
-                    Surface(
-                        onClick = { onStyleChange(id) },
-                        modifier = itemModifier,
-                        shape = RoundedCornerShape(22.dp),
-                        color = if (selected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.surface
-                        },
-                        contentColor = if (selected) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (selected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.outlineVariant
-                            },
-                        ),
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp),
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
+                        Surface(
+                            onClick = { onStyleChange(id) },
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = 12.dp),
-                        ) {
-                            if (selected) {
-                                CompactIcon(Icons.Filled.Subtitles, null)
-                                Spacer(Modifier.width(4.dp))
-                            }
-                            Text(
-                                option.label,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = if (selected) {
-                                    Modifier
-                                        .testTag(selectedStyleTag)
-                                        .semantics { contentDescription = selectedStyleTag }
-                                } else {
-                                    Modifier
+                                .testTag(styleTag)
+                                .semantics(mergeDescendants = true) {
+                                    role = Role.Button
+                                    this.selected = selected
+                                    contentDescription = styleTag
+                                    onClick {
+                                        onStyleChange(id)
+                                        true
+                                    }
                                 },
+                            shape = RoundedCornerShape(22.dp),
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            },
+                            contentColor = if (selected) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant
+                                },
+                            ),
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 12.dp),
+                            ) {
+                                if (selected) {
+                                    CompactIcon(Icons.Filled.Subtitles, null)
+                                    Spacer(Modifier.width(4.dp))
+                                }
+                                Text(
+                                    option.label,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                        if (selected) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .testTag(selectedStyleTag)
+                                    .semantics {
+                                        contentDescription = selectedStyleTag
+                                    },
                             )
                         }
                     }
