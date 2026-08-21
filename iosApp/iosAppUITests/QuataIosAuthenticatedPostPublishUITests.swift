@@ -489,7 +489,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
                 target = semanticTarget
                 break
             }
-            app.swipeUp()
+            scrollVideoEditorControlsDown(in: app)
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
         guard let target = target else {
@@ -498,7 +498,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         }
         for _ in 0..<4 {
             if !target.isHittable {
-                app.swipeUp()
+                scrollVideoEditorControlsDown(in: app)
                 RunLoop.current.run(until: Date().addingTimeInterval(0.25))
                 continue
             }
@@ -520,6 +520,26 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         }
         XCTFail("Selecting common video caption style \(style) did not update the shared editor state.")
         throw ReplayError.captionStyleSelectionFailed(style)
+    }
+
+    private func scrollVideoEditorControlsDown(in app: XCUIApplication) {
+        let editorRoot = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.root")
+            .firstMatch
+        if editorRoot.exists {
+            let start = editorRoot.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.78))
+            let end = editorRoot.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
+            start.press(forDuration: 0.05, thenDragTo: end)
+            return
+        }
+        let editorPreview = app.descendants(matching: .any)
+            .matching(identifier: "post-video-editor.preview")
+            .firstMatch
+        if editorPreview.exists {
+            let start = editorPreview.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.86))
+            let end = editorPreview.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.20))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
     }
 
     private func dragVideoTrimEnd(toNormalizedX targetX: CGFloat, in app: XCUIApplication) {
