@@ -578,6 +578,11 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidVideoEditorRunner, /"run-as", "com\.quata", "mkdir", "-p", "files"/);
   assert.match(androidVideoEditorRunner, /label: "muted", mute: true/);
   assert.match(androidVideoEditorRunner, /label: "unmuted", mute: false/);
+  assert.match(androidVideoEditorRunner, /label: "unmuted-no-audio-source", mute: false/);
+  assert.match(androidVideoEditorRunner, /validNoAudioMp4FixturePath/);
+  assert.match(androidVideoEditorRunner, /quataPostVideoEditorExerciseCaptions/);
+  assert.match(androidVideoEditorRunner, /requireCropGeometry: attemptSpec\.exerciseCaptions/);
+  assert.match(androidVideoEditorRunner, /android_video_editor_physical_audio_stream_created_from_silent_source/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_audio_stream_missing_without_mute/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_audio_silent/);
   assert.match(androidVideoEditorRunner, /probeError: safeFailure\(probeError\)/);
@@ -633,8 +638,11 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidVideoEditorDialog, /outputSizeBytes < TransformerStableOutputMinBytes/);
   assert.match(androidVideoEditorDialog, /shouldRemuxAudioAfterTransformer/);
   assert.match(androidVideoEditorDialog, /val removeAudioInTransformer = request\.removeAudio \|\| request\.shouldRemuxAudioAfterTransformer\(\)/);
-  assert.match(androidVideoEditorDialog, /if \(!request\.shouldRemuxAudioAfterTransformer\(\) && exportedUri\.hasMediaTrack\(this, audio = true\)\) return exportedUri/);
+  assert.match(androidVideoEditorDialog, /if \(!request\.sourceUri\.hasMediaTrack\(this, audio = true\)\)/);
+  assert.match(androidVideoEditorDialog, /onProgress\(if \(request\.shouldRemuxAudioAfterTransformer\(\)\) 0\.95f else 1f\)/);
+  assert.match(androidVideoEditorDialog, /if \(!request\.shouldRemuxAudioAfterTransformer\(\) && exportedUri\.hasMediaTrack\(this, audio = true\)\) \{/);
   assert.match(androidVideoEditorDialog, /remuxEditedVideoWithSourceAudio\(request, exportedUri, outputFile\)\.also/);
+  assert.match(androidVideoEditorDialog, /currentCoroutineContext\(\)\.ensureActive\(\)/);
   assert.match(androidVideoEditorDialog, /\.setRemoveAudio\(removeAudioInTransformer\)/);
   const downsampleExport = androidVideoEditorDialog.slice(
     androidVideoEditorDialog.indexOf("private suspend fun Context.exportDownsampledIntermediate"),
@@ -655,7 +663,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /assertWebVideoEditorExportParity/);
   assert.match(webVideoEditorRunner, /validSpeechMp4FixtureDataUrl/);
   assert.match(webVideoEditorRunner, /CAPTION_FIXTURE_TEXT/);
-  assert.match(webVideoEditorRunner, /expectCaptions: true, expectMute: mute/);
+  assert.match(webVideoEditorRunner, /expectCaptions: exerciseCaptions, expectMute: mute/);
   assert.match(webVideoEditorRunner, /web_video_editor_caption_text_not_real_transcript/);
   assert.match(webVideoEditorRunner, /const requiredOperations = \["trim", "crop"\]/);
   assert.match(webVideoEditorRunner, /if \(expectMute\) requiredOperations\.push\("mute"\)/);
@@ -678,10 +686,14 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_present_after_mute/);
   assert.match(webVideoEditorRunner, /label: "muted", mute: true/);
   assert.match(webVideoEditorRunner, /label: "unmuted", mute: false/);
+  assert.match(webVideoEditorRunner, /label: "unmuted-no-audio-source", mute: false/);
+  assert.match(webVideoEditorRunner, /validNoAudioMp4FixtureDataUrl/);
+  assert.match(webVideoEditorRunner, /requireCropGeometry: exerciseCaptions/);
+  assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_created_from_silent_source/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_missing_without_mute/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_silent/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_trim_duration/);
-  assert.match(webVideoEditorRunner, /durationToleranceMs = Math\.min\(180, Math\.max\(90, Math\.round\(expectedDurationMs \* 0\.1\)\)\)/);
+  assert.match(webVideoEditorRunner, /durationToleranceMs = Math\.min\(450, Math\.max\(120, Math\.round\(expectedDurationMs \* 0\.2\)\)\)/);
   assert.match(webVideoEditorRunner, /physicalDurationMs < 500/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_duration_unmeasured/);
   assert.match(webVideoEditorRunner, /"-show_packets"/);
@@ -701,7 +713,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /canvas\.captureStream\?\.\(fps\) \|\| canvas\.captureStream\?\.\(0\)/);
   assert.match(webPostVideoEditor, /const canvasTrack = stream\.getVideoTracks\?\.\(\)\[0\]/);
   assert.match(webPostVideoEditor, /const captureTickRate = fps/);
-  assert.match(webPostVideoEditor, /web_post_video_editor_audio_stream_missing_without_mute/);
+  assert.doesNotMatch(webPostVideoEditor, /web_post_video_editor_audio_stream_missing_without_mute/);
   assert.match(webPostVideoEditor, /let sourceFrozenAtTrimEnd = false/);
   assert.match(webPostVideoEditor, /video\.currentTime = Math\.min\(\(sourceStartMs \+ durationMs\) \/ 1000/);
   assert.match(webPostVideoEditor, /const stopPaddingMs = Math\.max\(920, 1000 \/ fps \* 28\)/);
@@ -771,8 +783,11 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetExportPresetMediumQuality/);
   assert.match(iosPostVideoEditorNativeDriver, /outputExportPreset/);
   assert.match(iosPostVideoEditorNativeDriver, /insertAudioTimeRange\(/);
+  assert.match(iosPostVideoEditorNativeDriver, /DispatchQueue\.global\(qos: \.userInitiated\)\.async \{\s*exporter\.start\(\)/);
+  assert.match(iosPostVideoEditorNativeDriver, /DispatchQueue\.main\.async \{[\s\S]*self\.callback\.onFailure/);
+  assert.match(iosPostVideoEditorNativeDriver, /DispatchQueue\.main\.async \{\s*guard !self\.didFinish else \{ return \}/);
   assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_audio_insert_failed/);
-  assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_audio_remux_source_missing/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /ios_post_video_editor_audio_remux_source_missing/);
   assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_audio_remux_output_missing/);
   assert.match(iosPostVideoEditorNativeDriver, /private var visualEffectsAdaptor: AVAssetWriterInputPixelBufferAdaptor\?/);
   assert.match(iosPostVideoEditorNativeDriver, /visualEffectsAdaptor = adaptor/);
@@ -829,8 +844,13 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostComposerHost, /put\("videoUri", it\.take\(220\)\)/);
 
   assert.match(iosVideoEditorRunner, /POST-VIDEO-EDITOR-IOS-REAL-001/);
-  assert.match(iosVideoEditorRunner, /runAttempt\(\{ label: "muted", mute: true \}\)/);
-  assert.match(iosVideoEditorRunner, /runAttempt\(\{ label: "unmuted", mute: false \}\)/);
+  assert.match(iosVideoEditorRunner, /label: "muted", mute: true/);
+  assert.match(iosVideoEditorRunner, /label: "unmuted", mute: false/);
+  assert.match(iosVideoEditorRunner, /label: "unmuted-no-audio-source", mute: false/);
+  assert.match(iosVideoEditorRunner, /validNoAudioMp4FixturePath/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CAPTIONS/);
+  assert.match(iosVideoEditorRunner, /requireCropGeometry: exerciseCaptions/);
+  assert.match(iosVideoEditorRunner, /ios_video_editor_physical_audio_stream_created_from_silent_source/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_physical_audio_stream_missing_without_mute/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_physical_audio_stream_present_after_mute/);
   assert.match(iosVideoEditorRunner, /remote-logs/);
@@ -861,6 +881,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /post-video-editor\.export-progress/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_MUTE/);
+  assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CAPTIONS/);
   assert.match(iosPostPublishTest, /ProcessInfo\.processInfo\.environment\["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"\] == "1"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.reset"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.mute"/);

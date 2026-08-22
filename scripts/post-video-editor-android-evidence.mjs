@@ -63,18 +63,20 @@ try {
   await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempCredentialsPath, `files/${deviceCredentialsPath.replace("app-internal:", "")}`]);
   await run(adb, ["shell", "rm", "-f", deviceTempCredentialsPath]);
   const videoFixture = options.videoFixture ?? await validSpeechMp4FixturePath();
-  await run(adb, ["push", videoFixture, deviceTempVideoPath]);
-  await run(adb, ["shell", "chmod", "644", deviceTempVideoPath]);
-  await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempVideoPath, "files/post-video-editor-fixture.mp4"]);
-  await run(adb, ["shell", "rm", "-f", deviceTempVideoPath]);
+  const noAudioVideoFixture = options.noAudioVideoFixture ?? await validNoAudioMp4FixturePath();
   const evidenceDir = resolve(options.evidenceDir);
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   for (const attemptSpec of [
-    { label: "cancel", mute: true, cancelOnly: true },
-    { label: "muted", mute: true },
-    { label: "unmuted", mute: false },
+    { label: "cancel", mute: true, cancelOnly: true, fixture: videoFixture, sourceHasAudio: true, exerciseCaptions: true },
+    { label: "muted", mute: true, fixture: videoFixture, sourceHasAudio: true, exerciseCaptions: true },
+    { label: "unmuted", mute: false, fixture: videoFixture, sourceHasAudio: true, exerciseCaptions: true },
+    { label: "unmuted-no-audio-source", mute: false, fixture: noAudioVideoFixture, sourceHasAudio: false, exerciseCaptions: false },
   ]) {
+    await run(adb, ["push", attemptSpec.fixture, deviceTempVideoPath]);
+    await run(adb, ["shell", "chmod", "644", deviceTempVideoPath]);
+    await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempVideoPath, "files/post-video-editor-fixture.mp4"]);
+    await run(adb, ["shell", "rm", "-f", deviceTempVideoPath]);
     await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
     const instrumentationOutput = await runCapture(adb, [
       "shell", "am", "instrument", "-w", "-r",
@@ -84,6 +86,8 @@ try {
       "-e", "quataPostVideoEditorFixturePath", deviceVideoPath,
       "-e", "quataPostVideoEditorMute", attemptSpec.mute ? "1" : "0",
       "-e", "quataPostVideoEditorCancelOnly", attemptSpec.cancelOnly ? "1" : "0",
+      "-e", "quataPostVideoEditorExerciseCaptions", attemptSpec.exerciseCaptions ? "1" : "0",
+      "-e", "quataPostVideoEditorEvidenceLabel", attemptSpec.label,
       "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
     ], { timeoutMs: 600_000, timeoutError: `android_instrumentation_timeout:${attemptSpec.label}` });
     const attempt = {
@@ -91,6 +95,8 @@ try {
       outcome: "success",
       label: attemptSpec.label,
       mute: attemptSpec.mute,
+      sourceHasAudio: attemptSpec.sourceHasAudio,
+      exerciseCaptions: attemptSpec.exerciseCaptions,
       cancelOnly: Boolean(attemptSpec.cancelOnly),
       instrumentationTail: redactedTail(instrumentationOutput),
     };
@@ -109,7 +115,11 @@ try {
     }
     const exportPath = join(evidenceDir, `android-post-video-editor-export-${attemptSpec.label}.mp4`);
     try {
-      const physicalExport = probeAndroidExport(exportPath, videoFixture, { mute: attemptSpec.mute });
+      const physicalExport = probeAndroidExport(exportPath, attemptSpec.fixture, {
+        mute: attemptSpec.mute,
+        sourceHasAudio: attemptSpec.sourceHasAudio,
+        requireCropGeometry: attemptSpec.exerciseCaptions,
+      });
       report.attempts.push({ ...attempt, status: "passed", physicalExport });
     } catch (probeError) {
       report.attempts.push({ ...attempt, status: "failed", probeError: safeFailure(probeError) });
@@ -150,11 +160,14 @@ function parseArgs(args) {
     videoFixture: process.env.QUATA_POST_VIDEO_EDITOR_FIXTURE?.trim()
       ? resolve(process.env.QUATA_POST_VIDEO_EDITOR_FIXTURE.trim())
       : null,
+    noAudioVideoFixture: process.env.QUATA_POST_VIDEO_EDITOR_NO_AUDIO_FIXTURE?.trim()
+      ? resolve(process.env.QUATA_POST_VIDEO_EDITOR_NO_AUDIO_FIXTURE.trim())
+      : null,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
-    if (!["--out", "--evidence-dir", "--credentials-file", "--video-fixture"].includes(key) || !value || value.startsWith("--")) {
+    if (!["--out", "--evidence-dir", "--credentials-file", "--video-fixture", "--no-audio-video-fixture"].includes(key) || !value || value.startsWith("--")) {
       throw new Error(`invalid_argument:${key}`);
     }
     index += 1;
@@ -162,6 +175,7 @@ function parseArgs(args) {
     if (key === "--evidence-dir") parsed.evidenceDir = resolve(value);
     if (key === "--credentials-file") parsed.credentialsFile = value;
     if (key === "--video-fixture") parsed.videoFixture = resolve(value);
+    if (key === "--no-audio-video-fixture") parsed.noAudioVideoFixture = resolve(value);
   }
   return parsed;
 }
@@ -207,6 +221,32 @@ async function validSpeechMp4FixturePath() {
   return videoPath;
 }
 
+async function validNoAudioMp4FixturePath() {
+  const fixtureDir = resolve(dirname(options.evidenceDir), "post-video-editor-fixtures");
+  await mkdir(fixtureDir, { recursive: true });
+  const videoPath = resolve(fixtureDir, "android-post-video-editor-no-audio-source.mp4");
+  execFileSync("ffmpeg", [
+    "-y",
+    "-f", "lavfi",
+    "-i", "testsrc2=s=720x1280:r=30:d=4",
+    "-an",
+    "-c:v", "libx264",
+    "-pix_fmt", "yuv420p",
+    "-movflags", "+faststart",
+    videoPath,
+  ], { stdio: "pipe" });
+  const fixture = await readFile(videoPath);
+  if (fixture.length < 8_000 || fixture.subarray(4, 8).toString("ascii") !== "ftyp") {
+    throw new Error("invalid_no_audio_mp4_fixture");
+  }
+  report.evidence.noAudioFixture = {
+    source: "generated_ffmpeg_testsrc2_no_audio_fixture",
+    path: videoPath,
+    sizeBytes: fixture.length,
+  };
+  return videoPath;
+}
+
 function powershellQuote(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
@@ -244,7 +284,7 @@ async function copyDeviceEvidence(evidenceDir) {
   }
 }
 
-function probeAndroidExport(outputPath, sourcePath, { mute }) {
+function probeAndroidExport(outputPath, sourcePath, { mute, sourceHasAudio = hasAudioTrack(sourcePath), requireCropGeometry = true }) {
   const ffprobe = JSON.parse(execFileSync("ffprobe", [
     "-v", "error",
     "-print_format", "json",
@@ -256,7 +296,8 @@ function probeAndroidExport(outputPath, sourcePath, { mute }) {
   const audioStream = ffprobe.streams?.find((stream) => stream.codec_type === "audio");
   if (!videoStream) throw new Error("android_video_editor_physical_video_stream_missing");
   if (mute && audioStream) throw new Error("android_video_editor_physical_audio_stream_present_after_mute");
-  if (!mute && !audioStream) throw new Error("android_video_editor_physical_audio_stream_missing_without_mute");
+  if (!mute && sourceHasAudio && !audioStream) throw new Error("android_video_editor_physical_audio_stream_missing_without_mute");
+  if (!mute && !sourceHasAudio && audioStream) throw new Error("android_video_editor_physical_audio_stream_created_from_silent_source");
   const width = Number(videoStream.width || 0);
   const height = Number(videoStream.height || 0);
   if (!isSupportedVideoEditorProfile(width, height)) {
@@ -276,12 +317,13 @@ function probeAndroidExport(outputPath, sourcePath, { mute }) {
   }
   const captionPixelProbe = probeCaptionPixels(outputPath);
   const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
-  const cropGeometryPixelProbe = probeCropGeometryPixels(outputPath);
-  const audioProbe = !mute ? probeAudioSignal(outputPath, "android_video_editor_physical_audio_silent") : null;
+  const cropGeometryPixelProbe = requireCropGeometry ? probeCropGeometryPixels(outputPath) : null;
+  const audioProbe = !mute && sourceHasAudio ? probeAudioSignal(outputPath, "android_video_editor_physical_audio_silent") : null;
   return {
     path: outputPath,
     durationMs,
     sourceDurationMs,
+    sourceHasAudio,
     video: { codec: videoStream.codec_name, width, height, frameRate },
     audioStreamPresent: Boolean(audioStream),
     audioProbe,
@@ -289,6 +331,16 @@ function probeAndroidExport(outputPath, sourcePath, { mute }) {
     backgroundBlurPixelProbe,
     cropGeometryPixelProbe,
   };
+}
+
+function hasAudioTrack(path) {
+  const ffprobe = JSON.parse(execFileSync("ffprobe", [
+    "-v", "error",
+    "-print_format", "json",
+    "-show_streams",
+    path,
+  ], { encoding: "utf8" }));
+  return Boolean(ffprobe.streams?.some((stream) => stream.codec_type === "audio"));
 }
 
 function probeAudioSignal(outputPath, errorCode) {

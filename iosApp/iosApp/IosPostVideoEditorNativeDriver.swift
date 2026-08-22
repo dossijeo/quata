@@ -235,7 +235,7 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
             }
         )
         activeExportOperations[operationId] = exporter
-        DispatchQueue.main.async {
+        DispatchQueue.global(qos: .userInitiated).async {
             exporter.start()
         }
     }
@@ -701,21 +701,26 @@ private final class IosPostVideoEditorExportOperation {
     private func finishFailure(reason: String) {
         guard !didFinish else { return }
         didFinish = true
-        progressTimer?.invalidate()
-        progressTimer = nil
-        visualEffectsAdaptor = nil
-        callback.onFailure(reason: reason)
-        onFinished()
+        DispatchQueue.main.async {
+            self.progressTimer?.invalidate()
+            self.progressTimer = nil
+            self.visualEffectsAdaptor = nil
+            self.callback.onFailure(reason: reason)
+            self.onFinished()
+        }
     }
 
     private func startProgressTimer(session: AVAssetExportSession, floor: Float, ceiling: Float) {
-        progressTimer?.invalidate()
-        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self, weak session] _ in
-            guard let self, !self.didFinish, let session else { return }
-            let progress = floor + max(0, min(1, session.progress)) * (ceiling - floor)
-            self.callback.onProgress(progress: progress)
+        DispatchQueue.main.async {
+            guard !self.didFinish else { return }
+            self.progressTimer?.invalidate()
+            self.progressTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self, weak session] _ in
+                guard let self, !self.didFinish, let session else { return }
+                let progress = floor + max(0, min(1, session.progress)) * (ceiling - floor)
+                self.callback.onProgress(progress: progress)
+            }
+            self.callback.onProgress(progress: floor)
         }
-        callback.onProgress(progress: floor)
     }
 
     private func makeVideoComposition(
@@ -1112,7 +1117,7 @@ private final class IosPostVideoEditorExportOperation {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_skipped", details: [
                 "reason": "source_audio_missing",
             ])
-            finishFailure(reason: "ios_post_video_editor_audio_remux_source_missing")
+            finishSuccess(outputUrl: videoOutputUrl, callback: callback)
             try? FileManager.default.removeItem(at: audioSourceUrl)
             return
         }
@@ -1154,11 +1159,11 @@ private final class IosPostVideoEditorExportOperation {
                ) {
                 try insertAudioTimeRange(videoRange, of: sourceAudioTrack, into: compositionAudio)
             } else {
-                throw NSError(
-                    domain: "IosPostVideoEditorNativeDriver",
-                    code: 41,
-                    userInfo: [NSLocalizedDescriptionKey: "ios_post_video_editor_audio_remux_source_missing"]
-                )
+                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_skipped", details: [
+                    "reason": "source_audio_missing",
+                ])
+                finishSuccess(outputUrl: videoOnlyUrl, callback: callback)
+                return
             }
         } catch {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_failed", details: [
@@ -1176,7 +1181,9 @@ private final class IosPostVideoEditorExportOperation {
         exportSession.outputURL = outputUrl
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
-        callback.onProgress(progress: 0.97)
+        DispatchQueue.main.async {
+            callback.onProgress(progress: 0.97)
+        }
         exportSession.exportAsynchronously { [callback] in
             DispatchQueue.main.async {
                 if self.didCancel {
@@ -1410,18 +1417,20 @@ private final class IosPostVideoEditorExportOperation {
     private func finishSuccess(outputUrl: URL, callback: any IosPostVideoEditorExportCallback) {
         guard !didFinish else { return }
         didFinish = true
-        progressTimer?.invalidate()
-        progressTimer = nil
         let size = (try? FileManager.default.attributesOfItem(atPath: outputUrl.path)[.size] as? NSNumber)?.int64Value
         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_completed", details: ["sizeBytes": "\(size ?? 0)"])
         writeExportDiagnostics(outputUrl: outputUrl, sizeBytes: size)
-        callback.onSuccess(file: PlatformFile(
-            reference: outputUrl.absoluteString,
-            displayName: outputUrl.lastPathComponent,
-            mimeType: "video/mp4",
-            sizeBytes: size.map { KotlinLong(value: $0) }
-        ))
-        onFinished()
+        DispatchQueue.main.async {
+            self.progressTimer?.invalidate()
+            self.progressTimer = nil
+            callback.onSuccess(file: PlatformFile(
+                reference: outputUrl.absoluteString,
+                displayName: outputUrl.lastPathComponent,
+                mimeType: "video/mp4",
+                sizeBytes: size.map { KotlinLong(value: $0) }
+            ))
+            self.onFinished()
+        }
     }
 
     private func temporaryOutputUrl(suffix: String) -> URL {

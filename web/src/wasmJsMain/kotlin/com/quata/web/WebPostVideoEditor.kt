@@ -781,9 +781,6 @@ private fun webPostVideoEditorExportEditedJs(
               mediaStream?.getAudioTracks?.().forEach(track => stream.addTrack(track));
             } catch (_) {}
           }
-          if (!removeAudio && !stream.getAudioTracks?.().length) {
-            throw Error('web_post_video_editor_audio_stream_missing_without_mute');
-          }
           const chunks = [];
           let drawnFrameCount = 0;
           let exportStartedAt = 0;

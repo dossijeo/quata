@@ -253,17 +253,20 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         if ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"] == "1" {
             tapComposerAction("post-video-editor.mute", in: app)
         }
+        let exerciseCaptions = ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CAPTIONS"] != "0"
         tapComposerAction("post-video-editor.play-pause", in: app)
         dragVideoTrimEnd(toNormalizedX: 0.64, in: app)
-        tapComposerAction("post-video-editor.captions", in: app)
-        revealVideoEditorPreview(in: app)
-        XCTAssertTrue(
-            app.descendants(matching: .any)
-                .matching(identifier: "post-video-editor.caption-preview.Karaoke")
-                .firstMatch
-                .waitForExistence(timeout: 8),
-            "Selecting a caption style must render the common caption preview overlay before export.",
-        )
+        if exerciseCaptions {
+            tapComposerAction("post-video-editor.captions", in: app)
+            revealVideoEditorPreview(in: app)
+            XCTAssertTrue(
+                app.descendants(matching: .any)
+                    .matching(identifier: "post-video-editor.caption-preview.Karaoke")
+                    .firstMatch
+                    .waitForExistence(timeout: 8),
+                "Selecting a caption style must render the common caption preview overlay before export.",
+            )
+        }
         tapComposerAction("post-video-editor.crop", in: app)
         tapComposerAction("post-video-editor.crop-mode.Square", in: app)
         tapComposerAction("post-video-editor.crop-zoom-in", in: app)
@@ -370,6 +373,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_DIAGNOSTICS",
             "QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE",
             "QUATA_IOS_POST_VIDEO_EDITOR_MUTE",
+            "QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CAPTIONS",
             "QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CANCEL",
             "QUATA_IOS_POST_VIDEO_EDITOR_CANCEL_ONLY",
             "QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE",

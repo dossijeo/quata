@@ -1627,13 +1627,13 @@ private suspend fun Context.exportEditedVideo(
             val transformed = exportEditedVideoWithTransformer(finalRequest, outputFile) { progress ->
                 onProgress(DownsampleExportProgressShare + progress * (1f - DownsampleExportProgressShare))
             }
-            ensureEditedVideoAudio(finalRequest, transformed)
+            ensureEditedVideoAudio(finalRequest, transformed, onProgress)
         } finally {
             runCatching { intermediateFile.delete() }
         }
     }
     val transformed = exportEditedVideoWithTransformer(request, outputFile, onProgress)
-    return ensureEditedVideoAudio(request, transformed)
+    return ensureEditedVideoAudio(request, transformed, onProgress)
 }
 
 private fun Context.createVideoEditorExportFile(): File =
@@ -1644,13 +1644,24 @@ private fun Context.createVideoEditorIntermediateFile(): File =
 
 private suspend fun Context.ensureEditedVideoAudio(
     request: VideoEditorExportRequest,
-    exportedUri: Uri
+    exportedUri: Uri,
+    onProgress: (Float) -> Unit
 ): Uri {
-    if (request.removeAudio) return exportedUri
-    check(request.sourceUri.hasMediaTrack(this, audio = true)) { "android_post_video_editor_audio_source_missing" }
-    if (!request.shouldRemuxAudioAfterTransformer() && exportedUri.hasMediaTrack(this, audio = true)) return exportedUri
+    if (request.removeAudio) {
+        onProgress(1f)
+        return exportedUri
+    }
+    if (!request.sourceUri.hasMediaTrack(this, audio = true)) {
+        onProgress(1f)
+        return exportedUri
+    }
+    if (!request.shouldRemuxAudioAfterTransformer() && exportedUri.hasMediaTrack(this, audio = true)) {
+        onProgress(1f)
+        return exportedUri
+    }
     val outputFile = createVideoEditorExportFile()
     return remuxEditedVideoWithSourceAudio(request, exportedUri, outputFile).also {
+        onProgress(1f)
         runCatching {
             val sourceFile = exportedUri.path?.let(::File)
             if (sourceFile != null && sourceFile.absolutePath != outputFile.absolutePath) {
@@ -1774,7 +1785,7 @@ private suspend fun Context.exportDownsampledIntermediate(
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                         handler.removeCallbacks(progressRunnable)
                         handler.removeCallbacks(completionFallbackRunnable)
-                        onProgress(1f)
+                        onProgress(if (request.shouldRemuxAudioAfterTransformer()) 0.95f else 1f)
                         Log.d(VideoEditorLogTag, "transformerExport completed output=${outputFile.name} result=$exportResult")
                         if (continuation.isActive) continuation.resume(Uri.fromFile(outputFile))
                     }
@@ -2230,7 +2241,7 @@ private suspend fun Context.remuxEditedVideoWithSourceAudio(
     }
 }
 
-private fun copySelectedSamplesToMuxer(
+private suspend fun copySelectedSamplesToMuxer(
     extractor: MediaExtractor,
     muxer: MediaMuxer,
     muxedTrackIndex: Int,
@@ -2244,6 +2255,7 @@ private fun copySelectedSamplesToMuxer(
     var firstPresentationTimeUs: Long? = null
     var wroteSample = false
     while (true) {
+        currentCoroutineContext().ensureActive()
         val sampleTimeUs = extractor.sampleTime
         if (sampleTimeUs < 0L) break
         if (sampleTimeUs < startUs) {
