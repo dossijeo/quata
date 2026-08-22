@@ -651,6 +651,7 @@ private final class IosPostVideoEditorExportOperation {
         try? FileManager.default.removeItem(at: outputUrl)
         try? FileManager.default.removeItem(at: finalOutputUrl)
         let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
+        let exportsVideoOnlyWithoutCaptions = sourceAudioTrack == nil && captionDocument == nil
         if !request.removeAudio, let audioTrack = sourceAudioTrack {
             guard let compositionAudio = composition.addMutableTrack(
                 withMediaType: .audio,
@@ -677,16 +678,27 @@ private final class IosPostVideoEditorExportOperation {
             return
         }
         self.exportSession = exportSession
-        exportSession.outputURL = outputUrl
+        exportSession.outputURL = exportsVideoOnlyWithoutCaptions ? finalOutputUrl : outputUrl
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
         exportSession.timeRange = CMTimeRange(start: .zero, duration: range.duration)
-        exportSession.videoComposition = makeVideoComposition(
-            track: videoTrack,
-            foregroundTrack: compositionVideo,
-            backgroundTrack: compositionBackground,
-            duration: range.duration
-        )
+        if exportsVideoOnlyWithoutCaptions {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_single_pass_visual_effects_selected")
+            if request.hasBackgroundCrop {
+                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_start")
+            }
+            exportSession.videoComposition = makeSinglePassVisualEffectsComposition(
+                asset: composition,
+                duration: range.duration
+            )
+        } else {
+            exportSession.videoComposition = makeVideoComposition(
+                track: videoTrack,
+                foregroundTrack: compositionVideo,
+                backgroundTrack: compositionBackground,
+                duration: range.duration
+            )
+        }
         startProgressTimer(session: exportSession, floor: 0.35, ceiling: 0.72)
         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_started", details: [
             "durationMs": "\(Int64(CMTimeGetSeconds(range.duration) * 1_000))",
@@ -703,6 +715,13 @@ private final class IosPostVideoEditorExportOperation {
                 case .completed:
                     if self.didCancel {
                         self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
+                        return
+                    }
+                    if exportsVideoOnlyWithoutCaptions {
+                        if self.request.hasBackgroundCrop {
+                            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_completed")
+                        }
+                        self.finishSuccess(outputUrl: finalOutputUrl, callback: callback)
                         return
                     }
                     self.applyVisualEffects(
@@ -796,6 +815,60 @@ private final class IosPostVideoEditorExportOperation {
         composition.renderSize = outputSize
         composition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
         composition.instructions = [instruction]
+        return composition
+    }
+
+    private func makeSinglePassVisualEffectsComposition(
+        asset: AVAsset,
+        duration: CMTime
+    ) -> AVMutableVideoComposition {
+        let outputSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
+        let foregroundCrop = request.foregroundCrop
+        let backgroundCrop = request.backgroundCrop
+        let shouldBlurBackground = request.hasBackgroundCrop
+        let composition = AVMutableVideoComposition(asset: asset) { renderRequest in
+            var source = renderRequest.sourceImage
+            if source.extent.origin != .zero {
+                source = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX, y: -source.extent.minY))
+            }
+            let sourceExtent = source.extent
+            let outputExtent = CGRect(origin: .zero, size: outputSize)
+            let foreground = Self.drawCrop(
+                source: source,
+                sourceExtent: sourceExtent,
+                crop: foregroundCrop,
+                outputSize: outputSize,
+                mode: .fit
+            )
+            if shouldBlurBackground {
+                let blurScale: CGFloat = 0.10
+                let blurSize = CGSize(
+                    width: max(2, outputSize.width * blurScale),
+                    height: max(2, outputSize.height * blurScale)
+                )
+                let background = Self.drawCrop(
+                    source: source.clampedToExtent(),
+                    sourceExtent: sourceExtent,
+                    crop: backgroundCrop,
+                    outputSize: blurSize,
+                    mode: .fill
+                )
+                    .clampedToExtent()
+                    .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 8])
+                    .cropped(to: CGRect(origin: .zero, size: blurSize))
+                    .transformed(by: CGAffineTransform(
+                        scaleX: outputSize.width / blurSize.width,
+                        y: outputSize.height / blurSize.height
+                    ))
+                    .cropped(to: outputExtent)
+                renderRequest.finish(with: foreground.composited(over: background).cropped(to: outputExtent), context: nil)
+            } else {
+                let black = CIImage(color: .black).cropped(to: outputExtent)
+                renderRequest.finish(with: foreground.composited(over: black).cropped(to: outputExtent), context: nil)
+            }
+        }
+        composition.renderSize = outputSize
+        composition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
         return composition
     }
 
