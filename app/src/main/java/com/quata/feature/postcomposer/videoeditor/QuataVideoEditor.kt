@@ -1693,10 +1693,16 @@ private suspend fun Context.exportDownsampledIntermediate(
             lateinit var completionFallbackRunnable: Runnable
             var stableOutputSizeBytes = -1L
             var stableOutputSinceMs = 0L
+            val transformerTerminalProgress =
+                if (request.shouldRemuxAudioAfterTransformer() && request.sourceUri.hasMediaTrack(this@exportDownsampledIntermediate, audio = true)) {
+                    TransformerCompletionFallbackProgress / 100f
+                } else {
+                    1f
+                }
             fun completeFromStableOutput(reason: String) {
                 handler.removeCallbacks(progressRunnable)
                 handler.removeCallbacks(completionFallbackRunnable)
-                onProgress(1f)
+                onProgress(transformerTerminalProgress)
                 Log.w(
                     VideoEditorLogTag,
                     "Completing Transformer export from stable output fallback reason=$reason output=${outputFile.name} size=${outputFile.length()}"
@@ -1735,7 +1741,7 @@ private suspend fun Context.exportDownsampledIntermediate(
                     if (!continuation.isActive) return
                     val progressState = transformer.getProgress(progressHolder)
                     if (progressState == Transformer.PROGRESS_STATE_AVAILABLE) {
-                        onProgress(progressHolder.progress / 100f)
+                        onProgress((progressHolder.progress / 100f).coerceAtMost(transformerTerminalProgress))
                     }
                     handler.postDelayed(this, 250L)
                 }
@@ -1837,10 +1843,16 @@ private suspend fun Context.exportEditedVideoWithTransformer(
             lateinit var completionFallbackRunnable: Runnable
             var stableOutputSizeBytes = -1L
             var stableOutputSinceMs = 0L
+            val transformerTerminalProgress =
+                if (request.shouldRemuxAudioAfterTransformer() && request.sourceUri.hasMediaTrack(this@exportEditedVideoWithTransformer, audio = true)) {
+                    TransformerCompletionFallbackProgress / 100f
+                } else {
+                    1f
+                }
             fun completeFromStableOutput(reason: String) {
                 handler.removeCallbacks(progressRunnable)
                 handler.removeCallbacks(completionFallbackRunnable)
-                onProgress(1f)
+                onProgress(transformerTerminalProgress)
                 Log.w(
                     VideoEditorLogTag,
                     "Completing Transformer export from stable output fallback reason=$reason output=${outputFile.name} size=${outputFile.length()}"
@@ -1884,7 +1896,7 @@ private suspend fun Context.exportEditedVideoWithTransformer(
                     if (!continuation.isActive) return
                     val progressState = transformer.getProgress(progressHolder)
                     if (progressState == Transformer.PROGRESS_STATE_AVAILABLE) {
-                        onProgress(progressHolder.progress / 100f)
+                        onProgress((progressHolder.progress / 100f).coerceAtMost(transformerTerminalProgress))
                     }
                     if (checkStableOutputCompletion("progress")) return
                     handler.postDelayed(this, 250L)
@@ -2013,7 +2025,7 @@ private suspend fun Context.exportEditedVideoWithTransformer(
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
                         handler.removeCallbacks(progressRunnable)
                         handler.removeCallbacks(completionFallbackRunnable)
-                        onProgress(1f)
+                        onProgress(transformerTerminalProgress)
                         Log.d(VideoEditorLogTag, "transformerExport completed output=${outputFile.name} result=$exportResult")
                         if (continuation.isActive) continuation.resume(Uri.fromFile(outputFile))
                     }

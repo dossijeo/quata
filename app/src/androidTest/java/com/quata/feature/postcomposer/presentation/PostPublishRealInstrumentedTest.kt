@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.filterToOne
@@ -21,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ActivityScenario
@@ -538,8 +540,7 @@ class PostPublishRealInstrumentedTest {
                 }
                 compose.waitUntil(5_000) { editorIsMuted() == muted }
             }
-            if (exerciseCaptions) {
-                setEditorMuted(true)
+            fun applySquareCrop() {
                 compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
                     .filterToOne(hasClickAction())
                     .performScrollTo()
@@ -549,7 +550,22 @@ class PostPublishRealInstrumentedTest {
                 }
                 compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true)
                     .performScrollTo()
+                    .performSemanticsAction(SemanticsActions.OnClick)
+                compose.waitUntil(5_000) {
+                    runCatching { compose.onNodeWithTag("post-video-editor.crop-zoom-in", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+                }
+                compose.onNodeWithTag("post-video-editor.crop-zoom-in", useUnmergedTree = true)
                     .performClick()
+                compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
+                    .filterToOne(hasClickAction())
+                    .performClick()
+                compose.waitUntil(5_000) {
+                    runCatching { compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+                }
+            }
+            if (exerciseCaptions) {
+                setEditorMuted(true)
+                applySquareCrop()
                 compose.onNodeWithTag(PostVideoEditorPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode()
                 compose.onAllNodesWithTag(PostVideoEditorCaptionsTestTag, useUnmergedTree = true)
                     .filterToOne(hasClickAction())
@@ -579,16 +595,7 @@ class PostPublishRealInstrumentedTest {
                         up()
                     }
             }
-            compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
-                .filterToOne(hasClickAction())
-                .performScrollTo()
-                .performClick()
-            compose.waitUntil(5_000) {
-                runCatching { compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
-            }
-            compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true)
-                .performScrollTo()
-                .performClick()
+            applySquareCrop()
             if (exerciseCaptions) {
                 compose.onAllNodesWithTag(PostVideoEditorCaptionsTestTag, useUnmergedTree = true)
                     .filterToOne(hasClickAction())
@@ -611,17 +618,23 @@ class PostPublishRealInstrumentedTest {
                 saveScreenshot("android-post-video-editor-export-progress")
                 compose.onAllNodesWithTag(PostVideoEditorCancelExportTestTag, useUnmergedTree = true)
                     .filterToOne(hasClickAction())
-                    .performClick()
-                compose.waitUntil(5_000) {
+                    .fetchSemanticsNode()
+                clickLocalizedText("Cancelar", "Cancel")
+                fun cancelConfirmationVisible(): Boolean =
                     runCatching {
                         compose.onNodeWithText("Cancelar exportación", useUnmergedTree = true).fetchSemanticsNode()
                     }.isSuccess ||
                         runCatching {
                             compose.onNodeWithText("Cancel export", useUnmergedTree = true).fetchSemanticsNode()
                         }.isSuccess
+                compose.waitUntil(5_000) {
+                    cancelConfirmationVisible() ||
+                        runCatching { compose.onNodeWithTag(PostVideoEditorExportProgressTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
                 }
-                saveScreenshot("android-post-video-editor-cancel-confirmation")
-                clickLocalizedText("Cancelar exportación", "Cancel export")
+                if (cancelConfirmationVisible()) {
+                    saveScreenshot("android-post-video-editor-cancel-confirmation")
+                    clickLocalizedText("Cancelar exportación", "Cancel export")
+                }
                 val cancelled = runCatching {
                     compose.waitUntil(30_000) {
                         runCatching {

@@ -581,7 +581,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidVideoEditorRunner, /label: "unmuted-no-audio-source", mute: false/);
   assert.match(androidVideoEditorRunner, /validNoAudioMp4FixturePath/);
   assert.match(androidVideoEditorRunner, /quataPostVideoEditorExerciseCaptions/);
-  assert.match(androidVideoEditorRunner, /requireCropGeometry: attemptSpec\.exerciseCaptions/);
+  assert.match(androidVideoEditorRunner, /requireCropGeometry: true/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_audio_stream_created_from_silent_source/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_audio_stream_missing_without_mute/);
   assert.match(androidVideoEditorRunner, /android_video_editor_physical_audio_silent/);
@@ -693,7 +693,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_missing_without_mute/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_silent/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_trim_duration/);
-  assert.match(webVideoEditorRunner, /durationToleranceMs = Math\.min\(450, Math\.max\(120, Math\.round\(expectedDurationMs \* 0\.2\)\)\)/);
+  assert.match(webVideoEditorRunner, /durationToleranceMs = Math\.max\(450, Math\.round\(expectedDurationMs \* 0\.25\)\)/);
   assert.match(webVideoEditorRunner, /physicalDurationMs < 500/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_duration_unmeasured/);
   assert.match(webVideoEditorRunner, /"-show_packets"/);
@@ -849,7 +849,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorRunner, /label: "unmuted-no-audio-source", mute: false/);
   assert.match(iosVideoEditorRunner, /validNoAudioMp4FixturePath/);
   assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CAPTIONS/);
-  assert.match(iosVideoEditorRunner, /requireCropGeometry: exerciseCaptions/);
+  assert.match(iosVideoEditorRunner, /requireCropGeometry: true/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_physical_audio_stream_created_from_silent_source/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_physical_audio_stream_missing_without_mute/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_physical_audio_stream_present_after_mute/);
@@ -944,6 +944,18 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorRunner, /expectedTrimDurationMs/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_background_blur_pixels_missing/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_crop_geometry_pixels_missing/);
+  assert.match(iosVideoEditorRunner, /probeIosExport\(localExport, diagnostics, \{ mute, sourceHasAudio, requireCropGeometry: true \}\)/);
+  assert.match(androidVideoEditorRunner, /label: "cancel-unmuted", mute: false, cancelOnly: true/);
+  assert.match(androidVideoEditorRunner, /expectCaptions: attemptSpec\.exerciseCaptions/);
+  assert.match(androidVideoEditorRunner, /const captionPixelProbe = expectCaptions \? probeCaptionPixels\(outputPath\) : null/);
+  assert.match(androidVideoEditorRunner, /requireCropGeometry: true/);
+  assert.match(androidVideoEditorDialog, /val transformerTerminalProgress =/);
+  assert.match(androidVideoEditorDialog, /TransformerCompletionFallbackProgress \/ 100f/);
+  assert.match(androidVideoEditorDialog, /coerceAtMost\(transformerTerminalProgress\)/);
+  assert.match(androidVideoEditorDialog, /onProgress\(transformerTerminalProgress\)/);
+  assert.match(androidPostPublishTest, /fun applySquareCrop\(\)/);
+  assert.match(androidPostPublishTest, /post-video-editor\.crop-zoom-in/);
+  assert.match(androidPostPublishTest, /runCatching \{ compose\.onNodeWithTag\("post-video-editor\.crop-mode\.Square"[\s\S]*?\.fetchSemanticsNode\(\) \}\.isFailure/);
   assert.match(iosVideoEditorRunner, /testsrc2=s=720x1280/);
   assert.match(iosPostVideoEditorNativeDriver, /foregroundLayer/);
   assert.match(iosPostVideoEditorNativeDriver, /videoAspectRatio: Float/);

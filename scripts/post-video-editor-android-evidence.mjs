@@ -69,6 +69,7 @@ try {
   await mkdir(evidenceDir, { recursive: true });
   for (const attemptSpec of [
     { label: "cancel", mute: true, cancelOnly: true, fixture: videoFixture, sourceHasAudio: true, exerciseCaptions: true },
+    { label: "cancel-unmuted", mute: false, cancelOnly: true, fixture: videoFixture, sourceHasAudio: true, exerciseCaptions: true },
     { label: "muted", mute: true, fixture: videoFixture, sourceHasAudio: true, exerciseCaptions: true },
     { label: "unmuted", mute: false, fixture: videoFixture, sourceHasAudio: true, exerciseCaptions: true },
     { label: "unmuted-no-audio-source", mute: false, fixture: noAudioVideoFixture, sourceHasAudio: false, exerciseCaptions: false },
@@ -118,7 +119,8 @@ try {
       const physicalExport = probeAndroidExport(exportPath, attemptSpec.fixture, {
         mute: attemptSpec.mute,
         sourceHasAudio: attemptSpec.sourceHasAudio,
-        requireCropGeometry: attemptSpec.exerciseCaptions,
+        expectCaptions: attemptSpec.exerciseCaptions,
+        requireCropGeometry: true,
       });
       report.attempts.push({ ...attempt, status: "passed", physicalExport });
     } catch (probeError) {
@@ -284,7 +286,7 @@ async function copyDeviceEvidence(evidenceDir) {
   }
 }
 
-function probeAndroidExport(outputPath, sourcePath, { mute, sourceHasAudio = hasAudioTrack(sourcePath), requireCropGeometry = true }) {
+function probeAndroidExport(outputPath, sourcePath, { mute, sourceHasAudio = hasAudioTrack(sourcePath), expectCaptions = true, requireCropGeometry = true }) {
   const ffprobe = JSON.parse(execFileSync("ffprobe", [
     "-v", "error",
     "-print_format", "json",
@@ -315,7 +317,7 @@ function probeAndroidExport(outputPath, sourcePath, { mute, sourceHasAudio = has
   if (frameRate > 30.5) {
     throw new Error(`android_video_editor_physical_frame_rate:${frameRate}`);
   }
-  const captionPixelProbe = probeCaptionPixels(outputPath);
+  const captionPixelProbe = expectCaptions ? probeCaptionPixels(outputPath) : null;
   const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
   const cropGeometryPixelProbe = requireCropGeometry ? probeCropGeometryPixels(outputPath) : null;
   const audioProbe = !mute && sourceHasAudio ? probeAudioSignal(outputPath, "android_video_editor_physical_audio_silent") : null;

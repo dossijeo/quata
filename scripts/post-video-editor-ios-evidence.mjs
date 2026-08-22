@@ -169,7 +169,7 @@ cat ${shellQuote(`${remoteDiagnostics}.events.jsonl`)}
     const localExport = resolve(options.evidenceDir, `ios-post-video-editor-export-${label}.mp4`);
     await run("scp", [`${options.host}:${diagnostics.outputPath}`, localExport]);
     await run("ssh", [options.host, "rm", "-f", diagnostics.outputPath]).catch(() => {});
-    const physicalExport = probeIosExport(localExport, diagnostics, { mute, sourceHasAudio, requireCropGeometry: exerciseCaptions });
+    const physicalExport = probeIosExport(localExport, diagnostics, { mute, sourceHasAudio, requireCropGeometry: true });
     return { source, outcome, label, mute, sourceHasAudio, exerciseCaptions, status: "passed", remoteLogDir, diagnostics, events: events.slice(-30), physicalExport };
   } catch (error) {
     return { source, outcome, label, mute, status: "failed", remoteLogDir, error: safeFailure(error) };

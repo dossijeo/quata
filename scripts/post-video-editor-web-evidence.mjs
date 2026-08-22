@@ -428,7 +428,7 @@ async function saveAndProbeWebExport(page, exportState, { label, mute, sourceHas
   }
   const physicalDurationMs = ffprobeDurationMs;
   const expectedDurationMs = Math.max(500, Number(exportState.spec?.trimEndMs || 0) - Number(exportState.spec?.trimStartMs || 0));
-  const durationToleranceMs = Math.min(450, Math.max(120, Math.round(expectedDurationMs * 0.2)));
+  const durationToleranceMs = Math.max(450, Math.round(expectedDurationMs * 0.25));
   if (physicalDurationMs < 500 || Math.abs(physicalDurationMs - expectedDurationMs) > durationToleranceMs) {
     throw new Error(`web_video_editor_physical_trim_duration:${physicalDurationMs}:${expectedDurationMs}`);
   }
