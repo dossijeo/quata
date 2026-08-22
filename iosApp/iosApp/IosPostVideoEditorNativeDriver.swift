@@ -657,7 +657,6 @@ private final class IosPostVideoEditorExportOperation {
             applyVideoOnlyGeneratorVisualEffects(
                 inputUrl: sourceUrl,
                 outputUrl: finalOutputUrl,
-                sourceDisplaySize: displaySize(for: videoTrack),
                 readRange: range,
                 callback: callback
             )
@@ -1128,13 +1127,11 @@ private final class IosPostVideoEditorExportOperation {
     private func applyVideoOnlyGeneratorVisualEffects(
         inputUrl: URL,
         outputUrl: URL,
-        sourceDisplaySize: CGSize,
         readRange: CMTimeRange,
         callback: any IosPostVideoEditorExportCallback
     ) {
         let asset = AVURLAsset(url: inputUrl)
         let renderSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
-        let foregroundRect = foregroundContentRect(outputSize: renderSize, sourceDisplaySize: sourceDisplaySize)
         let shouldBlurBackground = request.hasBackgroundCrop
         let frameRate = max(1, request.outputMaxFrameRate)
         let durationSeconds = max(0.001, CMTimeGetSeconds(readRange.duration))
@@ -1223,6 +1220,7 @@ private final class IosPostVideoEditorExportOperation {
                         }
                         return
                     }
+                    var backpressureStartedAt: Date?
                     while !writerInput.isReadyForMoreMediaData {
                         if self.didCancel {
                             writer.cancelWriting()
@@ -1231,9 +1229,29 @@ private final class IosPostVideoEditorExportOperation {
                             }
                             return
                         }
+                        if writer.status == .failed || writer.status == .cancelled || writer.status == .completed {
+                            let reason = writer.error?.localizedDescription ?? "ios_post_video_editor_video_only_writer_not_ready"
+                            writer.cancelWriting()
+                            DispatchQueue.main.async {
+                                self.finishFailure(reason: reason)
+                            }
+                            return
+                        }
+                        let now = Date()
+                        if let started = backpressureStartedAt {
+                            if now.timeIntervalSince(started) > 10 {
+                                writer.cancelWriting()
+                                DispatchQueue.main.async {
+                                    self.finishFailure(reason: "ios_post_video_editor_video_only_writer_backpressure_timeout")
+                                }
+                                return
+                            }
+                        } else {
+                            backpressureStartedAt = now
+                        }
                         Thread.sleep(forTimeInterval: 0.005)
                     }
-                    autoreleasepool {
+                    let frameWritten = autoreleasepool { () -> Bool in
                         let seconds = min(durationSeconds, Double(index) * frameStep)
                         let requestedTime = CMTimeAdd(
                             readRange.start,
@@ -1245,7 +1263,7 @@ private final class IosPostVideoEditorExportOperation {
                             DispatchQueue.main.async {
                                 self.finishFailure(reason: "ios_post_video_editor_video_only_frame_unavailable")
                             }
-                            return
+                            return false
                         }
                         var outputBuffer: CVPixelBuffer?
                         guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &outputBuffer) == kCVReturnSuccess,
@@ -1254,14 +1272,13 @@ private final class IosPostVideoEditorExportOperation {
                             DispatchQueue.main.async {
                                 self.finishFailure(reason: "ios_post_video_editor_video_only_output_buffer_unavailable")
                             }
-                            return
+                            return false
                         }
                         let presentationTime = CMTime(seconds: seconds, preferredTimescale: 600)
                         let timeMs = max(0, Int64((seconds * 1_000).rounded()))
-                        let rendered = self.renderVisualEffectsImage(
+                        let rendered = self.renderGeneratorVisualEffectsImage(
                             sourceImage: CIImage(cgImage: cgImage),
                             outputSize: renderSize,
-                            foregroundRect: foregroundRect,
                             shouldBlurBackground: shouldBlurBackground,
                             captionStyle: "Karaoke",
                             captionDocument: nil,
@@ -1278,7 +1295,7 @@ private final class IosPostVideoEditorExportOperation {
                             DispatchQueue.main.async {
                                 self.finishFailure(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_video_only_append_failed")
                             }
-                            return
+                            return false
                         }
                         writtenFrames += 1
                         if writtenFrames == 1 || writtenFrames % 15 == 0 {
@@ -1293,6 +1310,10 @@ private final class IosPostVideoEditorExportOperation {
                                 callback.onProgress(progress: progress)
                             }
                         }
+                        return true
+                    }
+                    if !frameWritten {
+                        return
                     }
                 }
                 writerInput.markAsFinished()
@@ -1519,6 +1540,63 @@ private final class IosPostVideoEditorExportOperation {
                 .cropped(to: outputExtent)
             let foreground = source.cropped(to: foregroundRect.intersection(outputExtent))
             image = foreground.composited(over: blurred)
+        }
+        if let segment = captionDocument?.segment(at: timeMs) {
+            let overlay = Self.captionOverlayImage(
+                outputSize: outputSize,
+                segment: segment,
+                timeMs: timeMs,
+                style: captionStyle
+            )
+            image = overlay.composited(over: image)
+        }
+        return image.cropped(to: outputExtent)
+    }
+
+    private func renderGeneratorVisualEffectsImage(
+        sourceImage: CIImage,
+        outputSize: CGSize,
+        shouldBlurBackground: Bool,
+        captionStyle: String,
+        captionDocument: CaptionDocumentWire?,
+        timeMs: Int64
+    ) -> CIImage {
+        let outputExtent = CGRect(origin: .zero, size: outputSize)
+        var source = sourceImage
+        if source.extent.origin != .zero {
+            source = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX, y: -source.extent.minY))
+        }
+        let sourceExtent = source.extent
+        let foreground = Self.drawCrop(
+            source: source,
+            sourceExtent: sourceExtent,
+            crop: request.foregroundCrop,
+            outputSize: outputSize,
+            mode: .fit
+        )
+        var image = foreground.composited(over: CIImage(color: .black).cropped(to: outputExtent))
+        if shouldBlurBackground {
+            let blurScale: CGFloat = 0.10
+            let blurSize = CGSize(
+                width: max(2, outputSize.width * blurScale),
+                height: max(2, outputSize.height * blurScale)
+            )
+            let background = Self.drawCrop(
+                source: source.clampedToExtent(),
+                sourceExtent: sourceExtent,
+                crop: request.backgroundCrop,
+                outputSize: blurSize,
+                mode: .fill
+            )
+                .clampedToExtent()
+                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 8])
+                .cropped(to: CGRect(origin: .zero, size: blurSize))
+                .transformed(by: CGAffineTransform(
+                    scaleX: outputSize.width / blurSize.width,
+                    y: outputSize.height / blurSize.height
+                ))
+                .cropped(to: outputExtent)
+            image = foreground.composited(over: background)
         }
         if let segment = captionDocument?.segment(at: timeMs) {
             let overlay = Self.captionOverlayImage(
