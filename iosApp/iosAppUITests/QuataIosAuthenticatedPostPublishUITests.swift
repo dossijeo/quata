@@ -294,7 +294,9 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         let editorError = app.descendants(matching: .any)
             .matching(identifier: "post-video-editor.error")
             .firstMatch
-        let exportDeadline = Date().addingTimeInterval(180)
+        let exportTimeoutSeconds = TimeInterval(ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS"] ?? "")
+            ?? 180
+        let exportDeadline = Date().addingTimeInterval(exportTimeoutSeconds)
         var returnedToComposer = false
         while Date() < exportDeadline {
             let editorStillVisible = editorRoot.exists || editorPreview.exists || editorExport.exists
@@ -374,6 +376,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             "QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE",
             "QUATA_IOS_POST_VIDEO_EDITOR_MUTE",
             "QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CAPTIONS",
+            "QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS",
             "QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CANCEL",
             "QUATA_IOS_POST_VIDEO_EDITOR_CANCEL_ONLY",
             "QUATA_IOS_POST_PROGRESS_ROLLBACK_FAIL_ONCE",

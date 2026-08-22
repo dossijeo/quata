@@ -863,6 +863,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorWrapper, /QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS:=420/);
   assert.match(iosVideoEditorWrapper, /IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED/);
   assert.match(iosVideoEditorWrapper, /QUATA_IOS_POST_VIDEO_EDITOR_MUTE/);
+  assert.match(iosVideoEditorWrapper, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_UI_E2E/);
   assert.match(iosPostPublishTest, /composer-media\.edit-video/);
   assert.match(iosPostPublishTest, /post-video-editor\.root/);
@@ -882,11 +883,14 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_MUTE/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CAPTIONS/);
+  assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'180'" : "'300'"\}/);
   assert.match(iosPostPublishTest, /ProcessInfo\.processInfo\.environment\["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"\] == "1"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.reset"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.mute"/);
   assert.match(iosPostPublishTest, /let editorStillVisible = editorRoot\.exists \|\| editorPreview\.exists \|\| editorExport\.exists/);
-  assert.match(iosPostPublishTest, /addingTimeInterval\(180\)/);
+  assert.match(iosPostPublishTest, /exportTimeoutSeconds[\s\S]*\?\? 180/);
+  assert.match(iosPostPublishTest, /addingTimeInterval\(exportTimeoutSeconds\)/);
   assert.match(iosPostPublishTest, /IOS_POST_VIDEO_EDITOR_UI_GATE_PASSED/);
   assert.match(iosComposerHost, /IosPostVideoEditor/);
   assert.match(iosComposerHost, /BoxWithConstraints/);
