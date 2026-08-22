@@ -688,7 +688,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /label: "unmuted", mute: false/);
   assert.match(webVideoEditorRunner, /label: "unmuted-no-audio-source", mute: false/);
   assert.match(webVideoEditorRunner, /validNoAudioMp4FixtureDataUrl/);
-  assert.match(webVideoEditorRunner, /requireCropGeometry: exerciseCaptions/);
+  assert.match(webVideoEditorRunner, /requireCropGeometry: true/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_created_from_silent_source/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_missing_without_mute/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_silent/);

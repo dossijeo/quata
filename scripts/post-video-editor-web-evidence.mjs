@@ -150,7 +150,7 @@ async function runAttempt(context, { label, mute, cancelOnly = false, reference,
     }, null, { timeout: 15_000 }).then(() => postComposerProductState(page));
     const afterEdit = await screenshot(page, "web-post-video-editor-after-edit");
     lastExportState = editorAnchors.exportState;
-    const physicalOutput = await saveAndProbeWebExport(page, editorAnchors.exportState, { label, mute, sourceHasAudio, requireCropGeometry: exerciseCaptions });
+    const physicalOutput = await saveAndProbeWebExport(page, editorAnchors.exportState, { label, mute, sourceHasAudio, requireCropGeometry: true });
     const actionableFaults = actionableBrowserFaults(faults, { cancelOnly });
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
     return {
