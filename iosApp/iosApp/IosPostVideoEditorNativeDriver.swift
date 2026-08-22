@@ -333,6 +333,10 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         let player = AVPlayer(url: url)
         let backgroundPlayer = AVPlayer(url: url)
         root.foregroundFrameView.image = Self.previewImage(url: url)
+        player.automaticallyWaitsToMinimizeStalling = false
+        backgroundPlayer.automaticallyWaitsToMinimizeStalling = false
+        player.currentItem?.preferredForwardBufferDuration = 0
+        backgroundPlayer.currentItem?.preferredForwardBufferDuration = 0
         player.actionAtItemEnd = .pause
         backgroundPlayer.actionAtItemEnd = .pause
         let backgroundLayer = AVPlayerLayer(player: backgroundPlayer)
@@ -413,26 +417,47 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         if shouldSeekToState || shouldSeekToTrimStart {
             let targetMs = shouldSeekToTrimStart ? trimStart : max(0, positionMs)
             let target = CMTime(value: CMTimeValue(targetMs), timescale: 1_000)
-            player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-            backgroundPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+            player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak player] _ in
+                if isPlaying {
+                    DispatchQueue.main.async {
+                        player?.playImmediately(atRate: 1.0)
+                    }
+                }
+            }
+            backgroundPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { backgroundSeekFinished in
+                if isPlaying && backgroundSeekFinished {
+                    DispatchQueue.main.async {
+                        backgroundPlayer?.playImmediately(atRate: 1.0)
+                    }
+                }
+            }
         }
         if let timeObserver {
             player.removeTimeObserver(timeObserver)
             self.timeObserver = nil
         }
         if isPlaying {
-            player.play()
-            backgroundPlayer?.play()
+            root.foregroundFrameView.isHidden = true
+            player.playImmediately(atRate: 1.0)
+            backgroundPlayer?.playImmediately(atRate: 1.0)
             let interval = CMTime(value: 120, timescale: 1_000)
             timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self, weak player, weak backgroundPlayer, callback] time in
                 guard let player else { return }
                 let current = Int64(max(0, CMTimeGetSeconds(time) * 1_000))
                 if current >= trimEnd || current < trimStart - 50 {
                     let target = CMTime(value: CMTimeValue(trimStart), timescale: 1_000)
-                    player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-                    backgroundPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-                    player.play()
-                    backgroundPlayer?.play()
+                    player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak player] _ in
+                        DispatchQueue.main.async {
+                            player?.playImmediately(atRate: 1.0)
+                        }
+                    }
+                    backgroundPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { backgroundSeekFinished in
+                        if backgroundSeekFinished {
+                            DispatchQueue.main.async {
+                                backgroundPlayer?.playImmediately(atRate: 1.0)
+                            }
+                        }
+                    }
                     callback.onPositionMs(positionMs: trimStart)
                 } else {
                     callback.onPositionMs(positionMs: min(max(0, current), max(1, durationMs)))

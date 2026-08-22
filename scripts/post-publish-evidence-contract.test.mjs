@@ -1045,6 +1045,8 @@ test("post video editor Solo parity gaps stay fail-closed", () => {
   assert.match(iosPostVideoEditorNativeDriver, /previewImage\(url:/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetImageGenerator/);
   assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.isHidden = true/);
+  assert.match(iosPostVideoEditorNativeDriver, /automaticallyWaitsToMinimizeStalling = false/);
+  assert.match(iosPostVideoEditorNativeDriver, /playImmediately\(atRate: 1\.0\)/);
   assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.frame = foregroundLayer\?\.frame/);
   assert.match(iosPostPublishTest, /assertElementHasNonBlackPixels\(/);
   assert.match(iosPostPublishTest, /assertElementChangesPixels\(/);
