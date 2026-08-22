@@ -627,7 +627,7 @@ class PostPublishRealInstrumentedTest {
                                 .substringAfterLast('.')
                                 .toIntOrNull() ?: 0
                         }.getOrDefault(0)
-                        cancelProgressPercent >= 12
+                        cancelProgressPercent >= 97
                     }
                 }
                 writeVideoEditorCancelReport(evidenceLabel, shouldMuteExport, cancelProgressPercent)
@@ -813,15 +813,17 @@ class PostPublishRealInstrumentedTest {
         }
 
         private fun writeVideoEditorCancelReport(label: String, muted: Boolean, progressPercent: Int) {
+            val audioRemuxStageObserved = !muted && progressPercent >= 97
             File(evidenceDir(), "android-post-video-editor-cancel-$label.json").writeText(
                 JSONObject()
                     .put("check", "POST-VIDEO-EDITOR-ANDROID-CANCEL-001")
                     .put("status", "passed")
                     .put("label", label)
                     .put("muted", muted)
-                    .put("waitedForAudioRoute", !muted)
+                    .put("waitedForAudioRoute", audioRemuxStageObserved)
+                    .put("audioRemuxStageObserved", audioRemuxStageObserved)
                     .put("progressPercentBeforeCancel", progressPercent)
-                    .put("progressReachedBeforeCancel", muted || progressPercent >= 12)
+                    .put("progressReachedBeforeCancel", muted || audioRemuxStageObserved)
                     .toString(2) + "\n",
             )
         }

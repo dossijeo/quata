@@ -713,6 +713,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /if \(globalThis\.__quataPostVideoEditorCancelRequested\) \{\s*onFailure\('web_post_video_editor_export_cancelled'\); return;/);
   assert.doesNotMatch(webPostVideoEditor, /globalThis\.__quataPostVideoEditorCancelRequested = false;\s*const failOnce/);
   assert.match(webPostVideoEditor, /canvas\.captureStream\?\.\(0\) \|\| canvas\.captureStream\?\.\(fps\)/);
+  assert.match(webPostVideoEditor, /video\.muted = video\.dataset\.layer === 'background' \? true : Boolean\(isMuted\)/);
   assert.match(webPostVideoEditor, /const canvasTrack = stream\.getVideoTracks\?\.\(\)\[0\]/);
   assert.match(webPostVideoEditor, /const captureTickRate = fps/);
   assert.doesNotMatch(webPostVideoEditor, /web_post_video_editor_audio_stream_missing_without_mute/);
@@ -953,7 +954,11 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(commonPostVideoEditorContent, /post-video-editor\.export-progress\.\$exportPercent/);
   assert.match(androidPostPublishTest, /SemanticsProperties\.StateDescription/);
   assert.match(androidPostPublishTest, /writeVideoEditorCancelReport/);
-  assert.match(androidVideoEditorRunner, /android_video_editor_cancel_unmuted_before_audio_export_started/);
+  assert.match(androidPostPublishTest, /audioRemuxStageObserved/);
+  assert.match(androidPostPublishTest, /cancelProgressPercent >= 97/);
+  assert.match(androidVideoEditorRunner, /android_video_editor_cancel_unmuted_audio_remux_not_observed/);
+  assert.match(androidVideoEditorRunner, /android_video_editor_cancel_unmuted_before_audio_remux_started/);
+  assert.match(androidVideoEditorDialog, /onProgress\(0\.97f\)/);
   assert.match(androidVideoEditorRunner, /expectCaptions: attemptSpec\.exerciseCaptions/);
   assert.match(androidVideoEditorRunner, /const captionPixelProbe = expectCaptions \? probeCaptionPixels\(outputPath\) : null/);
   assert.match(androidVideoEditorRunner, /requireCropGeometry: true/);
@@ -1039,8 +1044,10 @@ test("post video editor Solo parity gaps stay fail-closed", () => {
   assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView = UIImageView\(\)/);
   assert.match(iosPostVideoEditorNativeDriver, /previewImage\(url:/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetImageGenerator/);
+  assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.isHidden = true/);
   assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.frame = foregroundLayer\?\.frame/);
   assert.match(iosPostPublishTest, /assertElementHasNonBlackPixels\(/);
+  assert.match(iosPostPublishTest, /assertElementChangesPixels\(/);
   assert.match(iosPostPublishTest, /post-video-editor\.caption-preview\.Karaoke/);
   assert.match(commonPostVideoEditorContent, /post-video-editor\.crop-zoom/);
   assert.match(commonPostVideoEditorContent, /post-video-editor\.crop-zoom-in/);

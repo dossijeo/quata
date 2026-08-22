@@ -116,8 +116,11 @@ try {
       if (!cancelReport.progressReachedBeforeCancel) {
         throw new Error(`android_video_editor_cancel_progress_not_reached:${attemptSpec.label}`);
       }
-      if (!attemptSpec.mute && Number(cancelReport.progressPercentBeforeCancel || 0) < 12) {
-        throw new Error(`android_video_editor_cancel_unmuted_before_audio_export_started:${cancelReport.progressPercentBeforeCancel}`);
+      if (!attemptSpec.mute && cancelReport.audioRemuxStageObserved !== true) {
+        throw new Error(`android_video_editor_cancel_unmuted_audio_remux_not_observed:${JSON.stringify(cancelReport)}`);
+      }
+      if (!attemptSpec.mute && Number(cancelReport.progressPercentBeforeCancel || 0) < 97) {
+        throw new Error(`android_video_editor_cancel_unmuted_before_audio_remux_started:${cancelReport.progressPercentBeforeCancel}`);
       }
       report.attempts.push({ ...attempt, status: "passed", cancelReport });
       continue;

@@ -351,6 +351,12 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         self.backgroundPlayer = backgroundPlayer
         self.foregroundLayer = foregroundLayer
         self.backgroundLayer = backgroundLayer
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(playerItemReadyForPreview),
+            name: .AVPlayerItemNewAccessLogEntry,
+            object: player.currentItem
+        )
     }
 
     private static func previewImage(url: URL) -> UIImage? {
@@ -372,6 +378,10 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
 
     func nativeView() -> UIView { root }
 
+    @objc private func playerItemReadyForPreview() {
+        root.foregroundFrameView.isHidden = true
+    }
+
     func configure(
         isPlaying: Bool,
         isMuted: Bool,
@@ -391,6 +401,9 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         let backgroundPlayer = backgroundPlayer
         player.isMuted = isMuted
         backgroundPlayer?.isMuted = true
+        if player.currentItem?.status == .readyToPlay || isPlaying {
+            root.foregroundFrameView.isHidden = true
+        }
         let trimStart = max(0, trimStartMs)
         let trimEnd = max(trimStart + 50, trimEndMs > 0 ? trimEndMs : durationMs)
         let currentMs = Int64(max(0, CMTimeGetSeconds(player.currentTime()) * 1_000))
@@ -513,6 +526,7 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         timeObserver = nil
         player?.pause()
         backgroundPlayer?.pause()
+        NotificationCenter.default.removeObserver(self)
         foregroundLayer?.removeFromSuperlayer()
         backgroundLayer?.removeFromSuperlayer()
         root.foregroundLayer = nil

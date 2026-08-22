@@ -1660,6 +1660,7 @@ private suspend fun Context.ensureEditedVideoAudio(
         return exportedUri
     }
     val outputFile = createVideoEditorExportFile()
+    onProgress(0.97f)
     return remuxEditedVideoWithSourceAudio(request, exportedUri, outputFile).also {
         onProgress(1f)
         runCatching {

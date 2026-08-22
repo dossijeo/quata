@@ -432,7 +432,7 @@ private fun webPostVideoEditorConfigurePreview(
       const durationValueMs = Math.max(1, Number(durationMs) || 1);
       for (const video of videos) {
         if (video.src !== referenceValue) video.src = referenceValue;
-        video.muted = Boolean(isMuted);
+        video.muted = video.dataset.layer === 'background' ? true : Boolean(isMuted);
         video.loop = false;
         const currentSeconds = Number(video.currentTime || 0);
         const outsideTrim = currentSeconds < trimStartSeconds - 0.05 || currentSeconds >= trimEndSeconds + 0.05;
@@ -458,6 +458,7 @@ private fun webPostVideoEditorConfigurePreview(
           if (current >= trimEndSeconds || current < trimStartSeconds - 0.05) {
             for (const video of videos) {
               try { video.currentTime = trimStartSeconds; } catch (_) {}
+              video.muted = video.dataset.layer === 'background' ? true : Boolean(isMuted);
               const result = video.play?.();
               if (result && typeof result.catch === 'function') result.catch(() => {});
             }
