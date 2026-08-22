@@ -887,8 +887,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_MUTE/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CAPTIONS/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS/);
-  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'180'" : "'420'"\}/);
-  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'420'" : "'660'"\}/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'180'" : "'900'"\}/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'420'" : "'960'"\}/);
   assert.match(iosPostPublishTest, /ProcessInfo\.processInfo\.environment\["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"\] == "1"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.reset"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.mute"/);
@@ -1010,7 +1010,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /"backgroundCropLeft": request\.backgroundCropLeft/);
   assert.match(iosPostVideoEditorNativeDriver, /backgroundTrack/);
   assert.match(iosPostVideoEditorNativeDriver, /VideoLayerScaleMode/);
-  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /direct_video_only_writer_selected/);
+  assert.match(iosPostVideoEditorNativeDriver, /direct_video_only_writer_selected/);
   assert.match(iosPostVideoEditorNativeDriver, /captionRenderSpec/);
   assert.match(iosPostVideoEditorNativeDriver, /activeBackground/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /segment\.text\.uppercased\(\)/);
@@ -1020,6 +1020,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE='en_US'/);
   assert.match(iosVideoEditorWrapper, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_caption_pixels_missing/);
+  assert.match(iosVideoEditorRunner, /sourceHasAudio \? "'420'" : "'960'"/);
+  assert.match(iosVideoEditorRunner, /sourceHasAudio \? "'180'" : "'900'"/);
   assert.match(iosVideoEditorRunner, /ffprobe/);
   assert.match(iosQuataApp, /IosPostVideoEditorNativeDriverBridge\.shared/);
   assert.match(iosInfoPlist, /NSSpeechRecognitionUsageDescription/);
