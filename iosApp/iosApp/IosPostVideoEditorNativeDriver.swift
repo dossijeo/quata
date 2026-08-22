@@ -966,6 +966,9 @@ private final class IosPostVideoEditorExportOperation {
                 1,
                 Int(ceil(durationSeconds * Double(max(1, request.outputMaxFrameRate)))) + 6
             )
+            let frameStepSeconds = 1.0 / Double(max(1, request.outputMaxFrameRate))
+            let frameStepToleranceSeconds = frameStepSeconds * 0.25
+            var nextOutputFrameSeconds = 0.0
             guard reader.startReading(), writer.startWriting() else {
                 finishFailure(reason: reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_start_failed")
                 return
@@ -1072,8 +1075,12 @@ private final class IosPostVideoEditorExportOperation {
                         continue
                     }
                     let adjustedSeconds = max(0, CMTimeGetSeconds(adjustedPresentationTime))
+                    if adjustedSeconds + frameStepToleranceSeconds < nextOutputFrameSeconds {
+                        continue
+                    }
                     let timeMs = max(0, Int64((adjustedSeconds * 1_000).rounded()))
                     frameCount += 1
+                    nextOutputFrameSeconds = adjustedSeconds + frameStepSeconds
                     if frameCount == 1 || frameCount % 15 == 0 {
                         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_frame", details: [
                             "frame": "\(frameCount)",
