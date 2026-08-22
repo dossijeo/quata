@@ -770,7 +770,7 @@ private fun webPostVideoEditorExportEditedJs(
           if (!context) throw Error('web_post_video_editor_canvas_context_unavailable');
           const fps = Math.max(1, Math.min(60, Number(outputMaxFrameRate) || 30));
           const captureTickRate = fps;
-          stream = canvas.captureStream?.(fps) || canvas.captureStream?.(0);
+          stream = canvas.captureStream?.(0) || canvas.captureStream?.(fps);
           if (!stream || typeof globalThis.MediaRecorder !== 'function') {
             throw Error('web_post_video_editor_media_recorder_unavailable');
           }
@@ -853,7 +853,7 @@ private fun webPostVideoEditorExportEditedJs(
           const endMs = Math.min(hintedDurationMs, requestedEndMs);
           const durationMs = Math.max(500, endMs - startMs);
           const stopPaddingMs = Math.max(920, 1000 / fps * 28);
-          const minimumCaptureFrames = Math.max(1, Math.floor((durationMs / 1000) * Math.min(captureTickRate, 12)));
+          const minimumCaptureFrames = Math.max(1, Math.ceil((durationMs / 1000) * Math.min(captureTickRate, 24)));
           const sourceStartMs = Math.min(startMs * sourceScale, Math.max(0, actualDurationMs - 500));
           const crop = {
             left: Math.max(0, Math.min(1, Number(cropLeft) || 0)),
@@ -1034,7 +1034,7 @@ private fun webPostVideoEditorExportEditedJs(
               drawFrame(Math.min(durationMs, elapsedMs));
               drawnFrameCount += 1;
               onProgress(Math.min(0.95, 0.35 + (elapsedMs / Math.max(1, durationMs)) * 0.6));
-              const reachedCaptureTail = elapsedMs >= durationMs + stopPaddingMs;
+              const reachedCaptureTail = elapsedMs >= durationMs + stopPaddingMs && drawnFrameCount >= minimumCaptureFrames;
               if (reachedCaptureTail) {
                 elapsedAtStopMs = elapsedMs;
                 try { globalThis.cancelAnimationFrame?.(timer); } catch (_) {}
