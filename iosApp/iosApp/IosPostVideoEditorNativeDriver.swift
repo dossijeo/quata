@@ -641,12 +641,14 @@ private final class IosPostVideoEditorExportOperation {
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
         exportSession.timeRange = CMTimeRange(start: .zero, duration: range.duration)
-        exportSession.videoComposition = makeVideoComposition(
-            track: videoTrack,
-            foregroundTrack: compositionVideo,
-            backgroundTrack: compositionBackground,
-            duration: range.duration
-        )
+        exportSession.videoComposition = captionDocument == nil && request.hasBackgroundCrop
+            ? makeBlurredBackgroundVideoComposition(asset: composition, duration: range.duration)
+            : makeVideoComposition(
+                track: videoTrack,
+                foregroundTrack: compositionVideo,
+                backgroundTrack: compositionBackground,
+                duration: range.duration
+            )
         startProgressTimer(session: exportSession, floor: 0.35, ceiling: 0.72)
         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_started", details: [
             "durationMs": "\(Int64(CMTimeGetSeconds(range.duration) * 1_000))",
@@ -663,6 +665,13 @@ private final class IosPostVideoEditorExportOperation {
                 case .completed:
                     if self.didCancel {
                         self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
+                        return
+                    }
+                    if captionDocument == nil {
+                        if self.request.hasBackgroundCrop {
+                            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_completed")
+                        }
+                        self.finishSuccess(outputUrl: outputUrl, callback: callback)
                         return
                     }
                     self.applyVisualEffects(
