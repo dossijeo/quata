@@ -317,6 +317,10 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
     private var timeObserver: Any?
     private var previewGenerator: AVAssetImageGenerator?
     private var frameRefreshTimer: Timer?
+    private var previewPlaybackAnchorDate: Date?
+    private var previewPlaybackAnchorMs: Int64 = 0
+    private var previewPlaybackTrimStartMs: Int64 = 0
+    private var previewPlaybackTrimEndMs: Int64 = 1
     private var lastCropConfiguration = PreviewCropConfiguration(
         videoAspectRatio: 9.0 / 16.0,
         left: 0,
@@ -424,6 +428,9 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         if shouldSeekToState || shouldSeekToTrimStart {
             let targetMs = shouldSeekToTrimStart ? trimStart : max(0, positionMs)
             let target = CMTime(value: CMTimeValue(targetMs), timescale: 1_000)
+            if isPlaying {
+                restartPreviewFrameClock(at: targetMs, trimStartMs: trimStart, trimEndMs: trimEnd)
+            }
             player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak player] _ in
                 if isPlaying {
                     DispatchQueue.main.async {
@@ -449,6 +456,8 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         }
         if isPlaying {
             root.foregroundFrameView.isHidden = false
+            let playbackStartMs = outsideTrim ? trimStart : currentMs
+            restartPreviewFrameClock(at: playbackStartMs, trimStartMs: trimStart, trimEndMs: trimEnd)
             player.playImmediately(atRate: 1.0)
             backgroundPlayer?.playImmediately(atRate: 1.0)
             startFrameRefresh()
@@ -458,6 +467,7 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
                 let current = Int64(max(0, CMTimeGetSeconds(time) * 1_000))
                 if current >= trimEnd || current < trimStart - 50 {
                     let target = CMTime(value: CMTimeValue(trimStart), timescale: 1_000)
+                    self?.restartPreviewFrameClock(at: trimStart, trimStartMs: trimStart, trimEndMs: trimEnd)
                     player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak player] _ in
                         DispatchQueue.main.async {
                             player?.playImmediately(atRate: 1.0)
@@ -480,6 +490,7 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
             player.pause()
             backgroundPlayer?.pause()
             stopFrameRefresh()
+            previewPlaybackAnchorDate = nil
             updatePreviewFrameImage(at: CMTime(value: CMTimeValue(max(0, positionMs)), timescale: 1_000))
             callback.onPositionMs(positionMs: min(max(0, positionMs), max(1, durationMs)))
         }
@@ -566,6 +577,13 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         frameRefreshTimer?.tolerance = 0.08
     }
 
+    private func restartPreviewFrameClock(at positionMs: Int64, trimStartMs: Int64, trimEndMs: Int64) {
+        previewPlaybackAnchorDate = Date()
+        previewPlaybackTrimStartMs = trimStartMs
+        previewPlaybackTrimEndMs = max(trimStartMs + 50, trimEndMs)
+        previewPlaybackAnchorMs = positionMs.clamped(to: trimStartMs...previewPlaybackTrimEndMs)
+    }
+
     private func stopFrameRefresh() {
         frameRefreshTimer?.invalidate()
         frameRefreshTimer = nil
@@ -573,12 +591,21 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
 
     private func updatePreviewFrameImage(at time: CMTime? = nil) {
         guard let previewGenerator else { return }
-        let requestedTime = time ?? player?.currentTime() ?? .zero
+        let requestedTime = time ?? previewPlaybackTime() ?? player?.currentTime() ?? .zero
         guard let image = try? previewGenerator.copyCGImage(at: requestedTime, actualTime: nil) else {
             return
         }
         root.foregroundFrameView.image = UIImage(cgImage: image)
         root.foregroundFrameView.isHidden = false
+    }
+
+    private func previewPlaybackTime() -> CMTime? {
+        guard let anchorDate = previewPlaybackAnchorDate else { return nil }
+        let elapsedMs = Int64(max(0, Date().timeIntervalSince(anchorDate) * 1_000))
+        let span = max(50, previewPlaybackTrimEndMs - previewPlaybackTrimStartMs)
+        let anchorOffset = max(0, previewPlaybackAnchorMs - previewPlaybackTrimStartMs)
+        let positionMs = previewPlaybackTrimStartMs + ((anchorOffset + elapsedMs) % span)
+        return CMTime(value: CMTimeValue(positionMs), timescale: 1_000)
     }
 
     func dispose() {
@@ -1941,6 +1968,12 @@ private extension IosPostVideoEditorExportRequest {
 
 private extension CGFloat {
     func clamped(to range: ClosedRange<CGFloat>) -> CGFloat {
+        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
+    }
+}
+
+private extension Int64 {
+    func clamped(to range: ClosedRange<Int64>) -> Int64 {
         Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
     }
 }

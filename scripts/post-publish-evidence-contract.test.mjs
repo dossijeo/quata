@@ -1045,6 +1045,8 @@ test("post video editor Solo parity gaps stay fail-closed", () => {
   assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView = UIImageView\(\)/);
   assert.match(iosPostVideoEditorNativeDriver, /startFrameRefresh\(\)/);
   assert.match(iosPostVideoEditorNativeDriver, /updatePreviewFrameImage/);
+  assert.match(iosPostVideoEditorNativeDriver, /restartPreviewFrameClock/);
+  assert.match(iosPostVideoEditorNativeDriver, /previewPlaybackTime/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetImageGenerator/);
   assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.isHidden = false/);
   assert.match(iosPostVideoEditorNativeDriver, /automaticallyWaitsToMinimizeStalling = false/);
