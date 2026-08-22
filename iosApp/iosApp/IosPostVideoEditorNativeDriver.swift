@@ -1567,7 +1567,7 @@ private final class IosPostVideoEditorExportOperation {
             source = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX, y: -source.extent.minY))
         }
         let sourceExtent = source.extent
-        let foreground = Self.drawCrop(
+        let foreground = Self.drawCropForGenerator(
             source: source,
             sourceExtent: sourceExtent,
             crop: request.foregroundCrop,
@@ -1581,7 +1581,7 @@ private final class IosPostVideoEditorExportOperation {
                 width: max(2, outputSize.width * blurScale),
                 height: max(2, outputSize.height * blurScale)
             )
-            let background = Self.drawCrop(
+            let background = Self.drawCropForGenerator(
                 source: source.clampedToExtent(),
                 sourceExtent: sourceExtent,
                 crop: request.backgroundCrop,
@@ -1608,6 +1608,34 @@ private final class IosPostVideoEditorExportOperation {
             image = overlay.composited(over: image)
         }
         return image.cropped(to: outputExtent)
+    }
+
+    private static func drawCropForGenerator(
+        source: CIImage,
+        sourceExtent: CGRect,
+        crop: CGRect,
+        outputSize: CGSize,
+        mode: VideoLayerScaleMode
+    ) -> CIImage {
+        let cropRect = CGRect(
+            x: sourceExtent.minX + crop.minX * sourceExtent.width,
+            y: sourceExtent.minY + (1 - crop.maxY) * sourceExtent.height,
+            width: max(1, crop.width * sourceExtent.width),
+            height: max(1, crop.height * sourceExtent.height)
+        )
+        let scale = mode == .fill
+            ? max(outputSize.width / cropRect.width, outputSize.height / cropRect.height)
+            : min(outputSize.width / cropRect.width, outputSize.height / cropRect.height)
+        let drawWidth = cropRect.width * scale
+        let drawHeight = cropRect.height * scale
+        let centeredX = (outputSize.width - drawWidth) / 2
+        let centeredY = (outputSize.height - drawHeight) / 2
+        return source
+            .cropped(to: cropRect)
+            .transformed(by: CGAffineTransform(translationX: -cropRect.minX, y: -cropRect.minY))
+            .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            .transformed(by: CGAffineTransform(translationX: centeredX, y: centeredY))
+            .cropped(to: CGRect(origin: .zero, size: outputSize))
     }
 
     private func foregroundContentRect(outputSize: CGSize, sourceDisplaySize: CGSize) -> CGRect {
