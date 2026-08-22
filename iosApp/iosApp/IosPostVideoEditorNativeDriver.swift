@@ -1198,7 +1198,7 @@ private final class IosPostVideoEditorExportOperation {
 
             let generator = AVAssetImageGenerator(asset: asset)
             generator.appliesPreferredTrackTransform = true
-            generator.maximumSize = CGSize(width: max(renderSize.width, sourceDisplaySize.width), height: max(renderSize.height, sourceDisplaySize.height))
+            generator.maximumSize = renderSize
             let frameStep = 1.0 / Double(frameRate)
             let tolerance = CMTime(seconds: frameStep * 0.5, preferredTimescale: 600)
             generator.requestedTimeToleranceBefore = tolerance
@@ -1503,7 +1503,7 @@ private final class IosPostVideoEditorExportOperation {
         source = source.cropped(to: outputExtent)
         var image = source
         if shouldBlurBackground {
-            let blurScale: CGFloat = 0.20
+            let blurScale: CGFloat = 0.10
             let downscaledExtent = CGRect(
                 x: 0,
                 y: 0,
@@ -1513,7 +1513,7 @@ private final class IosPostVideoEditorExportOperation {
             let blurred = source
                 .transformed(by: CGAffineTransform(scaleX: blurScale, y: blurScale))
                 .clampedToExtent()
-                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 12])
+                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 8])
                 .cropped(to: downscaledExtent)
                 .transformed(by: CGAffineTransform(scaleX: 1 / blurScale, y: 1 / blurScale))
                 .cropped(to: outputExtent)
