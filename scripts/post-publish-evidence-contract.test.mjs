@@ -952,6 +952,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(androidVideoEditorRunner, /label: "cancel-unmuted", mute: false, cancelOnly: true/);
   assert.match(commonPostVideoEditorContent, /post-video-editor\.export-progress\.\$exportPercent/);
   assert.match(androidPostPublishTest, /SemanticsProperties\.StateDescription/);
+  assert.match(androidPostPublishTest, /writeVideoEditorCancelReport/);
+  assert.match(androidVideoEditorRunner, /android_video_editor_cancel_unmuted_before_audio_export_started/);
   assert.match(androidVideoEditorRunner, /expectCaptions: attemptSpec\.exerciseCaptions/);
   assert.match(androidVideoEditorRunner, /const captionPixelProbe = expectCaptions \? probeCaptionPixels\(outputPath\) : null/);
   assert.match(androidVideoEditorRunner, /requireCropGeometry: true/);

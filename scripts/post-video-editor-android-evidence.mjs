@@ -111,7 +111,15 @@ try {
     }
     await copyDeviceEvidence(evidenceDir);
     if (attemptSpec.cancelOnly) {
-      report.attempts.push({ ...attempt, status: "passed" });
+      const cancelReportPath = join(evidenceDir, `android-post-video-editor-cancel-${attemptSpec.label}.json`);
+      const cancelReport = JSON.parse(await readFile(cancelReportPath, "utf8"));
+      if (!cancelReport.progressReachedBeforeCancel) {
+        throw new Error(`android_video_editor_cancel_progress_not_reached:${attemptSpec.label}`);
+      }
+      if (!attemptSpec.mute && Number(cancelReport.progressPercentBeforeCancel || 0) < 12) {
+        throw new Error(`android_video_editor_cancel_unmuted_before_audio_export_started:${cancelReport.progressPercentBeforeCancel}`);
+      }
+      report.attempts.push({ ...attempt, status: "passed", cancelReport });
       continue;
     }
     const exportPath = join(evidenceDir, `android-post-video-editor-export-${attemptSpec.label}.mp4`);

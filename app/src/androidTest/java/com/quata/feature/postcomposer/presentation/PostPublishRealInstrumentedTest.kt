@@ -615,9 +615,10 @@ class PostPublishRealInstrumentedTest {
                 runCatching { compose.onNodeWithTag(PostVideoEditorExportProgressTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
             if (cancelOnly) {
+                var cancelProgressPercent = 0
                 if (!shouldMuteExport) {
                     compose.waitUntil(120_000) {
-                        val progress = runCatching {
+                        cancelProgressPercent = runCatching {
                             compose.onNodeWithTag(PostVideoEditorExportProgressTestTag, useUnmergedTree = true)
                                 .fetchSemanticsNode()
                                 .config
@@ -626,9 +627,10 @@ class PostPublishRealInstrumentedTest {
                                 .substringAfterLast('.')
                                 .toIntOrNull() ?: 0
                         }.getOrDefault(0)
-                        progress >= 12
+                        cancelProgressPercent >= 12
                     }
                 }
+                writeVideoEditorCancelReport(evidenceLabel, shouldMuteExport, cancelProgressPercent)
                 saveScreenshot("android-post-video-editor-export-progress")
                 compose.onAllNodesWithTag(PostVideoEditorCancelExportTestTag, useUnmergedTree = true)
                     .filterToOne(hasClickAction())
@@ -798,8 +800,8 @@ class PostPublishRealInstrumentedTest {
         )
     }
 
-    private fun writePickerReport(source: String, outcome: String) {
-        File(evidenceDir(), "android-post-picker-camera-evidence.json").writeText(
+        private fun writePickerReport(source: String, outcome: String) {
+            File(evidenceDir(), "android-post-picker-camera-evidence.json").writeText(
             JSONObject()
                 .put("check", "POST-PICKER-CAMERA-ANDROID-REAL-001")
                 .put("status", "passed")
@@ -807,8 +809,22 @@ class PostPublishRealInstrumentedTest {
                 .put("outcome", outcome)
                 .put("evidenceDirectory", evidenceDir().absolutePath)
                 .toString(2) + "\n",
-        )
-    }
+            )
+        }
+
+        private fun writeVideoEditorCancelReport(label: String, muted: Boolean, progressPercent: Int) {
+            File(evidenceDir(), "android-post-video-editor-cancel-$label.json").writeText(
+                JSONObject()
+                    .put("check", "POST-VIDEO-EDITOR-ANDROID-CANCEL-001")
+                    .put("status", "passed")
+                    .put("label", label)
+                    .put("muted", muted)
+                    .put("waitedForAudioRoute", !muted)
+                    .put("progressPercentBeforeCancel", progressPercent)
+                    .put("progressReachedBeforeCancel", muted || progressPercent >= 12)
+                    .toString(2) + "\n",
+            )
+        }
 
     private fun copyLatestEditedVideoEvidence(label: String) {
         val latest = targetContext.cacheDir
