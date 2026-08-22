@@ -1542,7 +1542,7 @@ private final class IosPostVideoEditorExportOperation {
                 mode: .fit
             ).cropped(to: outputExtent)
         }
-        let blurScale: CGFloat = 0.20
+        let blurScale: CGFloat = 0.06
         let blurSize = CGSize(
             width: max(2, outputSize.width * blurScale),
             height: max(2, outputSize.height * blurScale)
@@ -1554,7 +1554,7 @@ private final class IosPostVideoEditorExportOperation {
             outputSize: blurSize,
             mode: .fill
         )
-            .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 5])
+            .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 2])
             .cropped(to: CGRect(origin: .zero, size: blurSize))
             .transformed(by: CGAffineTransform(
                 scaleX: outputSize.width / blurSize.width,
