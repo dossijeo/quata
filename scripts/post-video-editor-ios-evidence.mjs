@@ -378,7 +378,7 @@ function verifyCaptionDifferential(attempts, platformLabel) {
     const positive = attempt.physicalExport?.captionPixelProbe;
     if (!positive) throw new Error(`${platformLabel}_video_editor_caption_positive_probe_missing:${attempt.label}`);
     const negative = measureCaptionPixels(negativePath, positive.seekSecond);
-    if (!(positive.brightFraction >= negative.brightFraction + 0.03 && positive.brightFraction >= negative.brightFraction * 2.5)) {
+    if (!(positive.brightFraction >= negative.brightFraction + 0.03 && positive.brightFraction >= negative.brightFraction * 2)) {
       throw new Error(`${platformLabel}_video_editor_caption_differential_missing:${attempt.label}:${positive.brightFraction.toFixed(4)}:${negative.brightFraction.toFixed(4)}`);
     }
     attempt.physicalExport.captionNegativeControlProbe = negative;

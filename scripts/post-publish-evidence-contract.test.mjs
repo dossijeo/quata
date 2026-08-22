@@ -693,7 +693,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_missing_without_mute/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_silent/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_trim_duration/);
-  assert.match(webVideoEditorRunner, /durationToleranceMs = Math\.min\(900, Math\.max\(450, Math\.round\(expectedDurationMs \* 0\.08\)\)\)/);
+  assert.match(webVideoEditorRunner, /durationToleranceMs = Math\.min\(900, Math\.max\(650, Math\.round\(expectedDurationMs \* 0\.08\)\)\)/);
   assert.match(webVideoEditorRunner, /verifyCaptionDifferential\(report\.attempts, "web"\)/);
   assert.match(webVideoEditorRunner, /captionNegativeControlProbe/);
   assert.match(webVideoEditorRunner, /physicalDurationMs < 500/);

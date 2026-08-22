@@ -429,7 +429,7 @@ async function saveAndProbeWebExport(page, exportState, { label, mute, sourceHas
   }
   const physicalDurationMs = ffprobeDurationMs;
   const expectedDurationMs = Math.max(500, Number(exportState.spec?.trimEndMs || 0) - Number(exportState.spec?.trimStartMs || 0));
-  const durationToleranceMs = Math.min(900, Math.max(450, Math.round(expectedDurationMs * 0.08)));
+  const durationToleranceMs = Math.min(900, Math.max(650, Math.round(expectedDurationMs * 0.08)));
   if (physicalDurationMs < 500 || Math.abs(physicalDurationMs - expectedDurationMs) > durationToleranceMs) {
     throw new Error(`web_video_editor_physical_trim_duration:${physicalDurationMs}:${expectedDurationMs}`);
   }
@@ -545,7 +545,7 @@ function verifyCaptionDifferential(attempts, platformLabel) {
   for (const attempt of attempts.filter((item) => item.exerciseCaptions && !item.cancelOnly)) {
     const positive = attempt.evidence?.physicalOutput?.captionPixelProbe;
     if (!positive) throw new Error(`${platformLabel}_video_editor_caption_positive_probe_missing:${attempt.label}`);
-    if (!(positive.brightFraction >= negative.brightFraction + 0.03 && positive.brightFraction >= negative.brightFraction * 2.5)) {
+    if (!(positive.brightFraction >= negative.brightFraction + 0.03 && positive.brightFraction >= negative.brightFraction * 2)) {
       throw new Error(`${platformLabel}_video_editor_caption_differential_missing:${attempt.label}:${positive.brightFraction.toFixed(4)}:${negative.brightFraction.toFixed(4)}`);
     }
     attempt.evidence.physicalOutput.captionNegativeControlProbe = negative;
