@@ -315,6 +315,8 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
     private var foregroundLayer: AVPlayerLayer?
     private var backgroundLayer: AVPlayerLayer?
     private var timeObserver: Any?
+    private var previewGenerator: AVAssetImageGenerator?
+    private var frameRefreshTimer: Timer?
     private var lastCropConfiguration = PreviewCropConfiguration(
         videoAspectRatio: 9.0 / 16.0,
         left: 0,
@@ -330,9 +332,12 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
             self?.applyCropPreview()
         }
         guard let url else { return }
+        let asset = AVAsset(url: url)
         let player = AVPlayer(url: url)
         let backgroundPlayer = AVPlayer(url: url)
-        root.foregroundFrameView.image = Self.previewImage(url: url)
+        let previewGenerator = Self.makePreviewGenerator(asset: asset)
+        self.previewGenerator = previewGenerator
+        root.foregroundFrameView.image = Self.previewImage(generator: previewGenerator)
         player.automaticallyWaitsToMinimizeStalling = false
         backgroundPlayer.automaticallyWaitsToMinimizeStalling = false
         player.currentItem?.preferredForwardBufferDuration = 0
@@ -363,11 +368,16 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         )
     }
 
-    private static func previewImage(url: URL) -> UIImage? {
-        let asset = AVAsset(url: url)
+    private static func makePreviewGenerator(asset: AVAsset) -> AVAssetImageGenerator {
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
-        generator.maximumSize = CGSize(width: 720, height: 1280)
+        generator.maximumSize = CGSize(width: 360, height: 640)
+        generator.requestedTimeToleranceBefore = CMTime(value: 80, timescale: 1_000)
+        generator.requestedTimeToleranceAfter = CMTime(value: 80, timescale: 1_000)
+        return generator
+    }
+
+    private static func previewImage(generator: AVAssetImageGenerator) -> UIImage? {
         for time in [
             CMTime(value: 180, timescale: 1_000),
             CMTime(value: 420, timescale: 1_000),
@@ -383,7 +393,7 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
     func nativeView() -> UIView { root }
 
     @objc private func playerItemReadyForPreview() {
-        root.foregroundFrameView.isHidden = true
+        updatePreviewFrameImage()
     }
 
     func configure(
@@ -405,9 +415,6 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         let backgroundPlayer = backgroundPlayer
         player.isMuted = isMuted
         backgroundPlayer?.isMuted = true
-        if player.currentItem?.status == .readyToPlay || isPlaying {
-            root.foregroundFrameView.isHidden = true
-        }
         let trimStart = max(0, trimStartMs)
         let trimEnd = max(trimStart + 50, trimEndMs > 0 ? trimEndMs : durationMs)
         let currentMs = Int64(max(0, CMTimeGetSeconds(player.currentTime()) * 1_000))
@@ -421,6 +428,10 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
                 if isPlaying {
                     DispatchQueue.main.async {
                         player?.playImmediately(atRate: 1.0)
+                    }
+                } else {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.updatePreviewFrameImage(at: target)
                     }
                 }
             }
@@ -437,9 +448,10 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
             self.timeObserver = nil
         }
         if isPlaying {
-            root.foregroundFrameView.isHidden = true
+            root.foregroundFrameView.isHidden = false
             player.playImmediately(atRate: 1.0)
             backgroundPlayer?.playImmediately(atRate: 1.0)
+            startFrameRefresh()
             let interval = CMTime(value: 120, timescale: 1_000)
             timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self, weak player, weak backgroundPlayer, callback] time in
                 guard let player else { return }
@@ -467,6 +479,8 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         } else {
             player.pause()
             backgroundPlayer?.pause()
+            stopFrameRefresh()
+            updatePreviewFrameImage(at: CMTime(value: CMTimeValue(max(0, positionMs)), timescale: 1_000))
             callback.onPositionMs(positionMs: min(max(0, positionMs), max(1, durationMs)))
         }
         lastCropConfiguration = PreviewCropConfiguration(
@@ -544,6 +558,29 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         CATransaction.commit()
     }
 
+    private func startFrameRefresh() {
+        guard frameRefreshTimer == nil else { return }
+        frameRefreshTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            self?.updatePreviewFrameImage()
+        }
+        frameRefreshTimer?.tolerance = 0.08
+    }
+
+    private func stopFrameRefresh() {
+        frameRefreshTimer?.invalidate()
+        frameRefreshTimer = nil
+    }
+
+    private func updatePreviewFrameImage(at time: CMTime? = nil) {
+        guard let previewGenerator else { return }
+        let requestedTime = time ?? player?.currentTime() ?? .zero
+        guard let image = try? previewGenerator.copyCGImage(at: requestedTime, actualTime: nil) else {
+            return
+        }
+        root.foregroundFrameView.image = UIImage(cgImage: image)
+        root.foregroundFrameView.isHidden = false
+    }
+
     func dispose() {
         if let timeObserver, let player {
             player.removeTimeObserver(timeObserver)
@@ -551,6 +588,7 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         timeObserver = nil
         player?.pause()
         backgroundPlayer?.pause()
+        stopFrameRefresh()
         NotificationCenter.default.removeObserver(self)
         foregroundLayer?.removeFromSuperlayer()
         backgroundLayer?.removeFromSuperlayer()

@@ -1043,9 +1043,10 @@ test("post video editor Solo parity gaps stay fail-closed", () => {
   assert.doesNotMatch(androidVideoEditorDialog, /captionPreviewFrame/);
 
   assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView = UIImageView\(\)/);
-  assert.match(iosPostVideoEditorNativeDriver, /previewImage\(url:/);
+  assert.match(iosPostVideoEditorNativeDriver, /startFrameRefresh\(\)/);
+  assert.match(iosPostVideoEditorNativeDriver, /updatePreviewFrameImage/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetImageGenerator/);
-  assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.isHidden = true/);
+  assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.isHidden = false/);
   assert.match(iosPostVideoEditorNativeDriver, /automaticallyWaitsToMinimizeStalling = false/);
   assert.match(iosPostVideoEditorNativeDriver, /playImmediately\(atRate: 1\.0\)/);
   assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.frame = foregroundLayer\?\.frame/);
