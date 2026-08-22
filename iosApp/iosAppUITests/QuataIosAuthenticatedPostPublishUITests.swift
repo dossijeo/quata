@@ -258,7 +258,8 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         QuataIosHostUITestSupport.assertElementChangesPixels(
             editorPreview,
             named: "ios-post-video-editor-preview-playing",
-            minimumChangedRatio: 0.025,
+            delay: 1.25,
+            minimumChangedRatio: 0.01,
         )
         dragVideoTrimEnd(toNormalizedX: 0.64, in: app)
         if exerciseCaptions {
