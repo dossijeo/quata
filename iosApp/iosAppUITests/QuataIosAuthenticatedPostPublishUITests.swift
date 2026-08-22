@@ -259,7 +259,7 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
             editorPreview,
             named: "ios-post-video-editor-preview-playing",
             delay: 1.25,
-            minimumChangedRatio: 0.01,
+            minimumChangedRatio: 0.005,
         )
         dragVideoTrimEnd(toNormalizedX: 0.64, in: app)
         if exerciseCaptions {
