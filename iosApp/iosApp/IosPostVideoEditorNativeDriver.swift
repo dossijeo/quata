@@ -1513,7 +1513,7 @@ private final class IosPostVideoEditorExportOperation {
             let blurred = source
                 .transformed(by: CGAffineTransform(scaleX: blurScale, y: blurScale))
                 .clampedToExtent()
-                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 5])
+                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 12])
                 .cropped(to: downscaledExtent)
                 .transformed(by: CGAffineTransform(scaleX: 1 / blurScale, y: 1 / blurScale))
                 .cropped(to: outputExtent)
