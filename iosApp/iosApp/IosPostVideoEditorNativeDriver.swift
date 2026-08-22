@@ -652,10 +652,14 @@ private final class IosPostVideoEditorExportOperation {
         try? FileManager.default.removeItem(at: finalOutputUrl)
         let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
         if sourceAudioTrack == nil, captionDocument == nil {
-            exportVideoOnlyWithCoreImageComposition(
-                asset: asset,
-                range: range,
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_visual_effects_writer_selected")
+            applyVisualEffects(
+                inputUrl: sourceUrl,
                 outputUrl: finalOutputUrl,
+                captionStyle: nil,
+                captionDocument: nil,
+                sourceDisplaySize: displaySize(for: videoTrack),
+                readRange: range,
                 callback: callback
             )
             return
@@ -720,6 +724,7 @@ private final class IosPostVideoEditorExportOperation {
                         captionStyle: self.request.captionStyle,
                         captionDocument: captionDocument,
                         sourceDisplaySize: self.displaySize(for: videoTrack),
+                        readRange: nil,
                         callback: callback
                     )
                 case .failed, .cancelled:
@@ -745,60 +750,6 @@ private final class IosPostVideoEditorExportOperation {
         visualEffectsWriter?.cancelWriting()
         visualEffectsAdaptor = nil
         finishFailure(reason: "ios_post_video_editor_export_cancelled")
-    }
-
-    private func exportVideoOnlyWithCoreImageComposition(
-        asset: AVAsset,
-        range: CMTimeRange,
-        outputUrl: URL,
-        callback: any IosPostVideoEditorExportCallback
-    ) {
-        let exportPresetName = exportPresetName()
-        guard let exportSession = AVAssetExportSession(asset: asset, presetName: exportPresetName) else {
-            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")
-            finishFailure(reason: "ios_post_video_editor_export_session_unavailable")
-            return
-        }
-        self.exportSession = exportSession
-        try? FileManager.default.removeItem(at: outputUrl)
-        exportSession.outputURL = outputUrl
-        exportSession.outputFileType = .mp4
-        exportSession.shouldOptimizeForNetworkUse = true
-        exportSession.timeRange = range
-        exportSession.videoComposition = makeCoreImageVideoComposition(asset: asset)
-        startProgressTimer(session: exportSession, floor: 0.35, ceiling: 0.95)
-        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_core_image_export_started", details: [
-            "durationMs": "\(Int64(CMTimeGetSeconds(range.duration) * 1_000))",
-            "outputWidth": "\(request.outputWidth)",
-            "outputHeight": "\(request.outputHeight)",
-            "maxFrameRate": "\(request.outputMaxFrameRate)",
-            "targetBitrate": "\(request.outputTargetBitrate)",
-            "exportPreset": exportPresetName,
-        ])
-        exportSession.exportAsynchronously { [callback] in
-            DispatchQueue.main.async {
-                switch exportSession.status {
-                case .completed:
-                    if self.didCancel {
-                        self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
-                        return
-                    }
-                    if self.request.hasBackgroundCrop {
-                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_completed")
-                    }
-                    self.finishSuccess(outputUrl: outputUrl, callback: callback)
-                case .failed, .cancelled:
-                    let reason = self.didCancel
-                        ? "ios_post_video_editor_export_cancelled"
-                        : exportSession.error?.localizedDescription ?? "ios_post_video_editor_export_failed"
-                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_core_image_export_failed", details: ["reason": reason])
-                    self.finishFailure(reason: reason)
-                default:
-                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_core_image_export_incomplete", details: ["status": "\(exportSession.status.rawValue)"])
-                    self.finishFailure(reason: "ios_post_video_editor_export_incomplete")
-                }
-            }
-        }
     }
 
     private func finishFailure(reason: String) {
@@ -859,65 +810,6 @@ private final class IosPostVideoEditorExportOperation {
         composition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
         composition.instructions = [instruction]
         return composition
-    }
-
-    private func makeCoreImageVideoComposition(asset: AVAsset) -> AVMutableVideoComposition {
-        let outputSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
-        let foregroundCrop = request.foregroundCrop
-        let backgroundCrop = request.backgroundCrop
-        let hasBackgroundCrop = request.hasBackgroundCrop
-        let videoComposition = AVMutableVideoComposition(asset: asset) { renderRequest in
-            let extent = renderRequest.sourceImage.extent
-            guard hasBackgroundCrop else {
-                renderRequest.finish(
-                    with: Self.drawCrop(
-                        source: renderRequest.sourceImage,
-                        sourceExtent: extent,
-                        crop: foregroundCrop,
-                        outputSize: outputSize,
-                        mode: .fit
-                    ),
-                    context: nil
-                )
-                return
-            }
-            let source = renderRequest.sourceImage.clampedToExtent()
-            let blurScale: CGFloat = 0.25
-            let blurSize = CGSize(
-                width: max(2, outputSize.width * blurScale),
-                height: max(2, outputSize.height * blurScale)
-            )
-            let background = Self.drawCrop(
-                source: source,
-                sourceExtent: extent,
-                crop: backgroundCrop,
-                outputSize: blurSize,
-                mode: .fill
-            )
-                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 6])
-                .cropped(to: CGRect(origin: .zero, size: blurSize))
-                .transformed(by: CGAffineTransform(
-                    scaleX: outputSize.width / blurSize.width,
-                    y: outputSize.height / blurSize.height
-                ))
-                .cropped(to: CGRect(origin: .zero, size: outputSize))
-            let foreground = Self.drawCrop(
-                source: renderRequest.sourceImage,
-                sourceExtent: extent,
-                crop: foregroundCrop,
-                outputSize: outputSize,
-                mode: .fit
-            )
-            let veil = CIImage(color: CIColor(red: 0, green: 0, blue: 0, alpha: 0.24))
-                .cropped(to: CGRect(origin: .zero, size: outputSize))
-            renderRequest.finish(
-                with: foreground.composited(over: veil.composited(over: background)),
-                context: nil
-            )
-        }
-        videoComposition.renderSize = outputSize
-        videoComposition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
-        return videoComposition
     }
 
     private static func drawCrop(
@@ -984,6 +876,7 @@ private final class IosPostVideoEditorExportOperation {
         captionStyle: String?,
         captionDocument: CaptionDocumentWire?,
         sourceDisplaySize: CGSize,
+        readRange: CMTimeRange?,
         callback: any IosPostVideoEditorExportCallback
     ) {
         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("adaptive_writer_pass_start", details: [
@@ -1015,6 +908,9 @@ private final class IosPostVideoEditorExportOperation {
         do {
             try? FileManager.default.removeItem(at: outputUrl)
             let reader = try AVAssetReader(asset: asset)
+            if let readRange {
+                reader.timeRange = readRange
+            }
             let readerOutput = AVAssetReaderTrackOutput(
                 track: videoTrack,
                 outputSettings: [
@@ -1063,7 +959,9 @@ private final class IosPostVideoEditorExportOperation {
             visualEffectsWriter = writer
             visualEffectsAdaptor = adaptor
             let ciContext = CIContext(options: [.cacheIntermediates: false])
-            let durationSeconds = max(0.001, CMTimeGetSeconds(asset.duration))
+            let renderDuration = readRange?.duration ?? asset.duration
+            let timeOffset = readRange?.start ?? .zero
+            let durationSeconds = max(0.001, CMTimeGetSeconds(renderDuration))
             let maxFrameCount = max(
                 1,
                 Int(ceil(durationSeconds * Double(max(1, request.outputMaxFrameRate)))) + 6
@@ -1169,7 +1067,12 @@ private final class IosPostVideoEditorExportOperation {
                         return
                     }
                     let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-                    let timeMs = max(0, Int64((CMTimeGetSeconds(presentationTime) * 1_000).rounded()))
+                    let adjustedPresentationTime = CMTimeSubtract(presentationTime, timeOffset)
+                    if CMTimeCompare(adjustedPresentationTime, .zero) < 0 {
+                        continue
+                    }
+                    let adjustedSeconds = max(0, CMTimeGetSeconds(adjustedPresentationTime))
+                    let timeMs = max(0, Int64((adjustedSeconds * 1_000).rounded()))
                     frameCount += 1
                     if frameCount == 1 || frameCount % 15 == 0 {
                         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_frame", details: [
@@ -1192,7 +1095,7 @@ private final class IosPostVideoEditorExportOperation {
                         bounds: CGRect(origin: .zero, size: renderSize),
                         colorSpace: CGColorSpaceCreateDeviceRGB()
                     )
-                    if !adaptor.append(destinationBuffer, withPresentationTime: presentationTime) {
+                    if !adaptor.append(destinationBuffer, withPresentationTime: adjustedPresentationTime) {
                         reader.cancelReading()
                         writer.cancelWriting()
                         DispatchQueue.main.async {
@@ -1200,7 +1103,7 @@ private final class IosPostVideoEditorExportOperation {
                         }
                         return
                     }
-                    let progress = 0.72 + Float(min(1, max(0, CMTimeGetSeconds(presentationTime) / durationSeconds))) * 0.23
+                    let progress = 0.72 + Float(min(1, max(0, adjustedSeconds / durationSeconds))) * 0.23
                     DispatchQueue.main.async {
                         if !self.didFinish {
                             callback.onProgress(progress: progress)

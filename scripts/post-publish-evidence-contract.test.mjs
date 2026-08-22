@@ -999,7 +999,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_caption_transcript_timeout/);
   assert.match(iosPostVideoEditorNativeDriver, /CaptionDocumentWire\.parse/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetExportSession/);
-  assert.match(iosPostVideoEditorNativeDriver, /AVMutableVideoComposition\(asset: asset\)/);
+  assert.match(iosPostVideoEditorNativeDriver, /AVAssetWriterInputPixelBufferAdaptor/);
   assert.match(iosPostVideoEditorNativeDriver, /caption_burn_start/);
   assert.match(iosPostVideoEditorNativeDriver, /caption_burn_completed/);
   assert.match(iosPostVideoEditorNativeDriver, /captionOverlayImage/);
@@ -1010,9 +1010,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /"backgroundCropLeft": request\.backgroundCropLeft/);
   assert.match(iosPostVideoEditorNativeDriver, /backgroundTrack/);
   assert.match(iosPostVideoEditorNativeDriver, /VideoLayerScaleMode/);
-  assert.match(iosPostVideoEditorNativeDriver, /exportVideoOnlyWithCoreImageComposition/);
-  assert.match(iosPostVideoEditorNativeDriver, /video_only_core_image_export_started/);
-  assert.match(iosPostVideoEditorNativeDriver, /makeCoreImageVideoComposition\(asset: asset\)/);
+  assert.match(iosPostVideoEditorNativeDriver, /video_only_visual_effects_writer_selected/);
+  assert.match(iosPostVideoEditorNativeDriver, /reader\.timeRange = readRange/);
+  assert.match(iosPostVideoEditorNativeDriver, /adjustedPresentationTime/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /direct_video_only_writer_selected/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /applyDirectVideoOnlyVisualEffects/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /renderDirectVideoOnlyFrame/);
