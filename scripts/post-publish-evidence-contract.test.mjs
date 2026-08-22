@@ -693,7 +693,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_stream_missing_without_mute/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_audio_silent/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_trim_duration/);
-  assert.match(webVideoEditorRunner, /durationToleranceMs = Math\.max\(450, Math\.round\(expectedDurationMs \* 0\.25\)\)/);
+  assert.match(webVideoEditorRunner, /durationToleranceMs = Math\.min\(900, Math\.max\(450, Math\.round\(expectedDurationMs \* 0\.08\)\)\)/);
+  assert.match(webVideoEditorRunner, /verifyCaptionDifferential\(report\.attempts, "web"\)/);
+  assert.match(webVideoEditorRunner, /captionNegativeControlProbe/);
   assert.match(webVideoEditorRunner, /physicalDurationMs < 500/);
   assert.match(webVideoEditorRunner, /web_video_editor_physical_duration_unmeasured/);
   assert.match(webVideoEditorRunner, /"-show_packets"/);
@@ -944,8 +946,12 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorRunner, /expectedTrimDurationMs/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_background_blur_pixels_missing/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_crop_geometry_pixels_missing/);
+  assert.match(iosVideoEditorRunner, /verifyCaptionDifferential\(report\.attempts, "ios"\)/);
+  assert.match(iosVideoEditorRunner, /captionNegativeControlProbe/);
   assert.match(iosVideoEditorRunner, /probeIosExport\(localExport, diagnostics, \{ mute, sourceHasAudio, requireCropGeometry: true \}\)/);
   assert.match(androidVideoEditorRunner, /label: "cancel-unmuted", mute: false, cancelOnly: true/);
+  assert.match(commonPostVideoEditorContent, /post-video-editor\.export-progress\.\$exportPercent/);
+  assert.match(androidPostPublishTest, /SemanticsProperties\.StateDescription/);
   assert.match(androidVideoEditorRunner, /expectCaptions: attemptSpec\.exerciseCaptions/);
   assert.match(androidVideoEditorRunner, /const captionPixelProbe = expectCaptions \? probeCaptionPixels\(outputPath\) : null/);
   assert.match(androidVideoEditorRunner, /requireCropGeometry: true/);

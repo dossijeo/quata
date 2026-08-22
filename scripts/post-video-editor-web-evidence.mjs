@@ -56,6 +56,7 @@ try {
   report.attempts.push(await runAttempt(context, { label: "muted", mute: true, reference: speechFixtureReference, sourceHasAudio: true, exerciseCaptions: true }));
   report.attempts.push(await runAttempt(context, { label: "unmuted", mute: false, reference: speechFixtureReference, sourceHasAudio: true, exerciseCaptions: true }));
   report.attempts.push(await runAttempt(context, { label: "unmuted-no-audio-source", mute: false, reference: noAudioFixtureReference, sourceHasAudio: false, exerciseCaptions: false }));
+  verifyCaptionDifferential(report.attempts, "web");
   const failedAttempt = report.attempts.find((attempt) => attempt.status !== "passed");
   if (failedAttempt) throw new Error(`web_attempt_failed:${failedAttempt.source}:${failedAttempt.outcome}`);
 
@@ -428,11 +429,12 @@ async function saveAndProbeWebExport(page, exportState, { label, mute, sourceHas
   }
   const physicalDurationMs = ffprobeDurationMs;
   const expectedDurationMs = Math.max(500, Number(exportState.spec?.trimEndMs || 0) - Number(exportState.spec?.trimStartMs || 0));
-  const durationToleranceMs = Math.max(450, Math.round(expectedDurationMs * 0.25));
+  const durationToleranceMs = Math.min(900, Math.max(450, Math.round(expectedDurationMs * 0.08)));
   if (physicalDurationMs < 500 || Math.abs(physicalDurationMs - expectedDurationMs) > durationToleranceMs) {
     throw new Error(`web_video_editor_physical_trim_duration:${physicalDurationMs}:${expectedDurationMs}`);
   }
   const captionPixelProbe = exportState.operations?.captions === true ? probeCaptionPixels(outputPath) : null;
+  const captionControlPixelProbe = exportState.operations?.captions === true ? null : measureCaptionPixels(outputPath);
   const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
   const cropGeometryPixelProbe = requireCropGeometry
     ? probeCropGeometryPixels(outputPath, exportState.spec, "web_video_editor_crop_geometry_pixels_missing")
@@ -450,6 +452,7 @@ async function saveAndProbeWebExport(page, exportState, { label, mute, sourceHas
     audioStreamPresent: Boolean(audioStream),
     audioProbe,
     captionPixelProbe,
+    captionControlPixelProbe,
     backgroundBlurPixelProbe,
     cropGeometryPixelProbe,
   };
@@ -501,6 +504,14 @@ function isSupportedVideoEditorProfile(width, height) {
 }
 
 function probeCaptionPixels(outputPath) {
+  const result = measureCaptionPixels(outputPath);
+  if (result.brightFraction < 0.004 || result.darkFraction < 0.12) {
+    throw new Error(`web_video_editor_caption_pixels_missing:${result.brightFraction.toFixed(4)}:${result.darkFraction.toFixed(4)}`);
+  }
+  return result;
+}
+
+function measureCaptionPixels(outputPath) {
   const width = 180;
   const height = 80;
   const pixels = execFileSync("ffmpeg", [
@@ -525,10 +536,20 @@ function probeCaptionPixels(outputPath) {
   const total = width * height;
   const brightFraction = bright / total;
   const darkFraction = dark / total;
-  if (brightFraction < 0.004 || darkFraction < 0.12) {
-    throw new Error(`web_video_editor_caption_pixels_missing:${brightFraction.toFixed(4)}:${darkFraction.toFixed(4)}`);
-  }
   return { width, height, brightFraction, darkFraction };
+}
+
+function verifyCaptionDifferential(attempts, platformLabel) {
+  const negative = attempts.find((attempt) => attempt.label === "unmuted-no-audio-source")?.evidence?.physicalOutput?.captionControlPixelProbe;
+  if (!negative) throw new Error(`${platformLabel}_video_editor_caption_negative_control_missing`);
+  for (const attempt of attempts.filter((item) => item.exerciseCaptions && !item.cancelOnly)) {
+    const positive = attempt.evidence?.physicalOutput?.captionPixelProbe;
+    if (!positive) throw new Error(`${platformLabel}_video_editor_caption_positive_probe_missing:${attempt.label}`);
+    if (!(positive.brightFraction >= negative.brightFraction + 0.03 && positive.brightFraction >= negative.brightFraction * 2.5)) {
+      throw new Error(`${platformLabel}_video_editor_caption_differential_missing:${attempt.label}:${positive.brightFraction.toFixed(4)}:${negative.brightFraction.toFixed(4)}`);
+    }
+    attempt.evidence.physicalOutput.captionNegativeControlProbe = negative;
+  }
 }
 
 function probeBackgroundBlurPixels(outputPath) {

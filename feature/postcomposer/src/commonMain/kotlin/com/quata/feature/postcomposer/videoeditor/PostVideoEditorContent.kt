@@ -790,13 +790,18 @@ private fun PostVideoEditorInfoBar(
             .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
         if (state.isExporting) {
+            val exportPercent = (state.exportProgress * 100).toInt().coerceIn(0, 100)
             LinearProgressIndicator(
                 progress = { state.exportProgress.coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag(PostVideoEditorExportProgressTestTag),
+                    .testTag(PostVideoEditorExportProgressTestTag)
+                    .semantics {
+                        contentDescription = PostVideoEditorExportProgressTestTag
+                        stateDescription = "post-video-editor.export-progress.$exportPercent"
+                    },
             )
-            Text("${strings.exporting} ${(state.exportProgress * 100).toInt().coerceIn(0, 100)}%", style = MaterialTheme.typography.bodySmall)
+            Text("${strings.exporting} $exportPercent%", style = MaterialTheme.typography.bodySmall)
         }
         state.error?.let {
             Text(

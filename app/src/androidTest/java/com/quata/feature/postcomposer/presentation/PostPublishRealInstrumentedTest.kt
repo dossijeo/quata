@@ -615,6 +615,20 @@ class PostPublishRealInstrumentedTest {
                 runCatching { compose.onNodeWithTag(PostVideoEditorExportProgressTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
             }
             if (cancelOnly) {
+                if (!shouldMuteExport) {
+                    compose.waitUntil(120_000) {
+                        val progress = runCatching {
+                            compose.onNodeWithTag(PostVideoEditorExportProgressTestTag, useUnmergedTree = true)
+                                .fetchSemanticsNode()
+                                .config
+                                .getOrNull(SemanticsProperties.StateDescription)
+                                .orEmpty()
+                                .substringAfterLast('.')
+                                .toIntOrNull() ?: 0
+                        }.getOrDefault(0)
+                        progress >= 12
+                    }
+                }
                 saveScreenshot("android-post-video-editor-export-progress")
                 compose.onAllNodesWithTag(PostVideoEditorCancelExportTestTag, useUnmergedTree = true)
                     .filterToOne(hasClickAction())

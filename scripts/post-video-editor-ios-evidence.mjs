@@ -81,6 +81,7 @@ scripts/build-ios-intel-simulator-signed.sh
   report.attempts.push(await runAttempt({ label: "muted", mute: true, remoteFixture: remoteSpeechFixture, fixtureName: "POST-VIDEO-EDITOR-fixture.mp4", sourceHasAudio: true, exerciseCaptions: true }));
   report.attempts.push(await runAttempt({ label: "unmuted", mute: false, remoteFixture: remoteSpeechFixture, fixtureName: "POST-VIDEO-EDITOR-fixture.mp4", sourceHasAudio: true, exerciseCaptions: true }));
   report.attempts.push(await runAttempt({ label: "unmuted-no-audio-source", mute: false, remoteFixture: remoteNoAudioFixture, fixtureName: "POST-VIDEO-EDITOR-no-audio-fixture.mp4", sourceHasAudio: false, exerciseCaptions: false }));
+  verifyCaptionDifferential(report.attempts, "ios");
   const failedAttempt = report.attempts.find((attempt) => attempt.status !== "passed");
   if (failedAttempt) throw new Error(`ios_attempt_failed:${failedAttempt.source}:${failedAttempt.outcome}`);
   report.status = "passed";
@@ -269,9 +270,11 @@ function probeIosExport(outputPath, diagnostics, { mute, sourceHasAudio = true, 
   if (targetBitrate > 0 && physicalBitrate > targetBitrate * 2.25) {
     throw new Error(`ios_video_editor_physical_bitrate:${physicalBitrate}:${targetBitrate}`);
   }
+  const captionSeekSecond = diagnostics.captionDocumentWire ? firstCaptionProbeSecond(diagnostics.captionDocumentWire) : 0.31;
   const captionPixelProbe = diagnostics.captionDocumentWire
-    ? probeCaptionPixels(outputPath, firstCaptionProbeSecond(diagnostics.captionDocumentWire))
+    ? probeCaptionPixels(outputPath, captionSeekSecond)
     : null;
+  const captionControlPixelProbe = diagnostics.captionDocumentWire ? null : measureCaptionPixels(outputPath, captionSeekSecond);
   const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
   const cropGeometryPixelProbe = requireCropGeometry
     ? probeCropGeometryPixels(outputPath, diagnostics, "ios_video_editor_crop_geometry_pixels_missing")
@@ -287,6 +290,7 @@ function probeIosExport(outputPath, diagnostics, { mute, sourceHasAudio = true, 
     audioStreamPresent: Boolean(audioStream),
     audioProbe,
     captionPixelProbe,
+    captionControlPixelProbe,
     backgroundBlurPixelProbe,
     cropGeometryPixelProbe,
   };
@@ -330,6 +334,14 @@ function firstCaptionProbeSecond(captionDocumentWire) {
 }
 
 function probeCaptionPixels(outputPath, seekSecond) {
+  const result = measureCaptionPixels(outputPath, seekSecond);
+  if (result.brightFraction < 0.004 || result.darkFraction < 0.12) {
+    throw new Error(`ios_video_editor_caption_pixels_missing:${result.brightFraction.toFixed(4)}:${result.darkFraction.toFixed(4)}`);
+  }
+  return result;
+}
+
+function measureCaptionPixels(outputPath, seekSecond) {
   const width = 180;
   const height = 80;
   const pixels = execFileSync("ffmpeg", [
@@ -355,10 +367,22 @@ function probeCaptionPixels(outputPath, seekSecond) {
   const total = width * height;
   const brightFraction = bright / total;
   const darkFraction = dark / total;
-  if (brightFraction < 0.004 || darkFraction < 0.12) {
-    throw new Error(`ios_video_editor_caption_pixels_missing:${brightFraction.toFixed(4)}:${darkFraction.toFixed(4)}`);
-  }
   return { width, height, seekSecond, brightFraction, darkFraction };
+}
+
+function verifyCaptionDifferential(attempts, platformLabel) {
+  const negativeAttempt = attempts.find((attempt) => attempt.label === "unmuted-no-audio-source");
+  const negativePath = negativeAttempt?.physicalExport?.path;
+  if (!negativePath) throw new Error(`${platformLabel}_video_editor_caption_negative_control_missing`);
+  for (const attempt of attempts.filter((item) => item.exerciseCaptions && !item.cancelOnly)) {
+    const positive = attempt.physicalExport?.captionPixelProbe;
+    if (!positive) throw new Error(`${platformLabel}_video_editor_caption_positive_probe_missing:${attempt.label}`);
+    const negative = measureCaptionPixels(negativePath, positive.seekSecond);
+    if (!(positive.brightFraction >= negative.brightFraction + 0.03 && positive.brightFraction >= negative.brightFraction * 2.5)) {
+      throw new Error(`${platformLabel}_video_editor_caption_differential_missing:${attempt.label}:${positive.brightFraction.toFixed(4)}:${negative.brightFraction.toFixed(4)}`);
+    }
+    attempt.physicalExport.captionNegativeControlProbe = negative;
+  }
 }
 
 function probeBackgroundBlurPixels(outputPath) {
