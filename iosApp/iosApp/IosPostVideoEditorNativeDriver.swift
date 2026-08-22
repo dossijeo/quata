@@ -651,18 +651,6 @@ private final class IosPostVideoEditorExportOperation {
         try? FileManager.default.removeItem(at: outputUrl)
         try? FileManager.default.removeItem(at: finalOutputUrl)
         let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
-        if captionDocument == nil, !request.removeAudio, sourceAudioTrack == nil {
-            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("direct_video_only_writer_selected")
-            applyDirectVideoOnlyVisualEffects(
-                asset: asset,
-                videoTrack: videoTrack,
-                range: range,
-                outputUrl: finalOutputUrl,
-                callback: callback
-            )
-            return
-        }
-
         if !request.removeAudio, let audioTrack = sourceAudioTrack {
             guard let compositionAudio = composition.addMutableTrack(
                 withMediaType: .audio,

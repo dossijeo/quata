@@ -1010,6 +1010,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /"backgroundCropLeft": request\.backgroundCropLeft/);
   assert.match(iosPostVideoEditorNativeDriver, /backgroundTrack/);
   assert.match(iosPostVideoEditorNativeDriver, /VideoLayerScaleMode/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /direct_video_only_writer_selected/);
   assert.match(iosPostVideoEditorNativeDriver, /captionRenderSpec/);
   assert.match(iosPostVideoEditorNativeDriver, /activeBackground/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /segment\.text\.uppercased\(\)/);
