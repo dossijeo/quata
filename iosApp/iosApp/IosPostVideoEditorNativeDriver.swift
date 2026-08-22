@@ -651,6 +651,15 @@ private final class IosPostVideoEditorExportOperation {
         try? FileManager.default.removeItem(at: outputUrl)
         try? FileManager.default.removeItem(at: finalOutputUrl)
         let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
+        if sourceAudioTrack == nil, captionDocument == nil {
+            exportVideoOnlyWithCoreImageComposition(
+                asset: asset,
+                range: range,
+                outputUrl: finalOutputUrl,
+                callback: callback
+            )
+            return
+        }
         if !request.removeAudio, let audioTrack = sourceAudioTrack {
             guard let compositionAudio = composition.addMutableTrack(
                 withMediaType: .audio,
@@ -738,6 +747,60 @@ private final class IosPostVideoEditorExportOperation {
         finishFailure(reason: "ios_post_video_editor_export_cancelled")
     }
 
+    private func exportVideoOnlyWithCoreImageComposition(
+        asset: AVAsset,
+        range: CMTimeRange,
+        outputUrl: URL,
+        callback: any IosPostVideoEditorExportCallback
+    ) {
+        let exportPresetName = exportPresetName()
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: exportPresetName) else {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")
+            finishFailure(reason: "ios_post_video_editor_export_session_unavailable")
+            return
+        }
+        self.exportSession = exportSession
+        try? FileManager.default.removeItem(at: outputUrl)
+        exportSession.outputURL = outputUrl
+        exportSession.outputFileType = .mp4
+        exportSession.shouldOptimizeForNetworkUse = true
+        exportSession.timeRange = range
+        exportSession.videoComposition = makeCoreImageVideoComposition(asset: asset)
+        startProgressTimer(session: exportSession, floor: 0.35, ceiling: 0.95)
+        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_core_image_export_started", details: [
+            "durationMs": "\(Int64(CMTimeGetSeconds(range.duration) * 1_000))",
+            "outputWidth": "\(request.outputWidth)",
+            "outputHeight": "\(request.outputHeight)",
+            "maxFrameRate": "\(request.outputMaxFrameRate)",
+            "targetBitrate": "\(request.outputTargetBitrate)",
+            "exportPreset": exportPresetName,
+        ])
+        exportSession.exportAsynchronously { [callback] in
+            DispatchQueue.main.async {
+                switch exportSession.status {
+                case .completed:
+                    if self.didCancel {
+                        self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
+                        return
+                    }
+                    if self.request.hasBackgroundCrop {
+                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_completed")
+                    }
+                    self.finishSuccess(outputUrl: outputUrl, callback: callback)
+                case .failed, .cancelled:
+                    let reason = self.didCancel
+                        ? "ios_post_video_editor_export_cancelled"
+                        : exportSession.error?.localizedDescription ?? "ios_post_video_editor_export_failed"
+                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_core_image_export_failed", details: ["reason": reason])
+                    self.finishFailure(reason: reason)
+                default:
+                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_core_image_export_incomplete", details: ["status": "\(exportSession.status.rawValue)"])
+                    self.finishFailure(reason: "ios_post_video_editor_export_incomplete")
+                }
+            }
+        }
+    }
+
     private func finishFailure(reason: String) {
         guard !didFinish else { return }
         didFinish = true
@@ -798,16 +861,27 @@ private final class IosPostVideoEditorExportOperation {
         return composition
     }
 
-    private func makeBlurredBackgroundVideoComposition(
-        asset: AVAsset,
-        duration: CMTime
-    ) -> AVMutableVideoComposition {
+    private func makeCoreImageVideoComposition(asset: AVAsset) -> AVMutableVideoComposition {
         let outputSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
         let foregroundCrop = request.foregroundCrop
         let backgroundCrop = request.backgroundCrop
+        let hasBackgroundCrop = request.hasBackgroundCrop
         let videoComposition = AVMutableVideoComposition(asset: asset) { renderRequest in
-            let source = renderRequest.sourceImage.clampedToExtent()
             let extent = renderRequest.sourceImage.extent
+            guard hasBackgroundCrop else {
+                renderRequest.finish(
+                    with: Self.drawCrop(
+                        source: renderRequest.sourceImage,
+                        sourceExtent: extent,
+                        crop: foregroundCrop,
+                        outputSize: outputSize,
+                        mode: .fit
+                    ),
+                    context: nil
+                )
+                return
+            }
+            let source = renderRequest.sourceImage.clampedToExtent()
             let blurScale: CGFloat = 0.25
             let blurSize = CGSize(
                 width: max(2, outputSize.width * blurScale),
