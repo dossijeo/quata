@@ -50,9 +50,13 @@ try {
   }, session);
   report.steps.push("real_profile_authenticated_without_logging_credentials");
 
-  report.attempts.push(await runAttempt(context, { label: "cancel", mute: true, cancelOnly: true }));
-  report.attempts.push(await runAttempt(context, { label: "muted", mute: true }));
-  report.attempts.push(await runAttempt(context, { label: "unmuted", mute: false }));
+  const speechFixtureReference = await validSpeechMp4FixtureDataUrl();
+  const noAudioFixtureReference = await validNoAudioMp4FixtureDataUrl();
+  report.attempts.push(await runAttempt(context, { label: "cancel", mute: true, cancelOnly: true, reference: speechFixtureReference, sourceHasAudio: true, exerciseCaptions: true }));
+  report.attempts.push(await runAttempt(context, { label: "muted", mute: true, reference: speechFixtureReference, sourceHasAudio: true, exerciseCaptions: true }));
+  report.attempts.push(await runAttempt(context, { label: "unmuted", mute: false, reference: speechFixtureReference, sourceHasAudio: true, exerciseCaptions: true }));
+  report.attempts.push(await runAttempt(context, { label: "unmuted-no-audio-source", mute: false, reference: noAudioFixtureReference, sourceHasAudio: false, exerciseCaptions: false }));
+  verifyCaptionDifferential(report.attempts, "web");
   const failedAttempt = report.attempts.find((attempt) => attempt.status !== "passed");
   if (failedAttempt) throw new Error(`web_attempt_failed:${failedAttempt.source}:${failedAttempt.outcome}`);
 
@@ -77,7 +81,7 @@ if (report.status !== "passed") {
   console.log("Post video editor Web evidence passed.");
 }
 
-async function runAttempt(context, { label, mute, cancelOnly = false }) {
+async function runAttempt(context, { label, mute, cancelOnly = false, reference, sourceHasAudio, exerciseCaptions = true }) {
   const source = "gallery-video";
   const outcome = "success";
   const page = await context.newPage();
@@ -88,7 +92,6 @@ async function runAttempt(context, { label, mute, cancelOnly = false }) {
     if (entry.type() === "error") faults.push(`console_error:${entry.text().slice(0, 180)}`);
   });
   try {
-    const reference = await validSpeechMp4FixtureDataUrl();
     await page.addInitScript(({ source, outcome, reference, pickerOptIn }) => {
       sessionStorage.setItem("quata.post_publish.e2e", "1");
       localStorage.setItem("quata_post_composer_picker_e2e_opt_in", pickerOptIn);
@@ -121,7 +124,7 @@ async function runAttempt(context, { label, mute, cancelOnly = false }) {
     const resolvedEditorOpen = await ensureWebVideoEditorOpen(page, resolvedEditAnchor, reference);
     const timelineFrameCount = await waitForTimelineFrames(page);
     const editorOpened = await screenshot(page, "web-post-video-editor-opened");
-    const editorAnchors = await exerciseVideoEditor(page, { mute, cancelOnly });
+    const editorAnchors = await exerciseVideoEditor(page, { mute, cancelOnly, exerciseCaptions });
     if (cancelOnly) {
       const afterCancel = await screenshot(page, "web-post-video-editor-after-cancel-export");
       const actionableFaults = actionableBrowserFaults(faults, { cancelOnly });
@@ -131,6 +134,8 @@ async function runAttempt(context, { label, mute, cancelOnly = false }) {
         outcome,
         label,
         mute,
+        sourceHasAudio,
+        exerciseCaptions,
         cancelOnly,
         status: "passed",
         selectedField: "hasVideo",
@@ -146,7 +151,7 @@ async function runAttempt(context, { label, mute, cancelOnly = false }) {
     }, null, { timeout: 15_000 }).then(() => postComposerProductState(page));
     const afterEdit = await screenshot(page, "web-post-video-editor-after-edit");
     lastExportState = editorAnchors.exportState;
-    const physicalOutput = await saveAndProbeWebExport(page, editorAnchors.exportState, { label, mute });
+    const physicalOutput = await saveAndProbeWebExport(page, editorAnchors.exportState, { label, mute, sourceHasAudio, requireCropGeometry: true });
     const actionableFaults = actionableBrowserFaults(faults, { cancelOnly });
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
     return {
@@ -154,6 +159,8 @@ async function runAttempt(context, { label, mute, cancelOnly = false }) {
       outcome,
       label,
       mute,
+      sourceHasAudio,
+      exerciseCaptions,
       status: "passed",
       selectedField: "hasVideo",
       anchors: { type: resolvedTypeAnchor, action: selectedByBridge ?? resolvedActionAnchor, edit: resolvedEditorOpen, editor: editorAnchors },
@@ -203,7 +210,7 @@ async function ensureWebVideoEditorOpen(page, visualAnchor, reference) {
   return { kind: "localhostProductBridge", value: "setVideo:openEditor", preferredMissing: "composer-media.edit-video" };
 }
 
-async function exerciseVideoEditor(page, { mute, cancelOnly = false }) {
+async function exerciseVideoEditor(page, { mute, cancelOnly = false, exerciseCaptions = true }) {
   const anchors = {};
   await waitForVideoEditorReady(page);
   anchors.root = { kind: "testTagOrBridge", value: "post-video-editor.root" };
@@ -230,9 +237,11 @@ async function exerciseVideoEditor(page, { mute, cancelOnly = false }) {
   await invokeVideoEditorAction(page, "cropMode", "Square");
   await invokeVideoEditorAction(page, "cropZoom", 1.32);
   await invokeVideoEditorAction(page, "cropPan", 0.08, -0.04);
-  await invokeVideoEditorAction(page, "captions");
-  await invokeVideoEditorAction(page, "captionStyle", "Karaoke");
-  await delay(650);
+  if (exerciseCaptions) {
+    await invokeVideoEditorAction(page, "captions");
+    await invokeVideoEditorAction(page, "captionStyle", "Karaoke");
+    await delay(650);
+  }
   if (cancelOnly) {
     anchors.cancelExport = await exerciseVideoExportCancellation(page);
     return anchors;
@@ -241,7 +250,7 @@ async function exerciseVideoEditor(page, { mute, cancelOnly = false }) {
   await page.waitForFunction(() => globalThis.__quataPostVideoEditorExport?.status === "success", null, { timeout: 180_000 });
   anchors.export = anchors["post-video-editor.export"];
   anchors.exportState = await page.evaluate(() => globalThis.__quataPostVideoEditorExport || null);
-  assertWebVideoEditorExportParity(anchors.exportState, { expectCaptions: true, expectMute: mute });
+  assertWebVideoEditorExportParity(anchors.exportState, { expectCaptions: exerciseCaptions, expectMute: mute });
   return anchors;
 }
 
@@ -280,7 +289,17 @@ async function waitForTimelineFrames(page) {
     const count = Number(globalThis.__quataPostVideoEditorE2eProduct?.timelineFrameCount?.() || 0);
     return Number.isFinite(count) && count >= 6;
   }, null, { timeout: 20_000 });
-  return page.evaluate(() => Number(globalThis.__quataPostVideoEditorE2eProduct?.timelineFrameCount?.() || 0));
+  return page.evaluate(() => {
+    const bridge = globalThis.__quataPostVideoEditorE2eProduct;
+    const count = Number(bridge?.timelineFrameCount?.() || 0);
+    const evidence = String(bridge?.timelineFrameEvidence?.() || "");
+    const frames = evidence.split("|").filter(Boolean);
+    const unique = new Set(frames).size;
+    if (count < 6 || frames.length < 6 || unique < 3 || !frames.every((frame) => frame.includes("data:image/"))) {
+      throw new Error(`web_video_editor_timeline_frames_not_real:${count}:${frames.length}:${unique}`);
+    }
+    return { count, unique, evidence: frames.slice(0, 6) };
+  });
 }
 
 async function resolveVideoEditorAnchor(page, id) {
@@ -362,7 +381,7 @@ function assertWebVideoEditorExportParity(exportState, { expectCaptions = false,
   if (exportState.output.physicalBackgroundBlur !== true) throw new Error("web_video_editor_background_blur_not_exported");
 }
 
-async function saveAndProbeWebExport(page, exportState, { label, mute }) {
+async function saveAndProbeWebExport(page, exportState, { label, mute, sourceHasAudio = true, requireCropGeometry = true }) {
   const reference = exportState?.reference ?? exportState?.output?.reference;
   if (typeof reference !== "string" || !reference.startsWith("blob:")) {
     throw new Error("web_video_editor_export_missing_blob_reference");
@@ -396,7 +415,8 @@ async function saveAndProbeWebExport(page, exportState, { label, mute }) {
   const audioStream = ffprobe.streams?.find((stream) => stream.codec_type === "audio");
   if (!videoStream) throw new Error("web_video_editor_physical_video_stream_missing");
   if (mute && audioStream) throw new Error("web_video_editor_physical_audio_stream_present_after_mute");
-  if (!mute && !audioStream) throw new Error("web_video_editor_physical_audio_stream_missing_without_mute");
+  if (!mute && sourceHasAudio && !audioStream) throw new Error("web_video_editor_physical_audio_stream_missing_without_mute");
+  if (!mute && !sourceHasAudio && audioStream) throw new Error("web_video_editor_physical_audio_stream_created_from_silent_source");
   const width = Number(videoStream.width || 0);
   const height = Number(videoStream.height || 0);
   if (width !== Number(exportState.output?.outputWidth || 0) || height !== Number(exportState.output?.outputHeight || 0)) {
@@ -409,12 +429,17 @@ async function saveAndProbeWebExport(page, exportState, { label, mute }) {
   }
   const physicalDurationMs = ffprobeDurationMs;
   const expectedDurationMs = Math.max(500, Number(exportState.spec?.trimEndMs || 0) - Number(exportState.spec?.trimStartMs || 0));
-  if (physicalDurationMs < expectedDurationMs * 0.8 || physicalDurationMs > expectedDurationMs * 1.2) {
+  const durationToleranceMs = Math.min(900, Math.max(650, Math.round(expectedDurationMs * 0.08)));
+  if (physicalDurationMs < 500 || Math.abs(physicalDurationMs - expectedDurationMs) > durationToleranceMs) {
     throw new Error(`web_video_editor_physical_trim_duration:${physicalDurationMs}:${expectedDurationMs}`);
   }
   const captionPixelProbe = exportState.operations?.captions === true ? probeCaptionPixels(outputPath) : null;
+  const captionControlPixelProbe = exportState.operations?.captions === true ? null : measureCaptionPixels(outputPath);
   const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
-  const audioProbe = !mute ? probeAudioSignal(outputPath, "web_video_editor_physical_audio_silent") : null;
+  const cropGeometryPixelProbe = requireCropGeometry
+    ? probeCropGeometryPixels(outputPath, exportState.spec, "web_video_editor_crop_geometry_pixels_missing")
+    : null;
+  const audioProbe = !mute && sourceHasAudio ? probeAudioSignal(outputPath, "web_video_editor_physical_audio_silent") : null;
   return {
     path: outputPath,
     sizeBytes: outputStats.size,
@@ -422,11 +447,14 @@ async function saveAndProbeWebExport(page, exportState, { label, mute }) {
     ffprobeDurationMs,
     bridgeDurationMs,
     expectedTrimDurationMs: expectedDurationMs,
+    sourceHasAudio,
     video: { codec: videoStream.codec_name, width, height },
     audioStreamPresent: Boolean(audioStream),
     audioProbe,
     captionPixelProbe,
+    captionControlPixelProbe,
     backgroundBlurPixelProbe,
+    cropGeometryPixelProbe,
   };
 }
 
@@ -476,6 +504,14 @@ function isSupportedVideoEditorProfile(width, height) {
 }
 
 function probeCaptionPixels(outputPath) {
+  const result = measureCaptionPixels(outputPath);
+  if (result.brightFraction < 0.004 || result.darkFraction < 0.12) {
+    throw new Error(`web_video_editor_caption_pixels_missing:${result.brightFraction.toFixed(4)}:${result.darkFraction.toFixed(4)}`);
+  }
+  return result;
+}
+
+function measureCaptionPixels(outputPath) {
   const width = 180;
   const height = 80;
   const pixels = execFileSync("ffmpeg", [
@@ -500,10 +536,20 @@ function probeCaptionPixels(outputPath) {
   const total = width * height;
   const brightFraction = bright / total;
   const darkFraction = dark / total;
-  if (brightFraction < 0.004 || darkFraction < 0.12) {
-    throw new Error(`web_video_editor_caption_pixels_missing:${brightFraction.toFixed(4)}:${darkFraction.toFixed(4)}`);
-  }
   return { width, height, brightFraction, darkFraction };
+}
+
+function verifyCaptionDifferential(attempts, platformLabel) {
+  const negative = attempts.find((attempt) => attempt.label === "unmuted-no-audio-source")?.evidence?.physicalOutput?.captionControlPixelProbe;
+  if (!negative) throw new Error(`${platformLabel}_video_editor_caption_negative_control_missing`);
+  for (const attempt of attempts.filter((item) => item.exerciseCaptions && !item.cancelOnly)) {
+    const positive = attempt.evidence?.physicalOutput?.captionPixelProbe;
+    if (!positive) throw new Error(`${platformLabel}_video_editor_caption_positive_probe_missing:${attempt.label}`);
+    if (!(positive.brightFraction >= negative.brightFraction + 0.03 && positive.brightFraction >= negative.brightFraction * 2)) {
+      throw new Error(`${platformLabel}_video_editor_caption_differential_missing:${attempt.label}:${positive.brightFraction.toFixed(4)}:${negative.brightFraction.toFixed(4)}`);
+    }
+    attempt.evidence.physicalOutput.captionNegativeControlProbe = negative;
+  }
 }
 
 function probeBackgroundBlurPixels(outputPath) {
@@ -526,6 +572,38 @@ function probeBackgroundBlurPixels(outputPath) {
     throw new Error(`web_video_editor_background_blur_pixels_missing:${backgroundSharpness.toFixed(2)}:${foregroundSharpness.toFixed(2)}`);
   }
   return { width, height, backgroundSharpness, foregroundSharpness };
+}
+
+function probeCropGeometryPixels(outputPath, spec, errorCode) {
+  const cropWidth = Math.max(0, Number(spec?.cropRight ?? 1) - Number(spec?.cropLeft ?? 0));
+  const cropHeight = Math.max(0, Number(spec?.cropBottom ?? 1) - Number(spec?.cropTop ?? 0));
+  const backgroundWidth = Math.max(0, Number(spec?.backgroundCropRight ?? 1) - Number(spec?.backgroundCropLeft ?? 0));
+  const backgroundHeight = Math.max(0, Number(spec?.backgroundCropBottom ?? 1) - Number(spec?.backgroundCropTop ?? 0));
+  if (!(cropWidth > 0 && cropHeight > 0 && (cropWidth < 0.95 || cropHeight < 0.95))) {
+    throw new Error(`${errorCode}:crop_spec_not_zoomed:${cropWidth.toFixed(3)}:${cropHeight.toFixed(3)}`);
+  }
+  if (!(Math.abs(backgroundWidth - cropWidth) > 0.02 || Math.abs(backgroundHeight - cropHeight) > 0.02)) {
+    throw new Error(`${errorCode}:background_crop_not_distinct:${backgroundWidth.toFixed(3)}:${backgroundHeight.toFixed(3)}`);
+  }
+  const width = 160;
+  const height = 90;
+  const sample = (crop) => execFileSync("ffmpeg", [
+    "-v", "error",
+    "-i", outputPath,
+    "-vf", `${crop},scale=${width}:${height}`,
+    "-frames:v", "1",
+    "-f", "rawvideo",
+    "-pix_fmt", "rgba",
+    "pipe:1",
+  ]);
+  const centerForeground = sample("crop=iw*0.56:ih*0.34:iw*0.22:ih*0.32");
+  const upperBackground = sample("crop=iw*0.86:ih*0.16:iw*0.07:ih*0.06");
+  const foregroundSharpness = averageAdjacentLumaDelta(centerForeground, width, height);
+  const backgroundSharpness = averageAdjacentLumaDelta(upperBackground, width, height);
+  if (!(foregroundSharpness > 1.2 && backgroundSharpness < foregroundSharpness * 0.9)) {
+    throw new Error(`${errorCode}:${foregroundSharpness.toFixed(2)}:${backgroundSharpness.toFixed(2)}`);
+  }
+  return { width, height, cropWidth, cropHeight, backgroundWidth, backgroundHeight, foregroundSharpness, backgroundSharpness };
 }
 
 function averageAdjacentLumaDelta(pixels, width, height) {
@@ -921,6 +999,31 @@ async function validSpeechMp4FixtureDataUrl() {
   report.evidence.captionFixture = {
     source: "generated_windows_sapi_en_us_fixture",
     text: CAPTION_FIXTURE_TEXT,
+    path: videoPath,
+    sizeBytes: fixture.length,
+  };
+  return `data:video/mp4;base64,${fixture.toString("base64")}`;
+}
+
+async function validNoAudioMp4FixtureDataUrl() {
+  await mkdir(options.evidenceDir, { recursive: true });
+  const videoPath = resolve(options.evidenceDir, "web-post-video-editor-no-audio-source.mp4");
+  execFileSync("ffmpeg", [
+    "-y",
+    "-f", "lavfi",
+    "-i", "testsrc2=s=720x1280:r=30:d=4",
+    "-an",
+    "-c:v", "libx264",
+    "-pix_fmt", "yuv420p",
+    "-movflags", "+faststart",
+    videoPath,
+  ], { stdio: "pipe" });
+  const fixture = await readFile(videoPath);
+  if (fixture.length < 8_000 || fixture.subarray(4, 8).toString("ascii") !== "ftyp") {
+    throw new Error("invalid_no_audio_mp4_fixture");
+  }
+  report.evidence.noAudioFixture = {
+    source: "generated_ffmpeg_testsrc2_no_audio_fixture",
     path: videoPath,
     sizeBytes: fixture.length,
   };
