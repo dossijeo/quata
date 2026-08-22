@@ -37,6 +37,21 @@ class FeedOptimisticCommentsTest {
         assertEquals(listOf("seed", "remote_1"), reconciled.comments.map(PostComment::id))
     }
 
+    @Test
+    fun removesLocalPendingCommentWhenBackendMutationFails() {
+        val pending = localComment("local_1", "😀 rollback", replyToCommentId = "seed")
+        val existing = post(
+            comments = listOf(
+                remoteComment("seed", "Seed"),
+                pending,
+            )
+        )
+
+        val rolledBack = existing.withoutLocalPendingComment(pending)
+
+        assertEquals(listOf("seed"), rolledBack.comments.map(PostComment::id))
+    }
+
     private fun post(comments: List<PostComment>) = Post(
         id = "post-1",
         author = User(id = "author", email = "author@example.test", displayName = "Author", neighborhood = "Centro"),

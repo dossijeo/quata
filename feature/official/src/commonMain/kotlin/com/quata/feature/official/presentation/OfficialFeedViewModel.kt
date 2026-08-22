@@ -233,15 +233,19 @@ class OfficialFeedViewModel(
 
     private fun addComment(postId: String, comment: PostComment) {
         appendLocalPendingComment(postId, comment)
-        updatePostFromRepository { repository.addComment(postId, comment) }
+        updatePostFromRepository(rollbackLocalComment = postId to comment) { repository.addComment(postId, comment) }
     }
 
-    private fun updatePostFromRepository(action: suspend () -> Result<OfficialPostItem?>) = scope.launch {
+    private fun updatePostFromRepository(
+        rollbackLocalComment: Pair<String, PostComment>? = null,
+        action: suspend () -> Result<OfficialPostItem?>,
+    ) = scope.launch {
         action()
             .onSuccess { updated ->
                 if (updated != null) replacePost(updated)
             }
             .onFailure { error ->
+                rollbackLocalComment?.let { (postId, comment) -> removeLocalPendingComment(postId, comment) }
                 _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
             }
     }
@@ -251,6 +255,15 @@ class OfficialFeedViewModel(
         exactLoadedPosts = if (reconciled.id in exactLoadedPosts) exactLoadedPosts + (reconciled.id to reconciled) else exactLoadedPosts
         _uiState.value = _uiState.value.copy(
             posts = feedStore.replace(reconciled)
+        )
+    }
+
+    private fun removeLocalPendingComment(postId: String, comment: PostComment) {
+        if (!comment.isLocalPendingComment()) return
+        _uiState.value = _uiState.value.copy(
+            posts = _uiState.value.posts.map { post ->
+                if (post.id == postId) post.withoutLocalPendingComment(comment) else post
+            }
         )
     }
 
@@ -302,6 +315,20 @@ internal fun OfficialPostItem.withLocalPendingCommentsFrom(existing: OfficialPos
         copy(
             comments = comments + pending,
             commentsCount = commentsCount.coerceAtLeast(comments.size + pending.size),
+        )
+    }
+}
+
+internal fun OfficialPostItem.withoutLocalPendingComment(comment: PostComment): OfficialPostItem {
+    if (!comment.isLocalPendingComment()) return this
+    val filtered = comments.filterNot { it.id == comment.id && it.isLocalPendingComment() }
+    val removed = comments.size - filtered.size
+    return if (removed == 0) {
+        this
+    } else {
+        copy(
+            comments = filtered,
+            commentsCount = (commentsCount - removed).coerceAtLeast(filtered.size),
         )
     }
 }
