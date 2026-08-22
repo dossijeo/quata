@@ -885,6 +885,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CAPTIONS/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS/);
   assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'180'" : "'300'"\}/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'420'" : "'540'"\}/);
   assert.match(iosPostPublishTest, /ProcessInfo\.processInfo\.environment\["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"\] == "1"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.reset"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.mute"/);
