@@ -933,6 +933,8 @@ private final class IosPostVideoEditorExportOperation {
             let queue = DispatchQueue(label: "com.quata.ios.post-video-editor.direct-video")
             var frameCount = 0
             var didRequestFinish = false
+            let targetFrameStep = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
+            var nextOutputTime = CMTime.zero
             writerInput.requestMediaDataWhenReady(on: queue) { [weak self, weak writerInput] in
                 guard let self, let writerInput else { return }
                 guard let adaptor = self.visualEffectsAdaptor else {
@@ -992,6 +994,14 @@ private final class IosPostVideoEditorExportOperation {
                         finishDirectVideo()
                         return
                     }
+                    let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+                    let adjustedTime = CMTimeSubtract(presentationTime, range.start)
+                    if CMTimeCompare(adjustedTime, .zero) < 0 {
+                        continue
+                    }
+                    if CMTimeCompare(adjustedTime, nextOutputTime) < 0 {
+                        continue
+                    }
                     guard let sourceBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
                           let pool = adaptor.pixelBufferPool else {
                         reader.cancelReading()
@@ -1011,8 +1021,6 @@ private final class IosPostVideoEditorExportOperation {
                         }
                         return
                     }
-                    let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-                    let adjustedTime = CMTimeSubtract(presentationTime, range.start)
                     let adjustedSeconds = max(0, CMTimeGetSeconds(adjustedTime))
                     frameCount += 1
                     if frameCount == 1 || frameCount % 15 == 0 {
@@ -1041,6 +1049,7 @@ private final class IosPostVideoEditorExportOperation {
                         }
                         return
                     }
+                    nextOutputTime = CMTimeAdd(adjustedTime, targetFrameStep)
                     let progress = 0.35 + Float(min(1, max(0, adjustedSeconds / durationSeconds))) * 0.60
                     DispatchQueue.main.async {
                         if !self.didFinish {
