@@ -653,11 +653,10 @@ private final class IosPostVideoEditorExportOperation {
         let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
         if sourceAudioTrack == nil, captionDocument == nil {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_visual_effects_writer_selected")
-            applyVisualEffects(
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_frame_generator_writer_selected")
+            applyVideoOnlyGeneratorVisualEffects(
                 inputUrl: sourceUrl,
                 outputUrl: finalOutputUrl,
-                captionStyle: nil,
-                captionDocument: nil,
                 sourceDisplaySize: displaySize(for: videoTrack),
                 readRange: range,
                 callback: callback
@@ -1126,6 +1125,207 @@ private final class IosPostVideoEditorExportOperation {
         }
     }
 
+    private func applyVideoOnlyGeneratorVisualEffects(
+        inputUrl: URL,
+        outputUrl: URL,
+        sourceDisplaySize: CGSize,
+        readRange: CMTimeRange,
+        callback: any IosPostVideoEditorExportCallback
+    ) {
+        let asset = AVURLAsset(url: inputUrl)
+        let renderSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
+        let foregroundRect = foregroundContentRect(outputSize: renderSize, sourceDisplaySize: sourceDisplaySize)
+        let shouldBlurBackground = request.hasBackgroundCrop
+        let frameRate = max(1, request.outputMaxFrameRate)
+        let durationSeconds = max(0.001, CMTimeGetSeconds(readRange.duration))
+        let frameCount = max(1, Int(ceil(durationSeconds * Double(frameRate))))
+
+        do {
+            try? FileManager.default.removeItem(at: outputUrl)
+            let writer = try AVAssetWriter(outputURL: outputUrl, fileType: .mp4)
+            let writerInput = AVAssetWriterInput(
+                mediaType: .video,
+                outputSettings: [
+                    AVVideoCodecKey: AVVideoCodecType.h264,
+                    AVVideoWidthKey: Int(renderSize.width),
+                    AVVideoHeightKey: Int(renderSize.height),
+                    AVVideoCompressionPropertiesKey: [
+                        AVVideoAverageBitRateKey: Int(request.outputTargetBitrate),
+                        AVVideoMaxKeyFrameIntervalKey: Int(frameRate),
+                        AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+                    ],
+                ]
+            )
+            writerInput.expectsMediaDataInRealTime = false
+            guard writer.canAdd(writerInput) else {
+                finishFailure(reason: "ios_post_video_editor_video_only_writer_input_unavailable")
+                return
+            }
+            writer.add(writerInput)
+
+            let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+                assetWriterInput: writerInput,
+                sourcePixelBufferAttributes: [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                    kCVPixelBufferWidthKey as String: Int(renderSize.width),
+                    kCVPixelBufferHeightKey as String: Int(renderSize.height),
+                    kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+                ]
+            )
+            visualEffectsWriter = writer
+            visualEffectsAdaptor = adaptor
+            guard writer.startWriting() else {
+                finishFailure(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_video_only_writer_start_failed")
+                return
+            }
+            writer.startSession(atSourceTime: .zero)
+            progressTimer?.invalidate()
+            progressTimer = nil
+            callback.onProgress(progress: 0.72)
+
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("adaptive_writer_pass_start", details: [
+                "maxFrameRate": "\(frameRate)",
+                "removeAudio": "false",
+                "targetBitrate": "\(request.outputTargetBitrate)",
+            ])
+            if shouldBlurBackground {
+                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_start")
+            }
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_frame_generator_start", details: [
+                "frames": "\(frameCount)",
+                "durationMs": "\(Int64(durationSeconds * 1_000))",
+            ])
+
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: max(renderSize.width, sourceDisplaySize.width), height: max(renderSize.height, sourceDisplaySize.height))
+            let frameStep = 1.0 / Double(frameRate)
+            let tolerance = CMTime(seconds: frameStep * 0.5, preferredTimescale: 600)
+            generator.requestedTimeToleranceBefore = tolerance
+            generator.requestedTimeToleranceAfter = tolerance
+            let ciContext = CIContext(options: [.cacheIntermediates: false])
+            let queue = DispatchQueue(label: "com.quata.ios.post-video-editor.video-only-generator")
+            queue.async { [weak self, weak writerInput] in
+                guard let self, let writerInput else { return }
+                guard let adaptor = self.visualEffectsAdaptor else {
+                    writer.cancelWriting()
+                    DispatchQueue.main.async {
+                        self.finishFailure(reason: "ios_post_video_editor_video_only_adaptor_missing")
+                    }
+                    return
+                }
+                var writtenFrames = 0
+                for index in 0..<frameCount {
+                    if self.didCancel {
+                        writer.cancelWriting()
+                        DispatchQueue.main.async {
+                            self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
+                        }
+                        return
+                    }
+                    while !writerInput.isReadyForMoreMediaData {
+                        if self.didCancel {
+                            writer.cancelWriting()
+                            DispatchQueue.main.async {
+                                self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
+                            }
+                            return
+                        }
+                        Thread.sleep(forTimeInterval: 0.005)
+                    }
+                    autoreleasepool {
+                        let seconds = min(durationSeconds, Double(index) * frameStep)
+                        let requestedTime = CMTimeAdd(
+                            readRange.start,
+                            CMTime(seconds: seconds, preferredTimescale: 600)
+                        )
+                        guard let cgImage = try? generator.copyCGImage(at: requestedTime, actualTime: nil),
+                              let pool = adaptor.pixelBufferPool else {
+                            writer.cancelWriting()
+                            DispatchQueue.main.async {
+                                self.finishFailure(reason: "ios_post_video_editor_video_only_frame_unavailable")
+                            }
+                            return
+                        }
+                        var outputBuffer: CVPixelBuffer?
+                        guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &outputBuffer) == kCVReturnSuccess,
+                              let destinationBuffer = outputBuffer else {
+                            writer.cancelWriting()
+                            DispatchQueue.main.async {
+                                self.finishFailure(reason: "ios_post_video_editor_video_only_output_buffer_unavailable")
+                            }
+                            return
+                        }
+                        let presentationTime = CMTime(seconds: seconds, preferredTimescale: 600)
+                        let timeMs = max(0, Int64((seconds * 1_000).rounded()))
+                        let rendered = self.renderVisualEffectsImage(
+                            sourceImage: CIImage(cgImage: cgImage),
+                            outputSize: renderSize,
+                            foregroundRect: foregroundRect,
+                            shouldBlurBackground: shouldBlurBackground,
+                            captionStyle: "Karaoke",
+                            captionDocument: nil,
+                            timeMs: timeMs
+                        )
+                        ciContext.render(
+                            rendered,
+                            to: destinationBuffer,
+                            bounds: CGRect(origin: .zero, size: renderSize),
+                            colorSpace: CGColorSpaceCreateDeviceRGB()
+                        )
+                        if !adaptor.append(destinationBuffer, withPresentationTime: presentationTime) {
+                            writer.cancelWriting()
+                            DispatchQueue.main.async {
+                                self.finishFailure(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_video_only_append_failed")
+                            }
+                            return
+                        }
+                        writtenFrames += 1
+                        if writtenFrames == 1 || writtenFrames % 15 == 0 {
+                            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_frame", details: [
+                                "frame": "\(writtenFrames)",
+                                "timeMs": "\(timeMs)",
+                            ])
+                        }
+                        let progress = 0.72 + Float(min(1, max(0, seconds / durationSeconds))) * 0.23
+                        DispatchQueue.main.async {
+                            if !self.didFinish {
+                                callback.onProgress(progress: progress)
+                            }
+                        }
+                    }
+                }
+                writerInput.markAsFinished()
+                writer.finishWriting {
+                    DispatchQueue.main.async {
+                        self.visualEffectsWriter = nil
+                        self.visualEffectsAdaptor = nil
+                        if self.didCancel {
+                            self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
+                        } else if writer.status == .completed {
+                            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_writer_completed", details: [
+                                "frames": "\(writtenFrames)",
+                                "maxFrames": "\(frameCount)",
+                            ])
+                            if shouldBlurBackground {
+                                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_completed")
+                            }
+                            self.finishVisualEffectsSuccess(
+                                videoOutputUrl: outputUrl,
+                                audioSourceUrl: inputUrl,
+                                callback: callback
+                            )
+                        } else {
+                            self.finishFailure(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_video_only_writer_failed")
+                        }
+                    }
+                }
+            }
+        } catch {
+            finishFailure(reason: error.localizedDescription)
+        }
+    }
+
     private func finishVisualEffectsSuccess(
         videoOutputUrl: URL,
         audioSourceUrl: URL,
@@ -1274,8 +1474,29 @@ private final class IosPostVideoEditorExportOperation {
         captionDocument: CaptionDocumentWire?,
         timeMs: Int64
     ) -> CIImage {
-        let outputExtent = CGRect(origin: .zero, size: outputSize)
         var source = CIImage(cvPixelBuffer: sourceBuffer)
+        return renderVisualEffectsImage(
+            sourceImage: source,
+            outputSize: outputSize,
+            foregroundRect: foregroundRect,
+            shouldBlurBackground: shouldBlurBackground,
+            captionStyle: captionStyle,
+            captionDocument: captionDocument,
+            timeMs: timeMs
+        )
+    }
+
+    private func renderVisualEffectsImage(
+        sourceImage: CIImage,
+        outputSize: CGSize,
+        foregroundRect: CGRect,
+        shouldBlurBackground: Bool,
+        captionStyle: String,
+        captionDocument: CaptionDocumentWire?,
+        timeMs: Int64
+    ) -> CIImage {
+        let outputExtent = CGRect(origin: .zero, size: outputSize)
+        var source = sourceImage
         if source.extent.origin != .zero {
             source = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX, y: -source.extent.minY))
         }
