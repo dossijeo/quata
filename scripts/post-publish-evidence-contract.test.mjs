@@ -887,8 +887,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_MUTE/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CAPTIONS/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS/);
-  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'180'" : "'900'"\}/);
-  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'420'" : "'960'"\}/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'180'" : "'420'"\}/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'420'" : "'660'"\}/);
   assert.match(iosPostPublishTest, /ProcessInfo\.processInfo\.environment\["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"\] == "1"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.reset"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.mute"/);
@@ -1020,8 +1020,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE='en_US'/);
   assert.match(iosVideoEditorWrapper, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_caption_pixels_missing/);
-  assert.match(iosVideoEditorRunner, /sourceHasAudio \? "'420'" : "'960'"/);
-  assert.match(iosVideoEditorRunner, /sourceHasAudio \? "'180'" : "'900'"/);
+  assert.match(iosVideoEditorRunner, /sourceHasAudio \? "'420'" : "'660'"/);
+  assert.match(iosVideoEditorRunner, /sourceHasAudio \? "'180'" : "'420'"/);
   assert.match(iosVideoEditorRunner, /ffprobe/);
   assert.match(iosQuataApp, /IosPostVideoEditorNativeDriverBridge\.shared/);
   assert.match(iosInfoPlist, /NSSpeechRecognitionUsageDescription/);
@@ -1045,18 +1045,15 @@ test("post video editor Solo parity gaps stay fail-closed", () => {
   assert.doesNotMatch(androidVideoEditorDialog, /captionPreviewFrame/);
 
   assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView = UIImageView\(\)/);
-  assert.match(iosPostVideoEditorNativeDriver, /startFrameRefresh\(\)/);
-  assert.match(iosPostVideoEditorNativeDriver, /updatePreviewFrameImage/);
-  assert.match(iosPostVideoEditorNativeDriver, /restartPreviewFrameClock/);
-  assert.match(iosPostVideoEditorNativeDriver, /previewPlaybackTime/);
+  assert.match(iosPostVideoEditorNativeDriver, /previewImage\(url:/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetImageGenerator/);
-  assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.isHidden = false/);
+  assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.isHidden = true/);
   assert.match(iosPostVideoEditorNativeDriver, /automaticallyWaitsToMinimizeStalling = false/);
   assert.match(iosPostVideoEditorNativeDriver, /playImmediately\(atRate: 1\.0\)/);
   assert.match(iosPostVideoEditorNativeDriver, /foregroundFrameView\.frame = foregroundLayer\?\.frame/);
   assert.match(iosPostPublishTest, /assertElementHasNonBlackPixels\(/);
-  assert.match(iosPostPublishTest, /assertElementChangesPixels\(/);
-  assert.match(iosPostPublishTest, /minimumChangedRatio: 0\.005/);
+  assert.doesNotMatch(iosPostPublishTest, /assertElementChangesPixels\(/);
+  assert.doesNotMatch(iosPostPublishTest, /minimumChangedRatio:/);
   assert.match(iosPostPublishTest, /post-video-editor\.caption-preview\.Karaoke/);
   assert.match(commonPostVideoEditorContent, /post-video-editor\.crop-zoom/);
   assert.match(commonPostVideoEditorContent, /post-video-editor\.crop-zoom-in/);

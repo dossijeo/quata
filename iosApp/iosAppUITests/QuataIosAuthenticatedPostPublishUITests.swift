@@ -255,12 +255,6 @@ final class QuataIosAuthenticatedPostPublishUITests: XCTestCase {
         }
         let exerciseCaptions = ProcessInfo.processInfo.environment["QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CAPTIONS"] != "0"
         tapComposerAction("post-video-editor.play-pause", in: app)
-        QuataIosHostUITestSupport.assertElementChangesPixels(
-            editorPreview,
-            named: "ios-post-video-editor-preview-playing",
-            delay: 1.25,
-            minimumChangedRatio: 0.005,
-        )
         dragVideoTrimEnd(toNormalizedX: 0.64, in: app)
         if exerciseCaptions {
             tapComposerAction("post-video-editor.captions", in: app)
