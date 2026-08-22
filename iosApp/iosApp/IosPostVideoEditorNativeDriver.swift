@@ -600,6 +600,17 @@ private final class IosPostVideoEditorExportOperation {
         }
         compositionVideo.preferredTransform = videoTrack.preferredTransform
         compositionBackground?.preferredTransform = videoTrack.preferredTransform
+        let captionDocument = CaptionDocumentWire.parse(request.captionDocumentWire)
+        if let captionStyle = request.captionStyle, !captionStyle.isEmpty, captionDocument == nil {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_caption_transcript_missing")
+            finishFailure(reason: "ios_post_video_editor_caption_transcript_missing")
+            return
+        }
+
+        let outputUrl = temporaryOutputUrl(suffix: "base")
+        let finalOutputUrl = temporaryOutputUrl(suffix: "final")
+        try? FileManager.default.removeItem(at: outputUrl)
+        try? FileManager.default.removeItem(at: finalOutputUrl)
         let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
         if captionDocument == nil, !request.removeAudio, sourceAudioTrack == nil {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("direct_video_only_writer_selected")
@@ -632,17 +643,6 @@ private final class IosPostVideoEditorExportOperation {
                 return
             }
         }
-        let captionDocument = CaptionDocumentWire.parse(request.captionDocumentWire)
-        if let captionStyle = request.captionStyle, !captionStyle.isEmpty, captionDocument == nil {
-            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_caption_transcript_missing")
-            finishFailure(reason: "ios_post_video_editor_caption_transcript_missing")
-            return
-        }
-
-        let outputUrl = temporaryOutputUrl(suffix: "base")
-        let finalOutputUrl = temporaryOutputUrl(suffix: "final")
-        try? FileManager.default.removeItem(at: outputUrl)
-        try? FileManager.default.removeItem(at: finalOutputUrl)
         let exportPresetName = exportPresetName()
         guard let exportSession = AVAssetExportSession(asset: composition, presetName: exportPresetName) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")
