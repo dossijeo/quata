@@ -110,6 +110,7 @@ fun CommunityProfileCommentsDialogContent(
                     communityEmojiSections(strings.emojiLabels),
                     onEmojiClick = { emoji -> draft = draft.insertAtSelection(emoji) },
                     modifier = Modifier.fillMaxWidth(),
+                    emptyMessage = strings.emojiLabels.empty,
                 )
             }
             CommunityProfileCommentInputContent(

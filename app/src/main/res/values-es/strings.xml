@@ -446,6 +446,7 @@
     <string name="emoji_animals_nature">Animales y naturaleza</string>
     <string name="emoji_food_drink">Comida y bebida</string>
     <string name="emoji_flags">Banderas</string>
+    <string name="emoji_empty">No hay emojis disponibles.</string>
     <string name="neighborhoods_title">Q&#252;ata</string>
     <string name="neighborhoods_loading">Cargando barrios...</string>
     <string name="neighborhoods_empty">Todavía no hay comunidades activas.</string>

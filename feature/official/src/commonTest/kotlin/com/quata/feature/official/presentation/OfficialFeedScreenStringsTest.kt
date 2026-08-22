@@ -54,8 +54,8 @@ class OfficialFeedScreenStringsTest {
         assertEquals("Show emojis", english.showEmojis)
         assertEquals("Fang translator", english.translatorContentDescription)
         assertEquals(
-            listOf("Recent", "Frequent", "Gestures", "People", "Animals and nature", "Food and drink", "Objects and symbols", "Flags"),
-            with(english.emojiLabels) { listOf(recent, frequent, gestures, people, animalsNature, foodDrink, objectsSymbols, flags) },
+            listOf("Recent", "Frequent", "Gestures", "People", "Animals and nature", "Food and drink", "Objects and symbols", "Flags", "No emojis available."),
+            with(english.emojiLabels) { listOf(recent, frequent, gestures, people, animalsNature, foodDrink, objectsSymbols, flags, empty) },
         )
 
         val french = defaultOfficialFeedScreenStrings("fr-FR")
@@ -70,8 +70,8 @@ class OfficialFeedScreenStringsTest {
         assertEquals("Afficher les emojis", french.showEmojis)
         assertEquals("Traducteur Fang", french.translatorContentDescription)
         assertEquals(
-            listOf("Récents", "Fréquents", "Gestes", "Personnes", "Animaux et nature", "Cuisine et boissons", "Objets et symboles", "Drapeaux"),
-            with(french.emojiLabels) { listOf(recent, frequent, gestures, people, animalsNature, foodDrink, objectsSymbols, flags) },
+            listOf("Récents", "Fréquents", "Gestes", "Personnes", "Animaux et nature", "Cuisine et boissons", "Objets et symboles", "Drapeaux", "Aucun emoji disponible."),
+            with(french.emojiLabels) { listOf(recent, frequent, gestures, people, animalsNature, foodDrink, objectsSymbols, flags, empty) },
         )
     }
 

@@ -223,6 +223,7 @@ fun OfficialCommentsPanelContent(
                             { draft = draft.insertAtSelection(it) },
                             Modifier.trackCommunityEmojiPanelBounds(emojiDismissState),
                             gridMaxHeight = emojiGridMaxHeight,
+                            emptyMessage = strings.emojiLabels.empty,
                         )
                     }
                 } else null,
@@ -277,6 +278,7 @@ fun OfficialCommentsPanelContent(
                                 .fillMaxWidth(0.62f)
                                 .trackCommunityEmojiPanelBounds(emojiDismissState),
                             gridMaxHeight = emojiGridMaxHeight,
+                            emptyMessage = strings.emojiLabels.empty,
                         )
                     }
                 } else null,

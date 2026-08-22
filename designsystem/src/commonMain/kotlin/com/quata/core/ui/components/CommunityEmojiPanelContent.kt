@@ -80,7 +80,7 @@ fun CommunityEmojiPanelContent(
     modifier: Modifier = Modifier,
     initialSectionKey: String = "frequent",
     gridMaxHeight: Dp = 220.dp,
-    emptyMessage: String = "No hay emojis disponibles.",
+    emptyMessage: String = CommunityEmojiLabels().empty,
 ) {
     val template = quataTheme()
     if (sections.isEmpty()) {

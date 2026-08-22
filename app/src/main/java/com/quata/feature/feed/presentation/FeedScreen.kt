@@ -245,6 +245,7 @@ fun FeedScreen(
                 gestures = stringResource(R.string.emoji_gestures), people = stringResource(R.string.emoji_people),
                 animalsNature = stringResource(R.string.emoji_animals_nature), foodDrink = stringResource(R.string.emoji_food_drink),
                 objectsSymbols = stringResource(R.string.emoji_objects_symbols), flags = stringResource(R.string.emoji_flags),
+                empty = stringResource(R.string.emoji_empty),
             ),
             locationLabel = { stringResource(R.string.feed_location_chip, it) },
         ),

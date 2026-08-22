@@ -253,8 +253,12 @@ class FeedViewModel(
     }
 
     private fun appendLocalPendingComment(postId: String, comment: PostComment) {
+        val transformed = feedStore.replace(postId) { post ->
+            if (post.comments.none { it.id == comment.id }) post.copy(comments = post.comments + comment) else post
+        }
+        val posts = transformed.takeIf { feedPosts -> feedPosts.any { it.id == postId } } ?: _uiState.value.posts
         _uiState.value = _uiState.value.copy(
-            posts = _uiState.value.posts.map { post ->
+            posts = posts.map { post ->
                 if (post.id == postId && post.comments.none { it.id == comment.id }) {
                     post.copy(comments = post.comments + comment)
                 } else {
@@ -266,8 +270,10 @@ class FeedViewModel(
 
     private fun removeLocalPendingComment(postId: String, comment: PostComment) {
         if (!comment.isLocalPendingComment()) return
+        val transformed = feedStore.replace(postId) { it.withoutLocalPendingComment(comment) }
+        val posts = transformed.takeIf { feedPosts -> feedPosts.any { it.id == postId } } ?: _uiState.value.posts
         _uiState.value = _uiState.value.copy(
-            posts = _uiState.value.posts.map { post ->
+            posts = posts.map { post ->
                 if (post.id == postId) post.withoutLocalPendingComment(comment) else post
             }
         )

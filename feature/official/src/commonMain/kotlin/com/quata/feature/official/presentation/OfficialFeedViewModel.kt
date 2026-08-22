@@ -260,8 +260,13 @@ class OfficialFeedViewModel(
 
     private fun removeLocalPendingComment(postId: String, comment: PostComment) {
         if (!comment.isLocalPendingComment()) return
+        exactLoadedPosts = exactLoadedPosts.mapValues { (_, post) ->
+            if (post.id == postId) post.withoutLocalPendingComment(comment) else post
+        }
+        val transformed = feedStore.replace(postId) { it.withoutLocalPendingComment(comment) }
+        val posts = transformed.takeIf { feedPosts -> feedPosts.any { it.id == postId } } ?: _uiState.value.posts
         _uiState.value = _uiState.value.copy(
-            posts = _uiState.value.posts.map { post ->
+            posts = posts.map { post ->
                 if (post.id == postId) post.withoutLocalPendingComment(comment) else post
             }
         )
@@ -271,8 +276,28 @@ class OfficialFeedViewModel(
         (this + exactLoadedPosts.values).distinctBy(OfficialPostItem::id)
 
     private fun appendLocalPendingComment(postId: String, comment: PostComment) {
+        exactLoadedPosts = exactLoadedPosts.mapValues { (_, post) ->
+            if (post.id == postId && post.comments.none { it.id == comment.id }) {
+                post.copy(
+                    comments = post.comments + comment,
+                    commentsCount = (post.commentsCount + 1).coerceAtLeast(post.comments.size + 1),
+                )
+            } else {
+                post
+            }
+        }
+        val transformed = feedStore.replace(postId) { post ->
+            if (post.comments.none { it.id == comment.id }) {
+                post.copy(
+                    comments = post.comments + comment,
+                    commentsCount = (post.commentsCount + 1).coerceAtLeast(post.comments.size + 1),
+                )
+            } else {
+                post
+            }
+        }
         _uiState.value = _uiState.value.copy(
-            posts = _uiState.value.posts.map { post ->
+            posts = (transformed.takeIf { feedPosts -> feedPosts.any { it.id == postId } } ?: _uiState.value.posts).map { post ->
                 if (post.id == postId && post.comments.none { it.id == comment.id }) {
                     post.copy(
                         comments = post.comments + comment,

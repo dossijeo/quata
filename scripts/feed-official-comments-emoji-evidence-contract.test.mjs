@@ -29,6 +29,7 @@ test("Feed and Official comments use the common emoji picker and common comment 
   const feedViewModel = source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedViewModel.kt");
   const official = source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialCommentsPanelContent.kt");
   const officialHost = source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt");
+  const officialViewModel = source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedViewModel.kt");
   for (const [label, content, prefix] of [["feed", feed, "feed"], ["official", official, "official"]]) {
     assert.match(content, /CommunityEmojiPanelContent/, `${label}:picker`);
     assert.match(content, /insertAtSelection/, `${label}:insert`);
@@ -36,11 +37,18 @@ test("Feed and Official comments use the common emoji picker and common comment 
     assert.match(content, /contentDescription = strings\.showEmojis/, `${label}:emoji_accessible_tag`);
     assert.match(content, new RegExp(`${prefix}\\.comments\\.input`), `${label}:input_tag`);
     assert.match(content, new RegExp(`${prefix}\\.comments\\.send`), `${label}:send_tag`);
+    assert.match(content, /emptyMessage = strings\.emojiLabels\.empty/, `${label}:empty_localized`);
   }
   assert.match(feedEvents, /data class FocusPost/);
   assert.match(feed, /FeedUiEvent\.FocusPost\(focusedPostId\)/);
   assert.match(feedViewModel, /repository\.refreshPost\(postId\)/);
   assert.match(feedViewModel, /feedStore\.prependIfMissing\(post\)/);
+  assert.match(feedViewModel, /feedStore\.replace\(postId\) \{ it\.withoutLocalPendingComment\(comment\) \}/);
+  assert.match(feedViewModel, /withoutLocalPendingComment/);
+  assert.match(officialHost, /empty="No emojis available\."/);
+  assert.match(officialHost, /empty="Aucun emoji disponible\."/);
+  assert.match(officialViewModel, /feedStore\.replace\(postId\) \{ it\.withoutLocalPendingComment\(comment\) \}/);
+  assert.match(officialViewModel, /exactLoadedPosts = exactLoadedPosts\.mapValues/);
   assert.match(feed, /commentsPostId = null[\s\S]*onOpenUserProfile\(profileId\)/);
   assert.match(officialHost, /commentsPost = null[\s\S]*onOpenUserProfile\(profileId\)/);
 });
