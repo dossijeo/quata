@@ -1149,7 +1149,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .tap()
         _ = profileElement("community.emoji.panel", in: app, context: "profile comments emoji panel")
-        tapTaggedButton("community.emoji.cell.frequent.0", in: app, context: "profile comments first frequent emoji")
+        tapEmojiCell(
+            "community.emoji.cell.frequent.0",
+            sectionIdentifier: "community.emoji.section.frequent",
+            in: app,
+            context: "profile comments first frequent emoji",
+        )
         let input = app.descendants(matching: .any)
             .matching(identifier: "public-profile.comments.input")
             .firstMatch
@@ -1368,7 +1373,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             app.descendants(matching: .any).matching(identifier: "community.emoji.panel").firstMatch.waitForExistence(timeout: 10),
             "\(context) reply must show the shared emoji panel.",
         )
-        tapTaggedButton("community.emoji.cell.frequent.0", in: app, context: "\(context) reply first frequent emoji")
+        tapEmojiCell(
+            "community.emoji.cell.frequent.0",
+            sectionIdentifier: "community.emoji.section.frequent",
+            in: app,
+            context: "\(context) reply first frequent emoji",
+        )
         typeText(String(replyComment.dropFirst()), intoCommentInput: inputIdentifier, fallbackFrame: fallbackFrame, in: app)
         tapTaggedButton(sendIdentifier, in: app, context: "\(context) send reply")
         let visibleReply = uniqueSubmittedCommentProbe(replyComment)
