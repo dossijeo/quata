@@ -1531,7 +1531,8 @@ private final class IosPostVideoEditorExportOperation {
         }
         let visibleLines = Array(lines.prefix(spec.maxLines))
         let lineHeight = fontSize * spec.lineHeightMultiplier
-        let top = outputSize.height * spec.verticalPosition - (lineHeight * CGFloat(visibleLines.count)) / 2
+        let coreGraphicsVerticalPosition = 1 - spec.verticalPosition
+        let top = outputSize.height * coreGraphicsVerticalPosition - (lineHeight * CGFloat(visibleLines.count)) / 2
         for (lineIndex, lineInfo) in visibleLines.enumerated() {
             let boxWidth = min(maxLineWidth, max(outputSize.width * 0.24, lineInfo.width + outputSize.width * 0.08))
             let boxHeight = max(lineHeight * 1.08, outputSize.height * 0.066)
