@@ -971,7 +971,7 @@ private final class IosPostVideoEditorExportOperation {
             let queue = DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects")
             var frameCount = 0
             var didRequestFinish = false
-            writerInput.requestMediaDataWhenReady(on: queue) { [weak self, weak writerInput] in
+            queue.async { [weak self, weak writerInput] in
                 guard let self, let writerInput else { return }
                 guard let adaptor = self.visualEffectsAdaptor else {
                     reader.cancelReading()
@@ -1026,7 +1026,11 @@ private final class IosPostVideoEditorExportOperation {
                         }
                     }
                 }
-                while writerInput.isReadyForMoreMediaData {
+                while !didRequestFinish {
+                    if !writerInput.isReadyForMoreMediaData {
+                        Thread.sleep(forTimeInterval: 0.01)
+                        continue
+                    }
                     if self.didCancel {
                         reader.cancelReading()
                         writer.cancelWriting()
