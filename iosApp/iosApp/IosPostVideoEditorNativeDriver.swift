@@ -652,12 +652,13 @@ private final class IosPostVideoEditorExportOperation {
         try? FileManager.default.removeItem(at: finalOutputUrl)
         let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
         if sourceAudioTrack == nil {
-            exportNativeVisualEffectsOnly(
+            applyVisualEffects(
                 inputUrl: sourceUrl,
                 outputUrl: finalOutputUrl,
-                sourceDisplaySize: displaySize(for: videoTrack),
+                captionStyle: request.captionStyle,
                 captionDocument: captionDocument,
-                timeRange: range,
+                sourceDisplaySize: displaySize(for: videoTrack),
+                readRange: range,
                 inputIsPrecomposited: false,
                 cleanupInputOnSuccess: false,
                 callback: callback
@@ -776,119 +777,6 @@ private final class IosPostVideoEditorExportOperation {
                 self.callback.onProgress(progress: progress)
             }
             self.callback.onProgress(progress: floor)
-        }
-    }
-
-    private func exportNativeVisualEffectsOnly(
-        inputUrl: URL,
-        outputUrl: URL,
-        sourceDisplaySize: CGSize,
-        captionDocument: CaptionDocumentWire?,
-        timeRange: CMTimeRange,
-        inputIsPrecomposited: Bool,
-        cleanupInputOnSuccess: Bool,
-        callback: any IosPostVideoEditorExportCallback
-    ) {
-        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("adaptive_native_pass_start", details: [
-            "removeAudio": request.removeAudio ? "true" : "false",
-            "targetBitrate": "\(request.outputTargetBitrate)",
-            "maxFrameRate": "\(request.outputMaxFrameRate)",
-        ])
-        if request.hasBackgroundCrop {
-            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_start")
-        }
-        if let captionDocument {
-            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_start", details: [
-                "segments": "\(captionDocument.segments.count)",
-            ])
-        }
-        let asset = AVURLAsset(url: inputUrl)
-        let renderSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
-        let foregroundRect = foregroundContentRect(outputSize: renderSize, sourceDisplaySize: sourceDisplaySize)
-        let captionStyle = request.captionStyle?.isEmpty == false ? request.captionStyle! : "Karaoke"
-        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_started", details: [
-            "durationMs": "\(Int64(CMTimeGetSeconds(timeRange.duration) * 1_000))",
-            "captionDocument": captionDocument == nil ? "false" : "true",
-            "outputWidth": "\(request.outputWidth)",
-            "outputHeight": "\(request.outputHeight)",
-            "maxFrameRate": "\(request.outputMaxFrameRate)",
-            "targetBitrate": "\(request.outputTargetBitrate)",
-            "exportPreset": exportPresetName(),
-        ])
-        let videoComposition = AVMutableVideoComposition(asset: asset) { [weak self] renderRequest in
-            guard let self else {
-                renderRequest.finish(with: NSError(
-                    domain: "com.quata.ios.post-video-editor",
-                    code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "ios_post_video_editor_export_deallocated"]
-                ))
-                return
-            }
-            let relativeTime = CMTimeSubtract(renderRequest.compositionTime, timeRange.start)
-            let timeMs = max(0, Int64((CMTimeGetSeconds(relativeTime) * 1_000).rounded()))
-            let rendered = self.renderVisualEffectsImage(
-                sourceImage: renderRequest.sourceImage,
-                outputSize: renderSize,
-                foregroundRect: foregroundRect,
-                shouldBlurBackground: self.request.hasBackgroundCrop,
-                captionStyle: captionStyle,
-                captionDocument: captionDocument,
-                timeMs: timeMs,
-                inputIsPrecomposited: inputIsPrecomposited
-            )
-            renderRequest.finish(with: rendered, context: nil)
-        }
-        videoComposition.renderSize = renderSize
-        videoComposition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
-
-        try? FileManager.default.removeItem(at: outputUrl)
-        guard let exportSession = AVAssetExportSession(asset: asset, presetName: exportPresetName()) else {
-            finishFailure(reason: "ios_post_video_editor_visual_effects_export_session_unavailable")
-            return
-        }
-        self.exportSession = exportSession
-        exportSession.outputURL = outputUrl
-        exportSession.outputFileType = .mp4
-        exportSession.shouldOptimizeForNetworkUse = true
-        exportSession.timeRange = timeRange
-        exportSession.videoComposition = videoComposition
-        startProgressTimer(session: exportSession, floor: 0.72, ceiling: 0.95)
-        exportSession.exportAsynchronously { [callback] in
-            DispatchQueue.main.async {
-                if self.didCancel {
-                    self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
-                    return
-                }
-                switch exportSession.status {
-                case .completed:
-                    self.progressTimer?.invalidate()
-                    self.progressTimer = nil
-                    if self.request.hasBackgroundCrop {
-                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_completed")
-                    }
-                    if captionDocument != nil {
-                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_completed")
-                    }
-                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_export_completed")
-                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_skipped", details: [
-                        "reason": "source_audio_missing",
-                    ])
-                    self.finishSuccess(outputUrl: outputUrl, callback: callback)
-                    if cleanupInputOnSuccess {
-                        try? FileManager.default.removeItem(at: inputUrl)
-                    }
-                case .failed, .cancelled:
-                    let reason = self.didCancel
-                        ? "ios_post_video_editor_export_cancelled"
-                        : exportSession.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_export_failed"
-                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
-                        "reason": reason,
-                    ])
-                    self.finishFailure(reason: reason)
-                default:
-                    self.finishFailure(reason: "ios_post_video_editor_visual_effects_export_incomplete")
-                }
-            }
         }
     }
 

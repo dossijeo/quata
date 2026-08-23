@@ -887,8 +887,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_MUTE/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_EXERCISE_CAPTIONS/);
   assert.match(iosPostPublishTest, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS/);
-  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'180'" : "'240'"\}/);
-  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS=\$\{sourceHasAudio \? "'420'" : "'540'"\}/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS='180'/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS='420'/);
+  assert.doesNotMatch(iosVideoEditorRunner, /sourceHasAudio \? "'420'" : "'540'"/);
+  assert.doesNotMatch(iosVideoEditorRunner, /sourceHasAudio \? "'180'" : "'240'"/);
   assert.match(iosPostPublishTest, /ProcessInfo\.processInfo\.environment\["QUATA_IOS_POST_VIDEO_EDITOR_MUTE"\] == "1"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.reset"/);
   assert.match(iosPostPublishTest, /tapComposerAction\("post-video-editor\.mute"/);
@@ -1031,8 +1033,11 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE='en_US'/);
   assert.match(iosVideoEditorWrapper, /QUATA_IOS_POST_VIDEO_EDITOR_TRANSCRIPTION_LOCALE/);
   assert.match(iosVideoEditorRunner, /ios_video_editor_caption_pixels_missing/);
-  assert.match(iosVideoEditorRunner, /sourceHasAudio \? "'420'" : "'540'"/);
-  assert.match(iosVideoEditorRunner, /sourceHasAudio \? "'180'" : "'240'"/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_UI_TIMEOUT_SECONDS='420'/);
+  assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS='180'/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /exportNativeVisualEffectsOnly/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /adaptive_native_pass_start/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /AVMutableVideoComposition\(asset: asset\)/);
   assert.match(iosVideoEditorRunner, /ffprobe/);
   assert.match(iosQuataApp, /IosPostVideoEditorNativeDriverBridge\.shared/);
   assert.match(iosInfoPlist, /NSSpeechRecognitionUsageDescription/);
