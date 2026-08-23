@@ -651,6 +651,19 @@ private final class IosPostVideoEditorExportOperation {
         try? FileManager.default.removeItem(at: outputUrl)
         try? FileManager.default.removeItem(at: finalOutputUrl)
         let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
+        if sourceAudioTrack == nil {
+            exportNativeVisualEffectsOnly(
+                inputUrl: sourceUrl,
+                outputUrl: finalOutputUrl,
+                sourceDisplaySize: displaySize(for: videoTrack),
+                captionDocument: captionDocument,
+                timeRange: range,
+                inputIsPrecomposited: false,
+                cleanupInputOnSuccess: false,
+                callback: callback
+            )
+            return
+        }
         if !request.removeAudio, let audioTrack = sourceAudioTrack {
             guard let compositionAudio = composition.addMutableTrack(
                 withMediaType: .audio,
@@ -703,17 +716,6 @@ private final class IosPostVideoEditorExportOperation {
                 case .completed:
                     if self.didCancel {
                         self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
-                        return
-                    }
-                    if sourceAudioTrack == nil {
-                        self.exportPrecomposedVisualEffectsOnly(
-                            inputUrl: outputUrl,
-                            outputUrl: finalOutputUrl,
-                            sourceDisplaySize: self.displaySize(for: videoTrack),
-                            captionDocument: captionDocument,
-                            cleanupInputOnSuccess: true,
-                            callback: callback
-                        )
                         return
                     }
                     self.applyVisualEffects(
@@ -777,11 +779,13 @@ private final class IosPostVideoEditorExportOperation {
         }
     }
 
-    private func exportPrecomposedVisualEffectsOnly(
+    private func exportNativeVisualEffectsOnly(
         inputUrl: URL,
         outputUrl: URL,
         sourceDisplaySize: CGSize,
         captionDocument: CaptionDocumentWire?,
+        timeRange: CMTimeRange,
+        inputIsPrecomposited: Bool,
         cleanupInputOnSuccess: Bool,
         callback: any IosPostVideoEditorExportCallback
     ) {
@@ -802,6 +806,15 @@ private final class IosPostVideoEditorExportOperation {
         let renderSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
         let foregroundRect = foregroundContentRect(outputSize: renderSize, sourceDisplaySize: sourceDisplaySize)
         let captionStyle = request.captionStyle?.isEmpty == false ? request.captionStyle! : "Karaoke"
+        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_started", details: [
+            "durationMs": "\(Int64(CMTimeGetSeconds(timeRange.duration) * 1_000))",
+            "captionDocument": captionDocument == nil ? "false" : "true",
+            "outputWidth": "\(request.outputWidth)",
+            "outputHeight": "\(request.outputHeight)",
+            "maxFrameRate": "\(request.outputMaxFrameRate)",
+            "targetBitrate": "\(request.outputTargetBitrate)",
+            "exportPreset": exportPresetName(),
+        ])
         let videoComposition = AVMutableVideoComposition(asset: asset) { [weak self] renderRequest in
             guard let self else {
                 renderRequest.finish(with: NSError(
@@ -811,7 +824,8 @@ private final class IosPostVideoEditorExportOperation {
                 ))
                 return
             }
-            let timeMs = max(0, Int64((CMTimeGetSeconds(renderRequest.compositionTime) * 1_000).rounded()))
+            let relativeTime = CMTimeSubtract(renderRequest.compositionTime, timeRange.start)
+            let timeMs = max(0, Int64((CMTimeGetSeconds(relativeTime) * 1_000).rounded()))
             let rendered = self.renderVisualEffectsImage(
                 sourceImage: renderRequest.sourceImage,
                 outputSize: renderSize,
@@ -820,7 +834,7 @@ private final class IosPostVideoEditorExportOperation {
                 captionStyle: captionStyle,
                 captionDocument: captionDocument,
                 timeMs: timeMs,
-                inputIsPrecomposited: true
+                inputIsPrecomposited: inputIsPrecomposited
             )
             renderRequest.finish(with: rendered, context: nil)
         }
@@ -836,6 +850,7 @@ private final class IosPostVideoEditorExportOperation {
         exportSession.outputURL = outputUrl
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
+        exportSession.timeRange = timeRange
         exportSession.videoComposition = videoComposition
         startProgressTimer(session: exportSession, floor: 0.72, ceiling: 0.95)
         exportSession.exportAsynchronously { [callback] in
