@@ -652,23 +652,6 @@ private final class IosPostVideoEditorExportOperation {
         try? FileManager.default.removeItem(at: finalOutputUrl)
         let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
         if sourceAudioTrack == nil && captionDocument == nil && !request.removeAudio {
-            let visualOnlyComposition = AVMutableComposition()
-            guard let visualOnlyTrack = visualOnlyComposition.addMutableTrack(
-                withMediaType: .video,
-                preferredTrackID: kCMPersistentTrackID_Invalid
-            ) else {
-                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_composition_video_track_failed")
-                finishFailure(reason: "ios_post_video_editor_composition_video_track_failed")
-                return
-            }
-            do {
-                try visualOnlyTrack.insertTimeRange(range, of: videoTrack, at: .zero)
-                visualOnlyTrack.preferredTransform = videoTrack.preferredTransform
-            } catch {
-                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_video_insert_failed")
-                finishFailure(reason: "ios_post_video_editor_video_insert_failed")
-                return
-            }
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_started", details: [
                 "durationMs": "\(Int64(CMTimeGetSeconds(range.duration) * 1_000))",
                 "captionDocument": "false",
@@ -680,8 +663,9 @@ private final class IosPostVideoEditorExportOperation {
             ])
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_native_visual_effects_source_no_audio")
             exportNativeVisualEffectsOnly(
-                asset: visualOnlyComposition,
+                asset: asset,
                 outputUrl: finalOutputUrl,
+                timeRange: range,
                 duration: range.duration,
                 callback: callback
             )
@@ -805,6 +789,7 @@ private final class IosPostVideoEditorExportOperation {
     private func exportNativeVisualEffectsOnly(
         asset: AVAsset,
         outputUrl: URL,
+        timeRange: CMTimeRange,
         duration: CMTime,
         callback: any IosPostVideoEditorExportCallback
     ) {
@@ -818,7 +803,7 @@ private final class IosPostVideoEditorExportOperation {
         exportSession.outputURL = outputUrl
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
-        exportSession.timeRange = CMTimeRange(start: .zero, duration: duration)
+        exportSession.timeRange = timeRange
         exportSession.videoComposition = makeBlurredBackgroundVideoComposition(asset: asset, duration: duration)
         startProgressTimer(session: exportSession, floor: 0.35, ceiling: 0.95)
         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_start")
