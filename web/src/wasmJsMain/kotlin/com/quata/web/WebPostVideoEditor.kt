@@ -243,7 +243,7 @@ internal fun WebPostVideoEditor(
                         root = it,
                         reference = sourceReference,
                         isMuted = state.isMuted,
-                        isPlaying = state.isPlaying,
+                        isPlaying = state.isPlaying && !state.isExporting,
                         positionMs = (state.currentPositionFraction.coerceIn(0f, 1f) * durationMs).toLong(),
                         trimStartMs = (state.trimStartFraction.coerceIn(0f, 1f) * durationMs).toLong(),
                         trimEndMs = (state.trimEndFraction.coerceIn(0f, 1f) * durationMs).toLong(),

@@ -671,22 +671,6 @@ private final class IosPostVideoEditorExportOperation {
                 return
             }
         }
-        if sourceAudioTrack == nil && captionDocument == nil {
-            let sourceDisplaySize = displaySize(for: videoTrack)
-            applyVisualEffects(
-                inputUrl: sourceUrl,
-                outputUrl: outputUrl,
-                audioSourceUrl: sourceUrl,
-                captionStyle: request.captionStyle,
-                captionDocument: nil,
-                sourceDisplaySize: sourceDisplaySize,
-                readRange: range,
-                inputIsPrecomposited: false,
-                cleanupInputOnSuccess: false,
-                callback: callback
-            )
-            return
-        }
         let exportPresetName = exportPresetName()
         guard let exportSession = AVAssetExportSession(asset: composition, presetName: exportPresetName) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")

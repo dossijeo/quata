@@ -740,7 +740,7 @@ fun QuataVideoEditorDialog(
                 player = player,
                 aspectRatio = videoAspect,
                 previewFrame = previewFrame,
-                isPlaying = isPlaying,
+                isPlaying = isPlaying && !isExporting,
                 cropRect = cropRect,
                 videoRotationDegrees = metadata.rotation,
                 isCropVisible = isCropPanelOpen && cropMode != VideoCropMode.Original,

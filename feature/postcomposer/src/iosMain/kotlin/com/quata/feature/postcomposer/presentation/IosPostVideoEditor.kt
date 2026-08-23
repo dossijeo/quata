@@ -333,7 +333,7 @@ internal fun IosPostVideoEditor(
             IosPostVideoEditorNativePreview(
                 source = source,
                 nativeDriver = nativeDriver,
-                state = state,
+                state = if (state.isExporting) state.copy(isPlaying = false) else state,
                 durationMs = durationMs,
                 videoAspectRatio = videoAspectRatio,
                 fallbackThumbnail = thumbnail,
