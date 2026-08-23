@@ -971,6 +971,7 @@ private final class IosPostVideoEditorExportOperation {
             var frameCount = 0
             var didRequestFinish = false
             var lastProgressAt = Date()
+            let stateLock = NSLock()
             let progressStallLimitSeconds = 5.0
             let watchdog = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects.watchdog"))
             queue.async { [weak self, weak writerInput] in
@@ -987,9 +988,39 @@ private final class IosPostVideoEditorExportOperation {
                     }
                     return
                 }
-                func finishVisualEffects() {
-                    guard !didRequestFinish else { return }
+                func markTerminated() -> Bool {
+                    stateLock.lock()
+                    defer { stateLock.unlock() }
+                    guard !didRequestFinish else { return false }
                     didRequestFinish = true
+                    return true
+                }
+                func isTerminated() -> Bool {
+                    stateLock.lock()
+                    defer { stateLock.unlock() }
+                    return didRequestFinish
+                }
+                func markProgress() {
+                    stateLock.lock()
+                    lastProgressAt = Date()
+                    stateLock.unlock()
+                }
+                func nextFrameNumber() -> Int {
+                    stateLock.lock()
+                    frameCount += 1
+                    lastProgressAt = Date()
+                    let value = frameCount
+                    stateLock.unlock()
+                    return value
+                }
+                func frameSnapshot() -> Int {
+                    stateLock.lock()
+                    let value = frameCount
+                    stateLock.unlock()
+                    return value
+                }
+                func finishVisualEffects() {
+                    guard markTerminated() else { return }
                     watchdog.cancel()
                     writerInput.markAsFinished()
                     writer.finishWriting {
@@ -1001,7 +1032,7 @@ private final class IosPostVideoEditorExportOperation {
                                 self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
                             } else if writer.status == .completed {
                                 IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_writer_completed", details: [
-                                    "frames": "\(frameCount)",
+                                    "frames": "\(frameSnapshot())",
                                     "maxFrames": "\(maxFrameCount)",
                                 ])
                                 if self.request.hasBackgroundCrop {
@@ -1019,7 +1050,7 @@ private final class IosPostVideoEditorExportOperation {
                                 let reason = reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_failed"
                                 IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
                                     "reason": reason,
-                                    "frames": "\(frameCount)",
+                                    "frames": "\(frameSnapshot())",
                                     "readerStatus": "\(reader.status.rawValue)",
                                     "writerStatus": "\(writer.status.rawValue)",
                                 ])
@@ -1029,15 +1060,14 @@ private final class IosPostVideoEditorExportOperation {
                     }
                 }
                 func failVisualEffects(reason: String) {
-                    guard !didRequestFinish else { return }
-                    didRequestFinish = true
+                    guard markTerminated() else { return }
                     watchdog.cancel()
                     reader.cancelReading()
                     writer.cancelWriting()
                     DispatchQueue.main.async {
                         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
                             "reason": reason,
-                            "frames": "\(frameCount)",
+                            "frames": "\(frameSnapshot())",
                             "readerStatus": "\(reader.status.rawValue)",
                             "writerStatus": "\(writer.status.rawValue)",
                         ])
@@ -1046,20 +1076,23 @@ private final class IosPostVideoEditorExportOperation {
                 }
                 watchdog.schedule(deadline: .now() + progressStallLimitSeconds, repeating: 1.0)
                 watchdog.setEventHandler { [weak self] in
-                    guard self != nil, !didRequestFinish else { return }
-                    if Date().timeIntervalSince(lastProgressAt) > progressStallLimitSeconds {
+                    guard self != nil else { return }
+                    stateLock.lock()
+                    let shouldFail = !didRequestFinish && Date().timeIntervalSince(lastProgressAt) > progressStallLimitSeconds
+                    stateLock.unlock()
+                    if shouldFail {
                         failVisualEffects(reason: "ios_post_video_editor_visual_effects_progress_stalled")
                     }
                 }
                 watchdog.resume()
                 writerInput.requestMediaDataWhenReady(on: queue) { [weak self, weak writerInput] in
                     guard let self, let writerInput else { return }
-                    while writerInput.isReadyForMoreMediaData && !didRequestFinish {
+                    while writerInput.isReadyForMoreMediaData && !isTerminated() {
                         if self.didCancel {
                             failVisualEffects(reason: "ios_post_video_editor_export_cancelled")
                             return
                         }
-                        if frameCount >= maxFrameCount || reader.status == .completed {
+                        if frameSnapshot() >= maxFrameCount || reader.status == .completed {
                             finishVisualEffects()
                             return
                         }
@@ -1083,12 +1116,11 @@ private final class IosPostVideoEditorExportOperation {
                             continue
                         }
                         let timeMs = max(0, Int64((adjustedSeconds * 1_000).rounded()))
-                        frameCount += 1
+                        let currentFrame = nextFrameNumber()
                         nextOutputFrameSeconds = adjustedSeconds + frameStepSeconds
-                        lastProgressAt = Date()
-                        if frameCount == 1 || frameCount % 15 == 0 {
+                        if currentFrame == 1 || currentFrame % 15 == 0 {
                             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_frame", details: [
-                                "frame": "\(frameCount)",
+                                "frame": "\(currentFrame)",
                                 "timeMs": "\(timeMs)",
                             ])
                         }
@@ -1118,11 +1150,14 @@ private final class IosPostVideoEditorExportOperation {
                             bounds: CGRect(origin: .zero, size: renderSize),
                             colorSpace: CGColorSpaceCreateDeviceRGB()
                         )
+                        if isTerminated() {
+                            return
+                        }
                         if !adaptor.append(destinationBuffer, withPresentationTime: adjustedPresentationTime) {
                             failVisualEffects(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_append_failed")
                             return
                         }
-                        lastProgressAt = Date()
+                        markProgress()
                         let progress = 0.72 + Float(min(1, max(0, adjustedSeconds / durationSeconds))) * 0.23
                         DispatchQueue.main.async {
                             if !self.didFinish {
