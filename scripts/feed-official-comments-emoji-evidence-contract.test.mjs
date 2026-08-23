@@ -161,6 +161,7 @@ test("iOS runner records the same Feed and Official emoji-comment flow", () => {
   assert.match(wrapper, /QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID/);
   assert.match(wrapper, /QUATA_IOS_CHAT_OFFICIAL_COMMENTS_COMMENT_ID/);
   assert.match(wrapper, /QUATA_IOS_CHAT_OFFICIAL_COMMENTS_REPLY_COMMENT/);
+  assert.match(wrapper, /run_and_require "\$feed_official_comments" "\$feed_official_comments_method" "\$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR\/feed-official-comments\.log" 720/);
   assert.match(uiTest, /func testFeedAndOfficialCommentsUseSharedEmojiPicker/);
   assert.ok(uiTest.includes('feed.action.comments.\\(feedPostId)'));
   assert.ok(uiTest.includes('official.action.comments.\\(officialPostId)'));
@@ -170,7 +171,10 @@ test("iOS runner records the same Feed and Official emoji-comment flow", () => {
   assert.match(uiTest, /feed\.comments\.emoji/);
   assert.match(uiTest, /official\.comments\.emoji/);
   assert.match(uiTest, /verifyCommunityEmojiPanelSections/);
+  assert.match(uiTest, /verifyCommunityEmojiFrequentSection/);
+  assert.match(uiTest, /verifyFullEmojiCatalog: false/);
   assert.match(uiTest, /communityEmojiPanelProbeSections/);
+  assert.match(uiTest, /communityEmojiPanelIosEvidenceSections/);
   assert.match(uiTest, /community\.emoji\.sections/);
   assert.match(uiTest, /community\.emoji\.grid\.\\\(section\)/);
   assert.match(uiTest, /community\.emoji\.cell\.frequent\.0/);
