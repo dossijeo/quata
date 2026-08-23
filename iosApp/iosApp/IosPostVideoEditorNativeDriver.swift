@@ -1026,6 +1026,31 @@ private final class IosPostVideoEditorExportOperation {
                 }
                 while !didRequestFinish {
                     if !writerInput.isReadyForMoreMediaData {
+                        if self.didCancel {
+                            reader.cancelReading()
+                            writer.cancelWriting()
+                            return
+                        }
+                        if frameCount >= maxFrameCount || reader.status == .completed {
+                            finishVisualEffects()
+                            return
+                        }
+                        if reader.status == .failed || reader.status == .cancelled ||
+                            writer.status == .failed || writer.status == .cancelled {
+                            let reason = reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_failed"
+                            reader.cancelReading()
+                            writer.cancelWriting()
+                            DispatchQueue.main.async {
+                                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
+                                    "reason": reason,
+                                    "frames": "\(frameCount)",
+                                    "readerStatus": "\(reader.status.rawValue)",
+                                    "writerStatus": "\(writer.status.rawValue)",
+                                ])
+                                self.finishFailure(reason: reason)
+                            }
+                            return
+                        }
                         Thread.sleep(forTimeInterval: 0.01)
                         continue
                     }
