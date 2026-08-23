@@ -937,7 +937,8 @@ private final class IosPostVideoEditorExportOperation {
                 )
                 normalizedOutput.videoComposition = normalizedSourceVideoComposition(
                     for: videoTrack,
-                    frameRate: request.outputMaxFrameRate
+                    frameRate: request.outputMaxFrameRate,
+                    maximumSize: renderSize
                 )
                 readerOutput = normalizedOutput
             }
@@ -1241,15 +1242,28 @@ private final class IosPostVideoEditorExportOperation {
 
     private func normalizedSourceVideoComposition(
         for track: AVAssetTrack,
-        frameRate: Int32
+        frameRate: Int32,
+        maximumSize: CGSize
     ) -> AVMutableVideoComposition {
         let naturalRect = CGRect(origin: .zero, size: track.naturalSize)
         let preferredTransform = track.preferredTransform
         let transformedRect = naturalRect.applying(preferredTransform)
+        let displayWidth = max(2, abs(transformedRect.width))
+        let displayHeight = max(2, abs(transformedRect.height))
+        let scale = min(
+            1,
+            max(2, maximumSize.width) / displayWidth,
+            max(2, maximumSize.height) / displayHeight
+        )
         let normalizedTransform = preferredTransform.concatenating(
             CGAffineTransform(translationX: -transformedRect.minX, y: -transformedRect.minY)
+        ).concatenating(
+            CGAffineTransform(scaleX: scale, y: scale)
         )
-        let displaySize = CGSize(width: max(2, abs(transformedRect.width)), height: max(2, abs(transformedRect.height)))
+        let displaySize = CGSize(
+            width: max(2, floor(displayWidth * scale)),
+            height: max(2, floor(displayHeight * scale))
+        )
         let instruction = AVMutableVideoCompositionInstruction()
         instruction.timeRange = track.timeRange
         instruction.backgroundColor = UIColor.black.cgColor
