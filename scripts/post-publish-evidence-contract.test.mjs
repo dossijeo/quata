@@ -728,8 +728,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /elapsedAtStopMs/);
   assert.doesNotMatch(webPostVideoEditor, /requestAnimationFrame\?\.\(tick\)/);
   assert.match(webPostVideoEditor, /canvasTrack\?\.requestFrame\?\.\(\)/);
-  assert.match(webPostVideoEditor, /drawnFrameCount % 2 === 0/);
-  assert.match(webPostVideoEditor, /context\.fillRect\(0, 0, 1, 1\)/);
+  assert.doesNotMatch(webPostVideoEditor, /drawnFrameCount % 2 === 0/);
+  assert.doesNotMatch(webPostVideoEditor, /context\.fillRect\(0, 0, 1, 1\)/);
   assert.match(webPostVideoEditor, /stream = canvas\.captureStream\?\.\(0\) \|\| canvas\.captureStream\?\.\(fps\)/);
   assert.doesNotMatch(webPostVideoEditor, /stream = canvas\.captureStream\?\.\(fps\) \|\| canvas\.captureStream\?\.\(0\)/);
   assert.match(webPostVideoEditor, /trimStartSeconds/);
@@ -951,7 +951,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorRunner, /captionNegativeControlProbe/);
   assert.match(iosVideoEditorRunner, /probeIosExport\(localExport, diagnostics, \{ mute, sourceHasAudio, requireCropGeometry: true \}\)/);
   assert.match(androidVideoEditorRunner, /label: "cancel-unmuted", mute: false, cancelOnly: true/);
-  assert.match(commonPostVideoEditorContent, /post-video-editor\.export-progress\.\$exportPercent/);
+  assert.doesNotMatch(commonPostVideoEditorContent, /post-video-editor\.export-progress\.\$exportPercent/);
   assert.match(androidPostPublishTest, /SemanticsProperties\.StateDescription/);
   assert.match(androidPostPublishTest, /writeVideoEditorCancelReport/);
   assert.match(androidPostPublishTest, /audioRemuxStageObserved/);

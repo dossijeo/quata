@@ -1002,8 +1002,6 @@ private fun webPostVideoEditorExportEditedJs(
             if (caption) {
               drawCaptionSegment(segmentAt(exportTimeMs), exportTimeMs);
             }
-            context.fillStyle = drawnFrameCount % 2 === 0 ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)';
-            context.fillRect(0, 0, 1, 1);
             canvasTrack?.requestFrame?.();
           }
           video.onseeked = () => {

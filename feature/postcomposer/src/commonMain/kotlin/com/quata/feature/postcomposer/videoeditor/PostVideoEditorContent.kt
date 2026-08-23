@@ -789,10 +789,7 @@ private fun PostVideoEditorInfoBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag(PostVideoEditorExportProgressTestTag)
-                    .semantics {
-                        contentDescription = PostVideoEditorExportProgressTestTag
-                        stateDescription = "post-video-editor.export-progress.$exportPercent"
-                    },
+                    .semantics { contentDescription = PostVideoEditorExportProgressTestTag },
             )
             Text("${strings.exporting} $exportPercent%", style = MaterialTheme.typography.bodySmall)
         }

@@ -315,6 +315,7 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
     private var foregroundLayer: AVPlayerLayer?
     private var backgroundLayer: AVPlayerLayer?
     private var timeObserver: Any?
+    private var playerStatusObservation: NSKeyValueObservation?
     private var lastCropConfiguration = PreviewCropConfiguration(
         videoAspectRatio: 9.0 / 16.0,
         left: 0,
@@ -355,12 +356,13 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         self.backgroundPlayer = backgroundPlayer
         self.foregroundLayer = foregroundLayer
         self.backgroundLayer = backgroundLayer
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(playerItemReadyForPreview),
-            name: .AVPlayerItemNewAccessLogEntry,
-            object: player.currentItem
-        )
+        playerStatusObservation = player.currentItem?.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+            if item.status == .readyToPlay {
+                DispatchQueue.main.async {
+                    self?.root.foregroundFrameView.isHidden = true
+                }
+            }
+        }
     }
 
     private static func previewImage(url: URL) -> UIImage? {
@@ -381,10 +383,6 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
     }
 
     func nativeView() -> UIView { root }
-
-    @objc private func playerItemReadyForPreview() {
-        root.foregroundFrameView.isHidden = true
-    }
 
     func configure(
         isPlaying: Bool,
@@ -549,6 +547,8 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
             player.removeTimeObserver(timeObserver)
         }
         timeObserver = nil
+        playerStatusObservation?.invalidate()
+        playerStatusObservation = nil
         player?.pause()
         backgroundPlayer?.pause()
         NotificationCenter.default.removeObserver(self)
@@ -705,11 +705,12 @@ private final class IosPostVideoEditorExportOperation {
                         self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
                         return
                     }
-                    if sourceAudioTrack == nil && captionDocument == nil && !self.request.removeAudio {
+                    if sourceAudioTrack == nil {
                         self.exportPrecomposedVisualEffectsOnly(
                             inputUrl: outputUrl,
                             outputUrl: finalOutputUrl,
                             sourceDisplaySize: self.displaySize(for: videoTrack),
+                            captionDocument: captionDocument,
                             cleanupInputOnSuccess: true,
                             callback: callback
                         )
@@ -780,16 +781,22 @@ private final class IosPostVideoEditorExportOperation {
         inputUrl: URL,
         outputUrl: URL,
         sourceDisplaySize: CGSize,
+        captionDocument: CaptionDocumentWire?,
         cleanupInputOnSuccess: Bool,
         callback: any IosPostVideoEditorExportCallback
     ) {
         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("adaptive_native_pass_start", details: [
-            "removeAudio": "false",
+            "removeAudio": request.removeAudio ? "true" : "false",
             "targetBitrate": "\(request.outputTargetBitrate)",
             "maxFrameRate": "\(request.outputMaxFrameRate)",
         ])
         if request.hasBackgroundCrop {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_start")
+        }
+        if let captionDocument {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_start", details: [
+                "segments": "\(captionDocument.segments.count)",
+            ])
         }
         let asset = AVURLAsset(url: inputUrl)
         let renderSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
@@ -811,7 +818,7 @@ private final class IosPostVideoEditorExportOperation {
                 foregroundRect: foregroundRect,
                 shouldBlurBackground: self.request.hasBackgroundCrop,
                 captionStyle: captionStyle,
-                captionDocument: nil,
+                captionDocument: captionDocument,
                 timeMs: timeMs,
                 inputIsPrecomposited: true
             )
@@ -843,6 +850,9 @@ private final class IosPostVideoEditorExportOperation {
                     self.progressTimer = nil
                     if self.request.hasBackgroundCrop {
                         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_completed")
+                    }
+                    if captionDocument != nil {
+                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_completed")
                     }
                     IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_export_completed")
                     IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_skipped", details: [
