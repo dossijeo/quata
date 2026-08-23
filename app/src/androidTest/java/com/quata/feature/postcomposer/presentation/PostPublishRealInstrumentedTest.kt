@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.filterToOne
@@ -21,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ActivityScenario
@@ -38,6 +40,7 @@ import com.quata.feature.postcomposer.imageeditor.PostImageEditorRotateTestTag
 import com.quata.feature.postcomposer.imageeditor.PostImageEditorSaveTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorExportTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorCaptionsTestTag
+import com.quata.feature.postcomposer.videoeditor.PostVideoEditorCancelExportTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorCropTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorErrorTestTag
 import com.quata.feature.postcomposer.videoeditor.PostVideoEditorMuteTestTag
@@ -459,7 +462,10 @@ class PostPublishRealInstrumentedTest {
         val credentialsFile = optionalArgument("quataPostPublishCredentialsFile")
         val fixturePath = optionalArgument("quataPostVideoEditorFixturePath")
         val shouldMuteExport = optionalArgument("quataPostVideoEditorMute") == "1"
-        val evidenceLabel = if (shouldMuteExport) "muted" else "unmuted"
+        val cancelOnly = optionalArgument("quataPostVideoEditorCancelOnly") == "1"
+        val exerciseCaptions = optionalArgument("quataPostVideoEditorExerciseCaptions") != "0"
+        val evidenceLabel = optionalArgument("quataPostVideoEditorEvidenceLabel")
+            ?: if (cancelOnly) "cancel" else if (shouldMuteExport) "muted" else "unmuted"
         assumeTrue(
             "POST-VIDEO-EDITOR-ANDROID-REAL-001 is opt-in and requires local credentials plus a valid MP4 fixture.",
             !credentialsFile.isNullOrBlank() &&
@@ -534,66 +540,159 @@ class PostPublishRealInstrumentedTest {
                 }
                 compose.waitUntil(5_000) { editorIsMuted() == muted }
             }
-            setEditorMuted(true)
-            compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
-                .filterToOne(hasClickAction())
-                .performScrollTo()
-                .performClick()
-            compose.waitUntil(5_000) {
-                runCatching { compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
-            }
-            compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true)
-                .performScrollTo()
-                .performClick()
-            compose.onNodeWithTag(PostVideoEditorPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode()
-            compose.onAllNodesWithTag(PostVideoEditorCaptionsTestTag, useUnmergedTree = true)
-                .filterToOne(hasClickAction())
-                .performClick()
-            compose.waitUntil(5_000) {
-                runCatching { compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
-            }
-            compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true)
-                .performClick()
-            compose.onNodeWithTag("post-video-editor.caption-style-selected.Karaoke", useUnmergedTree = true)
-                .fetchSemanticsNode()
-            compose.onAllNodesWithTag(PostVideoEditorResetTestTag, useUnmergedTree = true)
-                .filterToOne(hasClickAction())
-                .performClick()
-            compose.onNodeWithTag(PostVideoEditorTrimStartHandleTestTag, useUnmergedTree = true)
-                .performTouchInput {
-                    down(center)
-                    moveBy(Offset(72f, 0f))
-                    up()
+            fun applySquareCrop() {
+                compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
+                    .filterToOne(hasClickAction())
+                    .performScrollTo()
+                    .performClick()
+                compose.waitUntil(5_000) {
+                    runCatching { compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
                 }
-            compose.onNodeWithTag(PostVideoEditorTrimEndHandleTestTag, useUnmergedTree = true)
-                .performTouchInput {
-                    down(center)
-                    moveBy(Offset((-336).toFloat(), 0f))
-                    up()
+                compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true)
+                    .performScrollTo()
+                    .performSemanticsAction(SemanticsActions.OnClick)
+                compose.waitUntil(5_000) {
+                    runCatching { compose.onNodeWithTag("post-video-editor.crop-zoom-in", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
                 }
-            compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
-                .filterToOne(hasClickAction())
-                .performScrollTo()
-                .performClick()
-            compose.waitUntil(5_000) {
-                runCatching { compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+                compose.onNodeWithTag("post-video-editor.crop-zoom-in", useUnmergedTree = true)
+                    .performClick()
+                compose.onAllNodesWithTag(PostVideoEditorCropTestTag, useUnmergedTree = true)
+                    .filterToOne(hasClickAction())
+                    .performClick()
+                compose.waitUntil(5_000) {
+                    runCatching { compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+                }
             }
-            compose.onNodeWithTag("post-video-editor.crop-mode.Square", useUnmergedTree = true)
-                .performScrollTo()
-                .performClick()
-            compose.onAllNodesWithTag(PostVideoEditorCaptionsTestTag, useUnmergedTree = true)
-                .filterToOne(hasClickAction())
-                .performClick()
-            compose.waitUntil(5_000) {
-                runCatching { compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            if (exerciseCaptions) {
+                setEditorMuted(true)
+                applySquareCrop()
+                compose.onNodeWithTag(PostVideoEditorPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode()
+                compose.onAllNodesWithTag(PostVideoEditorCaptionsTestTag, useUnmergedTree = true)
+                    .filterToOne(hasClickAction())
+                    .performClick()
+                compose.waitUntil(5_000) {
+                    runCatching { compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+                }
+                compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true)
+                    .performClick()
+                compose.onNodeWithTag("post-video-editor.caption-style-selected.Karaoke", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+                compose.onAllNodesWithTag(PostVideoEditorResetTestTag, useUnmergedTree = true)
+                    .filterToOne(hasClickAction())
+                    .performClick()
             }
-            compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true)
-                .performClick()
+            if (!cancelOnly) {
+                compose.onNodeWithTag(PostVideoEditorTrimStartHandleTestTag, useUnmergedTree = true)
+                    .performTouchInput {
+                        down(center)
+                        moveBy(Offset(72f, 0f))
+                        up()
+                    }
+                compose.onNodeWithTag(PostVideoEditorTrimEndHandleTestTag, useUnmergedTree = true)
+                    .performTouchInput {
+                        down(center)
+                        moveBy(Offset((-336).toFloat(), 0f))
+                        up()
+                    }
+            }
+            applySquareCrop()
+            if (exerciseCaptions) {
+                compose.onAllNodesWithTag(PostVideoEditorCaptionsTestTag, useUnmergedTree = true)
+                    .filterToOne(hasClickAction())
+                    .performClick()
+                compose.waitUntil(5_000) {
+                    runCatching { compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+                }
+                compose.onNodeWithTag("post-video-editor.caption-style.Karaoke", useUnmergedTree = true)
+                    .performClick()
+            }
             setEditorMuted(shouldMuteExport)
             saveScreenshot("android-post-video-editor-opened")
             compose.onAllNodesWithTag(PostVideoEditorExportTestTag, useUnmergedTree = true)
                 .filterToOne(hasClickAction())
                 .performClick()
+            compose.waitUntil(10_000) {
+                runCatching { compose.onNodeWithTag(PostVideoEditorExportProgressTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess
+            }
+            if (cancelOnly) {
+                var cancelProgressPercent = 0
+                if (!shouldMuteExport) {
+                    compose.waitUntil(120_000) {
+                        cancelProgressPercent = runCatching {
+                            compose.onNodeWithTag(PostVideoEditorExportProgressTestTag, useUnmergedTree = true)
+                                .fetchSemanticsNode()
+                                .config
+                                .getOrNull(SemanticsProperties.StateDescription)
+                                .orEmpty()
+                                .substringAfterLast('.')
+                                .toIntOrNull() ?: 0
+                        }.getOrDefault(0)
+                        cancelProgressPercent >= 97
+                    }
+                }
+                writeVideoEditorCancelReport(evidenceLabel, shouldMuteExport, cancelProgressPercent)
+                saveScreenshot("android-post-video-editor-export-progress")
+                compose.onAllNodesWithTag(PostVideoEditorCancelExportTestTag, useUnmergedTree = true)
+                    .filterToOne(hasClickAction())
+                    .fetchSemanticsNode()
+                clickLocalizedText("Cancelar", "Cancel")
+                fun cancelConfirmationVisible(): Boolean =
+                    runCatching {
+                        compose.onNodeWithText("Cancelar exportación", useUnmergedTree = true).fetchSemanticsNode()
+                    }.isSuccess ||
+                        runCatching {
+                            compose.onNodeWithText("Cancel export", useUnmergedTree = true).fetchSemanticsNode()
+                        }.isSuccess
+                compose.waitUntil(5_000) {
+                    cancelConfirmationVisible() ||
+                        runCatching { compose.onNodeWithTag(PostVideoEditorExportProgressTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+                }
+                if (cancelConfirmationVisible()) {
+                    saveScreenshot("android-post-video-editor-cancel-confirmation")
+                    clickLocalizedText("Cancelar exportación", "Cancel export")
+                }
+                val cancelled = runCatching {
+                    compose.waitUntil(30_000) {
+                        runCatching {
+                            compose.onAllNodesWithTag(PostVideoEditorExportTestTag, useUnmergedTree = true)
+                                .filterToOne(hasClickAction())
+                                .fetchSemanticsNode()
+                        }.isSuccess &&
+                            runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
+                            runCatching { compose.onNodeWithTag(PostVideoEditorExportProgressTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+                    }
+                }.isSuccess
+                if (!cancelled) {
+                    saveScreenshot("android-post-video-editor-cancel-timeout")
+                }
+                check(cancelled) {
+                    val progressVisible = runCatching {
+                        compose.onNodeWithTag(PostVideoEditorExportProgressTestTag, useUnmergedTree = true).fetchSemanticsNode()
+                    }.isSuccess
+                    val cancelVisible = runCatching {
+                        compose.onAllNodesWithTag(PostVideoEditorCancelExportTestTag, useUnmergedTree = true)
+                            .filterToOne(hasClickAction())
+                            .fetchSemanticsNode()
+                    }.isSuccess
+                    "android_video_editor_cancel_did_not_return_to_editor:progress=$progressVisible:cancel=$cancelVisible"
+                }
+                check(
+                    runCatching {
+                        compose.onAllNodesWithTag(PostVideoEditorExportTestTag, useUnmergedTree = true)
+                            .filterToOne(hasClickAction())
+                            .fetchSemanticsNode()
+                    }.isSuccess &&
+                        runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess &&
+                        runCatching { compose.onNodeWithTag(PostVideoEditorExportProgressTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isFailure
+                )
+                val errorVisible = runCatching {
+                    compose.onNodeWithTag(PostVideoEditorErrorTestTag, useUnmergedTree = true).fetchSemanticsNode()
+                }.isSuccess
+                check(!errorVisible) { "android_video_editor_cancel_showed_error" }
+                saveScreenshot("android-post-video-editor-after-cancel-export")
+                writePickerReport("video-editor", "success")
+                return@use
+            }
             fun isEditorDialogVisible(): Boolean =
                 runCatching { compose.onNodeWithTag(PostVideoEditorRootTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess ||
                     runCatching { compose.onNodeWithTag(PostVideoEditorPreviewTestTag, useUnmergedTree = true).fetchSemanticsNode() }.isSuccess ||
@@ -701,8 +800,8 @@ class PostPublishRealInstrumentedTest {
         )
     }
 
-    private fun writePickerReport(source: String, outcome: String) {
-        File(evidenceDir(), "android-post-picker-camera-evidence.json").writeText(
+        private fun writePickerReport(source: String, outcome: String) {
+            File(evidenceDir(), "android-post-picker-camera-evidence.json").writeText(
             JSONObject()
                 .put("check", "POST-PICKER-CAMERA-ANDROID-REAL-001")
                 .put("status", "passed")
@@ -710,8 +809,24 @@ class PostPublishRealInstrumentedTest {
                 .put("outcome", outcome)
                 .put("evidenceDirectory", evidenceDir().absolutePath)
                 .toString(2) + "\n",
-        )
-    }
+            )
+        }
+
+        private fun writeVideoEditorCancelReport(label: String, muted: Boolean, progressPercent: Int) {
+            val audioRemuxStageObserved = !muted && progressPercent >= 97
+            File(evidenceDir(), "android-post-video-editor-cancel-$label.json").writeText(
+                JSONObject()
+                    .put("check", "POST-VIDEO-EDITOR-ANDROID-CANCEL-001")
+                    .put("status", "passed")
+                    .put("label", label)
+                    .put("muted", muted)
+                    .put("waitedForAudioRoute", audioRemuxStageObserved)
+                    .put("audioRemuxStageObserved", audioRemuxStageObserved)
+                    .put("progressPercentBeforeCancel", progressPercent)
+                    .put("progressReachedBeforeCancel", muted || audioRemuxStageObserved)
+                    .toString(2) + "\n",
+            )
+        }
 
     private fun copyLatestEditedVideoEvidence(label: String) {
         val latest = targetContext.cacheDir

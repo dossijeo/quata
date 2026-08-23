@@ -234,15 +234,38 @@ internal fun IosPostVideoEditor(
             )
             return
         }
+        val exportState = state
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
+        if (!exportState.captionsEnabled || exportState.selectedCaptionStyleId == null) {
+            val job = scope.launch {
+                runCatching {
+                    val spec = postVideoEditorExportSpec(
+                        exportState,
+                        videoAspectRatio,
+                        durationMs,
+                        captionDocument = null,
+                        exportProfile,
+                    )
+                    iosPostVideoEditorExportEdited(source, spec, nativeDriver) { progress ->
+                        state = state.copy(exportProgress = progress.coerceIn(0.35f, 0.95f))
+                    }
+                }
+                    .onSuccess {
+                        state = state.copy(isExporting = false, exportProgress = 1f)
+                        onEdited(it)
+                    }
+                    .onFailure {
+                        if (it is CancellationException) return@onFailure
+                        state = state.copy(isExporting = false, error = it.message ?: "ios_post_video_editor_export_failed")
+                    }
+            }
+            exportJob = job
+            job.invokeOnCompletion { exportJob = null }
+            return
+        }
         val job = scope.launch {
             runCatching {
-                val exportState = state
-                val captionDocument = if (exportState.captionsEnabled && exportState.selectedCaptionStyleId != null) {
-                    iosPostVideoEditorTranscribeCaptions(source, nativeDriver)
-                } else {
-                    null
-                }
+                val captionDocument = iosPostVideoEditorTranscribeCaptions(source, nativeDriver)
                 val spec = postVideoEditorExportSpec(
                     exportState,
                     videoAspectRatio,
@@ -300,7 +323,7 @@ internal fun IosPostVideoEditor(
             state = state.copy(selectedCaptionStyleId = it, captionsEnabled = it != null)
         },
         onSeekChange = { state = state.copy(currentPositionFraction = it.coerceIn(0f, 1f)) },
-        timelineFrameCount = timelineFrames.size.takeIf { it > 0 } ?: 6,
+        timelineFrameCount = timelineFrames.size,
         timelineFrameContent = { index, frameModifier ->
             timelineFrames.getOrNull(index)?.let { frame ->
                 IosComposerLocalImagePreview(frame, modifier = frameModifier)
@@ -310,7 +333,7 @@ internal fun IosPostVideoEditor(
             IosPostVideoEditorNativePreview(
                 source = source,
                 nativeDriver = nativeDriver,
-                state = state,
+                state = if (state.isExporting) state.copy(isPlaying = false) else state,
                 durationMs = durationMs,
                 videoAspectRatio = videoAspectRatio,
                 fallbackThumbnail = thumbnail,
@@ -427,6 +450,29 @@ private suspend fun iosPostVideoEditorExportEdited(
     nativeDriver: IosPostVideoEditorNativeDriver,
     onProgress: (Float) -> Unit = {},
 ): PlatformFile = suspendCancellableCoroutine { continuation ->
+    iosPostVideoEditorExportEdited(
+        source = source,
+        spec = spec,
+        nativeDriver = nativeDriver,
+        onProgress = onProgress,
+        onSuccess = { file ->
+            if (continuation.isActive) continuation.resume(file)
+        },
+        onFailure = { reason ->
+            if (continuation.isActive) continuation.resumeWithException(IllegalStateException(reason))
+        },
+    )
+    continuation.invokeOnCancellation { nativeDriver.cancelExport() }
+}
+
+private fun iosPostVideoEditorExportEdited(
+    source: PlatformFile,
+    spec: PostVideoEditorExportSpec,
+    nativeDriver: IosPostVideoEditorNativeDriver,
+    onProgress: (Float) -> Unit = {},
+    onSuccess: (PlatformFile) -> Unit,
+    onFailure: (String) -> Unit,
+) {
     val request = IosPostVideoEditorExportRequest(
         trimStartMs = spec.trimStartMs,
         trimEndMs = spec.trimEndMs,
@@ -450,18 +496,17 @@ private suspend fun iosPostVideoEditorExportEdited(
     )
     nativeDriver.export(source, request, object : IosPostVideoEditorExportCallback {
         override fun onProgress(progress: Float) {
-            if (continuation.isActive) onProgress(progress)
+            onProgress(progress)
         }
 
         override fun onSuccess(file: PlatformFile) {
-            if (continuation.isActive) continuation.resume(file)
+            onSuccess(file)
         }
 
         override fun onFailure(reason: String) {
-            if (continuation.isActive) continuation.resumeWithException(IllegalStateException(reason))
+            onFailure(reason)
         }
     })
-    continuation.invokeOnCancellation { nativeDriver.cancelExport() }
 }
 
 @OptIn(ExperimentalForeignApi::class)

@@ -235,7 +235,7 @@ final class IosPostVideoEditorNativeDriverBridge: NSObject, IosPostVideoEditorNa
             }
         )
         activeExportOperations[operationId] = exporter
-        DispatchQueue.main.async {
+        DispatchQueue.global(qos: .userInitiated).async {
             exporter.start()
         }
     }
@@ -315,6 +315,7 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
     private var foregroundLayer: AVPlayerLayer?
     private var backgroundLayer: AVPlayerLayer?
     private var timeObserver: Any?
+    private var playerStatusObservation: NSKeyValueObservation?
     private var lastCropConfiguration = PreviewCropConfiguration(
         videoAspectRatio: 9.0 / 16.0,
         left: 0,
@@ -333,6 +334,10 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         let player = AVPlayer(url: url)
         let backgroundPlayer = AVPlayer(url: url)
         root.foregroundFrameView.image = Self.previewImage(url: url)
+        player.automaticallyWaitsToMinimizeStalling = false
+        backgroundPlayer.automaticallyWaitsToMinimizeStalling = false
+        player.currentItem?.preferredForwardBufferDuration = 0
+        backgroundPlayer.currentItem?.preferredForwardBufferDuration = 0
         player.actionAtItemEnd = .pause
         backgroundPlayer.actionAtItemEnd = .pause
         let backgroundLayer = AVPlayerLayer(player: backgroundPlayer)
@@ -351,6 +356,13 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         self.backgroundPlayer = backgroundPlayer
         self.foregroundLayer = foregroundLayer
         self.backgroundLayer = backgroundLayer
+        playerStatusObservation = player.currentItem?.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+            if item.status == .readyToPlay {
+                DispatchQueue.main.async {
+                    self?.root.foregroundFrameView.isHidden = true
+                }
+            }
+        }
     }
 
     private static func previewImage(url: URL) -> UIImage? {
@@ -391,6 +403,9 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         let backgroundPlayer = backgroundPlayer
         player.isMuted = isMuted
         backgroundPlayer?.isMuted = true
+        if player.currentItem?.status == .readyToPlay || isPlaying {
+            root.foregroundFrameView.isHidden = true
+        }
         let trimStart = max(0, trimStartMs)
         let trimEnd = max(trimStart + 50, trimEndMs > 0 ? trimEndMs : durationMs)
         let currentMs = Int64(max(0, CMTimeGetSeconds(player.currentTime()) * 1_000))
@@ -400,26 +415,47 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
         if shouldSeekToState || shouldSeekToTrimStart {
             let targetMs = shouldSeekToTrimStart ? trimStart : max(0, positionMs)
             let target = CMTime(value: CMTimeValue(targetMs), timescale: 1_000)
-            player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-            backgroundPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+            player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak player] _ in
+                if isPlaying {
+                    DispatchQueue.main.async {
+                        player?.playImmediately(atRate: 1.0)
+                    }
+                }
+            }
+            backgroundPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { backgroundSeekFinished in
+                if isPlaying && backgroundSeekFinished {
+                    DispatchQueue.main.async {
+                        backgroundPlayer?.playImmediately(atRate: 1.0)
+                    }
+                }
+            }
         }
         if let timeObserver {
             player.removeTimeObserver(timeObserver)
             self.timeObserver = nil
         }
         if isPlaying {
-            player.play()
-            backgroundPlayer?.play()
+            root.foregroundFrameView.isHidden = true
+            player.playImmediately(atRate: 1.0)
+            backgroundPlayer?.playImmediately(atRate: 1.0)
             let interval = CMTime(value: 120, timescale: 1_000)
             timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self, weak player, weak backgroundPlayer, callback] time in
                 guard let player else { return }
                 let current = Int64(max(0, CMTimeGetSeconds(time) * 1_000))
                 if current >= trimEnd || current < trimStart - 50 {
                     let target = CMTime(value: CMTimeValue(trimStart), timescale: 1_000)
-                    player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-                    backgroundPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-                    player.play()
-                    backgroundPlayer?.play()
+                    player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak player] _ in
+                        DispatchQueue.main.async {
+                            player?.playImmediately(atRate: 1.0)
+                        }
+                    }
+                    backgroundPlayer?.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { backgroundSeekFinished in
+                        if backgroundSeekFinished {
+                            DispatchQueue.main.async {
+                                backgroundPlayer?.playImmediately(atRate: 1.0)
+                            }
+                        }
+                    }
                     callback.onPositionMs(positionMs: trimStart)
                 } else {
                     callback.onPositionMs(positionMs: min(max(0, current), max(1, durationMs)))
@@ -511,8 +547,11 @@ private final class IosPostVideoEditorPreviewSurfaceImpl: NSObject, IosPostVideo
             player.removeTimeObserver(timeObserver)
         }
         timeObserver = nil
+        playerStatusObservation?.invalidate()
+        playerStatusObservation = nil
         player?.pause()
         backgroundPlayer?.pause()
+        NotificationCenter.default.removeObserver(self)
         foregroundLayer?.removeFromSuperlayer()
         backgroundLayer?.removeFromSuperlayer()
         root.foregroundLayer = nil
@@ -534,6 +573,7 @@ private final class IosPostVideoEditorExportOperation {
     private var visualEffectsReader: AVAssetReader?
     private var visualEffectsWriter: AVAssetWriter?
     private var visualEffectsAdaptor: AVAssetWriterInputPixelBufferAdaptor?
+    private var visualEffectsWatchdog: DispatchSourceTimer?
     private var progressTimer: Timer?
     private var didFinish = false
     private var didCancel = false
@@ -600,7 +640,19 @@ private final class IosPostVideoEditorExportOperation {
         }
         compositionVideo.preferredTransform = videoTrack.preferredTransform
         compositionBackground?.preferredTransform = videoTrack.preferredTransform
-        if !request.removeAudio, let audioTrack = asset.tracks(withMediaType: .audio).first {
+        let captionDocument = CaptionDocumentWire.parse(request.captionDocumentWire)
+        if let captionStyle = request.captionStyle, !captionStyle.isEmpty, captionDocument == nil {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_caption_transcript_missing")
+            finishFailure(reason: "ios_post_video_editor_caption_transcript_missing")
+            return
+        }
+
+        let outputUrl = temporaryOutputUrl(suffix: "base")
+        let finalOutputUrl = temporaryOutputUrl(suffix: "final")
+        try? FileManager.default.removeItem(at: outputUrl)
+        try? FileManager.default.removeItem(at: finalOutputUrl)
+        let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
+        if !request.removeAudio, let audioTrack = sourceAudioTrack {
             guard let compositionAudio = composition.addMutableTrack(
                 withMediaType: .audio,
                 preferredTrackID: kCMPersistentTrackID_Invalid
@@ -619,17 +671,6 @@ private final class IosPostVideoEditorExportOperation {
                 return
             }
         }
-        let captionDocument = CaptionDocumentWire.parse(request.captionDocumentWire)
-        if let captionStyle = request.captionStyle, !captionStyle.isEmpty, captionDocument == nil {
-            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_caption_transcript_missing")
-            finishFailure(reason: "ios_post_video_editor_caption_transcript_missing")
-            return
-        }
-
-        let outputUrl = temporaryOutputUrl(suffix: "base")
-        let finalOutputUrl = temporaryOutputUrl(suffix: "final")
-        try? FileManager.default.removeItem(at: outputUrl)
-        try? FileManager.default.removeItem(at: finalOutputUrl)
         let exportPresetName = exportPresetName()
         guard let exportSession = AVAssetExportSession(asset: composition, presetName: exportPresetName) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")
@@ -668,9 +709,13 @@ private final class IosPostVideoEditorExportOperation {
                     self.applyVisualEffects(
                         inputUrl: outputUrl,
                         outputUrl: finalOutputUrl,
+                        audioSourceUrl: sourceAudioTrack == nil ? self.sourceUrl : outputUrl,
                         captionStyle: self.request.captionStyle,
                         captionDocument: captionDocument,
                         sourceDisplaySize: self.displaySize(for: videoTrack),
+                        readRange: nil,
+                        inputIsPrecomposited: true,
+                        cleanupInputOnSuccess: true,
                         callback: callback
                     )
                 case .failed, .cancelled:
@@ -701,21 +746,26 @@ private final class IosPostVideoEditorExportOperation {
     private func finishFailure(reason: String) {
         guard !didFinish else { return }
         didFinish = true
-        progressTimer?.invalidate()
-        progressTimer = nil
-        visualEffectsAdaptor = nil
-        callback.onFailure(reason: reason)
-        onFinished()
+        DispatchQueue.main.async {
+            self.progressTimer?.invalidate()
+            self.progressTimer = nil
+            self.visualEffectsAdaptor = nil
+            self.callback.onFailure(reason: reason)
+            self.onFinished()
+        }
     }
 
     private func startProgressTimer(session: AVAssetExportSession, floor: Float, ceiling: Float) {
-        progressTimer?.invalidate()
-        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self, weak session] _ in
-            guard let self, !self.didFinish, let session else { return }
-            let progress = floor + max(0, min(1, session.progress)) * (ceiling - floor)
-            self.callback.onProgress(progress: progress)
+        DispatchQueue.main.async {
+            guard !self.didFinish else { return }
+            self.progressTimer?.invalidate()
+            self.progressTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self, weak session] _ in
+                guard let self, !self.didFinish, let session else { return }
+                let progress = floor + max(0, min(1, session.progress)) * (ceiling - floor)
+                self.callback.onProgress(progress: progress)
+            }
+            self.callback.onProgress(progress: floor)
         }
-        callback.onProgress(progress: floor)
     }
 
     private func makeVideoComposition(
@@ -751,54 +801,6 @@ private final class IosPostVideoEditorExportOperation {
         composition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
         composition.instructions = [instruction]
         return composition
-    }
-
-    private func makeBlurredBackgroundVideoComposition(
-        asset: AVAsset,
-        duration: CMTime
-    ) -> AVMutableVideoComposition {
-        let outputSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
-        let foregroundCrop = request.foregroundCrop
-        let backgroundCrop = request.backgroundCrop
-        let videoComposition = AVMutableVideoComposition(asset: asset) { renderRequest in
-            let source = renderRequest.sourceImage.clampedToExtent()
-            let extent = renderRequest.sourceImage.extent
-            let blurScale: CGFloat = 0.25
-            let blurSize = CGSize(
-                width: max(2, outputSize.width * blurScale),
-                height: max(2, outputSize.height * blurScale)
-            )
-            let background = Self.drawCrop(
-                source: source,
-                sourceExtent: extent,
-                crop: backgroundCrop,
-                outputSize: blurSize,
-                mode: .fill
-            )
-                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 6])
-                .cropped(to: CGRect(origin: .zero, size: blurSize))
-                .transformed(by: CGAffineTransform(
-                    scaleX: outputSize.width / blurSize.width,
-                    y: outputSize.height / blurSize.height
-                ))
-                .cropped(to: CGRect(origin: .zero, size: outputSize))
-            let foreground = Self.drawCrop(
-                source: renderRequest.sourceImage,
-                sourceExtent: extent,
-                crop: foregroundCrop,
-                outputSize: outputSize,
-                mode: .fit
-            )
-            let veil = CIImage(color: CIColor(red: 0, green: 0, blue: 0, alpha: 0.24))
-                .cropped(to: CGRect(origin: .zero, size: outputSize))
-            renderRequest.finish(
-                with: foreground.composited(over: veil.composited(over: background)),
-                context: nil
-            )
-        }
-        videoComposition.renderSize = outputSize
-        videoComposition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
-        return videoComposition
     }
 
     private static func drawCrop(
@@ -862,9 +864,13 @@ private final class IosPostVideoEditorExportOperation {
     private func applyVisualEffects(
         inputUrl: URL,
         outputUrl: URL,
+        audioSourceUrl: URL,
         captionStyle: String?,
         captionDocument: CaptionDocumentWire?,
         sourceDisplaySize: CGSize,
+        readRange: CMTimeRange?,
+        inputIsPrecomposited: Bool,
+        cleanupInputOnSuccess: Bool,
         callback: any IosPostVideoEditorExportCallback
     ) {
         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("adaptive_writer_pass_start", details: [
@@ -892,10 +898,14 @@ private final class IosPostVideoEditorExportOperation {
         let foregroundRect = foregroundContentRect(outputSize: renderSize, sourceDisplaySize: sourceDisplaySize)
         let shouldBlurBackground = request.hasBackgroundCrop
         let selectedCaptionStyle = captionStyle?.isEmpty == false ? captionStyle! : "Karaoke"
+        let sourceTransform = inputIsPrecomposited ? CGAffineTransform.identity : videoTrack.preferredTransform
 
         do {
             try? FileManager.default.removeItem(at: outputUrl)
             let reader = try AVAssetReader(asset: asset)
+            if let readRange {
+                reader.timeRange = readRange
+            }
             let readerOutput = AVAssetReaderTrackOutput(
                 track: videoTrack,
                 outputSettings: [
@@ -920,7 +930,9 @@ private final class IosPostVideoEditorExportOperation {
                     AVVideoCompressionPropertiesKey: [
                         AVVideoAverageBitRateKey: Int(request.outputTargetBitrate),
                         AVVideoMaxKeyFrameIntervalKey: Int(max(1, request.outputMaxFrameRate)),
-                        AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+                        AVVideoExpectedSourceFrameRateKey: Int(max(1, request.outputMaxFrameRate)),
+                        AVVideoAllowFrameReorderingKey: false,
+                        AVVideoProfileLevelKey: AVVideoProfileLevelH264BaselineAutoLevel,
                     ],
                 ]
             )
@@ -944,11 +956,17 @@ private final class IosPostVideoEditorExportOperation {
             visualEffectsWriter = writer
             visualEffectsAdaptor = adaptor
             let ciContext = CIContext(options: [.cacheIntermediates: false])
-            let durationSeconds = max(0.001, CMTimeGetSeconds(asset.duration))
+            let renderDuration = readRange?.duration ?? asset.duration
+            let timeOffset = readRange?.start ?? .zero
+            let durationSeconds = max(0.001, CMTimeGetSeconds(renderDuration))
+            let outputFrameRate = max(1, request.outputMaxFrameRate)
             let maxFrameCount = max(
                 1,
-                Int(ceil(durationSeconds * Double(max(1, request.outputMaxFrameRate)))) + 6
+                Int(ceil(durationSeconds * Double(outputFrameRate))) + 6
             )
+            let frameStepSeconds = 1.0 / Double(outputFrameRate)
+            let frameStepToleranceSeconds = frameStepSeconds * 0.25
+            var nextOutputFrameSeconds = 0.0
             guard reader.startReading(), writer.startWriting() else {
                 finishFailure(reason: reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_start_failed")
                 return
@@ -960,7 +978,14 @@ private final class IosPostVideoEditorExportOperation {
             let queue = DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects")
             var frameCount = 0
             var didRequestFinish = false
-            writerInput.requestMediaDataWhenReady(on: queue) { [weak self, weak writerInput] in
+            var lastProgressAt = Date()
+            var activeFrameStartedAt: Date?
+            let stateLock = NSLock()
+            let writerStallLimitSeconds = 12.0
+            let activeRenderStallLimitSeconds = 30.0
+            let watchdog = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects.watchdog"))
+            visualEffectsWatchdog = watchdog
+            queue.async { [weak self, weak writerInput] in
                 guard let self, let writerInput else { return }
                 guard let adaptor = self.visualEffectsAdaptor else {
                     reader.cancelReading()
@@ -974,9 +999,49 @@ private final class IosPostVideoEditorExportOperation {
                     }
                     return
                 }
-                func finishVisualEffects() {
-                    guard !didRequestFinish else { return }
+                func markTerminated() -> Bool {
+                    stateLock.lock()
+                    defer { stateLock.unlock() }
+                    guard !didRequestFinish else { return false }
                     didRequestFinish = true
+                    return true
+                }
+                func isTerminated() -> Bool {
+                    stateLock.lock()
+                    defer { stateLock.unlock() }
+                    return didRequestFinish
+                }
+                func markProgress() {
+                    stateLock.lock()
+                    lastProgressAt = Date()
+                    activeFrameStartedAt = nil
+                    stateLock.unlock()
+                }
+                func nextFrameNumber() -> Int {
+                    stateLock.lock()
+                    frameCount += 1
+                    lastProgressAt = Date()
+                    let value = frameCount
+                    stateLock.unlock()
+                    return value
+                }
+                func markFrameWorkStarted() {
+                    stateLock.lock()
+                    let now = Date()
+                    lastProgressAt = now
+                    activeFrameStartedAt = now
+                    stateLock.unlock()
+                }
+                func frameSnapshot() -> Int {
+                    stateLock.lock()
+                    let value = frameCount
+                    stateLock.unlock()
+                    return value
+                }
+                let finishVisualEffects: () -> Void = {
+                    guard markTerminated() else { return }
+                    watchdog.cancel()
+                    self.visualEffectsWatchdog = nil
                     writerInput.markAsFinished()
                     writer.finishWriting {
                         DispatchQueue.main.async {
@@ -985,10 +1050,9 @@ private final class IosPostVideoEditorExportOperation {
                             self.visualEffectsAdaptor = nil
                             if self.didCancel {
                                 self.finishFailure(reason: "ios_post_video_editor_export_cancelled")
-                            } else if reader.status == .completed || reader.status == .cancelled || frameCount >= maxFrameCount,
-                                      writer.status == .completed {
+                            } else if writer.status == .completed {
                                 IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_writer_completed", details: [
-                                    "frames": "\(frameCount)",
+                                    "frames": "\(frameSnapshot())",
                                     "maxFrames": "\(maxFrameCount)",
                                 ])
                                 if self.request.hasBackgroundCrop {
@@ -999,14 +1063,15 @@ private final class IosPostVideoEditorExportOperation {
                                 }
                                 self.finishVisualEffectsSuccess(
                                     videoOutputUrl: outputUrl,
-                                    audioSourceUrl: inputUrl,
+                                    audioSourceUrl: audioSourceUrl,
+                                    cleanupAudioSource: cleanupInputOnSuccess,
                                     callback: callback
                                 )
                             } else {
                                 let reason = reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_failed"
                                 IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
                                     "reason": reason,
-                                    "frames": "\(frameCount)",
+                                    "frames": "\(frameSnapshot())",
                                     "readerStatus": "\(reader.status.rawValue)",
                                     "writerStatus": "\(writer.status.rawValue)",
                                 ])
@@ -1015,76 +1080,125 @@ private final class IosPostVideoEditorExportOperation {
                         }
                     }
                 }
-                while writerInput.isReadyForMoreMediaData {
-                    if self.didCancel {
-                        reader.cancelReading()
-                        writer.cancelWriting()
-                        return
-                    }
-                    if frameCount >= maxFrameCount {
-                        reader.cancelReading()
-                        finishVisualEffects()
-                        return
-                    }
-                    guard let sampleBuffer = readerOutput.copyNextSampleBuffer() else {
-                        finishVisualEffects()
-                        return
-                    }
-                    guard let sourceBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
-                          let pool = adaptor.pixelBufferPool else {
-                        reader.cancelReading()
-                        writer.cancelWriting()
-                        DispatchQueue.main.async {
-                            self.finishFailure(reason: "ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
-                        }
-                        return
-                    }
-                    var outputBuffer: CVPixelBuffer?
-                    guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &outputBuffer) == kCVReturnSuccess,
-                          let destinationBuffer = outputBuffer else {
-                        reader.cancelReading()
-                        writer.cancelWriting()
-                        DispatchQueue.main.async {
-                            self.finishFailure(reason: "ios_post_video_editor_visual_effects_output_buffer_unavailable")
-                        }
-                        return
-                    }
-                    let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-                    let timeMs = max(0, Int64((CMTimeGetSeconds(presentationTime) * 1_000).rounded()))
-                    frameCount += 1
-                    if frameCount == 1 || frameCount % 15 == 0 {
-                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_frame", details: [
-                            "frame": "\(frameCount)",
-                            "timeMs": "\(timeMs)",
-                        ])
-                    }
-                    let rendered = self.renderVisualEffectsFrame(
-                        sourceBuffer: sourceBuffer,
-                        outputSize: renderSize,
-                        foregroundRect: foregroundRect,
-                        shouldBlurBackground: shouldBlurBackground,
-                        captionStyle: selectedCaptionStyle,
-                        captionDocument: captionDocument,
-                        timeMs: timeMs
-                    )
-                    ciContext.render(
-                        rendered,
-                        to: destinationBuffer,
-                        bounds: CGRect(origin: .zero, size: renderSize),
-                        colorSpace: CGColorSpaceCreateDeviceRGB()
-                    )
-                    if !adaptor.append(destinationBuffer, withPresentationTime: presentationTime) {
-                        reader.cancelReading()
-                        writer.cancelWriting()
-                        DispatchQueue.main.async {
-                            self.finishFailure(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_append_failed")
-                        }
-                        return
-                    }
-                    let progress = 0.72 + Float(min(1, max(0, CMTimeGetSeconds(presentationTime) / durationSeconds))) * 0.23
+                let failVisualEffects: (String) -> Void = { reason in
+                    guard markTerminated() else { return }
+                    watchdog.cancel()
+                    reader.cancelReading()
+                    writer.cancelWriting()
                     DispatchQueue.main.async {
-                        if !self.didFinish {
-                            callback.onProgress(progress: progress)
+                        self.visualEffectsWatchdog = nil
+                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
+                            "reason": reason,
+                            "frames": "\(frameSnapshot())",
+                            "readerStatus": "\(reader.status.rawValue)",
+                            "writerStatus": "\(writer.status.rawValue)",
+                        ])
+                        self.finishFailure(reason: reason)
+                    }
+                }
+                watchdog.schedule(deadline: .now() + writerStallLimitSeconds, repeating: 1.0)
+                watchdog.setEventHandler { [weak self] in
+                    guard self != nil else { return }
+                    stateLock.lock()
+                    let now = Date()
+                    let activeStartedAt = activeFrameStartedAt
+                    let elapsed = now.timeIntervalSince(activeStartedAt ?? lastProgressAt)
+                    let stallLimit = activeStartedAt == nil ? writerStallLimitSeconds : activeRenderStallLimitSeconds
+                    let shouldFail = !didRequestFinish && elapsed > stallLimit
+                    stateLock.unlock()
+                    if shouldFail {
+                        failVisualEffects("ios_post_video_editor_visual_effects_progress_stalled")
+                    }
+                }
+                watchdog.resume()
+                writerInput.requestMediaDataWhenReady(on: queue) { [weak self, weak writerInput] in
+                    guard let self, let writerInput else { return }
+                    while writerInput.isReadyForMoreMediaData && !isTerminated() {
+                        if self.didCancel {
+                            failVisualEffects("ios_post_video_editor_export_cancelled")
+                            return
+                        }
+                        if frameSnapshot() >= maxFrameCount || reader.status == .completed {
+                            finishVisualEffects()
+                            return
+                        }
+                        if reader.status == .failed || reader.status == .cancelled ||
+                            writer.status == .failed || writer.status == .cancelled {
+                            let reason = reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_failed"
+                            failVisualEffects(reason)
+                            return
+                        }
+                        markFrameWorkStarted()
+                        guard let sampleBuffer = readerOutput.copyNextSampleBuffer() else {
+                            finishVisualEffects()
+                            return
+                        }
+                        let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+                        let adjustedPresentationTime = CMTimeSubtract(presentationTime, timeOffset)
+                        if CMTimeCompare(adjustedPresentationTime, .zero) < 0 {
+                            continue
+                        }
+                        let adjustedSeconds = max(0, CMTimeGetSeconds(adjustedPresentationTime))
+                        if adjustedSeconds + frameStepToleranceSeconds < nextOutputFrameSeconds {
+                            continue
+                        }
+                        let timeMs = max(0, Int64((adjustedSeconds * 1_000).rounded()))
+                        let currentFrame = nextFrameNumber()
+                        nextOutputFrameSeconds = adjustedSeconds + frameStepSeconds
+                        if currentFrame == 1 || currentFrame % 15 == 0 {
+                            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_frame", details: [
+                                "frame": "\(currentFrame)",
+                                "timeMs": "\(timeMs)",
+                            ])
+                        }
+                        guard let sourceBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
+                              let pool = adaptor.pixelBufferPool else {
+                            failVisualEffects("ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
+                            return
+                        }
+                        var outputBuffer: CVPixelBuffer?
+                        guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &outputBuffer) == kCVReturnSuccess,
+                              let destinationBuffer = outputBuffer else {
+                            failVisualEffects("ios_post_video_editor_visual_effects_output_buffer_unavailable")
+                            return
+                        }
+                        let appended = autoreleasepool {
+                            let rendered = self.renderVisualEffectsFrame(
+                                sourceBuffer: sourceBuffer,
+                                outputSize: renderSize,
+                                foregroundRect: foregroundRect,
+                                shouldBlurBackground: shouldBlurBackground,
+                                captionStyle: selectedCaptionStyle,
+                                captionDocument: captionDocument,
+                                timeMs: timeMs,
+                                inputIsPrecomposited: inputIsPrecomposited,
+                                sourceTransform: sourceTransform
+                            )
+                            ciContext.render(
+                                rendered,
+                                to: destinationBuffer,
+                                bounds: CGRect(origin: .zero, size: renderSize),
+                                colorSpace: CGColorSpaceCreateDeviceRGB()
+                            )
+                            return !isTerminated() && adaptor.append(destinationBuffer, withPresentationTime: adjustedPresentationTime)
+                        }
+                        if isTerminated() {
+                            return
+                        }
+                        if !appended {
+                            failVisualEffects(writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_append_failed")
+                            return
+                        }
+                        markProgress()
+                        if adjustedSeconds + frameStepToleranceSeconds >= durationSeconds {
+                            finishVisualEffects()
+                            return
+                        }
+                        let progress = 0.72 + Float(min(1, max(0, adjustedSeconds / durationSeconds))) * 0.23
+                        DispatchQueue.main.async {
+                            if !self.didFinish {
+                                callback.onProgress(progress: progress)
+                            }
                         }
                     }
                 }
@@ -1100,11 +1214,14 @@ private final class IosPostVideoEditorExportOperation {
     private func finishVisualEffectsSuccess(
         videoOutputUrl: URL,
         audioSourceUrl: URL,
+        cleanupAudioSource: Bool,
         callback: any IosPostVideoEditorExportCallback
     ) {
         guard !request.removeAudio else {
             finishSuccess(outputUrl: videoOutputUrl, callback: callback)
-            try? FileManager.default.removeItem(at: audioSourceUrl)
+            if cleanupAudioSource {
+                try? FileManager.default.removeItem(at: audioSourceUrl)
+            }
             return
         }
         let audioAsset = AVURLAsset(url: audioSourceUrl)
@@ -1112,8 +1229,10 @@ private final class IosPostVideoEditorExportOperation {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_skipped", details: [
                 "reason": "source_audio_missing",
             ])
-            finishFailure(reason: "ios_post_video_editor_audio_remux_source_missing")
-            try? FileManager.default.removeItem(at: audioSourceUrl)
+            finishSuccess(outputUrl: videoOutputUrl, callback: callback)
+            if cleanupAudioSource {
+                try? FileManager.default.removeItem(at: audioSourceUrl)
+            }
             return
         }
         let remuxedOutputUrl = temporaryOutputUrl(suffix: "final-audio")
@@ -1154,11 +1273,11 @@ private final class IosPostVideoEditorExportOperation {
                ) {
                 try insertAudioTimeRange(videoRange, of: sourceAudioTrack, into: compositionAudio)
             } else {
-                throw NSError(
-                    domain: "IosPostVideoEditorNativeDriver",
-                    code: 41,
-                    userInfo: [NSLocalizedDescriptionKey: "ios_post_video_editor_audio_remux_source_missing"]
-                )
+                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_skipped", details: [
+                    "reason": "source_audio_missing",
+                ])
+                finishSuccess(outputUrl: videoOnlyUrl, callback: callback)
+                return
             }
         } catch {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("audio_remux_failed", details: [
@@ -1176,7 +1295,9 @@ private final class IosPostVideoEditorExportOperation {
         exportSession.outputURL = outputUrl
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
-        callback.onProgress(progress: 0.97)
+        DispatchQueue.main.async {
+            callback.onProgress(progress: 0.97)
+        }
         exportSession.exportAsynchronously { [callback] in
             DispatchQueue.main.async {
                 if self.didCancel {
@@ -1241,32 +1362,75 @@ private final class IosPostVideoEditorExportOperation {
         shouldBlurBackground: Bool,
         captionStyle: String,
         captionDocument: CaptionDocumentWire?,
-        timeMs: Int64
+        timeMs: Int64,
+        inputIsPrecomposited: Bool,
+        sourceTransform: CGAffineTransform
+    ) -> CIImage {
+        let source = CIImage(cvPixelBuffer: sourceBuffer).transformed(by: sourceTransform)
+        return renderVisualEffectsImage(
+            sourceImage: source,
+            outputSize: outputSize,
+            foregroundRect: foregroundRect,
+            shouldBlurBackground: shouldBlurBackground,
+            captionStyle: captionStyle,
+            captionDocument: captionDocument,
+            timeMs: timeMs,
+            inputIsPrecomposited: inputIsPrecomposited
+        )
+    }
+
+    private func renderVisualEffectsImage(
+        sourceImage: CIImage,
+        outputSize: CGSize,
+        foregroundRect: CGRect,
+        shouldBlurBackground: Bool,
+        captionStyle: String,
+        captionDocument: CaptionDocumentWire?,
+        timeMs: Int64,
+        inputIsPrecomposited: Bool
     ) -> CIImage {
         let outputExtent = CGRect(origin: .zero, size: outputSize)
-        var source = CIImage(cvPixelBuffer: sourceBuffer)
+        var source = sourceImage
         if source.extent.origin != .zero {
             source = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX, y: -source.extent.minY))
         }
-        source = source.cropped(to: outputExtent)
-        var image = source
+        let sourceExtent = source.extent
+        let foregroundSource = inputIsPrecomposited
+            ? source.cropped(to: outputExtent)
+            : Self.drawCrop(
+                source: source,
+                sourceExtent: sourceExtent,
+                crop: request.foregroundCrop,
+                outputSize: outputSize,
+                mode: .fit
+            )
+        let backgroundSource = inputIsPrecomposited
+            ? source.cropped(to: outputExtent)
+            : Self.drawCrop(
+                source: source,
+                sourceExtent: sourceExtent,
+                crop: request.backgroundCrop,
+                outputSize: outputSize,
+                mode: .fill
+            )
+        var image = foregroundSource
         if shouldBlurBackground {
-            let blurScale: CGFloat = 0.20
+            let blurScale: CGFloat = 0.06
             let downscaledExtent = CGRect(
                 x: 0,
                 y: 0,
                 width: max(2, outputSize.width * blurScale),
                 height: max(2, outputSize.height * blurScale)
             )
-            let blurred = source
+            let blurred = backgroundSource
                 .transformed(by: CGAffineTransform(scaleX: blurScale, y: blurScale))
-                .clampedToExtent()
-                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 5])
+                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 2])
                 .cropped(to: downscaledExtent)
                 .transformed(by: CGAffineTransform(scaleX: 1 / blurScale, y: 1 / blurScale))
                 .cropped(to: outputExtent)
-            let foreground = source.cropped(to: foregroundRect.intersection(outputExtent))
-            image = foreground.composited(over: blurred)
+            let foreground = foregroundSource.cropped(to: foregroundRect.intersection(outputExtent))
+            let opaqueBackground = blurred.composited(over: backgroundSource)
+            image = foreground.composited(over: opaqueBackground)
         }
         if let segment = captionDocument?.segment(at: timeMs) {
             let overlay = Self.captionOverlayImage(
@@ -1367,7 +1531,8 @@ private final class IosPostVideoEditorExportOperation {
         }
         let visibleLines = Array(lines.prefix(spec.maxLines))
         let lineHeight = fontSize * spec.lineHeightMultiplier
-        let top = outputSize.height * spec.verticalPosition - (lineHeight * CGFloat(visibleLines.count)) / 2
+        let coreGraphicsVerticalPosition = 1 - spec.verticalPosition
+        let top = outputSize.height * coreGraphicsVerticalPosition - (lineHeight * CGFloat(visibleLines.count)) / 2
         for (lineIndex, lineInfo) in visibleLines.enumerated() {
             let boxWidth = min(maxLineWidth, max(outputSize.width * 0.24, lineInfo.width + outputSize.width * 0.08))
             let boxHeight = max(lineHeight * 1.08, outputSize.height * 0.066)
@@ -1410,18 +1575,20 @@ private final class IosPostVideoEditorExportOperation {
     private func finishSuccess(outputUrl: URL, callback: any IosPostVideoEditorExportCallback) {
         guard !didFinish else { return }
         didFinish = true
-        progressTimer?.invalidate()
-        progressTimer = nil
         let size = (try? FileManager.default.attributesOfItem(atPath: outputUrl.path)[.size] as? NSNumber)?.int64Value
         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_completed", details: ["sizeBytes": "\(size ?? 0)"])
         writeExportDiagnostics(outputUrl: outputUrl, sizeBytes: size)
-        callback.onSuccess(file: PlatformFile(
-            reference: outputUrl.absoluteString,
-            displayName: outputUrl.lastPathComponent,
-            mimeType: "video/mp4",
-            sizeBytes: size.map { KotlinLong(value: $0) }
-        ))
-        onFinished()
+        DispatchQueue.main.async {
+            self.progressTimer?.invalidate()
+            self.progressTimer = nil
+            callback.onSuccess(file: PlatformFile(
+                reference: outputUrl.absoluteString,
+                displayName: outputUrl.lastPathComponent,
+                mimeType: "video/mp4",
+                sizeBytes: size.map { KotlinLong(value: $0) }
+            ))
+            self.onFinished()
+        }
     }
 
     private func temporaryOutputUrl(suffix: String) -> URL {
@@ -1453,6 +1620,14 @@ private final class IosPostVideoEditorExportOperation {
             "captionSegmentCount": captionDocument?.segments.count ?? 0,
             "captionWordCount": captionDocument?.segments.reduce(0) { $0 + $1.words.count } ?? 0,
             "captionText": captionDocument?.segments.map(\.text).joined(separator: " ") ?? "",
+            "cropLeft": request.cropLeft,
+            "cropTop": request.cropTop,
+            "cropRight": request.cropRight,
+            "cropBottom": request.cropBottom,
+            "backgroundCropLeft": request.backgroundCropLeft,
+            "backgroundCropTop": request.backgroundCropTop,
+            "backgroundCropRight": request.backgroundCropRight,
+            "backgroundCropBottom": request.backgroundCropBottom,
             "hasBackgroundCrop": request.hasBackgroundCrop,
             "physicalBackgroundBlur": request.hasBackgroundCrop,
         ]

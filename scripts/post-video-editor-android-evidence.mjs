@@ -63,17 +63,21 @@ try {
   await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempCredentialsPath, `files/${deviceCredentialsPath.replace("app-internal:", "")}`]);
   await run(adb, ["shell", "rm", "-f", deviceTempCredentialsPath]);
   const videoFixture = options.videoFixture ?? await validSpeechMp4FixturePath();
-  await run(adb, ["push", videoFixture, deviceTempVideoPath]);
-  await run(adb, ["shell", "chmod", "644", deviceTempVideoPath]);
-  await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempVideoPath, "files/post-video-editor-fixture.mp4"]);
-  await run(adb, ["shell", "rm", "-f", deviceTempVideoPath]);
+  const noAudioVideoFixture = options.noAudioVideoFixture ?? await validNoAudioMp4FixturePath();
   const evidenceDir = resolve(options.evidenceDir);
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   for (const attemptSpec of [
-    { label: "muted", mute: true },
-    { label: "unmuted", mute: false },
+    { label: "cancel", mute: true, cancelOnly: true, fixture: videoFixture, sourceHasAudio: true, exerciseCaptions: true },
+    { label: "cancel-unmuted", mute: false, cancelOnly: true, fixture: videoFixture, sourceHasAudio: true, exerciseCaptions: true },
+    { label: "muted", mute: true, fixture: videoFixture, sourceHasAudio: true, exerciseCaptions: true },
+    { label: "unmuted", mute: false, fixture: videoFixture, sourceHasAudio: true, exerciseCaptions: true },
+    { label: "unmuted-no-audio-source", mute: false, fixture: noAudioVideoFixture, sourceHasAudio: false, exerciseCaptions: false },
   ]) {
+    await run(adb, ["push", attemptSpec.fixture, deviceTempVideoPath]);
+    await run(adb, ["shell", "chmod", "644", deviceTempVideoPath]);
+    await run(adb, ["shell", "run-as", "com.quata", "cp", deviceTempVideoPath, "files/post-video-editor-fixture.mp4"]);
+    await run(adb, ["shell", "rm", "-f", deviceTempVideoPath]);
     await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
     const instrumentationOutput = await runCapture(adb, [
       "shell", "am", "instrument", "-w", "-r",
@@ -82,13 +86,19 @@ try {
       "-e", "quataPostVideoEditorEvidence", "1",
       "-e", "quataPostVideoEditorFixturePath", deviceVideoPath,
       "-e", "quataPostVideoEditorMute", attemptSpec.mute ? "1" : "0",
+      "-e", "quataPostVideoEditorCancelOnly", attemptSpec.cancelOnly ? "1" : "0",
+      "-e", "quataPostVideoEditorExerciseCaptions", attemptSpec.exerciseCaptions ? "1" : "0",
+      "-e", "quataPostVideoEditorEvidenceLabel", attemptSpec.label,
       "com.quata.test/androidx.test.runner.AndroidJUnitRunner",
-    ]);
+    ], { timeoutMs: 600_000, timeoutError: `android_instrumentation_timeout:${attemptSpec.label}` });
     const attempt = {
       source: "gallery-video",
       outcome: "success",
       label: attemptSpec.label,
       mute: attemptSpec.mute,
+      sourceHasAudio: attemptSpec.sourceHasAudio,
+      exerciseCaptions: attemptSpec.exerciseCaptions,
+      cancelOnly: Boolean(attemptSpec.cancelOnly),
       instrumentationTail: redactedTail(instrumentationOutput),
     };
     if (!/OK \(\d+ tests?\)/.test(instrumentationOutput)) {
@@ -100,9 +110,29 @@ try {
       throw new Error(`android_instrumentation_semantic_failure:${attemptSpec.label}`);
     }
     await copyDeviceEvidence(evidenceDir);
+    if (attemptSpec.cancelOnly) {
+      const cancelReportPath = join(evidenceDir, `android-post-video-editor-cancel-${attemptSpec.label}.json`);
+      const cancelReport = JSON.parse(await readFile(cancelReportPath, "utf8"));
+      if (!cancelReport.progressReachedBeforeCancel) {
+        throw new Error(`android_video_editor_cancel_progress_not_reached:${attemptSpec.label}`);
+      }
+      if (!attemptSpec.mute && cancelReport.audioRemuxStageObserved !== true) {
+        throw new Error(`android_video_editor_cancel_unmuted_audio_remux_not_observed:${JSON.stringify(cancelReport)}`);
+      }
+      if (!attemptSpec.mute && Number(cancelReport.progressPercentBeforeCancel || 0) < 97) {
+        throw new Error(`android_video_editor_cancel_unmuted_before_audio_remux_started:${cancelReport.progressPercentBeforeCancel}`);
+      }
+      report.attempts.push({ ...attempt, status: "passed", cancelReport });
+      continue;
+    }
     const exportPath = join(evidenceDir, `android-post-video-editor-export-${attemptSpec.label}.mp4`);
     try {
-      const physicalExport = probeAndroidExport(exportPath, videoFixture, { mute: attemptSpec.mute });
+      const physicalExport = probeAndroidExport(exportPath, attemptSpec.fixture, {
+        mute: attemptSpec.mute,
+        sourceHasAudio: attemptSpec.sourceHasAudio,
+        expectCaptions: attemptSpec.exerciseCaptions,
+        requireCropGeometry: true,
+      });
       report.attempts.push({ ...attempt, status: "passed", physicalExport });
     } catch (probeError) {
       report.attempts.push({ ...attempt, status: "failed", probeError: safeFailure(probeError) });
@@ -143,11 +173,14 @@ function parseArgs(args) {
     videoFixture: process.env.QUATA_POST_VIDEO_EDITOR_FIXTURE?.trim()
       ? resolve(process.env.QUATA_POST_VIDEO_EDITOR_FIXTURE.trim())
       : null,
+    noAudioVideoFixture: process.env.QUATA_POST_VIDEO_EDITOR_NO_AUDIO_FIXTURE?.trim()
+      ? resolve(process.env.QUATA_POST_VIDEO_EDITOR_NO_AUDIO_FIXTURE.trim())
+      : null,
   };
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
     const value = args[index + 1];
-    if (!["--out", "--evidence-dir", "--credentials-file", "--video-fixture"].includes(key) || !value || value.startsWith("--")) {
+    if (!["--out", "--evidence-dir", "--credentials-file", "--video-fixture", "--no-audio-video-fixture"].includes(key) || !value || value.startsWith("--")) {
       throw new Error(`invalid_argument:${key}`);
     }
     index += 1;
@@ -155,6 +188,7 @@ function parseArgs(args) {
     if (key === "--evidence-dir") parsed.evidenceDir = resolve(value);
     if (key === "--credentials-file") parsed.credentialsFile = value;
     if (key === "--video-fixture") parsed.videoFixture = resolve(value);
+    if (key === "--no-audio-video-fixture") parsed.noAudioVideoFixture = resolve(value);
   }
   return parsed;
 }
@@ -200,6 +234,32 @@ async function validSpeechMp4FixturePath() {
   return videoPath;
 }
 
+async function validNoAudioMp4FixturePath() {
+  const fixtureDir = resolve(dirname(options.evidenceDir), "post-video-editor-fixtures");
+  await mkdir(fixtureDir, { recursive: true });
+  const videoPath = resolve(fixtureDir, "android-post-video-editor-no-audio-source.mp4");
+  execFileSync("ffmpeg", [
+    "-y",
+    "-f", "lavfi",
+    "-i", "testsrc2=s=720x1280:r=30:d=4",
+    "-an",
+    "-c:v", "libx264",
+    "-pix_fmt", "yuv420p",
+    "-movflags", "+faststart",
+    videoPath,
+  ], { stdio: "pipe" });
+  const fixture = await readFile(videoPath);
+  if (fixture.length < 8_000 || fixture.subarray(4, 8).toString("ascii") !== "ftyp") {
+    throw new Error("invalid_no_audio_mp4_fixture");
+  }
+  report.evidence.noAudioFixture = {
+    source: "generated_ffmpeg_testsrc2_no_audio_fixture",
+    path: videoPath,
+    sizeBytes: fixture.length,
+  };
+  return videoPath;
+}
+
 function powershellQuote(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
@@ -237,7 +297,7 @@ async function copyDeviceEvidence(evidenceDir) {
   }
 }
 
-function probeAndroidExport(outputPath, sourcePath, { mute }) {
+function probeAndroidExport(outputPath, sourcePath, { mute, sourceHasAudio = hasAudioTrack(sourcePath), expectCaptions = true, requireCropGeometry = true }) {
   const ffprobe = JSON.parse(execFileSync("ffprobe", [
     "-v", "error",
     "-print_format", "json",
@@ -249,7 +309,8 @@ function probeAndroidExport(outputPath, sourcePath, { mute }) {
   const audioStream = ffprobe.streams?.find((stream) => stream.codec_type === "audio");
   if (!videoStream) throw new Error("android_video_editor_physical_video_stream_missing");
   if (mute && audioStream) throw new Error("android_video_editor_physical_audio_stream_present_after_mute");
-  if (!mute && !audioStream) throw new Error("android_video_editor_physical_audio_stream_missing_without_mute");
+  if (!mute && sourceHasAudio && !audioStream) throw new Error("android_video_editor_physical_audio_stream_missing_without_mute");
+  if (!mute && !sourceHasAudio && audioStream) throw new Error("android_video_editor_physical_audio_stream_created_from_silent_source");
   const width = Number(videoStream.width || 0);
   const height = Number(videoStream.height || 0);
   if (!isSupportedVideoEditorProfile(width, height)) {
@@ -267,19 +328,32 @@ function probeAndroidExport(outputPath, sourcePath, { mute }) {
   if (frameRate > 30.5) {
     throw new Error(`android_video_editor_physical_frame_rate:${frameRate}`);
   }
-  const captionPixelProbe = probeCaptionPixels(outputPath);
+  const captionPixelProbe = expectCaptions ? probeCaptionPixels(outputPath) : null;
   const backgroundBlurPixelProbe = probeBackgroundBlurPixels(outputPath);
-  const audioProbe = !mute ? probeAudioSignal(outputPath, "android_video_editor_physical_audio_silent") : null;
+  const cropGeometryPixelProbe = requireCropGeometry ? probeCropGeometryPixels(outputPath) : null;
+  const audioProbe = !mute && sourceHasAudio ? probeAudioSignal(outputPath, "android_video_editor_physical_audio_silent") : null;
   return {
     path: outputPath,
     durationMs,
     sourceDurationMs,
+    sourceHasAudio,
     video: { codec: videoStream.codec_name, width, height, frameRate },
     audioStreamPresent: Boolean(audioStream),
     audioProbe,
     captionPixelProbe,
     backgroundBlurPixelProbe,
+    cropGeometryPixelProbe,
   };
+}
+
+function hasAudioTrack(path) {
+  const ffprobe = JSON.parse(execFileSync("ffprobe", [
+    "-v", "error",
+    "-print_format", "json",
+    "-show_streams",
+    path,
+  ], { encoding: "utf8" }));
+  return Boolean(ffprobe.streams?.some((stream) => stream.codec_type === "audio"));
 }
 
 function probeAudioSignal(outputPath, errorCode) {
@@ -328,10 +402,24 @@ function parseFrameRate(value) {
 }
 
 function probeCaptionPixels(outputPath) {
+  const samples = [0.1, 0.8, 1.3].map((seekSeconds) => probeCaptionPixelsAt(outputPath, seekSeconds));
+  const best = samples.reduce((current, next) => {
+    const currentScore = current.brightFraction + current.darkFraction;
+    const nextScore = next.brightFraction + next.darkFraction;
+    return nextScore > currentScore ? next : current;
+  });
+  if (best.brightFraction < 0.004 || best.darkFraction < 0.12) {
+    throw new Error(`android_video_editor_caption_pixels_missing:${best.brightFraction.toFixed(4)}:${best.darkFraction.toFixed(4)}`);
+  }
+  return { ...best, samples };
+}
+
+function probeCaptionPixelsAt(outputPath, seekSeconds) {
   const width = 180;
   const height = 80;
   const pixels = execFileSync("ffmpeg", [
     "-v", "error",
+    "-ss", String(seekSeconds),
     "-i", outputPath,
     "-vf", `crop=iw*0.84:ih*0.12:iw*0.08:ih*0.70,scale=${width}:${height}`,
     "-frames:v", "1",
@@ -352,10 +440,7 @@ function probeCaptionPixels(outputPath) {
   const total = width * height;
   const brightFraction = bright / total;
   const darkFraction = dark / total;
-  if (brightFraction < 0.004 || darkFraction < 0.12) {
-    throw new Error(`android_video_editor_caption_pixels_missing:${brightFraction.toFixed(4)}:${darkFraction.toFixed(4)}`);
-  }
-  return { width, height, brightFraction, darkFraction };
+  return { seekSeconds, width, height, brightFraction, darkFraction };
 }
 
 function probeBackgroundBlurPixels(outputPath) {
@@ -382,6 +467,28 @@ function probeBackgroundBlurPixels(outputPath) {
     throw new Error(`android_video_editor_background_blur_pixels_missing:${backgroundSharpness.toFixed(2)}:${foregroundSharpness.toFixed(2)}`);
   }
   return { width, height, backgroundSharpness, foregroundSharpness };
+}
+
+function probeCropGeometryPixels(outputPath) {
+  const width = 160;
+  const height = 90;
+  const sample = (crop) => execFileSync("ffmpeg", [
+    "-v", "error",
+    "-i", outputPath,
+    "-vf", `${crop},scale=${width}:${height}`,
+    "-frames:v", "1",
+    "-f", "rawvideo",
+    "-pix_fmt", "rgba",
+    "pipe:1",
+  ]);
+  const centerForeground = sample("crop=iw*0.56:ih*0.34:iw*0.22:ih*0.32");
+  const upperBackground = sample("crop=iw*0.86:ih*0.16:iw*0.07:ih*0.06");
+  const foregroundSharpness = averageAdjacentLumaDelta(centerForeground, width, height);
+  const backgroundSharpness = averageAdjacentLumaDelta(upperBackground, width, height);
+  if (!(foregroundSharpness > 1.2 && backgroundSharpness < foregroundSharpness * 0.9)) {
+    throw new Error(`android_video_editor_crop_geometry_pixels_missing:${foregroundSharpness.toFixed(2)}:${backgroundSharpness.toFixed(2)}`);
+  }
+  return { width, height, foregroundSharpness, backgroundSharpness };
 }
 
 function averageAdjacentLumaDelta(pixels, width, height) {
@@ -417,12 +524,43 @@ function run(command, args, options = {}) {
 
 function runCapture(command, args, options = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32", ...options });
+    const { timeoutMs, timeoutError, ...spawnOptions } = options;
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32", ...spawnOptions });
     let output = "";
+    let timedOut = false;
+    const timeout = Number(timeoutMs) > 0
+      ? setTimeout(() => {
+        timedOut = true;
+        terminateChildProcessTree(child);
+        setTimeout(() => {
+          if (!child.killed) {
+            terminateChildProcessTree(child, { force: true });
+          }
+        }, 2_000).unref?.();
+      }, Number(timeoutMs))
+      : null;
     child.stdout.on("data", (chunk) => { output += chunk; });
     child.stderr.on("data", (chunk) => { output += chunk; });
-    child.on("close", (code) => code === 0 ? resolvePromise(output) : reject(new Error(`${command} ${args.join(" ")} failed:${code}\n${redactedTail(output)}`)));
+    child.on("close", (code) => {
+      if (timeout) clearTimeout(timeout);
+      if (timedOut) {
+        reject(new Error(`${timeoutError || "command_timeout"}\n${redactedTail(output)}`));
+      } else if (code === 0) {
+        resolvePromise(output);
+      } else {
+        reject(new Error(`${command} ${args.join(" ")} failed:${code}\n${redactedTail(output)}`));
+      }
+    });
   });
+}
+
+function terminateChildProcessTree(child, { force = false } = {}) {
+  if (!child?.pid) return;
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/PID", String(child.pid), "/T", force ? "/F" : "/F"], { stdio: "ignore" });
+    return;
+  }
+  try { child.kill(force ? "SIGKILL" : "SIGTERM"); } catch {}
 }
 
 function runBuffer(command, args, options = {}) {

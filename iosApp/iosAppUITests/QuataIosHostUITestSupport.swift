@@ -158,4 +158,109 @@ enum QuataIosHostUITestSupport {
             line: line,
         )
     }
+
+    static func assertElementChangesPixels(
+        _ element: XCUIElement,
+        named name: String,
+        delay: TimeInterval = 0.7,
+        minimumChangedRatio: Double = 0.025,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+    ) {
+        XCTAssertTrue(element.exists, "Expected \(name) to exist before sampling rendered motion.", file: file, line: line)
+        let first = sampledPixels(in: element, sampleWidth: 28, sampleHeight: 28, file: file, line: line)
+        RunLoop.current.run(until: Date().addingTimeInterval(delay))
+        let secondScreenshot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: secondScreenshot)
+        attachment.name = "\(name)-motion-sample"
+        attachment.lifetime = .keepAlways
+        XCTContext.runActivity(named: "\(name)-motion-sample") { $0.add(attachment) }
+        let second = sampledPixels(in: element, screenshot: secondScreenshot, sampleWidth: 28, sampleHeight: 28, file: file, line: line)
+        guard first.count == second.count, !first.isEmpty else { return }
+        var changed = 0
+        for offset in stride(from: 0, to: first.count, by: 4) {
+            let delta =
+                abs(Int(first[offset]) - Int(second[offset])) +
+                abs(Int(first[offset + 1]) - Int(second[offset + 1])) +
+                abs(Int(first[offset + 2]) - Int(second[offset + 2]))
+            if delta > 42 {
+                changed += 1
+            }
+        }
+        let ratio = Double(changed) / Double(first.count / 4)
+        XCTAssertGreaterThanOrEqual(
+            ratio,
+            minimumChangedRatio,
+            "\(name) did not show real preview motion: changedRatio=\(ratio), frame=\(element.frame).",
+            file: file,
+            line: line,
+        )
+    }
+
+    private static func sampledPixels(
+        in element: XCUIElement,
+        sampleWidth: Int,
+        sampleHeight: Int,
+        file: StaticString,
+        line: UInt,
+    ) -> [UInt8] {
+        sampledPixels(
+            in: element,
+            screenshot: XCUIScreen.main.screenshot(),
+            sampleWidth: sampleWidth,
+            sampleHeight: sampleHeight,
+            file: file,
+            line: line,
+        )
+    }
+
+    private static func sampledPixels(
+        in element: XCUIElement,
+        screenshot: XCUIScreenshot,
+        sampleWidth: Int,
+        sampleHeight: Int,
+        file: StaticString,
+        line: UInt,
+    ) -> [UInt8] {
+        guard let image = screenshot.image.cgImage else {
+            XCTFail("Unable to read screenshot pixels.", file: file, line: line)
+            return []
+        }
+        let screenBounds = UIScreen.main.bounds
+        let clippedFrame = element.frame
+            .intersection(screenBounds)
+            .insetBy(dx: 3, dy: 3)
+        guard clippedFrame.width > 8, clippedFrame.height > 8 else {
+            XCTFail("Unable to sample motion: invalid frame \(element.frame).", file: file, line: line)
+            return []
+        }
+        let scaleX = CGFloat(image.width) / max(screenBounds.width, 1)
+        let scaleY = CGFloat(image.height) / max(screenBounds.height, 1)
+        let cropRect = CGRect(
+            x: clippedFrame.minX * scaleX,
+            y: clippedFrame.minY * scaleY,
+            width: clippedFrame.width * scaleX,
+            height: clippedFrame.height * scaleY,
+        ).integral.intersection(CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard let cropped = image.cropping(to: cropRect), cropRect.width > 4, cropRect.height > 4 else {
+            XCTFail("Unable to crop screenshot motion pixels.", file: file, line: line)
+            return []
+        }
+        var pixels = [UInt8](repeating: 0, count: sampleWidth * sampleHeight * 4)
+        guard let context = CGContext(
+            data: &pixels,
+            width: sampleWidth,
+            height: sampleHeight,
+            bitsPerComponent: 8,
+            bytesPerRow: sampleWidth * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+        ) else {
+            XCTFail("Unable to create motion pixel sampler.", file: file, line: line)
+            return []
+        }
+        context.interpolationQuality = .low
+        context.draw(cropped, in: CGRect(x: 0, y: 0, width: sampleWidth, height: sampleHeight))
+        return pixels
+    }
 }
