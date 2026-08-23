@@ -971,8 +971,10 @@ private final class IosPostVideoEditorExportOperation {
             var frameCount = 0
             var didRequestFinish = false
             var lastProgressAt = Date()
+            var activeFrameStartedAt: Date?
             let stateLock = NSLock()
-            let progressStallLimitSeconds = 5.0
+            let writerStallLimitSeconds = 12.0
+            let activeRenderStallLimitSeconds = 30.0
             let watchdog = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects.watchdog"))
             queue.async { [weak self, weak writerInput] in
                 guard let self, let writerInput else { return }
@@ -1003,6 +1005,7 @@ private final class IosPostVideoEditorExportOperation {
                 func markProgress() {
                     stateLock.lock()
                     lastProgressAt = Date()
+                    activeFrameStartedAt = nil
                     stateLock.unlock()
                 }
                 func nextFrameNumber() -> Int {
@@ -1012,6 +1015,13 @@ private final class IosPostVideoEditorExportOperation {
                     let value = frameCount
                     stateLock.unlock()
                     return value
+                }
+                func markFrameWorkStarted() {
+                    stateLock.lock()
+                    let now = Date()
+                    lastProgressAt = now
+                    activeFrameStartedAt = now
+                    stateLock.unlock()
                 }
                 func frameSnapshot() -> Int {
                     stateLock.lock()
@@ -1074,11 +1084,15 @@ private final class IosPostVideoEditorExportOperation {
                         self.finishFailure(reason: reason)
                     }
                 }
-                watchdog.schedule(deadline: .now() + progressStallLimitSeconds, repeating: 1.0)
+                watchdog.schedule(deadline: .now() + writerStallLimitSeconds, repeating: 1.0)
                 watchdog.setEventHandler { [weak self] in
                     guard self != nil else { return }
                     stateLock.lock()
-                    let shouldFail = !didRequestFinish && Date().timeIntervalSince(lastProgressAt) > progressStallLimitSeconds
+                    let now = Date()
+                    let activeStartedAt = activeFrameStartedAt
+                    let elapsed = now.timeIntervalSince(activeStartedAt ?? lastProgressAt)
+                    let stallLimit = activeStartedAt == nil ? writerStallLimitSeconds : activeRenderStallLimitSeconds
+                    let shouldFail = !didRequestFinish && elapsed > stallLimit
                     stateLock.unlock()
                     if shouldFail {
                         failVisualEffects(reason: "ios_post_video_editor_visual_effects_progress_stalled")
@@ -1124,6 +1138,7 @@ private final class IosPostVideoEditorExportOperation {
                                 "timeMs": "\(timeMs)",
                             ])
                         }
+                        markFrameWorkStarted()
                         guard let sourceBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
                               let pool = adaptor.pixelBufferPool else {
                             failVisualEffects(reason: "ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
