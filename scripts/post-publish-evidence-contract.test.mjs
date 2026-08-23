@@ -1008,8 +1008,11 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /markFrameWorkStarted\(\)\s+guard let sampleBuffer = readerOutput\.copyNextSampleBuffer\(\)/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /AVAssetReaderVideoCompositionOutput/);
   assert.match(iosPostVideoEditorNativeDriver, /let sourceTransform = inputIsPrecomposited \? CGAffineTransform\.identity : videoTrack\.preferredTransform/);
-  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /sourceAudioTrack == nil && captionDocument == nil/);
+  assert.match(iosPostVideoEditorNativeDriver, /exportSession\.videoComposition = makeVideoComposition/);
   assert.match(iosPostVideoEditorNativeDriver, /audioSourceUrl: sourceAudioTrack == nil \? self\.sourceUrl : outputUrl/);
+  assert.match(iosPostVideoEditorNativeDriver, /sourceAudioTrack == nil && captionDocument == nil/);
+  assert.match(iosPostVideoEditorNativeDriver, /applyVideoOnlyFrameDecodedVisualEffects/);
+  assert.match(iosPostVideoEditorNativeDriver, /video_only_frame_decode_start/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /makeSilentAudioFile/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /export_silent_audio_inserted/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /useRawTrackOutput/);
@@ -1032,9 +1035,9 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /requestMediaDataWhenReady/);
   assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_visual_effects_progress_stalled/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /Thread\.sleep/);
-  assert.match(iosPostVideoEditorNativeDriver, /preferImageGeneratorFrames: false/);
-  assert.match(iosPostVideoEditorNativeDriver, /applyVisualEffectsWithImageGenerator/);
-  assert.match(iosPostVideoEditorNativeDriver, /visual_effects_image_generator_start/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /preferImageGeneratorFrames/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /applyVisualEffectsWithImageGenerator/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /visual_effects_image_generator_start/);
   assert.match(iosPostVideoEditorNativeDriver, /adjustedPresentationTime/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /direct_video_only_writer_selected/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /applyDirectVideoOnlyVisualEffects/);
@@ -1052,6 +1055,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosVideoEditorRunner, /QUATA_IOS_POST_VIDEO_EDITOR_EXPORT_TIMEOUT_SECONDS='180'/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /exportNativeVisualEffectsOnly/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /adaptive_native_pass_start/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /exportVideoOnlyWithoutAudio/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /AVMutableVideoComposition\(asset: asset\)/);
   assert.match(iosVideoEditorRunner, /ffprobe/);
   assert.match(iosQuataApp, /IosPostVideoEditorNativeDriverBridge\.shared/);

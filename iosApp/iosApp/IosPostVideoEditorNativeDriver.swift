@@ -671,6 +671,21 @@ private final class IosPostVideoEditorExportOperation {
                 return
             }
         }
+        if sourceAudioTrack == nil && captionDocument == nil {
+            let renderSize = CGSize(width: max(2, Int(request.outputWidth)), height: max(2, Int(request.outputHeight)))
+            applyVideoOnlyFrameDecodedVisualEffects(
+                asset: asset,
+                outputUrl: finalOutputUrl,
+                audioSourceUrl: sourceUrl,
+                renderSize: renderSize,
+                foregroundRect: foregroundContentRect(outputSize: renderSize, sourceDisplaySize: displaySize(for: videoTrack)),
+                shouldBlurBackground: request.hasBackgroundCrop,
+                selectedCaptionStyle: request.captionStyle?.isEmpty == false ? request.captionStyle! : "Karaoke",
+                readRange: range,
+                callback: callback
+            )
+            return
+        }
         let exportPresetName = exportPresetName()
         guard let exportSession = AVAssetExportSession(asset: composition, presetName: exportPresetName) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")
@@ -715,7 +730,6 @@ private final class IosPostVideoEditorExportOperation {
                         sourceDisplaySize: self.displaySize(for: videoTrack),
                         readRange: nil,
                         inputIsPrecomposited: true,
-                        preferImageGeneratorFrames: false,
                         cleanupInputOnSuccess: true,
                         callback: callback
                     )
@@ -871,7 +885,6 @@ private final class IosPostVideoEditorExportOperation {
         sourceDisplaySize: CGSize,
         readRange: CMTimeRange?,
         inputIsPrecomposited: Bool,
-        preferImageGeneratorFrames: Bool,
         cleanupInputOnSuccess: Bool,
         callback: any IosPostVideoEditorExportCallback
     ) {
@@ -901,25 +914,6 @@ private final class IosPostVideoEditorExportOperation {
         let shouldBlurBackground = request.hasBackgroundCrop
         let selectedCaptionStyle = captionStyle?.isEmpty == false ? captionStyle! : "Karaoke"
         let sourceTransform = inputIsPrecomposited ? CGAffineTransform.identity : videoTrack.preferredTransform
-        if preferImageGeneratorFrames {
-            applyVisualEffectsWithImageGenerator(
-                asset: asset,
-                videoTrack: videoTrack,
-                outputUrl: outputUrl,
-                inputUrl: inputUrl,
-                audioSourceUrl: audioSourceUrl,
-                renderSize: renderSize,
-                foregroundRect: foregroundRect,
-                shouldBlurBackground: shouldBlurBackground,
-                selectedCaptionStyle: selectedCaptionStyle,
-                captionDocument: captionDocument,
-                cleanupInputOnSuccess: cleanupInputOnSuccess,
-                readRange: readRange,
-                inputIsPrecomposited: inputIsPrecomposited,
-                callback: callback
-            )
-            return
-        }
 
         do {
             try? FileManager.default.removeItem(at: outputUrl)
@@ -1232,20 +1226,52 @@ private final class IosPostVideoEditorExportOperation {
         }
     }
 
-    private func applyVisualEffectsWithImageGenerator(
+    private func normalizedSourceVideoComposition(
+        for track: AVAssetTrack,
+        frameRate: Int32,
+        maximumSize: CGSize
+    ) -> AVMutableVideoComposition {
+        let naturalRect = CGRect(origin: .zero, size: track.naturalSize)
+        let preferredTransform = track.preferredTransform
+        let transformedRect = naturalRect.applying(preferredTransform)
+        let displayWidth = max(2, abs(transformedRect.width))
+        let displayHeight = max(2, abs(transformedRect.height))
+        let scale = min(
+            1,
+            max(2, maximumSize.width) / displayWidth,
+            max(2, maximumSize.height) / displayHeight
+        )
+        let normalizedTransform = preferredTransform.concatenating(
+            CGAffineTransform(translationX: -transformedRect.minX, y: -transformedRect.minY)
+        ).concatenating(
+            CGAffineTransform(scaleX: scale, y: scale)
+        )
+        let displaySize = CGSize(
+            width: max(2, floor(displayWidth * scale)),
+            height: max(2, floor(displayHeight * scale))
+        )
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = track.timeRange
+        instruction.backgroundColor = UIColor.black.cgColor
+        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
+        layerInstruction.setTransform(normalizedTransform, at: .zero)
+        instruction.layerInstructions = [layerInstruction]
+        let composition = AVMutableVideoComposition()
+        composition.renderSize = displaySize
+        composition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, frameRate)))
+        composition.instructions = [instruction]
+        return composition
+    }
+
+    private func applyVideoOnlyFrameDecodedVisualEffects(
         asset: AVURLAsset,
-        videoTrack: AVAssetTrack,
         outputUrl: URL,
-        inputUrl: URL,
         audioSourceUrl: URL,
         renderSize: CGSize,
         foregroundRect: CGRect,
         shouldBlurBackground: Bool,
         selectedCaptionStyle: String,
-        captionDocument: CaptionDocumentWire?,
-        cleanupInputOnSuccess: Bool,
-        readRange: CMTimeRange?,
-        inputIsPrecomposited: Bool,
+        readRange: CMTimeRange,
         callback: any IosPostVideoEditorExportCallback
     ) {
         do {
@@ -1286,12 +1312,11 @@ private final class IosPostVideoEditorExportOperation {
             let ciContext = CIContext(options: [.cacheIntermediates: false])
             let generator = AVAssetImageGenerator(asset: asset)
             generator.appliesPreferredTrackTransform = true
-            let frameTolerance = CMTime(value: 1, timescale: 1)
-            generator.requestedTimeToleranceBefore = frameTolerance
-            generator.requestedTimeToleranceAfter = frameTolerance
             generator.maximumSize = renderSize
-            let readStartSeconds = max(0, CMTimeGetSeconds(readRange?.start ?? .zero))
-            let durationSeconds = max(0.001, CMTimeGetSeconds(readRange?.duration ?? asset.duration))
+            let tolerance = CMTime(value: 1, timescale: 1)
+            generator.requestedTimeToleranceBefore = tolerance
+            generator.requestedTimeToleranceAfter = tolerance
+            let durationSeconds = max(0.001, CMTimeGetSeconds(readRange.duration))
             let outputFrameRate = max(1, request.outputMaxFrameRate)
             let maxFrameCount = max(1, Int(ceil(durationSeconds * Double(outputFrameRate))))
             let frameStepSeconds = 1.0 / Double(outputFrameRate)
@@ -1303,12 +1328,16 @@ private final class IosPostVideoEditorExportOperation {
             progressTimer?.invalidate()
             progressTimer = nil
             callback.onProgress(progress: 0.72)
-            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_image_generator_start", details: [
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_frame_decode_start", details: [
                 "maxFrames": "\(maxFrameCount)",
+                "maxFrameRate": "\(request.outputMaxFrameRate)",
             ])
-            let queue = DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects.generator")
+            if request.hasBackgroundCrop {
+                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_start")
+            }
+            let queue = DispatchQueue(label: "com.quata.ios.post-video-editor.video-only-frame-decode")
             var frameCount = 0
-            func finishGeneratorSuccess() {
+            func finishDecodedFrames() {
                 writerInput.markAsFinished()
                 writer.finishWriting {
                     DispatchQueue.main.async {
@@ -1324,17 +1353,14 @@ private final class IosPostVideoEditorExportOperation {
                             if self.request.hasBackgroundCrop {
                                 IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("background_blur_burn_completed")
                             }
-                            if captionDocument != nil {
-                                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_completed")
-                            }
                             self.finishVisualEffectsSuccess(
                                 videoOutputUrl: outputUrl,
                                 audioSourceUrl: audioSourceUrl,
-                                cleanupAudioSource: cleanupInputOnSuccess,
+                                cleanupAudioSource: false,
                                 callback: callback
                             )
                         } else {
-                            let reason = writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_image_generator_failed"
+                            let reason = writer.error?.localizedDescription ?? "ios_post_video_editor_video_only_frame_decode_failed"
                             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
                                 "reason": reason,
                                 "frames": "\(frameCount)",
@@ -1345,7 +1371,7 @@ private final class IosPostVideoEditorExportOperation {
                     }
                 }
             }
-            func failGenerator(reason: String) {
+            func failDecodedFrames(reason: String) {
                 writer.cancelWriting()
                 DispatchQueue.main.async {
                     self.visualEffectsWriter = nil
@@ -1362,26 +1388,26 @@ private final class IosPostVideoEditorExportOperation {
                 guard let self, let writerInput else { return }
                 while writerInput.isReadyForMoreMediaData && frameCount < maxFrameCount {
                     if self.didCancel {
-                        failGenerator(reason: "ios_post_video_editor_export_cancelled")
+                        failDecodedFrames(reason: "ios_post_video_editor_export_cancelled")
                         return
                     }
                     if writer.status == .failed || writer.status == .cancelled {
-                        failGenerator(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_image_generator_failed")
+                        failDecodedFrames(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_video_only_frame_decode_failed")
                         return
                     }
                     let frameSeconds = min(durationSeconds, Double(frameCount) * frameStepSeconds)
-                    let sourceTime = CMTime(seconds: readStartSeconds + frameSeconds, preferredTimescale: 600)
+                    let sourceTime = CMTimeAdd(readRange.start, CMTime(seconds: frameSeconds, preferredTimescale: 600))
                     let presentationTime = CMTime(seconds: frameSeconds, preferredTimescale: 600)
                     do {
                         let cgImage = try generator.copyCGImage(at: sourceTime, actualTime: nil)
                         guard let pool = adaptor.pixelBufferPool else {
-                            failGenerator(reason: "ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
+                            failDecodedFrames(reason: "ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
                             return
                         }
                         var outputBuffer: CVPixelBuffer?
                         guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &outputBuffer) == kCVReturnSuccess,
                               let destinationBuffer = outputBuffer else {
-                            failGenerator(reason: "ios_post_video_editor_visual_effects_output_buffer_unavailable")
+                            failDecodedFrames(reason: "ios_post_video_editor_visual_effects_output_buffer_unavailable")
                             return
                         }
                         let timeMs = max(0, Int64((frameSeconds * 1_000).rounded()))
@@ -1391,9 +1417,9 @@ private final class IosPostVideoEditorExportOperation {
                             foregroundRect: foregroundRect,
                             shouldBlurBackground: shouldBlurBackground,
                             captionStyle: selectedCaptionStyle,
-                            captionDocument: captionDocument,
+                            captionDocument: nil,
                             timeMs: timeMs,
-                            inputIsPrecomposited: inputIsPrecomposited
+                            inputIsPrecomposited: false
                         )
                         ciContext.render(
                             rendered,
@@ -1402,7 +1428,7 @@ private final class IosPostVideoEditorExportOperation {
                             colorSpace: CGColorSpaceCreateDeviceRGB()
                         )
                         guard adaptor.append(destinationBuffer, withPresentationTime: presentationTime) else {
-                            failGenerator(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_append_failed")
+                            failDecodedFrames(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_append_failed")
                             return
                         }
                         frameCount += 1
@@ -1419,12 +1445,13 @@ private final class IosPostVideoEditorExportOperation {
                             }
                         }
                     } catch {
-                        failGenerator(reason: error.localizedDescription.isEmpty ? "ios_post_video_editor_visual_effects_image_generator_failed" : error.localizedDescription)
+                        let reason = error.localizedDescription.isEmpty ? "ios_post_video_editor_video_only_frame_decode_failed" : error.localizedDescription
+                        failDecodedFrames(reason: reason)
                         return
                     }
                 }
                 if frameCount >= maxFrameCount {
-                    finishGeneratorSuccess()
+                    finishDecodedFrames()
                 }
             }
         } catch {
@@ -1433,43 +1460,6 @@ private final class IosPostVideoEditorExportOperation {
             ])
             finishFailure(reason: error.localizedDescription)
         }
-    }
-
-    private func normalizedSourceVideoComposition(
-        for track: AVAssetTrack,
-        frameRate: Int32,
-        maximumSize: CGSize
-    ) -> AVMutableVideoComposition {
-        let naturalRect = CGRect(origin: .zero, size: track.naturalSize)
-        let preferredTransform = track.preferredTransform
-        let transformedRect = naturalRect.applying(preferredTransform)
-        let displayWidth = max(2, abs(transformedRect.width))
-        let displayHeight = max(2, abs(transformedRect.height))
-        let scale = min(
-            1,
-            max(2, maximumSize.width) / displayWidth,
-            max(2, maximumSize.height) / displayHeight
-        )
-        let normalizedTransform = preferredTransform.concatenating(
-            CGAffineTransform(translationX: -transformedRect.minX, y: -transformedRect.minY)
-        ).concatenating(
-            CGAffineTransform(scaleX: scale, y: scale)
-        )
-        let displaySize = CGSize(
-            width: max(2, floor(displayWidth * scale)),
-            height: max(2, floor(displayHeight * scale))
-        )
-        let instruction = AVMutableVideoCompositionInstruction()
-        instruction.timeRange = track.timeRange
-        instruction.backgroundColor = UIColor.black.cgColor
-        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
-        layerInstruction.setTransform(normalizedTransform, at: .zero)
-        instruction.layerInstructions = [layerInstruction]
-        let composition = AVMutableVideoComposition()
-        composition.renderSize = displaySize
-        composition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, frameRate)))
-        composition.instructions = [instruction]
-        return composition
     }
 
     private func finishVisualEffectsSuccess(
