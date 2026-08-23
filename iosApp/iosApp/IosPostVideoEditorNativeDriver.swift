@@ -1150,25 +1150,28 @@ private final class IosPostVideoEditorExportOperation {
                             failVisualEffects(reason: "ios_post_video_editor_visual_effects_output_buffer_unavailable")
                             return
                         }
-                        let rendered = self.renderVisualEffectsFrame(
-                            sourceBuffer: sourceBuffer,
-                            outputSize: renderSize,
-                            foregroundRect: foregroundRect,
-                            shouldBlurBackground: shouldBlurBackground,
-                            captionStyle: selectedCaptionStyle,
-                            captionDocument: captionDocument,
-                            timeMs: timeMs
-                        )
-                        ciContext.render(
-                            rendered,
-                            to: destinationBuffer,
-                            bounds: CGRect(origin: .zero, size: renderSize),
-                            colorSpace: CGColorSpaceCreateDeviceRGB()
-                        )
+                        let appended = autoreleasepool {
+                            let rendered = self.renderVisualEffectsFrame(
+                                sourceBuffer: sourceBuffer,
+                                outputSize: renderSize,
+                                foregroundRect: foregroundRect,
+                                shouldBlurBackground: shouldBlurBackground,
+                                captionStyle: selectedCaptionStyle,
+                                captionDocument: captionDocument,
+                                timeMs: timeMs
+                            )
+                            ciContext.render(
+                                rendered,
+                                to: destinationBuffer,
+                                bounds: CGRect(origin: .zero, size: renderSize),
+                                colorSpace: CGColorSpaceCreateDeviceRGB()
+                            )
+                            return !isTerminated() && adaptor.append(destinationBuffer, withPresentationTime: adjustedPresentationTime)
+                        }
                         if isTerminated() {
                             return
                         }
-                        if !adaptor.append(destinationBuffer, withPresentationTime: adjustedPresentationTime) {
+                        if !appended {
                             failVisualEffects(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_append_failed")
                             return
                         }
