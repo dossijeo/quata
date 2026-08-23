@@ -651,6 +651,30 @@ private final class IosPostVideoEditorExportOperation {
         try? FileManager.default.removeItem(at: outputUrl)
         try? FileManager.default.removeItem(at: finalOutputUrl)
         let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
+        if sourceAudioTrack == nil && captionDocument == nil && !request.removeAudio {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_started", details: [
+                "durationMs": "\(Int64(CMTimeGetSeconds(range.duration) * 1_000))",
+                "captionDocument": "false",
+                "outputWidth": "\(request.outputWidth)",
+                "outputHeight": "\(request.outputHeight)",
+                "maxFrameRate": "\(request.outputMaxFrameRate)",
+                "targetBitrate": "\(request.outputTargetBitrate)",
+                "exportPreset": "direct-visual-effects",
+            ])
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_direct_visual_effects_source_no_audio")
+            applyVisualEffects(
+                inputUrl: sourceUrl,
+                outputUrl: finalOutputUrl,
+                captionStyle: request.captionStyle,
+                captionDocument: nil,
+                sourceDisplaySize: displaySize(for: videoTrack),
+                readRange: range,
+                inputIsPrecomposited: false,
+                cleanupInputOnSuccess: false,
+                callback: callback
+            )
+            return
+        }
         if !request.removeAudio, let audioTrack = sourceAudioTrack {
             guard let compositionAudio = composition.addMutableTrack(
                 withMediaType: .audio,
@@ -712,6 +736,8 @@ private final class IosPostVideoEditorExportOperation {
                         captionDocument: captionDocument,
                         sourceDisplaySize: self.displaySize(for: videoTrack),
                         readRange: nil,
+                        inputIsPrecomposited: true,
+                        cleanupInputOnSuccess: true,
                         callback: callback
                     )
                 case .failed, .cancelled:
@@ -864,6 +890,8 @@ private final class IosPostVideoEditorExportOperation {
         captionDocument: CaptionDocumentWire?,
         sourceDisplaySize: CGSize,
         readRange: CMTimeRange?,
+        inputIsPrecomposited: Bool,
+        cleanupInputOnSuccess: Bool,
         callback: any IosPostVideoEditorExportCallback
     ) {
         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("adaptive_writer_pass_start", details: [
@@ -1054,6 +1082,7 @@ private final class IosPostVideoEditorExportOperation {
                                 self.finishVisualEffectsSuccess(
                                     videoOutputUrl: outputUrl,
                                     audioSourceUrl: inputUrl,
+                                    cleanupAudioSource: cleanupInputOnSuccess,
                                     callback: callback
                                 )
                             } else {
@@ -1158,7 +1187,8 @@ private final class IosPostVideoEditorExportOperation {
                                 shouldBlurBackground: shouldBlurBackground,
                                 captionStyle: selectedCaptionStyle,
                                 captionDocument: captionDocument,
-                                timeMs: timeMs
+                                timeMs: timeMs,
+                                inputIsPrecomposited: inputIsPrecomposited
                             )
                             ciContext.render(
                                 rendered,
@@ -1196,11 +1226,14 @@ private final class IosPostVideoEditorExportOperation {
     private func finishVisualEffectsSuccess(
         videoOutputUrl: URL,
         audioSourceUrl: URL,
+        cleanupAudioSource: Bool,
         callback: any IosPostVideoEditorExportCallback
     ) {
         guard !request.removeAudio else {
             finishSuccess(outputUrl: videoOutputUrl, callback: callback)
-            try? FileManager.default.removeItem(at: audioSourceUrl)
+            if cleanupAudioSource {
+                try? FileManager.default.removeItem(at: audioSourceUrl)
+            }
             return
         }
         let audioAsset = AVURLAsset(url: audioSourceUrl)
@@ -1209,7 +1242,9 @@ private final class IosPostVideoEditorExportOperation {
                 "reason": "source_audio_missing",
             ])
             finishSuccess(outputUrl: videoOutputUrl, callback: callback)
-            try? FileManager.default.removeItem(at: audioSourceUrl)
+            if cleanupAudioSource {
+                try? FileManager.default.removeItem(at: audioSourceUrl)
+            }
             return
         }
         let remuxedOutputUrl = temporaryOutputUrl(suffix: "final-audio")
@@ -1339,9 +1374,10 @@ private final class IosPostVideoEditorExportOperation {
         shouldBlurBackground: Bool,
         captionStyle: String,
         captionDocument: CaptionDocumentWire?,
-        timeMs: Int64
+        timeMs: Int64,
+        inputIsPrecomposited: Bool
     ) -> CIImage {
-        var source = CIImage(cvPixelBuffer: sourceBuffer)
+        let source = CIImage(cvPixelBuffer: sourceBuffer)
         return renderVisualEffectsImage(
             sourceImage: source,
             outputSize: outputSize,
@@ -1349,7 +1385,8 @@ private final class IosPostVideoEditorExportOperation {
             shouldBlurBackground: shouldBlurBackground,
             captionStyle: captionStyle,
             captionDocument: captionDocument,
-            timeMs: timeMs
+            timeMs: timeMs,
+            inputIsPrecomposited: inputIsPrecomposited
         )
     }
 
@@ -1360,15 +1397,34 @@ private final class IosPostVideoEditorExportOperation {
         shouldBlurBackground: Bool,
         captionStyle: String,
         captionDocument: CaptionDocumentWire?,
-        timeMs: Int64
+        timeMs: Int64,
+        inputIsPrecomposited: Bool
     ) -> CIImage {
         let outputExtent = CGRect(origin: .zero, size: outputSize)
         var source = sourceImage
         if source.extent.origin != .zero {
             source = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX, y: -source.extent.minY))
         }
-        source = source.cropped(to: outputExtent)
-        var image = source
+        let sourceExtent = source.extent
+        let foregroundSource = inputIsPrecomposited
+            ? source.cropped(to: outputExtent)
+            : Self.drawCrop(
+                source: source,
+                sourceExtent: sourceExtent,
+                crop: request.foregroundCrop,
+                outputSize: outputSize,
+                mode: .fit
+            )
+        let backgroundSource = inputIsPrecomposited
+            ? source.cropped(to: outputExtent)
+            : Self.drawCrop(
+                source: source,
+                sourceExtent: sourceExtent,
+                crop: request.backgroundCrop,
+                outputSize: outputSize,
+                mode: .fill
+            )
+        var image = foregroundSource
         if shouldBlurBackground {
             let blurScale: CGFloat = 0.06
             let downscaledExtent = CGRect(
@@ -1377,14 +1433,14 @@ private final class IosPostVideoEditorExportOperation {
                 width: max(2, outputSize.width * blurScale),
                 height: max(2, outputSize.height * blurScale)
             )
-            let blurred = source
+            let blurred = backgroundSource
                 .transformed(by: CGAffineTransform(scaleX: blurScale, y: blurScale))
                 .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 2])
                 .cropped(to: downscaledExtent)
                 .transformed(by: CGAffineTransform(scaleX: 1 / blurScale, y: 1 / blurScale))
                 .cropped(to: outputExtent)
-            let foreground = source.cropped(to: foregroundRect.intersection(outputExtent))
-            let opaqueBackground = blurred.composited(over: source)
+            let foreground = foregroundSource.cropped(to: foregroundRect.intersection(outputExtent))
+            let opaqueBackground = blurred.composited(over: backgroundSource)
             image = foreground.composited(over: opaqueBackground)
         }
         if let segment = captionDocument?.segment(at: timeMs) {
