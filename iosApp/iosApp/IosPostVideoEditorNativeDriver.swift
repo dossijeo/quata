@@ -674,16 +674,6 @@ private final class IosPostVideoEditorExportOperation {
         let exportPresetName = exportPresetName()
         if exportsVideoOnlyWithoutCaptions {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("video_only_shared_visual_effects_selected")
-            applyVisualEffects(
-                inputUrl: sourceUrl,
-                outputUrl: finalOutputUrl,
-                captionStyle: nil,
-                captionDocument: nil,
-                sourceDisplaySize: displaySize(for: videoTrack),
-                readRange: range,
-                callback: callback
-            )
-            return
         }
         guard let exportSession = AVAssetExportSession(asset: composition, presetName: exportPresetName) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")
