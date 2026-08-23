@@ -671,6 +671,24 @@ private final class IosPostVideoEditorExportOperation {
                 return
             }
         }
+        if sourceAudioTrack == nil && captionDocument == nil {
+            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_skipped", details: [
+                "reason": "source_audio_missing",
+            ])
+            applyVisualEffects(
+                inputUrl: sourceUrl,
+                outputUrl: finalOutputUrl,
+                captionStyle: request.captionStyle,
+                captionDocument: nil,
+                sourceDisplaySize: displaySize(for: videoTrack),
+                readRange: range,
+                inputIsPrecomposited: false,
+                preferImageGeneratorFrames: false,
+                cleanupInputOnSuccess: false,
+                callback: callback
+            )
+            return
+        }
         let exportPresetName = exportPresetName()
         guard let exportSession = AVAssetExportSession(asset: composition, presetName: exportPresetName) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")
@@ -911,6 +929,8 @@ private final class IosPostVideoEditorExportOperation {
                 selectedCaptionStyle: selectedCaptionStyle,
                 captionDocument: captionDocument,
                 cleanupInputOnSuccess: cleanupInputOnSuccess,
+                readRange: readRange,
+                inputIsPrecomposited: inputIsPrecomposited,
                 callback: callback
             )
             return
@@ -1255,6 +1275,8 @@ private final class IosPostVideoEditorExportOperation {
         selectedCaptionStyle: String,
         captionDocument: CaptionDocumentWire?,
         cleanupInputOnSuccess: Bool,
+        readRange: CMTimeRange?,
+        inputIsPrecomposited: Bool,
         callback: any IosPostVideoEditorExportCallback
     ) {
         do {
@@ -1299,7 +1321,8 @@ private final class IosPostVideoEditorExportOperation {
             generator.requestedTimeToleranceBefore = frameTolerance
             generator.requestedTimeToleranceAfter = frameTolerance
             generator.maximumSize = renderSize
-            let durationSeconds = max(0.001, CMTimeGetSeconds(asset.duration))
+            let readStartSeconds = max(0, CMTimeGetSeconds(readRange?.start ?? .zero))
+            let durationSeconds = max(0.001, CMTimeGetSeconds(readRange?.duration ?? asset.duration))
             let outputFrameRate = max(1, request.outputMaxFrameRate)
             let maxFrameCount = max(1, Int(ceil(durationSeconds * Double(outputFrameRate))))
             let frameStepSeconds = 1.0 / Double(outputFrameRate)
@@ -1378,9 +1401,10 @@ private final class IosPostVideoEditorExportOperation {
                         return
                     }
                     let frameSeconds = min(durationSeconds, Double(frameCount) * frameStepSeconds)
+                    let sourceTime = CMTime(seconds: readStartSeconds + frameSeconds, preferredTimescale: 600)
                     let presentationTime = CMTime(seconds: frameSeconds, preferredTimescale: 600)
                     do {
-                        let cgImage = try generator.copyCGImage(at: presentationTime, actualTime: nil)
+                        let cgImage = try generator.copyCGImage(at: sourceTime, actualTime: nil)
                         guard let pool = adaptor.pixelBufferPool else {
                             failGenerator(reason: "ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
                             return
@@ -1400,7 +1424,7 @@ private final class IosPostVideoEditorExportOperation {
                             captionStyle: selectedCaptionStyle,
                             captionDocument: captionDocument,
                             timeMs: timeMs,
-                            inputIsPrecomposited: true
+                            inputIsPrecomposited: inputIsPrecomposited
                         )
                         ciContext.render(
                             rendered,
