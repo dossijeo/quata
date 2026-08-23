@@ -573,6 +573,7 @@ private final class IosPostVideoEditorExportOperation {
     private var visualEffectsReader: AVAssetReader?
     private var visualEffectsWriter: AVAssetWriter?
     private var visualEffectsAdaptor: AVAssetWriterInputPixelBufferAdaptor?
+    private var visualEffectsWatchdog: DispatchSourceTimer?
     private var progressTimer: Timer?
     private var didFinish = false
     private var didCancel = false
@@ -909,7 +910,7 @@ private final class IosPostVideoEditorExportOperation {
         let foregroundRect = foregroundContentRect(outputSize: renderSize, sourceDisplaySize: sourceDisplaySize)
         let shouldBlurBackground = request.hasBackgroundCrop
         let selectedCaptionStyle = captionStyle?.isEmpty == false ? captionStyle! : "Karaoke"
-        let sourceTransform = inputIsPrecomposited ? CGAffineTransform.identity : videoTrack.preferredTransform
+        let sourceTransform = CGAffineTransform.identity
 
         do {
             try? FileManager.default.removeItem(at: outputUrl)
@@ -917,13 +918,29 @@ private final class IosPostVideoEditorExportOperation {
             if let readRange {
                 reader.timeRange = readRange
             }
-            let readerOutput = AVAssetReaderTrackOutput(
-                track: videoTrack,
-                outputSettings: [
-                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                    kCVPixelBufferIOSurfacePropertiesKey as String: [:],
-                ]
-            )
+            let readerOutput: AVAssetReaderOutput
+            if inputIsPrecomposited {
+                readerOutput = AVAssetReaderTrackOutput(
+                    track: videoTrack,
+                    outputSettings: [
+                        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                        kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+                    ]
+                )
+            } else {
+                let normalizedOutput = AVAssetReaderVideoCompositionOutput(
+                    videoTracks: [videoTrack],
+                    videoSettings: [
+                        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                        kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+                    ]
+                )
+                normalizedOutput.videoComposition = normalizedSourceVideoComposition(
+                    for: videoTrack,
+                    frameRate: request.outputMaxFrameRate
+                )
+                readerOutput = normalizedOutput
+            }
             readerOutput.alwaysCopiesSampleData = false
             guard reader.canAdd(readerOutput) else {
                 finishFailure(reason: "ios_post_video_editor_visual_effects_reader_output_unavailable")
@@ -995,6 +1012,7 @@ private final class IosPostVideoEditorExportOperation {
             let writerStallLimitSeconds = 12.0
             let activeRenderStallLimitSeconds = 30.0
             let watchdog = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects.watchdog"))
+            visualEffectsWatchdog = watchdog
             queue.async { [weak self, weak writerInput] in
                 guard let self, let writerInput else { return }
                 guard let adaptor = self.visualEffectsAdaptor else {
@@ -1051,6 +1069,7 @@ private final class IosPostVideoEditorExportOperation {
                 func finishVisualEffects() {
                     guard markTerminated() else { return }
                     watchdog.cancel()
+                    self.visualEffectsWatchdog = nil
                     writerInput.markAsFinished()
                     writer.finishWriting {
                         DispatchQueue.main.async {
@@ -1095,6 +1114,7 @@ private final class IosPostVideoEditorExportOperation {
                     reader.cancelReading()
                     writer.cancelWriting()
                     DispatchQueue.main.async {
+                        self.visualEffectsWatchdog = nil
                         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
                             "reason": reason,
                             "frames": "\(frameSnapshot())",
@@ -1217,6 +1237,30 @@ private final class IosPostVideoEditorExportOperation {
             ])
             finishFailure(reason: error.localizedDescription)
         }
+    }
+
+    private func normalizedSourceVideoComposition(
+        for track: AVAssetTrack,
+        frameRate: Int32
+    ) -> AVMutableVideoComposition {
+        let naturalRect = CGRect(origin: .zero, size: track.naturalSize)
+        let preferredTransform = track.preferredTransform
+        let transformedRect = naturalRect.applying(preferredTransform)
+        let normalizedTransform = preferredTransform.concatenating(
+            CGAffineTransform(translationX: -transformedRect.minX, y: -transformedRect.minY)
+        )
+        let displaySize = CGSize(width: max(2, abs(transformedRect.width)), height: max(2, abs(transformedRect.height)))
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = track.timeRange
+        instruction.backgroundColor = UIColor.black.cgColor
+        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
+        layerInstruction.setTransform(normalizedTransform, at: .zero)
+        instruction.layerInstructions = [layerInstruction]
+        let composition = AVMutableVideoComposition()
+        composition.renderSize = displaySize
+        composition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, frameRate)))
+        composition.instructions = [instruction]
+        return composition
     }
 
     private func finishVisualEffectsSuccess(
