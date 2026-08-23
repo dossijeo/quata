@@ -651,30 +651,6 @@ private final class IosPostVideoEditorExportOperation {
         try? FileManager.default.removeItem(at: outputUrl)
         try? FileManager.default.removeItem(at: finalOutputUrl)
         let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
-        if sourceAudioTrack == nil && captionDocument == nil && !request.removeAudio {
-            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_started", details: [
-                "durationMs": "\(Int64(CMTimeGetSeconds(range.duration) * 1_000))",
-                "captionDocument": "false",
-                "outputWidth": "\(request.outputWidth)",
-                "outputHeight": "\(request.outputHeight)",
-                "maxFrameRate": "\(request.outputMaxFrameRate)",
-                "targetBitrate": "\(request.outputTargetBitrate)",
-                "exportPreset": "direct-visual-effects",
-            ])
-            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_direct_visual_effects_source_no_audio")
-            applyVisualEffects(
-                inputUrl: sourceUrl,
-                outputUrl: finalOutputUrl,
-                captionStyle: request.captionStyle,
-                captionDocument: nil,
-                sourceDisplaySize: displaySize(for: videoTrack),
-                readRange: range,
-                inputIsPrecomposited: false,
-                cleanupInputOnSuccess: false,
-                callback: callback
-            )
-            return
-        }
         if !request.removeAudio, let audioTrack = sourceAudioTrack {
             guard let compositionAudio = composition.addMutableTrack(
                 withMediaType: .audio,
