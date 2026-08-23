@@ -1173,13 +1173,13 @@ private final class IosPostVideoEditorExportOperation {
                         let timeMs = max(0, Int64((adjustedSeconds * 1_000).rounded()))
                         let currentFrame = nextFrameNumber()
                         nextOutputFrameSeconds = adjustedSeconds + frameStepSeconds
+                        markFrameWorkStarted()
                         if currentFrame == 1 || currentFrame % 15 == 0 {
                             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_frame", details: [
                                 "frame": "\(currentFrame)",
                                 "timeMs": "\(timeMs)",
                             ])
                         }
-                        markFrameWorkStarted()
                         guard let sourceBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
                               let pool = adaptor.pixelBufferPool else {
                             failVisualEffects(reason: "ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
