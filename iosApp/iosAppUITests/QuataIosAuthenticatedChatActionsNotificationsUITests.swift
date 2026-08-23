@@ -1270,9 +1270,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             let sectionIdentifier = "community.emoji.section.\(section)"
             let gridIdentifier = "community.emoji.grid.\(section)"
             let cellIdentifier = "community.emoji.cell.\(section).0"
-            let sectionButton = scrollEmojiSectionIntoView(sectionIdentifier, in: app)
-            XCTAssertTrue(sectionButton.exists, "\(context) must expose \(sectionIdentifier).")
-            sectionButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            tapEmojiSection(sectionIdentifier, in: app, context: context)
             XCTAssertTrue(
                 app.descendants(matching: .any).matching(identifier: gridIdentifier).firstMatch.waitForExistence(timeout: 5),
                 "\(context) must expose selected emoji grid \(gridIdentifier).",
@@ -1285,13 +1283,19 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 attachScreenshot(app, name: "\(screenshotPrefix)-\(section)")
             }
         }
-        let frequent = scrollEmojiSectionIntoView("community.emoji.section.frequent", in: app)
-        XCTAssertTrue(frequent.exists, "\(context) must restore the frequent emoji section.")
-        frequent.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        XCTAssertTrue(
-            app.descendants(matching: .any).matching(identifier: "community.emoji.cell.frequent.0").firstMatch.waitForExistence(timeout: 5),
-            "\(context) must restore the frequent emoji cell.",
-        )
+        let frequentCell = app.descendants(matching: .any).matching(identifier: "community.emoji.cell.frequent.0").firstMatch
+        for _ in 0..<3 where !frequentCell.waitForExistence(timeout: 1) {
+            tapEmojiSection("community.emoji.section.frequent", in: app, context: context)
+        }
+        XCTAssertTrue(frequentCell.waitForExistence(timeout: 5), "\(context) must restore the frequent emoji cell.")
+    }
+
+    private func tapEmojiSection(_ identifier: String, in app: XCUIApplication, context: String) {
+        let section = scrollEmojiSectionIntoView(identifier, in: app)
+        XCTAssertTrue(section.exists, "\(context) must expose \(identifier).")
+        XCTAssertTrue(section.isHittable, "\(context) must make \(identifier) hittable before tapping.")
+        section.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.35))
     }
 
     private func scrollEmojiSectionIntoView(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
