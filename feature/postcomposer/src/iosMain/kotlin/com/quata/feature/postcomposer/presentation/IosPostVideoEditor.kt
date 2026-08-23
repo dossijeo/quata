@@ -237,26 +237,30 @@ internal fun IosPostVideoEditor(
         val exportState = state
         state = state.copy(isExporting = true, exportProgress = 0.35f, error = null)
         if (!exportState.captionsEnabled || exportState.selectedCaptionStyleId == null) {
-            val spec = postVideoEditorExportSpec(
-                exportState,
-                videoAspectRatio,
-                durationMs,
-                captionDocument = null,
-                exportProfile,
-            )
-            iosPostVideoEditorExportEdited(
-                source = source,
-                spec = spec,
-                nativeDriver = nativeDriver,
-                onProgress = { progress -> state = state.copy(exportProgress = progress.coerceIn(0.35f, 0.95f)) },
-                onSuccess = {
-                    state = state.copy(isExporting = false, exportProgress = 1f)
-                    onEdited(it)
-                },
-                onFailure = { reason ->
-                    state = state.copy(isExporting = false, error = reason)
-                },
-            )
+            val job = scope.launch {
+                runCatching {
+                    val spec = postVideoEditorExportSpec(
+                        exportState,
+                        videoAspectRatio,
+                        durationMs,
+                        captionDocument = null,
+                        exportProfile,
+                    )
+                    iosPostVideoEditorExportEdited(source, spec, nativeDriver) { progress ->
+                        state = state.copy(exportProgress = progress.coerceIn(0.35f, 0.95f))
+                    }
+                }
+                    .onSuccess {
+                        state = state.copy(isExporting = false, exportProgress = 1f)
+                        onEdited(it)
+                    }
+                    .onFailure {
+                        if (it is CancellationException) return@onFailure
+                        state = state.copy(isExporting = false, error = it.message ?: "ios_post_video_editor_export_failed")
+                    }
+            }
+            exportJob = job
+            job.invokeOnCompletion { exportJob = null }
             return
         }
         val job = scope.launch {
