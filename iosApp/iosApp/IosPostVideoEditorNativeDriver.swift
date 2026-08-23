@@ -1381,7 +1381,8 @@ private final class IosPostVideoEditorExportOperation {
                 .transformed(by: CGAffineTransform(scaleX: 1 / blurScale, y: 1 / blurScale))
                 .cropped(to: outputExtent)
             let foreground = source.cropped(to: foregroundRect.intersection(outputExtent))
-            image = foreground.composited(over: blurred)
+            let opaqueBackground = blurred.composited(over: source)
+            image = foreground.composited(over: opaqueBackground)
         }
         if let segment = captionDocument?.segment(at: timeMs) {
             let overlay = Self.captionOverlayImage(
