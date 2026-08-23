@@ -1295,8 +1295,9 @@ private final class IosPostVideoEditorExportOperation {
             let ciContext = CIContext(options: [.cacheIntermediates: false])
             let generator = AVAssetImageGenerator(asset: asset)
             generator.appliesPreferredTrackTransform = true
-            generator.requestedTimeToleranceBefore = .zero
-            generator.requestedTimeToleranceAfter = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
+            let frameTolerance = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
+            generator.requestedTimeToleranceBefore = frameTolerance
+            generator.requestedTimeToleranceAfter = frameTolerance
             generator.maximumSize = renderSize
             let durationSeconds = max(0.001, CMTimeGetSeconds(asset.duration))
             let outputFrameRate = max(1, request.outputMaxFrameRate)
