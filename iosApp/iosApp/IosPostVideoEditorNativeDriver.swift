@@ -938,7 +938,7 @@ private final class IosPostVideoEditorExportOperation {
                         AVVideoMaxKeyFrameIntervalKey: Int(max(1, request.outputMaxFrameRate)),
                         AVVideoExpectedSourceFrameRateKey: Int(max(1, request.outputMaxFrameRate)),
                         AVVideoAllowFrameReorderingKey: false,
-                        AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+                        AVVideoProfileLevelKey: AVVideoProfileLevelH264BaselineAutoLevel,
                     ],
                 ]
             )
