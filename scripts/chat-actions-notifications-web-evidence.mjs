@@ -1122,7 +1122,7 @@ async function nativeControls(page, onlyVisible) {
   return await page.evaluate((onlyVisibleArg) => {
     const root = document.querySelector("#quata-root");
     const scope = root?.shadowRoot ?? root ?? document;
-    return [...scope.querySelectorAll("button[aria-label], input[aria-label], [role][aria-label]")]
+    return [...scope.querySelectorAll("button[aria-label], input[aria-label], [role][aria-label], [aria-label]")]
       .map((element) => {
         const rect = element.getBoundingClientRect();
         return {
@@ -1146,6 +1146,17 @@ async function visibleNativeControl(page, patterns, timeout = 5_000) {
   while (Date.now() < deadline) {
     const controls = await visibleNativeControls(page);
     const match = controls.find((control) => patterns.some((pattern) => pattern.test(control.label ?? "")));
+    if (match) return match;
+    await delay(250);
+  }
+  return null;
+}
+
+async function visibleNativeControlExact(page, label, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const controls = await visibleNativeControls(page);
+    const match = controls.find((control) => control.label === label);
     if (match) return match;
     await delay(250);
   }
@@ -2244,7 +2255,8 @@ async function selectEmojiCommentEmoji(page, { prefix, fallbackPoints, errorPref
   let panel = null;
   for (const attempt of attempts) {
     await attempt();
-    panel = await visibleAriaLocator(page, panelPatterns, 1_500);
+    panel = await visibleAriaLocator(page, panelPatterns, 1_500) ??
+      await visibleNativeControl(page, panelPatterns, 1_500);
     if (panel) break;
   }
   if (!panel) {
@@ -2265,9 +2277,14 @@ async function selectEmojiCommentEmoji(page, { prefix, fallbackPoints, errorPref
       screenshotPrefix: "web-official-comments-emoji-panel",
     });
   }
-  const firstFrequent = await visibleAriaLocator(page, [new RegExp(escapeRegExp("community.emoji.cell.frequent.0"))], 5_000);
+  const firstFrequent = await visibleAriaLocator(page, [new RegExp(escapeRegExp("community.emoji.cell.frequent.0"))], 5_000) ??
+    await visibleNativeControlExact(page, "community.emoji.cell.frequent.0", 2_000);
   if (firstFrequent) {
-    await clickLocatorCenter(page, firstFrequent, `${errorPrefix}_first_emoji_not_clickable`);
+    if ("label" in firstFrequent) {
+      await clickNativeControlCenter(page, firstFrequent, `${errorPrefix}_first_emoji_not_clickable`);
+    } else {
+      await clickLocatorCenter(page, firstFrequent, `${errorPrefix}_first_emoji_not_clickable`);
+    }
   } else {
     await page.mouse.click(fallbackPoints?.cellX ?? panelFallback.cellX, fallbackPoints?.cellY ?? panelFallback.cellY);
   }
@@ -2292,21 +2309,28 @@ async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, ev
     const gridTag = `community.emoji.grid.${section}`;
     const cellTag = `community.emoji.cell.${section}.0`;
     const sectionLocator = await visibleExactAriaLocatorWithHorizontalScroll(page, sectionTag, 4_000);
-    if (!sectionLocator) throw new Error(`${errorPrefix}_emoji_section_anchor_missing:${sectionTag}`);
-    await clickLocatorCenter(page, sectionLocator, `${errorPrefix}_emoji_section_not_clickable:${sectionTag}`);
+    const sectionControl = sectionLocator ? null : await visibleNativeControlExact(page, sectionTag, 2_000);
+    if (!sectionLocator && !sectionControl) throw new Error(`${errorPrefix}_emoji_section_anchor_missing:${sectionTag}`);
+    if (sectionControl) {
+      await clickNativeControlCenter(page, sectionControl, `${errorPrefix}_emoji_section_not_clickable:${sectionTag}`);
+    } else {
+      await clickLocatorCenter(page, sectionLocator, `${errorPrefix}_emoji_section_not_clickable:${sectionTag}`);
+    }
     const grid = await visibleExactAriaLocator(page, gridTag, 2_500);
-    if (!grid) throw new Error(`${errorPrefix}_emoji_grid_anchor_missing:${gridTag}`);
+    const gridControl = grid ? null : await visibleNativeControlExact(page, gridTag, 2_000);
+    if (!grid && !gridControl) throw new Error(`${errorPrefix}_emoji_grid_anchor_missing:${gridTag}`);
     const firstCell = await visibleExactAriaLocator(page, cellTag, 2_500);
-    if (!firstCell) throw new Error(`${errorPrefix}_emoji_cell_anchor_missing:${cellTag}`);
-    const sectionBox = await sectionLocator.boundingBox().catch(() => null);
-    const gridBox = await grid.boundingBox().catch(() => null);
-    const cellBox = await firstCell.boundingBox().catch(() => null);
+    const firstCellControl = firstCell ? null : await visibleNativeControlExact(page, cellTag, 2_000);
+    if (!firstCell && !firstCellControl) throw new Error(`${errorPrefix}_emoji_cell_anchor_missing:${cellTag}`);
+    const sectionBox = sectionLocator ? await sectionLocator.boundingBox().catch(() => null) : nativeControlBox(sectionControl);
+    const gridBox = grid ? await grid.boundingBox().catch(() => null) : nativeControlBox(gridControl);
+    const cellBox = firstCell ? await firstCell.boundingBox().catch(() => null) : nativeControlBox(firstCellControl);
     observed.push({
       section,
       sectionTag,
       gridTag,
       firstCellTag: cellTag,
-      resolvedBy: "aria-label",
+      resolvedBy: sectionControl || gridControl || firstCellControl ? "native-aria-label" : "aria-label",
       sectionBounds: roundedBox(sectionBox),
       gridBounds: roundedBox(gridBox),
       firstCellBounds: roundedBox(cellBox),
@@ -2350,8 +2374,19 @@ async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, ev
   } else {
     throw new Error(`${errorPrefix}_emoji_section_anchor_missing:community.emoji.section.frequent`);
   }
-  const frequentCell = await visibleExactAriaLocator(page, "community.emoji.cell.frequent.0", 2_500);
+  const frequentCell = await visibleExactAriaLocator(page, "community.emoji.cell.frequent.0", 2_500) ??
+    await visibleNativeControlExact(page, "community.emoji.cell.frequent.0", 2_000);
   if (!frequentCell) throw new Error(`${errorPrefix}_emoji_frequent_reset_cell_missing`);
+}
+
+function nativeControlBox(control) {
+  if (!control) return null;
+  return {
+    x: control.x,
+    y: control.y,
+    width: control.width,
+    height: control.height,
+  };
 }
 
 async function visibleExactAriaLocator(page, label, timeout) {
