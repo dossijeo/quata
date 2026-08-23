@@ -673,11 +673,6 @@ private final class IosPostVideoEditorExportOperation {
         }
         if sourceAudioTrack == nil && captionDocument == nil {
             let sourceDisplaySize = displaySize(for: videoTrack)
-            let readerComposition = normalizedSourceVideoComposition(
-                for: videoTrack,
-                frameRate: Int32(max(1, request.outputMaxFrameRate)),
-                maximumSize: sourceDisplaySize
-            )
             applyVisualEffects(
                 inputUrl: sourceUrl,
                 outputUrl: outputUrl,
@@ -686,9 +681,8 @@ private final class IosPostVideoEditorExportOperation {
                 captionDocument: nil,
                 sourceDisplaySize: sourceDisplaySize,
                 readRange: range,
-                inputIsPrecomposited: true,
+                inputIsPrecomposited: false,
                 cleanupInputOnSuccess: false,
-                readerVideoComposition: readerComposition,
                 callback: callback
             )
             return
@@ -893,7 +887,6 @@ private final class IosPostVideoEditorExportOperation {
         readRange: CMTimeRange?,
         inputIsPrecomposited: Bool,
         cleanupInputOnSuccess: Bool,
-        readerVideoComposition: AVVideoComposition? = nil,
         callback: any IosPostVideoEditorExportCallback
     ) {
         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("adaptive_writer_pass_start", details: [
@@ -929,29 +922,13 @@ private final class IosPostVideoEditorExportOperation {
             if let readRange {
                 reader.timeRange = readRange
             }
-            let readerOutput: AVAssetReaderOutput
-            if let readerVideoComposition {
-                let output = AVAssetReaderVideoCompositionOutput(
-                    videoTracks: [videoTrack],
-                    videoSettings: [
-                        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                        kCVPixelBufferIOSurfacePropertiesKey as String: [:],
-                    ]
-                )
-                output.videoComposition = readerVideoComposition
-                output.alwaysCopiesSampleData = false
-                readerOutput = output
-            } else {
-                let output = AVAssetReaderTrackOutput(
-                    track: videoTrack,
-                    outputSettings: [
-                        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                        kCVPixelBufferIOSurfacePropertiesKey as String: [:],
-                    ]
-                )
-                output.alwaysCopiesSampleData = false
-                readerOutput = output
-            }
+            let readerOutput = AVAssetReaderTrackOutput(
+                track: videoTrack,
+                outputSettings: [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                    kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+                ]
+            )
             readerOutput.alwaysCopiesSampleData = false
             guard reader.canAdd(readerOutput) else {
                 finishFailure(reason: "ios_post_video_editor_visual_effects_reader_output_unavailable")
@@ -1248,43 +1225,6 @@ private final class IosPostVideoEditorExportOperation {
             ])
             finishFailure(reason: error.localizedDescription)
         }
-    }
-
-    private func normalizedSourceVideoComposition(
-        for track: AVAssetTrack,
-        frameRate: Int32,
-        maximumSize: CGSize
-    ) -> AVMutableVideoComposition {
-        let naturalRect = CGRect(origin: .zero, size: track.naturalSize)
-        let preferredTransform = track.preferredTransform
-        let transformedRect = naturalRect.applying(preferredTransform)
-        let displayWidth = max(2, abs(transformedRect.width))
-        let displayHeight = max(2, abs(transformedRect.height))
-        let scale = min(
-            1,
-            max(2, maximumSize.width) / displayWidth,
-            max(2, maximumSize.height) / displayHeight
-        )
-        let normalizedTransform = preferredTransform.concatenating(
-            CGAffineTransform(translationX: -transformedRect.minX, y: -transformedRect.minY)
-        ).concatenating(
-            CGAffineTransform(scaleX: scale, y: scale)
-        )
-        let displaySize = CGSize(
-            width: max(2, floor(displayWidth * scale)),
-            height: max(2, floor(displayHeight * scale))
-        )
-        let instruction = AVMutableVideoCompositionInstruction()
-        instruction.timeRange = track.timeRange
-        instruction.backgroundColor = UIColor.black.cgColor
-        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
-        layerInstruction.setTransform(normalizedTransform, at: .zero)
-        instruction.layerInstructions = [layerInstruction]
-        let composition = AVMutableVideoComposition()
-        composition.renderSize = displaySize
-        composition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, frameRate)))
-        composition.instructions = [instruction]
-        return composition
     }
 
     private func finishVisualEffectsSuccess(
