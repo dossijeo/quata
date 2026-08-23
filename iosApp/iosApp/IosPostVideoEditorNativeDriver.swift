@@ -1316,10 +1316,7 @@ private final class IosPostVideoEditorExportOperation {
             ])
             let queue = DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects.generator")
             var frameCount = 0
-            var didCompleteGenerator = false
             func finishGeneratorSuccess() {
-                guard !didCompleteGenerator else { return }
-                didCompleteGenerator = true
                 writerInput.markAsFinished()
                 writer.finishWriting {
                     DispatchQueue.main.async {
@@ -1357,8 +1354,6 @@ private final class IosPostVideoEditorExportOperation {
                 }
             }
             func failGenerator(reason: String) {
-                guard !didCompleteGenerator else { return }
-                didCompleteGenerator = true
                 writer.cancelWriting()
                 DispatchQueue.main.async {
                     self.visualEffectsWriter = nil
@@ -1371,14 +1366,21 @@ private final class IosPostVideoEditorExportOperation {
                     self.finishFailure(reason: reason)
                 }
             }
-            func appendGeneratedFrames(_ generatedFrames: [(index: Int, image: CGImage)]) {
-                writerInput.requestMediaDataWhenReady(on: queue) { [weak self, weak writerInput] in
-                    guard let self, let writerInput else { return }
-                    while writerInput.isReadyForMoreMediaData && frameCount < generatedFrames.count {
-                        let generatedFrame = generatedFrames[frameCount]
-                        let frameSeconds = min(durationSeconds, Double(generatedFrame.index) * frameStepSeconds)
-                        let presentationTime = CMTime(seconds: frameSeconds, preferredTimescale: 600)
-                        let timeMs = max(0, Int64((frameSeconds * 1_000).rounded()))
+            writerInput.requestMediaDataWhenReady(on: queue) { [weak self, weak writerInput] in
+                guard let self, let writerInput else { return }
+                while writerInput.isReadyForMoreMediaData && frameCount < maxFrameCount {
+                    if self.didCancel {
+                        failGenerator(reason: "ios_post_video_editor_export_cancelled")
+                        return
+                    }
+                    if writer.status == .failed || writer.status == .cancelled {
+                        failGenerator(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_image_generator_failed")
+                        return
+                    }
+                    let frameSeconds = min(durationSeconds, Double(frameCount) * frameStepSeconds)
+                    let presentationTime = CMTime(seconds: frameSeconds, preferredTimescale: 600)
+                    do {
+                        let cgImage = try generator.copyCGImage(at: presentationTime, actualTime: nil)
                         guard let pool = adaptor.pixelBufferPool else {
                             failGenerator(reason: "ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
                             return
@@ -1389,8 +1391,9 @@ private final class IosPostVideoEditorExportOperation {
                             failGenerator(reason: "ios_post_video_editor_visual_effects_output_buffer_unavailable")
                             return
                         }
+                        let timeMs = max(0, Int64((frameSeconds * 1_000).rounded()))
                         let rendered = self.renderVisualEffectsImage(
-                            sourceImage: CIImage(cgImage: generatedFrame.image),
+                            sourceImage: CIImage(cgImage: cgImage),
                             outputSize: renderSize,
                             foregroundRect: foregroundRect,
                             shouldBlurBackground: shouldBlurBackground,
@@ -1410,7 +1413,7 @@ private final class IosPostVideoEditorExportOperation {
                             return
                         }
                         frameCount += 1
-                        if frameCount == 1 || frameCount % 15 == 0 || frameCount == generatedFrames.count {
+                        if frameCount == 1 || frameCount % 15 == 0 {
                             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_frame", details: [
                                 "frame": "\(frameCount)",
                                 "timeMs": "\(timeMs)",
@@ -1422,83 +1425,13 @@ private final class IosPostVideoEditorExportOperation {
                                 callback.onProgress(progress: progress)
                             }
                         }
-                    }
-                    if frameCount >= generatedFrames.count {
-                        finishGeneratorSuccess()
+                    } catch {
+                        failGenerator(reason: error.localizedDescription.isEmpty ? "ios_post_video_editor_visual_effects_image_generator_failed" : error.localizedDescription)
+                        return
                     }
                 }
-            }
-            var generatedFrames = Array<CGImage?>(repeating: nil, count: maxFrameCount)
-            var generatedFrameResults = 0
-            var generatedFrameFailure: String?
-            var generationWatchdog: DispatchSourceTimer?
-            generationWatchdog = DispatchSource.makeTimerSource(queue: queue)
-            generationWatchdog?.schedule(deadline: .now() + max(30, min(90, Int(ceil(durationSeconds * 12)))))
-            generationWatchdog?.setEventHandler {
-                if generatedFrameResults < maxFrameCount && generatedFrameFailure == nil {
-                    generatedFrameFailure = "ios_post_video_editor_visual_effects_image_generator_timeout"
-                    IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
-                        "reason": generatedFrameFailure ?? "ios_post_video_editor_visual_effects_image_generator_timeout",
-                        "frames": "\(generatedFrameResults)",
-                        "maxFrames": "\(maxFrameCount)",
-                    ])
-                    failGenerator(reason: generatedFrameFailure ?? "ios_post_video_editor_visual_effects_image_generator_timeout")
-                }
-            }
-            generationWatchdog?.resume()
-            let requestedTimes = (0..<maxFrameCount).map { index in
-                NSValue(time: CMTime(seconds: min(durationSeconds, Double(index) * frameStepSeconds), preferredTimescale: 600))
-            }
-            generator.generateCGImagesAsynchronously(forTimes: requestedTimes) { requestedTime, image, _, result, error in
-                queue.async { [weak self] in
-                    guard let self else { return }
-                    if didCompleteGenerator {
-                        return
-                    }
-                    if generatedFrameFailure != nil {
-                        return
-                    }
-                    if self.didCancel {
-                        generationWatchdog?.cancel()
-                        failGenerator(reason: "ios_post_video_editor_export_cancelled")
-                        return
-                    }
-                    if result == .failed || result == .cancelled {
-                        generationWatchdog?.cancel()
-                        generatedFrameFailure = error?.localizedDescription ?? "ios_post_video_editor_visual_effects_image_generator_failed"
-                        failGenerator(reason: generatedFrameFailure ?? "ios_post_video_editor_visual_effects_image_generator_failed")
-                        return
-                    }
-                    guard let image else {
-                        generationWatchdog?.cancel()
-                        generatedFrameFailure = "ios_post_video_editor_visual_effects_image_generator_empty_frame"
-                        failGenerator(reason: generatedFrameFailure ?? "ios_post_video_editor_visual_effects_image_generator_empty_frame")
-                        return
-                    }
-                    let requestedSeconds = max(0, CMTimeGetSeconds(requestedTime))
-                    let frameIndex = min(maxFrameCount - 1, max(0, Int((requestedSeconds / frameStepSeconds).rounded())))
-                    if generatedFrames[frameIndex] == nil {
-                        generatedFrameResults += 1
-                    }
-                    generatedFrames[frameIndex] = image
-                    if generatedFrameResults == 1 || generatedFrameResults % 15 == 0 || generatedFrameResults == maxFrameCount {
-                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_generated_frame", details: [
-                            "frame": "\(generatedFrameResults)",
-                            "maxFrames": "\(maxFrameCount)",
-                        ])
-                    }
-                    if generatedFrameResults >= maxFrameCount {
-                        generationWatchdog?.cancel()
-                        let frames = generatedFrames.enumerated().compactMap { index, image -> (index: Int, image: CGImage)? in
-                            guard let image else { return nil }
-                            return (index: index, image: image)
-                        }
-                        if frames.count != maxFrameCount {
-                            failGenerator(reason: "ios_post_video_editor_visual_effects_image_generator_missing_frames")
-                        } else {
-                            appendGeneratedFrames(frames)
-                        }
-                    }
+                if frameCount >= maxFrameCount {
+                    finishGeneratorSuccess()
                 }
             }
         } catch {
