@@ -2354,9 +2354,13 @@ async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, ev
     sections: observed,
   });
   report.steps.push(`${errorPrefix}_emoji_panel_all_sections_verified_by_common_anchors`);
-  const frequent = await visibleExactAriaLocatorWithHorizontalScroll(page, "community.emoji.section.frequent", 4_000);
-  if (frequent) {
-    await clickLocatorCenter(page, frequent, `${errorPrefix}_emoji_section_not_clickable:community.emoji.section.frequent`);
+  const frequentSectionTag = "community.emoji.section.frequent";
+  const frequentNative = await visibleNativeControlExact(page, frequentSectionTag, 1_000);
+  const frequent = frequentNative ? null : await visibleExactAriaLocatorWithHorizontalScroll(page, frequentSectionTag, 4_000);
+  if (frequentNative) {
+    await clickNativeControlCenter(page, frequentNative, `${errorPrefix}_emoji_section_not_clickable:${frequentSectionTag}`);
+  } else if (frequent) {
+    await clickLocatorCenter(page, frequent, `${errorPrefix}_emoji_section_not_clickable:${frequentSectionTag}`);
   } else if (await clickExactAriaLabel(page, "community.emoji.section.frequent")) {
     report.evidence.communityEmojiPanelSemanticResets ??= [];
     report.evidence.communityEmojiPanelSemanticResets.push({
@@ -2425,6 +2429,8 @@ async function visibleExactAriaLocator(page, label, timeout) {
 
 async function clickExactAriaLabel(page, label) {
   return page.evaluate((targetLabel) => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
     const visible = (element) => {
       const rect = element.getBoundingClientRect();
       return rect.width > 0 &&
@@ -2434,7 +2440,7 @@ async function clickExactAriaLabel(page, label) {
         rect.left < window.innerWidth &&
         rect.top < window.innerHeight;
     };
-    const candidates = Array.from(document.querySelectorAll("[aria-label]"))
+    const candidates = Array.from(scope.querySelectorAll("[aria-label]"))
       .filter((element) => element.getAttribute("aria-label") === targetLabel && visible(element));
     const target = candidates.at(-1);
     if (!target) return false;
