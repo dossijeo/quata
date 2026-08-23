@@ -916,7 +916,7 @@ private final class IosPostVideoEditorExportOperation {
         let foregroundRect = foregroundContentRect(outputSize: renderSize, sourceDisplaySize: sourceDisplaySize)
         let shouldBlurBackground = request.hasBackgroundCrop
         let selectedCaptionStyle = captionStyle?.isEmpty == false ? captionStyle! : "Karaoke"
-        let sourceTransform = CGAffineTransform.identity
+        let sourceTransform = inputIsPrecomposited ? CGAffineTransform.identity : videoTrack.preferredTransform
         if preferImageGeneratorFrames {
             applyVisualEffectsWithImageGenerator(
                 asset: asset,
@@ -942,30 +942,13 @@ private final class IosPostVideoEditorExportOperation {
             if let readRange {
                 reader.timeRange = readRange
             }
-            let readerOutput: AVAssetReaderOutput
-            if inputIsPrecomposited {
-                readerOutput = AVAssetReaderTrackOutput(
-                    track: videoTrack,
-                    outputSettings: [
-                        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                        kCVPixelBufferIOSurfacePropertiesKey as String: [:],
-                    ]
-                )
-            } else {
-                let normalizedOutput = AVAssetReaderVideoCompositionOutput(
-                    videoTracks: [videoTrack],
-                    videoSettings: [
-                        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                        kCVPixelBufferIOSurfacePropertiesKey as String: [:],
-                    ]
-                )
-                normalizedOutput.videoComposition = normalizedSourceVideoComposition(
-                    for: videoTrack,
-                    frameRate: request.outputMaxFrameRate,
-                    maximumSize: renderSize
-                )
-                readerOutput = normalizedOutput
-            }
+            let readerOutput = AVAssetReaderTrackOutput(
+                track: videoTrack,
+                outputSettings: [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                    kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+                ]
+            )
             readerOutput.alwaysCopiesSampleData = false
             guard reader.canAdd(readerOutput) else {
                 finishFailure(reason: "ios_post_video_editor_visual_effects_reader_output_unavailable")
