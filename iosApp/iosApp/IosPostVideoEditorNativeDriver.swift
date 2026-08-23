@@ -969,6 +969,8 @@ private final class IosPostVideoEditorExportOperation {
             let queue = DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects")
             var frameCount = 0
             var didRequestFinish = false
+            var writerBackpressureStartedAt: Date?
+            let writerBackpressureLimitSeconds = 5.0
             queue.async { [weak self, weak writerInput] in
                 guard let self, let writerInput else { return }
                 guard let adaptor = self.visualEffectsAdaptor else {
@@ -1026,6 +1028,24 @@ private final class IosPostVideoEditorExportOperation {
                 }
                 while !didRequestFinish {
                     if !writerInput.isReadyForMoreMediaData {
+                        if writerBackpressureStartedAt == nil {
+                            writerBackpressureStartedAt = Date()
+                        } else if let startedAt = writerBackpressureStartedAt,
+                                  Date().timeIntervalSince(startedAt) > writerBackpressureLimitSeconds {
+                            let reason = "ios_post_video_editor_visual_effects_writer_backpressure_timeout"
+                            reader.cancelReading()
+                            writer.cancelWriting()
+                            DispatchQueue.main.async {
+                                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
+                                    "reason": reason,
+                                    "frames": "\(frameCount)",
+                                    "readerStatus": "\(reader.status.rawValue)",
+                                    "writerStatus": "\(writer.status.rawValue)",
+                                ])
+                                self.finishFailure(reason: reason)
+                            }
+                            return
+                        }
                         if self.didCancel {
                             reader.cancelReading()
                             writer.cancelWriting()
@@ -1054,6 +1074,7 @@ private final class IosPostVideoEditorExportOperation {
                         Thread.sleep(forTimeInterval: 0.01)
                         continue
                     }
+                    writerBackpressureStartedAt = nil
                     if self.didCancel {
                         reader.cancelReading()
                         writer.cancelWriting()
