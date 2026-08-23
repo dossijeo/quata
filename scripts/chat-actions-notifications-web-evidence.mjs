@@ -1125,11 +1125,17 @@ async function nativeControls(page, onlyVisible) {
     return [...scope.querySelectorAll("button[aria-label], input[aria-label], [role][aria-label], [aria-label]")]
       .map((element) => {
         const rect = element.getBoundingClientRect();
+        const visible = rect.width > 0 &&
+          rect.height > 0 &&
+          rect.right > 0 &&
+          rect.bottom > 0 &&
+          rect.left < window.innerWidth &&
+          rect.top < window.innerHeight;
         return {
           tag: element.tagName,
           role: element.getAttribute("role"),
           label: element.getAttribute("aria-label"),
-          visible: rect.width > 0 && rect.height > 0,
+          visible,
           x: Math.round(rect.x),
           y: Math.round(rect.y),
           width: Math.round(rect.width),
@@ -3015,9 +3021,23 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
 }
 
 async function assertCommentAuthorAnchorVisible(page, tag, report) {
-  const locator = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(tag))], 10_000);
-  if (!locator) throw new Error(`comment_author_profile_anchor_missing:${tag}`);
-  report.steps.push(`comment_author_profile_anchor_visible:${tag}`);
+  const deadline = Date.now() + 10_000;
+  const patterns = [new RegExp(escapeRegExp(tag))];
+  while (Date.now() < deadline) {
+    const locator = await visibleAriaLocator(page, patterns, 800);
+    if (locator) {
+      report.steps.push(`comment_author_profile_anchor_visible:${tag}`);
+      return;
+    }
+    const native = await visibleNativeControl(page, patterns, 500);
+    if (native) {
+      report.steps.push(`comment_author_profile_anchor_visible:${tag}`);
+      return;
+    }
+    await wheelChatViewport(page, 420);
+    await delay(250);
+  }
+  throw new Error(`comment_author_profile_anchor_missing:${tag}`);
 }
 
 async function waitVisibleSeededSurfaceText(page, text, errorMessage, timeout = 15_000) {
