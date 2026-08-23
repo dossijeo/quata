@@ -910,7 +910,11 @@ private final class IosPostVideoEditorExportOperation {
         let foregroundRect = foregroundContentRect(outputSize: renderSize, sourceDisplaySize: sourceDisplaySize)
         let shouldBlurBackground = request.hasBackgroundCrop
         let selectedCaptionStyle = captionStyle?.isEmpty == false ? captionStyle! : "Karaoke"
-        let sourceTransform = CGAffineTransform.identity
+        let sourceHasAudio = !asset.tracks(withMediaType: .audio).isEmpty
+        let useRawTrackOutput = !inputIsPrecomposited && !sourceHasAudio
+        let sourceTransform = useRawTrackOutput
+            ? normalizedSourceTransform(for: videoTrack, maximumSize: renderSize)
+            : CGAffineTransform.identity
 
         do {
             try? FileManager.default.removeItem(at: outputUrl)
@@ -919,7 +923,7 @@ private final class IosPostVideoEditorExportOperation {
                 reader.timeRange = readRange
             }
             let readerOutput: AVAssetReaderOutput
-            if inputIsPrecomposited {
+            if inputIsPrecomposited || useRawTrackOutput {
                 readerOutput = AVAssetReaderTrackOutput(
                     track: videoTrack,
                     outputSettings: [
@@ -1275,6 +1279,27 @@ private final class IosPostVideoEditorExportOperation {
         composition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, frameRate)))
         composition.instructions = [instruction]
         return composition
+    }
+
+    private func normalizedSourceTransform(
+        for track: AVAssetTrack,
+        maximumSize: CGSize
+    ) -> CGAffineTransform {
+        let naturalRect = CGRect(origin: .zero, size: track.naturalSize)
+        let preferredTransform = track.preferredTransform
+        let transformedRect = naturalRect.applying(preferredTransform)
+        let displayWidth = max(2, abs(transformedRect.width))
+        let displayHeight = max(2, abs(transformedRect.height))
+        let scale = min(
+            1,
+            max(2, maximumSize.width) / displayWidth,
+            max(2, maximumSize.height) / displayHeight
+        )
+        return preferredTransform.concatenating(
+            CGAffineTransform(translationX: -transformedRect.minX, y: -transformedRect.minY)
+        ).concatenating(
+            CGAffineTransform(scaleX: scale, y: scale)
+        )
     }
 
     private func finishVisualEffectsSuccess(
