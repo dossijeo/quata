@@ -2268,15 +2268,16 @@ async function selectEmojiCommentEmoji(page, { prefix, fallbackPoints, errorPref
   if (!panel) {
     throw new Error(`${errorPrefix}_emoji_panel_not_visible`);
   }
+  let observedFrequentCellBounds = null;
   if (errorPrefix === "feed_official_comments_feed") {
-    await verifyCommunityEmojiPanelSections(page, {
+    observedFrequentCellBounds = await verifyCommunityEmojiPanelSections(page, {
       errorPrefix,
       report,
       evidenceDir: options.evidenceDir,
       screenshotPrefix: "web-feed-comments-emoji-panel",
     });
   } else if (errorPrefix === "feed_official_comments_official") {
-    await verifyCommunityEmojiPanelSections(page, {
+    observedFrequentCellBounds = await verifyCommunityEmojiPanelSections(page, {
       errorPrefix,
       report,
       evidenceDir: options.evidenceDir,
@@ -2292,7 +2293,9 @@ async function selectEmojiCommentEmoji(page, { prefix, fallbackPoints, errorPref
       await clickLocatorCenter(page, firstFrequent, `${errorPrefix}_first_emoji_not_clickable`);
     }
   } else {
-    await page.mouse.click(fallbackPoints?.cellX ?? panelFallback.cellX, fallbackPoints?.cellY ?? panelFallback.cellY);
+    const fallbackCellX = fallbackPoints?.cellX ?? (observedFrequentCellBounds ? observedFrequentCellBounds.x + (observedFrequentCellBounds.width / 2) : panelFallback.cellX);
+    const fallbackCellY = fallbackPoints?.cellY ?? (observedFrequentCellBounds ? observedFrequentCellBounds.y + (observedFrequentCellBounds.height / 2) : panelFallback.cellY);
+    await page.mouse.click(fallbackCellX, fallbackCellY);
   }
 }
 
@@ -2310,6 +2313,7 @@ const communityEmojiPanelProbeSections = [
 async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, evidenceDir, screenshotPrefix }) {
   const observed = [];
   let frequentSectionBounds = null;
+  let frequentCellBounds = null;
   for (const section of communityEmojiPanelProbeSections) {
     const sectionTag = `community.emoji.section.${section}`;
     const gridTag = `community.emoji.grid.${section}`;
@@ -2343,6 +2347,7 @@ async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, ev
     });
     if (section === "frequent") {
       frequentSectionBounds = sectionBox;
+      frequentCellBounds = cellBox;
     }
     if (section === "frequent" || section === "flags") {
       await attachScreenshot(page, evidenceDir, `${screenshotPrefix}-${section}`);
@@ -2386,7 +2391,18 @@ async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, ev
   }
   const frequentCell = await visibleExactAriaLocator(page, "community.emoji.cell.frequent.0", 2_500) ??
     await visibleNativeControlExact(page, "community.emoji.cell.frequent.0", 2_000);
+  if (!frequentCell && frequentCellBounds) {
+    report.evidence.communityEmojiPanelResetFallbacks ??= [];
+    report.evidence.communityEmojiPanelResetFallbacks.push({
+      surface: errorPrefix,
+      cellTag: "community.emoji.cell.frequent.0",
+      reason: "semantic_cell_was_observed_earlier_but_not_resolved_after_horizontal_scroll",
+      bounds: roundedBox(frequentCellBounds),
+    });
+    return frequentCellBounds;
+  }
   if (!frequentCell) throw new Error(`${errorPrefix}_emoji_frequent_reset_cell_missing`);
+  return frequentCellBounds;
 }
 
 function nativeControlBox(control) {
