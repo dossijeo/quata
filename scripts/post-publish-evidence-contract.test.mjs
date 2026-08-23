@@ -717,9 +717,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(webPostVideoEditor, /const canvasTrack = stream\.getVideoTracks\?\.\(\)\[0\]/);
   assert.match(webPostVideoEditor, /const captureTickRate = fps/);
   assert.doesNotMatch(webPostVideoEditor, /web_post_video_editor_audio_stream_missing_without_mute/);
-  assert.match(webPostVideoEditor, /let sourceFrozenAtTrimEnd = false/);
-  assert.match(webPostVideoEditor, /video\.currentTime = Math\.min\(\(sourceStartMs \+ durationMs\) \/ 1000/);
-  assert.match(webPostVideoEditor, /const stopPaddingMs = Math\.max\(920, 1000 \/ fps \* 28\)/);
+  assert.doesNotMatch(webPostVideoEditor, /sourceFrozenAtTrimEnd/);
+  assert.doesNotMatch(webPostVideoEditor, /video\.currentTime = Math\.min\(\(sourceStartMs \+ durationMs\) \/ 1000/);
+  assert.match(webPostVideoEditor, /const stopPaddingMs = 0/);
+  assert.doesNotMatch(webPostVideoEditor, /const stopPaddingMs = Math\.max\(920, 1000 \/ fps \* 28\)/);
   assert.match(webPostVideoEditor, /timelineFrameEvidence/);
   assert.doesNotMatch(webPostVideoEditor, /Math\.max\(3000, 1000 \/ fps \* 90\)/);
   assert.doesNotMatch(webPostVideoEditor, /Math\.max\(2500, 1000 \/ fps \* 75\)/);
@@ -1002,6 +1003,8 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /CaptionDocumentWire\.parse/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetExportSession/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetWriterInputPixelBufferAdaptor/);
+  assert.match(iosPostVideoEditorNativeDriver, /let sourceTransform = inputIsPrecomposited \? CGAffineTransform\.identity : videoTrack\.preferredTransform/);
+  assert.match(iosPostVideoEditorNativeDriver, /CIImage\(cvPixelBuffer: sourceBuffer\)\.transformed\(by: sourceTransform\)/);
   assert.match(iosPostVideoEditorNativeDriver, /caption_burn_start/);
   assert.match(iosPostVideoEditorNativeDriver, /caption_burn_completed/);
   assert.match(iosPostVideoEditorNativeDriver, /captionOverlayImage/);

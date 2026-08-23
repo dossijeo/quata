@@ -786,7 +786,6 @@ private fun webPostVideoEditorExportEditedJs(
           let drawnFrameCount = 0;
           let exportStartedAt = 0;
           let elapsedAtStopMs = 0;
-          let sourceFrozenAtTrimEnd = false;
           let recorderStarted = false;
           let recorderStopRequested = false;
           const mimeType = globalThis.MediaRecorder.isTypeSupported?.('video/webm;codecs=vp8')
@@ -853,7 +852,7 @@ private fun webPostVideoEditorExportEditedJs(
           const requestedEndMs = Math.max(startMs + 500, Number(trimEndMs) || hintedDurationMs);
           const endMs = Math.min(hintedDurationMs, requestedEndMs);
           const durationMs = Math.max(500, endMs - startMs);
-          const stopPaddingMs = Math.max(920, 1000 / fps * 28);
+          const stopPaddingMs = 0;
           const minimumCaptureFrames = Math.max(1, Math.ceil((durationMs / 1000) * Math.min(captureTickRate, 24)));
           const sourceStartMs = Math.min(startMs * sourceScale, Math.max(0, actualDurationMs - 500));
           const crop = {
@@ -1023,13 +1022,6 @@ private fun webPostVideoEditorExportEditedJs(
                 return;
               }
               const elapsedMs = Math.max(0, performance.now() - exportStartedAt);
-              if (!sourceFrozenAtTrimEnd && elapsedMs >= durationMs) {
-                sourceFrozenAtTrimEnd = true;
-                try {
-                  video.pause?.();
-                  video.currentTime = Math.min((sourceStartMs + durationMs) / 1000, Math.max(0, Number(video.duration) || 0));
-                } catch (_) {}
-              }
               drawFrame(Math.min(durationMs, elapsedMs));
               drawnFrameCount += 1;
               onProgress(Math.min(0.95, 0.35 + (elapsedMs / Math.max(1, durationMs)) * 0.6));

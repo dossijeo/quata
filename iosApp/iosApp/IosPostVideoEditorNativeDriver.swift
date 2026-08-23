@@ -909,6 +909,7 @@ private final class IosPostVideoEditorExportOperation {
         let foregroundRect = foregroundContentRect(outputSize: renderSize, sourceDisplaySize: sourceDisplaySize)
         let shouldBlurBackground = request.hasBackgroundCrop
         let selectedCaptionStyle = captionStyle?.isEmpty == false ? captionStyle! : "Karaoke"
+        let sourceTransform = inputIsPrecomposited ? CGAffineTransform.identity : videoTrack.preferredTransform
 
         do {
             try? FileManager.default.removeItem(at: outputUrl)
@@ -1178,7 +1179,8 @@ private final class IosPostVideoEditorExportOperation {
                                 captionStyle: selectedCaptionStyle,
                                 captionDocument: captionDocument,
                                 timeMs: timeMs,
-                                inputIsPrecomposited: inputIsPrecomposited
+                                inputIsPrecomposited: inputIsPrecomposited,
+                                sourceTransform: sourceTransform
                             )
                             ciContext.render(
                                 rendered,
@@ -1369,9 +1371,10 @@ private final class IosPostVideoEditorExportOperation {
         captionStyle: String,
         captionDocument: CaptionDocumentWire?,
         timeMs: Int64,
-        inputIsPrecomposited: Bool
+        inputIsPrecomposited: Bool,
+        sourceTransform: CGAffineTransform
     ) -> CIImage {
-        let source = CIImage(cvPixelBuffer: sourceBuffer)
+        let source = CIImage(cvPixelBuffer: sourceBuffer).transformed(by: sourceTransform)
         return renderVisualEffectsImage(
             sourceImage: source,
             outputSize: outputSize,
