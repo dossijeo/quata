@@ -24,6 +24,7 @@ test("shared action rail exposes stable comments anchors for Feed and Official",
 });
 
 test("Feed and Official comments use the common emoji picker and common comment input tags", () => {
+  const floatingPanel = source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataFloatingPanelContent.kt");
   const feed = source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedScreenHost.kt");
   const feedEvents = source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedUiEvent.kt");
   const feedViewModel = source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedViewModel.kt");
@@ -51,6 +52,8 @@ test("Feed and Official comments use the common emoji picker and common comment 
   assert.match(officialViewModel, /exactLoadedPosts = exactLoadedPosts\.mapValues/);
   assert.match(feed, /commentsPostId = null[\s\S]*onOpenUserProfile\(profileId\)/);
   assert.match(officialHost, /commentsPost = null[\s\S]*onOpenUserProfile\(profileId\)/);
+  assert.match(floatingPanel, /windowInsetsBottomHeight\(WindowInsets\.ime\)\.background\(template\.colors\.surfaceRaised\)/);
+  assert.match(floatingPanel, /navigationBarsPadding\(\)\.imePadding\(\)/);
 });
 
 test("shared Feed/Official comments fixtures centralize SQL, cleanup and polling", () => {
