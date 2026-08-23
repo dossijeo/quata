@@ -671,24 +671,6 @@ private final class IosPostVideoEditorExportOperation {
                 return
             }
         }
-        if sourceAudioTrack == nil && captionDocument == nil {
-            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_skipped", details: [
-                "reason": "source_audio_missing",
-            ])
-            applyVisualEffects(
-                inputUrl: sourceUrl,
-                outputUrl: finalOutputUrl,
-                captionStyle: request.captionStyle,
-                captionDocument: nil,
-                sourceDisplaySize: displaySize(for: videoTrack),
-                readRange: range,
-                inputIsPrecomposited: false,
-                preferImageGeneratorFrames: false,
-                cleanupInputOnSuccess: false,
-                callback: callback
-            )
-            return
-        }
         let exportPresetName = exportPresetName()
         guard let exportSession = AVAssetExportSession(asset: composition, presetName: exportPresetName) else {
             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("export_session_unavailable")
@@ -727,12 +709,13 @@ private final class IosPostVideoEditorExportOperation {
                     self.applyVisualEffects(
                         inputUrl: outputUrl,
                         outputUrl: finalOutputUrl,
+                        audioSourceUrl: sourceAudioTrack == nil ? self.sourceUrl : outputUrl,
                         captionStyle: self.request.captionStyle,
                         captionDocument: captionDocument,
                         sourceDisplaySize: self.displaySize(for: videoTrack),
                         readRange: nil,
                         inputIsPrecomposited: true,
-                        preferImageGeneratorFrames: sourceAudioTrack == nil && captionDocument == nil,
+                        preferImageGeneratorFrames: false,
                         cleanupInputOnSuccess: true,
                         callback: callback
                     )
@@ -882,6 +865,7 @@ private final class IosPostVideoEditorExportOperation {
     private func applyVisualEffects(
         inputUrl: URL,
         outputUrl: URL,
+        audioSourceUrl: URL,
         captionStyle: String?,
         captionDocument: CaptionDocumentWire?,
         sourceDisplaySize: CGSize,
@@ -923,6 +907,7 @@ private final class IosPostVideoEditorExportOperation {
                 videoTrack: videoTrack,
                 outputUrl: outputUrl,
                 inputUrl: inputUrl,
+                audioSourceUrl: audioSourceUrl,
                 renderSize: renderSize,
                 foregroundRect: foregroundRect,
                 shouldBlurBackground: shouldBlurBackground,
@@ -1074,7 +1059,7 @@ private final class IosPostVideoEditorExportOperation {
                     stateLock.unlock()
                     return value
                 }
-                func finishVisualEffects() {
+                let finishVisualEffects: () -> Void = {
                     guard markTerminated() else { return }
                     watchdog.cancel()
                     self.visualEffectsWatchdog = nil
@@ -1099,7 +1084,7 @@ private final class IosPostVideoEditorExportOperation {
                                 }
                                 self.finishVisualEffectsSuccess(
                                     videoOutputUrl: outputUrl,
-                                    audioSourceUrl: inputUrl,
+                                    audioSourceUrl: audioSourceUrl,
                                     cleanupAudioSource: cleanupInputOnSuccess,
                                     callback: callback
                                 )
@@ -1116,7 +1101,7 @@ private final class IosPostVideoEditorExportOperation {
                         }
                     }
                 }
-                func failVisualEffects(reason: String) {
+                let failVisualEffects: (String) -> Void = { reason in
                     guard markTerminated() else { return }
                     watchdog.cancel()
                     reader.cancelReading()
@@ -1143,7 +1128,7 @@ private final class IosPostVideoEditorExportOperation {
                     let shouldFail = !didRequestFinish && elapsed > stallLimit
                     stateLock.unlock()
                     if shouldFail {
-                        failVisualEffects(reason: "ios_post_video_editor_visual_effects_progress_stalled")
+                        failVisualEffects("ios_post_video_editor_visual_effects_progress_stalled")
                     }
                 }
                 watchdog.resume()
@@ -1151,7 +1136,7 @@ private final class IosPostVideoEditorExportOperation {
                     guard let self, let writerInput else { return }
                     while writerInput.isReadyForMoreMediaData && !isTerminated() {
                         if self.didCancel {
-                            failVisualEffects(reason: "ios_post_video_editor_export_cancelled")
+                            failVisualEffects("ios_post_video_editor_export_cancelled")
                             return
                         }
                         if frameSnapshot() >= maxFrameCount || reader.status == .completed {
@@ -1161,7 +1146,7 @@ private final class IosPostVideoEditorExportOperation {
                         if reader.status == .failed || reader.status == .cancelled ||
                             writer.status == .failed || writer.status == .cancelled {
                             let reason = reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_failed"
-                            failVisualEffects(reason: reason)
+                            failVisualEffects(reason)
                             return
                         }
                         markFrameWorkStarted()
@@ -1189,13 +1174,13 @@ private final class IosPostVideoEditorExportOperation {
                         }
                         guard let sourceBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
                               let pool = adaptor.pixelBufferPool else {
-                            failVisualEffects(reason: "ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
+                            failVisualEffects("ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
                             return
                         }
                         var outputBuffer: CVPixelBuffer?
                         guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &outputBuffer) == kCVReturnSuccess,
                               let destinationBuffer = outputBuffer else {
-                            failVisualEffects(reason: "ios_post_video_editor_visual_effects_output_buffer_unavailable")
+                            failVisualEffects("ios_post_video_editor_visual_effects_output_buffer_unavailable")
                             return
                         }
                         let appended = autoreleasepool {
@@ -1222,7 +1207,7 @@ private final class IosPostVideoEditorExportOperation {
                             return
                         }
                         if !appended {
-                            failVisualEffects(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_append_failed")
+                            failVisualEffects(writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_append_failed")
                             return
                         }
                         markProgress()
@@ -1252,6 +1237,7 @@ private final class IosPostVideoEditorExportOperation {
         videoTrack: AVAssetTrack,
         outputUrl: URL,
         inputUrl: URL,
+        audioSourceUrl: URL,
         renderSize: CGSize,
         foregroundRect: CGRect,
         shouldBlurBackground: Bool,
@@ -1343,7 +1329,7 @@ private final class IosPostVideoEditorExportOperation {
                             }
                             self.finishVisualEffectsSuccess(
                                 videoOutputUrl: outputUrl,
-                                audioSourceUrl: inputUrl,
+                                audioSourceUrl: audioSourceUrl,
                                 cleanupAudioSource: cleanupInputOnSuccess,
                                 callback: callback
                             )

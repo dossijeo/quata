@@ -1008,7 +1008,10 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /markFrameWorkStarted\(\)\s+guard let sampleBuffer = readerOutput\.copyNextSampleBuffer\(\)/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /AVAssetReaderVideoCompositionOutput/);
   assert.match(iosPostVideoEditorNativeDriver, /let sourceTransform = inputIsPrecomposited \? CGAffineTransform\.identity : videoTrack\.preferredTransform/);
-  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /sourceAudioTrack == nil\s*\{/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /sourceAudioTrack == nil && captionDocument == nil/);
+  assert.match(iosPostVideoEditorNativeDriver, /audioSourceUrl: sourceAudioTrack == nil \? self\.sourceUrl : outputUrl/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /makeSilentAudioFile/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /export_silent_audio_inserted/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /useRawTrackOutput/);
   assert.match(iosPostVideoEditorNativeDriver, /track\.preferredTransform/);
   assert.match(iosPostVideoEditorNativeDriver, /CIImage\(cvPixelBuffer: sourceBuffer\)\.transformed\(by: sourceTransform\)/);
@@ -1029,7 +1032,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /requestMediaDataWhenReady/);
   assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_visual_effects_progress_stalled/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /Thread\.sleep/);
-  assert.match(iosPostVideoEditorNativeDriver, /preferImageGeneratorFrames: sourceAudioTrack == nil && captionDocument == nil/);
+  assert.match(iosPostVideoEditorNativeDriver, /preferImageGeneratorFrames: false/);
   assert.match(iosPostVideoEditorNativeDriver, /applyVisualEffectsWithImageGenerator/);
   assert.match(iosPostVideoEditorNativeDriver, /visual_effects_image_generator_start/);
   assert.match(iosPostVideoEditorNativeDriver, /adjustedPresentationTime/);
