@@ -378,15 +378,49 @@ function verifyCaptionDifferential(attempts, platformLabel) {
     const positive = attempt.physicalExport?.captionPixelProbe;
     if (!positive) throw new Error(`${platformLabel}_video_editor_caption_positive_probe_missing:${attempt.label}`);
     const negative = measureCaptionPixels(negativePath, positive.seekSecond);
+    const differential = measureCaptionDifferential(attempt.physicalExport.path, negativePath, positive.seekSecond);
     const brightCaptionDelta = positive.brightFraction >= negative.brightFraction + 0.03 &&
       positive.brightFraction >= negative.brightFraction * 2;
     const darkCaptionBoxDelta = positive.darkFraction >= negative.darkFraction + 0.15 &&
       positive.darkFraction >= negative.darkFraction * 2;
-    if (!(brightCaptionDelta || darkCaptionBoxDelta)) {
-      throw new Error(`${platformLabel}_video_editor_caption_differential_missing:${attempt.label}:${positive.brightFraction.toFixed(4)}:${negative.brightFraction.toFixed(4)}:${positive.darkFraction.toFixed(4)}:${negative.darkFraction.toFixed(4)}`);
+    const physicalCaptionDelta = differential.avgRgbDelta >= 18 && differential.changedFraction >= 0.06;
+    if (!(brightCaptionDelta || darkCaptionBoxDelta || physicalCaptionDelta)) {
+      throw new Error(`${platformLabel}_video_editor_caption_differential_missing:${attempt.label}:${positive.brightFraction.toFixed(4)}:${negative.brightFraction.toFixed(4)}:${positive.darkFraction.toFixed(4)}:${negative.darkFraction.toFixed(4)}:${differential.avgRgbDelta.toFixed(2)}:${differential.changedFraction.toFixed(4)}`);
     }
     attempt.physicalExport.captionNegativeControlProbe = negative;
+    attempt.physicalExport.captionDifferentialProbe = differential;
   }
+}
+
+function measureCaptionDifferential(positivePath, negativePath, seekSecond) {
+  const width = 180;
+  const height = 80;
+  const read = (path) => execFileSync("ffmpeg", [
+    "-v", "error",
+    "-ss", String(seekSecond),
+    "-i", path,
+    "-vf", `crop=iw*0.84:ih*0.12:iw*0.08:ih*0.70,scale=${width}:${height}`,
+    "-frames:v", "1",
+    "-f", "rawvideo",
+    "-pix_fmt", "rgba",
+    "pipe:1",
+  ]);
+  const positive = read(positivePath);
+  const negative = read(negativePath);
+  if (positive.length !== width * height * 4 || negative.length !== positive.length) {
+    throw new Error(`ios_video_editor_caption_differential_unexpected_size:${positive.length}:${negative.length}`);
+  }
+  let totalRgbDelta = 0;
+  let changed = 0;
+  for (let offset = 0; offset < positive.length; offset += 4) {
+    const delta = Math.abs(positive[offset] - negative[offset]) +
+      Math.abs(positive[offset + 1] - negative[offset + 1]) +
+      Math.abs(positive[offset + 2] - negative[offset + 2]);
+    totalRgbDelta += delta;
+    if (delta > 50) changed += 1;
+  }
+  const total = width * height;
+  return { width, height, seekSecond, avgRgbDelta: totalRgbDelta / total, changedFraction: changed / total };
 }
 
 function probeBackgroundBlurPixels(outputPath) {
