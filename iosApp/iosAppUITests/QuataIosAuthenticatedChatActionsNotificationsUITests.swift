@@ -1247,7 +1247,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
         XCTAssertTrue(emojiPanel.waitForExistence(timeout: 10), "\(context) must show the shared emoji panel.")
         verifyCommunityEmojiPanelSections(context: context, screenshotPrefix: beforeScreenshot + "-panel", in: app)
-        tapTaggedButton("community.emoji.cell.frequent.0", in: app, context: "\(context) first frequent emoji")
+        tapEmojiCell(
+            "community.emoji.cell.frequent.0",
+            sectionIdentifier: "community.emoji.section.frequent",
+            in: app,
+            context: "\(context) first frequent emoji",
+        )
 
         _ = waitForCommentInput(inputIdentifier, in: app, timeout: 3, required: false)
         typeText(String(comment.dropFirst()), intoCommentInput: inputIdentifier, fallbackFrame: inputFrameBeforeEmoji, in: app)
@@ -1296,6 +1301,21 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(section.isHittable, "\(context) must make \(identifier) hittable before tapping.")
         section.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+    }
+
+    private func tapEmojiCell(_ identifier: String, sectionIdentifier: String, in app: XCUIApplication, context: String) {
+        let cell = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        for _ in 0..<3 {
+            if cell.waitForExistence(timeout: 1), cell.isHittable {
+                cell.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+                return
+            }
+            tapEmojiSection(sectionIdentifier, in: app, context: context)
+        }
+        XCTAssertTrue(cell.exists, "Expected \(identifier) for \(context).")
+        XCTAssertTrue(cell.isHittable, "Expected \(identifier) to be hittable for \(context).")
+        cell.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     private func scrollEmojiSectionIntoView(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
