@@ -554,15 +554,7 @@ private fun PostVideoEditorControls(
                 onZoomChange = onCropZoomChange,
             )
         }
-        PostVideoEditorInfoBar(state, strings, onPlayPause)
-        if (state.isExporting) {
-            OutlinedButton(
-                onClick = onCancelExport,
-                modifier = Modifier.testTag(PostVideoEditorCancelExportTestTag),
-            ) {
-                Text(strings.cancel)
-            }
-        }
+        PostVideoEditorInfoBar(state, strings, onPlayPause, onCancelExport)
     }
 }
 
@@ -782,6 +774,7 @@ private fun PostVideoEditorInfoBar(
     state: PostVideoEditorUiState,
     strings: PostVideoEditorStrings,
     onPlayPause: () -> Unit,
+    onCancelExport: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -821,7 +814,12 @@ private fun PostVideoEditorInfoBar(
         ) {
             TimeReadout(strings.currentTime, state.currentPositionLabel ?: "--:--", Modifier.weight(1f), Alignment.Start)
             if (state.isExporting) {
-                Spacer(Modifier.size(44.dp))
+                OutlinedButton(
+                    onClick = onCancelExport,
+                    modifier = Modifier.testTag(PostVideoEditorCancelExportTestTag),
+                ) {
+                    Text(strings.cancel)
+                }
             } else {
                 Surface(
                     color = MaterialTheme.colorScheme.primary,
