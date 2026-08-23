@@ -1157,6 +1157,7 @@ private final class IosPostVideoEditorExportOperation {
                             failVisualEffects(reason: reason)
                             return
                         }
+                        markFrameWorkStarted()
                         guard let sampleBuffer = readerOutput.copyNextSampleBuffer() else {
                             finishVisualEffects()
                             return
@@ -1173,7 +1174,6 @@ private final class IosPostVideoEditorExportOperation {
                         let timeMs = max(0, Int64((adjustedSeconds * 1_000).rounded()))
                         let currentFrame = nextFrameNumber()
                         nextOutputFrameSeconds = adjustedSeconds + frameStepSeconds
-                        markFrameWorkStarted()
                         if currentFrame == 1 || currentFrame % 15 == 0 {
                             IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_frame", details: [
                                 "frame": "\(currentFrame)",

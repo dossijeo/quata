@@ -1005,7 +1005,7 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetWriterInputPixelBufferAdaptor/);
   assert.match(iosPostVideoEditorNativeDriver, /private var visualEffectsWatchdog: DispatchSourceTimer\?/);
   assert.match(iosPostVideoEditorNativeDriver, /visualEffectsWatchdog = watchdog/);
-  assert.match(iosPostVideoEditorNativeDriver, /markFrameWorkStarted\(\)\s+if currentFrame == 1/);
+  assert.match(iosPostVideoEditorNativeDriver, /markFrameWorkStarted\(\)\s+guard let sampleBuffer = readerOutput\.copyNextSampleBuffer\(\)/);
   assert.match(iosPostVideoEditorNativeDriver, /AVAssetReaderVideoCompositionOutput/);
   assert.match(iosPostVideoEditorNativeDriver, /normalizedSourceVideoComposition/);
   assert.match(iosPostVideoEditorNativeDriver, /maximumSize: renderSize/);
