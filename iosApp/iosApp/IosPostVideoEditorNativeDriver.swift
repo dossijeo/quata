@@ -947,7 +947,7 @@ private final class IosPostVideoEditorExportOperation {
             visualEffectsReader = reader
             visualEffectsWriter = writer
             visualEffectsAdaptor = adaptor
-            let ciContext = Self.visualEffectsContext()
+            let ciContext = CIContext(options: [.cacheIntermediates: false])
             let renderDuration = readRange?.duration ?? asset.duration
             let timeOffset = readRange?.start ?? .zero
             let durationSeconds = max(0.001, CMTimeGetSeconds(renderDuration))
@@ -1330,16 +1330,6 @@ private final class IosPostVideoEditorExportOperation {
             of: audioTrack,
             at: insertAt
         )
-    }
-
-    private static func visualEffectsContext() -> CIContext {
-        let isSimulator = ProcessInfo.processInfo.environment["SIMULATOR_UDID"] != nil ||
-            ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] != nil
-        var options: [CIContextOption: Any] = [.cacheIntermediates: false]
-        if isSimulator {
-            options[.useSoftwareRenderer] = true
-        }
-        return CIContext(options: options)
     }
 
     private func renderVisualEffectsFrame(
