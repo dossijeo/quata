@@ -652,20 +652,6 @@ private final class IosPostVideoEditorExportOperation {
         try? FileManager.default.removeItem(at: outputUrl)
         try? FileManager.default.removeItem(at: finalOutputUrl)
         let sourceAudioTrack = asset.tracks(withMediaType: .audio).first
-        if sourceAudioTrack == nil {
-            applyVisualEffects(
-                inputUrl: sourceUrl,
-                outputUrl: finalOutputUrl,
-                captionStyle: request.captionStyle,
-                captionDocument: captionDocument,
-                sourceDisplaySize: displaySize(for: videoTrack),
-                readRange: range,
-                inputIsPrecomposited: false,
-                cleanupInputOnSuccess: false,
-                callback: callback
-            )
-            return
-        }
         if !request.removeAudio, let audioTrack = sourceAudioTrack {
             guard let compositionAudio = composition.addMutableTrack(
                 withMediaType: .audio,
@@ -910,11 +896,7 @@ private final class IosPostVideoEditorExportOperation {
         let foregroundRect = foregroundContentRect(outputSize: renderSize, sourceDisplaySize: sourceDisplaySize)
         let shouldBlurBackground = request.hasBackgroundCrop
         let selectedCaptionStyle = captionStyle?.isEmpty == false ? captionStyle! : "Karaoke"
-        let sourceHasAudio = !asset.tracks(withMediaType: .audio).isEmpty
-        let useRawTrackOutput = !inputIsPrecomposited && !sourceHasAudio
-        let sourceTransform = useRawTrackOutput
-            ? normalizedSourceTransform(for: videoTrack, maximumSize: renderSize)
-            : CGAffineTransform.identity
+        let sourceTransform = CGAffineTransform.identity
 
         do {
             try? FileManager.default.removeItem(at: outputUrl)
@@ -923,7 +905,7 @@ private final class IosPostVideoEditorExportOperation {
                 reader.timeRange = readRange
             }
             let readerOutput: AVAssetReaderOutput
-            if inputIsPrecomposited || useRawTrackOutput {
+            if inputIsPrecomposited {
                 readerOutput = AVAssetReaderTrackOutput(
                     track: videoTrack,
                     outputSettings: [
@@ -1279,27 +1261,6 @@ private final class IosPostVideoEditorExportOperation {
         composition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(max(1, frameRate)))
         composition.instructions = [instruction]
         return composition
-    }
-
-    private func normalizedSourceTransform(
-        for track: AVAssetTrack,
-        maximumSize: CGSize
-    ) -> CGAffineTransform {
-        let naturalRect = CGRect(origin: .zero, size: track.naturalSize)
-        let preferredTransform = track.preferredTransform
-        let transformedRect = naturalRect.applying(preferredTransform)
-        let displayWidth = max(2, abs(transformedRect.width))
-        let displayHeight = max(2, abs(transformedRect.height))
-        let scale = min(
-            1,
-            max(2, maximumSize.width) / displayWidth,
-            max(2, maximumSize.height) / displayHeight
-        )
-        return preferredTransform.concatenating(
-            CGAffineTransform(translationX: -transformedRect.minX, y: -transformedRect.minY)
-        ).concatenating(
-            CGAffineTransform(scaleX: scale, y: scale)
-        )
     }
 
     private func finishVisualEffectsSuccess(
