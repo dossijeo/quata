@@ -36,6 +36,7 @@ assert.match(panel, /CommunityEmojiPanelEmptyTestTag/);
 assert.match(catalog, /val empty: String = "No hay emojis disponibles\."/);
 assert.match(panel, /emptyMessage: String = CommunityEmojiLabels\(\)\.empty/);
 assert.match(androidPanel, /empty = stringResource\(R\.string\.emoji_empty\)/);
+assert.match(androidPanel, /emptyMessage = stringResource\(R\.string\.emoji_empty\)/);
 assert.doesNotMatch(panel, /if \(sections\.isEmpty\(\)\) return/);
 assert.match(panel, /import androidx\.compose\.ui\.semantics\.contentDescription/);
 assert.match(panel, /import androidx\.compose\.ui\.semantics\.selected/);

@@ -33,5 +33,6 @@ fun CommunityEmojiPanel(
         modifier = modifier,
         initialSectionKey = initialSectionKey,
         gridMaxHeight = gridMaxHeight,
+        emptyMessage = stringResource(R.string.emoji_empty),
     )
 }
