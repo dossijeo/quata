@@ -1012,9 +1012,12 @@ test("post video editor runners exercise editor anchors without backend mutation
   assert.match(iosPostVideoEditorNativeDriver, /VideoLayerScaleMode/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /video_only_frame_generator_writer_selected/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /applyVideoOnlyGeneratorVisualEffects/);
-  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /AVAssetReader/);
-  assert.match(iosPostVideoEditorNativeDriver, /AVAssetImageGenerator/);
-  assert.match(iosPostVideoEditorNativeDriver, /copyCGImage\(at: presentationTime/);
+  assert.match(iosPostVideoEditorNativeDriver, /AVAssetReader/);
+  assert.match(iosPostVideoEditorNativeDriver, /reader\.timeRange = readRange/);
+  assert.match(iosPostVideoEditorNativeDriver, /requestMediaDataWhenReady/);
+  assert.match(iosPostVideoEditorNativeDriver, /ios_post_video_editor_visual_effects_progress_stalled/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /Thread\.sleep/);
+  assert.doesNotMatch(iosPostVideoEditorNativeDriver, /copyCGImage\(at: presentationTime/);
   assert.match(iosPostVideoEditorNativeDriver, /adjustedPresentationTime/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /direct_video_only_writer_selected/);
   assert.doesNotMatch(iosPostVideoEditorNativeDriver, /applyDirectVideoOnlyVisualEffects/);

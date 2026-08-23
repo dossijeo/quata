@@ -570,6 +570,7 @@ private final class IosPostVideoEditorExportOperation {
     private let onFinished: () -> Void
     private var exportSession: AVAssetExportSession?
     private var captionExportSession: AVAssetExportSession?
+    private var visualEffectsReader: AVAssetReader?
     private var visualEffectsWriter: AVAssetWriter?
     private var visualEffectsAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var progressTimer: Timer?
@@ -732,6 +733,7 @@ private final class IosPostVideoEditorExportOperation {
         didCancel = true
         exportSession?.cancelExport()
         captionExportSession?.cancelExport()
+        visualEffectsReader?.cancelReading()
         visualEffectsWriter?.cancelWriting()
         visualEffectsAdaptor = nil
         finishFailure(reason: "ios_post_video_editor_export_cancelled")
@@ -892,11 +894,23 @@ private final class IosPostVideoEditorExportOperation {
 
         do {
             try? FileManager.default.removeItem(at: outputUrl)
-            let generator = AVAssetImageGenerator(asset: asset)
-            generator.appliesPreferredTrackTransform = true
-            generator.maximumSize = renderSize
-            generator.requestedTimeToleranceBefore = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
-            generator.requestedTimeToleranceAfter = CMTime(value: 1, timescale: CMTimeScale(max(1, request.outputMaxFrameRate)))
+            let reader = try AVAssetReader(asset: asset)
+            if let readRange {
+                reader.timeRange = readRange
+            }
+            let readerOutput = AVAssetReaderTrackOutput(
+                track: videoTrack,
+                outputSettings: [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                    kCVPixelBufferIOSurfacePropertiesKey as String: [:],
+                ]
+            )
+            readerOutput.alwaysCopiesSampleData = false
+            guard reader.canAdd(readerOutput) else {
+                finishFailure(reason: "ios_post_video_editor_visual_effects_reader_output_unavailable")
+                return
+            }
+            reader.add(readerOutput)
 
             let writer = try AVAssetWriter(outputURL: outputUrl, fileType: .mp4)
             let writerInput = AVAssetWriterInput(
@@ -930,6 +944,7 @@ private final class IosPostVideoEditorExportOperation {
                     kCVPixelBufferIOSurfacePropertiesKey as String: [:],
                 ]
             )
+            visualEffectsReader = reader
             visualEffectsWriter = writer
             visualEffectsAdaptor = adaptor
             let ciContext = CIContext(options: [.cacheIntermediates: false])
@@ -939,12 +954,13 @@ private final class IosPostVideoEditorExportOperation {
             let outputFrameRate = max(1, request.outputMaxFrameRate)
             let maxFrameCount = max(
                 1,
-                Int(floor(durationSeconds * Double(outputFrameRate))) + 1
+                Int(ceil(durationSeconds * Double(outputFrameRate))) + 6
             )
             let frameStepSeconds = 1.0 / Double(outputFrameRate)
+            let frameStepToleranceSeconds = frameStepSeconds * 0.25
             var nextOutputFrameSeconds = 0.0
-            guard writer.startWriting() else {
-                finishFailure(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_start_failed")
+            guard reader.startReading(), writer.startWriting() else {
+                finishFailure(reason: reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_start_failed")
                 return
             }
             writer.startSession(atSourceTime: .zero)
@@ -954,11 +970,13 @@ private final class IosPostVideoEditorExportOperation {
             let queue = DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects")
             var frameCount = 0
             var didRequestFinish = false
-            var writerBackpressureStartedAt: Date?
-            let writerBackpressureLimitSeconds = 5.0
+            var lastProgressAt = Date()
+            let progressStallLimitSeconds = 5.0
+            let watchdog = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "com.quata.ios.post-video-editor.visual-effects.watchdog"))
             queue.async { [weak self, weak writerInput] in
                 guard let self, let writerInput else { return }
                 guard let adaptor = self.visualEffectsAdaptor else {
+                    reader.cancelReading()
                     writer.cancelWriting()
                     DispatchQueue.main.async {
                         IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
@@ -972,9 +990,11 @@ private final class IosPostVideoEditorExportOperation {
                 func finishVisualEffects() {
                     guard !didRequestFinish else { return }
                     didRequestFinish = true
+                    watchdog.cancel()
                     writerInput.markAsFinished()
                     writer.finishWriting {
                         DispatchQueue.main.async {
+                            self.visualEffectsReader = nil
                             self.visualEffectsWriter = nil
                             self.visualEffectsAdaptor = nil
                             if self.didCancel {
@@ -996,10 +1016,11 @@ private final class IosPostVideoEditorExportOperation {
                                     callback: callback
                                 )
                             } else {
-                                let reason = writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_failed"
+                                let reason = reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_failed"
                                 IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
                                     "reason": reason,
                                     "frames": "\(frameCount)",
+                                    "readerStatus": "\(reader.status.rawValue)",
                                     "writerStatus": "\(writer.status.rawValue)",
                                 ])
                                 self.finishFailure(reason: reason)
@@ -1007,128 +1028,106 @@ private final class IosPostVideoEditorExportOperation {
                         }
                     }
                 }
-                while !didRequestFinish {
-                    if !writerInput.isReadyForMoreMediaData {
-                        if writerBackpressureStartedAt == nil {
-                            writerBackpressureStartedAt = Date()
-                        } else if let startedAt = writerBackpressureStartedAt,
-                                  Date().timeIntervalSince(startedAt) > writerBackpressureLimitSeconds {
-                            let reason = "ios_post_video_editor_visual_effects_writer_backpressure_timeout"
-                            writer.cancelWriting()
-                            DispatchQueue.main.async {
-                                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
-                                    "reason": reason,
-                                    "frames": "\(frameCount)",
-                                    "writerStatus": "\(writer.status.rawValue)",
-                                ])
-                                self.finishFailure(reason: reason)
-                            }
-                            return
-                        }
+                func failVisualEffects(reason: String) {
+                    guard !didRequestFinish else { return }
+                    didRequestFinish = true
+                    watchdog.cancel()
+                    reader.cancelReading()
+                    writer.cancelWriting()
+                    DispatchQueue.main.async {
+                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
+                            "reason": reason,
+                            "frames": "\(frameCount)",
+                            "readerStatus": "\(reader.status.rawValue)",
+                            "writerStatus": "\(writer.status.rawValue)",
+                        ])
+                        self.finishFailure(reason: reason)
+                    }
+                }
+                watchdog.schedule(deadline: .now() + progressStallLimitSeconds, repeating: 1.0)
+                watchdog.setEventHandler { [weak self] in
+                    guard self != nil, !didRequestFinish else { return }
+                    if Date().timeIntervalSince(lastProgressAt) > progressStallLimitSeconds {
+                        failVisualEffects(reason: "ios_post_video_editor_visual_effects_progress_stalled")
+                    }
+                }
+                watchdog.resume()
+                writerInput.requestMediaDataWhenReady(on: queue) { [weak self, weak writerInput] in
+                    guard let self, let writerInput else { return }
+                    while writerInput.isReadyForMoreMediaData && !didRequestFinish {
                         if self.didCancel {
-                            writer.cancelWriting()
+                            failVisualEffects(reason: "ios_post_video_editor_export_cancelled")
                             return
                         }
-                        if frameCount >= maxFrameCount {
+                        if frameCount >= maxFrameCount || reader.status == .completed {
                             finishVisualEffects()
                             return
                         }
-                        if writer.status == .failed || writer.status == .cancelled {
-                            let reason = writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_failed"
-                            writer.cancelWriting()
-                            DispatchQueue.main.async {
-                                IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
-                                    "reason": reason,
-                                    "frames": "\(frameCount)",
-                                    "writerStatus": "\(writer.status.rawValue)",
-                                ])
-                                self.finishFailure(reason: reason)
-                            }
+                        if reader.status == .failed || reader.status == .cancelled ||
+                            writer.status == .failed || writer.status == .cancelled {
+                            let reason = reader.error?.localizedDescription ?? writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_failed"
+                            failVisualEffects(reason: reason)
                             return
                         }
-                        Thread.sleep(forTimeInterval: 0.01)
-                        continue
-                    }
-                    writerBackpressureStartedAt = nil
-                    if self.didCancel {
-                        writer.cancelWriting()
-                        return
-                    }
-                    if frameCount >= maxFrameCount {
-                        finishVisualEffects()
-                        return
-                    }
-                    let adjustedSeconds = nextOutputFrameSeconds
-                    let sourceSeconds = min(max(0, adjustedSeconds + CMTimeGetSeconds(timeOffset)), max(0, durationSeconds - 0.001))
-                    let presentationTime = CMTime(seconds: sourceSeconds, preferredTimescale: 600)
-                    let adjustedPresentationTime = CMTime(seconds: adjustedSeconds, preferredTimescale: 600)
-                    let timeMs = max(0, Int64((adjustedSeconds * 1_000).rounded()))
-                    frameCount += 1
-                    nextOutputFrameSeconds = adjustedSeconds + frameStepSeconds
-                    if frameCount == 1 || frameCount % 15 == 0 {
-                        IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_frame", details: [
-                            "frame": "\(frameCount)",
-                            "timeMs": "\(timeMs)",
-                        ])
-                    }
-                    guard let pool = adaptor.pixelBufferPool else {
-                        writer.cancelWriting()
-                        DispatchQueue.main.async {
-                            self.finishFailure(reason: "ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
+                        guard let sampleBuffer = readerOutput.copyNextSampleBuffer() else {
+                            finishVisualEffects()
+                            return
                         }
-                        return
-                    }
-                    var outputBuffer: CVPixelBuffer?
-                    guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &outputBuffer) == kCVReturnSuccess,
-                          let destinationBuffer = outputBuffer else {
-                        writer.cancelWriting()
-                        DispatchQueue.main.async {
-                            self.finishFailure(reason: "ios_post_video_editor_visual_effects_output_buffer_unavailable")
+                        let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+                        let adjustedPresentationTime = CMTimeSubtract(presentationTime, timeOffset)
+                        if CMTimeCompare(adjustedPresentationTime, .zero) < 0 {
+                            continue
                         }
-                        return
-                    }
-                    let sourceImage: CIImage
-                    do {
-                        var actualTime = CMTime.zero
-                        let cgImage = try generator.copyCGImage(at: presentationTime, actualTime: &actualTime)
-                        sourceImage = CIImage(cgImage: cgImage)
-                    } catch {
-                        writer.cancelWriting()
-                        DispatchQueue.main.async {
-                            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("caption_burn_failed", details: [
-                                "reason": error.localizedDescription,
-                                "frames": "\(frameCount)",
+                        let adjustedSeconds = max(0, CMTimeGetSeconds(adjustedPresentationTime))
+                        if adjustedSeconds + frameStepToleranceSeconds < nextOutputFrameSeconds {
+                            continue
+                        }
+                        let timeMs = max(0, Int64((adjustedSeconds * 1_000).rounded()))
+                        frameCount += 1
+                        nextOutputFrameSeconds = adjustedSeconds + frameStepSeconds
+                        lastProgressAt = Date()
+                        if frameCount == 1 || frameCount % 15 == 0 {
+                            IosPostVideoEditorNativeDriverBridge.writeEvidenceEvent("visual_effects_frame", details: [
+                                "frame": "\(frameCount)",
+                                "timeMs": "\(timeMs)",
                             ])
-                            self.finishFailure(reason: error.localizedDescription)
                         }
-                        return
-                    }
-                    let rendered = self.renderVisualEffectsImage(
-                        sourceImage: sourceImage,
-                        outputSize: renderSize,
-                        foregroundRect: foregroundRect,
-                        shouldBlurBackground: shouldBlurBackground,
-                        captionStyle: selectedCaptionStyle,
-                        captionDocument: captionDocument,
-                        timeMs: timeMs
-                    )
-                    ciContext.render(
-                        rendered,
-                        to: destinationBuffer,
-                        bounds: CGRect(origin: .zero, size: renderSize),
-                        colorSpace: CGColorSpaceCreateDeviceRGB()
-                    )
-                    if !adaptor.append(destinationBuffer, withPresentationTime: adjustedPresentationTime) {
-                        writer.cancelWriting()
+                        guard let sourceBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
+                              let pool = adaptor.pixelBufferPool else {
+                            failVisualEffects(reason: "ios_post_video_editor_visual_effects_pixel_buffer_unavailable")
+                            return
+                        }
+                        var outputBuffer: CVPixelBuffer?
+                        guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &outputBuffer) == kCVReturnSuccess,
+                              let destinationBuffer = outputBuffer else {
+                            failVisualEffects(reason: "ios_post_video_editor_visual_effects_output_buffer_unavailable")
+                            return
+                        }
+                        let rendered = self.renderVisualEffectsFrame(
+                            sourceBuffer: sourceBuffer,
+                            outputSize: renderSize,
+                            foregroundRect: foregroundRect,
+                            shouldBlurBackground: shouldBlurBackground,
+                            captionStyle: selectedCaptionStyle,
+                            captionDocument: captionDocument,
+                            timeMs: timeMs
+                        )
+                        ciContext.render(
+                            rendered,
+                            to: destinationBuffer,
+                            bounds: CGRect(origin: .zero, size: renderSize),
+                            colorSpace: CGColorSpaceCreateDeviceRGB()
+                        )
+                        if !adaptor.append(destinationBuffer, withPresentationTime: adjustedPresentationTime) {
+                            failVisualEffects(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_append_failed")
+                            return
+                        }
+                        lastProgressAt = Date()
+                        let progress = 0.72 + Float(min(1, max(0, adjustedSeconds / durationSeconds))) * 0.23
                         DispatchQueue.main.async {
-                            self.finishFailure(reason: writer.error?.localizedDescription ?? "ios_post_video_editor_visual_effects_append_failed")
-                        }
-                        return
-                    }
-                    let progress = 0.72 + Float(min(1, max(0, adjustedSeconds / durationSeconds))) * 0.23
-                    DispatchQueue.main.async {
-                        if !self.didFinish {
-                            callback.onProgress(progress: progress)
+                            if !self.didFinish {
+                                callback.onProgress(progress: progress)
+                            }
                         }
                     }
                 }
