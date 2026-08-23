@@ -1367,7 +1367,7 @@ private final class IosPostVideoEditorExportOperation {
         source = source.cropped(to: outputExtent)
         var image = source
         if shouldBlurBackground {
-            let blurScale: CGFloat = 0.10
+            let blurScale: CGFloat = 0.06
             let downscaledExtent = CGRect(
                 x: 0,
                 y: 0,
@@ -1376,8 +1376,7 @@ private final class IosPostVideoEditorExportOperation {
             )
             let blurred = source
                 .transformed(by: CGAffineTransform(scaleX: blurScale, y: blurScale))
-                .clampedToExtent()
-                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 8])
+                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 2])
                 .cropped(to: downscaledExtent)
                 .transformed(by: CGAffineTransform(scaleX: 1 / blurScale, y: 1 / blurScale))
                 .cropped(to: outputExtent)
