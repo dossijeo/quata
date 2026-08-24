@@ -116,10 +116,10 @@ async function runAttempt(context, backend, session, original) {
     const publicProbe = await probePublicAvatar(uploadedAvatarUrl);
     evidence.afterProfileSave = await screenshot(page, "web-account-avatar-after-profile-save");
     const storagePath = storagePathFromPublicUrl(backend.url, session.userId, uploadedAvatarUrl);
-    await cleanupUploadedAvatar(backend, session, original.avatar_url ?? null, uploadedAvatarUrl);
+    const physicalResidue = await cleanupUploadedAvatar(backend, session, original.avatar_url ?? null, uploadedAvatarUrl);
     const afterCleanup = await fetchProfile(backend, session);
     if ((afterCleanup.avatar_url ?? null) !== (original.avatar_url ?? null)) throw new Error("web_account_avatar_profile_not_restored");
-    report.cleanup = { attempted: true, storageDeleted: true, profileRestored: true, storagePath };
+    report.cleanup = { attempted: true, storageDeleted: true, profileRestored: true, physicalResidue, storagePath };
     const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
     return {
@@ -276,6 +276,7 @@ async function cleanupUploadedAvatar(backend, session, originalAvatarUrl, upload
   await deleteStorageObject(backend, session, path);
   report.cleanup.storageDeleted = true;
   report.cleanup.physicalResidue = await assertStorageObjectAbsent({ storagePath: path });
+  return report.cleanup.physicalResidue;
 }
 
 async function fetchProfile(backend, session) {
