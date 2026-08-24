@@ -120,6 +120,8 @@ test('About evidence runners exercise both shared legal document actions', () =>
 
 test('Account and Settings surfaces expose the shared legal document section', () => {
   assert.match(settingsCommon, /fun SettingsLegalDocumentsSectionContent\(/);
+  assert.match(settingsCommon, /fun SettingsScreenHost\(/);
+  assert.match(settingsCommon, /SettingsLegalDocumentsSectionContent\(/);
   assert.match(settingsCommon, /fun settingsLegalDocumentsStrings\(language: QuataLanguage\)/);
   assert.match(documentViewerStatusContent, /fun quataDocumentViewerStatusStrings\(language: QuataLanguage\)/);
   assert.match(settingsCommon, /QuataLegalDocumentLinksContent\(/);
@@ -141,7 +143,8 @@ test('Account and Settings surfaces expose the shared legal document section', (
   assert.match(webProfile, /documentViewerState = documentViewerOpeningState\(file\)/);
   assert.match(webProfile, /platformServices\.documentOpener\.openWithViewerState\(file\)\.completed/);
   assert.match(webProfile, /QuataDocumentViewerStatusContent\(/);
-  assert.match(webSettings, /SettingsLegalDocumentsSectionContent\(/);
+  assert.match(webSettings, /SettingsScreenHost\(/);
+  assert.match(webSettings, /legalDocuments = settingsLegalDocumentsStrings\(language\)/);
   assert.match(webSettings, /documentViewerState = documentViewerOpeningState\(file\)/);
   assert.match(webSettings, /documentOpener\.openWithViewerState\(file\)\.completed/);
   assert.match(webSettings, /QuataDocumentViewerStatusContent\(/);
@@ -160,8 +163,8 @@ test('Account and Settings surfaces expose the shared legal document section', (
   assert.match(iosProfileBootstrap, /openLegalDocument: \(LegalDocument, DocumentOpenService\) -> Unit/);
   assert.match(iosProfileLegalFixture, /fun QuataIosProfileLegalEvidenceViewController\(/);
   assert.match(iosProfileLegalFixture, /RecordingIosProfileLegalDocumentOpenService/);
-  assert.match(iosSettings, /SettingsLegalDocumentsSectionContent\(/);
-  assert.match(iosSettings, /settingsLegalDocumentsStrings\(dependencies\.language\)/);
+  assert.match(iosSettings, /SettingsScreenHost\(/);
+  assert.match(iosSettings, /legalDocuments = settingsLegalDocumentsStrings\(dependencies\.language\)/);
   assert.match(iosSettings, /iosLegalDocumentFile\(document, dependencies\.language\)/);
   assert.match(iosSettings, /documentViewerState = documentViewerOpeningState\(file\)/);
   assert.match(iosSettings, /opener\.openWithViewerState\(file\)\.completed/);

@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-SETTINGS",
+    "FLOW-LEGAL-DOCUMENTS"
+  ],
+  "productSha": "8bfae37c21a1b3fee1f8aa4b83092be693912319",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "8bfae37c21a1b3fee1f8aa4b83092be693912319",
+      "report": "build-reports/web/settings-legal-parity-web-8bfae37c.json",
+      "screenshots": [
+        "build-reports/web/settings-legal-parity-web-8bfae37c.legal-profile.png",
+        "build-reports/web/settings-legal-parity-web-8bfae37c.legal-settings.png"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_local_fixture"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "8bfae37c21a1b3fee1f8aa4b83092be693912319",
+      "report": "build-reports/android/settings-legal-parity-8bfae37c/account-legal-documents-evidence/android-account-legal-documents-evidence.json",
+      "screenshots": [
+        "build-reports/android/settings-legal-parity-8bfae37c/account-legal-documents-evidence/android-account-legal-documents.png"
+      ],
+      "tests": {
+        "count": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timeSeconds": 13.157
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "local_instrumented_fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "8bfae37c21a1b3fee1f8aa4b83092be693912319",
+      "report": "/Users/gabriel/StudioProjects/quata-auth-recovery-parity-v1/build/reports/ios/settings-legal-parity-profile-legal-8bfae37c.xcresult",
+      "simulator": {
+        "name": "Quata-Raster-iOS-26-ChatCandidate",
+        "udid": "48950F56-C309-4AA7-921F-D76C6042AC2C",
+        "runtime": "iOS 26.5"
+      },
+      "tests": {
+        "count": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timeSeconds": 22.964
+      },
+      "cleanup": {
+        "verified": true,
+        "mode": "local_fixture"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/settings-common-parity-contract.test.mjs scripts/legal-documents-parity-contract.test.mjs scripts/web-profile-appearance-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "./gradlew.bat --no-daemon :feature:settings:compileKotlinWasmJs :web:compileKotlinWasmJs --console=plain",
+    "./gradlew.bat --no-daemon :feature:settings:compileAndroidMain :app:compileDebugKotlin --console=plain",
+    "ssh quata-mac 'cd /Users/gabriel/StudioProjects/quata-auth-recovery-parity-v1 && bash scripts/build-ios-intel-simulator.sh'",
+    "./gradlew.bat --no-daemon :web:wasmJsBrowserDistribution --console=plain",
+    "node scripts/web-authenticated-browser-e2e.mjs --dist web/build/dist/wasmJs/productionExecutable --chrome \"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\" --out build-reports/web/settings-legal-parity-web-8bfae37c.json",
+    "powershell -ExecutionPolicy Bypass -File scripts/run-android-tests-preserve-app.ps1 -DeviceId emulator-5554 -TestClass com.quata.feature.profile.presentation.ProfileLegalDocumentsInstrumentedTest",
+    "ssh quata-mac 'cd /Users/gabriel/StudioProjects/quata-auth-recovery-parity-v1 && xcodebuild test -project iosApp/QuataIos.xcodeproj -scheme QuataIos -destination \"platform=iOS Simulator,id=48950F56-C309-4AA7-921F-D76C6042AC2C\" -derivedDataPath build/ios-intel-simulator-derived-data -resultBundlePath build/reports/ios/settings-legal-parity-profile-legal-8bfae37c.xcresult -only-testing:QuataIosUITests/QuataIosHostUITests/testProfileLegalFixtureRendersSharedAccountLegalLinks'"
+  ],
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "SettingsScreenHost now owns the shared Settings surface for appearance, legal documents, notification status/action slot, account lifecycle and logout; Android, Web/Wasm and iOS only inject native edges.",
+    "Web/Wasm evidence traverses both Profile/Cuenta and Settings routes in the hermetic authenticated browser runner, opens privacy and child-safety documents from local assets, and captures both surfaces.",
+    "Android and iOS evidence exercise the shared SettingsLegalDocumentsSectionContent and verify privacy_es.docx and child_safety_es.docx through native Compose/accessibility anchors.",
+    "This is a focal reduction of SCR-SETTINGS and FLOW-LEGAL-DOCUMENTS. It does not close full FLOW-DOCUMENT-VIEWER for non-legal Feed/Official/Chat attachments, download/share, or document return semantics.",
+    "Product SHA 8bfae37c includes the capability matrix hash refresh for iosApp/iosApp/QuataIosApp.swift; the local preflight now includes capability-matrix-contract because CI fast gates caught that missing local contract."
+  ]
+}
