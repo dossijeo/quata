@@ -24,8 +24,15 @@ const neighborhoodUsers = await readFile(new URL("../feature/neighborhoods/src/c
 
 test("PROF-ENTRY Web evidence is opt-in, semantic-first and reversible", () => {
   assert.match(webRunner, /--profile-entry-only/);
+  assert.match(webRunner, /--community-chat-only/);
   assert.match(webRunner, /prepareProfileEntryFixture/);
   assert.match(webRunner, /verifyProfileEntryWeb/);
+  assert.match(webRunner, /resolveCommunityChatTarget/);
+  assert.match(webRunner, /verifyCommunityChatWeb/);
+  assert.match(webRunner, /community_walls_stats/);
+  assert.match(webRunner, /neighborhood\.chat\.\$\{neighborhoodTagSuffix\(target\.name\)\}/);
+  assert.match(webRunner, /community_chat_flow_anchor_missing/);
+  assert.match(webRunner, /data-quata-shell-route/);
   assert.match(webRunner, /feed\.author\.avatar\.\$\{profile\.profileId\}/);
   assert.match(webRunner, /official\.author\.avatar\.\$\{profile\.profileId\}/);
   assert.match(webRunner, /neighborhood\.members\.\$\{neighborhoodTagSuffix\(profile\.neighborhood\)\}/);
