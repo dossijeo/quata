@@ -3096,7 +3096,7 @@ async function sendReplyFromCommentTag(page, {
   const replyTag = `${prefix}.reply.${commentId}`;
   const nativeReplyButton = await visibleNativeControl(page, [new RegExp(escapeRegExp(replyTag))], 2_000);
   if (nativeReplyButton) {
-    await clickNativeControlPreferDom(page, nativeReplyButton, `${errorPrefix}_anchor_not_clickable:${replyTag}`);
+    await clickNativeControlCenter(page, nativeReplyButton, `${errorPrefix}_anchor_not_clickable:${replyTag}`);
   } else {
     const replyButton = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(replyTag))], 12_000);
     if (!replyButton) throw new Error(`${errorPrefix}_anchor_missing:${replyTag}`);

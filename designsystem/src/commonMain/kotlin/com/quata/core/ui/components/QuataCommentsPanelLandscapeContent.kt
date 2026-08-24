@@ -32,6 +32,8 @@ fun QuataCommentsPanelLandscapeContent(
     modifier: Modifier = Modifier,
     replyTarget: (@Composable () -> Unit)? = null,
     emojiPanel: (@Composable BoxScope.() -> Unit)? = null,
+    errorMessage: String? = null,
+    errorTestTag: String = QuataCommentsPanelErrorTestTag,
 ) {
     Box(modifier = modifier) {
         Column(
@@ -57,6 +59,10 @@ fun QuataCommentsPanelLandscapeContent(
             replyTarget?.let {
                 Spacer(Modifier.height(10.dp))
                 it()
+            }
+            errorMessage?.takeIf(String::isNotBlank)?.let {
+                Spacer(Modifier.height(10.dp))
+                QuataCommentsPanelErrorContent(it, testTag = errorTestTag)
             }
             Spacer(Modifier.height(12.dp))
             input(Modifier.requiredHeightIn(min = 64.dp))

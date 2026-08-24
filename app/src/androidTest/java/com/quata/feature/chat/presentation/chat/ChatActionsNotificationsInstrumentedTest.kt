@@ -574,7 +574,7 @@ class ChatActionsNotificationsInstrumentedTest {
     ) {
         val replyTag = "$prefix.reply.$replyToCommentId"
         waitForTag(replyTag, "reply action $replyTag", 20_000)
-        clickStableTag(replyTag)
+        compose.onNodeWithTag(replyTag, useUnmergedTree = true).performClick()
         waitForTag("$prefix.replyTarget.$replyToCommentId", "reply target banner $replyToCommentId", 10_000)
         compose.onNodeWithTag(emojiTag, useUnmergedTree = true)
             .performTouchInput { click(center) }

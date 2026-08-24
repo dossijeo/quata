@@ -17,10 +17,12 @@ actual fun QuataEmojiCommentTextField(
     trailingIcon: @Composable () -> Unit,
     onFocused: () -> Unit,
     modifier: Modifier,
+    enabled: Boolean,
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
+        enabled = enabled,
         placeholder = placeholder,
         leadingIcon = leadingIcon,
         trailingIcon = trailingIcon,

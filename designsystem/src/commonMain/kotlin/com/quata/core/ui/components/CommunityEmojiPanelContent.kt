@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +64,8 @@ const val CommunityEmojiPanelSectionTestTagPrefix = "community.emoji.section."
 const val CommunityEmojiPanelGridTestTagPrefix = "community.emoji.grid."
 const val CommunityEmojiPanelCellTestTagPrefix = "community.emoji.cell."
 const val CommunityEmojiPanelEmptyTestTag = "community.emoji.empty"
+const val CommunityEmojiPanelErrorTestTag = "community.emoji.error"
+const val CommunityEmojiPanelRetryTestTag = "community.emoji.retry"
 
 fun communityEmojiSectionTestTag(sectionKey: String): String =
     CommunityEmojiPanelSectionTestTagPrefix + sectionKey
@@ -73,6 +76,12 @@ fun communityEmojiGridTestTag(sectionKey: String): String =
 fun communityEmojiCellTestTag(sectionKey: String, index: Int): String =
     "$CommunityEmojiPanelCellTestTagPrefix$sectionKey.$index"
 
+internal fun communityEmojiPanelSelectedSection(
+    sections: List<QuataEmojiSection>,
+    selectedSectionKey: String,
+): QuataEmojiSection? =
+    sections.firstOrNull { it.key == selectedSectionKey } ?: sections.firstOrNull()
+
 @Composable
 fun CommunityEmojiPanelContent(
     sections: List<QuataEmojiSection>,
@@ -81,9 +90,12 @@ fun CommunityEmojiPanelContent(
     initialSectionKey: String = "frequent",
     gridMaxHeight: Dp = 220.dp,
     emptyMessage: String = CommunityEmojiLabels().empty,
+    errorMessage: String? = null,
+    retryLabel: String = CommunityEmojiLabels().retry,
+    onRetry: (() -> Unit)? = null,
 ) {
     val template = quataTheme()
-    if (sections.isEmpty()) {
+    if (errorMessage != null) {
         Surface(
             color = template.colors.surfaceRaised,
             contentColor = template.colors.textPrimary,
@@ -91,8 +103,42 @@ fun CommunityEmojiPanelContent(
             modifier = modifier
                 .fillMaxWidth()
                 .testTag(CommunityEmojiPanelRootTestTag)
-                .semantics { contentDescription = CommunityEmojiPanelRootTestTag }
-                .border(1.dp, template.colors.divider, RoundedCornerShape(20.dp))
+                .semantics { contentDescription = errorMessage }
+                .border(1.dp, template.colors.error, RoundedCornerShape(20.dp))
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    errorMessage,
+                    color = template.colors.error,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .testTag(CommunityEmojiPanelErrorTestTag)
+                        .semantics { contentDescription = errorMessage },
+                )
+                onRetry?.let { retry ->
+                    TextButton(
+                        onClick = retry,
+                        modifier = Modifier
+                            .testTag(CommunityEmojiPanelRetryTestTag)
+                            .semantics { contentDescription = retryLabel },
+                    ) {
+                        Text(retryLabel)
+                    }
+                }
+            }
+        }
+        return
+    }
+    if (sections.isEmpty()) {
+        Surface(
+            color = template.colors.surfaceRaised,
+            contentColor = template.colors.textPrimary,
+            shape = RoundedCornerShape(20.dp),
+                modifier = modifier
+                    .fillMaxWidth()
+                    .testTag(CommunityEmojiPanelRootTestTag)
+                    .semantics { contentDescription = emptyMessage }
+                    .border(1.dp, template.colors.divider, RoundedCornerShape(20.dp))
         ) {
             Text(
                 emptyMessage,
@@ -101,13 +147,13 @@ fun CommunityEmojiPanelContent(
                 modifier = Modifier
                     .padding(16.dp)
                     .testTag(CommunityEmojiPanelEmptyTestTag)
-                    .semantics { contentDescription = CommunityEmojiPanelEmptyTestTag },
+                    .semantics { contentDescription = emptyMessage },
             )
         }
         return
     }
     var selectedSectionKey by remember { mutableStateOf(initialSectionKey) }
-    val selectedSection = sections.firstOrNull { it.key == selectedSectionKey } ?: sections.first()
+    val selectedSection = communityEmojiPanelSelectedSection(sections, selectedSectionKey) ?: return
     Surface(
         color = template.colors.surfaceRaised,
         contentColor = template.colors.textPrimary,
@@ -126,23 +172,36 @@ fun CommunityEmojiPanelContent(
                     .semantics { contentDescription = CommunityEmojiPanelSectionsRowTestTag },
             ) {
                 items(sections) { section ->
+                    val isSelected = section.key == selectedSection.key
                     Surface(
-                        color = if (section.key == selectedSectionKey) template.colors.accent else Color.Transparent,
+                        color = if (isSelected) template.colors.accent else Color.Transparent,
                         shape = RoundedCornerShape(18.dp),
                         modifier = Modifier
                             .testTag(communityEmojiSectionTestTag(section.key))
                             .semantics {
                                 contentDescription = communityEmojiSectionTestTag(section.key)
-                                selected = section.key == selectedSectionKey
-                                stateDescription = if (section.key == selectedSectionKey) "selected" else "not selected"
+                                selected = isSelected
+                                stateDescription = if (isSelected) "selected" else "not selected"
                             }
                             .clickable(role = Role.Button) { selectedSectionKey = section.key }
                     ) {
-                        Text(section.label, color = if (section.key == selectedSectionKey) template.colors.accentContent else template.colors.textSecondary, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                        Text(section.label, color = if (isSelected) template.colors.accentContent else template.colors.textSecondary, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
                     }
                 }
             }
             Spacer(Modifier.height(12.dp))
+            if (selectedSection.emojis.isEmpty()) {
+                Text(
+                    emptyMessage,
+                    color = template.colors.textSecondary,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .testTag(CommunityEmojiPanelEmptyTestTag)
+                        .semantics { contentDescription = emptyMessage },
+                )
+                return@Column
+            }
             // Compose resources resolves only the selected atlas; inactive sections are not decoded.
             val selectedAtlasLayout = communityEmojiAtlas(selectedSection.key)
             val selectedAtlas = imageResource(selectedAtlasLayout.resource)

@@ -23,6 +23,8 @@ fun QuataCommentsPanelPortraitContent(
     modifier: Modifier = Modifier,
     emojiPanel: (@Composable () -> Unit)? = null,
     replyTarget: (@Composable () -> Unit)? = null,
+    errorMessage: String? = null,
+    errorTestTag: String = QuataCommentsPanelErrorTestTag,
 ) {
     Column(
         modifier = modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 48.dp),
@@ -42,6 +44,10 @@ fun QuataCommentsPanelPortraitContent(
         }
         replyTarget?.let {
             it()
+            Spacer(Modifier.height(14.dp))
+        }
+        errorMessage?.takeIf(String::isNotBlank)?.let {
+            QuataCommentsPanelErrorContent(it, testTag = errorTestTag)
             Spacer(Modifier.height(14.dp))
         }
         input(Modifier.requiredHeightIn(min = 82.dp))

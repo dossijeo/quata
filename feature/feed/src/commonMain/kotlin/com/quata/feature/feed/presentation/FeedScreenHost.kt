@@ -31,6 +31,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -68,9 +69,10 @@ import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
+import com.quata.core.ui.components.CommunityEmojiCatalogState
 import com.quata.core.ui.components.CommunityEmojiLabels
 import com.quata.core.ui.components.CommunityEmojiPanelContent
-import com.quata.core.ui.components.communityEmojiSections
+import com.quata.core.ui.components.communityEmojiCatalogState
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
 import com.quata.core.ui.components.trackCommunityEmojiPanelBounds
@@ -168,6 +170,9 @@ data class FeedScreenPlatformSlots(
         onDismiss: () -> Unit,
         content: @Composable (Modifier, Boolean) -> Unit,
     ) -> Unit = { dismiss, content -> QuataStandardFloatingPanelContent(onDismiss = dismiss, content = content) },
+    val communityEmojiCatalog: (CommunityEmojiLabels, (() -> Unit)?) -> CommunityEmojiCatalogState = { labels, onRetry ->
+        communityEmojiCatalogState(labels, onRetry = onRetry)
+    },
 )
 
 /**
@@ -219,6 +224,7 @@ fun FeedScreenHost(
     // Audio is a Feed-wide product preference. Platform decoders consume this state; they do not
     // own one independent mute flag per renderer or per route host.
     var isFeedMuted by rememberSaveable { mutableStateOf(false) }
+    var emojiCatalogRetryToken by rememberSaveable { mutableStateOf(0) }
     var handledFocus by rememberSaveable { mutableStateOf<String?>(null) }
     var retainedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var hasAppliedRetainedPost by remember { mutableStateOf(retainedPostId == null) }
@@ -394,6 +400,15 @@ fun FeedScreenHost(
                 onOpenUserProfile(profileId)
             },
             onAddComment = { viewModel.onEvent(FeedUiEvent.AddComment(post.id, it)) },
+            commentErrorMessage = state.commentErrorsByPostId[post.id],
+            commentErrorsByCommentId = state.commentErrorsByCommentId,
+            confirmedCommentIds = state.confirmedCommentIds,
+            emojiCatalogState = {
+                key(emojiCatalogRetryToken) {
+                    slots.communityEmojiCatalog(strings.emojiLabels) { emojiCatalogRetryToken += 1 }
+                }
+            },
+            onConfirmedCommentConsumed = { viewModel.onEvent(FeedUiEvent.ConfirmedCommentConsumed(it)) },
             onDismiss = { commentsPostId = null },
         )
     }
@@ -447,10 +462,18 @@ private fun FeedCommentsDialog(
     onReportComment: (String) -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onAddComment: (PostComment) -> Unit,
+    commentErrorMessage: String?,
+    commentErrorsByCommentId: Map<String, String>,
+    confirmedCommentIds: Set<String>,
+    emojiCatalogState: @Composable () -> CommunityEmojiCatalogState,
+    onConfirmedCommentConsumed: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
     var replyTo by remember(post.id) { mutableStateOf<PostComment?>(null) }
+    var pendingDraft by remember(post.id) { mutableStateOf<TextFieldValue?>(null) }
+    var pendingReplyTo by remember(post.id) { mutableStateOf<PostComment?>(null) }
+    var pendingCommentId by rememberSaveable(post.id) { mutableStateOf<String?>(null) }
     var isEmojiPickerVisible by rememberSaveable(post.id) { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -476,6 +499,31 @@ private fun FeedCommentsDialog(
     LaunchedEffect(post.id, post.comments.size, shouldScrollToCommentsEnd) {
         if (shouldScrollToCommentsEnd) { delay(260); commentsListState.animateScrollToItem(post.comments.size); shouldScrollToCommentsEnd = false }
     }
+    val pendingCommentErrorMessage = pendingCommentId?.let(commentErrorsByCommentId::get)
+    val visibleCommentErrorMessage = if (pendingCommentId != null) pendingCommentErrorMessage else commentErrorMessage
+    LaunchedEffect(pendingCommentErrorMessage, post.comments, pendingCommentId, confirmedCommentIds) {
+        val pendingId = pendingCommentId ?: return@LaunchedEffect
+        if (pendingCommentErrorMessage != null) {
+            pendingDraft?.let { sentDraft ->
+                draft = sentDraft
+            }
+            pendingCommentId = null
+            pendingDraft = null
+            pendingReplyTo = null
+            return@LaunchedEffect
+        }
+        val confirmed = pendingId in confirmedCommentIds
+        if (post.comments.none { it.id == pendingId } || confirmed) {
+            pendingDraft?.let { sentDraft ->
+                if (draft.text.trim() == sentDraft.text.trim()) draft = TextFieldValue()
+            }
+            if (replyTo?.id == pendingReplyTo?.id) replyTo = null
+            if (confirmed) onConfirmedCommentConsumed(pendingId)
+            pendingCommentId = null
+            pendingDraft = null
+            pendingReplyTo = null
+        }
+    }
     CompositionLocalProvider(LocalQuataTranslatableTextRegistry provides translatorRegistry) {
     slots.standardFloatingPanel(onDismiss) { panelModifier, landscape ->
         if (!landscape) QuataCommentsPanelPortraitContent(
@@ -493,8 +541,10 @@ private fun FeedCommentsDialog(
                         )
                     }
                 },
-                emojiPanel = if (isEmojiPickerVisible) {{ CommunityEmojiPanelContent(communityEmojiSections(strings.emojiLabels), { draft = draft.insertAtSelection(it) }, Modifier.trackCommunityEmojiPanelBounds(emojiDismissState), gridMaxHeight = emojiGridMaxHeight, emptyMessage = strings.emojiLabels.empty) }} else null,
-                input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState), testTag = "feed.comments.emoji", contentDescription = strings.showEmojis) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier.fillMaxWidth(), inputTestTag = "feed.comments.input", sendTestTag = "feed.comments.send") },
+                emojiPanel = if (isEmojiPickerVisible) {{ FeedCommunityEmojiPanel(emojiCatalogState(), strings, emojiGridMaxHeight, { draft = draft.insertAtSelection(it) }, Modifier.trackCommunityEmojiPanelBounds(emojiDismissState)) }} else null,
+                input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, enabled = pendingCommentId == null, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState), testTag = "feed.comments.emoji", contentDescription = strings.showEmojis) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { comment -> pendingDraft = draft; pendingReplyTo = replyTo; pendingCommentId = comment.id; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier.fillMaxWidth(), isSending = pendingCommentId != null, inputTestTag = "feed.comments.input", sendTestTag = "feed.comments.send") },
+                errorMessage = visibleCommentErrorMessage,
+                errorTestTag = "feed.comments.error",
             modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
         ) else QuataCommentsPanelLandscapeContent(
             header = { modifier -> QuataCommentsPanelHeaderContent(strings.commentsTitle, post.comments.size, { actionModifier -> slots.commentsTranslatorTrigger(strings.translatorContentDescription, actionModifier, ::openTranslator, translatorEnabled) }, modifier) },
@@ -512,8 +562,10 @@ private fun FeedCommentsDialog(
                     )
                 }
             },
-            input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState), testTag = "feed.comments.emoji", contentDescription = strings.showEmojis) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { draft = TextFieldValue(); replyTo = null; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier, inputTestTag = "feed.comments.input", sendTestTag = "feed.comments.send") },
-            emojiPanel = if (isEmojiPickerVisible) {{ CommunityEmojiPanelContent(communityEmojiSections(strings.emojiLabels), { draft = draft.insertAtSelection(it) }, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 84.dp, start = 24.dp).fillMaxWidth(0.62f).trackCommunityEmojiPanelBounds(emojiDismissState), gridMaxHeight = emojiGridMaxHeight, emptyMessage = strings.emojiLabels.empty) }} else null,
+            input = { modifier -> QuataCommentInputContent(post.id, draft, replyTo, canParticipate, strings.commentsYou, QuataCommentInputStrings(strings.commentPlaceholder, strings.send), { nowCommentTimestamp() }, { CompactIconButton(onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) }, enabled = pendingCommentId == null, modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState), testTag = "feed.comments.emoji", contentDescription = strings.showEmojis) { CompactIcon(Icons.Filled.InsertEmoticon, strings.showEmojis, tint = Color(0xFFFFC55C)) } }, { draft = it }, onAuthRequired, onAddComment, { comment -> pendingDraft = draft; pendingReplyTo = replyTo; pendingCommentId = comment.id; isEmojiPickerVisible = false; shouldScrollToCommentsEnd = true }, { if (isEmojiPickerVisible) setEmojiPickerVisible(false) }, modifier, isSending = pendingCommentId != null, inputTestTag = "feed.comments.input", sendTestTag = "feed.comments.send") },
+            emojiPanel = if (isEmojiPickerVisible) {{ FeedCommunityEmojiPanel(emojiCatalogState(), strings, emojiGridMaxHeight, { draft = draft.insertAtSelection(it) }, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 84.dp, start = 24.dp).fillMaxWidth(0.62f).trackCommunityEmojiPanelBounds(emojiDismissState)) }} else null,
+            errorMessage = visibleCommentErrorMessage,
+            errorTestTag = "feed.comments.error",
             modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
         )
     }
@@ -528,6 +580,35 @@ private fun FeedCommentsDialog(
             )
         }
     }
+    }
+}
+
+@Composable
+private fun FeedCommunityEmojiPanel(
+    catalogState: CommunityEmojiCatalogState,
+    strings: FeedScreenStrings,
+    gridMaxHeight: androidx.compose.ui.unit.Dp,
+    onEmojiClick: (String) -> Unit,
+    modifier: Modifier,
+) {
+    when (catalogState) {
+        is CommunityEmojiCatalogState.Available -> CommunityEmojiPanelContent(
+            catalogState.sections,
+            onEmojiClick,
+            modifier,
+            gridMaxHeight = gridMaxHeight,
+            emptyMessage = strings.emojiLabels.empty,
+        )
+        is CommunityEmojiCatalogState.Unavailable -> CommunityEmojiPanelContent(
+            emptyList(),
+            onEmojiClick,
+            modifier,
+            gridMaxHeight = gridMaxHeight,
+            emptyMessage = strings.emojiLabels.empty,
+            errorMessage = catalogState.message,
+            retryLabel = strings.retry,
+            onRetry = catalogState.onRetry,
+        )
     }
 }
 

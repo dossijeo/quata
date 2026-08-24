@@ -14,4 +14,5 @@ expect fun QuataEmojiCommentTextField(
     trailingIcon: @Composable () -> Unit,
     onFocused: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 )

@@ -30,9 +30,10 @@ fun QuataCommentInputContent(
     onDraftChange: (TextFieldValue) -> Unit,
     onAuthRequired: () -> Unit,
     onAddComment: (PostComment) -> Unit,
-    onCommentAdded: () -> Unit,
+    onCommentAdded: (PostComment) -> Unit,
     onFocused: () -> Unit,
     modifier: Modifier = Modifier,
+    isSending: Boolean = false,
     inputTestTag: String? = null,
     sendTestTag: String? = null,
 ) {
@@ -43,20 +44,22 @@ fun QuataCommentInputContent(
             placeholder = { Text(strings.placeholder) },
             leadingIcon = leadingAction,
             trailingIcon = {
-                CompactIconButton(enabled = draft.text.isNotBlank(), testTag = sendTestTag, contentDescription = strings.send, onClick = {
+                CompactIconButton(enabled = draft.text.isNotBlank() && !isSending, testTag = sendTestTag, contentDescription = strings.send, onClick = {
                     if (canParticipate) {
                         val now = timestamp()
-                        onAddComment(PostComment(
+                        val comment = PostComment(
                             id = "local_${postId}_$now", authorName = currentUserLabel,
                             message = draft.text.trim(), timestamp = now,
                             replyToAuthorName = replyTarget?.authorName, replyToMessage = replyTarget?.message,
                             replyToCommentId = replyTarget?.id
-                        ))
-                        onCommentAdded()
+                        )
+                        onAddComment(comment)
+                        onCommentAdded(comment)
                     } else onAuthRequired()
                 }) { CompactIcon(Icons.AutoMirrored.Filled.Send, strings.send) }
             },
             onFocused = onFocused,
+            enabled = !isSending,
             modifier = Modifier
                 .weight(1f)
                 .requiredHeightIn(min = 58.dp)

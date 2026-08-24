@@ -12,5 +12,8 @@ data class FeedUiState(
     val hasMoreOlderPosts: Boolean = true,
     val posts: List<Post> = emptyList(),
     val currentUser: User? = null,
-    val error: String? = null
+    val error: String? = null,
+    val commentErrorsByPostId: Map<String, String> = emptyMap(),
+    val commentErrorsByCommentId: Map<String, String> = emptyMap(),
+    val confirmedCommentIds: Set<String> = emptySet(),
 )

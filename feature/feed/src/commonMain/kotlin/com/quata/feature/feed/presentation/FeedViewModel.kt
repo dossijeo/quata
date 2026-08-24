@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 interface FeedStateHolder {
@@ -52,6 +53,9 @@ class FeedViewModel(
             is FeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
             is FeedUiEvent.ReportPost -> updatePostFromRepository { repository.reportPost(event.postId) }
             is FeedUiEvent.AddComment -> addComment(event.postId, event.comment)
+            is FeedUiEvent.ConfirmedCommentConsumed -> _uiState.update { state ->
+                state.copy(confirmedCommentIds = state.confirmedCommentIds - event.commentId)
+            }
             is FeedUiEvent.DeletePost -> deletePost(event.postId)
         }
     }
@@ -60,27 +64,28 @@ class FeedViewModel(
         loadedDetailPostIds.clear()
         loadingDetailPostIds.clear()
         feedStore.reset()
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        _uiState.update { state -> state.copy(isLoading = true, error = null) }
         feedJob?.cancel()
         feedJob = scope.launch {
             repository.observeFeed().collect { result ->
                 result
                     .onSuccess { posts ->
-                        val mergedPosts = feedStore.setRealtime(posts.withLocalPendingComments())
+                        val mergedPosts = feedStore.setRealtime(posts)
+                        val hasMoreOlderPosts = feedStore.hasMoreOlderItems
                         loadedDetailPostIds += posts.map { it.id }
-                        _uiState.value = _uiState.value.copy(
+                        _uiState.update { state -> state.copy(
                             isLoading = false,
-                            posts = mergedPosts,
-                            currentUser = _uiState.value.currentUser,
-                            hasMoreOlderPosts = feedStore.hasMoreOlderItems,
+                            posts = mergedPosts.withLocalPendingCommentsFrom(state.posts),
+                            currentUser = state.currentUser,
+                            hasMoreOlderPosts = hasMoreOlderPosts,
                             error = null
-                        )
+                        ) }
                     }
                     .onFailure { error ->
-                        _uiState.value = _uiState.value.copy(
+                        _uiState.update { state -> state.copy(
                             isLoading = false,
                             error = error.message ?: "Error cargando feed"
-                        )
+                        ) }
                     }
             }
         }
@@ -90,32 +95,33 @@ class FeedViewModel(
         if (refreshJob?.isActive == true) return
         refreshJob = scope.launch {
             val hasPosts = _uiState.value.posts.isNotEmpty()
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { state -> state.copy(
                 isLoading = !hasPosts,
                 isRefreshing = hasPosts,
                 error = null
-            )
+            ) }
             repository.refreshFeed()
                 .onSuccess { posts ->
-                    val mergedPosts = feedStore.replaceInitialPage(posts.withLocalPendingComments())
+                    val mergedPosts = feedStore.replaceInitialPage(posts)
+                    val hasMoreOlderPosts = feedStore.hasMoreOlderItems
                     loadedDetailPostIds.clear()
                     loadingDetailPostIds.clear()
                     loadedDetailPostIds += posts.map { it.id }
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { state -> state.copy(
                         isLoading = false,
                         isRefreshing = false,
                         isLoadingOlder = false,
-                        hasMoreOlderPosts = feedStore.hasMoreOlderItems,
-                        posts = mergedPosts,
+                        hasMoreOlderPosts = hasMoreOlderPosts,
+                        posts = mergedPosts.withLocalPendingCommentsFrom(state.posts),
                         error = null
-                    )
+                    ) }
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { state -> state.copy(
                         isLoading = false,
                         isRefreshing = false,
                         error = error.message ?: "Error cargando feed"
-                    )
+                    ) }
                 }
         }
     }
@@ -126,28 +132,29 @@ class FeedViewModel(
         if (state.posts.isEmpty() || !state.hasMoreOlderPosts) return
         val beforeCreatedAt = feedStore.olderCursor()
         if (beforeCreatedAt == null) {
-            _uiState.value = state.copy(hasMoreOlderPosts = false)
+            _uiState.update { it.copy(hasMoreOlderPosts = false) }
             return
         }
 
         loadOlderJob = scope.launch {
-            _uiState.value = _uiState.value.copy(isLoadingOlder = true, error = null)
+            _uiState.update { state -> state.copy(isLoadingOlder = true, error = null) }
             repository.loadOlderFeedPage(beforeCreatedAt = beforeCreatedAt, limit = FeedPageSize)
                 .onSuccess { posts ->
-                    val mergedPosts = feedStore.appendOlder(posts.withLocalPendingComments())
+                    val mergedPosts = feedStore.appendOlder(posts)
+                    val hasMoreOlderPosts = feedStore.hasMoreOlderItems
                     loadedDetailPostIds += posts.map { it.id }
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { state -> state.copy(
                         isLoadingOlder = false,
-                        hasMoreOlderPosts = feedStore.hasMoreOlderItems,
-                        posts = mergedPosts,
+                        hasMoreOlderPosts = hasMoreOlderPosts,
+                        posts = mergedPosts.withLocalPendingCommentsFrom(state.posts),
                         error = null
-                    )
+                    ) }
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { state -> state.copy(
                         isLoadingOlder = false,
-                        error = error.message ?: _uiState.value.error
-                    )
+                        error = error.message ?: state.error
+                    ) }
                 }
         }
     }
@@ -170,23 +177,24 @@ class FeedViewModel(
             repository.refreshPost(postId)
                 .onSuccess { post ->
                     if (post != null) {
-                        _uiState.value = _uiState.value.copy(
-                            posts = feedStore.prependIfMissing(post),
+                        val feedPosts = feedStore.prependIfMissing(post)
+                        _uiState.update { state -> state.copy(
+                            posts = feedPosts.withLocalPendingCommentsFrom(state.posts),
                             isLoading = false,
                             isRefreshing = false,
                             error = null,
-                        )
+                        ) }
                         loadedDetailPostIds += postId
                     }
                     loadingDetailPostIds -= postId
                 }
                 .onFailure { error ->
                     loadingDetailPostIds -= postId
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { state -> state.copy(
                         isLoading = false,
                         isRefreshing = false,
-                        error = error.message ?: _uiState.value.error,
-                    )
+                        error = error.message ?: state.error,
+                    ) }
                 }
         }
     }
@@ -194,10 +202,10 @@ class FeedViewModel(
     private fun refreshCurrentUser() = scope.launch {
         repository.refreshCurrentUser()
             .onSuccess { user ->
-                _uiState.value = _uiState.value.copy(currentUser = user)
+                _uiState.update { state -> state.copy(currentUser = user) }
             }
             .onFailure { error ->
-                _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+                _uiState.update { state -> state.copy(error = error.message ?: state.error) }
             }
     }
 
@@ -217,20 +225,30 @@ class FeedViewModel(
                 .onFailure { error ->
                     loadingDetailPostIds -= postId
                     if (reportErrors) {
-                        _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+                        _uiState.update { state -> state.copy(error = error.message ?: state.error) }
                     }
                 }
         }
     }
 
     private fun replacePost(updated: Post) {
-        val reconciled = updated.withLocalPendingCommentsFrom(_uiState.value.posts.firstOrNull { it.id == updated.id })
-        _uiState.value = _uiState.value.copy(
-            posts = feedStore.replace(reconciled)
-        )
+        val feedPosts = feedStore.replace(updated).replacePostIfPresent(updated)
+            ?: feedStore.prependIfMissing(updated)
+        _uiState.update { state ->
+            val reconciled = updated.withLocalPendingCommentsFrom(state.posts.firstOrNull { it.id == updated.id })
+            val posts = state.posts.replacePostIfPresent(reconciled)
+                ?: feedPosts.replacePostIfPresent(reconciled)
+                ?: listOf(reconciled) + feedPosts
+            state.copy(posts = posts)
+        }
     }
 
     private fun addComment(postId: String, comment: PostComment) {
+        _uiState.update { state -> state.copy(
+            commentErrorsByPostId = state.commentErrorsByPostId - postId,
+            commentErrorsByCommentId = emptyMap(),
+            confirmedCommentIds = state.confirmedCommentIds - comment.id,
+        ) }
         appendLocalPendingComment(postId, comment)
         updatePostFromRepository(rollbackLocalComment = postId to comment) { repository.addComment(postId, comment) }
     }
@@ -241,14 +259,24 @@ class FeedViewModel(
     ) = scope.launch {
         action()
             .onSuccess { updated ->
+                rollbackLocalComment?.let { (postId, comment) ->
+                    _uiState.update { state -> state.copy(
+                        commentErrorsByPostId = state.commentErrorsByPostId - postId,
+                        commentErrorsByCommentId = state.commentErrorsByCommentId - comment.id,
+                        confirmedCommentIds = (state.confirmedCommentIds + comment.id).toList().takeLast(4).toSet(),
+                    ) }
+                }
                 if (updated != null) {
                     replacePost(updated)
                     loadedDetailPostIds += updated.id
                 }
             }
             .onFailure { error ->
-                rollbackLocalComment?.let { (postId, comment) -> removeLocalPendingComment(postId, comment) }
-                _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+                val message = error.message ?: "Error enviando comentario"
+                rollbackLocalComment?.let { (postId, comment) ->
+                    rollbackLocalPendingCommentFailure(postId, comment, message)
+                }
+                _uiState.update { state -> state.copy(error = message) }
             }
     }
 
@@ -256,31 +284,52 @@ class FeedViewModel(
         val transformed = feedStore.replace(postId) { post ->
             if (post.comments.none { it.id == comment.id }) post.copy(comments = post.comments + comment) else post
         }
-        val posts = transformed.takeIf { feedPosts -> feedPosts.any { it.id == postId } } ?: _uiState.value.posts
-        _uiState.value = _uiState.value.copy(
-            posts = posts.map { post ->
+        _uiState.update { state -> state.copy(
+            posts = (state.posts.takeIf { posts -> posts.any { it.id == postId } } ?: transformed).map { post ->
                 if (post.id == postId && post.comments.none { it.id == comment.id }) {
                     post.copy(comments = post.comments + comment)
                 } else {
                     post
                 }
             }
-        )
+        ) }
     }
 
     private fun removeLocalPendingComment(postId: String, comment: PostComment) {
         if (!comment.isLocalPendingComment()) return
         val transformed = feedStore.replace(postId) { it.withoutLocalPendingComment(comment) }
-        val posts = transformed.takeIf { feedPosts -> feedPosts.any { it.id == postId } } ?: _uiState.value.posts
-        _uiState.value = _uiState.value.copy(
-            posts = posts.map { post ->
+        _uiState.update { state -> state.copy(
+            posts = (state.posts.takeIf { posts -> posts.any { it.id == postId } } ?: transformed).map { post ->
                 if (post.id == postId) post.withoutLocalPendingComment(comment) else post
             }
-        )
+        ) }
     }
 
-    private fun List<Post>.withLocalPendingComments(): List<Post> {
-        val existingById = _uiState.value.posts.associateBy(Post::id)
+    private fun rollbackLocalPendingCommentFailure(postId: String, comment: PostComment, message: String) {
+        if (!comment.isLocalPendingComment()) {
+            _uiState.update { state -> state.copy(
+                commentErrorsByPostId = state.commentErrorsByPostId + (postId to message),
+                commentErrorsByCommentId = (state.commentErrorsByCommentId + (comment.id to message)).takeLastEntries(4),
+                confirmedCommentIds = state.confirmedCommentIds - comment.id,
+            ) }
+            return
+        }
+        val transformed = feedStore.replace(postId) { it.withoutLocalPendingComment(comment) }
+        _uiState.update { state -> state.copy(
+            posts = (state.posts.takeIf { posts -> posts.any { it.id == postId } } ?: transformed).map { post ->
+                if (post.id == postId) post.withoutLocalPendingComment(comment) else post
+            },
+            commentErrorsByPostId = state.commentErrorsByPostId + (postId to message),
+            commentErrorsByCommentId = (state.commentErrorsByCommentId + (comment.id to message)).takeLastEntries(4),
+            confirmedCommentIds = state.confirmedCommentIds - comment.id,
+        ) }
+    }
+
+    private fun <K, V> Map<K, V>.takeLastEntries(limit: Int): Map<K, V> =
+        entries.toList().takeLast(limit).associate { it.toPair() }
+
+    private fun List<Post>.withLocalPendingCommentsFrom(existingPosts: List<Post>): List<Post> {
+        val existingById = existingPosts.associateBy(Post::id)
         return map { post -> post.withLocalPendingCommentsFrom(existingById[post.id]) }
     }
 
@@ -289,12 +338,13 @@ class FeedViewModel(
             .onSuccess {
                 loadedDetailPostIds -= postId
                 loadingDetailPostIds -= postId
-                _uiState.value = _uiState.value.copy(
-                    posts = feedStore.remove(postId)
-                )
+                val feedPosts = feedStore.remove(postId)
+                _uiState.update { state -> state.copy(
+                    posts = feedPosts.withLocalPendingCommentsFrom(state.posts)
+                ) }
             }
             .onFailure { error ->
-                _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+                _uiState.update { state -> state.copy(error = error.message ?: state.error) }
             }
     }
 
@@ -319,6 +369,11 @@ internal fun Post.withoutLocalPendingComment(comment: PostComment): Post {
     val filtered = comments.filterNot { it.id == comment.id && it.isLocalPendingComment() }
     return if (filtered.size == comments.size) this else copy(comments = filtered)
 }
+
+private fun List<Post>.replacePostIfPresent(post: Post): List<Post>? =
+    takeIf { posts -> posts.any { it.id == post.id } }?.map { current ->
+        if (current.id == post.id) post else current
+    }
 
 private fun PostComment.isLocalPendingComment(): Boolean = id.startsWith("local_")
 

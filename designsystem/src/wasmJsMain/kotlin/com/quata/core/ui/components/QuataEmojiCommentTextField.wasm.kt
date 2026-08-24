@@ -41,6 +41,7 @@ actual fun QuataEmojiCommentTextField(
     trailingIcon: @Composable () -> Unit,
     onFocused: () -> Unit,
     modifier: Modifier,
+    enabled: Boolean,
 ) {
     val state = rememberTextFieldState(value.text, value.selection)
     val scrollState = rememberScrollState()
@@ -80,6 +81,7 @@ actual fun QuataEmojiCommentTextField(
             )
             BasicTextField(
                 state = state,
+                enabled = enabled,
                 onKeyboardAction = {},
                 lineLimits = TextFieldLineLimits.SingleLine,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),

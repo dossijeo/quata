@@ -13,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class OfficialFeedViewModel(
@@ -41,13 +42,16 @@ class OfficialFeedViewModel(
         when (event) {
             OfficialFeedUiEvent.Refresh -> refresh()
             OfficialFeedUiEvent.LoadOlderPage -> loadOlderPage()
-            OfficialFeedUiEvent.ClearMessage -> _uiState.value = _uiState.value.copy(
+            OfficialFeedUiEvent.ClearMessage -> _uiState.update { state -> state.copy(
                 error = null,
                 message = null,
                 createdPostId = null
-            )
+            ) }
             is OfficialFeedUiEvent.ToggleLike -> updatePostFromRepository { repository.toggleLike(event.postId) }
             is OfficialFeedUiEvent.AddComment -> addComment(event.postId, event.comment)
+            is OfficialFeedUiEvent.ConfirmedCommentConsumed -> _uiState.update { state ->
+                state.copy(confirmedCommentIds = state.confirmedCommentIds - event.commentId)
+            }
             is OfficialFeedUiEvent.ReportComment -> reportComment(event.commentId)
             is OfficialFeedUiEvent.DeletePost -> deletePost(event.postId)
             is OfficialFeedUiEvent.CreatePost -> createPost(event.draft)
@@ -59,34 +63,35 @@ class OfficialFeedViewModel(
     fun refreshCurrentUser() {
         scope.launch {
             repository.refreshCurrentUser()
-                .onSuccess { user -> _uiState.value = _uiState.value.copy(currentUser = user) }
-                .onFailure { error -> _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error) }
+                .onSuccess { user -> _uiState.update { state -> state.copy(currentUser = user) } }
+                .onFailure { error -> _uiState.update { state -> state.copy(error = error.message ?: state.error) } }
         }
     }
 
     private fun observeFeed() {
         feedStore.reset()
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        _uiState.update { state -> state.copy(isLoading = true, error = null) }
         feedJob?.cancel()
         feedJob = scope.launch {
             repository.observeOfficialFeed().collect { result ->
                 result
                     .onSuccess { posts ->
-                        val mergedPosts = feedStore.setRealtime(posts.withExactLoadedPosts().withLocalPendingComments())
-                        _uiState.value = _uiState.value.copy(
+                        val mergedPosts = feedStore.setRealtime(posts.withExactLoadedPosts())
+                        val hasMoreOlderPosts = feedStore.hasMoreOlderItems
+                        _uiState.update { state -> state.copy(
                             isLoading = false,
                             isRefreshing = false,
-                            posts = mergedPosts,
-                            hasMoreOlderPosts = feedStore.hasMoreOlderItems,
+                            posts = mergedPosts.withLocalPendingCommentsFrom(state.posts),
+                            hasMoreOlderPosts = hasMoreOlderPosts,
                             error = null
-                        )
+                        ) }
                     }
                     .onFailure { error ->
-                        _uiState.value = _uiState.value.copy(
+                        _uiState.update { state -> state.copy(
                             isLoading = false,
                             isRefreshing = false,
-                            error = error.message ?: _uiState.value.error
-                        )
+                            error = error.message ?: state.error
+                        ) }
                     }
             }
         }
@@ -96,29 +101,30 @@ class OfficialFeedViewModel(
         if (refreshJob?.isActive == true) return
         refreshJob = scope.launch {
             val hasPosts = _uiState.value.posts.isNotEmpty()
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { state -> state.copy(
                 isLoading = !hasPosts,
                 isRefreshing = hasPosts,
                 error = null
-            )
+            ) }
             repository.refreshOfficialFeed()
                 .onSuccess { posts ->
-                    val mergedPosts = feedStore.replaceInitialPage(posts.withExactLoadedPosts().withLocalPendingComments())
-                    _uiState.value = _uiState.value.copy(
+                    val mergedPosts = feedStore.replaceInitialPage(posts.withExactLoadedPosts())
+                    val hasMoreOlderPosts = feedStore.hasMoreOlderItems
+                    _uiState.update { state -> state.copy(
                         isLoading = false,
                         isRefreshing = false,
                         isLoadingOlder = false,
-                        hasMoreOlderPosts = feedStore.hasMoreOlderItems,
-                        posts = mergedPosts,
+                        hasMoreOlderPosts = hasMoreOlderPosts,
+                        posts = mergedPosts.withLocalPendingCommentsFrom(state.posts),
                         error = null
-                    )
+                    ) }
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { state -> state.copy(
                         isLoading = false,
                         isRefreshing = false,
-                        error = error.message ?: _uiState.value.error
-                    )
+                        error = error.message ?: state.error
+                    ) }
                 }
         }
     }
@@ -129,26 +135,27 @@ class OfficialFeedViewModel(
         if (state.posts.isEmpty() || !state.hasMoreOlderPosts) return
         val beforePublishedAt = feedStore.olderCursor()
         if (beforePublishedAt == null) {
-            _uiState.value = state.copy(hasMoreOlderPosts = false)
+            _uiState.update { it.copy(hasMoreOlderPosts = false) }
             return
         }
         loadOlderJob = scope.launch {
-            _uiState.value = _uiState.value.copy(isLoadingOlder = true, error = null)
+            _uiState.update { state -> state.copy(isLoadingOlder = true, error = null) }
             repository.loadOlderOfficialFeedPage(beforePublishedAt = beforePublishedAt, limit = OfficialFeedPageSize)
                 .onSuccess { posts ->
-                    val mergedPosts = feedStore.appendOlder(posts.withLocalPendingComments())
-                    _uiState.value = _uiState.value.copy(
+                    val mergedPosts = feedStore.appendOlder(posts)
+                    val hasMoreOlderPosts = feedStore.hasMoreOlderItems
+                    _uiState.update { state -> state.copy(
                         isLoadingOlder = false,
-                        hasMoreOlderPosts = feedStore.hasMoreOlderItems,
-                        posts = mergedPosts,
+                        hasMoreOlderPosts = hasMoreOlderPosts,
+                        posts = mergedPosts.withLocalPendingCommentsFrom(state.posts),
                         error = null
-                    )
+                    ) }
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { state -> state.copy(
                         isLoadingOlder = false,
-                        error = error.message ?: _uiState.value.error
-                    )
+                        error = error.message ?: state.error
+                    ) }
                 }
         }
     }
@@ -163,26 +170,26 @@ class OfficialFeedViewModel(
 
     private suspend fun createPostsInternal(drafts: List<com.quata.feature.official.domain.OfficialPostDraft>) {
         if (_uiState.value.isPublishing) return
-        _uiState.value = _uiState.value.copy(isPublishing = true, error = null)
+        _uiState.update { state -> state.copy(isPublishing = true, error = null) }
         repository.createPosts(drafts)
             .onSuccess { created ->
-                val posts = if (created != null && _uiState.value.posts.none { it.id == created.id }) {
-                    feedStore.prependIfMissing(created)
-                } else {
-                    _uiState.value.posts
-                }
-                _uiState.value = _uiState.value.copy(
+                val feedPosts = created?.let(feedStore::prependIfMissing)
+                _uiState.update { state -> state.copy(
                     isPublishing = false,
-                    posts = posts,
+                    posts = if (created != null && state.posts.none { it.id == created.id }) {
+                        feedPosts.orEmpty().withLocalPendingCommentsFrom(state.posts)
+                    } else {
+                        state.posts
+                    },
                     message = OfficialFeedMessages.PostCreated,
                     createdPostId = created?.id
-                )
+                ) }
             }
             .onFailure { error ->
-                _uiState.value = _uiState.value.copy(
+                _uiState.update { state -> state.copy(
                     isPublishing = false,
-                    error = error.message ?: _uiState.value.error
-                )
+                    error = error.message ?: state.error
+                ) }
             }
     }
 
@@ -190,22 +197,23 @@ class OfficialFeedViewModel(
         repository.deletePost(postId)
             .onSuccess {
                 exactLoadedPosts = exactLoadedPosts - postId
-                _uiState.value = _uiState.value.copy(
-                    posts = feedStore.remove(postId),
+                val feedPosts = feedStore.remove(postId)
+                _uiState.update { state -> state.copy(
+                    posts = feedPosts.withLocalPendingCommentsFrom(state.posts),
                     message = OfficialFeedMessages.PostDeleted,
                     error = null
-                )
+                ) }
             }
             .onFailure { error ->
-                _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+                _uiState.update { state -> state.copy(error = error.message ?: state.error) }
             }
     }
 
     private fun reportComment(commentId: String) = scope.launch {
         repository.reportComment(commentId).onSuccess {
-            _uiState.value = _uiState.value.copy(message = OfficialFeedMessages.CommentReported, error = null)
+            _uiState.update { state -> state.copy(message = OfficialFeedMessages.CommentReported, error = null) }
         }.onFailure {
-            _uiState.value = _uiState.value.copy(message = OfficialFeedMessages.CommentReportFailed)
+            _uiState.update { state -> state.copy(message = OfficialFeedMessages.CommentReportFailed) }
         }
     }
 
@@ -214,17 +222,22 @@ class OfficialFeedViewModel(
         repeat(FocusedPostLoadAttempts) { attempt ->
             repository.getOfficialPost(postId)
                 .onSuccess { post ->
-                    if (post != null && _uiState.value.posts.none { it.id == post.id }) {
+                    if (post != null) {
                         exactLoadedPosts = exactLoadedPosts + (post.id to post)
-                        _uiState.value = _uiState.value.copy(
-                            posts = feedStore.prependIfMissing(post),
+                        val feedPosts = feedStore.prependIfMissing(post)
+                        _uiState.update { state -> state.copy(
+                            posts = if (state.posts.none { it.id == post.id }) {
+                                feedPosts.withLocalPendingCommentsFrom(state.posts)
+                            } else {
+                                state.posts
+                            },
                             error = null
-                        )
+                        ) }
                         return@launch
                     }
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+                    _uiState.update { state -> state.copy(error = error.message ?: state.error) }
                 }
             if (_uiState.value.posts.any { it.id == postId }) return@launch
             if (attempt < FocusedPostLoadAttempts - 1) delay(FocusedPostLoadRetryDelayMillis)
@@ -232,6 +245,11 @@ class OfficialFeedViewModel(
     }
 
     private fun addComment(postId: String, comment: PostComment) {
+        _uiState.update { state -> state.copy(
+            commentErrorsByPostId = state.commentErrorsByPostId - postId,
+            commentErrorsByCommentId = emptyMap(),
+            confirmedCommentIds = state.confirmedCommentIds - comment.id,
+        ) }
         appendLocalPendingComment(postId, comment)
         updatePostFromRepository(rollbackLocalComment = postId to comment) { repository.addComment(postId, comment) }
     }
@@ -242,20 +260,41 @@ class OfficialFeedViewModel(
     ) = scope.launch {
         action()
             .onSuccess { updated ->
-                if (updated != null) replacePost(updated)
+                rollbackLocalComment?.let { (postId, comment) ->
+                    _uiState.update { state -> state.copy(
+                        commentErrorsByPostId = state.commentErrorsByPostId - postId,
+                        commentErrorsByCommentId = state.commentErrorsByCommentId - comment.id,
+                        confirmedCommentIds = (state.confirmedCommentIds + comment.id).toList().takeLast(4).toSet(),
+                    ) }
+                }
+                if (updated != null) {
+                    replacePost(updated)
+                }
             }
             .onFailure { error ->
-                rollbackLocalComment?.let { (postId, comment) -> removeLocalPendingComment(postId, comment) }
-                _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
+                val message = error.message ?: "Error enviando comentario"
+                rollbackLocalComment?.let { (postId, comment) ->
+                    rollbackLocalPendingCommentFailure(postId, comment, message)
+                }
+                _uiState.update { state -> state.copy(error = message) }
             }
     }
 
     private fun replacePost(updated: OfficialPostItem) {
-        val reconciled = updated.withLocalPendingCommentsFrom(_uiState.value.posts.firstOrNull { it.id == updated.id })
-        exactLoadedPosts = if (reconciled.id in exactLoadedPosts) exactLoadedPosts + (reconciled.id to reconciled) else exactLoadedPosts
-        _uiState.value = _uiState.value.copy(
-            posts = feedStore.replace(reconciled)
-        )
+        val feedPosts = feedStore.replace(updated).replacePostIfPresent(updated)
+            ?: feedStore.prependIfMissing(updated)
+        var reconciledForExactCache: OfficialPostItem? = null
+        _uiState.update { state ->
+            val reconciled = updated.withLocalPendingCommentsFrom(state.posts.firstOrNull { it.id == updated.id })
+            reconciledForExactCache = reconciled
+            val posts = state.posts.replacePostIfPresent(reconciled)
+                ?: feedPosts.replacePostIfPresent(reconciled)
+                ?: listOf(reconciled) + feedPosts
+            state.copy(posts = posts)
+        }
+        reconciledForExactCache?.let { reconciled ->
+            exactLoadedPosts = if (reconciled.id in exactLoadedPosts) exactLoadedPosts + (reconciled.id to reconciled) else exactLoadedPosts
+        }
     }
 
     private fun removeLocalPendingComment(postId: String, comment: PostComment) {
@@ -264,13 +303,38 @@ class OfficialFeedViewModel(
             if (post.id == postId) post.withoutLocalPendingComment(comment) else post
         }
         val transformed = feedStore.replace(postId) { it.withoutLocalPendingComment(comment) }
-        val posts = transformed.takeIf { feedPosts -> feedPosts.any { it.id == postId } } ?: _uiState.value.posts
-        _uiState.value = _uiState.value.copy(
-            posts = posts.map { post ->
+        _uiState.update { state -> state.copy(
+            posts = (state.posts.takeIf { posts -> posts.any { it.id == postId } } ?: transformed).map { post ->
                 if (post.id == postId) post.withoutLocalPendingComment(comment) else post
             }
-        )
+        ) }
     }
+
+    private fun rollbackLocalPendingCommentFailure(postId: String, comment: PostComment, message: String) {
+        if (!comment.isLocalPendingComment()) {
+            _uiState.update { state -> state.copy(
+                commentErrorsByPostId = state.commentErrorsByPostId + (postId to message),
+                commentErrorsByCommentId = (state.commentErrorsByCommentId + (comment.id to message)).takeLastEntries(4),
+                confirmedCommentIds = state.confirmedCommentIds - comment.id,
+            ) }
+            return
+        }
+        exactLoadedPosts = exactLoadedPosts.mapValues { (_, post) ->
+            if (post.id == postId) post.withoutLocalPendingComment(comment) else post
+        }
+        val transformed = feedStore.replace(postId) { it.withoutLocalPendingComment(comment) }
+        _uiState.update { state -> state.copy(
+            posts = (state.posts.takeIf { posts -> posts.any { it.id == postId } } ?: transformed).map { post ->
+                if (post.id == postId) post.withoutLocalPendingComment(comment) else post
+            },
+            commentErrorsByPostId = state.commentErrorsByPostId + (postId to message),
+            commentErrorsByCommentId = (state.commentErrorsByCommentId + (comment.id to message)).takeLastEntries(4),
+            confirmedCommentIds = state.confirmedCommentIds - comment.id,
+        ) }
+    }
+
+    private fun <K, V> Map<K, V>.takeLastEntries(limit: Int): Map<K, V> =
+        entries.toList().takeLast(limit).associate { it.toPair() }
 
     private fun List<OfficialPostItem>.withExactLoadedPosts(): List<OfficialPostItem> =
         (this + exactLoadedPosts.values).distinctBy(OfficialPostItem::id)
@@ -296,8 +360,8 @@ class OfficialFeedViewModel(
                 post
             }
         }
-        _uiState.value = _uiState.value.copy(
-            posts = (transformed.takeIf { feedPosts -> feedPosts.any { it.id == postId } } ?: _uiState.value.posts).map { post ->
+        _uiState.update { state -> state.copy(
+            posts = (state.posts.takeIf { posts -> posts.any { it.id == postId } } ?: transformed).map { post ->
                 if (post.id == postId && post.comments.none { it.id == comment.id }) {
                     post.copy(
                         comments = post.comments + comment,
@@ -307,11 +371,11 @@ class OfficialFeedViewModel(
                     post
                 }
             }
-        )
+        ) }
     }
 
-    private fun List<OfficialPostItem>.withLocalPendingComments(): List<OfficialPostItem> {
-        val existingById = _uiState.value.posts.associateBy(OfficialPostItem::id)
+    private fun List<OfficialPostItem>.withLocalPendingCommentsFrom(existingPosts: List<OfficialPostItem>): List<OfficialPostItem> {
+        val existingById = existingPosts.associateBy(OfficialPostItem::id)
         return map { post -> post.withLocalPendingCommentsFrom(existingById[post.id]) }
     }
 
@@ -357,6 +421,11 @@ internal fun OfficialPostItem.withoutLocalPendingComment(comment: PostComment): 
         )
     }
 }
+
+private fun List<OfficialPostItem>.replacePostIfPresent(post: OfficialPostItem): List<OfficialPostItem>? =
+    takeIf { posts -> posts.any { it.id == post.id } }?.map { current ->
+        if (current.id == post.id) post else current
+    }
 
 private fun PostComment.isLocalPendingComment(): Boolean = id.startsWith("local_")
 

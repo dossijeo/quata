@@ -147,7 +147,7 @@ fun QuataCommentsPanel(
                 onAuthRequired = onAuthRequired,
                 onAddComment = onAddComment,
                 onReportComment = onReportComment,
-                onCommentAdded = { shouldScrollToCommentsEnd = true },
+                onCommentAdded = { _ -> shouldScrollToCommentsEnd = true },
                 onTranslatorClick = { view ->
                     translatorModeController.activate(view, QuataTranslatorOverlaySource.Comments)
                 },
@@ -209,7 +209,7 @@ fun QuataCommentsPanel(
                         canParticipate = canParticipate,
                         onAuthRequired = onAuthRequired,
                         onAddComment = onAddComment,
-                        onCommentAdded = {
+                        onCommentAdded = { _ ->
                             shouldScrollToCommentsEnd = true
                             draft = TextFieldValue("")
                             replyTarget = null
@@ -241,7 +241,7 @@ private fun LandscapeQuataCommentsPanel(
     onAuthRequired: () -> Unit,
     onAddComment: (PostComment) -> Unit,
     onReportComment: (PostComment) -> Unit,
-    onCommentAdded: () -> Unit,
+    onCommentAdded: (PostComment) -> Unit,
     onTranslatorClick: (View) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
@@ -309,8 +309,8 @@ private fun LandscapeQuataCommentsPanel(
                 canParticipate = canParticipate,
                 onAuthRequired = onAuthRequired,
                 onAddComment = onAddComment,
-                onCommentAdded = {
-                    onCommentAdded()
+                onCommentAdded = { comment ->
+                    onCommentAdded(comment)
                     onDraftChange(TextFieldValue(""))
                     onReplyTargetChange(null)
                     onEmojiPickerVisibleChange(false)
@@ -365,7 +365,7 @@ private fun QuataCommentInput(
     canParticipate: Boolean,
     onAuthRequired: () -> Unit,
     onAddComment: (PostComment) -> Unit,
-    onCommentAdded: () -> Unit,
+    onCommentAdded: (PostComment) -> Unit,
     currentUserLabel: String,
     modifier: Modifier = Modifier
 ) {
