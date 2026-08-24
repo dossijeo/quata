@@ -3332,6 +3332,11 @@ async function visibleCommunityMembersAction(page, neighborhood, timeout = 8_000
 
 async function resolveCommunityChatTarget(actorSession) {
   const actorKey = normalizeTextForE2e(actorSession?.neighborhood ?? "");
+  const preferredKeys = [
+    process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_COMMUNITY_CHAT_NAME,
+    "La Chana",
+    actorSession?.neighborhood,
+  ].map(normalizeTextForE2e).filter(Boolean);
   return await withPoolerClient(async (client) => {
     const result = await client.query(
       `select id, name, slug, normalized_name
@@ -3346,7 +3351,10 @@ async function resolveCommunityChatTarget(actorSession) {
       keys: [row.name, row.slug, row.normalized_name].map(normalizeTextForE2e).filter(Boolean),
     })).filter((row) => uuid.test(row.id) && row.name);
     if (!rows.length) throw new Error("community_chat_flow_no_active_wall");
-    const matched = actorKey ? rows.find((row) => row.keys.includes(actorKey)) : null;
+    const matched = preferredKeys
+      .map((key) => rows.find((row) => row.keys.includes(key)))
+      .find(Boolean)
+      ?? (actorKey ? rows.find((row) => row.keys.includes(actorKey)) : null);
     const target = matched ?? rows[0];
     return {
       id: target.id,
