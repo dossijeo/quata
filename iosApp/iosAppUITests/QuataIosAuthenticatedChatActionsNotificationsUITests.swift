@@ -1267,6 +1267,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .firstMatch
             .frame
         attachScreenshot(app, name: beforeScreenshot)
+        app.descendants(matching: .any)
+            .matching(identifier: inputIdentifier)
+            .firstMatch
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .tap()
+        XCTAssertTrue(
+            app.keyboards.firstMatch.waitForExistence(timeout: 5),
+            "\(context) must show the native iOS keyboard while the shared comment input is focused.",
+        )
+        attachScreenshot(app, name: beforeScreenshot + "-keyboard")
 
         if let replyIdentifier, let replyTargetIdentifier, let replyComment {
             sendReplyCommentFromTaggedSurface(
