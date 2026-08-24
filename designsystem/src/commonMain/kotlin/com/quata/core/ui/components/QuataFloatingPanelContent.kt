@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -74,6 +75,7 @@ fun QuataFloatingPanelContent(
             platformDecor(false)
             Box(modifier.fillMaxWidth().fillMaxHeight(portraitHeightFraction)) {
                 Spacer(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsBottomHeight(WindowInsets.navigationBars).background(template.colors.background))
+                Spacer(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsBottomHeight(WindowInsets.ime).background(template.colors.surfaceRaised))
                 content(Modifier.fillMaxSize().navigationBarsPadding().imePadding(), false)
             }
         }

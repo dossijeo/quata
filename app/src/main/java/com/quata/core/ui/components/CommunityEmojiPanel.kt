@@ -26,11 +26,13 @@ fun CommunityEmojiPanel(
                 foodDrink = stringResource(R.string.emoji_food_drink),
                 objectsSymbols = stringResource(R.string.emoji_objects_symbols),
                 flags = stringResource(R.string.emoji_flags),
+                empty = stringResource(R.string.emoji_empty),
             ),
         ),
         onEmojiClick = onEmojiClick,
         modifier = modifier,
         initialSectionKey = initialSectionKey,
         gridMaxHeight = gridMaxHeight,
+        emptyMessage = stringResource(R.string.emoji_empty),
     )
 }

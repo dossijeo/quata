@@ -289,6 +289,7 @@ fun CommunityProfileScreen(
                     foodDrink = stringResource(R.string.emoji_food_drink),
                     objectsSymbols = stringResource(R.string.emoji_objects_symbols),
                     flags = stringResource(R.string.emoji_flags),
+                    empty = stringResource(R.string.emoji_empty),
                 ),
                 translatorContentDescription = stringResource(R.string.translator_button_content_description),
                 reply = stringResource(R.string.comments_reply_button),

@@ -232,10 +232,13 @@ class FeedViewModel(
 
     private fun addComment(postId: String, comment: PostComment) {
         appendLocalPendingComment(postId, comment)
-        updatePostFromRepository { repository.addComment(postId, comment) }
+        updatePostFromRepository(rollbackLocalComment = postId to comment) { repository.addComment(postId, comment) }
     }
 
-    private fun updatePostFromRepository(action: suspend () -> Result<Post?>) = scope.launch {
+    private fun updatePostFromRepository(
+        rollbackLocalComment: Pair<String, PostComment>? = null,
+        action: suspend () -> Result<Post?>,
+    ) = scope.launch {
         action()
             .onSuccess { updated ->
                 if (updated != null) {
@@ -244,18 +247,34 @@ class FeedViewModel(
                 }
             }
             .onFailure { error ->
+                rollbackLocalComment?.let { (postId, comment) -> removeLocalPendingComment(postId, comment) }
                 _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
             }
     }
 
     private fun appendLocalPendingComment(postId: String, comment: PostComment) {
+        val transformed = feedStore.replace(postId) { post ->
+            if (post.comments.none { it.id == comment.id }) post.copy(comments = post.comments + comment) else post
+        }
+        val posts = transformed.takeIf { feedPosts -> feedPosts.any { it.id == postId } } ?: _uiState.value.posts
         _uiState.value = _uiState.value.copy(
-            posts = _uiState.value.posts.map { post ->
+            posts = posts.map { post ->
                 if (post.id == postId && post.comments.none { it.id == comment.id }) {
                     post.copy(comments = post.comments + comment)
                 } else {
                     post
                 }
+            }
+        )
+    }
+
+    private fun removeLocalPendingComment(postId: String, comment: PostComment) {
+        if (!comment.isLocalPendingComment()) return
+        val transformed = feedStore.replace(postId) { it.withoutLocalPendingComment(comment) }
+        val posts = transformed.takeIf { feedPosts -> feedPosts.any { it.id == postId } } ?: _uiState.value.posts
+        _uiState.value = _uiState.value.copy(
+            posts = posts.map { post ->
+                if (post.id == postId) post.withoutLocalPendingComment(comment) else post
             }
         )
     }
@@ -293,6 +312,12 @@ internal fun Post.withLocalPendingCommentsFrom(existing: Post?): Post {
         .filter { it.isLocalPendingComment() }
         .filterNot { pending -> comments.any { it.matchesLocalPendingComment(pending) } }
     return if (pending.isEmpty()) this else copy(comments = comments + pending)
+}
+
+internal fun Post.withoutLocalPendingComment(comment: PostComment): Post {
+    if (!comment.isLocalPendingComment()) return this
+    val filtered = comments.filterNot { it.id == comment.id && it.isLocalPendingComment() }
+    return if (filtered.size == comments.size) this else copy(comments = filtered)
 }
 
 private fun PostComment.isLocalPendingComment(): Boolean = id.startsWith("local_")

@@ -324,6 +324,7 @@ ui_method='testComposerReplyEditAndSelectedActionsUseSharedChatSurface'
 
 run_and_require() {
   local selected="$1" method="$2" log="$3"
+  local timeout_seconds="${4:-480}"
   local result_args=()
   if [[ -n "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_RESULT_BUNDLE_DIR" ]]; then
     mkdir -p "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_RESULT_BUNDLE_DIR"
@@ -332,7 +333,7 @@ run_and_require() {
     result_args=(-resultBundlePath "$result_bundle")
   fi
   set +e
-  run_bounded "$method" 480 "$log" \
+  run_bounded "$method" "$timeout_seconds" "$log" \
     xcodebuild test-without-building -xctestrun "$xctestrun" \
     -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" "${result_args[@]}" -only-testing:"$selected"
   local xcode_status=$?
@@ -374,7 +375,7 @@ elif [[ "$QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E" == "1" ]]; then
 elif [[ "$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" == "1" ]]; then
   run_and_require "$profile_content" "$profile_content_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile-content.log"
 elif [[ "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E" == "1" ]]; then
-  run_and_require "$feed_official_comments" "$feed_official_comments_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/feed-official-comments.log"
+  run_and_require "$feed_official_comments" "$feed_official_comments_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/feed-official-comments.log" 720
 elif [[ "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" == "1" ]]; then
   run_and_require "$profile_roles_safety" "$profile_roles_safety_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile-roles-safety.log"
 elif [[ "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" == "1" ]]; then

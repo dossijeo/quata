@@ -5,6 +5,7 @@ data class CommunityEmojiLabels(
     val recent: String = "Recientes", val frequent: String = "Frecuentes", val gestures: String = "Gestos",
     val people: String = "Personas", val animalsNature: String = "Animales y naturaleza",
     val foodDrink: String = "Comida y bebida", val objectsSymbols: String = "Objetos y símbolos", val flags: String = "Banderas",
+    val empty: String = "No hay emojis disponibles.",
 )
 
 fun communityEmojiSections(labels: CommunityEmojiLabels = CommunityEmojiLabels()): List<QuataEmojiSection> = listOf(

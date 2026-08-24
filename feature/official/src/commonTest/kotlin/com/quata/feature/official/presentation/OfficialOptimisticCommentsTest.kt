@@ -45,6 +45,23 @@ class OfficialOptimisticCommentsTest {
         assertEquals(2, reconciled.commentsCount)
     }
 
+    @Test
+    fun removesLocalPendingCommentAndCountWhenBackendMutationFails() {
+        val pending = localComment("local_1", "😀 rollback", replyToCommentId = "seed")
+        val existing = post(
+            comments = listOf(
+                remoteComment("seed", "Seed"),
+                pending,
+            ),
+            commentsCount = 2,
+        )
+
+        val rolledBack = existing.withoutLocalPendingComment(pending)
+
+        assertEquals(listOf("seed"), rolledBack.comments.map(PostComment::id))
+        assertEquals(1, rolledBack.commentsCount)
+    }
+
     private fun post(comments: List<PostComment>, commentsCount: Int = comments.size) = OfficialPostItem(
         id = "official-1",
         author = User(id = "author", email = "official@example.test", displayName = "Official", neighborhood = "Centro"),

@@ -233,15 +233,19 @@ class OfficialFeedViewModel(
 
     private fun addComment(postId: String, comment: PostComment) {
         appendLocalPendingComment(postId, comment)
-        updatePostFromRepository { repository.addComment(postId, comment) }
+        updatePostFromRepository(rollbackLocalComment = postId to comment) { repository.addComment(postId, comment) }
     }
 
-    private fun updatePostFromRepository(action: suspend () -> Result<OfficialPostItem?>) = scope.launch {
+    private fun updatePostFromRepository(
+        rollbackLocalComment: Pair<String, PostComment>? = null,
+        action: suspend () -> Result<OfficialPostItem?>,
+    ) = scope.launch {
         action()
             .onSuccess { updated ->
                 if (updated != null) replacePost(updated)
             }
             .onFailure { error ->
+                rollbackLocalComment?.let { (postId, comment) -> removeLocalPendingComment(postId, comment) }
                 _uiState.value = _uiState.value.copy(error = error.message ?: _uiState.value.error)
             }
     }
@@ -254,12 +258,46 @@ class OfficialFeedViewModel(
         )
     }
 
+    private fun removeLocalPendingComment(postId: String, comment: PostComment) {
+        if (!comment.isLocalPendingComment()) return
+        exactLoadedPosts = exactLoadedPosts.mapValues { (_, post) ->
+            if (post.id == postId) post.withoutLocalPendingComment(comment) else post
+        }
+        val transformed = feedStore.replace(postId) { it.withoutLocalPendingComment(comment) }
+        val posts = transformed.takeIf { feedPosts -> feedPosts.any { it.id == postId } } ?: _uiState.value.posts
+        _uiState.value = _uiState.value.copy(
+            posts = posts.map { post ->
+                if (post.id == postId) post.withoutLocalPendingComment(comment) else post
+            }
+        )
+    }
+
     private fun List<OfficialPostItem>.withExactLoadedPosts(): List<OfficialPostItem> =
         (this + exactLoadedPosts.values).distinctBy(OfficialPostItem::id)
 
     private fun appendLocalPendingComment(postId: String, comment: PostComment) {
+        exactLoadedPosts = exactLoadedPosts.mapValues { (_, post) ->
+            if (post.id == postId && post.comments.none { it.id == comment.id }) {
+                post.copy(
+                    comments = post.comments + comment,
+                    commentsCount = (post.commentsCount + 1).coerceAtLeast(post.comments.size + 1),
+                )
+            } else {
+                post
+            }
+        }
+        val transformed = feedStore.replace(postId) { post ->
+            if (post.comments.none { it.id == comment.id }) {
+                post.copy(
+                    comments = post.comments + comment,
+                    commentsCount = (post.commentsCount + 1).coerceAtLeast(post.comments.size + 1),
+                )
+            } else {
+                post
+            }
+        }
         _uiState.value = _uiState.value.copy(
-            posts = _uiState.value.posts.map { post ->
+            posts = (transformed.takeIf { feedPosts -> feedPosts.any { it.id == postId } } ?: _uiState.value.posts).map { post ->
                 if (post.id == postId && post.comments.none { it.id == comment.id }) {
                     post.copy(
                         comments = post.comments + comment,
@@ -302,6 +340,20 @@ internal fun OfficialPostItem.withLocalPendingCommentsFrom(existing: OfficialPos
         copy(
             comments = comments + pending,
             commentsCount = commentsCount.coerceAtLeast(comments.size + pending.size),
+        )
+    }
+}
+
+internal fun OfficialPostItem.withoutLocalPendingComment(comment: PostComment): OfficialPostItem {
+    if (!comment.isLocalPendingComment()) return this
+    val filtered = comments.filterNot { it.id == comment.id && it.isLocalPendingComment() }
+    val removed = comments.size - filtered.size
+    return if (removed == 0) {
+        this
+    } else {
+        copy(
+            comments = filtered,
+            commentsCount = (commentsCount - removed).coerceAtLeast(filtered.size),
         )
     }
 }

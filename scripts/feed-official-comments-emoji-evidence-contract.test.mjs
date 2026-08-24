@@ -24,11 +24,13 @@ test("shared action rail exposes stable comments anchors for Feed and Official",
 });
 
 test("Feed and Official comments use the common emoji picker and common comment input tags", () => {
+  const floatingPanel = source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataFloatingPanelContent.kt");
   const feed = source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedScreenHost.kt");
   const feedEvents = source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedUiEvent.kt");
   const feedViewModel = source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedViewModel.kt");
   const official = source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialCommentsPanelContent.kt");
   const officialHost = source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt");
+  const officialViewModel = source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedViewModel.kt");
   for (const [label, content, prefix] of [["feed", feed, "feed"], ["official", official, "official"]]) {
     assert.match(content, /CommunityEmojiPanelContent/, `${label}:picker`);
     assert.match(content, /insertAtSelection/, `${label}:insert`);
@@ -36,13 +38,22 @@ test("Feed and Official comments use the common emoji picker and common comment 
     assert.match(content, /contentDescription = strings\.showEmojis/, `${label}:emoji_accessible_tag`);
     assert.match(content, new RegExp(`${prefix}\\.comments\\.input`), `${label}:input_tag`);
     assert.match(content, new RegExp(`${prefix}\\.comments\\.send`), `${label}:send_tag`);
+    assert.match(content, /emptyMessage = strings\.emojiLabels\.empty/, `${label}:empty_localized`);
   }
   assert.match(feedEvents, /data class FocusPost/);
   assert.match(feed, /FeedUiEvent\.FocusPost\(focusedPostId\)/);
   assert.match(feedViewModel, /repository\.refreshPost\(postId\)/);
   assert.match(feedViewModel, /feedStore\.prependIfMissing\(post\)/);
+  assert.match(feedViewModel, /feedStore\.replace\(postId\) \{ it\.withoutLocalPendingComment\(comment\) \}/);
+  assert.match(feedViewModel, /withoutLocalPendingComment/);
+  assert.match(officialHost, /empty="No emojis available\."/);
+  assert.match(officialHost, /empty="Aucun emoji disponible\."/);
+  assert.match(officialViewModel, /feedStore\.replace\(postId\) \{ it\.withoutLocalPendingComment\(comment\) \}/);
+  assert.match(officialViewModel, /exactLoadedPosts = exactLoadedPosts\.mapValues/);
   assert.match(feed, /commentsPostId = null[\s\S]*onOpenUserProfile\(profileId\)/);
   assert.match(officialHost, /commentsPost = null[\s\S]*onOpenUserProfile\(profileId\)/);
+  assert.match(floatingPanel, /windowInsetsBottomHeight\(WindowInsets\.ime\)\.background\(template\.colors\.surfaceRaised\)/);
+  assert.match(floatingPanel, /navigationBarsPadding\(\)\.imePadding\(\)/);
 });
 
 test("shared Feed/Official comments fixtures centralize SQL, cleanup and polling", () => {
@@ -73,6 +84,8 @@ test("Web runner records a real Feed and Official emoji-comment flow", () => {
   assert.match(runner, /visibleNativeControl\(page, \[new RegExp\(escapeRegExp\(`\$\{prefix\}\.emoji`\)\)\]/);
   assert.match(runner, /verifyCommunityEmojiPanelSections/);
   assert.match(runner, /communityEmojiPanelProbeSections/);
+  assert.match(runner, /observedFrequentCellBounds/);
+  assert.match(runner, /semantic_cell_was_observed_earlier_but_not_resolved_after_horizontal_scroll/);
   assert.match(runner, /community\.emoji\.section\.\$\{section\}/);
   assert.match(runner, /community\.emoji\.grid\.\$\{section\}/);
   assert.match(runner, /community\.emoji\.cell\.\$\{section\}\.0/);
@@ -153,6 +166,7 @@ test("iOS runner records the same Feed and Official emoji-comment flow", () => {
   assert.match(wrapper, /QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID/);
   assert.match(wrapper, /QUATA_IOS_CHAT_OFFICIAL_COMMENTS_COMMENT_ID/);
   assert.match(wrapper, /QUATA_IOS_CHAT_OFFICIAL_COMMENTS_REPLY_COMMENT/);
+  assert.match(wrapper, /run_and_require "\$feed_official_comments" "\$feed_official_comments_method" "\$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR\/feed-official-comments\.log" 720/);
   assert.match(uiTest, /func testFeedAndOfficialCommentsUseSharedEmojiPicker/);
   assert.ok(uiTest.includes('feed.action.comments.\\(feedPostId)'));
   assert.ok(uiTest.includes('official.action.comments.\\(officialPostId)'));
@@ -162,7 +176,10 @@ test("iOS runner records the same Feed and Official emoji-comment flow", () => {
   assert.match(uiTest, /feed\.comments\.emoji/);
   assert.match(uiTest, /official\.comments\.emoji/);
   assert.match(uiTest, /verifyCommunityEmojiPanelSections/);
+  assert.match(uiTest, /verifyCommunityEmojiFrequentSection/);
+  assert.match(uiTest, /verifyFullEmojiCatalog: false/);
   assert.match(uiTest, /communityEmojiPanelProbeSections/);
+  assert.match(uiTest, /communityEmojiPanelIosEvidenceSections/);
   assert.match(uiTest, /community\.emoji\.sections/);
   assert.match(uiTest, /community\.emoji\.grid\.\\\(section\)/);
   assert.match(uiTest, /community\.emoji\.cell\.frequent\.0/);

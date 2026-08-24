@@ -1122,14 +1122,20 @@ async function nativeControls(page, onlyVisible) {
   return await page.evaluate((onlyVisibleArg) => {
     const root = document.querySelector("#quata-root");
     const scope = root?.shadowRoot ?? root ?? document;
-    return [...scope.querySelectorAll("button[aria-label], input[aria-label], [role][aria-label]")]
+    return [...scope.querySelectorAll("button[aria-label], input[aria-label], [role][aria-label], [aria-label]")]
       .map((element) => {
         const rect = element.getBoundingClientRect();
+        const visible = rect.width > 0 &&
+          rect.height > 0 &&
+          rect.right > 0 &&
+          rect.bottom > 0 &&
+          rect.left < window.innerWidth &&
+          rect.top < window.innerHeight;
         return {
           tag: element.tagName,
           role: element.getAttribute("role"),
           label: element.getAttribute("aria-label"),
-          visible: rect.width > 0 && rect.height > 0,
+          visible,
           x: Math.round(rect.x),
           y: Math.round(rect.y),
           width: Math.round(rect.width),
@@ -1146,6 +1152,17 @@ async function visibleNativeControl(page, patterns, timeout = 5_000) {
   while (Date.now() < deadline) {
     const controls = await visibleNativeControls(page);
     const match = controls.find((control) => patterns.some((pattern) => pattern.test(control.label ?? "")));
+    if (match) return match;
+    await delay(250);
+  }
+  return null;
+}
+
+async function visibleNativeControlExact(page, label, timeout = 5_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const controls = await visibleNativeControls(page);
+    const match = controls.find((control) => control.label === label);
     if (match) return match;
     await delay(250);
   }
@@ -2244,32 +2261,41 @@ async function selectEmojiCommentEmoji(page, { prefix, fallbackPoints, errorPref
   let panel = null;
   for (const attempt of attempts) {
     await attempt();
-    panel = await visibleAriaLocator(page, panelPatterns, 1_500);
+    panel = await visibleAriaLocator(page, panelPatterns, 1_500) ??
+      await visibleNativeControl(page, panelPatterns, 1_500);
     if (panel) break;
   }
   if (!panel) {
     throw new Error(`${errorPrefix}_emoji_panel_not_visible`);
   }
+  let observedFrequentCellBounds = null;
   if (errorPrefix === "feed_official_comments_feed") {
-    await verifyCommunityEmojiPanelSections(page, {
+    observedFrequentCellBounds = await verifyCommunityEmojiPanelSections(page, {
       errorPrefix,
       report,
       evidenceDir: options.evidenceDir,
       screenshotPrefix: "web-feed-comments-emoji-panel",
     });
   } else if (errorPrefix === "feed_official_comments_official") {
-    await verifyCommunityEmojiPanelSections(page, {
+    observedFrequentCellBounds = await verifyCommunityEmojiPanelSections(page, {
       errorPrefix,
       report,
       evidenceDir: options.evidenceDir,
       screenshotPrefix: "web-official-comments-emoji-panel",
     });
   }
-  const firstFrequent = await visibleAriaLocator(page, [new RegExp(escapeRegExp("community.emoji.cell.frequent.0"))], 5_000);
+  const firstFrequent = await visibleAriaLocator(page, [new RegExp(escapeRegExp("community.emoji.cell.frequent.0"))], 5_000) ??
+    await visibleNativeControlExact(page, "community.emoji.cell.frequent.0", 2_000);
   if (firstFrequent) {
-    await clickLocatorCenter(page, firstFrequent, `${errorPrefix}_first_emoji_not_clickable`);
+    if ("label" in firstFrequent) {
+      await clickNativeControlCenter(page, firstFrequent, `${errorPrefix}_first_emoji_not_clickable`);
+    } else {
+      await clickLocatorCenter(page, firstFrequent, `${errorPrefix}_first_emoji_not_clickable`);
+    }
   } else {
-    await page.mouse.click(fallbackPoints?.cellX ?? panelFallback.cellX, fallbackPoints?.cellY ?? panelFallback.cellY);
+    const fallbackCellX = fallbackPoints?.cellX ?? (observedFrequentCellBounds ? observedFrequentCellBounds.x + (observedFrequentCellBounds.width / 2) : panelFallback.cellX);
+    const fallbackCellY = fallbackPoints?.cellY ?? (observedFrequentCellBounds ? observedFrequentCellBounds.y + (observedFrequentCellBounds.height / 2) : panelFallback.cellY);
+    await page.mouse.click(fallbackCellX, fallbackCellY);
   }
 }
 
@@ -2287,32 +2313,41 @@ const communityEmojiPanelProbeSections = [
 async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, evidenceDir, screenshotPrefix }) {
   const observed = [];
   let frequentSectionBounds = null;
+  let frequentCellBounds = null;
   for (const section of communityEmojiPanelProbeSections) {
     const sectionTag = `community.emoji.section.${section}`;
     const gridTag = `community.emoji.grid.${section}`;
     const cellTag = `community.emoji.cell.${section}.0`;
     const sectionLocator = await visibleExactAriaLocatorWithHorizontalScroll(page, sectionTag, 4_000);
-    if (!sectionLocator) throw new Error(`${errorPrefix}_emoji_section_anchor_missing:${sectionTag}`);
-    await clickLocatorCenter(page, sectionLocator, `${errorPrefix}_emoji_section_not_clickable:${sectionTag}`);
+    const sectionControl = sectionLocator ? null : await visibleNativeControlExact(page, sectionTag, 2_000);
+    if (!sectionLocator && !sectionControl) throw new Error(`${errorPrefix}_emoji_section_anchor_missing:${sectionTag}`);
+    if (sectionControl) {
+      await clickNativeControlCenter(page, sectionControl, `${errorPrefix}_emoji_section_not_clickable:${sectionTag}`);
+    } else {
+      await clickLocatorCenter(page, sectionLocator, `${errorPrefix}_emoji_section_not_clickable:${sectionTag}`);
+    }
     const grid = await visibleExactAriaLocator(page, gridTag, 2_500);
-    if (!grid) throw new Error(`${errorPrefix}_emoji_grid_anchor_missing:${gridTag}`);
+    const gridControl = grid ? null : await visibleNativeControlExact(page, gridTag, 2_000);
+    if (!grid && !gridControl) throw new Error(`${errorPrefix}_emoji_grid_anchor_missing:${gridTag}`);
     const firstCell = await visibleExactAriaLocator(page, cellTag, 2_500);
-    if (!firstCell) throw new Error(`${errorPrefix}_emoji_cell_anchor_missing:${cellTag}`);
-    const sectionBox = await sectionLocator.boundingBox().catch(() => null);
-    const gridBox = await grid.boundingBox().catch(() => null);
-    const cellBox = await firstCell.boundingBox().catch(() => null);
+    const firstCellControl = firstCell ? null : await visibleNativeControlExact(page, cellTag, 2_000);
+    if (!firstCell && !firstCellControl) throw new Error(`${errorPrefix}_emoji_cell_anchor_missing:${cellTag}`);
+    const sectionBox = sectionLocator ? await sectionLocator.boundingBox().catch(() => null) : nativeControlBox(sectionControl);
+    const gridBox = grid ? await grid.boundingBox().catch(() => null) : nativeControlBox(gridControl);
+    const cellBox = firstCell ? await firstCell.boundingBox().catch(() => null) : nativeControlBox(firstCellControl);
     observed.push({
       section,
       sectionTag,
       gridTag,
       firstCellTag: cellTag,
-      resolvedBy: "aria-label",
+      resolvedBy: sectionControl || gridControl || firstCellControl ? "native-aria-label" : "aria-label",
       sectionBounds: roundedBox(sectionBox),
       gridBounds: roundedBox(gridBox),
       firstCellBounds: roundedBox(cellBox),
     });
     if (section === "frequent") {
       frequentSectionBounds = sectionBox;
+      frequentCellBounds = cellBox;
     }
     if (section === "frequent" || section === "flags") {
       await attachScreenshot(page, evidenceDir, `${screenshotPrefix}-${section}`);
@@ -2324,9 +2359,13 @@ async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, ev
     sections: observed,
   });
   report.steps.push(`${errorPrefix}_emoji_panel_all_sections_verified_by_common_anchors`);
-  const frequent = await visibleExactAriaLocatorWithHorizontalScroll(page, "community.emoji.section.frequent", 4_000);
-  if (frequent) {
-    await clickLocatorCenter(page, frequent, `${errorPrefix}_emoji_section_not_clickable:community.emoji.section.frequent`);
+  const frequentSectionTag = "community.emoji.section.frequent";
+  const frequentNative = await visibleNativeControlExact(page, frequentSectionTag, 1_000);
+  const frequent = frequentNative ? null : await visibleExactAriaLocatorWithHorizontalScroll(page, frequentSectionTag, 4_000);
+  if (frequentNative) {
+    await clickNativeControlCenter(page, frequentNative, `${errorPrefix}_emoji_section_not_clickable:${frequentSectionTag}`);
+  } else if (frequent) {
+    await clickLocatorCenter(page, frequent, `${errorPrefix}_emoji_section_not_clickable:${frequentSectionTag}`);
   } else if (await clickExactAriaLabel(page, "community.emoji.section.frequent")) {
     report.evidence.communityEmojiPanelSemanticResets ??= [];
     report.evidence.communityEmojiPanelSemanticResets.push({
@@ -2350,8 +2389,30 @@ async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, ev
   } else {
     throw new Error(`${errorPrefix}_emoji_section_anchor_missing:community.emoji.section.frequent`);
   }
-  const frequentCell = await visibleExactAriaLocator(page, "community.emoji.cell.frequent.0", 2_500);
+  const frequentCell = await visibleExactAriaLocator(page, "community.emoji.cell.frequent.0", 2_500) ??
+    await visibleNativeControlExact(page, "community.emoji.cell.frequent.0", 2_000);
+  if (!frequentCell && frequentCellBounds) {
+    report.evidence.communityEmojiPanelResetFallbacks ??= [];
+    report.evidence.communityEmojiPanelResetFallbacks.push({
+      surface: errorPrefix,
+      cellTag: "community.emoji.cell.frequent.0",
+      reason: "semantic_cell_was_observed_earlier_but_not_resolved_after_horizontal_scroll",
+      bounds: roundedBox(frequentCellBounds),
+    });
+    return frequentCellBounds;
+  }
   if (!frequentCell) throw new Error(`${errorPrefix}_emoji_frequent_reset_cell_missing`);
+  return frequentCellBounds;
+}
+
+function nativeControlBox(control) {
+  if (!control) return null;
+  return {
+    x: control.x,
+    y: control.y,
+    width: control.width,
+    height: control.height,
+  };
 }
 
 async function visibleExactAriaLocator(page, label, timeout) {
@@ -2384,6 +2445,8 @@ async function visibleExactAriaLocator(page, label, timeout) {
 
 async function clickExactAriaLabel(page, label) {
   return page.evaluate((targetLabel) => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
     const visible = (element) => {
       const rect = element.getBoundingClientRect();
       return rect.width > 0 &&
@@ -2393,7 +2456,7 @@ async function clickExactAriaLabel(page, label) {
         rect.left < window.innerWidth &&
         rect.top < window.innerHeight;
     };
-    const candidates = Array.from(document.querySelectorAll("[aria-label]"))
+    const candidates = Array.from(scope.querySelectorAll("[aria-label]"))
       .filter((element) => element.getAttribute("aria-label") === targetLabel && visible(element));
     const target = candidates.at(-1);
     if (!target) return false;
@@ -2980,9 +3043,23 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
 }
 
 async function assertCommentAuthorAnchorVisible(page, tag, report) {
-  const locator = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(tag))], 10_000);
-  if (!locator) throw new Error(`comment_author_profile_anchor_missing:${tag}`);
-  report.steps.push(`comment_author_profile_anchor_visible:${tag}`);
+  const deadline = Date.now() + 10_000;
+  const patterns = [new RegExp(escapeRegExp(tag))];
+  while (Date.now() < deadline) {
+    const locator = await visibleAriaLocator(page, patterns, 800);
+    if (locator) {
+      report.steps.push(`comment_author_profile_anchor_visible:${tag}`);
+      return;
+    }
+    const native = await visibleNativeControl(page, patterns, 500);
+    if (native) {
+      report.steps.push(`comment_author_profile_anchor_visible:${tag}`);
+      return;
+    }
+    await wheelChatViewport(page, 420);
+    await delay(250);
+  }
+  throw new Error(`comment_author_profile_anchor_missing:${tag}`);
 }
 
 async function waitVisibleSeededSurfaceText(page, text, errorMessage, timeout = 15_000) {

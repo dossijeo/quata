@@ -62,6 +62,7 @@ const val CommunityEmojiPanelSectionsRowTestTag = "community.emoji.sections"
 const val CommunityEmojiPanelSectionTestTagPrefix = "community.emoji.section."
 const val CommunityEmojiPanelGridTestTagPrefix = "community.emoji.grid."
 const val CommunityEmojiPanelCellTestTagPrefix = "community.emoji.cell."
+const val CommunityEmojiPanelEmptyTestTag = "community.emoji.empty"
 
 fun communityEmojiSectionTestTag(sectionKey: String): String =
     CommunityEmojiPanelSectionTestTagPrefix + sectionKey
@@ -78,10 +79,33 @@ fun CommunityEmojiPanelContent(
     onEmojiClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     initialSectionKey: String = "frequent",
-    gridMaxHeight: Dp = 220.dp
+    gridMaxHeight: Dp = 220.dp,
+    emptyMessage: String = CommunityEmojiLabels().empty,
 ) {
-    if (sections.isEmpty()) return
     val template = quataTheme()
+    if (sections.isEmpty()) {
+        Surface(
+            color = template.colors.surfaceRaised,
+            contentColor = template.colors.textPrimary,
+            shape = RoundedCornerShape(20.dp),
+            modifier = modifier
+                .fillMaxWidth()
+                .testTag(CommunityEmojiPanelRootTestTag)
+                .semantics { contentDescription = CommunityEmojiPanelRootTestTag }
+                .border(1.dp, template.colors.divider, RoundedCornerShape(20.dp))
+        ) {
+            Text(
+                emptyMessage,
+                color = template.colors.textSecondary,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .padding(16.dp)
+                    .testTag(CommunityEmojiPanelEmptyTestTag)
+                    .semantics { contentDescription = CommunityEmojiPanelEmptyTestTag },
+            )
+        }
+        return
+    }
     var selectedSectionKey by remember { mutableStateOf(initialSectionKey) }
     val selectedSection = sections.firstOrNull { it.key == selectedSectionKey } ?: sections.first()
     Surface(

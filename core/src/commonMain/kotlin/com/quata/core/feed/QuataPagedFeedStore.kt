@@ -53,6 +53,12 @@ class QuataPagedFeedStore<T>(
         return items
     }
 
+    fun replace(id: String, transform: (T) -> T): List<T> {
+        realtimeItems = realtimeItems.map { item -> if (idOf(item) == id) transform(item) else item }
+        olderItems = olderItems.map { item -> if (idOf(item) == id) transform(item) else item }
+        return items
+    }
+
     fun prependIfMissing(item: T): List<T> {
         val id = idOf(item)
         if (items.none { idOf(it) == id }) {
