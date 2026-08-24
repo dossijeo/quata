@@ -4,11 +4,11 @@
     "SCR-ACCOUNT",
     "ACCOUNT-AVATAR"
   ],
-  "productSha": "e024b7dd8c889c353367c90bf77d8dfcf6926399",
+  "productSha": "090d4fb312421e416701f0076f5f64724ae41d11",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "e024b7dd8c889c353367c90bf77d8dfcf6926399",
+      "sha": "090d4fb312421e416701f0076f5f64724ae41d11",
       "report": "build-reports/web/account-avatar-evidence.json",
       "screenshots": [
         "build-reports/web/account-avatar-evidence/web-account-avatar-opened.png",
@@ -20,12 +20,13 @@
         "verified": true,
         "profileRestored": true,
         "storageDeleted": true,
+        "physicalResidue": 0,
         "publicProbe": "image/jpeg"
       }
     },
     "android": {
       "status": "passed",
-      "sha": "e024b7dd8c889c353367c90bf77d8dfcf6926399",
+      "sha": "090d4fb312421e416701f0076f5f64724ae41d11",
       "report": "build-reports/android/account-avatar-evidence.json",
       "screenshots": [
         "build-reports/android/account-avatar-evidence/android-account-avatar-profile-opened.png",
@@ -43,12 +44,13 @@
         "verified": true,
         "profileRestored": true,
         "storageDeleted": true,
+        "physicalResidue": 0,
         "publicProbe": "image/jpeg"
       }
     },
     "ios": {
       "status": "passed",
-      "sha": "e024b7dd8c889c353367c90bf77d8dfcf6926399",
+      "sha": "090d4fb312421e416701f0076f5f64724ae41d11",
       "report": "build-reports/ios/account-avatar-evidence.json",
       "simulator": {
         "name": "Quata-Raster-iOS-26-ChatCandidate",
@@ -64,6 +66,7 @@
         "verified": true,
         "profileRestored": true,
         "storageDeleted": true,
+        "physicalResidue": 0,
         "publicProbe": "image/jpeg"
       }
     }
