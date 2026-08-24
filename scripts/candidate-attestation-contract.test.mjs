@@ -52,6 +52,7 @@ test("docs-only attestation after product SHA preserves evidence", () => withRep
   const productSha = commit(directory, "product evidence");
   write(directory, "docs/candidate-attestations/chat-attachments-audio.json", manifest(productSha));
   write(directory, "docs/SCREEN_MIGRATION_INVENTORY_V2.md", `product ${productSha}\n`);
+  write(directory, "docs/ACCOUNT_AVATAR_EVIDENCE.md", `avatar evidence ${productSha}\n`);
   write(directory, "docs/SUPABASE_E2E_SB06.md", "SB-06 attestation procedure\n");
   const head = commit(directory, "attest evidence");
   const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat-attachments-audio.json", head, cwd: directory });

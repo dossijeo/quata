@@ -14,6 +14,7 @@ const ATTESTATION_ALLOWED = [
   /^docs\/MULTIPLATFORM_MIGRATION_OPERATING_MODEL\.md$/i,
   /^docs\/MULTIPLATFORM_VALIDATION_EVIDENCE\.md$/i,
   /^docs\/MULTIPLATFORM_EVIDENCE_AUDIT\.md$/i,
+  /^docs\/ACCOUNT_AVATAR_EVIDENCE\.md$/i,
   /^docs\/SUPABASE_E2E_SB06\.md$/i,
   /^docs\/wiki\/[\s\S]+\.md$/i,
   /^build-reports\/[\s\S]+\.(?:json|md)$/i,
