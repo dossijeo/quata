@@ -56,6 +56,8 @@ import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionCont
 import com.quata.feature.settings.presentation.settingsLegalDocumentsStrings
 import com.quata.core.ui.components.quataDocumentViewerStatusStrings
 import kotlinx.coroutines.launch
+import platform.Foundation.NSProcessInfo
+import platform.Foundation.NSURL
 import platform.UIKit.UIViewController
 
 /** Complete iOS Cuenta host. SOS is a dialog inside this common surface, never the route substitute. */
@@ -162,6 +164,9 @@ private fun IosProfileAvatarActions(
     onAvatarChanged: (String?) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val filePicker = remember(dependencies.filePicker) {
+        IosProfileAvatarEvidenceFilePicker.wrapIfRequested(dependencies.filePicker)
+    }
     var menuOpen by remember { mutableStateOf(false) }
     var editorFile by remember { mutableStateOf<PlatformFile?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -213,7 +218,7 @@ private fun IosProfileAvatarActions(
                     menuOpen = false
                     scope.launch {
                         openEditor(
-                            dependencies.filePicker.pick(
+                            filePicker.pick(
                                 FilePickerRequest(listOf("image/*"), allowMultiple = false, source = FilePickerSource.Gallery),
                             ),
                         )
@@ -247,6 +252,51 @@ private fun IosProfileAvatarActions(
         )
     }
 }
+
+private const val AccountAvatarPickerFixtureOptIn = "I_ACCEPT_IOS_ACCOUNT_AVATAR_PICKER_FIXTURE"
+
+private class IosProfileAvatarEvidenceFilePicker(
+    private val delegate: FilePickerService,
+) : FilePickerService {
+    override suspend fun pickFiles(
+        acceptedMimeTypes: List<String>,
+        allowMultiple: Boolean,
+    ): PlatformResult<List<PlatformFile>> =
+        delegate.pickFiles(acceptedMimeTypes, allowMultiple)
+
+    override suspend fun pick(request: FilePickerRequest): PlatformResult<List<PlatformFile>> {
+        iosProfileAvatarEvidencePickedFile(request.source)?.let { return PlatformResult.Success(listOf(it)) }
+        return delegate.pick(request)
+    }
+
+    companion object {
+        fun wrapIfRequested(delegate: FilePickerService): FilePickerService =
+            if (iosProfileAvatarEvidenceFixtureOptedIn()) IosProfileAvatarEvidenceFilePicker(delegate) else delegate
+    }
+}
+
+private fun iosProfileAvatarEvidencePickedFile(source: FilePickerSource): PlatformFile? {
+    if (source != FilePickerSource.Gallery) return null
+    val environment = NSProcessInfo.processInfo.environment
+    if (!iosProfileAvatarEvidenceFixtureOptedIn(environment)) return null
+    val path = environment.iosProfileAvatarFixtureValue("QUATA_IOS_ACCOUNT_AVATAR_PICKER_PATH")
+        ?.takeIf(String::isNotBlank)
+        ?: return null
+    val reference = if (path.startsWith("file://")) path else NSURL.fileURLWithPath(path).absoluteString ?: path
+    val name = environment.iosProfileAvatarFixtureValue("QUATA_IOS_ACCOUNT_AVATAR_PICKER_NAME")
+        ?: path.substringAfterLast('/').ifBlank { "account-avatar-fixture.png" }
+    val mimeType = environment.iosProfileAvatarFixtureValue("QUATA_IOS_ACCOUNT_AVATAR_PICKER_MIME")
+        ?: "image/png"
+    return PlatformFile(reference = reference, displayName = name, mimeType = mimeType)
+}
+
+private fun iosProfileAvatarEvidenceFixtureOptedIn(
+    environment: Map<Any?, *> = NSProcessInfo.processInfo.environment,
+): Boolean =
+    environment.iosProfileAvatarFixtureValue("QUATA_IOS_ACCOUNT_AVATAR_PICKER_FIXTURE_OPT_IN") == AccountAvatarPickerFixtureOptIn
+
+private fun Map<Any?, *>.iosProfileAvatarFixtureValue(key: String): String? =
+    this[key]?.toString()?.takeIf(String::isNotBlank)
 
 private fun String.toQuataLanguage(): QuataLanguage = when {
     lowercase().startsWith("es") -> QuataLanguage.Spanish

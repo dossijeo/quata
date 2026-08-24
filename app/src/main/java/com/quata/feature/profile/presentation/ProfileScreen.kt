@@ -45,6 +45,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.quata.R
+import com.quata.BuildConfig
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.moderation.LegalDocuments
@@ -92,6 +93,7 @@ fun ProfileScreen(
     documentOpenService: DocumentOpenService,
     contactPickerService: ContactPickerService = UnsupportedContactPickerService,
     permissionService: PermissionService? = null,
+    accountAvatarEvidenceImageUri: String? = null,
     onProfileSaved: () -> Unit,
     @Suppress("UNUSED_PARAMETER") viewModel: ProfileAndroidViewModel? = null,
 ) {
@@ -159,7 +161,15 @@ fun ProfileScreen(
                                 .testTag(ProfileAvatarGalleryTestTag)
                                 .semantics { contentDescription = ProfileAvatarGalleryTestTag },
                             onClick = {
-                                photoMenuOpen = false; picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                photoMenuOpen = false
+                                val evidenceUri = accountAvatarEvidenceImageUri
+                                    ?.takeIf { BuildConfig.DEBUG }
+                                    ?.let(Uri::parse)
+                                if (evidenceUri != null) {
+                                    editorUri = evidenceUri
+                                } else {
+                                    picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                }
                             },
                         )
                         DropdownMenuItem(

@@ -14,6 +14,14 @@ const sha = "0123456789abcdef0123456789abcdef01234567";
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const backendRunner = await readFile(new URL("./account-avatar-backend-evidence.mjs", import.meta.url), "utf8");
 const webRunner = await readFile(new URL("./account-avatar-web-evidence.mjs", import.meta.url), "utf8");
+const androidRunner = await readFile(new URL("./account-avatar-android-evidence.mjs", import.meta.url), "utf8");
+const iosRunner = await readFile(new URL("./account-avatar-ios-evidence.mjs", import.meta.url), "utf8");
+const iosShellRunner = await readFile(new URL("./run-ios-account-avatar-ui-test.sh", import.meta.url), "utf8");
+const androidTest = await readFile(new URL("../app/src/androidTest/java/com/quata/feature/profile/presentation/ProfileAvatarRealInstrumentedTest.kt", import.meta.url), "utf8");
+const iosTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedAccountAvatarUITests.swift", import.meta.url), "utf8");
+const mainActivity = await readFile(new URL("../app/src/main/java/com/quata/MainActivity.kt", import.meta.url), "utf8");
+const androidProfileScreen = await readFile(new URL("../app/src/main/java/com/quata/feature/profile/presentation/ProfileScreen.kt", import.meta.url), "utf8");
+const iosProfileHost = await readFile(new URL("../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileHost.kt", import.meta.url), "utf8");
 
 function evidence(overrides = {}) {
   const platform = {
@@ -75,6 +83,8 @@ test("ACCOUNT-AVATAR contract is part of local fast contract suites", () => {
   assert.match(packageJson.scripts["test:ci-fast-contracts"], /scripts\/account-avatar-evidence-contract\.test\.mjs/);
   assert.match(packageJson.scripts["evidence:account-avatar-backend"], /scripts\/account-avatar-backend-evidence\.mjs/);
   assert.match(packageJson.scripts["evidence:account-avatar-web"], /scripts\/account-avatar-web-evidence\.mjs/);
+  assert.match(packageJson.scripts["evidence:account-avatar-android"], /scripts\/account-avatar-android-evidence\.mjs/);
+  assert.match(packageJson.scripts["evidence:account-avatar-ios"], /scripts\/account-avatar-ios-evidence\.mjs/);
 });
 
 test("backend runner is opt-in, reversible and avoids recorded secrets", () => {
@@ -110,4 +120,70 @@ test("Web visual runner uses semantic anchors and reversible cleanup", () => {
   assert.match(webRunner, /patchProfileAvatar/);
   assert.match(webRunner, /deleteStorageObject/);
   assert.doesNotMatch(webRunner, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
+});
+
+test("Android visual runner uses common profile anchors and reversible cleanup", () => {
+  assert.match(androidRunner, /ACCOUNT-AVATAR-ANDROID-REAL-001/);
+  assert.match(androidRunner, /ProfileAvatarRealInstrumentedTest#authenticatedUserChangesProfileAvatarFromCommonAccount/);
+  assert.match(androidRunner, /quataAccountAvatarCredentialsFile/);
+  assert.match(androidRunner, /quataAccountAvatarEvidence/);
+  assert.match(androidRunner, /account-avatar-evidence/);
+  assert.match(androidRunner, /run-as", "com\.quata", "rm", "-rf", deviceEvidencePath/);
+  assert.doesNotMatch(androidRunner, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
+
+  assert.match(androidTest, /ProfileAvatarChangeTestTag/);
+  assert.match(androidTest, /ProfileAvatarGalleryTestTag/);
+  assert.match(androidTest, /ProfileSaveChangesTestTag/);
+  assert.match(androidTest, /PostImageEditorRootTestTag/);
+  assert.match(androidTest, /PostImageEditorRotateTestTag/);
+  assert.match(androidTest, /PostImageEditorSaveTestTag/);
+  assert.match(androidTest, /updateProfile\(profileId, mapOf\("avatar_url" to originalAvatar\)\)/);
+  assert.match(androidTest, /deletePostImageObject\(path\)/);
+  assert.match(androidTest, /getProfiles\(ids = listOf\(profileId\), cacheMode = SupabaseCacheMode\.NETWORK_ONLY\)/);
+  assert.match(androidTest, /probePublicAvatar/);
+  assert.doesNotMatch(androidTest, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
+});
+
+test("Android profile evidence hook is debug-only and keeps the real picker path", () => {
+  assert.match(mainActivity, /EXTRA_ACCOUNT_AVATAR_EVIDENCE_IMAGE_URI/);
+  assert.match(mainActivity, /AppDestinations\.Profile\.route/);
+  assert.match(mainActivity, /accountAvatarEvidenceImageUri = accountAvatarEvidenceImageUri/);
+  assert.match(androidProfileScreen, /accountAvatarEvidenceImageUri: String\? = null/);
+  assert.match(androidProfileScreen, /takeIf \{ BuildConfig\.DEBUG \}/);
+  assert.match(androidProfileScreen, /picker\.launch\(PickVisualMediaRequest\(ActivityResultContracts\.PickVisualMedia\.ImageOnly\)\)/);
+});
+
+test("iOS visual runner uses Account anchors, fixture opt-in and reversible cleanup", () => {
+  assert.match(iosRunner, /ACCOUNT-AVATAR-IOS-REAL-001/);
+  assert.match(iosRunner, /I_ACCEPT_IOS_ACCOUNT_AVATAR_PICKER_FIXTURE/);
+  assert.match(iosRunner, /scripts\/run-ios-account-avatar-ui-test\.sh/);
+  assert.match(iosRunner, /waitForRemoteAvatarChange/);
+  assert.match(iosRunner, /probePublicAvatar/);
+  assert.match(iosRunner, /patchProfileAvatar/);
+  assert.match(iosRunner, /deleteStorageObject/);
+  assert.match(iosRunner, /mac_checkout_sha_matches_local_candidate/);
+  assert.doesNotMatch(iosRunner, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
+
+  assert.match(iosShellRunner, /QUATA_IOS_ACCOUNT_AVATAR_UI_E2E/);
+  assert.match(iosShellRunner, /QUATA_IOS_ACCOUNT_AVATAR_PICKER_PATH/);
+  assert.match(iosShellRunner, /QuataIosAuthenticatedAccountAvatarUITests\/testAuthenticatedSessionChangesProfileAvatarFromCommonAccount/);
+  assert.match(iosShellRunner, /check-ios-xctest-executed\.py/);
+
+  assert.match(iosTest, /navigation\.primary\.profile/);
+  assert.match(iosTest, /profile\.avatar\.change/);
+  assert.match(iosTest, /profile\.avatar\.gallery/);
+  assert.match(iosTest, /post-image-editor\.root/);
+  assert.match(iosTest, /post-image-editor\.rotate/);
+  assert.match(iosTest, /post-image-editor\.save/);
+  assert.match(iosTest, /profile\.save/);
+  assert.match(iosTest, /IOS_ACCOUNT_AVATAR_UI_GATE_PASSED/);
+  assert.doesNotMatch(iosTest, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
+});
+
+test("iOS Account avatar fixture hook is opt-in and keeps the real picker path", () => {
+  assert.match(iosProfileHost, /IosProfileAvatarEvidenceFilePicker/);
+  assert.match(iosProfileHost, /I_ACCEPT_IOS_ACCOUNT_AVATAR_PICKER_FIXTURE/);
+  assert.match(iosProfileHost, /QUATA_IOS_ACCOUNT_AVATAR_PICKER_PATH/);
+  assert.match(iosProfileHost, /if \(source != FilePickerSource\.Gallery\) return null/);
+  assert.match(iosProfileHost, /return delegate\.pick\(request\)/);
 });

@@ -213,6 +213,7 @@ fun AppNavGraph(
     postComposerPickerEvidenceSource: String? = null,
     postComposerPickerEvidenceOutcome: String? = null,
     postComposerPickerEvidencePath: String? = null,
+    accountAvatarEvidenceImageUri: String? = null,
     postDestinationEvidenceMode: String? = null,
     postProgressRollbackFailOnceForEvidence: Boolean = false,
 ) {
@@ -986,6 +987,7 @@ fun AppNavGraph(
                             documentOpenService = container.documentOpenService,
                             contactPickerService = container.platformServices.contacts,
                             permissionService = container.permissionService,
+                            accountAvatarEvidenceImageUri = accountAvatarEvidenceImageUri,
                             onProfileSaved = {
                                 navController.navigate(AppDestinations.Feed.route) {
                                     popUpTo(AppDestinations.Feed.route) { inclusive = false }

@@ -799,7 +799,7 @@
             },
             {
               "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileHost.kt",
-              "sha256": "f29dc19f87e6a2121af9f5069db575c05056a48be1e6dadfe7229569fc8b1a25",
+              "sha256": "3df6c7bfe594d3b3bf7a378990408a288351868eaffae05c8d048806741e3f10",
               "role": "runtime-bootstrap"
             },
             {
