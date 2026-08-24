@@ -1,7 +1,7 @@
 # ACCOUNT-AVATAR evidence contract
 
 `ACCOUNT-AVATAR` is reduced as a focal GO on Product/Evidence SHA
-`d3895ca9dab92853e4c6e1e1ae632bbb0eff04a9`. The attestation SHA may move after
+`e024b7dd8c889c353367c90bf77d8dfcf6926399`. The attestation SHA may move after
 documentation-only updates; reuse the product evidence only when
 `scripts/validate-candidate-attestation.mjs` classifies the diff as attestation-only.
 
@@ -13,7 +13,7 @@ npm run evidence:account-avatar-android
 npm run evidence:account-avatar-ios
 ```
 
-Exact-SHA evidence for `d3895ca9`:
+Exact-SHA evidence for `e024b7dd`:
 
 - Web/Wasm: `build-reports/web/account-avatar-evidence.json`
 - Android: `build-reports/android/account-avatar-evidence.json`

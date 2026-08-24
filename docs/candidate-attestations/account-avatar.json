@@ -4,11 +4,11 @@
     "SCR-ACCOUNT",
     "ACCOUNT-AVATAR"
   ],
-  "productSha": "d3895ca9dab92853e4c6e1e1ae632bbb0eff04a9",
+  "productSha": "e024b7dd8c889c353367c90bf77d8dfcf6926399",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "d3895ca9dab92853e4c6e1e1ae632bbb0eff04a9",
+      "sha": "e024b7dd8c889c353367c90bf77d8dfcf6926399",
       "report": "build-reports/web/account-avatar-evidence.json",
       "screenshots": [
         "build-reports/web/account-avatar-evidence/web-account-avatar-opened.png",
@@ -25,7 +25,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "d3895ca9dab92853e4c6e1e1ae632bbb0eff04a9",
+      "sha": "e024b7dd8c889c353367c90bf77d8dfcf6926399",
       "report": "build-reports/android/account-avatar-evidence.json",
       "screenshots": [
         "build-reports/android/account-avatar-evidence/android-account-avatar-profile-opened.png",
@@ -48,7 +48,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "d3895ca9dab92853e4c6e1e1ae632bbb0eff04a9",
+      "sha": "e024b7dd8c889c353367c90bf77d8dfcf6926399",
       "report": "build-reports/ios/account-avatar-evidence.json",
       "simulator": {
         "name": "Quata-Raster-iOS-26-ChatCandidate",
