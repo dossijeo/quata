@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-SOS",
+    "SOS-CONTACTS",
+    "INT-PLATFORM-PERMISSIONS"
+  ],
+  "productSha": "4f596fff7e086c736794ecc72807914f3700f915",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "4f596fff7e086c736794ecc72807914f3700f915",
+      "report": "build-reports/web/profile-sos-permissions-evidence-4f596fff.json",
+      "screenshots": [
+        "build-reports/web/profile-sos-permissions-evidence-4f596fff.sos-contacts.png",
+        "build-reports/web/profile-sos-permissions-evidence-4f596fff.sos-message.png",
+        "build-reports/web/profile-sos-permissions-evidence-4f596fff.sos-save-error.png"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "sessions_revoked_and_verified"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "4f596fff7e086c736794ecc72807914f3700f915",
+      "report": "app/build/reports/androidTests/connected/debug/com.quata.feature.profile.presentation.ProfileSosContactsInstrumentedTest.html",
+      "machineReport": "app/build/outputs/androidTest-results/connected/debug/TEST-Pixel_3(AVD) - 9-_app-.xml",
+      "tests": [
+        "profileSosContactsUseSharedAnchorsAndSelectionPolicy",
+        "profileSosContactActionsExposePickerAndPermissionStatuses",
+        "profileSosMessageUsesSharedAnchorAndSaveAction",
+        "profileSosSaveErrorUsesSharedDialogAnchor"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_compose_fixture"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "4f596fff7e086c736794ecc72807914f3700f915",
+      "report": "build/reports/ios/profile-sos-permissions-4f596fff.xcresult",
+      "tests": [
+        "QuataIosUITests/QuataIosHostUITests/testProfileSosFixtureRendersSharedContactsEditorAnchors",
+        "QuataIosUITests/QuataIosHostUITests/testProfileSosSaveFailureKeepsSharedErrorInDialog"
+      ],
+      "cleanup": {
+        "verified": true,
+        "mode": "hermetic_ios_fixture"
+      }
+    }
+  },
+  "preflight": {
+    "contracts": [
+      "node --test scripts/profile-sos-contacts-contract.test.mjs",
+      "git diff --check"
+    ],
+    "compile": [
+      "./gradlew.bat :core:compileAndroidMain :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin :core:compileKotlinWasmJs :core:compileKotlinIosX64 :feature:profile:compileKotlinWasmJs :feature:profile:compileKotlinIosX64",
+      "./gradlew.bat :web:wasmJsBrowserDistribution",
+      "bash scripts/build-ios-intel-simulator-signed.sh"
+    ],
+    "lint": [
+      "./gradlew.bat :app:lintDebug"
+    ]
+  },
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate connects Android to the real platform ContactPickerService and PermissionService for SOS contact actions while preserving the shared commonMain emergency contacts editor. Android returns contacts_permission_denied when READ_CONTACTS is unavailable and does not persist imported native contacts in this reduction.",
+    "Web/Wasm and iOS already mount EmergencyContactsContactActionsContent from commonMain through their platform service edges; this candidate keeps those surfaces common and changes only shared copy so technical picker failures do not leak raw platform reasons to users.",
+    "Web/Wasm evidence runs against the production distribution and records that Compose/Wasm canvas still does not expose profile.sos.* tags as DOM/ARIA nodes; the route is driven by the existing localhost-only product bridge and common anchors are enforced by contracts plus Android/iOS native semantics.",
+    "Android evidence adds a focal instrumented test for import and permission actions with fake platform services and verifies visible status text for picker success and denied permission. iOS evidence verifies the shared SOS editor anchors and shared save-error rollback behavior on the Mac simulator.",
+    "No Supabase schema, RLS, RPC, grants, Edge Functions or DDL were changed. No remote SOS data mutation was needed for this candidate."
+  ]
+}
