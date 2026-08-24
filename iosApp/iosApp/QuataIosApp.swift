@@ -1564,14 +1564,18 @@ final class IosKeyboardBackdropController {
         self.hostView = hostView
     }
 
+    private var backdropContainer: UIView? {
+        hostView?.window ?? hostView
+    }
+
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
 
     func install() {
-        guard let hostView else { return }
-        if backdropView.superview !== hostView {
-            hostView.addSubview(backdropView)
+        guard let container = backdropContainer else { return }
+        if backdropView.superview !== container {
+            container.addSubview(backdropView)
         }
         NotificationCenter.default.addObserver(
             self,
@@ -1588,11 +1592,11 @@ final class IosKeyboardBackdropController {
     }
 
     func bringToFront() {
-        guard let hostView else { return }
-        if backdropView.superview !== hostView {
-            hostView.addSubview(backdropView)
+        guard let container = backdropContainer else { return }
+        if backdropView.superview !== container {
+            container.addSubview(backdropView)
         }
-        hostView.bringSubviewToFront(backdropView)
+        container.bringSubviewToFront(backdropView)
     }
 
     func refreshForCurrentKeyboardFrame() {
@@ -1601,15 +1605,18 @@ final class IosKeyboardBackdropController {
     }
 
     func show(forKeyboardFrame keyboardFrame: CGRect) {
-        guard let hostView else { return }
+        guard let container = backdropContainer else { return }
         latestKeyboardFrame = keyboardFrame
-        let convertedFrame = hostView.convert(keyboardFrame, from: nil)
-        let overlap = hostView.bounds.intersection(convertedFrame)
+        if backdropView.superview !== container {
+            container.addSubview(backdropView)
+        }
+        let convertedFrame = container.convert(keyboardFrame, from: nil)
+        let overlap = container.bounds.intersection(convertedFrame)
         guard !overlap.isNull, overlap.height > 0 else {
             hide()
             return
         }
-        backdropView.backgroundColor = hostView.tintAdjustmentMode == .dimmed ? .secondarySystemBackground : .systemBackground
+        backdropView.backgroundColor = container.tintAdjustmentMode == .dimmed ? .secondarySystemBackground : .systemBackground
         backdropView.frame = overlap
         backdropView.isHidden = false
         bringToFront()

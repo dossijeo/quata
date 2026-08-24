@@ -120,6 +120,30 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertEqual(backdrop.frame, .zero)
     }
 
+    func testKeyboardBackdropMovesToWindowWhenHostIsMounted() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let hostView = UIView(frame: window.bounds)
+        window.addSubview(hostView)
+        let controller = IosKeyboardBackdropController(hostView: hostView)
+        controller.install()
+        let keyboardFrame = CGRect(
+            x: 0,
+            y: window.bounds.maxY - 284,
+            width: window.bounds.width,
+            height: 284
+        )
+
+        controller.show(forKeyboardFrame: keyboardFrame)
+
+        let backdrop = try XCTUnwrap(
+            window.subviews.first { $0.accessibilityIdentifier == "quata-ios-keyboard-opaque-backdrop" }
+        )
+        XCTAssertTrue(backdrop.superview === window)
+        XCTAssertEqual(backdrop.frame, window.bounds.intersection(window.convert(keyboardFrame, from: nil)))
+        XCTAssertFalse(backdrop.isHidden)
+        XCTAssertTrue(backdrop.isOpaque)
+    }
+
     func testAppRegistersTheStableQuataCustomUrlScheme() {
         let appBundle = Bundle(for: AppDelegate.self)
 
