@@ -31,6 +31,7 @@ import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
 import platform.Foundation.NSJSONSerialization
 import platform.Foundation.NSMutableURLRequest
+import platform.Foundation.NSProcessInfo
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
@@ -204,6 +205,7 @@ class IosOfficialReadRepository(
     }
 
     override suspend fun addComment(postId: String, comment: PostComment): Result<OfficialPostItem?> = runCatching {
+        iosFeedOfficialCommentFailure("official")?.let { error(it) }
         val userId = authenticatedUserId()
         val safePostId = postId.requireOfficialPostgrestIdentifier()
         val safeUserId = userId.requireOfficialPostgrestIdentifier()
@@ -587,3 +589,13 @@ private fun String.iosQueryComponent(): String = encodeToByteArray().joinToStrin
 private val IosPostgrestTableName = Regex("[A-Za-z_][A-Za-z0-9_]*")
 private val IosPostgrestRpcPath = Regex("rpc/[A-Za-z_][A-Za-z0-9_]*")
 private val IosOfficialIdentifier = Regex("[A-Za-z0-9_-]+")
+
+private fun iosFeedOfficialCommentFailure(surface: String): String? {
+    val environment = NSProcessInfo.processInfo.environment
+    if (environment["QUATA_IOS_FEED_OFFICIAL_COMMENTS_FORCE_FAILURE"] as? String != "1") return null
+    val target = (environment["QUATA_IOS_FEED_OFFICIAL_COMMENTS_FORCE_FAILURE_SURFACE"] as? String)
+        ?.lowercase()
+        ?.takeIf(String::isNotBlank)
+    if (target != null && target != surface) return null
+    return "feed_official_comments_e2e_forced_${surface}_comment_failure"
+}

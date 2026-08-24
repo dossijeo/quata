@@ -71,6 +71,7 @@ class WebFeedRepository(
         refreshPost(postId).getOrThrow()
     }
     override suspend fun addComment(postId: String, comment: PostComment): Result<Post?> = runCatching {
+        webFeedOfficialCommentFailure("feed")?.let { error(it) }
         val userId = authRepository.restoreLocalSession()?.userId ?: error("web_session_missing")
         client.post("community_comments", "{\"post_id\":\"$postId\",\"profile_id\":\"$userId\",\"body\":${comment.toRemoteCommentBody().webJsonString()}}").requireWebSuccess()
         refreshPost(postId).getOrThrow()

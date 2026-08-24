@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import java.util.Locale
 
 class FeedRepositoryImpl(
     private val appContext: Context,
@@ -137,6 +138,7 @@ class FeedRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun addComment(postId: String, comment: PostComment): Result<Post?> = runCatching {
+        forcedFeedOfficialCommentFailure("feed")?.let { error(it) }
         if (AppConfig.USE_MOCK_BACKEND) {
             MockData.addComment(postId, comment)
         } else {
@@ -256,5 +258,17 @@ class FeedRepositoryImpl(
 
     private companion object {
         const val FeedPageSize = 50
+        const val EvidencePreferences = "quata_feed_official_comments_evidence"
+        const val EvidenceOptInKey = "comments.optIn"
+        const val EvidenceSurfaceKey = "comments.surface"
+        const val EvidenceOptInValue = "I_ACCEPT_FEED_OFFICIAL_COMMENTS_FORCED_FAILURE_EVIDENCE"
+    }
+
+    private fun forcedFeedOfficialCommentFailure(surface: String): String? {
+        val preferences = appContext.getSharedPreferences(EvidencePreferences, Context.MODE_PRIVATE)
+        if (preferences.getString(EvidenceOptInKey, null) != EvidenceOptInValue) return null
+        val target = preferences.getString(EvidenceSurfaceKey, null)?.lowercase(Locale.ROOT)
+        if (!target.isNullOrBlank() && target != surface) return null
+        return "feed_official_comments_e2e_forced_${surface}_comment_failure"
     }
 }

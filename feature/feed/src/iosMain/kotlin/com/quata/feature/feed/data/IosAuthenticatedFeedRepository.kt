@@ -6,6 +6,7 @@ import com.quata.core.model.User
 import com.quata.core.text.toRemoteCommentBody
 import com.quata.feature.feed.domain.FeedRepository
 import kotlinx.coroutines.flow.Flow
+import platform.Foundation.NSProcessInfo
 
 /** Full iOS Feed repository backed by the existing renewable Keychain session. */
 class IosAuthenticatedFeedRepository(
@@ -32,6 +33,7 @@ class IosAuthenticatedFeedRepository(
         refreshPost(postId).getOrThrow()
     }
     override suspend fun addComment(postId: String, comment: PostComment): Result<Post?> = runCatching {
+        iosFeedOfficialCommentFailure("feed")?.let { error(it) }
         val userId = transport.currentUserId().getOrThrow() ?: error("ios_feed_session_missing")
         transport.mutate("community_comments", "POST", body = "{\"post_id\":\"$postId\",\"profile_id\":\"$userId\",\"body\":${comment.toRemoteCommentBody().iosJsonString()}}").getOrThrow()
         refreshPost(postId).getOrThrow()
@@ -45,3 +47,13 @@ class IosAuthenticatedFeedRepository(
 }
 
 private fun String.iosJsonString(): String = buildString { append('"'); this@iosJsonString.forEach { append(if (it == '"' || it == '\\') "\\$it" else it) }; append('"') }
+
+private fun iosFeedOfficialCommentFailure(surface: String): String? {
+    val environment = NSProcessInfo.processInfo.environment
+    if (environment["QUATA_IOS_FEED_OFFICIAL_COMMENTS_FORCE_FAILURE"] as? String != "1") return null
+    val target = (environment["QUATA_IOS_FEED_OFFICIAL_COMMENTS_FORCE_FAILURE_SURFACE"] as? String)
+        ?.lowercase()
+        ?.takeIf(String::isNotBlank)
+    if (target != null && target != surface) return null
+    return "feed_official_comments_e2e_forced_${surface}_comment_failure"
+}
