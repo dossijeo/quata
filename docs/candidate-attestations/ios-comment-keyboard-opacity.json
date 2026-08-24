@@ -4,14 +4,18 @@
     "OVR-COMMENTS",
     "FLOW-IOS-LAYOUT"
   ],
-  "productSha": "74e44fdeb723587591fdfedfeeb76bbca7d3da51",
+  "productSha": "5bdaae0a5dcddc199f024a9fcba84f07ef1acb36",
   "evidence": {
     "ios_feed_official_comments": {
       "status": "passed",
-      "sha": "74e44fdeb723587591fdfedfeeb76bbca7d3da51",
+      "sha": "5bdaae0a5dcddc199f024a9fcba84f07ef1acb36",
       "report": "build-reports/ios/feed-official-comments-emoji-evidence.json",
       "uiReportDirectory": "build-reports/ios/feed-official-comments-emoji-evidence/mac-ui-report",
       "resultBundleDirectory": "build-reports/ios/feed-official-comments-emoji-evidence/xcresults",
+      "keyboardScreenshots": [
+        "ios-feed-comments-emoji-before-keyboard",
+        "ios-official-comments-emoji-before-keyboard"
+      ],
       "cleanup": {
         "verified": true,
         "state": "completed",
@@ -20,12 +24,14 @@
     },
     "ios_router_unit": {
       "status": "passed",
-      "sha": "74e44fdeb723587591fdfedfeeb76bbca7d3da51",
+      "sha": "5bdaae0a5dcddc199f024a9fcba84f07ef1acb36",
       "tests": [
         "QuataIosTests/QuataFeedFrameworkTests/testAuthenticatedRouterKeepsOpaqueBackdropBehindTranslucentKeyboard",
-        "QuataIosTests/QuataFeedFrameworkTests/testKeyboardBackdropMovesToWindowWhenHostIsMounted"
+        "QuataIosTests/QuataFeedFrameworkTests/testKeyboardBackdropMovesToWindowWhenHostIsMounted",
+        "QuataIosTests/QuataFeedFrameworkTests/testKeyboardBackdropUsesCommonRaisedSurfaceForLightAndDarkThemes",
+        "QuataIosTests/QuataFeedFrameworkTests/testKeyboardBackdropStaysVisibleDuringHideAnimationDelay"
       ],
-      "report": "build/ios-keyboard-opacity-derived-data/Logs/Test/Test-QuataIos-2026.08.24_06-36-34--0700.xcresult",
+      "report": "build/ios-keyboard-opacity-derived-data-final/Logs/Test/Test-QuataIos-2026.08.24_07-44-08--0700.xcresult",
       "cleanup": {
         "verified": true,
         "mode": "unit_test_no_remote_mutation"
@@ -35,16 +41,16 @@
   "preflight": [
     "node --test scripts/capability-matrix-contract.test.mjs",
     "node --test scripts/ios-build-workflow-contract.test.mjs scripts/codeql-workflow-contract.test.mjs scripts/classify-ci-impact.test.mjs scripts/candidate-attestation-contract.test.mjs scripts/e2e-fixtures-chat-attachments-contract.test.mjs scripts/ios-compose-resources-contract.test.mjs scripts/ios-auth-launch-fixture-contract.test.mjs scripts/ios-public-runtime-contract.test.mjs scripts/ios-nsdata-interop-contract.test.mjs scripts/ios-public-simulator-matrix-contract.test.mjs scripts/capability-matrix-contract.test.mjs scripts/whats-new-release-history-contract.test.mjs scripts/legal-documents-parity-contract.test.mjs",
-    "xcodebuild test -project iosApp/QuataIos.xcodeproj -scheme QuataIos -configuration SimulatorSigned -destination 'platform=iOS Simulator,name=Quata-Raster-iOS-26-ChatCandidate,OS=26.5' -derivedDataPath build/ios-keyboard-opacity-derived-data -only-testing:QuataIosTests/QuataFeedFrameworkTests/testAuthenticatedRouterKeepsOpaqueBackdropBehindTranslucentKeyboard -only-testing:QuataIosTests/QuataFeedFrameworkTests/testKeyboardBackdropMovesToWindowWhenHostIsMounted",
-    "node scripts/chat-actions-notifications-ios-evidence.mjs --feed-official-comments-only",
+    "xcodebuild test -project iosApp/QuataIos.xcodeproj -scheme QuataIos -configuration SimulatorSigned -destination 'platform=iOS Simulator,name=Quata-Raster-iOS-26-ChatCandidate,OS=26.5' -derivedDataPath build/ios-keyboard-opacity-derived-data-final -only-testing:QuataIosTests/QuataFeedFrameworkTests/testAuthenticatedRouterKeepsOpaqueBackdropBehindTranslucentKeyboard -only-testing:QuataIosTests/QuataFeedFrameworkTests/testKeyboardBackdropMovesToWindowWhenHostIsMounted -only-testing:QuataIosTests/QuataFeedFrameworkTests/testKeyboardBackdropUsesCommonRaisedSurfaceForLightAndDarkThemes -only-testing:QuataIosTests/QuataFeedFrameworkTests/testKeyboardBackdropStaysVisibleDuringHideAnimationDelay",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --feed-official-comments-only --build-first",
     "git diff --check"
   ],
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
-    "This candidate fixes the iOS comments keyboard opacity edge by mounting the opaque keyboard backdrop in the active UIWindow when Compose hosts are mounted under sheets, preventing Feed/Official content from showing through the translucent UIKit keyboard while writing comments.",
+    "This candidate fixes the iOS comments keyboard opacity edge by mounting the opaque keyboard backdrop in the active UIWindow when Compose hosts are mounted under sheets, using the common surfaceRaised color, and keeping it visible through the keyboard hide animation so Feed/Official content cannot show through the translucent UIKit keyboard while writing comments.",
     "The product change is isolated to the iOS platform host edge. Comment UI, emoji picker, reply composer, DB verification and cleanup remain on the existing common Feed/Official comments route and runner.",
-    "iOS visual/operational evidence ran on the Mac Hyper-V simulator UDID 48950F56-C309-4AA7-921F-D76C6042AC2C after materializing the exact candidate SHA on the Mac. It created reversible Feed and Official comment data, wrote replies and emoji comments from UI, verified persistence by DB polling and completed hard cleanup with physical residue zero.",
+    "iOS visual/operational evidence ran on the Mac Hyper-V simulator UDID 48950F56-C309-4AA7-921F-D76C6042AC2C after materializing the exact candidate SHA on the Mac. It created reversible Feed and Official comment data, captured the native keyboard visible over both comment sheets, wrote replies and emoji comments from UI, verified persistence by DB polling and completed hard cleanup with physical residue zero.",
     "This reduces OVR-COMMENTS and FLOW-IOS-LAYOUT for the keyboard opacity edge only. It does not declare full GO for comments or iOS layout: selector errors, rollback forced paths, broad landscape/layout coverage and full visual comparison remain pending."
   ]
 }
