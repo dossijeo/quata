@@ -111,13 +111,76 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertTrue(backdrop.isOpaque)
         XCTAssertFalse(expectedFrame.isNull)
         XCTAssertEqual(backdrop.frame, expectedFrame)
-        XCTAssertEqual(backdrop.backgroundColor, .systemBackground)
+        XCTAssertEqual(backdrop.backgroundColor, IosKeyboardBackdropController.commonSurfaceRaisedColor(for: hostView.traitCollection))
         XCTAssertFalse(backdrop.isUserInteractionEnabled)
 
         controller.hide()
 
         XCTAssertTrue(backdrop.isHidden)
         XCTAssertEqual(backdrop.frame, .zero)
+    }
+
+    func testKeyboardBackdropMovesToWindowWhenHostIsMounted() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let hostView = UIView(frame: window.bounds)
+        window.addSubview(hostView)
+        let controller = IosKeyboardBackdropController(hostView: hostView)
+        controller.install()
+        let keyboardFrame = CGRect(
+            x: 0,
+            y: window.bounds.maxY - 284,
+            width: window.bounds.width,
+            height: 284
+        )
+
+        controller.show(forKeyboardFrame: keyboardFrame)
+
+        let backdrop = try XCTUnwrap(
+            window.subviews.first { $0.accessibilityIdentifier == "quata-ios-keyboard-opaque-backdrop" }
+        )
+        XCTAssertTrue(backdrop.superview === window)
+        XCTAssertEqual(backdrop.frame, window.bounds.intersection(window.convert(keyboardFrame, from: nil)))
+        XCTAssertFalse(backdrop.isHidden)
+        XCTAssertTrue(backdrop.isOpaque)
+    }
+
+    func testKeyboardBackdropUsesCommonRaisedSurfaceForLightAndDarkThemes() {
+        let light = IosKeyboardBackdropController.commonSurfaceRaisedColor(
+            for: UITraitCollection(userInterfaceStyle: .light)
+        )
+        let dark = IosKeyboardBackdropController.commonSurfaceRaisedColor(
+            for: UITraitCollection(userInterfaceStyle: .dark)
+        )
+
+        XCTAssertEqual(light, UIColor(red: 0xFF / 255.0, green: 0xFE / 255.0, blue: 0xFC / 255.0, alpha: 1))
+        XCTAssertEqual(dark, UIColor(red: 0x11 / 255.0, green: 0x18 / 255.0, blue: 0x27 / 255.0, alpha: 1))
+    }
+
+    func testKeyboardBackdropStaysVisibleDuringHideAnimationDelay() throws {
+        let hostView = UIView(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let controller = IosKeyboardBackdropController(hostView: hostView)
+        controller.install()
+        let visibleFrame = CGRect(x: 0, y: 590, width: 402, height: 284)
+        let hiddenFrame = CGRect(x: 0, y: 874, width: 402, height: 284)
+
+        controller.show(forKeyboardFrame: visibleFrame)
+        let backdrop = try XCTUnwrap(
+            hostView.subviews.first { $0.accessibilityIdentifier == "quata-ios-keyboard-opaque-backdrop" }
+        )
+
+        controller.show(forKeyboardFrame: hiddenFrame, hideDelay: 0.05)
+        controller.refreshForCurrentKeyboardFrame()
+
+        XCTAssertFalse(backdrop.isHidden)
+        XCTAssertNotEqual(backdrop.frame, .zero)
+
+        let hidden = expectation(description: "Backdrop hidden after keyboard animation")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            XCTAssertTrue(backdrop.isHidden)
+            XCTAssertEqual(backdrop.frame, .zero)
+            hidden.fulfill()
+        }
+        wait(for: [hidden], timeout: 1)
     }
 
     func testAppRegistersTheStableQuataCustomUrlScheme() {

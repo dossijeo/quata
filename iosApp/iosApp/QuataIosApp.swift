@@ -1550,7 +1550,7 @@ final class IosTransparentComposeOverlayController: UIViewController {
 final class IosKeyboardBackdropController {
     let backdropView: UIView = {
         let view = UIView()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = IosKeyboardBackdropController.commonSurfaceRaisedColor(for: view.traitCollection)
         view.isOpaque = true
         view.isHidden = true
         view.isUserInteractionEnabled = false
@@ -1559,9 +1559,21 @@ final class IosKeyboardBackdropController {
     }()
     private weak var hostView: UIView?
     private var latestKeyboardFrame: CGRect?
+    private var pendingHideWorkItem: DispatchWorkItem?
 
     init(hostView: UIView) {
         self.hostView = hostView
+    }
+
+    private var backdropContainer: UIView? {
+        hostView?.window ?? hostView
+    }
+
+    static func commonSurfaceRaisedColor(for traitCollection: UITraitCollection) -> UIColor {
+        if traitCollection.userInterfaceStyle == .dark {
+            return UIColor(red: 0x11 / 255.0, green: 0x18 / 255.0, blue: 0x27 / 255.0, alpha: 1)
+        }
+        return UIColor(red: 0xFF / 255.0, green: 0xFE / 255.0, blue: 0xFC / 255.0, alpha: 1)
     }
 
     deinit {
@@ -1569,9 +1581,9 @@ final class IosKeyboardBackdropController {
     }
 
     func install() {
-        guard let hostView else { return }
-        if backdropView.superview !== hostView {
-            hostView.addSubview(backdropView)
+        guard let container = backdropContainer else { return }
+        if backdropView.superview !== container {
+            container.addSubview(backdropView)
         }
         NotificationCenter.default.addObserver(
             self,
@@ -1585,51 +1597,91 @@ final class IosKeyboardBackdropController {
             name: UIResponder.keyboardWillHideNotification,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardDidHide(_:)),
+            name: UIResponder.keyboardDidHideNotification,
+            object: nil
+        )
     }
 
     func bringToFront() {
-        guard let hostView else { return }
-        if backdropView.superview !== hostView {
-            hostView.addSubview(backdropView)
+        guard let container = backdropContainer else { return }
+        if backdropView.superview !== container {
+            container.addSubview(backdropView)
         }
-        hostView.bringSubviewToFront(backdropView)
+        container.bringSubviewToFront(backdropView)
     }
 
     func refreshForCurrentKeyboardFrame() {
         guard let latestKeyboardFrame else { return }
-        show(forKeyboardFrame: latestKeyboardFrame)
+        show(forKeyboardFrame: latestKeyboardFrame, cancelPendingHide: false)
     }
 
-    func show(forKeyboardFrame keyboardFrame: CGRect) {
-        guard let hostView else { return }
-        latestKeyboardFrame = keyboardFrame
-        let convertedFrame = hostView.convert(keyboardFrame, from: nil)
-        let overlap = hostView.bounds.intersection(convertedFrame)
+    func show(
+        forKeyboardFrame keyboardFrame: CGRect,
+        hideDelay: TimeInterval = 0,
+        cancelPendingHide: Bool = true
+    ) {
+        guard let container = backdropContainer else { return }
+        if backdropView.superview !== container {
+            container.addSubview(backdropView)
+        }
+        let convertedFrame = container.convert(keyboardFrame, from: nil)
+        let overlap = container.bounds.intersection(convertedFrame)
         guard !overlap.isNull, overlap.height > 0 else {
-            hide()
+            scheduleHide(after: hideDelay)
             return
         }
-        backdropView.backgroundColor = hostView.tintAdjustmentMode == .dimmed ? .secondarySystemBackground : .systemBackground
+        latestKeyboardFrame = keyboardFrame
+        if cancelPendingHide {
+            pendingHideWorkItem?.cancel()
+            pendingHideWorkItem = nil
+        }
+        backdropView.backgroundColor = Self.commonSurfaceRaisedColor(for: container.traitCollection)
         backdropView.frame = overlap
         backdropView.isHidden = false
         bringToFront()
     }
 
     func hide() {
+        pendingHideWorkItem?.cancel()
+        pendingHideWorkItem = nil
         latestKeyboardFrame = nil
         backdropView.isHidden = true
         backdropView.frame = .zero
+    }
+
+    func scheduleHide(after delay: TimeInterval) {
+        pendingHideWorkItem?.cancel()
+        if delay <= 0 {
+            hide()
+            return
+        }
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.hide()
+        }
+        pendingHideWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 
     @objc private func updateKeyboardBackdrop(_ notification: Notification) {
         guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
             return
         }
-        show(forKeyboardFrame: keyboardFrame)
+        show(forKeyboardFrame: keyboardFrame, hideDelay: keyboardAnimationDuration(from: notification))
     }
 
     @objc private func hideKeyboardBackdrop(_ notification: Notification) {
+        scheduleHide(after: keyboardAnimationDuration(from: notification))
+    }
+
+    @objc private func keyboardDidHide(_ notification: Notification) {
         hide()
+    }
+
+    private func keyboardAnimationDuration(from notification: Notification) -> TimeInterval {
+        notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval ?? 0.25
     }
 }
 
