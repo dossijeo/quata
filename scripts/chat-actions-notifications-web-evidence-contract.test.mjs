@@ -145,9 +145,12 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(runner, /--composer-emoji-only/);
   assert.match(runner, /--group-sos-only/);
   assert.match(runner, /--group-moderation-only/);
+  assert.match(runner, /--community-chat-only/);
   assert.match(runner, /QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E/);
   assert.match(runner, /QUATA_IOS_CHAT_GROUP_SOS_UI_E2E/);
   assert.match(runner, /QUATA_IOS_CHAT_GROUP_MODERATION_UI_E2E/);
+  assert.match(runner, /QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E/);
+  assert.match(runner, /QUATA_IOS_CHAT_COMMUNITY_NAME/);
   assert.match(runner, /options_menu_surface_visible_from_shared_ui/);
   assert.match(runner, /ios_xctest_group_menu_and_sos_shared_anchors_verified/);
   assert.match(runner, /ios_xctest_composer_emoji_link_marker_sent/);
@@ -155,6 +158,10 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(wrapper, /testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface/);
   assert.match(wrapper, /testGroupMenuAndSosMessagesExposeSharedAnchors/);
   assert.match(wrapper, /testGroupModerationRemovesAndBlocksParticipantsThroughSharedMemberMenu/);
+  assert.match(wrapper, /testCommunityChatOpensFromSharedCommunityAnchor/);
+  assert.match(wrapper, /QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E/);
+  assert.match(wrapper, /QUATA_IOS_CHAT_COMMUNITY_NAME/);
+  assert.match(wrapper, /community-chat\.log/);
   assert.match(wrapper, /QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E/);
   assert.match(wrapper, /composer_emoji='QuataIosUITests\/QuataIosAuthenticatedChatActionsNotificationsUITests\/testComposerEmojiLinkMarkerUsesSharedChatSurface'/);
   assert.match(wrapper, /run_and_require "\$composer_emoji" "\$composer_emoji_method"/);
