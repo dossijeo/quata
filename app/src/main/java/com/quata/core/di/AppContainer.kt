@@ -26,6 +26,7 @@ import com.quata.core.platform.AndroidShareService
 import com.quata.core.platform.ShareService
 import com.quata.core.platform.AndroidClipboardService
 import com.quata.core.platform.AndroidCameraCaptureService
+import com.quata.core.platform.AndroidContactPickerService
 import com.quata.core.platform.AndroidAudioPlayerService
 import com.quata.core.platform.AndroidAudioRecorderService
 import com.quata.core.platform.AudioPlayerService
@@ -98,6 +99,7 @@ class AppContainer(context: Context) {
         share = shareService,
         filePicker = filePickerService,
         documentOpener = documentOpenService,
+        contacts = AndroidContactPickerService(appContext),
         location = locationService,
         permissions = permissionService,
     )

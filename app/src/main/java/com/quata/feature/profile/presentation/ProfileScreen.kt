@@ -212,6 +212,8 @@ fun EmergencyContactsDialog(
     message: String,
     isSaving: Boolean,
     errorMessage: String? = null,
+    contactPickerService: ContactPickerService = UnsupportedContactPickerService,
+    permissionService: PermissionService? = null,
     onMessageChange: (String) -> Unit,
     onToggleContact: (EmergencyContactCandidate) -> Unit,
     onDismiss: () -> Unit,
@@ -236,6 +238,15 @@ fun EmergencyContactsDialog(
             messageInput = { modifier, value, change, minLines, maxLines -> OutlinedTextField(
                 value, change, modifier = modifier, minLines = minLines, maxLines = maxLines ?: Int.MAX_VALUE, shape = RoundedCornerShape(18.dp),
             ) },
+            contactActions = permissionService?.let { permissions ->
+                {
+                    EmergencyContactsContactActionsContent(
+                        strings = androidProfileStrings(context).emergency,
+                        contacts = contactPickerService,
+                        permissions = permissions,
+                    )
+                }
+            },
         ),
     )
 }

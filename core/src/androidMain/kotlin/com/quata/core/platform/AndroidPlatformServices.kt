@@ -8,10 +8,13 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Build
 import android.net.Uri
+import android.provider.ContactsContract
 import android.provider.OpenableColumns
+import android.telephony.PhoneNumberUtils
 import android.app.NotificationManager
 import android.media.MediaRecorder
 import java.io.File
+import java.util.Locale
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.core.content.ContextCompat
@@ -132,6 +135,80 @@ class AndroidFilePickerService(context: Context) : FilePickerService {
             sizeBytes = sizeBytes,
         )
     }
+}
+
+/**
+ * Android address-book import behind the shared contact picker contract.
+ *
+ * The SOS UI owns the user gesture and the separate permission request. This adapter only reads
+ * contacts when READ_CONTACTS is already granted and returns an explicit failure otherwise.
+ */
+class AndroidContactPickerService(context: Context) : ContactPickerService {
+    private val applicationContext = context.applicationContext
+
+    override suspend fun pickContacts(): PlatformResult<List<PlatformContact>> {
+        if (ContextCompat.checkSelfPermission(applicationContext, android.Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            return PlatformResult.Failure("contacts_permission_denied")
+        }
+        return runCatching {
+            PlatformResult.Success(readContacts())
+        }.getOrElse { error ->
+            PlatformResult.Failure(error.message)
+        }
+    }
+
+    private fun readContacts(): List<PlatformContact> {
+        val contacts = linkedMapOf<String, MutablePlatformContact>()
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+            ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY,
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME_PRIMARY,
+            ContactsContract.CommonDataKinds.Phone.NUMBER,
+            ContactsContract.CommonDataKinds.Phone.NORMALIZED_NUMBER,
+        )
+        applicationContext.contentResolver.query(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            projection,
+            null,
+            null,
+            "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME_PRIMARY} COLLATE NOCASE ASC",
+        )?.use { cursor ->
+            val contactIdColumn = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
+            val lookupKeyColumn = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY)
+            val nameColumn = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME_PRIMARY)
+            val numberColumn = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            val normalizedColumn = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NORMALIZED_NUMBER)
+            while (cursor.moveToNext()) {
+                val contactId = cursor.getLong(contactIdColumn)
+                val lookupKey = cursor.getString(lookupKeyColumn).orEmpty()
+                val id = lookupKey.ifBlank { contactId.toString() }
+                val displayName = cursor.getString(nameColumn)?.trim().orEmpty()
+                val displayPhone = cursor.getString(numberColumn)?.trim().orEmpty()
+                val providerNormalizedPhone = cursor.getString(normalizedColumn).orEmpty()
+                val internationalPhone = providerNormalizedPhone.takeIf { it.startsWith("+") }
+                    ?: PhoneNumberUtils.formatNumberToE164(displayPhone, Locale.getDefault().country)
+                val phones = listOf(displayPhone, providerNormalizedPhone, internationalPhone.orEmpty())
+                    .map(String::trim)
+                    .filter(String::isNotBlank)
+                    .distinct()
+                val contact = contacts.getOrPut(id) {
+                    MutablePlatformContact(displayName.ifBlank { displayPhone })
+                }
+                contact.phones += phones
+            }
+        }
+        return contacts.values.map { contact ->
+            PlatformContact(
+                displayName = contact.displayName.takeIf(String::isNotBlank),
+                phones = contact.phones.distinct(),
+            )
+        }
+    }
+
+    private data class MutablePlatformContact(
+        val displayName: String,
+        val phones: MutableList<String> = mutableListOf(),
+    )
 }
 
 class AndroidClipboardService(context: Context) : ClipboardService {

@@ -2060,6 +2060,8 @@ private fun AuthenticatedGlobalSosButton(
             selectedIds = configContactIds,
             message = configMessage,
             isSaving = isSavingSosConfig,
+            contactPickerService = container.platformServices.contacts,
+            permissionService = container.permissionService,
             onMessageChange = {
                 configMessage = it
                 configMessageIsDefault = false

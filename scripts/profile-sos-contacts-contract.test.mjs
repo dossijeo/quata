@@ -15,6 +15,8 @@ const files = {
   repository: "../feature/profile/src/commonMain/kotlin/com/quata/feature/profile/data/KmpProfileRepository.kt",
   androidGateway: "../app/src/main/java/com/quata/feature/profile/data/AndroidProfileKmpAdapters.kt",
   androidProfile: "../app/src/main/java/com/quata/feature/profile/presentation/ProfileScreen.kt",
+  androidPlatform: "../core/src/androidMain/kotlin/com/quata/core/platform/AndroidPlatformServices.kt",
+  androidContainer: "../app/src/main/java/com/quata/core/di/AppContainer.kt",
   androidNav: "../app/src/main/java/com/quata/core/navigation/AppNavGraph.kt",
   webGateway: "../web/src/wasmJsMain/kotlin/com/quata/web/WebProfileRemoteGateway.kt",
   webHost: "../web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
@@ -77,8 +79,14 @@ test("SOS contacts import and permission actions stay shared across Android, Web
   assert.match(loaded.androidProfile, /EmergencyContactsContactActionsContent\(/);
   assert.match(loaded.androidProfile, /contactPickerService: ContactPickerService = UnsupportedContactPickerService/);
   assert.match(loaded.androidProfile, /permissionService: PermissionService\? = null/);
+  assert.match(loaded.androidProfile, /contactActions = permissionService\?\.let/);
   assert.match(loaded.androidNav, /contactPickerService = container\.platformServices\.contacts/);
   assert.match(loaded.androidNav, /permissionService = container\.permissionService/);
+  assert.match(loaded.androidPlatform, /class AndroidContactPickerService\(context: Context\) : ContactPickerService/);
+  assert.match(loaded.androidPlatform, /READ_CONTACTS/);
+  assert.match(loaded.androidPlatform, /ContactsContract\.CommonDataKinds\.Phone\.CONTENT_URI/);
+  assert.match(loaded.androidPlatform, /PlatformResult\.Failure\("contacts_permission_denied"\)/);
+  assert.match(loaded.androidContainer, /contacts = AndroidContactPickerService\(appContext\)/);
   assert.match(loaded.webHost, /EmergencyContactsContactActionsContent\(/);
   assert.match(loaded.webHost, /contacts = platformServices\.contacts/);
   assert.match(loaded.webHost, /permissions = platformServices\.permissions/);
