@@ -75,7 +75,7 @@ fun EmergencyContactsContactActionsContent(
                             onContactPickerResult(result)
                         }
                         is PlatformResult.Failure -> {
-                            statusMessage = result.reason?.takeIf(String::isNotBlank) ?: strings.contactPickerFailed
+                            statusMessage = strings.contactPickerFailed
                             onContactPickerResult(result)
                         }
                     }
