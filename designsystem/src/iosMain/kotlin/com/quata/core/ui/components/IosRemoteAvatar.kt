@@ -28,6 +28,7 @@ import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionDataDelegateProtocol
 import platform.Foundation.NSURLSessionDataTask
 import platform.Foundation.NSURLSessionTask
+import platform.Foundation.dataWithContentsOfURL
 import platform.darwin.NSObject
 
 /** Shared iOS boundary for remote avatars used by Feed, Profile and future feature hosts. */
@@ -40,7 +41,7 @@ fun IosRemoteAvatar(
     isOfficial: Boolean = false,
     isOnline: Boolean? = null,
 ) {
-    val imageUrl = avatarUrl?.trim()?.takeIf(::isIosRemoteAvatarUrl)
+    val imageUrl = avatarUrl?.trim()?.takeIf(::isIosAvatarPreviewUrl)
     var image by remember(imageUrl) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(imageUrl) {
         image = if (imageUrl == null) null else loadIosRemoteAvatarOrNull(imageUrl)
@@ -67,12 +68,23 @@ fun IosRemoteAvatar(
 internal fun isIosRemoteAvatarUrl(value: String): Boolean =
     value.startsWith("https://") || value.startsWith("http://")
 
+internal fun isIosAvatarPreviewUrl(value: String): Boolean =
+    isIosRemoteAvatarUrl(value) || value.startsWith("file://")
+
 private suspend fun loadIosRemoteAvatarOrNull(url: String): ImageBitmap? =
-    runCatching { iosRemoteAvatarData(NSURL(string = url) ?: return@runCatching null) }
+    runCatching { iosAvatarData(NSURL(string = url) ?: return@runCatching null) }
         .getOrNull()
         ?.toIosRemoteAvatarBytes()
         ?.takeIf(ByteArray::isNotEmpty)
         ?.let { encoded -> runCatching { encoded.decodeToImageBitmap() }.getOrNull() }
+
+@OptIn(ExperimentalForeignApi::class)
+private suspend fun iosAvatarData(url: NSURL): NSData =
+    if (url.isFileURL()) {
+        NSData.dataWithContentsOfURL(url) ?: error("ios_avatar_file_unavailable")
+    } else {
+        iosRemoteAvatarData(url)
+    }
 
 @OptIn(ExperimentalForeignApi::class)
 private suspend fun iosRemoteAvatarData(url: NSURL): NSData = suspendCancellableCoroutine { continuation ->

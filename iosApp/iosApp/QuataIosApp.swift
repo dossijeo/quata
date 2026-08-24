@@ -999,6 +999,7 @@ private final class IosAppCompositionRoot {
                     self?.presentAccountLifecyclePrompt(action: "delete", handler: lifecycleHandler)
                 },
                 filePicker: filePicker,
+                cameraCapture: self.platformServices.services.cameraCapture,
                 contacts: self.platformServices.services.contacts,
                 permissions: self.platformServices.services.permissions,
                 touchFlowEnabled: appearancePreferences.touchFlowEnabled,

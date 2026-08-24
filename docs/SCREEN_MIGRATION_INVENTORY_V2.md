@@ -119,7 +119,7 @@ requieren una PR independiente, pero todas requieren estado y evidencia propios.
 
 | ID | Capacidad | Estado actual / pendiente |
 |---|---|---|
-| `ACCOUNT-AVATAR` | Selección, edición, subida, persistencia y rollback. | Contratos presentes; falta mutación Web/iOS acreditada y limpieza. |
+| `ACCOUNT-AVATAR` | Selección, edición, subida, persistencia y rollback. | **GO focal en candidato `090d4fb`.** Android, Web/Wasm e iOS usan el flujo común de Cuenta `profile.avatar.*` y el editor común bloqueado a avatar cuadrado; los bordes de plataforma solo inyectan picker/upload nativo u opt-in de evidencia. Evidencias exact-SHA sobre `090d4fb312421e416701f0076f5f64724ae41d11`: Web `build-reports/web/account-avatar-evidence.json`, Android `build-reports/android/account-avatar-evidence.json`, iOS `build-reports/ios/account-avatar-evidence.json`. Las tres rutas seleccionan fixture real, editan/guardan desde la superficie común, verifican cambio remoto de `avatar_url` con probe JPEG público, restauran el valor original y borran el objeto Storage con cleanup físico cero verificado. |
 | `ACCOUNT-SETTINGS` | Acceso a Ajustes y regreso a Cuenta. | Depende de `SCR-SETTINGS`. |
 | `ACCOUNT-DEACTIVATE` | Desactivar cuenta con confirmación y error. | No consta como flujo multiplataforma cerrado. |
 | `ACCOUNT-DATA-DELETE` | Solicitud/borrado de datos y confirmaciones. | No consta como flujo multiplataforma cerrado. |

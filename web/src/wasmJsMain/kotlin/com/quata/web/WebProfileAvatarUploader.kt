@@ -110,6 +110,7 @@ internal fun webProfileAvatarPanAfterDrag(
 internal interface WebProfileAvatarBinaryTransport {
     suspend fun prepareSquareJpeg(reference: String, transform: AvatarImageEditorTransform): WebProfileAvatarPreparedImage
     suspend fun upload(reference: String, url: String, key: String, token: String, mimeType: String)
+    suspend fun deleteObject(url: String, key: String, token: String)
     fun revokePrepared(reference: String)
 }
 
@@ -178,6 +179,17 @@ internal class WebProfileAvatarUploader(
             references.release(normalized)
         }
     }
+
+    override suspend fun rollbackUploaded(profileId: String, uploadedAvatarUrl: String) {
+        val session = sessionForAuthenticatedRequest() ?: error("web_session_missing")
+        check(session.userId == profileId) { "web_profile_avatar_actor_mismatch" }
+        val baseUrl = configuration.supabaseUrl?.trimEnd('/')?.takeIf(String::isNotBlank)
+            ?: error("supabase_url_missing")
+        val key = configuration.supabasePublishableKey?.takeIf(String::isNotBlank)
+            ?: error("supabase_publishable_key_missing")
+        val path = webProfileAvatarStoragePathFromPublicUrl(baseUrl, profileId, uploadedAvatarUrl)
+        binary.deleteObject(webComposerStorageObjectUrl(baseUrl, path), key, session.accessToken)
+    }
 }
 
 /** Existing persisted server values remain valid; transient Blob URLs must take the uploader path. */
@@ -195,7 +207,18 @@ private object BrowserWebProfileAvatarBinaryTransport : WebProfileAvatarBinaryTr
         webComposerUploadBlob(reference, url, key, token, mimeType)
     }
 
+    override suspend fun deleteObject(url: String, key: String, token: String) {
+        webComposerDeleteStorageBlob(url, key, token)
+    }
+
     override fun revokePrepared(reference: String) = webProfileRevokeBlobUrl(reference)
+}
+
+internal fun webProfileAvatarStoragePathFromPublicUrl(baseUrl: String, profileId: String, publicUrl: String): String {
+    val marker = "${baseUrl.trimEnd('/')}/storage/v1/object/public/community-posts/"
+    val path = publicUrl.substringAfter(marker, missingDelimiterValue = "")
+    require(path.startsWith("avatars/$profileId/") && ".." !in path) { "web_profile_avatar_rollback_path_invalid" }
+    return path
 }
 
 private suspend fun webProfilePrepareSquareAvatar(reference: String, transform: AvatarImageEditorTransform): WebProfileAvatarPreparedImage = suspendCoroutine { continuation ->

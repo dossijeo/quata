@@ -5,6 +5,8 @@ import com.quata.core.localization.QuataLanguage
 import com.quata.core.model.CountryPrefix
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.moderation.iosLegalDocumentFile
+import com.quata.core.platform.CameraCaptureRequest
+import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
@@ -42,6 +44,7 @@ fun QuataIosProfileLegalEvidenceViewController(
         onDeactivateAccount = {},
         onDeleteAccountData = {},
         filePicker = IosProfileLegalEvidenceFilePicker,
+        cameraCapture = IosProfileLegalEvidenceCameraCapture,
         contacts = UnsupportedContactPickerService,
         permissions = IosProfileLegalEvidencePermissionService,
         touchFlowEnabled = true,
@@ -75,6 +78,11 @@ private object IosProfileLegalEvidenceFilePicker : FilePickerService {
     ): PlatformResult<List<PlatformFile>> = PlatformResult.Unsupported
 
     override suspend fun pick(request: FilePickerRequest): PlatformResult<List<PlatformFile>> =
+        PlatformResult.Unsupported
+}
+
+private object IosProfileLegalEvidenceCameraCapture : CameraCaptureService {
+    override suspend fun capturePhoto(request: CameraCaptureRequest): PlatformResult<PlatformFile> =
         PlatformResult.Unsupported
 }
 

@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import com.quata.core.designsystem.theme.QuataThemeMode
@@ -42,6 +45,7 @@ import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
+import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PreferenceStore
 import com.quata.core.platform.documentViewerOpeningState
@@ -70,6 +74,9 @@ import com.quata.feature.profile.presentation.EmergencyContactsContactActionsCon
 import com.quata.feature.profile.presentation.EmergencyContactsEditorStrings
 import com.quata.feature.profile.presentation.EmergencyContactsHeaderStrings
 import com.quata.feature.profile.presentation.EmergencyUserRowContent
+import com.quata.feature.profile.presentation.ProfileAvatarCameraTestTag
+import com.quata.feature.profile.presentation.ProfileAvatarChangeTestTag
+import com.quata.feature.profile.presentation.ProfileAvatarGalleryTestTag
 import com.quata.feature.profile.presentation.ProfileScreenHost
 import com.quata.feature.profile.presentation.ProfileScreenSlots
 import com.quata.feature.profile.presentation.ProfileScreenStrings
@@ -169,6 +176,12 @@ internal fun WebProfileHost(
                     onDispose { uninstall() }
                 }
             },
+            accountE2eBridge = { saveProfile ->
+                DisposableEffect(saveProfile) {
+                    val uninstall = installWebAccountAvatarE2eBridge(saveProfile)
+                    onDispose { uninstall() }
+                }
+            },
             onSosTabChanged = { tab ->
                 updateWebProfileSosE2eTab(tab?.name?.lowercase())
             },
@@ -222,7 +235,13 @@ private fun WebProfileAvatarActions(
         error = null
     }
 
-    OutlinedButton(onClick = { menuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+    OutlinedButton(
+        onClick = { menuOpen = true },
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(ProfileAvatarChangeTestTag)
+            .semantics { contentDescription = ProfileAvatarChangeTestTag },
+    ) {
         CompactIcon(Icons.Filled.PhotoCamera, null)
         Spacer(Modifier.width(4.dp))
         Text("Cambiar foto de perfil")
@@ -239,29 +258,62 @@ private fun WebProfileAvatarActions(
                 tonalElevation = 6.dp,
             ) {
                 Column {
-        DropdownMenuItem(text = { Text("Elegir de galería") }, onClick = {
-            menuOpen = false
-            scope.launch {
-                when (val result = platformServices.filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery))) {
-                    is PlatformResult.Success -> result.value.firstOrNull()?.let { openEditor(it, fromCamera = false) }
-                        ?: run { error = "No se seleccionó ninguna foto." }
-                    PlatformResult.Cancelled -> Unit
-                    PlatformResult.Unsupported -> error = "La galería no está disponible en este navegador."
-                    is PlatformResult.Failure -> error = "No se pudo seleccionar la foto."
+        DropdownMenuItem(
+            text = { Text("Elegir de galería") },
+            modifier = Modifier
+                .testTag(ProfileAvatarGalleryTestTag)
+                .semantics { contentDescription = ProfileAvatarGalleryTestTag },
+            onClick = {
+                menuOpen = false
+                scope.launch {
+                    val evidenceReference = webProfileAvatarEvidenceReference("gallery")
+                    if (evidenceReference != null) {
+                        openEditor(
+                            PlatformFile(
+                                reference = evidenceReference,
+                                displayName = "account-avatar-evidence.png",
+                                mimeType = "image/png",
+                            ),
+                            fromCamera = false,
+                        )
+                    } else {
+                        when (val result = platformServices.filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery))) {
+                            is PlatformResult.Success -> result.value.firstOrNull()?.let { openEditor(it, fromCamera = false) }
+                                ?: run { error = "No se seleccionó ninguna foto." }
+                            PlatformResult.Cancelled -> Unit
+                            PlatformResult.Unsupported -> error = "La galería no está disponible en este navegador."
+                            is PlatformResult.Failure -> error = "No se pudo seleccionar la foto."
+                        }
+                    }
                 }
-            }
-        })
+            },
+        )
         DropdownMenuItem(
             text = { Text("Hacer foto") },
+            modifier = Modifier
+                .testTag(ProfileAvatarCameraTestTag)
+                .semantics { contentDescription = ProfileAvatarCameraTestTag },
             leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, null) },
             onClick = {
             menuOpen = false
             scope.launch {
-                when (val result = platformServices.cameraCapture.capturePhoto(CameraCaptureRequest("quata-avatar.jpg"))) {
-                    is PlatformResult.Success -> openEditor(result.value, fromCamera = true)
-                    PlatformResult.Cancelled -> Unit
-                    PlatformResult.Unsupported -> error = "La cámara no está disponible en este navegador."
-                    is PlatformResult.Failure -> error = "No se pudo capturar la foto."
+                val evidenceReference = webProfileAvatarEvidenceReference("camera")
+                if (evidenceReference != null) {
+                    openEditor(
+                        PlatformFile(
+                            reference = evidenceReference,
+                            displayName = "account-avatar-evidence-camera.png",
+                            mimeType = "image/png",
+                        ),
+                        fromCamera = true,
+                    )
+                } else {
+                    when (val result = platformServices.cameraCapture.capturePhoto(CameraCaptureRequest("quata-avatar.jpg"))) {
+                        is PlatformResult.Success -> openEditor(result.value, fromCamera = true)
+                        PlatformResult.Cancelled -> Unit
+                        PlatformResult.Unsupported -> error = "La cámara no está disponible en este navegador."
+                        is PlatformResult.Failure -> error = "No se pudo capturar la foto."
+                    }
                 }
             }
         })
@@ -323,13 +375,61 @@ internal fun webAvatarActionMenuWidth(availableWidthDp: Int): Int =
 
 private const val WebAvatarActionMenuPreferredWidthDp = 240
 
+private fun webProfileAvatarEvidenceReference(source: String): String? = js(
+    """
+    (() => {
+      const local = globalThis.location?.hostname === 'localhost' || globalThis.location?.hostname === '127.0.0.1';
+      const params = new URLSearchParams(globalThis.location?.search || '');
+      if (!local || params.get('quata-account-avatar-e2e') !== '1') return null;
+      if (globalThis.localStorage?.getItem('quata_account_avatar_e2e_opt_in') !== 'I_ACCEPT_WEB_ACCOUNT_AVATAR_FIXTURE') return null;
+      if (globalThis.localStorage?.getItem('quata_account_avatar_e2e_source') !== source) return null;
+      const outcome = String(globalThis.localStorage?.getItem('quata_account_avatar_e2e_outcome') || 'success').toLowerCase();
+      if (outcome !== 'success') return null;
+      const reference = globalThis.__quataAccountAvatarE2E?.reference || globalThis.localStorage?.getItem('quata_account_avatar_e2e_reference');
+      return typeof reference === 'string' && reference.startsWith('blob:') ? reference : null;
+    })()
+    """,
+)
+
+private fun installWebAccountAvatarE2eBridge(saveProfile: () -> Unit): () -> Unit =
+    installWebAccountAvatarE2eBridgeWhenAllowed(saveProfile)
+
+@JsFun("""
+(saveProfile) => {
+  const local = globalThis.location?.hostname === 'localhost' || globalThis.location?.hostname === '127.0.0.1';
+  if (!local) return () => {};
+  const assertOptedIn = () => {
+    const params = new URLSearchParams(globalThis.location?.search || '');
+    const optedIn = params.get('quata-account-avatar-e2e') === '1' &&
+      globalThis.localStorage?.getItem('quata_account_avatar_e2e_opt_in') === 'I_ACCEPT_WEB_ACCOUNT_AVATAR_FIXTURE';
+    if (!optedIn) throw Error('account_avatar_bridge_not_enabled');
+  };
+  const bridge = Object.freeze({
+    version: 1,
+    saveProfile: () => {
+      assertOptedIn();
+      saveProfile();
+    }
+  });
+  globalThis.__quataAccountAvatarE2EProduct = bridge;
+  globalThis.document?.documentElement?.setAttribute('data-quata-account-avatar-bridge', 'ready');
+  return () => {
+    if (globalThis.__quataAccountAvatarE2EProduct === bridge) delete globalThis.__quataAccountAvatarE2EProduct;
+    globalThis.document?.documentElement?.removeAttribute('data-quata-account-avatar-bridge');
+  };
+}
+""")
+private external fun installWebAccountAvatarE2eBridgeWhenAllowed(saveProfile: () -> Unit): () -> Unit
+
 /** Keeps both avatar source choices visually equivalent without relying on browser menu chrome. */
 @Composable
 private fun DropdownMenuItem(
     text: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) = MaterialDropdownMenuItem(
     text = text,
+    modifier = modifier,
     onClick = onClick,
     leadingIcon = { CompactIcon(Icons.Filled.PermMedia, null) },
 )
@@ -337,10 +437,12 @@ private fun DropdownMenuItem(
 @Composable
 private fun DropdownMenuItem(
     text: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
     leadingIcon: @Composable () -> Unit,
     onClick: () -> Unit,
 ) = MaterialDropdownMenuItem(
     text = text,
+    modifier = modifier,
     onClick = onClick,
     leadingIcon = leadingIcon,
 )
@@ -418,6 +520,10 @@ private object UnavailableWebProfileRepository : ProfileRepository {
 private object UnavailableWebProfileAvatarUploader : ProfileAvatarUploader {
     override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?): String? =
         webProfileAvatarUploadReference(avatarUri)
+
+    override suspend fun rollbackUploaded(profileId: String, uploadedAvatarUrl: String) {
+        error("web_profile_avatar_rollback_unavailable")
+    }
 }
 internal class WebProfilePreferenceEmergencyMessageStore(private val preferences: PreferenceStore) : ProfileEmergencyMessageStore {
     override suspend fun get(profileId: String): StoredProfileEmergencyMessage? {

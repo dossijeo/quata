@@ -52,6 +52,7 @@ test("docs-only attestation after product SHA preserves evidence", () => withRep
   const productSha = commit(directory, "product evidence");
   write(directory, "docs/candidate-attestations/chat-attachments-audio.json", manifest(productSha));
   write(directory, "docs/SCREEN_MIGRATION_INVENTORY_V2.md", `product ${productSha}\n`);
+  write(directory, "docs/ACCOUNT_AVATAR_EVIDENCE.md", `avatar evidence ${productSha}\n`);
   write(directory, "docs/SUPABASE_E2E_SB06.md", "SB-06 attestation procedure\n");
   const head = commit(directory, "attest evidence");
   const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat-attachments-audio.json", head, cwd: directory });
@@ -84,6 +85,18 @@ test("runner and workflow changes after product SHA invalidate evidence", () => 
   assert.equal(result.ok, false);
   assert.match(result.invalidatingFiles.join("\n"), /scripts\/chat-actions-notifications-web-evidence\.mjs/);
   assert.match(result.invalidatingFiles.join("\n"), /\.github\/workflows\/web-android-pr\.yml/);
+}));
+
+test("build reports cannot be rewritten as attestation metadata", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  write(directory, "docs/candidate-attestations/chat.json", manifest(productSha));
+  commit(directory, "manifest");
+  write(directory, "build-reports/web/evidence.json", JSON.stringify({ status: "passed", sha: productSha }));
+  const head = commit(directory, "rewrite evidence report");
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+  assert.equal(result.ok, false);
+  assert.match(result.invalidatingFiles.join("\n"), /build-reports\/web\/evidence\.json/);
 }));
 
 test("candidate manifest metadata alone is attestation-only", () => withRepository((directory) => {

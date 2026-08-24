@@ -9,6 +9,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataOrange
@@ -19,12 +21,24 @@ fun QuataSavingButton(
     savingText: String,
     actionText: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    semanticDescription: String? = null,
 ) {
+    val buttonModifier = modifier
+        .fillMaxWidth()
+        .height(40.dp)
+        .compactButtonMinSize()
+        .then(
+            if (semanticDescription != null) {
+                Modifier.semantics { contentDescription = semanticDescription }
+            } else {
+                Modifier
+            },
+        )
     Button(
         onClick = onClick,
         enabled = !isSaving,
-        modifier = modifier.fillMaxWidth().height(40.dp).compactButtonMinSize(),
+        modifier = buttonModifier,
         colors = ButtonDefaults.buttonColors(containerColor = QuataOrange, contentColor = Color.Black),
         shape = RoundedCornerShape(9.dp),
         contentPadding = CompactButtonContentPadding

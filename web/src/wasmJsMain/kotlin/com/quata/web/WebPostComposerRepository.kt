@@ -215,7 +215,7 @@ internal suspend fun webComposerUploadBlob(reference: String, url: String, key: 
     val contract = webComposerStorageUploadContract(url, key, token, mime)
     webComposerRequest("storage", contract.url, contract.headers, reference, null, mime)
 }
-private suspend fun webComposerDeleteStorageBlob(url: String, key: String, token: String) {
+internal suspend fun webComposerDeleteStorageBlob(url: String, key: String, token: String) {
     val contract = webComposerStorageDeleteContract(url, key, token)
     webComposerRequest("storage-delete", contract.url, contract.headers, null, null, null)
 }

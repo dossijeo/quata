@@ -33,8 +33,8 @@ import platform.Foundation.NSUserDefaults
  * Authenticated iOS composition for the portable Profile/SOS surface.
  *
  * The existing Keychain session and URLSession/PostgREST gateway are reused. Actor-scoped profile
- * and SOS writes use their deployed contracts; selecting a new avatar remains disabled until an
- * iOS storage upload contract has E2E evidence.
+ * and SOS writes use their deployed contracts; avatar writes use the same authenticated Storage
+ * bucket/path contract as Android and Web.
  */
 class IosProfileSosRuntimeBootstrap(
     configuration: IosProfileRuntimeConfiguration,
@@ -89,6 +89,7 @@ class IosProfileSosRuntimeBootstrap(
         onDeactivateAccount: () -> Unit,
         onDeleteAccountData: () -> Unit,
         filePicker: com.quata.core.platform.FilePickerService,
+        cameraCapture: com.quata.core.platform.CameraCaptureService,
         contacts: ContactPickerService,
         permissions: PermissionService,
         touchFlowEnabled: Boolean,
@@ -104,6 +105,7 @@ class IosProfileSosRuntimeBootstrap(
         onDeactivateAccount = onDeactivateAccount,
         onDeleteAccountData = onDeleteAccountData,
         filePicker = filePicker,
+        cameraCapture = cameraCapture,
         contacts = contacts,
         permissions = permissions,
         touchFlowEnabled = touchFlowEnabled,

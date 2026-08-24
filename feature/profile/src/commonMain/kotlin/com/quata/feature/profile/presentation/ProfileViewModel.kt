@@ -132,6 +132,7 @@ class ProfileViewModel(
                             emergencySettingsSaved = false
                         )
                     }
+                    observeProfile(showLoading = false)
                 }
                 .onFailure { error ->
                     _uiState.update {

@@ -47,6 +47,10 @@ class ProfileRemoteDataSource(
     suspend fun uploadAvatar(profileId: String, bytes: ByteArray, extension: String, mimeType: String) =
         api.uploadAvatar(profileId, bytes, extension, mimeType)
 
+    suspend fun deleteAvatarObject(storagePath: String) {
+        api.deletePostImageObject(storagePath)
+    }
+
     suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) {
         api.replaceEmergencyContacts(profileId, contactIds)
     }

@@ -59,6 +59,7 @@ interface ProfileSessionProvider {
 /** Owns platform URI decoding, image optimization and storage upload. */
 interface ProfileAvatarUploader {
     suspend fun uploadIfNeeded(profileId: String, avatarUri: String?): String?
+    suspend fun rollbackUploaded(profileId: String, uploadedAvatarUrl: String)
 }
 
 data class StoredProfileEmergencyMessage(

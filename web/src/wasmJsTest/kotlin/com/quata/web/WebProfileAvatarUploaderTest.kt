@@ -236,6 +236,23 @@ class WebProfileAvatarUploaderTest {
         assertFalse(result.getOrNull()?.startsWith("blob:") == true)
     }
 
+    @Test
+    fun rollbackDeletesOnlyTheUploadedAvatarObjectForTheAuthenticatedActor() = runTest {
+        val binary = RecordingBinary()
+        val refs = RecordingReferences()
+        val uploader = uploader(binary, refs)
+
+        uploader.rollbackUploaded(
+            "profile-1",
+            "https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/fixedtoken.jpg",
+        )
+
+        assertEquals(
+            listOf("https://project.supabase.co/storage/v1/object/community-posts/avatars/profile-1/fixedtoken.jpg"),
+            binary.deleted,
+        )
+    }
+
     private fun uploader(
         binary: WebProfileAvatarBinaryTransport,
         refs: WebProfileAvatarReferenceStore,
@@ -271,6 +288,7 @@ class WebProfileAvatarUploaderTest {
         val prepared = mutableListOf<String>()
         val transforms = mutableListOf<AvatarImageEditorTransform>()
         val uploads = mutableListOf<Upload>()
+        val deleted = mutableListOf<String>()
         val revoked = mutableListOf<String>()
         override suspend fun prepareSquareJpeg(reference: String, transform: AvatarImageEditorTransform): WebProfileAvatarPreparedImage {
             prepared += reference
@@ -282,6 +300,7 @@ class WebProfileAvatarUploaderTest {
             uploads += Upload(reference, url, webComposerStorageUploadContract(url, key, token, mimeType).headers)
             if (failUpload) error("upload_failed")
         }
+        override suspend fun deleteObject(url: String, key: String, token: String) { deleted += url }
         override fun revokePrepared(reference: String) { revoked += reference }
     }
 }

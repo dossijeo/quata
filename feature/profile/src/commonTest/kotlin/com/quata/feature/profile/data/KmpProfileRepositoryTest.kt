@@ -108,6 +108,7 @@ class KmpProfileRepositoryTest {
             sessions = StaticProfileSessionProvider(ProfileSession("profile-1", "Ada")),
             avatarUploader = object : ProfileAvatarUploader {
                 override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?) = avatarUri
+                override suspend fun rollbackUploaded(profileId: String, uploadedAvatarUrl: String) = Unit
             },
             emergencyMessages = messageStore,
             emergencyContacts = contactsStore,
@@ -126,6 +127,124 @@ class KmpProfileRepositoryTest {
         assertTrue(contactsStore.saved.isEmpty())
         assertTrue(messageStore.saved.isEmpty())
     }
+
+    @Test
+    fun `failed profile patch rolls back a newly uploaded avatar object`() = runTest {
+        val remote = FailingProfileRemoteGateway()
+        val uploader = RecordingProfileAvatarUploader("https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/new.jpg")
+        val repository = KmpProfileRepository(
+            remote = remote,
+            sessions = StaticProfileSessionProvider(ProfileSession("profile-1", "Ada")),
+            avatarUploader = uploader,
+            emergencyMessages = RecordingEmergencyMessageStore(),
+            emergencyContacts = RecordingEmergencyContactsStore(),
+            catalog = TestProfileCatalog,
+        )
+
+        val result = repository.saveProfile(
+            ProfileUpdate(
+                displayName = "Ada",
+                neighborhood = "Centro",
+                countryCode = "240",
+                phone = "555123",
+                avatarUri = "file:///tmp/avatar.jpg",
+                newPassword = "",
+                secretQuestion = "",
+                secretAnswer = "",
+                emergencyContactIds = emptyList(),
+                emergencyMessage = "Help",
+                emergencyMessageIsDefault = false,
+            ),
+        )
+
+        assertTrue(result.isFailure)
+        assertEquals("remote_profile_save_failed", result.exceptionOrNull()?.message)
+        assertEquals(listOf("profile-1" to "https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/new.jpg"), uploader.rollbacks)
+        assertTrue(remote.emergencyContactsSaved.isEmpty())
+    }
+
+    @Test
+    fun `post patch failure rolls back uploaded avatar and restores previous remote avatar`() = runTest {
+        val remote = FailingRecoverySecretAfterPatchGateway()
+        val uploader = RecordingProfileAvatarUploader("https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/new.jpg")
+        val repository = KmpProfileRepository(
+            remote = remote,
+            sessions = StaticProfileSessionProvider(ProfileSession("profile-1", "Ada")),
+            avatarUploader = uploader,
+            emergencyMessages = RecordingEmergencyMessageStore(),
+            emergencyContacts = RecordingEmergencyContactsStore(),
+            catalog = TestProfileCatalog,
+        )
+
+        val result = repository.saveProfile(
+            ProfileUpdate(
+                displayName = "Ada",
+                neighborhood = "Centro",
+                countryCode = "240",
+                phone = "555123",
+                avatarUri = "file:///tmp/avatar.jpg",
+                newPassword = "",
+                secretQuestion = "pet",
+                secretAnswer = "Luna",
+                emergencyContactIds = listOf("contact-a"),
+                emergencyMessage = "Help",
+                emergencyMessageIsDefault = false,
+            ),
+        )
+
+        assertTrue(result.isFailure)
+        assertEquals("remote_secret_save_failed", result.exceptionOrNull()?.message)
+        assertEquals(listOf("profile-1" to "https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/new.jpg"), uploader.rollbacks)
+        assertEquals(
+            listOf<String?>(
+                "https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/new.jpg",
+                "https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/original.jpg",
+            ),
+            remote.savedAvatarUrls,
+        )
+        assertTrue(remote.emergencyContactsSaved.isEmpty())
+    }
+
+    @Test
+    fun `post patch failure does not delete uploaded avatar when previous avatar cannot be restored`() = runTest {
+        val remote = FailingRecoverySecretAfterPatchGateway(failAvatarRestore = true)
+        val uploader = RecordingProfileAvatarUploader("https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/new.jpg")
+        val repository = KmpProfileRepository(
+            remote = remote,
+            sessions = StaticProfileSessionProvider(ProfileSession("profile-1", "Ada")),
+            avatarUploader = uploader,
+            emergencyMessages = RecordingEmergencyMessageStore(),
+            emergencyContacts = RecordingEmergencyContactsStore(),
+            catalog = TestProfileCatalog,
+        )
+
+        val result = repository.saveProfile(
+            ProfileUpdate(
+                displayName = "Ada",
+                neighborhood = "Centro",
+                countryCode = "240",
+                phone = "555123",
+                avatarUri = "file:///tmp/avatar.jpg",
+                newPassword = "",
+                secretQuestion = "pet",
+                secretAnswer = "Luna",
+                emergencyContactIds = listOf("contact-a"),
+                emergencyMessage = "Help",
+                emergencyMessageIsDefault = false,
+            ),
+        )
+
+        assertTrue(result.isFailure)
+        assertEquals("remote_avatar_restore_failed", result.exceptionOrNull()?.message)
+        assertTrue(uploader.rollbacks.isEmpty())
+        assertEquals(
+            listOf<String?>(
+                "https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/new.jpg",
+                "https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/original.jpg",
+            ),
+            remote.savedAvatarUrls,
+        )
+    }
 }
 
 private class FailingEmergencyRemoteGateway : ProfileRemoteGateway {
@@ -140,6 +259,59 @@ private class FailingEmergencyRemoteGateway : ProfileRemoteGateway {
     override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) {
         lastSavedContactIds = contactIds
         error("remote_sos_save_failed")
+    }
+}
+
+private class FailingProfileRemoteGateway : ProfileRemoteGateway {
+    val emergencyContactsSaved = mutableListOf<List<String>>()
+    override suspend fun getProfile(profileId: String): ProfileRemoteRecord? = null
+    override suspend fun getProfiles(profileIds: Collection<String>): List<ProfileRemoteRecord> = emptyList()
+    override fun observeProfile(profileId: String): Flow<ProfileRemoteRecord?> = flowOf(null)
+    override suspend fun getEmergencyCandidates(): List<ProfileRemoteRecord> = emptyList()
+    override fun observeEmergencyCandidates(): Flow<List<ProfileRemoteRecord>> = flowOf(emptyList())
+    override suspend fun getEmergencyContactIds(profileId: String, cachePolicy: ProfileCachePolicy): List<String> = emptyList()
+    override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
+        error("remote_profile_save_failed")
+    }
+    override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) {
+        emergencyContactsSaved += contactIds
+    }
+}
+
+private class FailingRecoverySecretAfterPatchGateway(
+    private val failAvatarRestore: Boolean = false,
+) : ProfileRemoteGateway {
+    val savedAvatarUrls = mutableListOf<String?>()
+    val emergencyContactsSaved = mutableListOf<List<String>>()
+    override suspend fun getProfile(profileId: String): ProfileRemoteRecord? =
+        ProfileRemoteRecord(
+            id = profileId,
+            avatarUrl = "https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/original.jpg",
+        )
+    override suspend fun getProfiles(profileIds: Collection<String>): List<ProfileRemoteRecord> = emptyList()
+    override fun observeProfile(profileId: String): Flow<ProfileRemoteRecord?> = flowOf(null)
+    override suspend fun getEmergencyCandidates(): List<ProfileRemoteRecord> = emptyList()
+    override fun observeEmergencyCandidates(): Flow<List<ProfileRemoteRecord>> = flowOf(emptyList())
+    override suspend fun getEmergencyContactIds(profileId: String, cachePolicy: ProfileCachePolicy): List<String> = emptyList()
+    override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
+        savedAvatarUrls += patch["avatar_url"]
+        if (failAvatarRestore && patch["avatar_url"]?.endsWith("/original.jpg") == true) {
+            error("remote_avatar_restore_failed")
+        }
+    }
+    override suspend fun saveRecoverySecret(profileId: String, secretQuestion: String, secretAnswer: String) {
+        error("remote_secret_save_failed")
+    }
+    override suspend fun saveEmergencyContacts(profileId: String, contactIds: List<String>) {
+        emergencyContactsSaved += contactIds
+    }
+}
+
+private class RecordingProfileAvatarUploader(private val uploadedUrl: String) : ProfileAvatarUploader {
+    val rollbacks = mutableListOf<Pair<String, String>>()
+    override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?): String? = uploadedUrl
+    override suspend fun rollbackUploaded(profileId: String, uploadedAvatarUrl: String) {
+        rollbacks += profileId to uploadedAvatarUrl
     }
 }
 

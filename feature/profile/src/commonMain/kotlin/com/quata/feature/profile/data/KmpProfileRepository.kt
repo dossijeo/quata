@@ -104,15 +104,31 @@ class KmpProfileRepository(
         requireProfilePasswordUpdateSupported(update.newPassword)
         val session = sessions.currentSession() ?: error("No hay sesion activa")
         val normalizedIds = normalizeEmergencyContactIds(update.emergencyContactIds)
+        val previousAvatarUrl = remote.getProfile(session.profileId)?.avatarUrl
         val avatarUrl = avatarUploader.uploadIfNeeded(session.profileId, update.avatarUri)
-        remote.saveProfile(session.profileId, update.copy(avatarUri = avatarUrl).toRemotePatch())
-        if (update.secretAnswer.isNotBlank()) {
-            remote.saveRecoverySecret(session.profileId, update.secretQuestion, update.secretAnswer)
+        var profilePatchPersisted = false
+        try {
+            remote.saveProfile(session.profileId, update.copy(avatarUri = avatarUrl).toRemotePatch())
+            profilePatchPersisted = true
+            if (update.secretAnswer.isNotBlank()) {
+                remote.saveRecoverySecret(session.profileId, update.secretQuestion, update.secretAnswer)
+            }
+            remote.saveEmergencyContacts(session.profileId, normalizedIds)
+            emergencyContacts.save(session.profileId, normalizedIds)
+            emergencyMessages.save(session.profileId, update.emergencyMessage, update.emergencyMessageIsDefault)
+            sessions.updateDisplayName(session, update.displayName)
+        } catch (error: Throwable) {
+            if (avatarUrl.isNewUploadedAvatar(update.avatarUri)) {
+                if (profilePatchPersisted) {
+                    remote.saveProfile(
+                        session.profileId,
+                        mapOf("avatar_url" to previousAvatarUrl.cleanProfileValue()),
+                    )
+                }
+                runCatching { avatarUploader.rollbackUploaded(session.profileId, avatarUrl.orEmpty()) }
+            }
+            throw error
         }
-        remote.saveEmergencyContacts(session.profileId, normalizedIds)
-        emergencyContacts.save(session.profileId, normalizedIds)
-        emergencyMessages.save(session.profileId, update.emergencyMessage, update.emergencyMessageIsDefault)
-        sessions.updateDisplayName(session, update.displayName)
     }
 
     override suspend fun saveEmergencySettings(
@@ -198,6 +214,12 @@ internal fun normalizeEmergencyContactIds(contactIds: List<String>): List<String
 
 internal fun requireProfilePasswordUpdateSupported(newPassword: String) {
     require(newPassword.isBlank()) { "profile_password_update_unavailable" }
+}
+
+private fun String?.isNewUploadedAvatar(originalAvatarUri: String?): Boolean {
+    val uploaded = cleanProfileValue() ?: return false
+    val original = originalAvatarUri.cleanProfileValue()
+    return uploaded != original && (uploaded.startsWith("https://") || uploaded.startsWith("http://"))
 }
 
 internal fun ProfileUpdate.toRemotePatch(): Map<String, String?> = buildMap {
