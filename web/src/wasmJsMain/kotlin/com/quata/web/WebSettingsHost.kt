@@ -7,7 +7,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.platform.DocumentOpenService
@@ -125,6 +128,14 @@ fun WebSettingsHost(
         modifier = modifier,
         notificationsEnabled = webPushOptedIn,
         onNotificationsEnabledChange = onWebPushOptInChange,
+        notificationAction = { enabled, strings, onEnabledChange ->
+            WebNativeButton(
+                label = if (enabled) strings.disableLabel else strings.enableLabel,
+                enabled = true,
+                onClick = { onEnabledChange(!enabled) },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+            )
+        },
         accountLifecycleActions = accountLifecycleActions?.let { actions ->
             SettingsAccountLifecycleActions(
                 deactivateAccount = actions::deactivateAccount,

@@ -108,6 +108,7 @@ fun SettingsScreenHost(
     modifier: Modifier = Modifier,
     notificationsEnabled: Boolean? = null,
     onNotificationsEnabledChange: ((Boolean) -> Unit)? = null,
+    notificationAction: (@Composable (enabled: Boolean, strings: SettingsNotificationsStrings, onEnabledChange: (Boolean) -> Unit) -> Unit)? = null,
     accountLifecycleActions: SettingsAccountLifecycleActions? = null,
     onAccountLifecycleSuccess: () -> Unit = {},
     onLogout: (() -> Unit)? = null,
@@ -133,6 +134,7 @@ fun SettingsScreenHost(
                 enabled = notificationsEnabled,
                 strings = strings.notifications,
                 onEnabledChange = onNotificationsEnabledChange,
+                action = notificationAction,
             )
         }
         SettingsLegalDocumentsSectionContent(
@@ -278,6 +280,7 @@ private fun SettingsNotificationsSectionContent(
     strings: SettingsNotificationsStrings,
     onEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    action: (@Composable (enabled: Boolean, strings: SettingsNotificationsStrings, onEnabledChange: (Boolean) -> Unit) -> Unit)? = null,
 ) {
     QuataPanel(
         modifier = modifier.testTag(SettingsScreenTestTags.Notifications),
@@ -289,11 +292,15 @@ private fun SettingsNotificationsSectionContent(
                 text = if (enabled) strings.enabledBody else strings.disabledBody,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Button(
-                onClick = { onEnabledChange(!enabled) },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-            ) {
-                Text(if (enabled) strings.disableLabel else strings.enableLabel)
+            if (action != null) {
+                action(enabled, strings, onEnabledChange)
+            } else {
+                Button(
+                    onClick = { onEnabledChange(!enabled) },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                ) {
+                    Text(if (enabled) strings.disableLabel else strings.enableLabel)
+                }
             }
         }
     }
