@@ -460,6 +460,8 @@
     <string name="neighborhoods_one_message">1 mensaje</string>
     <string name="neighborhoods_view_users">Ver usuarios</string>
     <string name="neighborhoods_open_chat">Abrir chat</string>
+    <string name="neighborhoods_chat_unavailable">Esta comunidad todavía no tiene un chat activo.</string>
+    <string name="neighborhoods_chat_error_prefix">No se pudo abrir el chat comunitario</string>
     <string name="neighborhood_chat_initial_message">Los chicos de %1$s ya están por aquí</string>
     <string name="neighborhoods_users_title">Usuarios · %1$s</string>
     <string name="neighborhoods_users_subtitle">Comunidad creada por usuarios de QUATA</string>

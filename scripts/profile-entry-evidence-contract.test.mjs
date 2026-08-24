@@ -103,7 +103,12 @@ test("PROF-ENTRY product anchors live in common/shared surfaces", () => {
   assert.match(conversationList, /\.testTag\(ConversationListTestTag\)/);
   assert.equal((conversationsHost.match(/conversationAvatarTestTag/g) ?? []).length, 0);
   assert.match(neighborhoodList, /fun neighborhoodMembersButtonTestTag\(communityName: String\): String =\s*\n\s*"neighborhood\.members\.\$\{communityName\.toNeighborhoodTestTagSuffix\(\)\}"/);
+  assert.match(neighborhoodList, /fun neighborhoodChatButtonTestTag\(communityName: String\): String =\s*\n\s*"neighborhood\.chat\.\$\{communityName\.toNeighborhoodTestTagSuffix\(\)\}"/);
+  assert.match(neighborhoodList, /fun neighborhoodChatStatusTestTag\(communityName: String\): String =\s*\n\s*"neighborhood\.chat\.status\.\$\{communityName\.toNeighborhoodTestTagSuffix\(\)\}"/);
+  assert.match(neighborhoodList, /internal fun canOpenCommunityChat\(community: NeighborhoodCommunity\): Boolean =\s*\n\s*community\.conversationId != null \|\| community\.wallId != null/);
   assert.match(neighborhoodList, /contentDescription = neighborhoodMembersButtonTestTag\(community\.name\)/);
+  assert.match(neighborhoodList, /contentDescription = neighborhoodChatButtonTestTag\(community\.name\)/);
+  assert.match(neighborhoodList, /contentDescription = neighborhoodChatStatusTestTag\(community\.name\)/);
   assert.match(neighborhoodUsers, /fun neighborhoodUserAvatarTestTag\(profileId: String\): String = "neighborhood\.user\.avatar\.\$profileId"/);
   assert.match(neighborhoodUsers, /contentDescription = neighborhoodUserAvatarTestTag\(user\.id\)/);
   assert.match(bottomNavigation, /navigation\.primary\.\$\{item\.id\}/);

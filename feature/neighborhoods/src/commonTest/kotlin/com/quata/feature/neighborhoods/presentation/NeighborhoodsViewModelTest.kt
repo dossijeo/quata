@@ -62,6 +62,77 @@ class NeighborhoodsViewModelTest {
     }
 
     @Test
+    fun `community chat opening navigates once and clears progress`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        repository.communityChatResult = CompletableDeferred()
+        val model = model(repository)
+        val opened = mutableListOf<String>()
+
+        model.openChat("Bata") { opened += it }
+        runCurrent()
+
+        assertEquals("Bata", model.uiState.value.openingChatNeighborhood)
+        assertEquals(null, model.uiState.value.chatErrorNeighborhood)
+
+        repository.communityChatResult.complete(Result.success("sb:community-1"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("sb:community-1"), opened)
+        assertEquals(null, model.uiState.value.openingChatNeighborhood)
+        assertEquals(null, model.uiState.value.chatErrorNeighborhood)
+        assertEquals(1, repository.openCommunityChatCalls)
+        model.close()
+    }
+
+    @Test
+    fun `community chat opening ignores duplicate taps while request is active`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        repository.communityChatResult = CompletableDeferred()
+        val model = model(repository)
+
+        model.openChat("Bata") {}
+        model.openChat("Bata") {}
+        runCurrent()
+
+        assertEquals(1, repository.openCommunityChatCalls)
+        repository.communityChatResult.complete(Result.success("sb:community-1"))
+        advanceUntilIdle()
+        model.close()
+    }
+
+    @Test
+    fun `community chat failure marks only the failed community`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        repository.communityChatResult = CompletableDeferred(Result.failure(IllegalStateException("wall_missing")))
+        val model = model(repository)
+
+        model.openChat("Bata") {}
+        advanceUntilIdle()
+
+        assertEquals(null, model.uiState.value.openingChatNeighborhood)
+        assertEquals("Bata", model.uiState.value.chatErrorNeighborhood)
+        assertEquals("wall_missing", model.uiState.value.error)
+        model.close()
+    }
+
+    @Test
+    fun `private chat opening ignores duplicate taps while request is active`() = runTest {
+        val repository = FakeNeighborhoodRepository()
+        repository.privateChatResult = CompletableDeferred()
+        val model = model(repository)
+
+        model.openPrivateChat("a") {}
+        model.openPrivateChat("a") {}
+        runCurrent()
+
+        assertEquals(1, repository.openPrivateChatCalls)
+        repository.privateChatResult.complete(Result.success("sb:private-1"))
+        advanceUntilIdle()
+        assertEquals(null, model.uiState.value.openingPrivateChatUserId)
+        model.close()
+    }
+
+    @Test
     fun `follow success updates selected profile counters and follower list`() = runTest {
         val repository = FakeNeighborhoodRepository()
         val model = model(repository)
@@ -188,13 +259,20 @@ class NeighborhoodsViewModelTest {
 
 private class FakeNeighborhoodRepository : NeighborhoodRepository {
     var followResult = CompletableDeferred(Result.success(FollowUserResult("a", true, user("me"))))
+    var communityChatResult = CompletableDeferred(Result.success("community"))
+    var openCommunityChatCalls = 0
+    var privateChatResult = CompletableDeferred(Result.success("private"))
+    var openPrivateChatCalls = 0
     var commentResult = CompletableDeferred<Result<Post?>>(Result.success(null))
     val commentResults = mutableListOf<CompletableDeferred<Result<Post?>>>()
     var likeResult = CompletableDeferred<Result<Post?>>(Result.success(null))
     var profileOverride: CommunityUserProfile? = null
 
     override fun observeCommunities(): Flow<List<NeighborhoodCommunity>> = flowOf(emptyList())
-    override suspend fun openNeighborhoodChat(neighborhood: String) = Result.success("community")
+    override suspend fun openNeighborhoodChat(neighborhood: String): Result<String> {
+        openCommunityChatCalls += 1
+        return communityChatResult.await()
+    }
     override suspend fun toggleFollowUser(userId: String) = followResult.await()
     override suspend fun toggleProfilePostLike(postId: String) = likeResult.await()
     override suspend fun addProfileComment(postId: String, comment: PostComment): Result<Post?> {
@@ -208,7 +286,10 @@ private class FakeNeighborhoodRepository : NeighborhoodRepository {
     override suspend fun reportPost(postId: String) = Result.success(Unit)
     override suspend fun reportProfile(userId: String) = Result.success(Unit)
     override suspend fun setProfileBlocked(userId: String, blocked: Boolean) = Result.success(blocked)
-    override suspend fun openPrivateChat(userId: String) = Result.success("private")
+    override suspend fun openPrivateChat(userId: String): Result<String> {
+        openPrivateChatCalls += 1
+        return privateChatResult.await()
+    }
     override suspend fun isCurrentUserAdmin() = false
     override suspend fun setUserRoles(userId: String, isAdmin: Boolean, isOfficial: Boolean) =
         Result.success(user(userId).copy(isAdmin = isAdmin, isOfficial = isOfficial))

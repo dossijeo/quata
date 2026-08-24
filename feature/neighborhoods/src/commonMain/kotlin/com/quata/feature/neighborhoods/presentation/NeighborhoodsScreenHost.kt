@@ -131,6 +131,7 @@ fun NeighborhoodsScreenHost(
             error = state.error,
             currentUserId = currentUserId,
             openingNeighborhood = state.openingChatNeighborhood,
+            chatErrorNeighborhood = state.chatErrorNeighborhood,
             strings = strings.list,
             onQueryChange = { query = it },
             onShowUsers = { selectedCommunity = it.name },

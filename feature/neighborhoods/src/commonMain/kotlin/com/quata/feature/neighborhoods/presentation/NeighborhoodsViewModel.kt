@@ -59,17 +59,19 @@ class NeighborhoodsViewModel(
 
     override fun openChat(neighborhood: String, onOpened: (String) -> Unit) {
         if (_uiState.value.openingChatNeighborhood != null) return
+        _uiState.value = _uiState.value.copy(
+            isOpeningChat = true,
+            openingChatNeighborhood = neighborhood,
+            error = null,
+            chatErrorNeighborhood = null,
+        )
         scope.launch {
-            _uiState.value = _uiState.value.copy(
-                isOpeningChat = true,
-                openingChatNeighborhood = neighborhood,
-                error = null
-            )
             repository.openNeighborhoodChat(neighborhood)
                 .onSuccess { conversationId ->
                     _uiState.value = _uiState.value.copy(
                         isOpeningChat = false,
-                        openingChatNeighborhood = null
+                        openingChatNeighborhood = null,
+                        chatErrorNeighborhood = null,
                     )
                     onOpened(conversationId)
                 }
@@ -77,7 +79,8 @@ class NeighborhoodsViewModel(
                     _uiState.value = _uiState.value.copy(
                         isOpeningChat = false,
                         openingChatNeighborhood = null,
-                        error = error.message ?: "No se pudo abrir el chat"
+                        error = error.message ?: "No se pudo abrir el chat",
+                        chatErrorNeighborhood = neighborhood,
                     )
                 }
         }
@@ -123,8 +126,8 @@ class NeighborhoodsViewModel(
 
     override fun openPrivateChat(userId: String, onOpened: (String) -> Unit) {
         if (_uiState.value.openingPrivateChatUserId != null) return
+        _uiState.value = _uiState.value.copy(openingPrivateChatUserId = userId, error = null)
         scope.launch {
-            _uiState.value = _uiState.value.copy(openingPrivateChatUserId = userId, error = null)
             repository.openPrivateChat(userId)
                 .onSuccess { conversationId ->
                     _uiState.value = _uiState.value.copy(openingPrivateChatUserId = null)
