@@ -23,6 +23,10 @@ test("chat actions/notifications web evidence keeps credentials private and reve
   assert.match(runner, /forward_destination_cleanup_verified_physical_residue_absent/);
   assert.match(runner, /--profile-follow-only/);
   assert.match(runner, /--profile-private-chat-only/);
+  assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_COMMUNITY_CHAT_NAME/);
+  assert.match(runner, /"Ateneo"/);
+  assert.match(runner, /"La Chana"/);
+  assert.match(runner, /limit 500/);
   assert.match(runner, /prepareProfileFollowAbsent/);
   assert.match(runner, /pollProfileFollowEdge/);
   assert.match(runner, /restoreProfileFollowEdge/);
@@ -59,6 +63,10 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.doesNotMatch(runner, /spawn\("adb"/);
   assert.match(runner, /--profile-follow-only/);
   assert.match(runner, /--menu-surface-only/);
+  assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_COMMUNITY_CHAT_NAME/);
+  assert.match(runner, /"Ateneo"/);
+  assert.match(runner, /"La Chana"/);
+  assert.match(runner, /limit 500/);
   assert.match(runner, /--composer-emoji-only/);
   assert.match(runner, /--group-sos-only/);
   assert.match(runner, /--group-moderation-only/);
@@ -145,9 +153,16 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(runner, /--composer-emoji-only/);
   assert.match(runner, /--group-sos-only/);
   assert.match(runner, /--group-moderation-only/);
+  assert.match(runner, /--community-chat-only/);
+  assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_COMMUNITY_CHAT_NAME/);
+  assert.match(runner, /"Ateneo"/);
+  assert.match(runner, /"La Chana"/);
+  assert.match(runner, /limit 500/);
   assert.match(runner, /QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E/);
   assert.match(runner, /QUATA_IOS_CHAT_GROUP_SOS_UI_E2E/);
   assert.match(runner, /QUATA_IOS_CHAT_GROUP_MODERATION_UI_E2E/);
+  assert.match(runner, /QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E/);
+  assert.match(runner, /QUATA_IOS_CHAT_COMMUNITY_NAME/);
   assert.match(runner, /options_menu_surface_visible_from_shared_ui/);
   assert.match(runner, /ios_xctest_group_menu_and_sos_shared_anchors_verified/);
   assert.match(runner, /ios_xctest_composer_emoji_link_marker_sent/);
@@ -155,6 +170,10 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(wrapper, /testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface/);
   assert.match(wrapper, /testGroupMenuAndSosMessagesExposeSharedAnchors/);
   assert.match(wrapper, /testGroupModerationRemovesAndBlocksParticipantsThroughSharedMemberMenu/);
+  assert.match(wrapper, /testCommunityChatOpensFromSharedCommunityAnchor/);
+  assert.match(wrapper, /QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E/);
+  assert.match(wrapper, /QUATA_IOS_CHAT_COMMUNITY_NAME/);
+  assert.match(wrapper, /community-chat\.log/);
   assert.match(wrapper, /QUATA_IOS_CHAT_COMPOSER_EMOJI_UI_E2E/);
   assert.match(wrapper, /composer_emoji='QuataIosUITests\/QuataIosAuthenticatedChatActionsNotificationsUITests\/testComposerEmojiLinkMarkerUsesSharedChatSurface'/);
   assert.match(wrapper, /run_and_require "\$composer_emoji" "\$composer_emoji_method"/);
@@ -213,6 +232,8 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(testSource, /chat\.sos\.location\.openMaps/);
   assert.match(testSource, /Abriendo ubicación en mapas\./);
   assert.match(testSource, /testKeyboardAndSelectedActionBarUseSharedChatChrome/);
+  assert.match(testSource, /maxSwipes: 40/);
+  assert.match(testSource, /maxSwipes: Int = 8/);
   assert.match(testSource, /assertConversationHeaderVisibleWithKeyboard\(in: app\)/);
   assert.match(testSource, /ios-chat-keyboard-header-visible/);
   assert.match(testSource, /ios-chat-selected-action-bar-opaque/);

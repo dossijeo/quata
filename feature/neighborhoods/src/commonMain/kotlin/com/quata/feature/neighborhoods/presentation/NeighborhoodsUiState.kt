@@ -18,5 +18,6 @@ data class NeighborhoodsUiState(
     val profileSafetyUpdatingUserId: String? = null,
     val currentUserIsAdmin: Boolean = false,
     val selectedProfile: CommunityUserProfile? = null,
-    val error: String? = null
+    val error: String? = null,
+    val chatErrorNeighborhood: String? = null,
 )

@@ -58,6 +58,7 @@ function parseArgs(argv) {
     feedOfficialCommentsOnly: false,
     profilePrivateChatOnly: false,
     profileRolesSafetyOnly: false,
+    communityChatOnly: false,
     menuSurfaceOnly: false,
     attachmentsAudioOnly: false,
     attachmentPickerOnly: false,
@@ -108,6 +109,12 @@ function parseArgs(argv) {
       result.profileRolesSafetyOnly = true;
       result.output = resolve("build-reports/web/profile-roles-safety-evidence.json");
       result.evidenceDir = resolve("build-reports/web/profile-roles-safety-evidence");
+      continue;
+    }
+    if (key === "--community-chat-only") {
+      result.communityChatOnly = true;
+      result.output = resolve("build-reports/web/community-chat-flow-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/community-chat-flow-evidence");
       continue;
     }
     if (key === "--menu-surface-only") {
@@ -204,6 +211,7 @@ function isProfileFocalMode(options) {
 function isFullEvidenceMode(options) {
   return !options.translationOnly &&
     !isProfileFocalMode(options) &&
+    !options.communityChatOnly &&
     !options.menuSurfaceOnly &&
     !options.attachmentsAudioOnly &&
     !options.attachmentPickerOnly &&
@@ -3322,6 +3330,71 @@ async function visibleCommunityMembersAction(page, neighborhood, timeout = 8_000
   return null;
 }
 
+async function resolveCommunityChatTarget(actorSession) {
+  const actorKey = normalizeTextForE2e(actorSession?.neighborhood ?? "");
+  const preferredKeys = [
+    process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_COMMUNITY_CHAT_NAME,
+    "Ateneo",
+    "La Chana",
+    actorSession?.neighborhood,
+  ].map(normalizeTextForE2e).filter(Boolean);
+  return await withPoolerClient(async (client) => {
+    const result = await client.query(
+      `select id, name, slug, normalized_name
+         from public.community_walls_stats
+        where is_active = true
+        order by sort_order asc nulls last, chat_last_at desc nulls last, created_at desc nulls last
+        limit 500`,
+    );
+    const rows = result.rows.map((row) => ({
+      id: String(row.id ?? "").trim(),
+      name: String(row.name ?? row.slug ?? row.normalized_name ?? "").trim(),
+      keys: [row.name, row.slug, row.normalized_name].map(normalizeTextForE2e).filter(Boolean),
+    })).filter((row) => uuid.test(row.id) && row.name);
+    if (!rows.length) throw new Error("community_chat_flow_no_active_wall");
+    const matched = preferredKeys
+      .map((key) => rows.find((row) => row.keys.includes(key)))
+      .find(Boolean)
+      ?? (actorKey ? rows.find((row) => row.keys.includes(actorKey)) : null);
+    const target = matched ?? rows[0];
+    return {
+      id: target.id,
+      name: target.name,
+      tag: `neighborhood.chat.${neighborhoodTagSuffix(target.name)}`,
+    };
+  });
+}
+
+async function verifyCommunityChatWeb(page, origin, target, evidenceDir, report, faults) {
+  await openAuthenticatedRoute(page, origin, "communities", "communities");
+  report.steps.push(`community_chat_web_route_start:${target.tag}`);
+  report.evidence.communityChatList = await attachScreenshot(page, evidenceDir, "web-community-chat-list");
+
+  const chatAction = await visibleAriaLocatorWithScroll(page, [new RegExp(`^${escapeRegExp(target.tag)}$`)], 20_000)
+    ?? await visibleExactAriaLocator(page, target.tag, 5_000);
+  if (!chatAction) throw new Error(`community_chat_flow_anchor_missing:${target.tag}`);
+  const box = await chatAction.boundingBox().catch(() => null);
+  if (!box) throw new Error(`community_chat_flow_anchor_unbounded:${target.tag}`);
+  await page.mouse.click(box.x + (box.width / 2), box.y + (box.height / 2));
+  report.steps.push("community_chat_web_anchor_clicked");
+
+  await page.waitForFunction(
+    () => {
+      const route = document.documentElement.getAttribute("data-quata-shell-route") ?? "";
+      return route.startsWith("chat/sb:");
+    },
+    { timeout: 45_000 },
+  );
+  await delay(1_500);
+  const route = await page.evaluate(() => document.documentElement.getAttribute("data-quata-shell-route") ?? "");
+  const conversationId = route.substring("chat/".length);
+  if (!/^sb:\d+$/.test(conversationId)) throw new Error(`community_chat_flow_invalid_conversation_route:${route}`);
+  report.evidence.communityChatOpened = await attachScreenshot(page, evidenceDir, "web-community-chat-opened");
+  if (faults.length) throw new Error("browser_runtime_fault");
+  report.steps.push("community_chat_web_opened_real_chat_route");
+  return { conversationId };
+}
+
 function neighborhoodTagSuffix(value) {
   return String(value ?? "")
     .trim()
@@ -4925,6 +4998,7 @@ function safeFailure(error) {
     "profile_content_comments_input_not_visible", "profile_content_comments_send_not_clickable",
     "profile_content_comment_not_persisted",
     "profile_private_chat_not_opened", "profile_entry_not_opened", "profile_entry_official_cleanup",
+    "community_chat_flow",
     "profile_roles_anchor_missing", "profile_safety_anchor_missing", "profile_roles_action_not_clickable",
     "profile_report_action_not_clickable", "profile_report_dialog_missing", "profile_report_confirm_not_clickable",
     "profile_report_dialog_not_dismissible", "profile_block_dialog_not_dismissible",
@@ -4947,7 +5021,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, ownMessage: null, peerMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, profileListEdges: null, profileContent: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, communityChat: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, cleanupRegistry: createCleanupRegistry() };
 let config, distribution, server, browser, pageContext;
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const faults = [];
@@ -5156,6 +5230,22 @@ try {
       uniqueKeySha256: sha256(state.uniqueKey),
       ownMarkerSha256: sha256(ownMarker),
       peerMarkerSha256: sha256(peerMarker),
+    };
+    throw new EvidenceCompleted();
+  }
+  if (options.communityChatOnly) {
+    state.communityChat = await resolveCommunityChatTarget(uiSession);
+    report.steps.push("community_chat_active_wall_selected");
+    const opened = await verifyCommunityChatWeb(page, server.origin, state.communityChat, options.evidenceDir, report, faults);
+    report.status = "passed";
+    report.fixture = {
+      threadId: state.thread,
+      seedConversationId: `sb:${state.thread}`,
+      communityName: state.communityChat.name,
+      communityWallId: state.communityChat.id,
+      communityChatTag: state.communityChat.tag,
+      openedConversationId: opened.conversationId,
+      uniqueKeySha256: sha256(state.uniqueKey),
     };
     throw new EvidenceCompleted();
   }

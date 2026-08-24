@@ -47,6 +47,7 @@ const feedOfficialCommentsOnly = options.feedOfficialCommentsOnly;
 const profileEntryOnly = options.profileEntryOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const profileRolesSafetyOnly = options.profileRolesSafetyOnly;
+const communityChatOnly = options.communityChatOnly;
 const menuSurfaceOnly = options.menuSurfaceOnly;
 const keyboardMenuOnly = options.keyboardMenuOnly;
 const attachmentsAudioOnly = options.attachmentsAudioOnly;
@@ -56,6 +57,7 @@ const attachmentPickerOnly = options.attachmentPickerOnly;
 const groupAdminOnly = options.groupAdminOnly;
 const groupModerationOnly = options.groupModerationOnly;
 const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly;
+const temporaryProfileHashRequired = profileEvidenceOnly || communityChatOnly;
 const report = {
   check,
   status: "failed",
@@ -98,6 +100,7 @@ const state = {
   profileEntry: null,
   profilePrivateChat: null,
   profileRolesSafety: null,
+  communityChat: null,
   profilePrivateChatMarkerMessage: null,
   groupAdminProfile: null,
   groupRemoveProfile: null,
@@ -118,7 +121,7 @@ try {
   if (!isPublicKey(config.key)) throw new Error("invalid_or_privileged_supabase_key");
 
   const users = await authorizedUsers();
-  if (profileEvidenceOnly) {
+  if (temporaryProfileHashRequired) {
     profileHashWindow = await openTemporaryProfileHashWindow(users);
     if (profileHashWindow.state === "opened") {
       report.steps.push("temporary_profile_hash_window_opened");
@@ -148,7 +151,7 @@ try {
     state.groupRemoveProfile = await createTemporaryForwardProfile(`${runId}-remove`, "1");
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
-  } else if (!translationOnly && !profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly) {
+  } else if (!translationOnly && !profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -156,10 +159,10 @@ try {
   state.seedMarker = translationOnly ? "Mbolo" : `chat-actions-ios-seed-${randomUUID()}`;
   state.peerMarker = translationOnly ? null : `chat-profile-ios-peer-${randomUUID()}`;
   state.privateMarker = translationOnly ? null : `chat-profile-private-ios-${randomUUID()}`;
-  state.editableMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
-  state.composerMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `🚨 chat-actions-ios-send-${randomUUID()} www.quata.test/chat 📝`;
-  state.replyMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
-  state.editMarker = translationOnly || profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
+  state.editableMarker = translationOnly || profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-editable-${randomUUID()}`;
+  state.composerMarker = translationOnly || profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || attachmentsAudioOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `🚨 chat-actions-ios-send-${randomUUID()} www.quata.test/chat 📝`;
+  state.replyMarker = translationOnly || profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-reply-${randomUUID()}`;
+  state.editMarker = translationOnly || profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly ? null : `chat-actions-ios-edit-${randomUUID()}`;
   state.seedMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
     p_actor_profile_id: state.a.profileId,
     p_thread_id: state.thread,
@@ -196,7 +199,7 @@ try {
       state.profilePrivateChatMarkerMessage = messageId(privateMessage);
       report.steps.push("profile_private_chat_seed_message_ready");
     }
-    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
+    if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       state.editableMessage = messageId(await rpc(config, state.a, "quata_chat_send_message", {
         p_actor_profile_id: state.a.profileId,
         p_thread_id: state.thread,
@@ -380,6 +383,10 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.sosUnavailableMessage = messageId(sosUnavailableMessage);
       report.steps.push("sos_location_and_unavailable_messages_seeded");
     }
+    if (communityChatOnly) {
+      state.communityChat = await resolveCommunityChatTarget(state.a);
+      report.steps.push("community_chat_active_wall_selected");
+    }
     if (groupAdminOnly || groupModerationOnly) {
       await withDatabase(async (client) => {
         const result = await client.query(
@@ -416,6 +423,8 @@ export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesSafetyOnly ? "1"
 export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_OFFICIAL_POST_ID=${shellQuote(state.profileEntry?.official?.id ?? "profile-entry")}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD=${shellQuote(state.b.neighborhood ?? "Bovano")}
+export QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E=${communityChatOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_COMMUNITY_NAME=${shellQuote(state.communityChat?.name ?? "community-chat")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_POST_ID=${shellQuote(state.profileContent?.postId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_COMMENT_ID=${shellQuote(state.profileContent?.seedCommentId ?? "profile-only")}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_ATTACHMENT_ID=${shellQuote(state.profileContent?.attachmentId ?? "profile-only")}
@@ -489,6 +498,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         profileContentOnly,
         feedOfficialCommentsOnly,
         profileEntryOnly,
+        communityChatOnly,
         profileRolesSafetyOnly,
         profilePrivateChatOnly,
       });
@@ -520,6 +530,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         ? "ios_xctest_feed_and_official_comments_emoji_picker_verified"
       : profileEntryOnly
           ? "ios_xctest_profile_entry_feed_official_communities_conversations_and_chat_verified"
+        : communityChatOnly
+          ? "ios_xctest_community_chat_opened_from_shared_community_anchor"
         : profileRolesSafetyOnly
           ? "ios_xctest_profile_roles_safety_roles_report_and_block_verified"
         : profilePrivateChatOnly
@@ -672,7 +684,11 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("group_participant_blocked_from_shared_member_menu_and_verified_by_db");
     }
 
-    if (!profileEvidenceOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
+    if (communityChatOnly) {
+      report.steps.push("community_chat_opened_from_shared_ios_community_anchor");
+    }
+
+    if (!profileEvidenceOnly && !communityChatOnly && !menuSurfaceOnly && !keyboardMenuOnly && !attachmentsAudioOnly && !composerEmojiOnly && !groupSosOnly && !attachmentPickerOnly && !groupAdminOnly && !groupModerationOnly) {
       const backendContract = await pollBackendContract(config, state);
       state.composerMessage = backendContract.composerMessageId;
       state.replyMessage = backendContract.replyMessageId;
@@ -690,7 +706,7 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
 
     await copyRemoteEvidence(options);
     report.status = "passed";
-    report.fixture = (profileEvidenceOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly)
+    report.fixture = (profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly)
       ? {
         threadId: state.thread,
         conversationId: `sb:${state.thread}`,
@@ -707,6 +723,12 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
         groupSosOnly,
         groupAdminOnly,
         groupModerationOnly,
+        communityChatOnly,
+        communityChat: state.communityChat ? {
+          name: state.communityChat.name,
+          wallId: state.communityChat.id,
+          chatTag: `neighborhood.chat.${neighborhoodTagSuffix(state.communityChat.name)}`,
+        } : null,
         groupAdminProfileIdSha256: state.groupAdminProfile ? sha256(state.groupAdminProfile.id) : null,
         groupAdminDisplayNameSha256: state.groupAdminProfile ? sha256(state.groupAdminProfile.displayName) : null,
         groupRemoveProfileIdSha256: state.groupRemoveProfile ? sha256(state.groupRemoveProfile.id) : null,
@@ -984,6 +1006,7 @@ function parseArgs(argv) {
     profileEntryOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
     profileRolesSafetyOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ROLES_SAFETY_ONLY === "1",
+    communityChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_COMMUNITY_CHAT_ONLY === "1",
     menuSurfaceOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_MENU_SURFACE_ONLY === "1",
     keyboardMenuOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_KEYBOARD_MENU_ONLY === "1",
     attachmentsAudioOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_ATTACHMENTS_AUDIO_ONLY === "1",
@@ -1052,6 +1075,14 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/profile-roles-safety-evidence");
       result.remoteLogDir = "build/reports/ios/profile-roles-safety";
       result.remoteResultBundleDir = "build/reports/ios/profile-roles-safety/xcresults";
+      continue;
+    }
+    if (key === "--community-chat-only") {
+      result.communityChatOnly = true;
+      result.output = resolve("build-reports/ios/community-chat-flow-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/community-chat-flow-evidence");
+      result.remoteLogDir = "build/reports/ios/community-chat-flow";
+      result.remoteResultBundleDir = "build/reports/ios/community-chat-flow/xcresults";
       continue;
     }
     if (key === "--menu-surface-only") {
@@ -2080,6 +2111,55 @@ async function withDatabase(callback) {
   }
 }
 
+async function resolveCommunityChatTarget(actorSession) {
+  const actorKey = normalizeCommunityName(actorSession?.neighborhood ?? "");
+  const preferredKeys = [
+    process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_COMMUNITY_CHAT_NAME,
+    "Ateneo",
+    "La Chana",
+    actorSession?.neighborhood,
+  ].map(normalizeCommunityName).filter(Boolean);
+  return await withDatabase(async (client) => {
+    const result = await client.query(
+      `select id, name, slug, normalized_name
+         from public.community_walls_stats
+        where is_active = true
+        order by sort_order asc nulls last, chat_last_at desc nulls last, created_at desc nulls last
+        limit 500`,
+    );
+    const rows = result.rows.map((row) => ({
+      id: String(row.id ?? "").trim(),
+      name: String(row.name ?? row.slug ?? row.normalized_name ?? "").trim(),
+      keys: [row.name, row.slug, row.normalized_name].map(normalizeCommunityName).filter(Boolean),
+    })).filter((row) => uuid.test(row.id) && row.name);
+    if (!rows.length) throw new Error("community_chat_flow_no_active_wall");
+    const matched = preferredKeys
+      .map((key) => rows.find((row) => row.keys.includes(key)))
+      .find(Boolean)
+      ?? (actorKey ? rows.find((row) => row.keys.includes(actorKey)) : null);
+    return matched ?? rows[0];
+  });
+}
+
+function normalizeCommunityName(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function neighborhoodTagSuffix(value) {
+  const normalized = String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ".")
+    .replace(/^\.+|\.+$/g, "");
+  return normalized || "unknown";
+}
+
 async function verifyStorageObjectAbsent(bucket, storagePath) {
   await withDatabase(async (client) => {
     const result = await client.query(
@@ -2281,6 +2361,7 @@ function selectedIosXctestForMode(mode) {
   if (mode.profileContentOnly) return { method: "testProfileContentFromChatUsesSharedPublicProfileSurface", log: "profile-content.log" };
   if (mode.feedOfficialCommentsOnly) return { method: "testFeedAndOfficialCommentsUseSharedEmojiPicker", log: "feed-official-comments.log" };
   if (mode.profileEntryOnly) return { method: "testProfileEntryFromFeedOfficialCommunitiesConversationsAndChat", log: "profile-entry.log" };
+  if (mode.communityChatOnly) return { method: "testCommunityChatOpensFromSharedCommunityAnchor", log: "community-chat.log" };
   if (mode.profileRolesSafetyOnly) return { method: "testProfileRolesSafetyReportAndBlockUseSharedSurface", log: "profile-roles-safety.log" };
   if (mode.profilePrivateChatOnly) return { method: "testProfilePrimaryActionOpensPrivateChat", log: "profile-private-chat.log" };
   return { method: "testComposerReplyEditAndSelectedActionsUseSharedChatSurface", log: "ui.log" };

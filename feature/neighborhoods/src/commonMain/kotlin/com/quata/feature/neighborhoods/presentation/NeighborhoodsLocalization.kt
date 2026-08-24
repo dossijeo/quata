@@ -19,6 +19,8 @@ fun neighborhoodsScreenStringsForLanguage(languageTag: String?): NeighborhoodsSc
                 viewUsers = "Ver usuarios",
                 openChat = "Abrir chat",
                 timeLabel = { if (it == null) "Nuevo" else "Actividad reciente" },
+                chatUnavailable = "Esta comunidad todavía no tiene un chat activo.",
+                chatErrorPrefix = "No se pudo abrir el chat comunitario",
             ),
             members = NeighborhoodUsersStrings(
                 title = { "Usuarios · $it" },
@@ -43,6 +45,8 @@ fun neighborhoodsScreenStringsForLanguage(languageTag: String?): NeighborhoodsSc
                 viewUsers = "Voir les utilisateurs",
                 openChat = "Ouvrir le chat",
                 timeLabel = { if (it == null) "Nouveau" else "Activité récente" },
+                chatUnavailable = "Cette communauté n’a pas encore de chat actif.",
+                chatErrorPrefix = "Impossible d’ouvrir le chat communautaire",
             ),
             members = NeighborhoodUsersStrings(
                 title = { "Utilisateurs · $it" },
@@ -67,6 +71,8 @@ fun neighborhoodsScreenStringsForLanguage(languageTag: String?): NeighborhoodsSc
                 viewUsers = "View users",
                 openChat = "Open chat",
                 timeLabel = { if (it == null) "New" else "Recent activity" },
+                chatUnavailable = "This community does not have an active chat yet.",
+                chatErrorPrefix = "Could not open community chat",
             ),
             members = NeighborhoodUsersStrings(
                 title = { "Users · $it" },

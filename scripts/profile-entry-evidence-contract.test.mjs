@@ -24,8 +24,15 @@ const neighborhoodUsers = await readFile(new URL("../feature/neighborhoods/src/c
 
 test("PROF-ENTRY Web evidence is opt-in, semantic-first and reversible", () => {
   assert.match(webRunner, /--profile-entry-only/);
+  assert.match(webRunner, /--community-chat-only/);
   assert.match(webRunner, /prepareProfileEntryFixture/);
   assert.match(webRunner, /verifyProfileEntryWeb/);
+  assert.match(webRunner, /resolveCommunityChatTarget/);
+  assert.match(webRunner, /verifyCommunityChatWeb/);
+  assert.match(webRunner, /community_walls_stats/);
+  assert.match(webRunner, /neighborhood\.chat\.\$\{neighborhoodTagSuffix\(target\.name\)\}/);
+  assert.match(webRunner, /community_chat_flow_anchor_missing/);
+  assert.match(webRunner, /data-quata-shell-route/);
   assert.match(webRunner, /feed\.author\.avatar\.\$\{profile\.profileId\}/);
   assert.match(webRunner, /official\.author\.avatar\.\$\{profile\.profileId\}/);
   assert.match(webRunner, /neighborhood\.members\.\$\{neighborhoodTagSuffix\(profile\.neighborhood\)\}/);
@@ -51,14 +58,26 @@ test("PROF-ENTRY Web evidence is opt-in, semantic-first and reversible", () => {
 
 test("PROF-ENTRY Android and iOS evidence cover Feed, Official, Communities, Conversations and Chat", () => {
   assert.match(androidRunner, /--profile-entry-only/);
+  assert.match(androidRunner, /--community-chat-only/);
   assert.match(androidRunner, /async function prepareProfileEntryFixture\(config, runId\)/);
   assert.match(androidRunner, /prepareProfileEntryFixture\(config, runId\)/);
+  assert.match(androidRunner, /resolveCommunityChatTarget/);
+  assert.match(androidRunner, /community_walls_stats/);
+  assert.match(androidRunner, /runInstrumentationStage\("community-chat"\)/);
+  assert.match(androidRunner, /community_chat_opened_from_shared_android_community_anchor/);
+  assert.match(androidRunner, /neighborhood\.chat\.\$\{neighborhoodTagSuffix\(state\.communityChat\.name\)\}/);
+  assert.match(androidRunner, /community_chat_only_completed/);
   assert.match(androidRunner, /profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared/);
   assert.match(androidRunner, /profile_entry_feed_official_communities_conversations_and_chat_opened_common_profile_and_returned/);
   assert.match(androidRunner, /cleanupOfficialProfileEntryPost/);
   assert.match(androidRunner, /quataChatActionsOfficialPostId/);
   assert.match(androidUiTest, /"profile-entry" ->/);
+  assert.match(androidUiTest, /"community-chat" ->/);
   assert.match(androidUiTest, /runProfileEntryStage/);
+  assert.match(androidUiTest, /runCommunityChatStage/);
+  assert.match(androidUiTest, /quataChatActionsCommunityName/);
+  assert.match(androidUiTest, /neighborhood\.chat\.\$\{communityName\.toNeighborhoodTagSuffix\(\)\}/);
+  assert.match(androidUiTest, /android-community-chat-opened/);
   assert.match(androidUiTest, /quataPostUrl\(feedPostId\)/);
   assert.match(androidUiTest, /quataOfficialPostUrl\(officialPostId\)/);
   assert.match(androidUiTest, /evidenceStartIntent\(AppDestinations\.Conversations\.route\)/);
@@ -73,12 +92,23 @@ test("PROF-ENTRY Android and iOS evidence cover Feed, Official, Communities, Con
   assert.match(mainActivity, /AppDestinations\.Conversations\.route/);
 
   assert.match(iosRunner, /--profile-entry-only/);
+  assert.match(iosRunner, /--community-chat-only/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_COMMUNITY_NAME/);
+  assert.match(iosRunner, /resolveCommunityChatTarget/);
+  assert.match(iosRunner, /community_walls_stats/);
+  assert.match(iosRunner, /testCommunityChatOpensFromSharedCommunityAnchor/);
+  assert.match(iosRunner, /community_chat_opened_from_shared_ios_community_anchor/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD/);
   assert.match(iosRunner, /prepareProfileEntryFixture/);
   assert.match(iosRunner, /profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared/);
   assert.match(iosRunner, /cleanupOfficialProfileEntryPost/);
   assert.match(iosUiTest, /testProfileEntryFromFeedOfficialConversationsAndChatReturns/);
+  assert.match(iosUiTest, /testCommunityChatOpensFromSharedCommunityAnchor/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E/);
+  assert.match(iosUiTest, /neighborhood\.chat\.\\\(neighborhoodTagSuffix\(communityName\)\)/);
+  assert.match(iosUiTest, /ios-community-chat-opened/);
   assert.match(iosUiTest, /feed\.author\.avatar\.\\\(peerProfileId\)/);
   assert.match(iosUiTest, /official\.author\.avatar\.\\\(peerProfileId\)/);
   assert.match(iosUiTest, /navigation\.primary\.neighborhoods/);
@@ -103,7 +133,12 @@ test("PROF-ENTRY product anchors live in common/shared surfaces", () => {
   assert.match(conversationList, /\.testTag\(ConversationListTestTag\)/);
   assert.equal((conversationsHost.match(/conversationAvatarTestTag/g) ?? []).length, 0);
   assert.match(neighborhoodList, /fun neighborhoodMembersButtonTestTag\(communityName: String\): String =\s*\n\s*"neighborhood\.members\.\$\{communityName\.toNeighborhoodTestTagSuffix\(\)\}"/);
+  assert.match(neighborhoodList, /fun neighborhoodChatButtonTestTag\(communityName: String\): String =\s*\n\s*"neighborhood\.chat\.\$\{communityName\.toNeighborhoodTestTagSuffix\(\)\}"/);
+  assert.match(neighborhoodList, /fun neighborhoodChatStatusTestTag\(communityName: String\): String =\s*\n\s*"neighborhood\.chat\.status\.\$\{communityName\.toNeighborhoodTestTagSuffix\(\)\}"/);
+  assert.match(neighborhoodList, /internal fun canOpenCommunityChat\(community: NeighborhoodCommunity\): Boolean =\s*\n\s*community\.conversationId != null \|\| community\.wallId != null/);
   assert.match(neighborhoodList, /contentDescription = neighborhoodMembersButtonTestTag\(community\.name\)/);
+  assert.match(neighborhoodList, /contentDescription = neighborhoodChatButtonTestTag\(community\.name\)/);
+  assert.match(neighborhoodList, /contentDescription = neighborhoodChatStatusTestTag\(community\.name\)/);
   assert.match(neighborhoodUsers, /fun neighborhoodUserAvatarTestTag\(profileId: String\): String = "neighborhood\.user\.avatar\.\$profileId"/);
   assert.match(neighborhoodUsers, /contentDescription = neighborhoodUserAvatarTestTag\(user\.id\)/);
   assert.match(bottomNavigation, /navigation\.primary\.\$\{item\.id\}/);

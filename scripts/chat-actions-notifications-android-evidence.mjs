@@ -41,6 +41,7 @@ const feedOfficialCommentsOnly = process.argv.includes("--feed-official-comments
 const profileEntryOnly = process.argv.includes("--profile-entry-only");
 const profilePrivateChatOnly = process.argv.includes("--profile-private-chat-only");
 const profileRolesSafetyOnly = process.argv.includes("--profile-roles-safety-only");
+const communityChatOnly = process.argv.includes("--community-chat-only");
 const menuSurfaceOnly = process.argv.includes("--menu-surface-only");
 const attachmentsAudioOnly = process.argv.includes("--attachments-audio-only");
 const attachmentPickerOnly = process.argv.includes("--attachment-picker-only");
@@ -118,6 +119,8 @@ const evidenceFiles = [
   "android-profile-entry-communities.png",
   "android-profile-entry-communities-return.png",
   "android-profile-entry-chat-return.png",
+  "android-community-chat-list.png",
+  "android-community-chat-opened.png",
   "android-feed-comments-emoji-before.png",
   "android-feed-comments-emoji-before-missing-action.png",
   "android-feed-comments-emoji-before-semantics.txt",
@@ -218,6 +221,11 @@ function parseArgs(argv) {
     if (key === "--group-moderation-only") {
       result.output = join("build-reports", "android", "chat-group-moderation-evidence.json");
       result.evidenceDir = join("build-reports", "android", "chat-group-moderation-evidence");
+      continue;
+    }
+    if (key === "--community-chat-only") {
+      result.output = join("build-reports", "android", "community-chat-flow-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "community-chat-flow-evidence");
       continue;
     }
     if (key === "--attachment-picker-source") {
@@ -1104,6 +1112,55 @@ async function withDatabase(callback) {
   }
 }
 
+async function resolveCommunityChatTarget(actorSession) {
+  const actorKey = normalizeCommunityName(actorSession?.neighborhood ?? "");
+  const preferredKeys = [
+    process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_COMMUNITY_CHAT_NAME,
+    "Ateneo",
+    "La Chana",
+    actorSession?.neighborhood,
+  ].map(normalizeCommunityName).filter(Boolean);
+  return await withDatabase(async (client) => {
+    const result = await client.query(
+      `select id, name, slug, normalized_name
+         from public.community_walls_stats
+        where is_active = true
+        order by sort_order asc nulls last, chat_last_at desc nulls last, created_at desc nulls last
+        limit 500`,
+    );
+    const rows = result.rows.map((row) => ({
+      id: String(row.id ?? "").trim(),
+      name: String(row.name ?? row.slug ?? row.normalized_name ?? "").trim(),
+      keys: [row.name, row.slug, row.normalized_name].map(normalizeCommunityName).filter(Boolean),
+    })).filter((row) => uuid.test(row.id) && row.name);
+    if (!rows.length) throw new Error("community_chat_flow_no_active_wall");
+    const matched = preferredKeys
+      .map((key) => rows.find((row) => row.keys.includes(key)))
+      .find(Boolean)
+      ?? (actorKey ? rows.find((row) => row.keys.includes(actorKey)) : null);
+    return matched ?? rows[0];
+  });
+}
+
+function normalizeCommunityName(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function neighborhoodTagSuffix(value) {
+  const normalized = String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ".")
+    .replace(/^\.+|\.+$/g, "");
+  return normalized || "unknown";
+}
+
 async function verifyStorageObjectAbsent(bucket, storagePath) {
   await withDatabase(async (client) => {
     const result = await client.query(
@@ -1413,7 +1470,7 @@ const report = {
   cleanup: { state: "not_started" },
   evidence: {},
 };
-const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
+const state = { a: null, b: null, thread: null, message: null, peerMessage: null, editableMessage: null, editedMessage: null, uiMessages: [], uniqueKey: null, forwardProfile: null, forwardThread: null, forwardedMessage: null, groupAdminProfile: null, groupRemoveProfile: null, groupBlockProfile: null, profileFollow: null, profileListEdges: null, profileContent: null, feedOfficialComments: null, profileEntry: null, profilePrivateChat: null, profileRolesSafety: null, profilePrivateChatMarkerMessage: null, privateMarker: null, attachmentsAudio: null, attachmentPicker: null, communityChat: null, sosWithLocationMarker: null, sosUnavailableMarker: null, sosWithLocationMessage: null, sosUnavailableMessage: null, cleanupRegistry: createCleanupRegistry() };
 let profileHashWindow = { state: "not_started", restored: true, restore: async () => {} };
 const localCredentials = join("build-reports", "android", `chat-actions-notifications-credentials-${randomUUID()}.json`);
 const evidenceDir = options.evidenceDir;
@@ -1451,7 +1508,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !communityChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1596,6 +1653,7 @@ try {
       "-e", "quataChatActionsProfileId", state.b.profileId,
       "-e", "quataChatActionsActorProfileId", state.a.profileId,
       "-e", "quataChatActionsProfileNeighborhood", state.b.neighborhood || "Bovano",
+      "-e", "quataChatActionsCommunityName", state.communityChat?.name ?? "",
       "-e", "quataChatActionsComposerMarker", composerMarker,
       "-e", "quataChatActionsReplyMarker", replyMarker,
       "-e", "quataChatActionsEditMarker", editMarker,
@@ -1952,6 +2010,29 @@ try {
     throw new Error("group_moderation_only_completed");
   }
 
+  if (communityChatOnly) {
+    state.communityChat = await resolveCommunityChatTarget(state.a);
+    report.steps.push("community_chat_active_wall_selected");
+    assertInstrumentationPassed("community-chat", await runInstrumentationStage("community-chat"));
+    await rm(evidenceDir, { recursive: true, force: true });
+    await mkdir(evidenceDir, { recursive: true });
+    for (const file of evidenceFiles.filter((name) => name.startsWith("android-community-chat-") || name.endsWith("evidence.json"))) {
+      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file)).catch(() => {});
+    }
+    report.status = "passed";
+    report.steps.push("community_chat_opened_from_shared_android_community_anchor");
+    report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
+    report.fixture = {
+      threadId: state.thread,
+      seedConversationId: `sb:${state.thread}`,
+      communityName: state.communityChat.name,
+      communityWallId: state.communityChat.id,
+      communityChatTag: `neighborhood.chat.${neighborhoodTagSuffix(state.communityChat.name)}`,
+      uniqueKeySha256: sha256(state.uniqueKey),
+    };
+    throw new Error("community_chat_only_completed");
+  }
+
   if (state.b.accessToken) {
     if (profileFollowOnly) {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
@@ -2172,6 +2253,7 @@ try {
     error?.message === "group_sos_only_completed" ||
     error?.message === "group_admin_only_completed" ||
     error?.message === "group_moderation_only_completed" ||
+    error?.message === "community_chat_only_completed" ||
     error?.message === "composer_emoji_only_completed" ||
     error?.message === "profile_only_completed" ||
     error?.message === "profile_follow_only_completed" ||

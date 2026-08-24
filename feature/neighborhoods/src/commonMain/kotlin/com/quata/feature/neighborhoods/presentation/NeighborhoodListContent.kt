@@ -57,11 +57,22 @@ data class NeighborhoodListStrings(
     val messages: (Int) -> String,
     val viewUsers: String,
     val openChat: String,
-    val timeLabel: (Long?) -> String
+    val timeLabel: (Long?) -> String,
+    val chatUnavailable: String = "Community chat is not available yet.",
+    val chatErrorPrefix: String = "Could not open community chat",
 )
 
 fun neighborhoodMembersButtonTestTag(communityName: String): String =
     "neighborhood.members.${communityName.toNeighborhoodTestTagSuffix()}"
+
+fun neighborhoodChatButtonTestTag(communityName: String): String =
+    "neighborhood.chat.${communityName.toNeighborhoodTestTagSuffix()}"
+
+fun neighborhoodChatStatusTestTag(communityName: String): String =
+    "neighborhood.chat.status.${communityName.toNeighborhoodTestTagSuffix()}"
+
+internal fun canOpenCommunityChat(community: NeighborhoodCommunity): Boolean =
+    community.conversationId != null || community.wallId != null
 
 private fun String.toNeighborhoodTestTagSuffix(): String =
     trim().lowercase()
@@ -78,6 +89,7 @@ fun NeighborhoodListContent(
     error: String?,
     currentUserId: String?,
     openingNeighborhood: String?,
+    chatErrorNeighborhood: String?,
     strings: NeighborhoodListStrings,
     onQueryChange: (String) -> Unit,
     onShowUsers: (NeighborhoodCommunity) -> Unit,
@@ -127,8 +139,9 @@ fun NeighborhoodListContent(
                     items(visibleCommunities, key = { it.wallId ?: it.name }) { community ->
                         NeighborhoodCardContent(
                             community = community,
-                            canOpenChat = community.conversationId != null || community.wallId != null,
+                            canOpenChat = canOpenCommunityChat(community),
                             isOpeningChat = openingNeighborhood == community.name,
+                            error = if (chatErrorNeighborhood == community.name) error else null,
                             strings = strings,
                             onShowUsers = { onShowUsers(community) },
                             onOpenChat = { onOpenChat(community) }
@@ -145,6 +158,7 @@ private fun NeighborhoodCardContent(
     community: NeighborhoodCommunity,
     canOpenChat: Boolean,
     isOpeningChat: Boolean,
+    error: String?,
     strings: NeighborhoodListStrings,
     onShowUsers: () -> Unit,
     onOpenChat: () -> Unit
@@ -171,6 +185,29 @@ private fun NeighborhoodCardContent(
                         NeighborhoodCountPill(if (community.users.size == 1) strings.oneUser else strings.users(community.users.size))
                         NeighborhoodCountPill(if (community.messageCount == 1) strings.oneMessage else strings.messages(community.messageCount))
                     }
+                    if (!canOpenChat) {
+                        Text(
+                            text = strings.chatUnavailable,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .testTag(neighborhoodChatStatusTestTag(community.name))
+                                .semantics { contentDescription = neighborhoodChatStatusTestTag(community.name) },
+                        )
+                    } else if (error != null) {
+                        Text(
+                            text = "${strings.chatErrorPrefix}: $error",
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .testTag(neighborhoodChatStatusTestTag(community.name))
+                                .semantics { contentDescription = neighborhoodChatStatusTestTag(community.name) },
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(14.dp))
@@ -184,7 +221,17 @@ private fun NeighborhoodCardContent(
                         .semantics { contentDescription = neighborhoodMembersButtonTestTag(community.name) },
                     contentPadding = CompactButtonContentPadding,
                 ) { Text(strings.viewUsers) }
-                Button(onClick = onOpenChat, enabled = canOpenChat && !isOpeningChat, shape = RoundedCornerShape(12.dp), modifier = Modifier.compactButtonMinSize(), contentPadding = CompactButtonContentPadding, colors = ButtonDefaults.buttonColors(containerColor = template.colors.surfaceAlt, contentColor = MaterialTheme.colorScheme.onSurface)) {
+                Button(
+                    onClick = onOpenChat,
+                    enabled = canOpenChat && !isOpeningChat,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .compactButtonMinSize()
+                        .testTag(neighborhoodChatButtonTestTag(community.name))
+                        .semantics { contentDescription = neighborhoodChatButtonTestTag(community.name) },
+                    contentPadding = CompactButtonContentPadding,
+                    colors = ButtonDefaults.buttonColors(containerColor = template.colors.surfaceAlt, contentColor = MaterialTheme.colorScheme.onSurface),
+                ) {
                     if (isOpeningChat) { CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurface); Spacer(Modifier.width(8.dp)) }
                     Text(strings.openChat)
                 }
