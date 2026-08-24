@@ -12,6 +12,8 @@ const iosUploader = read('feature/profile/src/iosMain/kotlin/com/quata/feature/p
 const iosPostImageEditor = read('feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostImageEditor.kt');
 const profileGradle = read('feature/profile/build.gradle.kts');
 const androidProfileHost = read('app/src/main/java/com/quata/feature/profile/presentation/ProfileScreen.kt');
+const profileHost = read('feature/profile/src/commonMain/kotlin/com/quata/feature/profile/presentation/ProfileScreenHost.kt');
+const savingButton = read('designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataSavingButton.kt');
 
 test('Web Profile uses the Android avatar action copy, icon and real browser sources', () => {
   assert.match(host, /CompactIcon\(Icons\.Filled\.PhotoCamera, null\)/);
@@ -28,6 +30,15 @@ test('Web Profile uses the Android avatar action copy, icon and real browser sou
   assert.match(host, /leadingIcon = \{ CompactIcon\(Icons\.Filled\.PermMedia, null\) \}/);
   assert.match(host, /leadingIcon = \{ CompactIcon\(Icons\.Filled\.PhotoCamera, null\) \}/);
   assert.match(host, /WebAvatarImageEditor\([\s\S]*sourceReference = reference[\s\S]*onConfirm = \{ transform ->[\s\S]*references\.saveEditorTransform\(reference, transform\)[\s\S]*onAvatarChanged\(reference\)/);
+  assert.match(host, /webProfileAvatarEvidenceReference\("gallery"\)/);
+  assert.match(host, /webProfileAvatarEvidenceReference\("camera"\)/);
+  assert.match(host, /quata-account-avatar-e2e/);
+  assert.match(host, /I_ACCEPT_WEB_ACCOUNT_AVATAR_FIXTURE/);
+  assert.match(host, /reference\.startsWith\('blob:'\)/);
+  assert.match(host, /accountE2eBridge = \{ saveProfile ->/);
+  assert.match(host, /installWebAccountAvatarE2eBridge\(saveProfile\)/);
+  assert.match(host, /__quataAccountAvatarE2EProduct/);
+  assert.match(host, /data-quata-account-avatar-bridge/);
   assert.match(host, /onDismiss = \{[\s\S]*references\.release\(reference\)[\s\S]*pendingReference = null/);
   assert.match(host, /val releaseScope = remember \{ MainScope\(\) \}/);
   assert.match(host, /DisposableEffect\(Unit\)[\s\S]*references\.release\(latestPendingReference\)[\s\S]*finally \{[\s\S]*releaseScope\.cancel\(\)/);
@@ -93,6 +104,11 @@ test('iOS Profile avatar uses the same gallery-camera-editor-save flow as Androi
     assert.match(source, /ProfileAvatarGalleryTestTag/);
     assert.match(source, /ProfileAvatarCameraTestTag/);
   }
+  assert.match(profileHost, /ProfileSaveChangesTestTag = "profile\.save"/);
+  assert.match(profileHost, /QuataSavingButton\([\s\S]*modifier = Modifier\.testTag\(ProfileSaveChangesTestTag\)/);
+  assert.match(profileHost, /semanticDescription = ProfileSaveChangesTestTag/);
+  assert.match(savingButton, /semanticDescription: String\? = null/);
+  assert.match(savingButton, /Modifier\.semantics \{ contentDescription = semanticDescription \}/);
 });
 
 test('iOS avatar editor reuses the common locked square crop contract', () => {

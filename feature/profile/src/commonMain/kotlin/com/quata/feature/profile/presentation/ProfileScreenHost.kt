@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -52,6 +53,7 @@ import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 const val ProfileAvatarChangeTestTag = "profile.avatar.change"
 const val ProfileAvatarGalleryTestTag = "profile.avatar.gallery"
 const val ProfileAvatarCameraTestTag = "profile.avatar.camera"
+const val ProfileSaveChangesTestTag = "profile.save"
 
 /** The only product account surface. Platform hosts supply native integrations through [ProfileScreenSlots]. */
 @Composable
@@ -177,6 +179,9 @@ fun ProfileScreenHost(
                     .forEach { viewModel.onEvent(ProfileUiEvent.EmergencyContactToggled(it.id)) }
             },
         )
+        slots.accountE2eBridge?.invoke {
+            viewModel.onEvent(ProfileUiEvent.Save)
+        }
         SideEffect {
             if (showSos) {
                 slots.onSosSelectionChanged(
@@ -257,7 +262,14 @@ private fun ProfileOverviewContent(
     )
     EmergencyContactsSettingsActionContent(strings.configureEmergency, profile.emergencyContactIds.size, onClick = onSos)
     slots.legalDocuments?.invoke()
-    QuataSavingButton(state.isSaving, strings.saving, strings.saveChanges, onClick = onSave)
+    QuataSavingButton(
+        state.isSaving,
+        strings.saving,
+        strings.saveChanges,
+        onClick = onSave,
+        modifier = Modifier.testTag(ProfileSaveChangesTestTag),
+        semanticDescription = ProfileSaveChangesTestTag,
+    )
     OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text(strings.logout, fontWeight = FontWeight.ExtraBold) }
 }
 
@@ -335,6 +347,7 @@ data class ProfileScreenSlots(
     val onBackFromOverview: () -> Unit = {},
     val backDispatcher: ProfileBackDispatcher? = null,
     val sosE2eBridge: (@Composable (openSos: () -> Unit, closeSos: () -> Unit, selectFirstContacts: (Int) -> Unit) -> Unit)? = null,
+    val accountE2eBridge: (@Composable (saveProfile: () -> Unit) -> Unit)? = null,
     val onSosTabChanged: (EmergencyContactsTab?) -> Unit = {},
     val onSosSelectionChanged: (selectedCount: Int, candidateCount: Int) -> Unit = { _, _ -> },
     val onSosErrorChanged: (String?) -> Unit = {},

@@ -13,6 +13,7 @@ import {
 const sha = "0123456789abcdef0123456789abcdef01234567";
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const backendRunner = await readFile(new URL("./account-avatar-backend-evidence.mjs", import.meta.url), "utf8");
+const webRunner = await readFile(new URL("./account-avatar-web-evidence.mjs", import.meta.url), "utf8");
 
 function evidence(overrides = {}) {
   const platform = {
@@ -73,6 +74,7 @@ test("ACCOUNT-AVATAR contract is part of local fast contract suites", () => {
   assert.match(packageJson.scripts["test:web-wave2-contracts"], /scripts\/account-avatar-evidence-contract\.test\.mjs/);
   assert.match(packageJson.scripts["test:ci-fast-contracts"], /scripts\/account-avatar-evidence-contract\.test\.mjs/);
   assert.match(packageJson.scripts["evidence:account-avatar-backend"], /scripts\/account-avatar-backend-evidence\.mjs/);
+  assert.match(packageJson.scripts["evidence:account-avatar-web"], /scripts\/account-avatar-web-evidence\.mjs/);
 });
 
 test("backend runner is opt-in, reversible and avoids recorded secrets", () => {
@@ -88,4 +90,24 @@ test("backend runner is opt-in, reversible and avoids recorded secrets", () => {
   assert.match(backendRunner, /restoreProfileAvatar/);
   assert.match(backendRunner, /validateAccountAvatarEvidence\(report\)/);
   assert.doesNotMatch(backendRunner, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
+});
+
+test("Web visual runner uses semantic anchors and reversible cleanup", () => {
+  assert.match(webRunner, /ACCOUNT-AVATAR-WEB-REAL-001/);
+  assert.match(webRunner, /I_ACCEPT_WEB_ACCOUNT_AVATAR_FIXTURE/);
+  assert.match(webRunner, /clickSemantic\(page, "profile\.avatar\.change"\)/);
+  assert.match(webRunner, /clickSemantic\(page, "profile\.avatar\.gallery"\)/);
+  assert.match(webRunner, /clickSemantic\(page, "profile\.save"\)/);
+  assert.match(webRunner, /roleFallbackFor\(id\)/);
+  assert.match(webRunner, /id === "profile\.save"[\s\S]*Guardar cambios\|Save changes/);
+  assert.match(webRunner, /bridgeFallbackFor\(id\)/);
+  assert.match(webRunner, /data-quata-account-avatar-bridge/);
+  assert.match(webRunner, /__quataAccountAvatarE2EProduct/);
+  assert.match(webRunner, /saveProfile/);
+  assert.match(webRunner, /missing_stable_anchor:\$\{id\}/);
+  assert.match(webRunner, /clickEditorAction\(page, "post-image-editor\.save"/);
+  assert.match(webRunner, /cleanupUploadedAvatar/);
+  assert.match(webRunner, /patchProfileAvatar/);
+  assert.match(webRunner, /deleteStorageObject/);
+  assert.doesNotMatch(webRunner, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
 });
