@@ -62,7 +62,9 @@ try {
   const remoteState = JSON.parse((await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
-node -e 'const {execFileSync}=require("node:child_process"); const head=execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(); const status=execFileSync("git",["status","--porcelain"],{encoding:"utf8"}).trim(); process.stdout.write(JSON.stringify({head,workingTreeDirty:status.length>0})+"\\n")'
+head="$(git rev-parse HEAD)"
+if [ -n "$(git status --porcelain)" ]; then dirty=true; else dirty=false; fi
+printf '{"head":"%s","workingTreeDirty":%s}\\n' "$head" "$dirty"
 `)).trim());
   report.mac = { host: options.host, project: options.project, head: remoteState.head, workingTreeDirty: remoteState.workingTreeDirty };
   if (remoteState.head !== report.git.head) throw new Error(`mac_checkout_sha_mismatch:${remoteState.head}:${report.git.head}`);
