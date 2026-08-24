@@ -2125,7 +2125,7 @@ async function resolveCommunityChatTarget(actorSession) {
          from public.community_walls_stats
         where is_active = true
         order by sort_order asc nulls last, chat_last_at desc nulls last, created_at desc nulls last
-        limit 50`,
+        limit 500`,
     );
     const rows = result.rows.map((row) => ({
       id: String(row.id ?? "").trim(),
