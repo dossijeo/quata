@@ -810,6 +810,35 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         attachScreenshot(app, name: "ios-profile-entry-chat-return")
     }
 
+    func testCommunityChatOpensFromSharedCommunityAnchor() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated community-chat UI gate is opt-in.")
+        }
+        guard let communityName = nonEmpty(environment["QUATA_IOS_CHAT_COMMUNITY_NAME"]) else {
+            throw XCTSkip("Disposable community-chat fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        tapTaggedButton("navigation.primary.neighborhoods", in: app, context: "open communities primary route")
+        tapTaggedButton("neighborhood.chat.\(neighborhoodTagSuffix(communityName))", in: app, context: "open community chat")
+        let chat = chatHost(in: app, context: "community chat")
+        XCTAssertTrue(
+            (chat.value as? String)?.hasPrefix("chat:sb:") == true,
+            "Opening a community from the shared anchor must navigate to a real Supabase chat route.",
+        )
+        XCTAssertTrue(menuText(communityName, in: app).waitForExistence(timeout: 20), "The community chat header must expose the selected community name.")
+        attachScreenshot(app, name: "ios-community-chat-opened")
+    }
+
     func testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E"] == "1" else {

@@ -92,12 +92,23 @@ test("PROF-ENTRY Android and iOS evidence cover Feed, Official, Communities, Con
   assert.match(mainActivity, /AppDestinations\.Conversations\.route/);
 
   assert.match(iosRunner, /--profile-entry-only/);
+  assert.match(iosRunner, /--community-chat-only/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_COMMUNITY_NAME/);
+  assert.match(iosRunner, /resolveCommunityChatTarget/);
+  assert.match(iosRunner, /community_walls_stats/);
+  assert.match(iosRunner, /testCommunityChatOpensFromSharedCommunityAnchor/);
+  assert.match(iosRunner, /community_chat_opened_from_shared_ios_community_anchor/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_PROFILE_ENTRY_NEIGHBORHOOD/);
   assert.match(iosRunner, /prepareProfileEntryFixture/);
   assert.match(iosRunner, /profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared/);
   assert.match(iosRunner, /cleanupOfficialProfileEntryPost/);
   assert.match(iosUiTest, /testProfileEntryFromFeedOfficialConversationsAndChatReturns/);
+  assert.match(iosUiTest, /testCommunityChatOpensFromSharedCommunityAnchor/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_COMMUNITY_CHAT_UI_E2E/);
+  assert.match(iosUiTest, /neighborhood\.chat\.\\\(neighborhoodTagSuffix\(communityName\)\)/);
+  assert.match(iosUiTest, /ios-community-chat-opened/);
   assert.match(iosUiTest, /feed\.author\.avatar\.\\\(peerProfileId\)/);
   assert.match(iosUiTest, /official\.author\.avatar\.\\\(peerProfileId\)/);
   assert.match(iosUiTest, /navigation\.primary\.neighborhoods/);
