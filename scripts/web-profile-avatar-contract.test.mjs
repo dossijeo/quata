@@ -6,6 +6,11 @@ const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'
 const host = read('web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt');
 const uploader = read('web/src/wasmJsMain/kotlin/com/quata/web/WebProfileAvatarUploader.kt');
 const editor = read('web/src/wasmJsMain/kotlin/com/quata/web/WebAvatarImageEditor.kt');
+const iosHost = read('feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileHost.kt');
+const iosBootstrap = read('feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileSosRuntimeBootstrap.kt');
+const iosUploader = read('feature/profile/src/iosMain/kotlin/com/quata/feature/profile/data/IosProfileAvatarUploader.kt');
+const iosPostImageEditor = read('feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostImageEditor.kt');
+const profileGradle = read('feature/profile/build.gradle.kts');
 
 test('Web Profile uses the Android avatar action copy, icon and real browser sources', () => {
   assert.match(host, /CompactIcon\(Icons\.Filled\.PhotoCamera, null\)/);
@@ -68,4 +73,33 @@ test('Web Profile avatar editor is Compose-owned and exposes the complete locked
 
 test('Web Profile appearance copy remains byte-for-byte aligned with Android Spanish', () => {
   assert.match(host, /AppearanceSettingsStrings\("Activar Qüata TouchFlow", "Modo de color", "Sistema", "Modo Oscuro", "Modo Claro"\)/);
+});
+
+test('iOS Profile avatar uses the same gallery-camera-editor-save flow as Android and Web', () => {
+  assert.match(profileGradle, /iosMain\.dependencies \{[\s\S]*implementation\(project\(":feature:postcomposer"\)\)/);
+  assert.match(iosBootstrap, /avatar writes use the same authenticated Storage/);
+  assert.match(iosBootstrap, /cameraCapture: com\.quata\.core\.platform\.CameraCaptureService/);
+  assert.match(iosHost, /CompactIcon\(Icons\.Filled\.PhotoCamera, null\)/);
+  assert.match(iosHost, /Text\("Change photo"\)/);
+  assert.match(iosHost, /Text\("Choose from gallery"\)/);
+  assert.match(iosHost, /Text\("Take photo"\)/);
+  assert.match(iosHost, /FilePickerSource\.Gallery/);
+  assert.match(iosHost, /dependencies\.cameraCapture\.capturePhoto\(CameraCaptureRequest\("quata-avatar\.jpg"\)\)/);
+  assert.match(iosHost, /IosAvatarImageEditor\([\s\S]*source = file[\s\S]*onEdited = \{ edited ->[\s\S]*onAvatarChanged\(edited\.reference\)/);
+  assert.doesNotMatch(iosHost, /result\.value\.firstOrNull\(\)\?\.reference\?\.let\(onAvatarChanged\)/);
+});
+
+test('iOS avatar editor reuses the common locked square crop contract', () => {
+  assert.match(iosPostImageEditor, /fun IosAvatarImageEditor/);
+  assert.match(iosPostImageEditor, /outputSpec = ImageEditorAvatarOutputSpec/);
+  assert.match(iosPostImageEditor, /cropLocked = true/);
+  assert.match(iosPostImageEditor, /iosPostImageEditorExport\([\s\S]*cropToOutputAspect = true[\s\S]*outputSpec = ImageEditorAvatarOutputSpec/);
+  assert.match(iosPostImageEditor, /displayName = outputName/);
+});
+
+test('iOS Profile avatar uploader keeps actor-bound Storage semantics', () => {
+  assert.match(iosUploader, /avatars\/\$profileId\/\$token\.jpg/);
+  assert.match(iosUploader, /requireIosProfileAvatarActor\(profileId, session\.profileId\)/);
+  assert.match(iosUploader, /"x-upsert" to "true"/);
+  assert.match(iosUploader, /UIImageJPEGRepresentation/);
 });

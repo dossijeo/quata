@@ -1,9 +1,18 @@
 package com.quata.feature.profile.presentation
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PermMedia
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
@@ -18,13 +27,16 @@ import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.moderation.iosLegalDocumentFile
 import com.quata.core.moderation.iosLegalDocumentPlaceholderFile
+import com.quata.core.platform.CameraCaptureRequest
+import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.ContactPickerService
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.DocumentViewerFailureReason
 import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.PlatformFile
 import com.quata.core.ui.components.IosRemoteAvatar
 import com.quata.core.ui.components.QuataDocumentViewerStatusContent
-import com.quata.core.ui.components.QuataAvatarFallback
+import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
@@ -35,6 +47,7 @@ import com.quata.core.platform.documentViewerOpeningState
 import com.quata.core.platform.openWithViewerState
 import com.quata.feature.profile.domain.EmergencyContactCandidate
 import com.quata.feature.profile.domain.ProfileRepository
+import com.quata.feature.postcomposer.presentation.IosAvatarImageEditor
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 import com.quata.feature.settings.presentation.SettingsLegalDocumentsSectionContent
 import com.quata.feature.settings.presentation.settingsLegalDocumentsStrings
@@ -49,6 +62,7 @@ class IosProfileHostDependencies(
     val onDeactivateAccount: () -> Unit,
     val onDeleteAccountData: () -> Unit,
     val filePicker: FilePickerService,
+    val cameraCapture: CameraCaptureService,
     val contacts: ContactPickerService,
     val permissions: PermissionService,
     val touchFlowEnabled: Boolean,
@@ -87,21 +101,7 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
             slots = ProfileScreenSlots(
                 isLandscapeLayout = { isLandscape },
                 avatar = { name, avatarUrl -> IosRemoteAvatar(name, name, avatarUrl, Modifier.size(56.dp)) },
-                avatarActions = { onAvatarChanged ->
-                    OutlinedButton(
-                        onClick = {
-                            scope.launch {
-                                when (val result = dependencies.filePicker.pick(
-                                    FilePickerRequest(listOf("image/*"), allowMultiple = false, source = FilePickerSource.Gallery),
-                                )) {
-                                    is PlatformResult.Success -> result.value.firstOrNull()?.reference?.let(onAvatarChanged)
-                                    PlatformResult.Cancelled, PlatformResult.Unsupported, is PlatformResult.Failure -> Unit
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Change photo") }
-                },
+                avatarActions = { onAvatarChanged -> IosProfileAvatarActions(dependencies, onAvatarChanged) },
                 emergencyContactRow = { contact: EmergencyContactCandidate, selected, toggle ->
                     EmergencyUserRowContent(
                         user = contact,
@@ -149,6 +149,86 @@ fun QuataProfileViewController(dependencies: IosProfileHostDependencies): UIView
             state = documentViewerState,
             strings = quataDocumentViewerStatusStrings(language),
             onDismiss = { documentViewerState = null },
+        )
+    }
+}
+
+@Composable
+private fun IosProfileAvatarActions(
+    dependencies: IosProfileHostDependencies,
+    onAvatarChanged: (String?) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var menuOpen by remember { mutableStateOf(false) }
+    var editorFile by remember { mutableStateOf<PlatformFile?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    suspend fun openEditor(result: PlatformResult<List<PlatformFile>>) {
+        when (result) {
+            is PlatformResult.Success -> {
+                editorFile = result.value.firstOrNull()
+                error = if (editorFile == null) "No photo selected." else null
+            }
+            PlatformResult.Cancelled -> Unit
+            PlatformResult.Unsupported -> error = "Photo source is not available on this device."
+            is PlatformResult.Failure -> error = "Could not select the photo."
+        }
+    }
+
+    suspend fun openCameraEditor(result: PlatformResult<PlatformFile>) {
+        when (result) {
+            is PlatformResult.Success -> {
+                editorFile = result.value
+                error = null
+            }
+            PlatformResult.Cancelled -> Unit
+            PlatformResult.Unsupported -> error = "Camera is not available on this device."
+            is PlatformResult.Failure -> error = "Could not capture the photo."
+        }
+    }
+
+    Column {
+        OutlinedButton(onClick = { menuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+            CompactIcon(Icons.Filled.PhotoCamera, null)
+            Spacer(Modifier.width(4.dp))
+            Text("Change photo")
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text("Choose from gallery") },
+                leadingIcon = { CompactIcon(Icons.Filled.PermMedia, null) },
+                onClick = {
+                    menuOpen = false
+                    scope.launch {
+                        openEditor(
+                            dependencies.filePicker.pick(
+                                FilePickerRequest(listOf("image/*"), allowMultiple = false, source = FilePickerSource.Gallery),
+                            ),
+                        )
+                    }
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Take photo") },
+                leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, null) },
+                onClick = {
+                    menuOpen = false
+                    scope.launch {
+                        openCameraEditor(dependencies.cameraCapture.capturePhoto(CameraCaptureRequest("quata-avatar.jpg")))
+                    }
+                },
+            )
+        }
+        error?.let { Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error) }
+    }
+    editorFile?.let { file ->
+        IosAvatarImageEditor(
+            source = file,
+            onDismiss = { editorFile = null },
+            onEdited = { edited ->
+                editorFile = null
+                onAvatarChanged(edited.reference)
+            },
         )
     }
 }

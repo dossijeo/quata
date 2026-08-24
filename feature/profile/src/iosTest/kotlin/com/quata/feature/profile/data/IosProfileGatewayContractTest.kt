@@ -4,6 +4,8 @@ import com.quata.core.data.toFoundationData
 import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.moderation.LegalDocument
 import com.quata.core.model.AuthSession
+import com.quata.core.platform.CameraCaptureRequest
+import com.quata.core.platform.CameraCaptureService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PermissionService
@@ -88,6 +90,7 @@ class IosProfileGatewayContractTest {
             onDeactivateAccount = {},
             onDeleteAccountData = {},
             filePicker = UnsupportedFilePicker,
+            cameraCapture = UnsupportedCameraCapture,
             contacts = UnsupportedContactPickerService,
             permissions = UnavailablePermissionService,
             touchFlowEnabled = true,
@@ -313,6 +316,11 @@ class IosProfileGatewayContractTest {
             acceptedMimeTypes: List<String>,
             allowMultiple: Boolean,
         ): PlatformResult<List<PlatformFile>> = PlatformResult.Unsupported
+    }
+
+    private object UnsupportedCameraCapture : CameraCaptureService {
+        override suspend fun capturePhoto(request: CameraCaptureRequest): PlatformResult<PlatformFile> =
+            PlatformResult.Unsupported
     }
 
     private object UnavailablePermissionService : PermissionService {

@@ -521,7 +521,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-          "sha256": "431a3e7a16fb674d58b5cd9ccfe53d3c7f28333ecb39c8c5af235bd757cc00d5",
+              "sha256": "b8150c6204bbcd1ce130338dccce7326db995ea3f0f41790bffdb33778e6e1c5",
               "role": "composition"
             },
             {
@@ -594,7 +594,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-          "sha256": "431a3e7a16fb674d58b5cd9ccfe53d3c7f28333ecb39c8c5af235bd757cc00d5",
+              "sha256": "b8150c6204bbcd1ce130338dccce7326db995ea3f0f41790bffdb33778e6e1c5",
               "role": "composition"
             },
             {
@@ -662,7 +662,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-          "sha256": "431a3e7a16fb674d58b5cd9ccfe53d3c7f28333ecb39c8c5af235bd757cc00d5",
+              "sha256": "b8150c6204bbcd1ce130338dccce7326db995ea3f0f41790bffdb33778e6e1c5",
               "role": "composition"
             },
             {
@@ -721,7 +721,7 @@
           "evidence": [
             {
               "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileSosRuntimeBootstrap.kt",
-              "sha256": "caae601e265db2559b57f22cb4a2014cca26fe55fb49729cce5b5f6a71d1994f",
+              "sha256": "d8972a5ff81b79fabba47a619ef2732782ad3e1af8c6659673262f18d7b4c5f7",
               "role": "composition"
             },
             {
@@ -789,13 +789,23 @@
           "evidence": [
             {
               "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileSosRuntimeBootstrap.kt",
-              "sha256": "caae601e265db2559b57f22cb4a2014cca26fe55fb49729cce5b5f6a71d1994f",
+              "sha256": "d8972a5ff81b79fabba47a619ef2732782ad3e1af8c6659673262f18d7b4c5f7",
               "role": "composition"
             },
             {
               "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/data/IosProfileAvatarUploader.kt",
               "sha256": "886bb15cfaa610324a4dfa427896096bc1268bddd58124532c84925b44ee6be9",
               "role": "implementation"
+            },
+            {
+              "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileHost.kt",
+              "sha256": "276799a2f6ed70a7e236b190d30b0d4432aea5bac2cccfccf1cfcc64ae36b7a8",
+              "role": "runtime-bootstrap"
+            },
+            {
+              "path": "feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostImageEditor.kt",
+              "sha256": "bd8fa97083fe119a80c2441be027f55ce3d4fa0c8c19cba013ef048833b0dc8a",
+              "role": "adapter"
             }
           ]
         }
@@ -844,7 +854,7 @@
           "evidence": [
             {
               "path": "iosApp/iosApp/QuataIosApp.swift",
-          "sha256": "431a3e7a16fb674d58b5cd9ccfe53d3c7f28333ecb39c8c5af235bd757cc00d5",
+              "sha256": "b8150c6204bbcd1ce130338dccce7326db995ea3f0f41790bffdb33778e6e1c5",
               "role": "composition"
             },
             {

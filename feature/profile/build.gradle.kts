@@ -25,7 +25,9 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
         }
         androidMain.dependencies { }
-        iosMain.dependencies { }
+        iosMain.dependencies {
+            implementation(project(":feature:postcomposer"))
+        }
         wasmJsMain.dependencies { }
     }
 }
