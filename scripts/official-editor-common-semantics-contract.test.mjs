@@ -81,8 +81,9 @@ test("Official deep links render only the requested post and retry focused loads
   assert.match(feedViewModel, /repeat\(FocusedPostLoadAttempts\)/);
   assert.match(feedViewModel, /delay\(FocusedPostLoadRetryDelayMillis\)/);
   assert.match(feedViewModel, /private var exactLoadedPosts: Map<String, OfficialPostItem> = emptyMap\(\)/);
-  assert.match(feedViewModel, /setRealtime\(posts\.withExactLoadedPosts\(\)\.withLocalPendingComments\(\)\)/);
-  assert.match(feedViewModel, /replaceInitialPage\(posts\.withExactLoadedPosts\(\)\.withLocalPendingComments\(\)\)/);
+  assert.match(feedViewModel, /val mergedPosts = feedStore\.setRealtime\(posts\.withExactLoadedPosts\(\)\)/);
+  assert.match(feedViewModel, /val mergedPosts = feedStore\.replaceInitialPage\(posts\.withExactLoadedPosts\(\)\)/);
+  assert.match(feedViewModel, /posts = mergedPosts\.withLocalPendingCommentsFrom\(state\.posts\)/);
   assert.match(feedViewModel, /exactLoadedPosts = exactLoadedPosts \+ \(post\.id to post\)/);
-  assert.match(feedViewModel, /private fun List<OfficialPostItem>\.withLocalPendingComments\(\): List<OfficialPostItem>/);
+  assert.match(feedViewModel, /private fun List<OfficialPostItem>\.withLocalPendingCommentsFrom\(existingPosts: List<OfficialPostItem>\): List<OfficialPostItem>/);
 });

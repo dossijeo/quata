@@ -41,6 +41,41 @@ class CommunityEmojiCatalogTest {
         }
         assertFailsWith<IllegalArgumentException> { communityEmojiAtlasCoordinates("flags", 34) }
     }
+
+    @Test
+    fun `panel selected section falls back safely and preserves empty sections for UI state`() {
+        val emptyFrequent = QuataEmojiSection("frequent", "Frequent", emptyList())
+        val recent = QuataEmojiSection("recent", "Recent", listOf("😀"))
+
+        assertEquals(emptyFrequent, communityEmojiPanelSelectedSection(listOf(emptyFrequent, recent), "frequent"))
+        assertEquals(emptyFrequent, communityEmojiPanelSelectedSection(listOf(emptyFrequent, recent), "missing"))
+        assertEquals(null, communityEmojiPanelSelectedSection(emptyList(), "frequent"))
+    }
+
+    @Test
+    fun `panel exposes stable anchors for empty error and retry states`() {
+        assertEquals("community.emoji.empty", CommunityEmojiPanelEmptyTestTag)
+        assertEquals("community.emoji.error", CommunityEmojiPanelErrorTestTag)
+        assertEquals("community.emoji.retry", CommunityEmojiPanelRetryTestTag)
+    }
+
+    @Test
+    fun `catalog provider fails closed when atlas validation fails`() {
+        val available = communityEmojiCatalogState()
+        assertTrue(available is CommunityEmojiCatalogState.Available)
+
+        var retried = false
+        val unavailable = communityEmojiCatalogState(
+            labels = CommunityEmojiLabels(empty = "Emoji unavailable"),
+            onRetry = { retried = true },
+            atlasCellCountResolver = { key -> if (key == "frequent") 1 else 400 },
+        )
+
+        assertTrue(unavailable is CommunityEmojiCatalogState.Unavailable)
+        assertEquals("Emoji unavailable", unavailable.message)
+        unavailable.onRetry?.invoke()
+        assertTrue(retried)
+    }
 }
 
 private val RegionalIndicatorRange = 0x1F1E6..0x1F1FF

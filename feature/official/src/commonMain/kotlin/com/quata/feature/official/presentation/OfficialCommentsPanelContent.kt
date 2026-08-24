@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,6 +34,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.PostComment
+import com.quata.core.ui.components.CommunityEmojiCatalogState
 import com.quata.core.ui.components.CommunityEmojiLabels
 import com.quata.core.ui.components.CommunityEmojiPanelContent
 import com.quata.core.ui.components.CompactIcon
@@ -46,7 +48,7 @@ import com.quata.core.ui.components.QuataCommentsPanelLandscapeContent
 import com.quata.core.ui.components.QuataCommentsPanelPortraitContent
 import com.quata.core.ui.components.QuataReplyTargetBannerContent
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
-import com.quata.core.ui.components.communityEmojiSections
+import com.quata.core.ui.components.communityEmojiCatalogState
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
 import com.quata.core.ui.components.insertAtSelection
 import com.quata.core.ui.components.rememberCommunityEmojiPanelDismissState
@@ -78,13 +80,21 @@ fun OfficialCommentsPanelContent(
     onAddComment: (PostComment) -> Unit,
     onReportComment: (PostComment) -> Unit,
     onOpenUserProfile: (String) -> Unit,
+    commentErrorMessage: String?,
+    commentErrorsByCommentId: Map<String, String>,
+    confirmedCommentIds: Set<String>,
+    onConfirmedCommentConsumed: (String) -> Unit,
     onDismiss: () -> Unit,
     translatorTrigger: @Composable (String, Modifier, () -> Unit, Boolean) -> Unit,
     translatorGateway: QuataTranslatorGateway?,
     translatorStrings: QuataTranslatorStrings,
+    emojiCatalogState: @Composable (() -> CommunityEmojiCatalogState)? = null,
 ) {
     var draft by rememberSaveable(post.id, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
     var replyTo by remember(post.id) { mutableStateOf<PostComment?>(null) }
+    var pendingDraft by remember(post.id) { mutableStateOf<TextFieldValue?>(null) }
+    var pendingReplyTo by remember(post.id) { mutableStateOf<PostComment?>(null) }
+    var pendingCommentId by rememberSaveable(post.id) { mutableStateOf<String?>(null) }
     var isEmojiPickerVisible by rememberSaveable(post.id) { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -95,7 +105,13 @@ fun OfficialCommentsPanelContent(
     val inheritedTranslatorRegistry = LocalQuataTranslatableTextRegistry.current
     val translatorRegistry = inheritedTranslatorRegistry ?: remember(post.id) { QuataTranslatableTextRegistry() }
     var translatorActive by rememberSaveable(post.id) { mutableStateOf(false) }
+    var emojiCatalogRetryToken by rememberSaveable(post.id) { mutableStateOf(0) }
     val translatorEnabled = translatorGateway != null && translatorRegistry.visibleBoxes.isNotEmpty()
+    val resolvedEmojiCatalogState: @Composable () -> CommunityEmojiCatalogState = emojiCatalogState ?: {
+        key(emojiCatalogRetryToken) {
+            communityEmojiCatalogState(strings.emojiLabels, onRetry = { emojiCatalogRetryToken += 1 })
+        }
+    }
 
     fun setEmojiPickerVisible(visible: Boolean) {
         isEmojiPickerVisible = visible
@@ -113,6 +129,31 @@ fun OfficialCommentsPanelContent(
             delay(260)
             commentsListState.animateScrollToItem(post.comments.size)
             shouldScrollToCommentsEnd = false
+        }
+    }
+    val pendingCommentErrorMessage = pendingCommentId?.let(commentErrorsByCommentId::get)
+    val visibleCommentErrorMessage = if (pendingCommentId != null) pendingCommentErrorMessage else commentErrorMessage
+    LaunchedEffect(pendingCommentErrorMessage, post.comments, pendingCommentId, confirmedCommentIds) {
+        val pendingId = pendingCommentId ?: return@LaunchedEffect
+        if (pendingCommentErrorMessage != null) {
+            pendingDraft?.let { sentDraft ->
+                draft = sentDraft
+            }
+            pendingCommentId = null
+            pendingDraft = null
+            pendingReplyTo = null
+            return@LaunchedEffect
+        }
+        val confirmed = pendingId in confirmedCommentIds
+        if (post.comments.none { it.id == pendingId } || confirmed) {
+            pendingDraft?.let { sentDraft ->
+                if (draft.text.trim() == sentDraft.text.trim()) draft = TextFieldValue()
+            }
+            if (replyTo?.id == pendingReplyTo?.id) replyTo = null
+            if (confirmed) onConfirmedCommentConsumed(pendingId)
+            pendingCommentId = null
+            pendingDraft = null
+            pendingReplyTo = null
         }
     }
 
@@ -159,6 +200,7 @@ fun OfficialCommentsPanelContent(
             leadingAction = {
                 CompactIconButton(
                     onClick = { setEmojiPickerVisible(!isEmojiPickerVisible) },
+                    enabled = pendingCommentId == null,
                     modifier = Modifier.trackCommunityEmojiTriggerBounds(emojiDismissState),
                     testTag = "official.comments.emoji",
                     contentDescription = strings.showEmojis,
@@ -169,14 +211,16 @@ fun OfficialCommentsPanelContent(
             onDraftChange = { draft = it },
             onAuthRequired = onAuthRequired,
             onAddComment = onAddComment,
-            onCommentAdded = {
-                draft = TextFieldValue()
-                replyTo = null
+            onCommentAdded = { comment ->
+                pendingDraft = draft
+                pendingReplyTo = replyTo
+                pendingCommentId = comment.id
                 isEmojiPickerVisible = false
                 shouldScrollToCommentsEnd = true
             },
             onFocused = { if (isEmojiPickerVisible) setEmojiPickerVisible(false) },
             modifier = modifier,
+            isSending = pendingCommentId != null,
             inputTestTag = "official.comments.input",
             sendTestTag = "official.comments.send",
         )
@@ -218,16 +262,18 @@ fun OfficialCommentsPanelContent(
                 },
                 emojiPanel = if (isEmojiPickerVisible) {
                     {
-                        CommunityEmojiPanelContent(
-                            communityEmojiSections(strings.emojiLabels),
+                        OfficialCommunityEmojiPanel(
+                            resolvedEmojiCatalogState(),
+                            strings,
+                            emojiGridMaxHeight,
                             { draft = draft.insertAtSelection(it) },
                             Modifier.trackCommunityEmojiPanelBounds(emojiDismissState),
-                            gridMaxHeight = emojiGridMaxHeight,
-                            emptyMessage = strings.emojiLabels.empty,
                         )
                     }
                 } else null,
                 input = { modifier -> commentInput(modifier.fillMaxWidth()) },
+                errorMessage = visibleCommentErrorMessage,
+                errorTestTag = "official.comments.error",
                 modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
             )
         } else {
@@ -269,19 +315,21 @@ fun OfficialCommentsPanelContent(
                 input = { modifier -> commentInput(modifier) },
                 emojiPanel = if (isEmojiPickerVisible) {
                     {
-                        CommunityEmojiPanelContent(
-                            communityEmojiSections(strings.emojiLabels),
+                        OfficialCommunityEmojiPanel(
+                            resolvedEmojiCatalogState(),
+                            strings,
+                            emojiGridMaxHeight,
                             { draft = draft.insertAtSelection(it) },
                             Modifier
                                 .align(Alignment.BottomEnd)
                                 .padding(end = 12.dp, bottom = 84.dp, start = 24.dp)
                                 .fillMaxWidth(0.62f)
                                 .trackCommunityEmojiPanelBounds(emojiDismissState),
-                            gridMaxHeight = emojiGridMaxHeight,
-                            emptyMessage = strings.emojiLabels.empty,
                         )
                     }
                 } else null,
+                errorMessage = visibleCommentErrorMessage,
+                errorTestTag = "official.comments.error",
                 modifier = panelModifier.dismissCommunityEmojiPanelOnOutsideTap(isEmojiPickerVisible, emojiDismissState),
             )
         }
@@ -300,6 +348,35 @@ fun OfficialCommentsPanelContent(
     }
 }
 
+@Composable
+private fun OfficialCommunityEmojiPanel(
+    catalogState: CommunityEmojiCatalogState,
+    strings: OfficialCommentsStrings,
+    gridMaxHeight: androidx.compose.ui.unit.Dp,
+    onEmojiClick: (String) -> Unit,
+    modifier: Modifier,
+) {
+    when (catalogState) {
+        is CommunityEmojiCatalogState.Available -> CommunityEmojiPanelContent(
+            catalogState.sections,
+            onEmojiClick,
+            modifier,
+            gridMaxHeight = gridMaxHeight,
+            emptyMessage = strings.emojiLabels.empty,
+        )
+        is CommunityEmojiCatalogState.Unavailable -> CommunityEmojiPanelContent(
+            emptyList(),
+            onEmojiClick,
+            modifier,
+            gridMaxHeight = gridMaxHeight,
+            emptyMessage = strings.emojiLabels.empty,
+            errorMessage = catalogState.message,
+            retryLabel = strings.retry,
+            onRetry = catalogState.onRetry,
+        )
+    }
+}
+
 data class OfficialCommentsStrings(
     val title: String,
     val close: String,
@@ -312,6 +389,7 @@ data class OfficialCommentsStrings(
     val commentsYou: String,
     val replyTo: (String) -> String,
     val showEmojis: String,
+    val retry: String,
     val translatorContentDescription: String,
     val emojiLabels: CommunityEmojiLabels,
 )

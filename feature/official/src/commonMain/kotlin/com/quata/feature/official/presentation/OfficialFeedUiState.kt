@@ -12,6 +12,9 @@ data class OfficialFeedUiState(
     val currentUser: User? = null,
     val isPublishing: Boolean = false,
     val error: String? = null,
+    val commentErrorsByPostId: Map<String, String> = emptyMap(),
+    val commentErrorsByCommentId: Map<String, String> = emptyMap(),
+    val confirmedCommentIds: Set<String> = emptySet(),
     val message: String? = null,
     val createdPostId: String? = null
 )

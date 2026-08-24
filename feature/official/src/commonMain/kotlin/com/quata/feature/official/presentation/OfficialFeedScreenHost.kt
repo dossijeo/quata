@@ -375,6 +375,7 @@ fun OfficialFeedScreenHost(
                 commentsYou = strings.commentsYou,
                 replyTo = strings.commentReplyTo,
                 showEmojis = strings.showEmojis,
+                retry = strings.retry,
                 translatorContentDescription = strings.translatorContentDescription,
                 emojiLabels = strings.emojiLabels,
             ),
@@ -385,6 +386,10 @@ fun OfficialFeedScreenHost(
                 commentsPost = null
                 onOpenUserProfile(profileId)
             },
+            commentErrorMessage = state.commentErrorsByPostId[post.id],
+            commentErrorsByCommentId = state.commentErrorsByCommentId,
+            confirmedCommentIds = state.confirmedCommentIds,
+            onConfirmedCommentConsumed = { viewModel.onEvent(OfficialFeedUiEvent.ConfirmedCommentConsumed(it)) },
             onDismiss = dismiss,
             translatorTrigger = slots.commentsTranslatorTrigger,
                 translatorGateway = slots.commentsTranslationGateway,

@@ -6,7 +6,30 @@ data class CommunityEmojiLabels(
     val people: String = "Personas", val animalsNature: String = "Animales y naturaleza",
     val foodDrink: String = "Comida y bebida", val objectsSymbols: String = "Objetos y símbolos", val flags: String = "Banderas",
     val empty: String = "No hay emojis disponibles.",
+    val retry: String = "Reintentar",
 )
+
+sealed interface CommunityEmojiCatalogState {
+    data class Available(val sections: List<QuataEmojiSection>) : CommunityEmojiCatalogState
+    data class Unavailable(val message: String, val onRetry: (() -> Unit)? = null) : CommunityEmojiCatalogState
+}
+
+fun communityEmojiCatalogState(
+    labels: CommunityEmojiLabels = CommunityEmojiLabels(),
+    onRetry: (() -> Unit)? = null,
+    atlasCellCountResolver: (String) -> Int = { communityEmojiAtlas(it).emojiCount },
+): CommunityEmojiCatalogState = try {
+    val sections = communityEmojiSections(labels)
+    sections.forEach { section ->
+        val atlasCellCount = atlasCellCountResolver(section.key)
+        require(atlasCellCount >= section.emojis.size) {
+            "Emoji atlas ${section.key} exposes $atlasCellCount cells for ${section.emojis.size} emojis"
+        }
+    }
+    CommunityEmojiCatalogState.Available(sections)
+} catch (_: Throwable) {
+    CommunityEmojiCatalogState.Unavailable(labels.empty, onRetry)
+}
 
 fun communityEmojiSections(labels: CommunityEmojiLabels = CommunityEmojiLabels()): List<QuataEmojiSection> = listOf(
     QuataEmojiSection("recent", labels.recent, frequentEmojis.take(24)),

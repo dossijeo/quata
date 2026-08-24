@@ -1558,6 +1558,7 @@ final class IosKeyboardBackdropController {
         return view
     }()
     private weak var hostView: UIView?
+    private var latestKeyboardFrame: CGRect?
 
     init(hostView: UIView) {
         self.hostView = hostView
@@ -1569,7 +1570,9 @@ final class IosKeyboardBackdropController {
 
     func install() {
         guard let hostView else { return }
-        hostView.addSubview(backdropView)
+        if backdropView.superview !== hostView {
+            hostView.addSubview(backdropView)
+        }
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(updateKeyboardBackdrop(_:)),
@@ -1585,11 +1588,21 @@ final class IosKeyboardBackdropController {
     }
 
     func bringToFront() {
-        hostView?.bringSubviewToFront(backdropView)
+        guard let hostView else { return }
+        if backdropView.superview !== hostView {
+            hostView.addSubview(backdropView)
+        }
+        hostView.bringSubviewToFront(backdropView)
+    }
+
+    func refreshForCurrentKeyboardFrame() {
+        guard let latestKeyboardFrame else { return }
+        show(forKeyboardFrame: latestKeyboardFrame)
     }
 
     func show(forKeyboardFrame keyboardFrame: CGRect) {
         guard let hostView else { return }
+        latestKeyboardFrame = keyboardFrame
         let convertedFrame = hostView.convert(keyboardFrame, from: nil)
         let overlap = hostView.bounds.intersection(convertedFrame)
         guard !overlap.isNull, overlap.height > 0 else {
@@ -1603,6 +1616,7 @@ final class IosKeyboardBackdropController {
     }
 
     func hide() {
+        latestKeyboardFrame = nil
         backdropView.isHidden = true
         backdropView.frame = .zero
     }
@@ -1765,6 +1779,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if !hidesPrimaryNavigation {
             primaryNavigationController.view.frame = layout.bottomNavigation
         }
+        keyboardBackdropController?.refreshForCurrentKeyboardFrame()
         keyboardBackdropController?.bringToFront()
         view.bringSubviewToFront(routeMenuButton)
     }
@@ -2647,6 +2662,9 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         view.bringSubviewToFront(routeMenuButton)
         if isAuthenticatedTopChromeInstalled { view.bringSubviewToFront(authenticatedTopChromeController.view) }
         if isSharedShellInstalled && !primaryNavigationController.view.isHidden { view.bringSubviewToFront(primaryNavigationController.view) }
+        keyboardBackdropController?.refreshForCurrentKeyboardFrame()
+        keyboardBackdropController?.bringToFront()
+        view.bringSubviewToFront(routeMenuButton)
         controller.didMove(toParent: self)
         platformServices.attachPresenter(controller: controller)
 

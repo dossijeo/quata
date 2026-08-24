@@ -9,6 +9,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 
 @Composable
-actual fun QuataEmojiCommentTextField(value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit, placeholder: @Composable () -> Unit, leadingIcon: @Composable () -> Unit, trailingIcon: @Composable () -> Unit, onFocused: () -> Unit, modifier: Modifier) {
-    OutlinedTextField(value, onValueChange, placeholder = placeholder, leadingIcon = leadingIcon, trailingIcon = trailingIcon, modifier = modifier.onFocusChanged { if (it.isFocused) onFocused() }, singleLine = true, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences))
+actual fun QuataEmojiCommentTextField(value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit, placeholder: @Composable () -> Unit, leadingIcon: @Composable () -> Unit, trailingIcon: @Composable () -> Unit, onFocused: () -> Unit, modifier: Modifier, enabled: Boolean) {
+    OutlinedTextField(value, onValueChange, enabled = enabled, placeholder = placeholder, leadingIcon = leadingIcon, trailingIcon = trailingIcon, modifier = modifier.onFocusChanged { if (it.isFocused) onFocused() }, singleLine = true, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences))
 }
