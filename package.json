@@ -6,6 +6,7 @@
     "test:e2e-recorder-contract": "node --test scripts/e2e-recorder-contract.test.mjs",
     "test:account-avatar-evidence-contract": "node --test scripts/account-avatar-evidence-contract.test.mjs",
     "evidence:account-avatar-backend": "node scripts/account-avatar-backend-evidence.mjs --out build-reports/account-avatar/backend-evidence.json",
+    "evidence:account-avatar-aggregate": "node scripts/account-avatar-aggregate-evidence.mjs --out build-reports/account-avatar/evidence.json",
     "evidence:account-avatar-web": "node scripts/account-avatar-web-evidence.mjs --dist web/build/dist/wasmJs/productionExecutable --out build-reports/web/account-avatar-evidence.json --evidence-dir build-reports/web/account-avatar-evidence",
     "evidence:account-avatar-android": "node scripts/account-avatar-android-evidence.mjs --out build-reports/android/account-avatar-evidence.json --evidence-dir build-reports/android/account-avatar-evidence",
     "evidence:account-avatar-ios": "node scripts/account-avatar-ios-evidence.mjs --out build-reports/ios/account-avatar-evidence.json --evidence-dir build-reports/ios/account-avatar-evidence",

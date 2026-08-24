@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { assertStorageObjectAbsent } from "./e2e-fixtures/supabase-storage-cleanup.mjs";
 
 const CHECK = "ACCOUNT-AVATAR-ANDROID-REAL-001";
 const DEFAULT_CREDENTIALS_FILE = "C:/Users/PC/QUATA_CHAT_GROUP_CREDENTIALS_FILE.txt";
@@ -74,6 +75,7 @@ try {
   await mkdir(evidenceDir, { recursive: true });
   await copyDeviceEvidence(evidenceDir);
   report.evidence.directory = evidenceDir;
+  await verifyAndroidPhysicalCleanup(evidenceDir);
   report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);
@@ -130,6 +132,27 @@ async function copyDeviceEvidence(evidenceDir) {
   const listing = await runCapture(adb, ["shell", "run-as", "com.quata", "ls", deviceEvidencePath]).catch(() => "");
   for (const name of listing.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)) {
     await adbRunAsCat(`${deviceEvidencePath}/${name}`, join(evidenceDir, name)).catch(() => {});
+  }
+}
+
+async function verifyAndroidPhysicalCleanup(evidenceDir) {
+  const platformReportPath = join(evidenceDir, "android-account-avatar-evidence.json");
+  const platformReport = JSON.parse(await readFile(platformReportPath, "utf8"));
+  const storagePath = platformReport?.cleanup?.storagePath;
+  if (!storagePath) throw new Error("android_account_avatar_cleanup_storage_path_missing");
+  const physicalResidue = await assertStorageObjectAbsent({ storagePath });
+  platformReport.cleanup.physicalResidue = physicalResidue;
+  platformReport.cleanup.storagePhysicallyAbsent = physicalResidue === 0;
+  await writeFile(platformReportPath, `${JSON.stringify(platformReport, null, 2)}\n`, { mode: 0o600 });
+  report.cleanup = {
+    attempted: true,
+    profileRestored: platformReport.cleanup.profileRestored === true,
+    storageDeleted: platformReport.cleanup.storageDeleted === true,
+    physicalResidue,
+    storagePath,
+  };
+  if (report.cleanup.profileRestored !== true || report.cleanup.storageDeleted !== true || physicalResidue !== 0) {
+    throw new Error("android_account_avatar_cleanup_not_verified");
   }
 }
 

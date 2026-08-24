@@ -56,7 +56,7 @@ final class QuataIosAuthenticatedAccountAvatarUITests: XCTestCase {
         tapIdentifier("profile.save", in: app, context: "persist account avatar")
         XCTAssertTrue(
             waitForSavedFeedback(in: app, timeout: 45),
-            "Saving Account avatar must expose shared saved feedback or keep the saved avatar preview visible."
+            "Saving Account avatar must expose the shared saved feedback after the upload completes."
         )
         QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-account-avatar-profile-saved")
         print("IOS_ACCOUNT_AVATAR_UI_GATE_PASSED")
@@ -92,10 +92,6 @@ final class QuataIosAuthenticatedAccountAvatarUITests: XCTestCase {
                 if app.descendants(matching: .any).matching(predicate).firstMatch.exists {
                     return true
                 }
-            }
-            if app.descendants(matching: .any).matching(identifier: "profile.avatar.change").firstMatch.exists &&
-                !app.descendants(matching: .any).matching(identifier: "post-image-editor.root").firstMatch.exists {
-                return true
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }

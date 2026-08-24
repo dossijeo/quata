@@ -13,15 +13,19 @@ import {
 const sha = "0123456789abcdef0123456789abcdef01234567";
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const backendRunner = await readFile(new URL("./account-avatar-backend-evidence.mjs", import.meta.url), "utf8");
+const aggregateRunner = await readFile(new URL("./account-avatar-aggregate-evidence.mjs", import.meta.url), "utf8");
 const webRunner = await readFile(new URL("./account-avatar-web-evidence.mjs", import.meta.url), "utf8");
 const androidRunner = await readFile(new URL("./account-avatar-android-evidence.mjs", import.meta.url), "utf8");
 const iosRunner = await readFile(new URL("./account-avatar-ios-evidence.mjs", import.meta.url), "utf8");
+const storageCleanup = await readFile(new URL("./e2e-fixtures/supabase-storage-cleanup.mjs", import.meta.url), "utf8");
 const iosShellRunner = await readFile(new URL("./run-ios-account-avatar-ui-test.sh", import.meta.url), "utf8");
 const androidTest = await readFile(new URL("../app/src/androidTest/java/com/quata/feature/profile/presentation/ProfileAvatarRealInstrumentedTest.kt", import.meta.url), "utf8");
 const iosTest = await readFile(new URL("../iosApp/iosAppUITests/QuataIosAuthenticatedAccountAvatarUITests.swift", import.meta.url), "utf8");
 const mainActivity = await readFile(new URL("../app/src/main/java/com/quata/MainActivity.kt", import.meta.url), "utf8");
 const androidProfileScreen = await readFile(new URL("../app/src/main/java/com/quata/feature/profile/presentation/ProfileScreen.kt", import.meta.url), "utf8");
 const iosProfileHost = await readFile(new URL("../feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileHost.kt", import.meta.url), "utf8");
+const iosRemoteAvatar = await readFile(new URL("../designsystem/src/iosMain/kotlin/com/quata/core/ui/components/IosRemoteAvatar.kt", import.meta.url), "utf8");
+const kmpProfileRepository = await readFile(new URL("../feature/profile/src/commonMain/kotlin/com/quata/feature/profile/data/KmpProfileRepository.kt", import.meta.url), "utf8");
 
 function evidence(overrides = {}) {
   const platform = {
@@ -82,9 +86,29 @@ test("ACCOUNT-AVATAR contract is part of local fast contract suites", () => {
   assert.match(packageJson.scripts["test:web-wave2-contracts"], /scripts\/account-avatar-evidence-contract\.test\.mjs/);
   assert.match(packageJson.scripts["test:ci-fast-contracts"], /scripts\/account-avatar-evidence-contract\.test\.mjs/);
   assert.match(packageJson.scripts["evidence:account-avatar-backend"], /scripts\/account-avatar-backend-evidence\.mjs/);
+  assert.match(packageJson.scripts["evidence:account-avatar-aggregate"], /scripts\/account-avatar-aggregate-evidence\.mjs/);
   assert.match(packageJson.scripts["evidence:account-avatar-web"], /scripts\/account-avatar-web-evidence\.mjs/);
   assert.match(packageJson.scripts["evidence:account-avatar-android"], /scripts\/account-avatar-android-evidence\.mjs/);
   assert.match(packageJson.scripts["evidence:account-avatar-ios"], /scripts\/account-avatar-ios-evidence\.mjs/);
+});
+
+test("aggregate account-avatar evidence consumes the real exact-SHA platform reports", () => {
+  assert.match(aggregateRunner, /build-reports\/web\/account-avatar-evidence\.json/);
+  assert.match(aggregateRunner, /build-reports\/android\/account-avatar-evidence\.json/);
+  assert.match(aggregateRunner, /build-reports\/ios\/account-avatar-evidence\.json/);
+  assert.match(aggregateRunner, /report\?\.git\?\.head !== productSha/);
+  assert.match(aggregateRunner, /report\?\.git\?\.workingTreeDirty !== false/);
+  assert.match(aggregateRunner, /cleanup\.physicalResidue !== 0/);
+  assert.match(aggregateRunner, /validateAccountAvatarEvidence\(report\)/);
+  assert.doesNotMatch(aggregateRunner, /executePlatform|qadata-account-avatar-\$\{platform\}/);
+});
+
+test("shared storage cleanup probe is read-only, parametrized and uses the TLS pooler files", () => {
+  assert.match(storageCleanup, /begin read only/);
+  assert.match(storageCleanup, /storage\.objects where bucket_id = \$1 and name = \$2/);
+  assert.match(storageCleanup, /C:\/Users\/PC\/\.quata-supabase-db-url\.txt/);
+  assert.match(storageCleanup, /C:\/Users\/PC\/\.quata-supabase-pooler-ca\.pem/);
+  assert.doesNotMatch(storageCleanup, /SUPABASE_DB_URL=/);
 });
 
 test("backend runner is opt-in, reversible and avoids recorded secrets", () => {
@@ -119,6 +143,8 @@ test("Web visual runner uses semantic anchors and reversible cleanup", () => {
   assert.match(webRunner, /cleanupUploadedAvatar/);
   assert.match(webRunner, /patchProfileAvatar/);
   assert.match(webRunner, /deleteStorageObject/);
+  assert.match(webRunner, /assertStorageObjectAbsent/);
+  assert.match(webRunner, /physicalResidue/);
   assert.doesNotMatch(webRunner, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
 });
 
@@ -129,6 +155,8 @@ test("Android visual runner uses common profile anchors and reversible cleanup",
   assert.match(androidRunner, /quataAccountAvatarEvidence/);
   assert.match(androidRunner, /account-avatar-evidence/);
   assert.match(androidRunner, /run-as", "com\.quata", "rm", "-rf", deviceEvidencePath/);
+  assert.match(androidRunner, /verifyAndroidPhysicalCleanup/);
+  assert.match(androidRunner, /assertStorageObjectAbsent/);
   assert.doesNotMatch(androidRunner, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
 
   assert.match(androidTest, /ProfileAvatarChangeTestTag/);
@@ -161,6 +189,8 @@ test("iOS visual runner uses Account anchors, fixture opt-in and reversible clea
   assert.match(iosRunner, /probePublicAvatar/);
   assert.match(iosRunner, /patchProfileAvatar/);
   assert.match(iosRunner, /deleteStorageObject/);
+  assert.match(iosRunner, /assertStorageObjectAbsent/);
+  assert.match(iosRunner, /physicalResidue/);
   assert.match(iosRunner, /mac_checkout_sha_matches_local_candidate/);
   assert.doesNotMatch(iosRunner, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
 
@@ -176,6 +206,7 @@ test("iOS visual runner uses Account anchors, fixture opt-in and reversible clea
   assert.match(iosTest, /post-image-editor\.rotate/);
   assert.match(iosTest, /post-image-editor\.save/);
   assert.match(iosTest, /profile\.save/);
+  assert.doesNotMatch(iosTest, /matching\(identifier: "profile\.avatar\.change"\)[\s\S]{0,240}return true/);
   assert.match(iosTest, /IOS_ACCOUNT_AVATAR_UI_GATE_PASSED/);
   assert.doesNotMatch(iosTest, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
 });
@@ -186,4 +217,15 @@ test("iOS Account avatar fixture hook is opt-in and keeps the real picker path",
   assert.match(iosProfileHost, /QUATA_IOS_ACCOUNT_AVATAR_PICKER_PATH/);
   assert.match(iosProfileHost, /if \(source != FilePickerSource\.Gallery\) return null/);
   assert.match(iosProfileHost, /return delegate\.pick\(request\)/);
+  assert.match(iosRemoteAvatar, /isIosAvatarPreviewUrl/);
+  assert.match(iosRemoteAvatar, /value\.startsWith\("file:\/\/"\)/);
+  assert.match(iosRemoteAvatar, /NSData\.dataWithContentsOfURL/);
+});
+
+test("common profile save rolls back uploaded avatars after any post-upload failure", () => {
+  assert.match(kmpProfileRepository, /previousAvatarUrl = remote\.getProfile\(session\.profileId\)\?\.avatarUrl/);
+  assert.match(kmpProfileRepository, /var profilePatchPersisted = false/);
+  assert.match(kmpProfileRepository, /profilePatchPersisted = true/);
+  assert.match(kmpProfileRepository, /avatarUploader\.rollbackUploaded\(session\.profileId, avatarUrl\.orEmpty\(\)\)/);
+  assert.match(kmpProfileRepository, /mapOf\("avatar_url" to previousAvatarUrl\.cleanProfileValue\(\)\)/);
 });

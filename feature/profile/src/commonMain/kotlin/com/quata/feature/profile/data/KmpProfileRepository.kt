@@ -104,22 +104,33 @@ class KmpProfileRepository(
         requireProfilePasswordUpdateSupported(update.newPassword)
         val session = sessions.currentSession() ?: error("No hay sesion activa")
         val normalizedIds = normalizeEmergencyContactIds(update.emergencyContactIds)
+        val previousAvatarUrl = remote.getProfile(session.profileId)?.avatarUrl
         val avatarUrl = avatarUploader.uploadIfNeeded(session.profileId, update.avatarUri)
+        var profilePatchPersisted = false
         try {
             remote.saveProfile(session.profileId, update.copy(avatarUri = avatarUrl).toRemotePatch())
+            profilePatchPersisted = true
+            if (update.secretAnswer.isNotBlank()) {
+                remote.saveRecoverySecret(session.profileId, update.secretQuestion, update.secretAnswer)
+            }
+            remote.saveEmergencyContacts(session.profileId, normalizedIds)
+            emergencyContacts.save(session.profileId, normalizedIds)
+            emergencyMessages.save(session.profileId, update.emergencyMessage, update.emergencyMessageIsDefault)
+            sessions.updateDisplayName(session, update.displayName)
         } catch (error: Throwable) {
             if (avatarUrl.isNewUploadedAvatar(update.avatarUri)) {
                 runCatching { avatarUploader.rollbackUploaded(session.profileId, avatarUrl.orEmpty()) }
+                if (profilePatchPersisted) {
+                    runCatching {
+                        remote.saveProfile(
+                            session.profileId,
+                            mapOf("avatar_url" to previousAvatarUrl.cleanProfileValue()),
+                        )
+                    }
+                }
             }
             throw error
         }
-        if (update.secretAnswer.isNotBlank()) {
-            remote.saveRecoverySecret(session.profileId, update.secretQuestion, update.secretAnswer)
-        }
-        remote.saveEmergencyContacts(session.profileId, normalizedIds)
-        emergencyContacts.save(session.profileId, normalizedIds)
-        emergencyMessages.save(session.profileId, update.emergencyMessage, update.emergencyMessageIsDefault)
-        sessions.updateDisplayName(session, update.displayName)
     }
 
     override suspend fun saveEmergencySettings(

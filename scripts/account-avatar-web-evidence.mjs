@@ -6,6 +6,7 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { validPngFixture } from "./e2e-fixtures/chat-attachments.mjs";
+import { assertStorageObjectAbsent } from "./e2e-fixtures/supabase-storage-cleanup.mjs";
 
 const CHECK = "ACCOUNT-AVATAR-WEB-REAL-001";
 const PICKER_OPT_IN = "I_ACCEPT_WEB_ACCOUNT_AVATAR_FIXTURE";
@@ -274,6 +275,7 @@ async function cleanupUploadedAvatar(backend, session, originalAvatarUrl, upload
   const path = storagePathFromPublicUrl(backend.url, session.userId, uploadedAvatarUrl);
   await deleteStorageObject(backend, session, path);
   report.cleanup.storageDeleted = true;
+  report.cleanup.physicalResidue = await assertStorageObjectAbsent({ storagePath: path });
 }
 
 async function fetchProfile(backend, session) {
