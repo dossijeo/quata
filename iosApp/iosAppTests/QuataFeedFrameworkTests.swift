@@ -90,6 +90,36 @@ final class QuataFeedFrameworkTests: XCTestCase {
         XCTAssertNil(root.presentedViewController)
     }
 
+    func testAuthenticatedRouterKeepsOpaqueBackdropBehindTranslucentKeyboard() throws {
+        let hostView = UIView(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let controller = IosKeyboardBackdropController(hostView: hostView)
+        controller.install()
+        let keyboardFrame = CGRect(
+            x: 0,
+            y: hostView.bounds.maxY - 284,
+            width: hostView.bounds.width,
+            height: 284
+        )
+
+        controller.show(forKeyboardFrame: keyboardFrame)
+
+        let backdrop = try XCTUnwrap(
+            hostView.subviews.first { $0.accessibilityIdentifier == "quata-ios-keyboard-opaque-backdrop" }
+        )
+        let expectedFrame = hostView.bounds.intersection(hostView.convert(keyboardFrame, from: nil))
+        XCTAssertFalse(backdrop.isHidden)
+        XCTAssertTrue(backdrop.isOpaque)
+        XCTAssertFalse(expectedFrame.isNull)
+        XCTAssertEqual(backdrop.frame, expectedFrame)
+        XCTAssertEqual(backdrop.backgroundColor, .systemBackground)
+        XCTAssertFalse(backdrop.isUserInteractionEnabled)
+
+        controller.hide()
+
+        XCTAssertTrue(backdrop.isHidden)
+        XCTAssertEqual(backdrop.frame, .zero)
+    }
+
     func testAppRegistersTheStableQuataCustomUrlScheme() {
         let appBundle = Bundle(for: AppDelegate.self)
 

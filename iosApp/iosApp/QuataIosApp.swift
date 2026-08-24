@@ -1547,6 +1547,78 @@ final class IosTransparentComposeOverlayController: UIViewController {
 ///
 /// It contains no Swift screen and creates no feature repository. Factories arrive only when the
 /// launcher has real dependencies; a deep link received earlier remains pending.
+final class IosKeyboardBackdropController {
+    let backdropView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .systemBackground
+        view.isOpaque = true
+        view.isHidden = true
+        view.isUserInteractionEnabled = false
+        view.accessibilityIdentifier = "quata-ios-keyboard-opaque-backdrop"
+        return view
+    }()
+    private weak var hostView: UIView?
+
+    init(hostView: UIView) {
+        self.hostView = hostView
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    func install() {
+        guard let hostView else { return }
+        hostView.addSubview(backdropView)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updateKeyboardBackdrop(_:)),
+            name: UIResponder.keyboardWillChangeFrameNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(hideKeyboardBackdrop(_:)),
+            name: UIResponder.keyboardWillHideNotification,
+            object: nil
+        )
+    }
+
+    func bringToFront() {
+        hostView?.bringSubviewToFront(backdropView)
+    }
+
+    func show(forKeyboardFrame keyboardFrame: CGRect) {
+        guard let hostView else { return }
+        let convertedFrame = hostView.convert(keyboardFrame, from: nil)
+        let overlap = hostView.bounds.intersection(convertedFrame)
+        guard !overlap.isNull, overlap.height > 0 else {
+            hide()
+            return
+        }
+        backdropView.backgroundColor = hostView.tintAdjustmentMode == .dimmed ? .secondarySystemBackground : .systemBackground
+        backdropView.frame = overlap
+        backdropView.isHidden = false
+        bringToFront()
+    }
+
+    func hide() {
+        backdropView.isHidden = true
+        backdropView.frame = .zero
+    }
+
+    @objc private func updateKeyboardBackdrop(_ notification: Notification) {
+        guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
+            return
+        }
+        show(forKeyboardFrame: keyboardFrame)
+    }
+
+    @objc private func hideKeyboardBackdrop(_ notification: Notification) {
+        hide()
+    }
+}
+
 final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteHost {
     private let platformServices: IosPlatformServiceComposition
     private var displayedController: UIViewController?
@@ -1585,6 +1657,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     }
     private var hasAuthenticatedSession = false
     private var hasPublicFeed = false
+    private var keyboardBackdropController: IosKeyboardBackdropController?
     private lazy var primaryNavigationHost = IosPrimaryNavigationHost(
         initialSelectedRoute: "feed",
         onRouteSelected: { [weak self] route in self?.openPrimaryRoute(route) },
@@ -1663,6 +1736,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        installKeyboardBackdrop()
         showMigrationStatus()
         view.addSubview(routeMenuButton)
         NSLayoutConstraint.activate([
@@ -1691,6 +1765,14 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         if !hidesPrimaryNavigation {
             primaryNavigationController.view.frame = layout.bottomNavigation
         }
+        keyboardBackdropController?.bringToFront()
+        view.bringSubviewToFront(routeMenuButton)
+    }
+
+    private func installKeyboardBackdrop() {
+        let controller = IosKeyboardBackdropController(hostView: view)
+        controller.install()
+        keyboardBackdropController = controller
     }
 
     func installAuthenticatedFeed(_ dependencies: IosFeedHostDependencies) {
