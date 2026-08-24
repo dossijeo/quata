@@ -49,6 +49,10 @@ import com.quata.feature.profile.domain.ProfileRepository
 import com.quata.feature.settings.presentation.AppearanceSettingsSectionContent
 import com.quata.feature.settings.presentation.AppearanceSettingsStrings
 
+const val ProfileAvatarChangeTestTag = "profile.avatar.change"
+const val ProfileAvatarGalleryTestTag = "profile.avatar.gallery"
+const val ProfileAvatarCameraTestTag = "profile.avatar.camera"
+
 /** The only product account surface. Platform hosts supply native integrations through [ProfileScreenSlots]. */
 @Composable
 fun ProfileScreenHost(

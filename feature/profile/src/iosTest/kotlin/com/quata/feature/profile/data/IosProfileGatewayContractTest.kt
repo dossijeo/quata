@@ -250,7 +250,10 @@ class IosProfileGatewayContractTest {
         val uploader = IosProfileAvatarUploader(
             configuration = IosProfileRuntimeConfiguration("https://project.supabase.co", "public-key"),
             sessionProvider = IosProfileSessionProvider { IosProfileSession("access-token", "profile-1") },
-            transport = IosProfileAvatarBinaryTransport { recorded = it },
+            transport = object : IosProfileAvatarBinaryTransport {
+                override suspend fun upload(request: IosProfileAvatarUploadRequest) { recorded = request }
+                override suspend fun delete(url: String, headers: Map<String, String>) = Unit
+            },
             encoder = IosProfileAvatarEncoder { platform.Foundation.NSData() },
             token = { "fixed-token" },
         )
@@ -269,7 +272,10 @@ class IosProfileGatewayContractTest {
         val uploader = IosProfileAvatarUploader(
             configuration = IosProfileRuntimeConfiguration("https://project.supabase.co", "public-key"),
             sessionProvider = IosProfileSessionProvider { IosProfileSession("access-token", "other-profile") },
-            transport = IosProfileAvatarBinaryTransport { touched = true },
+            transport = object : IosProfileAvatarBinaryTransport {
+                override suspend fun upload(request: IosProfileAvatarUploadRequest) { touched = true }
+                override suspend fun delete(url: String, headers: Map<String, String>) { touched = true }
+            },
             encoder = IosProfileAvatarEncoder { touched = true; platform.Foundation.NSData() },
             token = { "fixed-token" },
         )
@@ -277,6 +283,31 @@ class IosProfileGatewayContractTest {
             uploader.uploadIfNeeded("profile-1", "file:///tmp/avatar.png")
         }
         assertTrue(!touched)
+    }
+
+    @Test
+    fun avatar_rollback_deletes_the_uploaded_actor_scoped_object() = runTest {
+        var deleted: String? = null
+        val uploader = IosProfileAvatarUploader(
+            configuration = IosProfileRuntimeConfiguration("https://project.supabase.co", "public-key"),
+            sessionProvider = IosProfileSessionProvider { IosProfileSession("access-token", "profile-1") },
+            transport = object : IosProfileAvatarBinaryTransport {
+                override suspend fun upload(request: IosProfileAvatarUploadRequest) = Unit
+                override suspend fun delete(url: String, headers: Map<String, String>) {
+                    deleted = url
+                    assertEquals("Bearer access-token", headers["Authorization"])
+                }
+            },
+            encoder = IosProfileAvatarEncoder { platform.Foundation.NSData() },
+            token = { "fixed-token" },
+        )
+
+        uploader.rollbackUploaded(
+            "profile-1",
+            "https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/fixed-token.jpg",
+        )
+
+        assertEquals("https://project.supabase.co/storage/v1/object/community-posts/avatars/profile-1/fixed-token.jpg", deleted)
     }
 
     private fun gateway(

@@ -105,7 +105,14 @@ class KmpProfileRepository(
         val session = sessions.currentSession() ?: error("No hay sesion activa")
         val normalizedIds = normalizeEmergencyContactIds(update.emergencyContactIds)
         val avatarUrl = avatarUploader.uploadIfNeeded(session.profileId, update.avatarUri)
-        remote.saveProfile(session.profileId, update.copy(avatarUri = avatarUrl).toRemotePatch())
+        try {
+            remote.saveProfile(session.profileId, update.copy(avatarUri = avatarUrl).toRemotePatch())
+        } catch (error: Throwable) {
+            if (avatarUrl.isNewUploadedAvatar(update.avatarUri)) {
+                runCatching { avatarUploader.rollbackUploaded(session.profileId, avatarUrl.orEmpty()) }
+            }
+            throw error
+        }
         if (update.secretAnswer.isNotBlank()) {
             remote.saveRecoverySecret(session.profileId, update.secretQuestion, update.secretAnswer)
         }
@@ -198,6 +205,12 @@ internal fun normalizeEmergencyContactIds(contactIds: List<String>): List<String
 
 internal fun requireProfilePasswordUpdateSupported(newPassword: String) {
     require(newPassword.isBlank()) { "profile_password_update_unavailable" }
+}
+
+private fun String?.isNewUploadedAvatar(originalAvatarUri: String?): Boolean {
+    val uploaded = cleanProfileValue() ?: return false
+    val original = originalAvatarUri.cleanProfileValue()
+    return uploaded != original && (uploaded.startsWith("https://") || uploaded.startsWith("http://"))
 }
 
 internal fun ProfileUpdate.toRemotePatch(): Map<String, String?> = buildMap {

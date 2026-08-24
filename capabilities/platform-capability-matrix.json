@@ -311,7 +311,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRepository.kt",
-              "sha256": "c0963acfdf17c075fd47c3b1994acf0fea2c9ecac39b6529da90fe2028334c45",
+              "sha256": "aa988d6da3a20c73812bfb6f0d9dd4951568150e0afd42ed1030ab5f7a267052",
               "role": "runtime-bootstrap"
             }
           ]
@@ -652,7 +652,7 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebPostComposerRepository.kt",
-              "sha256": "c0963acfdf17c075fd47c3b1994acf0fea2c9ecac39b6529da90fe2028334c45",
+              "sha256": "aa988d6da3a20c73812bfb6f0d9dd4951568150e0afd42ed1030ab5f7a267052",
               "role": "implementation"
             }
           ]
@@ -696,7 +696,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/feature/profile/data/AndroidProfileKmpAdapters.kt",
-              "sha256": "14937b623d0169b26f709a444afb797589143bfdb256c6e3c15488cf383b32c9",
+              "sha256": "57158393bb49c870ed2d6b93d5924529c21abb8a662e5d6d47fedc6107353194",
               "role": "implementation"
             }
           ]
@@ -706,7 +706,7 @@
           "evidence": [
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
-              "sha256": "4f2db43e5ed9fb23fc9eaf400257aec9d8673be55ce099664b3387eda2b51d25",
+              "sha256": "1df985c3bbe2fb795c1d6dd4b039200017aa1a69b99eea8b50e5e5584eb0ea08",
               "role": "composition"
             },
             {
@@ -741,7 +741,7 @@
       ],
       "contract": {
         "path": "feature/profile/src/commonMain/kotlin/com/quata/feature/profile/data/ProfileRemoteGateway.kt",
-        "sha256": "17265fcf7d19143486eae4821269238f0282a212c3b5c6003da4f4c9756d7a3d"
+        "sha256": "c4d077a2b18b6a7b62a75092b3169fecf11730565b5a24a453a50c8dd403311e"
       },
       "platforms": {
         "android": {
@@ -754,7 +754,7 @@
             },
             {
               "path": "app/src/main/java/com/quata/feature/profile/data/AndroidProfileKmpAdapters.kt",
-              "sha256": "14937b623d0169b26f709a444afb797589143bfdb256c6e3c15488cf383b32c9",
+              "sha256": "57158393bb49c870ed2d6b93d5924529c21abb8a662e5d6d47fedc6107353194",
               "role": "implementation"
             }
           ]
@@ -769,12 +769,12 @@
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileHost.kt",
-              "sha256": "4f2db43e5ed9fb23fc9eaf400257aec9d8673be55ce099664b3387eda2b51d25",
+              "sha256": "1df985c3bbe2fb795c1d6dd4b039200017aa1a69b99eea8b50e5e5584eb0ea08",
               "role": "runtime-bootstrap"
             },
             {
               "path": "web/src/wasmJsMain/kotlin/com/quata/web/WebProfileAvatarUploader.kt",
-              "sha256": "1d0adf2935a95c5fd69b9259893187707a98c40da5239d7dbfddcc0fdf5824d8",
+              "sha256": "5ea46b9737f63b2f167f08fb0a73c2078eaa4020d5ee5b2c76a29fa7369b49e4",
               "role": "implementation"
             },
             {
@@ -794,12 +794,12 @@
             },
             {
               "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/data/IosProfileAvatarUploader.kt",
-              "sha256": "886bb15cfaa610324a4dfa427896096bc1268bddd58124532c84925b44ee6be9",
+              "sha256": "e12d936e8bb5744c726a1670a144bdb591592d38cb97f7e4d4de065dfcff3407",
               "role": "implementation"
             },
             {
               "path": "feature/profile/src/iosMain/kotlin/com/quata/feature/profile/presentation/IosProfileHost.kt",
-              "sha256": "276799a2f6ed70a7e236b190d30b0d4432aea5bac2cccfccf1cfcc64ae36b7a8",
+              "sha256": "f29dc19f87e6a2121af9f5069db575c05056a48be1e6dadfe7229569fc8b1a25",
               "role": "runtime-bootstrap"
             },
             {

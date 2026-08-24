@@ -23,12 +23,14 @@ import kotlin.math.max
 internal data class IosProfileAvatarUploadRequest(
     val url: String,
     val publicUrl: String,
+    val path: String,
     val headers: Map<String, String>,
     val body: NSData,
 )
 
-internal fun interface IosProfileAvatarBinaryTransport {
+internal interface IosProfileAvatarBinaryTransport {
     suspend fun upload(request: IosProfileAvatarUploadRequest)
+    suspend fun delete(url: String, headers: Map<String, String>)
 }
 
 internal fun interface IosProfileAvatarEncoder {
@@ -43,6 +45,15 @@ private object IosUrlSessionProfileAvatarTransport : IosProfileAvatarBinaryTrans
             setHTTPMethod("POST")
             request.headers.forEach { (name, value) -> setValue(value, name) }
             setHTTPBody(request.body)
+        }
+        platform.Foundation.NSURLSessionConfiguration.ephemeralSessionConfiguration().iosProfileData(native)
+    }
+
+    override suspend fun delete(url: String, headers: Map<String, String>) {
+        val target = NSURL(string = url) ?: error("ios_profile_avatar_url_invalid")
+        val native = platform.Foundation.NSMutableURLRequest.requestWithURL(target).apply {
+            setHTTPMethod("DELETE")
+            headers.forEach { (name, value) -> setValue(value, name) }
         }
         platform.Foundation.NSURLSessionConfiguration.ephemeralSessionConfiguration().iosProfileData(native)
     }
@@ -99,6 +110,21 @@ class IosProfileAvatarUploader internal constructor(
         transport.upload(request)
         return request.publicUrl
     }
+
+    override suspend fun rollbackUploaded(profileId: String, uploadedAvatarUrl: String) {
+        val session = sessionProvider.currentSession() ?: error("ios_profile_session_missing")
+        requireIosProfileAvatarActor(profileId, session.profileId)
+        val base = configuration.supabaseUrl.trim().trimEnd('/').ifBlank { error("ios_profile_supabase_url_missing") }
+        val key = configuration.supabasePublishableKey.trim().ifBlank { error("ios_profile_supabase_publishable_key_missing") }
+        val path = iosProfileAvatarStoragePathFromPublicUrl(base, profileId, uploadedAvatarUrl)
+        transport.delete(
+            url = "$base/storage/v1/object/community-posts/$path",
+            headers = mapOf(
+                "apikey" to key,
+                "Authorization" to "Bearer ${session.accessToken}",
+            ),
+        )
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class)
@@ -118,6 +144,7 @@ internal fun iosProfileAvatarUploadRequest(
     return IosProfileAvatarUploadRequest(
         url = "$base/storage/v1/object/community-posts/$path",
         publicUrl = "$base/storage/v1/object/public/community-posts/$path",
+        path = path,
         headers = mapOf(
             "apikey" to key,
             "Authorization" to "Bearer $accessToken",
@@ -131,4 +158,11 @@ internal fun iosProfileAvatarUploadRequest(
 internal fun requireIosProfileAvatarActor(profileId: String, sessionProfileId: String) {
     require(profileId.matches(Regex("[A-Za-z0-9_-]+"))) { "ios_profile_avatar_profile_invalid" }
     check(profileId == sessionProfileId) { "ios_profile_avatar_actor_mismatch" }
+}
+
+internal fun iosProfileAvatarStoragePathFromPublicUrl(baseUrl: String, profileId: String, publicUrl: String): String {
+    val marker = "${baseUrl.trimEnd('/')}/storage/v1/object/public/community-posts/"
+    val path = publicUrl.substringAfter(marker, missingDelimiterValue = "")
+    require(path.startsWith("avatars/$profileId/") && ".." !in path) { "ios_profile_avatar_rollback_path_invalid" }
+    return path
 }

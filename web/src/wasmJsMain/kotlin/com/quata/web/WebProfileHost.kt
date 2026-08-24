@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import com.quata.core.designsystem.theme.QuataThemeMode
@@ -70,6 +73,9 @@ import com.quata.feature.profile.presentation.EmergencyContactsContactActionsCon
 import com.quata.feature.profile.presentation.EmergencyContactsEditorStrings
 import com.quata.feature.profile.presentation.EmergencyContactsHeaderStrings
 import com.quata.feature.profile.presentation.EmergencyUserRowContent
+import com.quata.feature.profile.presentation.ProfileAvatarCameraTestTag
+import com.quata.feature.profile.presentation.ProfileAvatarChangeTestTag
+import com.quata.feature.profile.presentation.ProfileAvatarGalleryTestTag
 import com.quata.feature.profile.presentation.ProfileScreenHost
 import com.quata.feature.profile.presentation.ProfileScreenSlots
 import com.quata.feature.profile.presentation.ProfileScreenStrings
@@ -222,7 +228,13 @@ private fun WebProfileAvatarActions(
         error = null
     }
 
-    OutlinedButton(onClick = { menuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+    OutlinedButton(
+        onClick = { menuOpen = true },
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(ProfileAvatarChangeTestTag)
+            .semantics { contentDescription = ProfileAvatarChangeTestTag },
+    ) {
         CompactIcon(Icons.Filled.PhotoCamera, null)
         Spacer(Modifier.width(4.dp))
         Text("Cambiar foto de perfil")
@@ -239,20 +251,29 @@ private fun WebProfileAvatarActions(
                 tonalElevation = 6.dp,
             ) {
                 Column {
-        DropdownMenuItem(text = { Text("Elegir de galería") }, onClick = {
-            menuOpen = false
-            scope.launch {
-                when (val result = platformServices.filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery))) {
-                    is PlatformResult.Success -> result.value.firstOrNull()?.let { openEditor(it, fromCamera = false) }
-                        ?: run { error = "No se seleccionó ninguna foto." }
-                    PlatformResult.Cancelled -> Unit
-                    PlatformResult.Unsupported -> error = "La galería no está disponible en este navegador."
-                    is PlatformResult.Failure -> error = "No se pudo seleccionar la foto."
+        DropdownMenuItem(
+            text = { Text("Elegir de galería") },
+            modifier = Modifier
+                .testTag(ProfileAvatarGalleryTestTag)
+                .semantics { contentDescription = ProfileAvatarGalleryTestTag },
+            onClick = {
+                menuOpen = false
+                scope.launch {
+                    when (val result = platformServices.filePicker.pick(FilePickerRequest(listOf("image/*"), source = FilePickerSource.Gallery))) {
+                        is PlatformResult.Success -> result.value.firstOrNull()?.let { openEditor(it, fromCamera = false) }
+                            ?: run { error = "No se seleccionó ninguna foto." }
+                        PlatformResult.Cancelled -> Unit
+                        PlatformResult.Unsupported -> error = "La galería no está disponible en este navegador."
+                        is PlatformResult.Failure -> error = "No se pudo seleccionar la foto."
+                    }
                 }
-            }
-        })
+            },
+        )
         DropdownMenuItem(
             text = { Text("Hacer foto") },
+            modifier = Modifier
+                .testTag(ProfileAvatarCameraTestTag)
+                .semantics { contentDescription = ProfileAvatarCameraTestTag },
             leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, null) },
             onClick = {
             menuOpen = false
@@ -327,9 +348,11 @@ private const val WebAvatarActionMenuPreferredWidthDp = 240
 @Composable
 private fun DropdownMenuItem(
     text: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) = MaterialDropdownMenuItem(
     text = text,
+    modifier = modifier,
     onClick = onClick,
     leadingIcon = { CompactIcon(Icons.Filled.PermMedia, null) },
 )
@@ -337,10 +360,12 @@ private fun DropdownMenuItem(
 @Composable
 private fun DropdownMenuItem(
     text: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
     leadingIcon: @Composable () -> Unit,
     onClick: () -> Unit,
 ) = MaterialDropdownMenuItem(
     text = text,
+    modifier = modifier,
     onClick = onClick,
     leadingIcon = leadingIcon,
 )
@@ -418,6 +443,10 @@ private object UnavailableWebProfileRepository : ProfileRepository {
 private object UnavailableWebProfileAvatarUploader : ProfileAvatarUploader {
     override suspend fun uploadIfNeeded(profileId: String, avatarUri: String?): String? =
         webProfileAvatarUploadReference(avatarUri)
+
+    override suspend fun rollbackUploaded(profileId: String, uploadedAvatarUrl: String) {
+        error("web_profile_avatar_rollback_unavailable")
+    }
 }
 internal class WebProfilePreferenceEmergencyMessageStore(private val preferences: PreferenceStore) : ProfileEmergencyMessageStore {
     override suspend fun get(profileId: String): StoredProfileEmergencyMessage? {

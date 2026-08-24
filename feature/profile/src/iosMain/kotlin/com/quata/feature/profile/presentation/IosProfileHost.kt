@@ -14,6 +14,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.compose.runtime.getValue
@@ -188,7 +191,13 @@ private fun IosProfileAvatarActions(
     }
 
     Column {
-        OutlinedButton(onClick = { menuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { menuOpen = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(ProfileAvatarChangeTestTag)
+                .semantics { contentDescription = ProfileAvatarChangeTestTag },
+        ) {
             CompactIcon(Icons.Filled.PhotoCamera, null)
             Spacer(Modifier.width(4.dp))
             Text("Change photo")
@@ -196,6 +205,9 @@ private fun IosProfileAvatarActions(
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             DropdownMenuItem(
                 text = { Text("Choose from gallery") },
+                modifier = Modifier
+                    .testTag(ProfileAvatarGalleryTestTag)
+                    .semantics { contentDescription = ProfileAvatarGalleryTestTag },
                 leadingIcon = { CompactIcon(Icons.Filled.PermMedia, null) },
                 onClick = {
                     menuOpen = false
@@ -210,6 +222,9 @@ private fun IosProfileAvatarActions(
             )
             DropdownMenuItem(
                 text = { Text("Take photo") },
+                modifier = Modifier
+                    .testTag(ProfileAvatarCameraTestTag)
+                    .semantics { contentDescription = ProfileAvatarCameraTestTag },
                 leadingIcon = { CompactIcon(Icons.Filled.PhotoCamera, null) },
                 onClick = {
                     menuOpen = false

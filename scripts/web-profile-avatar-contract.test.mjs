@@ -11,6 +11,7 @@ const iosBootstrap = read('feature/profile/src/iosMain/kotlin/com/quata/feature/
 const iosUploader = read('feature/profile/src/iosMain/kotlin/com/quata/feature/profile/data/IosProfileAvatarUploader.kt');
 const iosPostImageEditor = read('feature/postcomposer/src/iosMain/kotlin/com/quata/feature/postcomposer/presentation/IosPostImageEditor.kt');
 const profileGradle = read('feature/profile/build.gradle.kts');
+const androidProfileHost = read('app/src/main/java/com/quata/feature/profile/presentation/ProfileScreen.kt');
 
 test('Web Profile uses the Android avatar action copy, icon and real browser sources', () => {
   assert.match(host, /CompactIcon\(Icons\.Filled\.PhotoCamera, null\)/);
@@ -87,6 +88,11 @@ test('iOS Profile avatar uses the same gallery-camera-editor-save flow as Androi
   assert.match(iosHost, /dependencies\.cameraCapture\.capturePhoto\(CameraCaptureRequest\("quata-avatar\.jpg"\)\)/);
   assert.match(iosHost, /IosAvatarImageEditor\([\s\S]*source = file[\s\S]*onEdited = \{ edited ->[\s\S]*onAvatarChanged\(edited\.reference\)/);
   assert.doesNotMatch(iosHost, /result\.value\.firstOrNull\(\)\?\.reference\?\.let\(onAvatarChanged\)/);
+  for (const source of [androidProfileHost, host, iosHost]) {
+    assert.match(source, /ProfileAvatarChangeTestTag/);
+    assert.match(source, /ProfileAvatarGalleryTestTag/);
+    assert.match(source, /ProfileAvatarCameraTestTag/);
+  }
 });
 
 test('iOS avatar editor reuses the common locked square crop contract', () => {

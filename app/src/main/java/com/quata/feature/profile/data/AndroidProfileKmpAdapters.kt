@@ -82,6 +82,14 @@ class AndroidProfileAvatarUploader(
         return remote.uploadAvatar(profileId, media.bytes, media.extension, media.mimeType).publicUrl
             ?: error("Supabase no devolvio URL de avatar")
     }
+
+    override suspend fun rollbackUploaded(profileId: String, uploadedAvatarUrl: String) {
+        val storagePath = uploadedAvatarUrl
+            .substringAfter("/storage/v1/object/public/community-posts/", missingDelimiterValue = "")
+            .takeIf { it.startsWith("avatars/$profileId/") && ".." !in it }
+            ?: error("android_profile_avatar_rollback_path_invalid")
+        remote.deleteAvatarObject(storagePath)
+    }
 }
 
 class AndroidProfileEmergencyMessageStore(context: Context) : ProfileEmergencyMessageStore {

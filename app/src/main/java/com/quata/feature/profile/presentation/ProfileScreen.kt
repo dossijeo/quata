@@ -37,7 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -140,17 +143,35 @@ fun ProfileScreen(
                 ) },
                 avatarActions = { change ->
                     avatarChanged = change
-                    OutlinedButton(onClick = { photoMenuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { photoMenuOpen = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag(ProfileAvatarChangeTestTag)
+                            .semantics { contentDescription = ProfileAvatarChangeTestTag },
+                    ) {
                         CompactIcon(Icons.Filled.PhotoCamera, null); Spacer(Modifier.width(4.dp)); Text(changePhotoLabel)
                     }
                     DropdownMenu(photoMenuOpen, { photoMenuOpen = false }) {
-                        DropdownMenuItem(text = { Text(pickGalleryLabel) }, onClick = {
-                            photoMenuOpen = false; picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        })
-                        DropdownMenuItem(text = { Text(takePhotoLabel) }, onClick = {
-                            photoMenuOpen = false
-                            if (context.hasCameraPermission()) cameraOpen = true else permission.launch(arrayOf(Manifest.permission.CAMERA))
-                        })
+                        DropdownMenuItem(
+                            text = { Text(pickGalleryLabel) },
+                            modifier = Modifier
+                                .testTag(ProfileAvatarGalleryTestTag)
+                                .semantics { contentDescription = ProfileAvatarGalleryTestTag },
+                            onClick = {
+                                photoMenuOpen = false; picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(takePhotoLabel) },
+                            modifier = Modifier
+                                .testTag(ProfileAvatarCameraTestTag)
+                                .semantics { contentDescription = ProfileAvatarCameraTestTag },
+                            onClick = {
+                                photoMenuOpen = false
+                                if (context.hasCameraPermission()) cameraOpen = true else permission.launch(arrayOf(Manifest.permission.CAMERA))
+                            },
+                        )
                     }
                 },
                 emergencyContactRow = { user, selected, toggle -> EmergencyUserRowContent(
