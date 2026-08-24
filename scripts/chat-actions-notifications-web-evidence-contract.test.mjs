@@ -24,6 +24,7 @@ test("chat actions/notifications web evidence keeps credentials private and reve
   assert.match(runner, /--profile-follow-only/);
   assert.match(runner, /--profile-private-chat-only/);
   assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_COMMUNITY_CHAT_NAME/);
+  assert.match(runner, /"Ateneo"/);
   assert.match(runner, /"La Chana"/);
   assert.match(runner, /prepareProfileFollowAbsent/);
   assert.match(runner, /pollProfileFollowEdge/);
@@ -62,6 +63,7 @@ test("chat actions/notifications Android evidence keeps backend fixture reversib
   assert.match(runner, /--profile-follow-only/);
   assert.match(runner, /--menu-surface-only/);
   assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_COMMUNITY_CHAT_NAME/);
+  assert.match(runner, /"Ateneo"/);
   assert.match(runner, /"La Chana"/);
   assert.match(runner, /--composer-emoji-only/);
   assert.match(runner, /--group-sos-only/);
@@ -151,6 +153,7 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(runner, /--group-moderation-only/);
   assert.match(runner, /--community-chat-only/);
   assert.match(runner, /QUATA_CHAT_ACTIONS_NOTIFICATIONS_COMMUNITY_CHAT_NAME/);
+  assert.match(runner, /"Ateneo"/);
   assert.match(runner, /"La Chana"/);
   assert.match(runner, /QUATA_IOS_CHAT_OPTIONS_MENU_SURFACE_UI_E2E/);
   assert.match(runner, /QUATA_IOS_CHAT_GROUP_SOS_UI_E2E/);

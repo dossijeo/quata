@@ -3334,6 +3334,7 @@ async function resolveCommunityChatTarget(actorSession) {
   const actorKey = normalizeTextForE2e(actorSession?.neighborhood ?? "");
   const preferredKeys = [
     process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_COMMUNITY_CHAT_NAME,
+    "Ateneo",
     "La Chana",
     actorSession?.neighborhood,
   ].map(normalizeTextForE2e).filter(Boolean);
