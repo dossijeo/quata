@@ -121,6 +121,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val groupBlockSearchQuery = optionalArgument("quataChatGroupBlockSearchQuery")
         val profileContentComment = optionalArgument("quataChatActionsProfileContentComment")
         val profileContentReplyComment = optionalArgument("quataChatActionsProfileContentReplyComment")
+        val communityName = optionalArgument("quataChatActionsCommunityName")
         val feedComment = optionalArgument("quataChatActionsFeedComment")
         val feedCommentId = optionalArgument("quataChatActionsFeedCommentId")
         val feedReplyComment = optionalArgument("quataChatActionsFeedReplyComment")
@@ -137,6 +138,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
             "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
+            "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
@@ -169,6 +171,16 @@ class ChatActionsNotificationsInstrumentedTest {
                 peerProbe = peerProbe.orEmpty(),
                 profileNeighborhood = profileNeighborhood.orEmpty(),
             )
+            writeReport(
+                JSONObject()
+                    .put("check", "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "community-chat") {
+            runCommunityChatStage(communityName.orEmpty())
             writeReport(
                 JSONObject()
                     .put("check", "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001")
@@ -349,6 +361,21 @@ class ChatActionsNotificationsInstrumentedTest {
             openProfileFromPeerMessage(peerProbe, profileId)
             closePublicProfile(peerProbe)
             saveScreenshot("android-profile-entry-chat-return")
+        }
+    }
+
+    private fun runCommunityChatStage(communityName: String) {
+        ActivityScenario.launch<MainActivity>(evidenceStartIntent(AppDestinations.Neighborhoods.route)).use {
+            val chatTag = "neighborhood.chat.${communityName.toNeighborhoodTagSuffix()}"
+            waitForTag(chatTag, "community chat action $chatTag", 45_000)
+            waitForText(communityName, communityName, 20_000)
+            saveScreenshot("android-community-chat-list")
+            clickStableTag(chatTag)
+            waitForTag(ChatConversationTitleBarTestTag, "community chat opened", 45_000)
+            waitForText(communityName, communityName, 20_000)
+            saveScreenshot("android-community-chat-opened")
+            device.pressBack()
+            waitForTag(chatTag, "community chat returned", 20_000)
         }
     }
 

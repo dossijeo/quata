@@ -73,7 +73,9 @@ class NeighborhoodsViewModel(
                         openingChatNeighborhood = null,
                         chatErrorNeighborhood = null,
                     )
-                    onOpened(conversationId)
+                    withContext(dispatchers.main) {
+                        onOpened(conversationId)
+                    }
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(

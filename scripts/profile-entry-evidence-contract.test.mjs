@@ -58,14 +58,26 @@ test("PROF-ENTRY Web evidence is opt-in, semantic-first and reversible", () => {
 
 test("PROF-ENTRY Android and iOS evidence cover Feed, Official, Communities, Conversations and Chat", () => {
   assert.match(androidRunner, /--profile-entry-only/);
+  assert.match(androidRunner, /--community-chat-only/);
   assert.match(androidRunner, /async function prepareProfileEntryFixture\(config, runId\)/);
   assert.match(androidRunner, /prepareProfileEntryFixture\(config, runId\)/);
+  assert.match(androidRunner, /resolveCommunityChatTarget/);
+  assert.match(androidRunner, /community_walls_stats/);
+  assert.match(androidRunner, /runInstrumentationStage\("community-chat"\)/);
+  assert.match(androidRunner, /community_chat_opened_from_shared_android_community_anchor/);
+  assert.match(androidRunner, /neighborhood\.chat\.\$\{neighborhoodTagSuffix\(state\.communityChat\.name\)\}/);
+  assert.match(androidRunner, /community_chat_only_completed/);
   assert.match(androidRunner, /profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared/);
   assert.match(androidRunner, /profile_entry_feed_official_communities_conversations_and_chat_opened_common_profile_and_returned/);
   assert.match(androidRunner, /cleanupOfficialProfileEntryPost/);
   assert.match(androidRunner, /quataChatActionsOfficialPostId/);
   assert.match(androidUiTest, /"profile-entry" ->/);
+  assert.match(androidUiTest, /"community-chat" ->/);
   assert.match(androidUiTest, /runProfileEntryStage/);
+  assert.match(androidUiTest, /runCommunityChatStage/);
+  assert.match(androidUiTest, /quataChatActionsCommunityName/);
+  assert.match(androidUiTest, /neighborhood\.chat\.\$\{communityName\.toNeighborhoodTagSuffix\(\)\}/);
+  assert.match(androidUiTest, /android-community-chat-opened/);
   assert.match(androidUiTest, /quataPostUrl\(feedPostId\)/);
   assert.match(androidUiTest, /quataOfficialPostUrl\(officialPostId\)/);
   assert.match(androidUiTest, /evidenceStartIntent\(AppDestinations\.Conversations\.route\)/);
