@@ -829,7 +829,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
 
         tapTaggedButton("navigation.primary.neighborhoods", in: app, context: "open communities primary route")
-        tapTaggedButton("neighborhood.chat.\(neighborhoodTagSuffix(communityName))", in: app, context: "open community chat")
+        tapTaggedButton(
+            "neighborhood.chat.\(neighborhoodTagSuffix(communityName))",
+            in: app,
+            context: "open community chat",
+            maxSwipes: 40,
+        )
         let chat = chatHost(in: app, context: "community chat")
         XCTAssertTrue(
             (chat.value as? String)?.hasPrefix("chat:sb:") == true,
@@ -2239,9 +2244,15 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         XCTAssertFalse(pending.exists, "Expected \(context) to finish before ending the UI gate.")
     }
 
-    private func tapTaggedButton(_ identifier: String, fallbackFrame: CGRect? = nil, in app: XCUIApplication, context: String) {
+    private func tapTaggedButton(
+        _ identifier: String,
+        fallbackFrame: CGRect? = nil,
+        in app: XCUIApplication,
+        context: String,
+        maxSwipes: Int = 8,
+    ) {
         let button = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        for _ in 0..<8 {
+        for _ in 0..<maxSwipes {
             if button.waitForExistence(timeout: 1), button.isHittable {
                 button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
                 return

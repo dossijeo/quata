@@ -226,6 +226,8 @@ test("chat actions/notifications iOS evidence forwards through the shared picker
   assert.match(testSource, /chat\.sos\.location\.openMaps/);
   assert.match(testSource, /Abriendo ubicación en mapas\./);
   assert.match(testSource, /testKeyboardAndSelectedActionBarUseSharedChatChrome/);
+  assert.match(testSource, /maxSwipes: 40/);
+  assert.match(testSource, /maxSwipes: Int = 8/);
   assert.match(testSource, /assertConversationHeaderVisibleWithKeyboard\(in: app\)/);
   assert.match(testSource, /ios-chat-keyboard-header-visible/);
   assert.match(testSource, /ios-chat-selected-action-bar-opaque/);
