@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-ACCOUNT",
+    "ACCOUNT-AVATAR"
+  ],
+  "productSha": "d3895ca9dab92853e4c6e1e1ae632bbb0eff04a9",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "d3895ca9dab92853e4c6e1e1ae632bbb0eff04a9",
+      "report": "build-reports/web/account-avatar-evidence.json",
+      "screenshots": [
+        "build-reports/web/account-avatar-evidence/web-account-avatar-opened.png",
+        "build-reports/web/account-avatar-evidence/web-account-avatar-editor-opened.png",
+        "build-reports/web/account-avatar-evidence/web-account-avatar-after-editor-save.png",
+        "build-reports/web/account-avatar-evidence/web-account-avatar-after-profile-save.png"
+      ],
+      "cleanup": {
+        "verified": true,
+        "profileRestored": true,
+        "storageDeleted": true,
+        "publicProbe": "image/jpeg"
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "d3895ca9dab92853e4c6e1e1ae632bbb0eff04a9",
+      "report": "build-reports/android/account-avatar-evidence.json",
+      "screenshots": [
+        "build-reports/android/account-avatar-evidence/android-account-avatar-profile-opened.png",
+        "build-reports/android/account-avatar-evidence/android-account-avatar-editor-opened.png",
+        "build-reports/android/account-avatar-evidence/android-account-avatar-editor-saved-preview.png",
+        "build-reports/android/account-avatar-evidence/android-account-avatar-profile-saved.png"
+      ],
+      "tests": {
+        "count": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "cleanup": {
+        "verified": true,
+        "profileRestored": true,
+        "storageDeleted": true,
+        "publicProbe": "image/jpeg"
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "d3895ca9dab92853e4c6e1e1ae632bbb0eff04a9",
+      "report": "build-reports/ios/account-avatar-evidence.json",
+      "simulator": {
+        "name": "Quata-Raster-iOS-26-ChatCandidate",
+        "udid": "48950F56-C309-4AA7-921F-D76C6042AC2C"
+      },
+      "tests": {
+        "count": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "cleanup": {
+        "verified": true,
+        "profileRestored": true,
+        "storageDeleted": true,
+        "publicProbe": "image/jpeg"
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/account-avatar-evidence-contract.test.mjs scripts/web-profile-avatar-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
+    "./gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
+    "./gradlew.bat :feature:profile:compileKotlinIosSimulatorArm64 --no-daemon --console=plain",
+    "./gradlew.bat :web:wasmJsBrowserDistribution --no-daemon --console=plain",
+    "npm run evidence:account-avatar-web",
+    "npm run evidence:account-avatar-android",
+    "npm run evidence:account-avatar-ios -- --simulator 48950F56-C309-4AA7-921F-D76C6042AC2C"
+  ],
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "The product flow is common: Account/Profile exposes profile.avatar.* anchors and the locked square image editor surface is shared by Android, Web/Wasm and iOS.",
+    "Platform divergence is limited to native picker/upload boundaries and explicit evidence-only fixture injection. Android gates the fixture path behind BuildConfig.DEBUG. iOS requires QUATA_IOS_ACCOUNT_AVATAR_PICKER_FIXTURE_OPT_IN=I_ACCEPT_IOS_ACCOUNT_AVATAR_PICKER_FIXTURE. Web uses the browser file chooser path.",
+    "All three real lanes use reversible authorized profile mutation, verify a public JPEG probe for the uploaded avatar, restore the previous avatar_url and delete the Storage object."
+  ]
+}
