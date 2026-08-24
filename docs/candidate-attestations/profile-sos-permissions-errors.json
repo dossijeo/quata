@@ -5,16 +5,16 @@
     "SOS-CONTACTS",
     "INT-PLATFORM-PERMISSIONS"
   ],
-  "productSha": "4f596fff7e086c736794ecc72807914f3700f915",
+  "productSha": "95c638aba73a3507cea2fab49d4833dfecdc0c38",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "4f596fff7e086c736794ecc72807914f3700f915",
-      "report": "build-reports/web/profile-sos-permissions-evidence-4f596fff.json",
+      "sha": "95c638aba73a3507cea2fab49d4833dfecdc0c38",
+      "report": "build-reports/web/profile-sos-permissions-evidence-95c638ab.json",
       "screenshots": [
-        "build-reports/web/profile-sos-permissions-evidence-4f596fff.sos-contacts.png",
-        "build-reports/web/profile-sos-permissions-evidence-4f596fff.sos-message.png",
-        "build-reports/web/profile-sos-permissions-evidence-4f596fff.sos-save-error.png"
+        "build-reports/web/profile-sos-permissions-evidence-95c638ab.sos-contacts.png",
+        "build-reports/web/profile-sos-permissions-evidence-95c638ab.sos-message.png",
+        "build-reports/web/profile-sos-permissions-evidence-95c638ab.sos-save-error.png"
       ],
       "cleanup": {
         "verified": true,
@@ -23,7 +23,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "4f596fff7e086c736794ecc72807914f3700f915",
+      "sha": "95c638aba73a3507cea2fab49d4833dfecdc0c38",
       "report": "app/build/reports/androidTests/connected/debug/com.quata.feature.profile.presentation.ProfileSosContactsInstrumentedTest.html",
       "machineReport": "app/build/outputs/androidTest-results/connected/debug/TEST-Pixel_3(AVD) - 9-_app-.xml",
       "tests": [
@@ -39,8 +39,8 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "4f596fff7e086c736794ecc72807914f3700f915",
-      "report": "build/reports/ios/profile-sos-permissions-4f596fff.xcresult",
+      "sha": "95c638aba73a3507cea2fab49d4833dfecdc0c38",
+      "report": "build/reports/ios/profile-sos-permissions-95c638ab.xcresult",
       "tests": [
         "QuataIosUITests/QuataIosHostUITests/testProfileSosFixtureRendersSharedContactsEditorAnchors",
         "QuataIosUITests/QuataIosHostUITests/testProfileSosSaveFailureKeepsSharedErrorInDialog"
