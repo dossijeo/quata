@@ -204,6 +204,47 @@ class KmpProfileRepositoryTest {
         )
         assertTrue(remote.emergencyContactsSaved.isEmpty())
     }
+
+    @Test
+    fun `post patch failure does not delete uploaded avatar when previous avatar cannot be restored`() = runTest {
+        val remote = FailingRecoverySecretAfterPatchGateway(failAvatarRestore = true)
+        val uploader = RecordingProfileAvatarUploader("https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/new.jpg")
+        val repository = KmpProfileRepository(
+            remote = remote,
+            sessions = StaticProfileSessionProvider(ProfileSession("profile-1", "Ada")),
+            avatarUploader = uploader,
+            emergencyMessages = RecordingEmergencyMessageStore(),
+            emergencyContacts = RecordingEmergencyContactsStore(),
+            catalog = TestProfileCatalog,
+        )
+
+        val result = repository.saveProfile(
+            ProfileUpdate(
+                displayName = "Ada",
+                neighborhood = "Centro",
+                countryCode = "240",
+                phone = "555123",
+                avatarUri = "file:///tmp/avatar.jpg",
+                newPassword = "",
+                secretQuestion = "pet",
+                secretAnswer = "Luna",
+                emergencyContactIds = listOf("contact-a"),
+                emergencyMessage = "Help",
+                emergencyMessageIsDefault = false,
+            ),
+        )
+
+        assertTrue(result.isFailure)
+        assertEquals("remote_avatar_restore_failed", result.exceptionOrNull()?.message)
+        assertTrue(uploader.rollbacks.isEmpty())
+        assertEquals(
+            listOf<String?>(
+                "https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/new.jpg",
+                "https://project.supabase.co/storage/v1/object/public/community-posts/avatars/profile-1/original.jpg",
+            ),
+            remote.savedAvatarUrls,
+        )
+    }
 }
 
 private class FailingEmergencyRemoteGateway : ProfileRemoteGateway {
@@ -237,7 +278,9 @@ private class FailingProfileRemoteGateway : ProfileRemoteGateway {
     }
 }
 
-private class FailingRecoverySecretAfterPatchGateway : ProfileRemoteGateway {
+private class FailingRecoverySecretAfterPatchGateway(
+    private val failAvatarRestore: Boolean = false,
+) : ProfileRemoteGateway {
     val savedAvatarUrls = mutableListOf<String?>()
     val emergencyContactsSaved = mutableListOf<List<String>>()
     override suspend fun getProfile(profileId: String): ProfileRemoteRecord? =
@@ -252,6 +295,9 @@ private class FailingRecoverySecretAfterPatchGateway : ProfileRemoteGateway {
     override suspend fun getEmergencyContactIds(profileId: String, cachePolicy: ProfileCachePolicy): List<String> = emptyList()
     override suspend fun saveProfile(profileId: String, patch: Map<String, String?>) {
         savedAvatarUrls += patch["avatar_url"]
+        if (failAvatarRestore && patch["avatar_url"]?.endsWith("/original.jpg") == true) {
+            error("remote_avatar_restore_failed")
+        }
     }
     override suspend fun saveRecoverySecret(profileId: String, secretQuestion: String, secretAnswer: String) {
         error("remote_secret_save_failed")

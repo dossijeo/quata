@@ -87,6 +87,18 @@ test("runner and workflow changes after product SHA invalidate evidence", () => 
   assert.match(result.invalidatingFiles.join("\n"), /\.github\/workflows\/web-android-pr\.yml/);
 }));
 
+test("build reports cannot be rewritten as attestation metadata", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  write(directory, "docs/candidate-attestations/chat.json", manifest(productSha));
+  commit(directory, "manifest");
+  write(directory, "build-reports/web/evidence.json", JSON.stringify({ status: "passed", sha: productSha }));
+  const head = commit(directory, "rewrite evidence report");
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+  assert.equal(result.ok, false);
+  assert.match(result.invalidatingFiles.join("\n"), /build-reports\/web\/evidence\.json/);
+}));
+
 test("candidate manifest metadata alone is attestation-only", () => withRepository((directory) => {
   write(directory, "README.md", "base\n");
   const productSha = commit(directory, "product evidence");

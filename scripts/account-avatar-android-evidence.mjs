@@ -144,6 +144,7 @@ async function verifyAndroidPhysicalCleanup(evidenceDir) {
   platformReport.cleanup.physicalResidue = physicalResidue;
   platformReport.cleanup.storagePhysicallyAbsent = physicalResidue === 0;
   await writeFile(platformReportPath, `${JSON.stringify(platformReport, null, 2)}\n`, { mode: 0o600 });
+  report.accountAvatarSteps = Array.isArray(platformReport.accountAvatarSteps) ? platformReport.accountAvatarSteps : [];
   report.cleanup = {
     attempted: true,
     profileRestored: platformReport.cleanup.profileRestored === true,

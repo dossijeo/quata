@@ -278,6 +278,19 @@ class ProfileAvatarRealInstrumentedTest {
                         .put("storageDeleted", cleanupStorageDeleted)
                         .put("storagePath", uploadedStoragePath),
                 )
+                .put(
+                    "accountAvatarSteps",
+                    JSONArray(
+                        listOf(
+                            "avatar_selected",
+                            "avatar_editor_confirmed",
+                            "avatar_uploaded",
+                            "avatar_persisted",
+                            "avatar_rollback_verified",
+                            "avatar_cleanup_verified",
+                        ),
+                    ),
+                )
                 .put("screenshots", JSONArray(screenshots))
                 .put("evidenceDirectory", evidenceDir().absolutePath)
                 .toString(2) + "\n",

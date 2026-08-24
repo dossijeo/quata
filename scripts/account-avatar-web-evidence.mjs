@@ -105,14 +105,17 @@ async function runAttempt(context, backend, session, original) {
     evidence.opened = await screenshot(page, "web-account-avatar-opened");
     anchors.change = await clickSemantic(page, "profile.avatar.change");
     anchors.gallery = await clickSemantic(page, "profile.avatar.gallery");
+    report.accountAvatarSteps = ["avatar_selected"];
     await waitForEditor(page);
     evidence.editorOpened = await screenshot(page, "web-account-avatar-editor-opened");
     anchors.rotate = await clickEditorAction(page, "post-image-editor.rotate", /Girar|Rotate/i);
     anchors.saveEditor = await clickEditorAction(page, "post-image-editor.save", /Guardar|Save/i);
+    report.accountAvatarSteps.push("avatar_editor_confirmed");
     await waitForEditorClosed(page);
     evidence.afterEditorSave = await screenshot(page, "web-account-avatar-after-editor-save");
     anchors.saveProfile = await clickSemantic(page, "profile.save");
     uploadedAvatarUrl = await waitForRemoteAvatarChange(backend, session, original.avatar_url ?? null);
+    report.accountAvatarSteps.push("avatar_uploaded", "avatar_persisted");
     const publicProbe = await probePublicAvatar(uploadedAvatarUrl);
     evidence.afterProfileSave = await screenshot(page, "web-account-avatar-after-profile-save");
     const storagePath = storagePathFromPublicUrl(backend.url, session.userId, uploadedAvatarUrl);
@@ -120,6 +123,7 @@ async function runAttempt(context, backend, session, original) {
     const afterCleanup = await fetchProfile(backend, session);
     if ((afterCleanup.avatar_url ?? null) !== (original.avatar_url ?? null)) throw new Error("web_account_avatar_profile_not_restored");
     report.cleanup = { attempted: true, storageDeleted: true, profileRestored: true, physicalResidue, storagePath };
+    report.accountAvatarSteps.push("avatar_rollback_verified", "avatar_cleanup_verified");
     const actionableFaults = faults.filter((fault) => !/Failed to load resource: the server responded with a status of 404/.test(fault));
     if (actionableFaults.length) throw new Error(`browser_runtime_fault:${actionableFaults[0]}`);
     return {

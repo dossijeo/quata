@@ -59,14 +59,16 @@ try {
   await run("scp", [localFixture, `${options.host}:${remoteFixture}`]);
   report.steps.push("ios_account_avatar_fixture_copied_to_mac_tempfile");
 
-  const remoteHead = (await runSshScript(options.host, `
+  const remoteState = JSON.parse((await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
-git rev-parse HEAD
-`)).trim();
-  report.mac = { host: options.host, project: options.project, head: remoteHead };
-  if (remoteHead !== report.git.head) throw new Error(`mac_checkout_sha_mismatch:${remoteHead}:${report.git.head}`);
+node -e 'const {execFileSync}=require("node:child_process"); const head=execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(); const status=execFileSync("git",["status","--porcelain"],{encoding:"utf8"}).trim(); process.stdout.write(JSON.stringify({head,workingTreeDirty:status.length>0})+"\\n")'
+`)).trim());
+  report.mac = { host: options.host, project: options.project, head: remoteState.head, workingTreeDirty: remoteState.workingTreeDirty };
+  if (remoteState.head !== report.git.head) throw new Error(`mac_checkout_sha_mismatch:${remoteState.head}:${report.git.head}`);
+  if (remoteState.workingTreeDirty !== false) throw new Error("mac_checkout_dirty");
   report.steps.push("mac_checkout_sha_matches_local_candidate");
+  report.steps.push("mac_checkout_clean");
 
   if (options.buildFirst) {
     await runSshScript(options.host, `
@@ -91,9 +93,16 @@ scripts/build-ios-intel-simulator-signed.sh
     uploadedStoragePath: storagePath,
     publicProbe,
   };
+  report.accountAvatarSteps = [
+    "avatar_selected",
+    "avatar_editor_confirmed",
+    "avatar_uploaded",
+    "avatar_persisted",
+  ];
   await cleanupUploadedAvatar(backend, session, original.avatar_url ?? null, uploadedAvatarUrl);
   const afterCleanup = await fetchProfile(backend, session);
   if ((afterCleanup.avatar_url ?? null) !== (original.avatar_url ?? null)) throw new Error("ios_account_avatar_profile_not_restored");
+  report.accountAvatarSteps.push("avatar_rollback_verified", "avatar_cleanup_verified");
   report.status = "passed";
 } catch (error) {
   report.error = safeFailure(error);

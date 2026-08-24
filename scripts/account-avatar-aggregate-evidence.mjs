@@ -34,12 +34,19 @@ function platformSummary(platform, report, productSha) {
     : report.evidence?.remote?.publicProbe?.ok === true;
   const publicProbeOk = report.attempts?.some((attempt) => attempt.publicProbe?.ok === true) || hasRemoteProbe;
   if (!publicProbeOk && platform !== "android") throw new Error(`${platform}_public_probe_missing`);
+  const steps = Array.isArray(report.accountAvatarSteps) ? report.accountAvatarSteps : [];
+  const missingSteps = ACCOUNT_AVATAR_STEPS.filter((step) => !steps.includes(step));
+  if (missingSteps.length) throw new Error(`${platform}_account_avatar_steps_missing:${missingSteps.join(",")}`);
   return {
     status: "passed",
     sha: productSha,
     report: DEFAULT_INPUTS[platform],
-    steps: [...ACCOUNT_AVATAR_STEPS],
-    rollback: { triggered: true, verified: true, physicalResidue: 0 },
+    steps,
+    rollback: {
+      triggered: steps.includes("avatar_rollback_verified"),
+      verified: steps.includes("avatar_rollback_verified"),
+      physicalResidue: cleanup.physicalResidue,
+    },
     cleanup: { verified: true, physicalResidue: 0 },
   };
 }

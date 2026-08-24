@@ -119,15 +119,13 @@ class KmpProfileRepository(
             sessions.updateDisplayName(session, update.displayName)
         } catch (error: Throwable) {
             if (avatarUrl.isNewUploadedAvatar(update.avatarUri)) {
-                runCatching { avatarUploader.rollbackUploaded(session.profileId, avatarUrl.orEmpty()) }
                 if (profilePatchPersisted) {
-                    runCatching {
-                        remote.saveProfile(
-                            session.profileId,
-                            mapOf("avatar_url" to previousAvatarUrl.cleanProfileValue()),
-                        )
-                    }
+                    remote.saveProfile(
+                        session.profileId,
+                        mapOf("avatar_url" to previousAvatarUrl.cleanProfileValue()),
+                    )
                 }
+                runCatching { avatarUploader.rollbackUploaded(session.profileId, avatarUrl.orEmpty()) }
             }
             throw error
         }

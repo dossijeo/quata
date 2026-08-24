@@ -98,8 +98,11 @@ test("aggregate account-avatar evidence consumes the real exact-SHA platform rep
   assert.match(aggregateRunner, /build-reports\/ios\/account-avatar-evidence\.json/);
   assert.match(aggregateRunner, /report\?\.git\?\.head !== productSha/);
   assert.match(aggregateRunner, /report\?\.git\?\.workingTreeDirty !== false/);
+  assert.match(aggregateRunner, /report\.accountAvatarSteps/);
+  assert.match(aggregateRunner, /account_avatar_steps_missing/);
   assert.match(aggregateRunner, /cleanup\.physicalResidue !== 0/);
   assert.match(aggregateRunner, /validateAccountAvatarEvidence\(report\)/);
+  assert.doesNotMatch(aggregateRunner, /steps: \[\.\.\.ACCOUNT_AVATAR_STEPS\]/);
   assert.doesNotMatch(aggregateRunner, /executePlatform|qadata-account-avatar-\$\{platform\}/);
 });
 
@@ -192,6 +195,8 @@ test("iOS visual runner uses Account anchors, fixture opt-in and reversible clea
   assert.match(iosRunner, /assertStorageObjectAbsent/);
   assert.match(iosRunner, /physicalResidue/);
   assert.match(iosRunner, /mac_checkout_sha_matches_local_candidate/);
+  assert.match(iosRunner, /mac_checkout_clean/);
+  assert.match(iosRunner, /workingTreeDirty/);
   assert.doesNotMatch(iosRunner, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
 
   assert.match(iosShellRunner, /QUATA_IOS_ACCOUNT_AVATAR_UI_E2E/);
@@ -228,4 +233,5 @@ test("common profile save rolls back uploaded avatars after any post-upload fail
   assert.match(kmpProfileRepository, /profilePatchPersisted = true/);
   assert.match(kmpProfileRepository, /avatarUploader\.rollbackUploaded\(session\.profileId, avatarUrl\.orEmpty\(\)\)/);
   assert.match(kmpProfileRepository, /mapOf\("avatar_url" to previousAvatarUrl\.cleanProfileValue\(\)\)/);
+  assert.match(kmpProfileRepository, /remote\.saveProfile\([\s\S]*previousAvatarUrl\.cleanProfileValue\(\)[\s\S]*avatarUploader\.rollbackUploaded/);
 });

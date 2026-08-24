@@ -11,9 +11,7 @@ export const ACCOUNT_AVATAR_STEPS = [
   "avatar_editor_confirmed",
   "avatar_uploaded",
   "avatar_persisted",
-  "avatar_persisted_after_reload",
   "avatar_rollback_verified",
-  "avatar_retry_persisted",
   "avatar_cleanup_verified",
 ];
 export const ACCOUNT_AVATAR_MUTATION_OPT_IN = "I_ACCEPT_REVERSIBLE_ACCOUNT_AVATAR_MUTATION";

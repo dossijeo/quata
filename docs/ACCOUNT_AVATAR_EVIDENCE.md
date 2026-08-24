@@ -20,10 +20,12 @@ Exact-SHA evidence for `e024b7dd`:
 - iOS: `build-reports/ios/account-avatar-evidence.json`
 
 Each lane must remain opt-in for reversible remote mutation, keep credentials and tokens out of
-stdout/report JSON, and verify the same product sequence: open Cuenta, select an image through the
-platform picker boundary, confirm the common locked square editor, save the edited JPEG, persist the
-profile avatar, probe the resulting public JPEG, restore the previous `avatar_url`, delete the
-Storage object and report cleanup success.
+stdout/report JSON, and verify the same product sequence through explicit `accountAvatarSteps` in
+the source report: open Cuenta, select an image through the platform picker boundary, confirm the
+common locked square editor, save the edited JPEG, persist the profile avatar, probe the resulting
+public JPEG, restore the previous `avatar_url`, delete the Storage object and report cleanup
+success. The aggregate report must derive those steps from the platform reports, never synthesize
+them.
 
 The sidecar aggregate contract is intentionally not a substitute for the real browser/emulator/XCTest
 evidence. It validates report shape and fail-closed guarantees for any consolidated candidate report:
@@ -39,8 +41,8 @@ npm run evidence:account-avatar-backend
 ```
 
 It requires `QUATA_ACCOUNT_AVATAR_REAL_MUTATION_OPT_IN=I_ACCEPT_REVERSIBLE_ACCOUNT_AVATAR_MUTATION`
-and verifies the real authenticated Storage/PostgREST avatar write path, forced post-upload
-rollback, restore of the previous `avatar_url`, and zero `storage.objects` residue. It is not a
+and verifies the real authenticated Storage/PostgREST avatar write path, bounded orphan cleanup
+diagnostics, restore of the previous `avatar_url`, and zero `storage.objects` residue. It is not a
 substitute for the final visual Web/Android/iOS route evidence.
 
 All real lanes must use the existing `QUATA_ACCOUNT_AVATAR_CREDENTIALS_FILE` pattern (falling back to
