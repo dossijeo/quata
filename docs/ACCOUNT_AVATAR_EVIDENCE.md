@@ -1,7 +1,7 @@
 # ACCOUNT-AVATAR evidence contract
 
-This is sidecar scaffolding for account-avatar evidence. It does not run a browser, emulator,
-XCTest, login, upload, Storage query, PostgREST write, or Supabase cleanup.
+This is sidecar scaffolding for account-avatar evidence. The contract validator itself does not run
+a browser, emulator, XCTest, login, upload, Storage query, PostgREST write, or Supabase cleanup.
 
 The future platform runners must produce one JSON report with `version: 1`, unit `ACCOUNT-AVATAR`,
 the candidate `productSha`, and `web`, `android`, and `ios` entries. Each entry must prove the same
@@ -13,6 +13,17 @@ physical residue. The report validator is:
 ```powershell
 node scripts/account-avatar-evidence-contract.mjs build-reports/account-avatar/evidence.json
 ```
+
+The bounded reversible backend runner is:
+
+```powershell
+npm run evidence:account-avatar-backend
+```
+
+It requires `QUATA_ACCOUNT_AVATAR_REAL_MUTATION_OPT_IN=I_ACCEPT_REVERSIBLE_ACCOUNT_AVATAR_MUTATION`
+and verifies the real authenticated Storage/PostgREST avatar write path, forced post-upload
+rollback, restore of the previous `avatar_url`, and zero `storage.objects` residue. It is not a
+substitute for the final visual Web/Android/iOS route evidence.
 
 The real lane is intentionally separate from this contract. If implemented, it must be opt-in with
 `QUATA_ACCOUNT_AVATAR_REAL_MUTATION_OPT_IN=I_ACCEPT_REVERSIBLE_ACCOUNT_AVATAR_MUTATION`, use the

@@ -12,6 +12,7 @@ import {
 
 const sha = "0123456789abcdef0123456789abcdef01234567";
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+const backendRunner = await readFile(new URL("./account-avatar-backend-evidence.mjs", import.meta.url), "utf8");
 
 function evidence(overrides = {}) {
   const platform = {
@@ -71,4 +72,20 @@ test("real mode requires the explicit reversible mutation opt-in", () => {
 test("ACCOUNT-AVATAR contract is part of local fast contract suites", () => {
   assert.match(packageJson.scripts["test:web-wave2-contracts"], /scripts\/account-avatar-evidence-contract\.test\.mjs/);
   assert.match(packageJson.scripts["test:ci-fast-contracts"], /scripts\/account-avatar-evidence-contract\.test\.mjs/);
+  assert.match(packageJson.scripts["evidence:account-avatar-backend"], /scripts\/account-avatar-backend-evidence\.mjs/);
+});
+
+test("backend runner is opt-in, reversible and avoids recorded secrets", () => {
+  assert.match(backendRunner, /QUATA_ACCOUNT_AVATAR_REAL_MUTATION_OPT_IN/);
+  assert.match(backendRunner, /ACCOUNT_AVATAR_MUTATION_OPT_IN/);
+  assert.match(backendRunner, /ACCOUNT_AVATAR_CREDENTIALS_ENV/);
+  assert.match(backendRunner, /ACCOUNT_AVATAR_CREDENTIALS_FALLBACK/);
+  assert.match(backendRunner, /const BUCKET = "community-posts"/);
+  assert.match(backendRunner, /avatars\/\$\{session\.userId\}\/qadata-account-avatar-\$\{platform\}-/);
+  assert.match(backendRunner, /uploadAvatarObject/);
+  assert.match(backendRunner, /deleteStorageObject/);
+  assert.match(backendRunner, /storage\.objects where bucket_id = \$1 and name = \$2/);
+  assert.match(backendRunner, /restoreProfileAvatar/);
+  assert.match(backendRunner, /validateAccountAvatarEvidence\(report\)/);
+  assert.doesNotMatch(backendRunner, /680242607|680242608|21085800|ghp_|service_role|SUPABASE_DB_URL=/);
 });
