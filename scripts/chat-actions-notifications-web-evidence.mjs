@@ -1667,6 +1667,22 @@ async function assertFeedOfficialCommentAbsent(fixture, surface, marker) {
   return assertSharedFeedOfficialCommentAbsent({ fixture, surface, marker, withDatabase: withPoolerClient });
 }
 
+async function assertFeedOfficialCommentNotVisible(page, prefix, commentText, report, errorMessage) {
+  const visibleText = visibleEmojiCommentText(commentText);
+  const stillVisible = await visibleNonEditableTextContentIncludes(page, visibleText);
+  if (stillVisible) {
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      failedCommentRollbackUiResidue: [
+        ...(report.diagnostics?.failedCommentRollbackUiResidue ?? []),
+        { prefix, visibleText },
+      ],
+    };
+    throw new Error(errorMessage);
+  }
+  report.steps.push(`${prefix}_failed_comment_not_visible_after_rollback`);
+}
+
 async function pollFeedOfficialReplyComment(fixture, surface, marker, replyToCommentId, timeout = 45_000) {
   return pollSharedFeedOfficialReplyComment({ fixture, surface, marker, replyToCommentId, withDatabase: withPoolerClient, delay, timeout });
 }
@@ -3097,6 +3113,13 @@ async function verifyFeedOfficialCommentsErrorWeb(page, origin, fixture, evidenc
       [/feed_official_comments_e2e_forced_feed_comment_failure/i, /Error|No se pudo|failed|fall/i],
       "feed_official_comments_feed_error_missing",
     );
+    await assertFeedOfficialCommentNotVisible(
+      page,
+      "feed.comments",
+      fixture.feed.uiComment,
+      report,
+      "feed_official_comments_feed_failed_comment_still_visible",
+    );
     await assertFeedOfficialCommentAbsent(fixture, "feed", fixture.feed.uiComment);
     report.evidence.feedErrorAfter = await attachScreenshot(page, evidenceDir, "web-feed-comments-error-after");
     report.steps.push("feed_comments_forced_error_visible_and_rollback_verified");
@@ -3131,6 +3154,13 @@ async function verifyFeedOfficialCommentsErrorWeb(page, origin, fixture, evidenc
       "official.comments.error",
       [/feed_official_comments_e2e_forced_official_comment_failure/i, /Error|No se pudo|failed|fall/i],
       "feed_official_comments_official_error_missing",
+    );
+    await assertFeedOfficialCommentNotVisible(
+      page,
+      "official.comments",
+      fixture.official.uiComment,
+      report,
+      "feed_official_comments_official_failed_comment_still_visible",
     );
     await assertFeedOfficialCommentAbsent(fixture, "official", fixture.official.uiComment);
     report.evidence.officialErrorAfter = await attachScreenshot(page, evidenceDir, "web-official-comments-error-after");
@@ -4297,6 +4327,38 @@ async function visibleTextContentIncludes(page, probe) {
         const rect = element.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0 && containsNeedle(element.textContent)) return true;
         if (element.shadowRoot && visit(element.shadowRoot)) return true;
+      }
+      return false;
+    };
+    return visit(document);
+  }, probe);
+}
+
+async function visibleNonEditableTextContentIncludes(page, probe) {
+  return await page.evaluate((needle) => {
+    const compact = (value) => String(value ?? "").replace(/\s+/g, "");
+    const expected = compact(needle);
+    if (!expected) return false;
+    const containsNeedle = (value) => compact(value).includes(expected);
+    const isEditable = (element) => {
+      const editable = element.closest?.("input,textarea,[contenteditable='true'],[role='textbox']");
+      if (editable) return true;
+      const label = element.getAttribute?.("aria-label") ?? "";
+      return /\.input\b/.test(label);
+    };
+    const visibleRect = (element) => {
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      if (rect.width <= 0 || rect.height <= 0 || style.visibility === "hidden" || style.display === "none") return false;
+      if (rect.bottom < 0 || rect.right < 0 || rect.top > window.innerHeight || rect.left > window.innerWidth) return false;
+      return true;
+    };
+    const visit = (root) => {
+      for (const element of root.querySelectorAll("*")) {
+        if (element.shadowRoot && visit(element.shadowRoot)) return true;
+        if (!visibleRect(element) || isEditable(element) || !containsNeedle(element.textContent)) continue;
+        const childWithNeedle = [...element.children].some((child) => containsNeedle(child.textContent));
+        if (!childWithNeedle) return true;
       }
       return false;
     };

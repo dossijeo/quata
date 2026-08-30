@@ -557,7 +557,24 @@ class ChatActionsNotificationsInstrumentedTest {
             .performTextInput(comment.removePrefix("😀").trimStart())
         clickStableTag(sendTag)
         waitForTag(errorTag, "forced comment error $errorTag", 20_000)
+        waitForFailedCommentGone(comment, afterScreenshot)
         saveScreenshot(afterScreenshot)
+    }
+
+    private fun waitForFailedCommentGone(comment: String, failureScreenshot: String) {
+        val visibleText = comment.removePrefix("😀").trimStart()
+        val gone = runCatching {
+            compose.waitUntil(10_000) { visibleNonEditableTextNodeCount(visibleText) == 0 }
+            true
+        }.getOrDefault(false)
+        if (gone) return
+        saveScreenshot("$failureScreenshot-ui-residue")
+        File(evidenceDir(), "$failureScreenshot-ui-residue-semantics.txt")
+            .writeText(runCatching { compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 20) }.getOrElse { it.stackTraceToString() })
+        assertTrue(
+            "The failed optimistic comment must disappear from visible non-editable UI after rollback: $visibleText",
+            false,
+        )
     }
 
     private fun verifyCommunityEmojiPanelSections(screenshotPrefix: String) {
@@ -2408,6 +2425,22 @@ class ChatActionsNotificationsInstrumentedTest {
                 .fetchSemanticsNode()
             true
         }.getOrDefault(false)
+
+    private fun visibleNonEditableTextNodeCount(text: String): Int =
+        runCatching {
+            compose.onAllNodes(hasText(text, substring = true), useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .count { node ->
+                    val bounds = node.boundsInRoot
+                    val isVisible = bounds.width > 0f &&
+                        bounds.height > 0f &&
+                        bounds.right > 0f &&
+                        bounds.bottom > 0f &&
+                        bounds.left < device.displayWidth &&
+                        bounds.top < device.displayHeight
+                    isVisible && node.config.getOrNull(SemanticsProperties.EditableText) == null
+                }
+        }.getOrDefault(0)
 
     private fun waitForTagExists(tag: String, context: String, timeoutMillis: Long = 45_000) {
         val exists = runCatching {
