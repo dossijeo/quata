@@ -360,6 +360,7 @@ test("Feed and Official selector empty and error states are evidenced through th
   assert.match(androidUiTest, /community\.emoji\.empty/);
   assert.match(iosRunner, /feedOfficialCommentsSelectorStatesOnly/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E/);
+  assert.match(iosWrapper, /feed_official_comments_selector_states='QuataIosUITests\/QuataIosAuthenticatedChatActionsNotificationsUITests\/testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates'/);
   assert.match(iosWrapper, /testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates/);
   assert.match(iosUiTest, /testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates/);
   assert.match(iosUiTest, /QUATA_IOS_COMMUNITY_EMOJI_SELECTOR_EVIDENCE_OPT_IN/);

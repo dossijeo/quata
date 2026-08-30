@@ -303,6 +303,7 @@ profile_lists='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITe
 profile_content='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfileContentFromChatUsesSharedPublicProfileSurface'
 feed_official_comments='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testFeedAndOfficialCommentsUseSharedEmojiPicker'
 feed_official_comments_error='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testFeedAndOfficialCommentsForcedErrorRollsBackSharedEmojiComment'
+feed_official_comments_selector_states='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates'
 profile_roles_safety='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls'
 menu_surface='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface'
 menu_surface_unmute='QuataIosUITests/QuataIosAuthenticatedChatActionsNotificationsUITests/testOptionsMenuSurfaceUnmutesFromSharedOpaqueHeaderSurface'
@@ -320,6 +321,7 @@ profile_lists_method='testProfileFollowListsFromChatOpenAndReturn'
 profile_content_method='testProfileContentFromChatUsesSharedPublicProfileSurface'
 feed_official_comments_method='testFeedAndOfficialCommentsUseSharedEmojiPicker'
 feed_official_comments_error_method='testFeedAndOfficialCommentsForcedErrorRollsBackSharedEmojiComment'
+feed_official_comments_selector_states_method='testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates'
 profile_roles_safety_method='testProfileRolesAndSafetyFromChatUseSharedPublicProfileControls'
 menu_surface_method='testOptionsMenuSurfaceUsesSharedOpaqueHeaderSurface'
 menu_surface_unmute_method='testOptionsMenuSurfaceUnmutesFromSharedOpaqueHeaderSurface'
@@ -388,7 +390,7 @@ elif [[ "$QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E" == "1" ]]; then
 elif [[ "$QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E" == "1" ]]; then
   run_and_require "$profile_content" "$profile_content_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile-content.log"
 elif [[ "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E" == "1" ]]; then
-  run_and_require "QuataIosAuthenticatedChatActionsNotificationsUITests/testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates" "testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/flow-emoji-selector-states.log" 720
+  run_and_require "$feed_official_comments_selector_states" "$feed_official_comments_selector_states_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/flow-emoji-selector-states.log" 720
 elif [[ "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E" == "1" ]]; then
   run_and_require "$feed_official_comments_error" "$feed_official_comments_error_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/feed-official-comments-error.log" 720
 elif [[ "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E" == "1" ]]; then
