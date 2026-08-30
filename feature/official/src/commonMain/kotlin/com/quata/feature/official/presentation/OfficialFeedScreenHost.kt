@@ -17,6 +17,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -35,11 +36,13 @@ import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.SharePayload
 import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
 import com.quata.core.ui.components.CommunityEmojiLabels
+import com.quata.core.ui.components.CommunityEmojiCatalogState
 import com.quata.core.ui.components.QuataFeedOverflowActionButton
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
+import com.quata.core.ui.components.communityEmojiCatalogState
 import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.designsystem.translation.FangTranslatorTriggerContent
@@ -152,6 +155,9 @@ class OfficialFeedScreenPlatformSlots(
     },
     val commentsTranslationGateway: QuataTranslatorGateway? = null,
     val commentsTranslatorStrings: QuataTranslatorStrings = quataTranslatorStringsForLanguage(null),
+    val communityEmojiCatalog: (CommunityEmojiLabels, (() -> Unit)?) -> CommunityEmojiCatalogState = { labels, onRetry ->
+        communityEmojiCatalogState(labels, onRetry = onRetry)
+    },
 )
 
 /**
@@ -189,6 +195,7 @@ fun OfficialFeedScreenHost(
     var liveOpen by rememberSaveable { mutableStateOf(false) }
     var overflowPost by rememberSaveable { mutableStateOf<String?>(null) }
     var rankingTargetPostId by rememberSaveable { mutableStateOf<String?>(null) }
+    var emojiCatalogRetryToken by rememberSaveable { mutableStateOf(0) }
     var handledFocus by rememberSaveable { mutableStateOf<String?>(null) }
     var retainedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var restored by remember { mutableStateOf(retainedPostId == null) }
@@ -394,6 +401,11 @@ fun OfficialFeedScreenHost(
             translatorTrigger = slots.commentsTranslatorTrigger,
                 translatorGateway = slots.commentsTranslationGateway,
                 translatorStrings = slots.commentsTranslatorStrings,
+                emojiCatalogState = {
+                    key(emojiCatalogRetryToken) {
+                        slots.communityEmojiCatalog(strings.emojiLabels) { emojiCatalogRetryToken += 1 }
+                    }
+                },
             )
     }
     state.posts.firstOrNull { it.id == deletePost }?.let { post -> OfficialDeleteConfirmationDialogContent(strings.deleteTitle, strings.deleteMessage, strings.confirm, strings.cancel, { deletePost = null }, { viewModel.onEvent(OfficialFeedUiEvent.DeletePost(post.id)); deletePost = null }) }

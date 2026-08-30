@@ -58,6 +58,7 @@ function parseArgs(argv) {
     profileEntryOnly: false,
     feedOfficialCommentsOnly: false,
     feedOfficialCommentsErrorOnly: false,
+    feedOfficialCommentsSelectorStatesOnly: false,
     profilePrivateChatOnly: false,
     profileRolesSafetyOnly: false,
     communityChatOnly: false,
@@ -107,6 +108,12 @@ function parseArgs(argv) {
       result.feedOfficialCommentsErrorOnly = true;
       result.output = resolve("build-reports/web/feed-official-comments-error-evidence.json");
       result.evidenceDir = resolve("build-reports/web/feed-official-comments-error-evidence");
+      continue;
+    }
+    if (key === "--feed-official-comments-selector-states-only") {
+      result.feedOfficialCommentsSelectorStatesOnly = true;
+      result.output = resolve("build-reports/web/flow-emoji-selector-states-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/flow-emoji-selector-states-evidence");
       continue;
     }
     if (key === "--profile-private-chat-only") {
@@ -212,6 +219,7 @@ function isProfileFocalMode(options) {
     options.profileContentOnly ||
     options.feedOfficialCommentsOnly ||
     options.feedOfficialCommentsErrorOnly ||
+    options.feedOfficialCommentsSelectorStatesOnly ||
     options.profileEntryOnly ||
     options.profilePrivateChatOnly ||
     options.profileRolesSafetyOnly;
@@ -3170,6 +3178,166 @@ async function verifyFeedOfficialCommentsErrorWeb(page, origin, fixture, evidenc
   report.steps.push("feed_and_official_comment_error_rollback_verified_with_common_tags");
 }
 
+async function verifyFeedOfficialCommentsSelectorStatesWeb(page, origin, fixture, evidenceDir, report, faults) {
+  await verifyCommunityEmojiSelectorStateWeb(page, {
+    origin,
+    routeHash: `post-${encodeURIComponent(fixture.feed.postId)}`,
+    routePath: `post/${fixture.feed.postId}`,
+    surfaceMarker: `${fixture.marker} feed post body`,
+    markerError: "feed_official_comments_feed_post_marker_missing",
+    actionTag: `feed.action.comments.${fixture.feed.postId}`,
+    prefix: "feed.comments",
+    mode: "error",
+    screenshot: "web-feed-comments-emoji-selector-error",
+    reportKey: "feedEmojiSelectorError",
+    step: "feed_comments_emoji_selector_error_state_visible_with_retry",
+    faults,
+    report,
+    evidenceDir,
+  });
+  await verifyCommunityEmojiSelectorStateWeb(page, {
+    origin,
+    routeHash: `official-${encodeURIComponent(fixture.official.postId)}`,
+    routePath: `official/${fixture.official.postId}`,
+    surfaceMarker: fixture.marker,
+    markerError: "feed_official_comments_official_post_marker_missing",
+    actionTag: `official.action.comments.${fixture.official.postId}`,
+    prefix: "official.comments",
+    mode: "empty",
+    screenshot: "web-official-comments-emoji-selector-empty",
+    reportKey: "officialEmojiSelectorEmpty",
+    step: "official_comments_emoji_selector_empty_state_visible_without_cells",
+    faults,
+    report,
+    evidenceDir,
+  });
+  report.steps.push("flow_emoji_selector_empty_and_error_states_verified_with_common_tags");
+}
+
+async function verifyCommunityEmojiSelectorStateWeb(page, {
+  origin,
+  routeHash,
+  routePath,
+  surfaceMarker,
+  markerError,
+  actionTag,
+  prefix,
+  mode,
+  screenshot,
+  reportKey,
+  step,
+  faults,
+  report,
+  evidenceDir,
+}) {
+  await page.evaluate(({ targetMode }) => {
+    globalThis.localStorage?.setItem("quata.communityEmojiSelector.optIn", "I_ACCEPT_COMMUNITY_EMOJI_SELECTOR_STATE_EVIDENCE");
+    globalThis.localStorage?.setItem("quata.communityEmojiSelector.mode", targetMode);
+    globalThis.localStorage?.setItem("quata.communityEmojiSelector.message", "Emoji selector evidence failure");
+  }, { targetMode: mode });
+  try {
+    await feedOfficialCommentsStep(`${prefix}_${mode}`, async () => {
+      report.steps.push(`feed_official_comments_web_${prefix.replace(".", "_")}_${mode}_selector_route_start`);
+      await openAuthenticatedRoute(page, origin, routeHash, routePath);
+      await waitVisibleSeededSurfaceText(page, surfaceMarker, markerError);
+      await openFeedOfficialCommentsPanel(page, {
+        actionTag,
+        prefix,
+        errorPrefix: `feed_official_comments_${prefix.replace(".", "_")}_${mode}`,
+        report,
+      });
+      await openCommunityEmojiPanelOnly(page, {
+        prefix,
+        errorPrefix: `feed_official_comments_${prefix.replace(".", "_")}_${mode}`,
+      });
+      if (mode === "error") {
+        await assertVisibleTagOrText(page, "community.emoji.error", [/Emoji selector evidence failure/i], "emoji_selector_error_missing");
+        await assertVisibleTagOrText(page, "community.emoji.retry", [/Reintentar|Retry|Réessayer/i], "emoji_selector_retry_missing");
+        await clickAnchorByTagOrText(page, "community.emoji.retry", [/Reintentar|Retry|Réessayer/i], "emoji_selector_retry_not_clickable");
+        await assertVisibleTagOrText(page, "community.emoji.error", [/Emoji selector evidence failure/i], "emoji_selector_error_after_retry_missing");
+      } else {
+        await assertVisibleTagOrText(page, "community.emoji.empty", [/No hay emojis disponibles|No emojis available/i], "emoji_selector_empty_missing");
+        const staleCell = await visibleExactAriaLocator(page, "community.emoji.cell.frequent.0", 1_000) ??
+          await visibleNativeControlExact(page, "community.emoji.cell.frequent.0", 1_000);
+        if (staleCell) throw new Error("emoji_selector_empty_state_exposes_stale_cell");
+      }
+      report.evidence[reportKey] = await attachScreenshot(page, evidenceDir, screenshot);
+      report.steps.push(step);
+    });
+  } finally {
+    await page.evaluate(() => {
+      globalThis.localStorage?.removeItem("quata.communityEmojiSelector.optIn");
+      globalThis.localStorage?.removeItem("quata.communityEmojiSelector.mode");
+      globalThis.localStorage?.removeItem("quata.communityEmojiSelector.message");
+    }).catch(() => {});
+  }
+  assertNoBrowserFaults(report, faults, `feed_official_comments_web_${prefix}_${mode}_selector_fault`);
+}
+
+async function openCommunityEmojiPanelOnly(page, { prefix, errorPrefix }) {
+  const emojiPatterns = [
+    new RegExp(escapeRegExp(`${prefix}.emoji`)),
+    /Mostrar emojis|Show emojis|Afficher emojis|Afficher les emojis/i,
+  ];
+  const emojiButton = await visibleAriaLocator(page, emojiPatterns, 2_000);
+  const emojiControl = emojiButton ? null : await visibleNativeControl(page, emojiPatterns, 2_000);
+  if (emojiControl) {
+    await clickNativeControlCenter(page, emojiControl, `${errorPrefix}_emoji_button_not_clickable`);
+  } else if (emojiButton) {
+    await clickLocatorCenter(page, emojiButton, `${errorPrefix}_emoji_button_not_clickable`);
+  } else {
+    throw new Error(`${errorPrefix}_emoji_button_not_visible`);
+  }
+  const panel = await visibleExactAriaLocator(page, "community.emoji.panel", 3_000) ??
+    await visibleNativeControlExact(page, "community.emoji.panel", 2_000);
+  if (panel) return;
+  if (await visibleTextMatches(page, /Emoji selector evidence failure|No hay emojis disponibles|No emojis available/i)) {
+    return;
+  }
+  throw new Error(`${errorPrefix}_emoji_panel_not_visible`);
+}
+
+async function clickAnchorByTag(page, tag, errorMessage) {
+  const locator = await visibleExactAriaLocator(page, tag, 2_000);
+  const native = locator ? null : await visibleNativeControlExact(page, tag, 2_000);
+  if (native) {
+    await clickNativeControlCenter(page, native, errorMessage);
+  } else if (locator) {
+    await clickLocatorCenter(page, locator, errorMessage);
+  } else {
+    throw new Error(`${errorMessage}:${tag}`);
+  }
+}
+
+async function clickAnchorByTagOrText(page, tag, patterns, errorMessage) {
+  const locator = await visibleExactAriaLocator(page, tag, 1_500);
+  const native = locator ? null : await visibleNativeControlExact(page, tag, 1_500);
+  if (native) {
+    await clickNativeControlCenter(page, native, errorMessage);
+    return;
+  }
+  if (locator) {
+    await clickLocatorCenter(page, locator, errorMessage);
+    return;
+  }
+  const textControl = await visibleNativeControl(page, patterns, 2_000);
+  if (textControl) {
+    await clickNativeControlCenter(page, textControl, errorMessage);
+    return;
+  }
+  for (const pattern of patterns) {
+    const textLocator = page.getByText(pattern).first();
+    const exists = await textLocator.waitFor({ timeout: 700 }).then(() => true).catch(() => false);
+    if (!exists) continue;
+    await textLocator.scrollIntoViewIfNeeded({ timeout: 1_000 }).catch(() => {});
+    if (await textLocator.isVisible({ timeout: 700 }).catch(() => false)) {
+      await clickLocatorCenter(page, textLocator, errorMessage);
+      return;
+    }
+  }
+  throw new Error(`${errorMessage}:${tag}`);
+}
+
 async function assertCommentAuthorAnchorVisible(page, tag, report) {
   const deadline = Date.now() + 10_000;
   const patterns = [new RegExp(escapeRegExp(tag))];
@@ -3253,15 +3421,9 @@ async function openFeedOfficialCommentsPanel(page, { actionTag, prefix, errorPre
 }
 
 async function clickFeedOfficialCommentsAction(page, tag, errorMessage, report) {
-  const native = await visibleNativeControl(page, [new RegExp(escapeRegExp(tag))], 2_000);
+  const native = await visibleNativeControl(page, [new RegExp(escapeRegExp(tag))], 10_000);
   if (native) {
-    await clickNativeControlPreferDom(page, native, `${errorMessage}:native_not_clickable`);
-    await delay(600);
-    return;
-  }
-  const locator = await visibleAriaLocatorWithScroll(page, [new RegExp(escapeRegExp(tag))], 15_000);
-  if (locator) {
-    await clickLocatorCenter(page, locator, `${errorMessage}:not_clickable`);
+    await clickNativeControlCenter(page, native, `${errorMessage}:native_not_clickable`);
     await delay(600);
     return;
   }
@@ -3272,7 +3434,7 @@ async function clickFeedOfficialCommentsAction(page, tag, errorMessage, report) 
     report.diagnostics.feedOfficialCommentsMissingStableWebAnchors.push({
       tag,
       fallback,
-      reason: "Compose/Wasm did not expose the visible action rail button as an aria/testTag node.",
+      reason: "Compose/Wasm did not expose the visible action rail button as an aria/testTag node before fallback timeout.",
     });
     await page.mouse.click(fallback.x, fallback.y);
     await delay(500);
@@ -5524,7 +5686,7 @@ try {
   }
 
   if (state.peerMessage && state.b.accessToken && !options.composerEmojiOnly) {
-    if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly) {
+    if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
       state.feedOfficialComments = {
         marker: `qadata-feed-official-comments-${runId}`,
         actorSession: state.a,
@@ -5532,7 +5694,9 @@ try {
       };
       await prepareFeedOfficialCommentsFixture(state.feedOfficialComments);
       report.steps.push("feed_official_comments_fixture_prepared");
-      if (options.feedOfficialCommentsErrorOnly) {
+      if (options.feedOfficialCommentsSelectorStatesOnly) {
+        await verifyFeedOfficialCommentsSelectorStatesWeb(page, server.origin, state.feedOfficialComments, options.evidenceDir, report, faults);
+      } else if (options.feedOfficialCommentsErrorOnly) {
         await verifyFeedOfficialCommentsErrorWeb(page, server.origin, state.feedOfficialComments, options.evidenceDir, report, faults);
       } else {
         await verifyFeedOfficialCommentsEmojiWeb(page, server.origin, state.feedOfficialComments, options.evidenceDir, report, faults);
@@ -5595,16 +5759,16 @@ try {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
       const blockingFaults = faults.filter((fault) => !isNonBlockingBrowserRuntimeFault(fault, {
-        label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly) ? "feed_official_comments_final" : "profile_entry_final",
+        label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_final" : "profile_entry_final",
       }));
       if (faults.length) {
         report.diagnostics = {
           ...(report.diagnostics ?? {}),
           browserRuntimeFaults: faults.slice(),
           nonBlockingBrowserRuntimeFaults: faults.filter((fault) => isNonBlockingBrowserRuntimeFault(fault, {
-            label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly) ? "feed_official_comments_final" : "profile_entry_final",
+            label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_final" : "profile_entry_final",
           })),
         };
       }
@@ -5658,10 +5822,10 @@ try {
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       if (options.profileEntryOnly) throw new ProfileEntryOnlyCompleted();
       if (options.profileRolesSafetyOnly) throw new ProfileRolesSafetyOnlyCompleted();
-      if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly) throw new EvidenceCompleted();
+      if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) throw new EvidenceCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly || options.feedOfficialCommentsSelectorStatesOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 

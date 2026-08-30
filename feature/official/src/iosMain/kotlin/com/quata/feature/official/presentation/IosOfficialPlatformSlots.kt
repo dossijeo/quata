@@ -25,6 +25,9 @@ import com.quata.core.platform.ShareService
 import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosFastTextLanguageIdentifier
 import com.quata.core.language.IosTranslationHttpTransport
+import com.quata.core.ui.components.CommunityEmojiLabels
+import com.quata.core.ui.components.communityEmojiCatalogState
+import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
 import com.quata.core.ui.components.QuataAvatarFrameContent
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.core.ui.components.QuataLiveRankingItem
@@ -44,6 +47,7 @@ import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSHTTPURLResponse
+import platform.Foundation.NSProcessInfo
 import platform.Foundation.NSURL
 import platform.Foundation.NSValue
 import platform.Foundation.NSURLSession
@@ -91,6 +95,21 @@ internal fun iosOfficialPlatformSlots(
         preferredLanguage = quataTranslatorPreferredLanguage(preferredLanguageTag),
     ),
     commentsTranslatorStrings = quataTranslatorStringsForLanguage(preferredLanguageTag),
+    communityEmojiCatalog = { labels, onRetry ->
+        iosOfficialCommunityEmojiSelectorEvidenceCatalogState(labels, onRetry)
+            ?: communityEmojiCatalogState(labels, onRetry = onRetry)
+    },
+)
+
+private fun iosOfficialCommunityEmojiSelectorEvidenceCatalogState(
+    labels: CommunityEmojiLabels,
+    onRetry: (() -> Unit)?,
+) = communityEmojiSelectorEvidenceCatalogState(
+    labels = labels,
+    onRetry = onRetry,
+    optIn = NSProcessInfo.processInfo.environment["QUATA_IOS_COMMUNITY_EMOJI_SELECTOR_EVIDENCE_OPT_IN"]?.toString(),
+    mode = NSProcessInfo.processInfo.environment["QUATA_IOS_COMMUNITY_EMOJI_SELECTOR_EVIDENCE_MODE"]?.toString(),
+    message = NSProcessInfo.processInfo.environment["QUATA_IOS_COMMUNITY_EMOJI_SELECTOR_EVIDENCE_MESSAGE"]?.toString(),
 )
 
 @Composable

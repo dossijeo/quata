@@ -46,6 +46,7 @@ const profileListsOnly = options.profileListsOnly;
 const profileContentOnly = options.profileContentOnly;
 const feedOfficialCommentsOnly = options.feedOfficialCommentsOnly;
 const feedOfficialCommentsErrorOnly = options.feedOfficialCommentsErrorOnly;
+const feedOfficialCommentsSelectorStatesOnly = options.feedOfficialCommentsSelectorStatesOnly;
 const profileEntryOnly = options.profileEntryOnly;
 const profilePrivateChatOnly = options.profilePrivateChatOnly;
 const profileRolesSafetyOnly = options.profileRolesSafetyOnly;
@@ -58,7 +59,7 @@ const groupSosOnly = options.groupSosOnly;
 const attachmentPickerOnly = options.attachmentPickerOnly;
 const groupAdminOnly = options.groupAdminOnly;
 const groupModerationOnly = options.groupModerationOnly;
-const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly;
+const profileEvidenceOnly = profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly;
 const temporaryProfileHashRequired = profileEvidenceOnly || communityChatOnly;
 const report = {
   check,
@@ -308,7 +309,7 @@ bash scripts/run-ios-chat-translation-ui-test.sh
       state.profileContent = state.profileEntry.profileContent;
       report.steps.push("profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared");
     }
-    if (feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly) {
+    if (feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) {
       state.feedOfficialComments = {
         marker: `qadata-feed-official-comments-${runId}`,
         actorSession: state.a,
@@ -419,8 +420,9 @@ export QUATA_IOS_CHAT_PROFILE_ONLY=${profileEvidenceOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E=${profileFollowOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_LISTS_UI_E2E=${profileListsOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_CONTENT_UI_E2E=${profileContentOnly ? "1" : "0"}
-export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E=${(feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly) ? "1" : "0"}
+export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E=${(feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? "1" : "0"}
 export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E=${feedOfficialCommentsErrorOnly ? "1" : "0"}
+export QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E=${feedOfficialCommentsSelectorStatesOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_UI_E2E=${profileEntryOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E=${profileRolesSafetyOnly ? "1" : "0"}
 export QUATA_IOS_CHAT_PROFILE_ENTRY_POST_ID=${shellQuote(state.profileEntry?.profileContent?.postId ?? "profile-entry")}
@@ -529,6 +531,8 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       ? "ios_xctest_profile_followers_and_following_lists_verified"
       : profileContentOnly
         ? "ios_xctest_profile_content_gallery_comments_and_attachments_verified"
+      : feedOfficialCommentsSelectorStatesOnly
+        ? "ios_xctest_feed_and_official_emoji_selector_states_verified"
       : feedOfficialCommentsOnly
         ? "ios_xctest_feed_and_official_comments_emoji_picker_verified"
       : profileEntryOnly
@@ -616,6 +620,11 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
       report.steps.push("feed_comments_forced_error_visible_and_rollback_verified");
       report.steps.push("official_comments_forced_error_visible_and_rollback_verified");
       report.steps.push("feed_and_official_comment_error_rollback_verified_with_common_tags");
+    }
+    if (feedOfficialCommentsSelectorStatesOnly) {
+      report.steps.push("feed_comments_emoji_selector_error_state_visible_with_retry");
+      report.steps.push("official_comments_emoji_selector_empty_state_visible_without_cells");
+      report.steps.push("flow_emoji_selector_empty_and_error_states_verified_with_common_tags");
     }
     if (profileRolesSafetyOnly) {
       report.evidence.profileRolesPersisted = await pollProfileRoles({
@@ -1014,6 +1023,7 @@ function parseArgs(argv) {
     profileContentOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_CONTENT_ONLY === "1",
     feedOfficialCommentsOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_ONLY === "1",
     feedOfficialCommentsErrorOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_ERROR_ONLY === "1",
+    feedOfficialCommentsSelectorStatesOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_ONLY === "1",
     profileEntryOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ENTRY_ONLY === "1",
     profilePrivateChatOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_PRIVATE_CHAT_ONLY === "1",
     profileRolesSafetyOnly: process.env.QUATA_CHAT_ACTIONS_NOTIFICATIONS_IOS_PROFILE_ROLES_SAFETY_ONLY === "1",
@@ -1074,6 +1084,14 @@ function parseArgs(argv) {
       result.evidenceDir = resolve("build-reports/ios/feed-official-comments-error-evidence");
       result.remoteLogDir = "build/reports/ios/feed-official-comments-error";
       result.remoteResultBundleDir = "build/reports/ios/feed-official-comments-error/xcresults";
+      continue;
+    }
+    if (key === "--feed-official-comments-selector-states-only") {
+      result.feedOfficialCommentsSelectorStatesOnly = true;
+      result.output = resolve("build-reports/ios/flow-emoji-selector-states-evidence.json");
+      result.evidenceDir = resolve("build-reports/ios/flow-emoji-selector-states-evidence");
+      result.remoteLogDir = "build/reports/ios/flow-emoji-selector-states";
+      result.remoteResultBundleDir = "build/reports/ios/flow-emoji-selector-states/xcresults";
       continue;
     }
     if (key === "--profile-entry-only") {
@@ -2382,6 +2400,7 @@ function selectedIosXctestForMode(mode) {
   if (mode.groupModerationOnly) return { method: "testGroupModerationRemovesAndBlocksParticipantsThroughSharedMemberMenu", log: "group-moderation.log" };
   if (mode.profileListsOnly) return { method: "testProfileFollowersAndFollowingListsUseSharedPublicProfileSurface", log: "profile-lists.log" };
   if (mode.profileContentOnly) return { method: "testProfileContentFromChatUsesSharedPublicProfileSurface", log: "profile-content.log" };
+  if (mode.feedOfficialCommentsSelectorStatesOnly) return { method: "testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates", log: "flow-emoji-selector-states.log" };
   if (mode.feedOfficialCommentsErrorOnly) return { method: "testFeedAndOfficialCommentsForcedErrorRollsBackSharedEmojiComment", log: "feed-official-comments-error.log" };
   if (mode.feedOfficialCommentsOnly) return { method: "testFeedAndOfficialCommentsUseSharedEmojiPicker", log: "feed-official-comments.log" };
   if (mode.profileEntryOnly) return { method: "testProfileEntryFromFeedOfficialCommunitiesConversationsAndChat", log: "profile-entry.log" };

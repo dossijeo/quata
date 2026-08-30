@@ -14,6 +14,28 @@ sealed interface CommunityEmojiCatalogState {
     data class Unavailable(val message: String, val onRetry: (() -> Unit)? = null) : CommunityEmojiCatalogState
 }
 
+const val CommunityEmojiSelectorEvidenceOptInValue = "I_ACCEPT_COMMUNITY_EMOJI_SELECTOR_STATE_EVIDENCE"
+const val CommunityEmojiSelectorEvidenceModeEmpty = "empty"
+const val CommunityEmojiSelectorEvidenceModeError = "error"
+
+fun communityEmojiSelectorEvidenceCatalogState(
+    labels: CommunityEmojiLabels,
+    onRetry: (() -> Unit)?,
+    optIn: String?,
+    mode: String?,
+    message: String? = null,
+): CommunityEmojiCatalogState? {
+    if (optIn != CommunityEmojiSelectorEvidenceOptInValue) return null
+    return when (mode?.trim()?.lowercase()) {
+        CommunityEmojiSelectorEvidenceModeEmpty -> CommunityEmojiCatalogState.Available(emptyList())
+        CommunityEmojiSelectorEvidenceModeError -> CommunityEmojiCatalogState.Unavailable(
+            message = message?.takeIf(String::isNotBlank) ?: labels.empty,
+            onRetry = onRetry,
+        )
+        else -> null
+    }
+}
+
 fun communityEmojiCatalogState(
     labels: CommunityEmojiLabels = CommunityEmojiLabels(),
     onRetry: (() -> Unit)? = null,

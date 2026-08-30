@@ -156,6 +156,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
+            "feed-official-comments-selector-states" -> listOf(postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
@@ -231,6 +232,19 @@ class ChatActionsNotificationsInstrumentedTest {
                 officialPostId = officialPostId.orEmpty(),
                 feedComment = feedComment.orEmpty(),
                 officialComment = officialComment.orEmpty(),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "feed-official-comments-selector-states") {
+            runFeedOfficialCommentsSelectorStatesStage(
+                feedPostId = postId.orEmpty(),
+                officialPostId = officialPostId.orEmpty(),
             )
             writeReport(
                 JSONObject()
@@ -493,6 +507,66 @@ class ChatActionsNotificationsInstrumentedTest {
                 .edit()
                 .clear()
                 .commit()
+        }
+    }
+
+    private fun runFeedOfficialCommentsSelectorStatesStage(
+        feedPostId: String,
+        officialPostId: String,
+    ) {
+        verifyEmojiSelectorState(
+            url = quataPostUrl(feedPostId),
+            actionTag = "feed.action.comments.$feedPostId",
+            emojiTag = "feed.comments.emoji",
+            mode = "error",
+            screenshot = "android-feed-comments-emoji-selector-error",
+        )
+        verifyEmojiSelectorState(
+            url = quataOfficialPostUrl(officialPostId),
+            actionTag = "official.action.comments.$officialPostId",
+            emojiTag = "official.comments.emoji",
+            mode = "empty",
+            screenshot = "android-official-comments-emoji-selector-empty",
+        )
+    }
+
+    private fun verifyEmojiSelectorState(
+        url: String,
+        actionTag: String,
+        emojiTag: String,
+        mode: String,
+        screenshot: String,
+    ) {
+        val preferences = targetContext.getSharedPreferences("quata_community_emoji_selector_evidence", Context.MODE_PRIVATE)
+        preferences.edit()
+            .putString("optIn", "I_ACCEPT_COMMUNITY_EMOJI_SELECTOR_STATE_EVIDENCE")
+            .putString("mode", mode)
+            .putString("message", "Emoji selector evidence failure")
+            .commit()
+        try {
+            ActivityScenario.launch<MainActivity>(chatIntent(url)).use {
+                waitForFeedOfficialActionTag(actionTag, screenshot, timeoutMillis = 90_000)
+                clickStableTag(actionTag)
+                waitForTag(emojiTag, "comments emoji trigger $emojiTag", 20_000)
+                compose.onNodeWithTag(emojiTag, useUnmergedTree = true)
+                    .performTouchInput { click(center) }
+                waitForTag("community.emoji.panel", "emoji selector $mode panel", 10_000)
+                if (mode == "error") {
+                    waitForTag("community.emoji.error", "emoji selector error", 5_000)
+                    waitForTag("community.emoji.retry", "emoji selector retry", 5_000)
+                    clickStableTag("community.emoji.retry")
+                    waitForTag("community.emoji.error", "emoji selector error after retry", 5_000)
+                } else {
+                    waitForTag("community.emoji.empty", "emoji selector empty", 5_000)
+                    assertFalse(
+                        "An empty selector state must not expose stale emoji cells.",
+                        nodeWithTagVisible("community.emoji.cell.frequent.0"),
+                    )
+                }
+                saveScreenshot(screenshot)
+            }
+        } finally {
+            preferences.edit().clear().commit()
         }
     }
 
