@@ -352,6 +352,15 @@ test("Feed and Official selector empty and error states are evidenced through th
   assert.match(webRunner, /community\.emoji\.error/);
   assert.match(webRunner, /community\.emoji\.retry/);
   assert.match(webRunner, /community\.emoji\.empty/);
+  assert.match(webRunner, /feedOfficialCommentsContextualWebAnchors/);
+  assert.match(webRunner, /await closeProfileSheetIfVisible\(page\);[\s\S]*await openAuthenticatedRoute\(page, origin, routeHash, routePath, \{ forceReload: true \}\)/);
+  assert.match(webRunner, /const reloadQuery = options\.forceReload \? `&route-reload=\$\{Date\.now\(\)\}` : ""/);
+  assert.match(webRunner, /contextualAnchor: cardTag/);
+  assert.match(webRunner, /official-post-card-\$\{postId\}/);
+  assert.match(webRunner, /QuataFeedActionRail portrait comments slot/);
+  assert.doesNotMatch(webRunner, /feedOfficialCommentsMissingStableWebAnchors/);
+  assert.doesNotMatch(webRunner, /viewport\.width \* 0\.89/);
+  assert.doesNotMatch(webRunner, /viewport\.height \* 0\.78/);
   assert.match(androidRunner, /feed-official-comments-selector-states/);
   assert.match(androidUiTest, /runFeedOfficialCommentsSelectorStatesStage/);
   assert.match(androidUiTest, /quata_community_emoji_selector_evidence/);

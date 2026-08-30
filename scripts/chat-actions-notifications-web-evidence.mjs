@@ -2759,8 +2759,9 @@ async function verifyProfileContentFromOpenProfile(page, profile, fixture, evide
   report.steps.push("profile_content_comment_created_from_ui_and_verified_by_db");
 }
 
-async function openAuthenticatedRoute(page, origin, fragment, expectedRoute) {
-  await page.goto(`${origin}/?quata-profile-entry-e2e=1#${fragment}`, { waitUntil: "domcontentloaded" });
+async function openAuthenticatedRoute(page, origin, fragment, expectedRoute, options = {}) {
+  const reloadQuery = options.forceReload ? `&route-reload=${Date.now()}` : "";
+  await page.goto(`${origin}/?quata-profile-entry-e2e=1${reloadQuery}#${fragment}`, { waitUntil: "domcontentloaded" });
   const routed = await page.waitForFunction(
     (route) => document.documentElement.getAttribute("data-quata-shell-route") === route,
     expectedRoute,
@@ -3238,7 +3239,8 @@ async function verifyCommunityEmojiSelectorStateWeb(page, {
   try {
     await feedOfficialCommentsStep(`${prefix}_${mode}`, async () => {
       report.steps.push(`feed_official_comments_web_${prefix.replace(".", "_")}_${mode}_selector_route_start`);
-      await openAuthenticatedRoute(page, origin, routeHash, routePath);
+      await closeProfileSheetIfVisible(page);
+      await openAuthenticatedRoute(page, origin, routeHash, routePath, { forceReload: true });
       await waitVisibleSeededSurfaceText(page, surfaceMarker, markerError);
       await openFeedOfficialCommentsPanel(page, {
         actionTag,
@@ -3430,11 +3432,11 @@ async function clickFeedOfficialCommentsAction(page, tag, errorMessage, report) 
   const fallback = await feedOfficialCommentsActionFallbackPoint(page, tag);
   if (fallback) {
     report.diagnostics ??= {};
-    report.diagnostics.feedOfficialCommentsMissingStableWebAnchors ??= [];
-    report.diagnostics.feedOfficialCommentsMissingStableWebAnchors.push({
+    report.diagnostics.feedOfficialCommentsContextualWebAnchors ??= [];
+    report.diagnostics.feedOfficialCommentsContextualWebAnchors.push({
       tag,
       fallback,
-      reason: "Compose/Wasm did not expose the visible action rail button as an aria/testTag node before fallback timeout.",
+      reason: "Compose/Wasm did not expose the visible action rail button as an aria/testTag node before fallback timeout; replay derived the tap from the shared post card anchor and QuataFeedActionRail order.",
     });
     await page.mouse.click(fallback.x, fallback.y);
     await delay(500);
@@ -3445,13 +3447,34 @@ async function clickFeedOfficialCommentsAction(page, tag, errorMessage, report) 
 
 async function feedOfficialCommentsActionFallbackPoint(page, tag) {
   if (!tag.startsWith("official.action.comments.")) return null;
-  const viewport = page.viewportSize() ?? { width: 430, height: 932 };
+  const postId = tag.slice("official.action.comments.".length);
+  const cardTag = `official-post-card-${postId}`;
+  const card = await visibleNativeControl(page, [new RegExp(escapeRegExp(cardTag))], 2_000);
+  const cardBox = card ?? await visibleAriaBox(page, [new RegExp(escapeRegExp(cardTag))]);
+  if (!cardBox) return null;
+  const showPublish = Boolean(await visibleNativeControl(page, [
+    new RegExp(escapeRegExp(`official.action.publish.${postId}`)),
+  ], 500));
+  const bottomPadding = 16;
+  const buttonSize = 48;
+  const spacing = 14;
+  const stepsAboveBottom = showPublish ? 3 : 1;
+  const x = cardBox.x + cardBox.width - 10 - (buttonSize / 2);
+  const y = cardBox.y + cardBox.height - bottomPadding - (buttonSize / 2) - (stepsAboveBottom * (buttonSize + spacing));
   return {
-    x: Math.round(viewport.width * 0.89),
-    y: Math.round(viewport.height * 0.78),
-    relativeX: 0.89,
-    relativeY: 0.78,
+    x: Math.round(x),
+    y: Math.round(y),
+    relativeX: Number(((x - cardBox.x) / cardBox.width).toFixed(4)),
+    relativeY: Number(((y - cardBox.y) / cardBox.height).toFixed(4)),
+    contextualAnchor: cardTag,
+    context: "official-post-card + QuataFeedActionRail portrait comments slot",
   };
+}
+
+async function visibleAriaBox(page, patterns) {
+  const locator = await visibleAriaLocator(page, patterns, 1_000);
+  if (!locator) return null;
+  return await locator.boundingBox().catch(() => null);
 }
 
 async function waitTaggedCommentInput(page, prefix, errorMessage, timeout = 12_000) {
