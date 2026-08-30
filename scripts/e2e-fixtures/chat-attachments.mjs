@@ -796,6 +796,37 @@ export async function pollFeedOfficialComment({
   throw new Error(`feed_official_${surface}_comment_not_persisted`);
 }
 
+export async function assertFeedOfficialCommentAbsent({
+  fixture,
+  surface,
+  marker,
+  withDatabase,
+}) {
+  const markerProbe = marker.replace(/^😀\s*/, "");
+  const result = await withDatabase(async (client) => {
+    if (surface === "feed") {
+      return await client.query(
+        `select count(*)::int as count
+           from public.community_comments
+          where post_id = $1::uuid and profile_id = $2::uuid and body like $3`,
+        [fixture.feed?.postId, fixture.actorSession.profileId, `%${markerProbe}%`],
+      );
+    }
+    if (surface === "official") {
+      return await client.query(
+        `select count(*)::int as count
+           from public.official_post_comments
+          where official_post_id = $1::uuid and profile_id = $2::uuid and body like $3`,
+        [fixture.official?.postId, fixture.actorSession.profileId, `%${markerProbe}%`],
+      );
+    }
+    throw new Error(`feed_official_comments_unknown_surface:${surface}`);
+  });
+  const count = Number(result.rows[0]?.count ?? 0);
+  if (count !== 0) throw new Error(`feed_official_${surface}_comment_rollback_residue:${count}`);
+  return { surface, markerProbe, count };
+}
+
 export async function pollFeedOfficialReplyComment({
   fixture,
   surface,

@@ -69,7 +69,7 @@ class ChatActionsNotificationsInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val targetContext: Context = instrumentation.targetContext
     private val app: QuataApp = ApplicationProvider.getApplicationContext()
-    private val device = UiDevice.getInstance(instrumentation)
+    private val device: UiDevice by lazy { connectUiDevice() }
     private val communityEmojiPanelProbeSections = listOf(
         "recent",
         "frequent",
@@ -82,6 +82,21 @@ class ChatActionsNotificationsInstrumentedTest {
     )
     private val arguments = InstrumentationRegistry.getArguments()
     private val audioProgressStarted = Regex(""" ([1-9][0-9]?|100)%""")
+
+    private fun connectUiDevice(): UiDevice {
+        var lastError: RuntimeException? = null
+        repeat(4) { attempt ->
+            try {
+                return UiDevice.getInstance(instrumentation)
+            } catch (error: RuntimeException) {
+                lastError = error
+                if (attempt < 3) {
+                    SystemClock.sleep(1_000)
+                }
+            }
+        }
+        throw lastError ?: IllegalStateException("ui_device_unavailable")
+    }
 
     @Test
     fun composerReplyEditActionsAndFavoriteUseSharedChatUi() = runBlocking {
@@ -140,6 +155,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
             "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
+            "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
             "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
@@ -200,6 +216,21 @@ class ChatActionsNotificationsInstrumentedTest {
                 officialCommentId = officialCommentId.orEmpty(),
                 officialReplyComment = officialReplyComment.orEmpty(),
                 actorProfileId = actorProfileId.orEmpty(),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "CHAT-ACTIONS-NOTIFICATIONS-ANDROID-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
+        if (stage == "feed-official-comments-error") {
+            runFeedOfficialCommentsErrorStage(
+                feedPostId = postId.orEmpty(),
+                officialPostId = officialPostId.orEmpty(),
+                feedComment = feedComment.orEmpty(),
+                officialComment = officialComment.orEmpty(),
             )
             writeReport(
                 JSONObject()
@@ -422,6 +453,49 @@ class ChatActionsNotificationsInstrumentedTest {
         }
     }
 
+    private fun runFeedOfficialCommentsErrorStage(
+        feedPostId: String,
+        officialPostId: String,
+        feedComment: String,
+        officialComment: String,
+    ) {
+        targetContext.getSharedPreferences("quata_feed_official_comments_evidence", Context.MODE_PRIVATE)
+            .edit()
+            .putString("comments.optIn", "I_ACCEPT_FEED_OFFICIAL_COMMENTS_FORCED_FAILURE_EVIDENCE")
+            .commit()
+        try {
+            ActivityScenario.launch<MainActivity>(chatIntent(quataPostUrl(feedPostId))).use {
+                sendFailingEmojiCommentFromOpenPost(
+                    actionTag = "feed.action.comments.$feedPostId",
+                    inputTag = "feed.comments.input",
+                    emojiTag = "feed.comments.emoji",
+                    sendTag = "feed.comments.send",
+                    errorTag = "feed.comments.error",
+                    comment = feedComment,
+                    beforeScreenshot = "android-feed-comments-error-before",
+                    afterScreenshot = "android-feed-comments-error-after",
+                )
+            }
+            ActivityScenario.launch<MainActivity>(chatIntent(quataOfficialPostUrl(officialPostId))).use {
+                sendFailingEmojiCommentFromOpenPost(
+                    actionTag = "official.action.comments.$officialPostId",
+                    inputTag = "official.comments.input",
+                    emojiTag = "official.comments.emoji",
+                    sendTag = "official.comments.send",
+                    errorTag = "official.comments.error",
+                    comment = officialComment,
+                    beforeScreenshot = "android-official-comments-error-before",
+                    afterScreenshot = "android-official-comments-error-after",
+                )
+            }
+        } finally {
+            targetContext.getSharedPreferences("quata_feed_official_comments_evidence", Context.MODE_PRIVATE)
+                .edit()
+                .clear()
+                .commit()
+        }
+    }
+
     private fun sendEmojiCommentFromOpenPost(
         actionTag: String,
         replyTagPrefix: String,
@@ -451,7 +525,6 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.onNodeWithTag(emojiTag, useUnmergedTree = true)
             .performTouchInput { click(center) }
         waitForTag("community.emoji.panel", "comments emoji panel", 10_000)
-        verifyCommunityEmojiPanelSections("$beforeScreenshot-panel")
         clickStableTag("community.emoji.cell.frequent.0")
         compose.onNodeWithTag(inputTag, useUnmergedTree = true)
             .performTextInput(comment.removePrefix("😀").trimStart())
@@ -459,6 +532,49 @@ class ChatActionsNotificationsInstrumentedTest {
         submitTaggedComment(inputTag, sendTag, visibleCommentText, "$afterScreenshot-missing-comment")
         waitForTag(authorTag, "comment author profile anchor $authorTag", 20_000)
         saveScreenshot(afterScreenshot)
+    }
+
+    private fun sendFailingEmojiCommentFromOpenPost(
+        actionTag: String,
+        inputTag: String,
+        emojiTag: String,
+        sendTag: String,
+        errorTag: String,
+        comment: String,
+        beforeScreenshot: String,
+        afterScreenshot: String,
+    ) {
+        waitForFeedOfficialActionTag(actionTag, beforeScreenshot, timeoutMillis = 90_000)
+        saveScreenshot(beforeScreenshot)
+        clickStableTag(actionTag)
+        waitForTag(inputTag, "comments input $inputTag", 20_000)
+        compose.onNodeWithTag(emojiTag, useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        waitForTag("community.emoji.panel", "comments emoji panel", 10_000)
+        verifyCommunityEmojiPanelSections("$beforeScreenshot-panel")
+        clickStableTag("community.emoji.cell.frequent.0")
+        compose.onNodeWithTag(inputTag, useUnmergedTree = true)
+            .performTextInput(comment.removePrefix("😀").trimStart())
+        clickStableTag(sendTag)
+        waitForTag(errorTag, "forced comment error $errorTag", 20_000)
+        waitForFailedCommentGone(comment, afterScreenshot)
+        saveScreenshot(afterScreenshot)
+    }
+
+    private fun waitForFailedCommentGone(comment: String, failureScreenshot: String) {
+        val visibleText = comment.removePrefix("😀").trimStart()
+        val gone = runCatching {
+            compose.waitUntil(10_000) { visibleNonEditableTextNodeCount(visibleText) == 0 }
+            true
+        }.getOrDefault(false)
+        if (gone) return
+        saveScreenshot("$failureScreenshot-ui-residue")
+        File(evidenceDir(), "$failureScreenshot-ui-residue-semantics.txt")
+            .writeText(runCatching { compose.onRoot(useUnmergedTree = true).printToString(maxDepth = 20) }.getOrElse { it.stackTraceToString() })
+        assertTrue(
+            "The failed optimistic comment must disappear from visible non-editable UI after rollback: $visibleText",
+            false,
+        )
     }
 
     private fun verifyCommunityEmojiPanelSections(screenshotPrefix: String) {
@@ -2309,6 +2425,22 @@ class ChatActionsNotificationsInstrumentedTest {
                 .fetchSemanticsNode()
             true
         }.getOrDefault(false)
+
+    private fun visibleNonEditableTextNodeCount(text: String): Int =
+        runCatching {
+            compose.onAllNodes(hasText(text, substring = true), useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .count { node ->
+                    val bounds = node.boundsInRoot
+                    val isVisible = bounds.width > 0f &&
+                        bounds.height > 0f &&
+                        bounds.right > 0f &&
+                        bounds.bottom > 0f &&
+                        bounds.left < device.displayWidth &&
+                        bounds.top < device.displayHeight
+                    isVisible && node.config.getOrNull(SemanticsProperties.EditableText) == null
+                }
+        }.getOrDefault(0)
 
     private fun waitForTagExists(tag: String, context: String, timeoutMillis: Long = 45_000) {
         val exists = runCatching {

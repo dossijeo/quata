@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -59,6 +60,64 @@ function changedPaths(entries) {
   return entries.flatMap((entry) => entry.paths).map(normalize);
 }
 
+function sha256(buffer) {
+  return createHash("sha256").update(buffer).digest("hex");
+}
+
+function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
+  return Object.entries(manifest.evidence).flatMap(([platform, item]) => {
+    const failures = [];
+    const reportPath = item?.report;
+    const absoluteReport = reportPath ? resolve(cwd, reportPath) : null;
+    if (!absoluteReport || !existsSync(absoluteReport)) return failures;
+
+    const reportBytes = readFileSync(absoluteReport);
+    if (item.reportSha256 && sha256(reportBytes) !== item.reportSha256) {
+      failures.push(`${platform}:report_sha256_mismatch:${reportPath}`);
+    }
+
+    let report = null;
+    try {
+      report = JSON.parse(reportBytes.toString("utf8").replace(/^\uFEFF/, ""));
+    } catch {
+      failures.push(`${platform}:report_not_json:${reportPath}`);
+      return failures;
+    }
+
+    if (item.reportStatus && report.status !== item.reportStatus) {
+      failures.push(`${platform}:report_status_mismatch:${reportPath}`);
+    }
+    if (item.reportGitHead && report.git?.head !== item.reportGitHead) {
+      failures.push(`${platform}:report_git_head_mismatch:${reportPath}`);
+    } else if (item.reportGitHead === undefined && report.git?.head && report.git.head !== productSha) {
+      failures.push(`${platform}:report_git_head_mismatch:${reportPath}`);
+    }
+    if (item.reportWorkingTreeDirty !== undefined && report.git?.workingTreeDirty !== item.reportWorkingTreeDirty) {
+      failures.push(`${platform}:report_working_tree_dirty_mismatch:${reportPath}`);
+    }
+    if (item.requireCleanupState && report.cleanup?.state !== item.requireCleanupState) {
+      failures.push(`${platform}:report_cleanup_state_mismatch:${reportPath}`);
+    }
+    if (item.requireCleanupResidueZero === true) {
+      const residueGroups = [
+        report.cleanup?.hardCleanup?.residueCounts,
+        report.cleanup?.feedOfficialComments?.residueCounts,
+      ].filter(Boolean);
+      const residue = residueGroups.flatMap((counts) => Object.entries(counts));
+      const nonZero = residue.filter(([, value]) => Number(value) !== 0);
+      if (residue.length === 0 || nonZero.length > 0) {
+        failures.push(`${platform}:report_cleanup_residue_not_zero:${reportPath}`);
+      }
+    }
+    for (const step of item.requiredSteps ?? []) {
+      if (!Array.isArray(report.steps) || !report.steps.includes(step)) {
+        failures.push(`${platform}:report_missing_step:${step}`);
+      }
+    }
+    return failures;
+  });
+}
+
 export function isAttestationPath(path) {
   return ATTESTATION_ALLOWED.some((pattern) => pattern.test(normalize(path)));
 }
@@ -82,8 +141,9 @@ export function validateAttestation({ manifestPath = DEFAULT_MANIFEST, head = "H
     !item?.report ||
     item?.cleanup?.verified !== true
   );
+  const evidenceArtifactFailures = localEvidenceFailures(manifest, productSha, cwd);
   return {
-    ok: invalid.length === 0 && incompleteEvidence.length === 0,
+    ok: invalid.length === 0 && incompleteEvidence.length === 0 && evidenceArtifactFailures.length === 0,
     productSha,
     headSha,
     productShaIsAncestor,
@@ -91,6 +151,7 @@ export function validateAttestation({ manifestPath = DEFAULT_MANIFEST, head = "H
     changedFiles: files,
     invalidatingFiles: invalid,
     incompleteEvidence: incompleteEvidence.map(([platform]) => platform),
+    evidenceArtifactFailures,
     manifest,
   };
 }
@@ -135,7 +196,7 @@ Evidence remains valid.
 
 Evidence invalidated after ${result.productSha}.
 
-${result.invalidatingFiles.length ? `Executable or untrusted change detected:\n${result.invalidatingFiles.join("\n")}\n\n` : ""}${result.incompleteEvidence.length ? `Incomplete evidence:\n${result.incompleteEvidence.join("\n")}\n\n` : ""}Re-run affected evidence.
+${result.invalidatingFiles.length ? `Executable or untrusted change detected:\n${result.invalidatingFiles.join("\n")}\n\n` : ""}${result.incompleteEvidence.length ? `Incomplete evidence:\n${result.incompleteEvidence.join("\n")}\n\n` : ""}${result.evidenceArtifactFailures.length ? `Evidence artifact mismatch:\n${result.evidenceArtifactFailures.join("\n")}\n\n` : ""}Re-run affected evidence.
 `);
       process.exitCode = 1;
     }

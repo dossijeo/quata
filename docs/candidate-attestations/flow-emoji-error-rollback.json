@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-EMOJI",
+    "OVR-COMMENTS"
+  ],
+  "productSha": "1f01411ae76e05b03d6e3fb768933e70d9ee1ac4",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "1f01411ae76e05b03d6e3fb768933e70d9ee1ac4",
+      "report": "build-reports/web/feed-official-comments-error-evidence.json",
+      "reportSha256": "b565026da152cee8ebfaf898e91764c2a445732249a168ce4df8284a3c658ccd",
+      "reportStatus": "passed",
+      "reportGitHead": "1f01411ae76e05b03d6e3fb768933e70d9ee1ac4",
+      "reportWorkingTreeDirty": false,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "feed.comments_failed_comment_not_visible_after_rollback",
+        "feed_comments_forced_error_visible_and_rollback_verified",
+        "official.comments_failed_comment_not_visible_after_rollback",
+        "official_comments_forced_error_visible_and_rollback_verified",
+        "feed_and_official_comment_error_rollback_verified_with_common_tags"
+      ],
+      "screenshots": [
+        "build-reports/web/feed-official-comments-error-evidence/web-feed-comments-error-before.png",
+        "build-reports/web/feed-official-comments-error-evidence/web-feed-comments-error-after.png",
+        "build-reports/web/feed-official-comments-error-evidence/web-official-comments-error-before.png",
+        "build-reports/web/feed-official-comments-error-evidence/web-official-comments-error-after.png"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "1f01411ae76e05b03d6e3fb768933e70d9ee1ac4",
+      "report": "build-reports/android/feed-official-comments-error-evidence.json",
+      "reportSha256": "582b48e72b2f018c734f61ae00f23408796ad4e4629762663f77056090d0ef62",
+      "reportStatus": "passed",
+      "reportGitHead": "1f01411ae76e05b03d6e3fb768933e70d9ee1ac4",
+      "reportWorkingTreeDirty": false,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "feed.comments_failed_comment_not_visible_after_rollback",
+        "official.comments_failed_comment_not_visible_after_rollback",
+        "feed_comments_forced_error_visible_and_rollback_verified",
+        "official_comments_forced_error_visible_and_rollback_verified",
+        "feed_and_official_comment_error_rollback_verified_with_common_tags"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "1f01411ae76e05b03d6e3fb768933e70d9ee1ac4",
+      "report": "build-reports/ios/feed-official-comments-error-evidence.json",
+      "reportSha256": "61a38d46e1ea92b98df0f7987628de94783adc953ee8f08c11e2f4a154e982da",
+      "reportStatus": "passed",
+      "reportGitHead": "1f01411ae76e05b03d6e3fb768933e70d9ee1ac4",
+      "reportWorkingTreeDirty": false,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "feed_comments_forced_error_visible_and_rollback_verified",
+        "official_comments_forced_error_visible_and_rollback_verified",
+        "feed_and_official_comment_error_rollback_verified_with_common_tags"
+      ],
+      "uiReportDirectory": "build-reports/ios/feed-official-comments-error-evidence/mac-ui-report",
+      "resultBundleDirectory": "build-reports/ios/feed-official-comments-error-evidence/xcresults",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/feed-official-comments-emoji-evidence-contract.test.mjs scripts/comments-input-tags-contract.test.mjs scripts/community-emoji-atlas-contract.test.mjs",
+    "node --check scripts/chat-actions-notifications-web-evidence.mjs scripts/chat-actions-notifications-android-evidence.mjs scripts/chat-actions-notifications-ios-evidence.mjs",
+    "bash -n scripts/run-ios-chat-actions-notifications-ui-test.sh",
+    "./gradlew.bat :web:compileKotlinWasmJs :feature:feed:compileKotlinIosX64 :feature:official:compileKotlinIosX64 :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin --no-daemon --console=plain",
+    "./gradlew.bat :web:wasmJsBrowserDistribution --no-daemon --console=plain"
+  ],
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate reduces FLOW-EMOJI and OVR-COMMENTS by exercising forced comment-send failure from the shared emoji composer route in Feed and Official on Web/Wasm, Android and iOS.",
+    "The failure hook is opt-in per platform and deterministic. Product repositories return the forced error only when the E2E-specific flag is present, so normal runtime behavior is unchanged.",
+    "The evidence opens real Feed and Official comment sheets, selects an emoji from the common CommunityEmojiPanelContent route, appends text, attempts to send, verifies the common visible error state and confirms by UI/backend cleanup assertions that no failed optimistic comment remains visible and no failed comment residue remains in community_comments or official_post_comments.",
+    "Web/Wasm uses the visible deterministic forced-error text as fallback because Compose/Wasm does not expose the common error testTag reliably through DOM/ARIA in this host; Android and iOS use native semantic/accessibility anchors.",
+    "Android evidence is intentionally certified by the exact-SHA JSON report, visible non-editable UI absence checks and backend residue checks. The evidence directory may contain older positive-flow screenshots from previous runs and must not be treated as the authoritative artifact for this lane.",
+    "This reduces the forced rollback/error path for Feed and Official emoji comments. It does not declare full FLOW-EMOJI GO: remaining selector error states and broader visual comparison outside this rollback route stay pending."
+  ]
+}

@@ -9,6 +9,7 @@ import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import {
+  assertFeedOfficialCommentAbsent as assertSharedFeedOfficialCommentAbsent,
   cleanupProfileContentFixture as cleanupSharedProfileContentFixture,
   cleanupFeedOfficialCommentsFixture as cleanupSharedFeedOfficialCommentsFixture,
   createCleanupRegistry,
@@ -56,6 +57,7 @@ function parseArgs(argv) {
     profileContentOnly: false,
     profileEntryOnly: false,
     feedOfficialCommentsOnly: false,
+    feedOfficialCommentsErrorOnly: false,
     profilePrivateChatOnly: false,
     profileRolesSafetyOnly: false,
     communityChatOnly: false,
@@ -99,6 +101,12 @@ function parseArgs(argv) {
       result.feedOfficialCommentsOnly = true;
       result.output = resolve("build-reports/web/feed-official-comments-emoji-evidence.json");
       result.evidenceDir = resolve("build-reports/web/feed-official-comments-emoji-evidence");
+      continue;
+    }
+    if (key === "--feed-official-comments-error-only") {
+      result.feedOfficialCommentsErrorOnly = true;
+      result.output = resolve("build-reports/web/feed-official-comments-error-evidence.json");
+      result.evidenceDir = resolve("build-reports/web/feed-official-comments-error-evidence");
       continue;
     }
     if (key === "--profile-private-chat-only") {
@@ -203,6 +211,7 @@ function isProfileFocalMode(options) {
     options.profileListsOnly ||
     options.profileContentOnly ||
     options.feedOfficialCommentsOnly ||
+    options.feedOfficialCommentsErrorOnly ||
     options.profileEntryOnly ||
     options.profilePrivateChatOnly ||
     options.profileRolesSafetyOnly;
@@ -1654,6 +1663,26 @@ async function pollFeedOfficialComment(fixture, surface, marker, timeout = 45_00
   return pollSharedFeedOfficialComment({ fixture, surface, marker, withDatabase: withPoolerClient, delay, timeout });
 }
 
+async function assertFeedOfficialCommentAbsent(fixture, surface, marker) {
+  return assertSharedFeedOfficialCommentAbsent({ fixture, surface, marker, withDatabase: withPoolerClient });
+}
+
+async function assertFeedOfficialCommentNotVisible(page, prefix, commentText, report, errorMessage) {
+  const visibleText = visibleEmojiCommentText(commentText);
+  const stillVisible = await visibleNonEditableTextContentIncludes(page, visibleText);
+  if (stillVisible) {
+    report.diagnostics = {
+      ...(report.diagnostics ?? {}),
+      failedCommentRollbackUiResidue: [
+        ...(report.diagnostics?.failedCommentRollbackUiResidue ?? []),
+        { prefix, visibleText },
+      ],
+    };
+    throw new Error(errorMessage);
+  }
+  report.steps.push(`${prefix}_failed_comment_not_visible_after_rollback`);
+}
+
 async function pollFeedOfficialReplyComment(fixture, surface, marker, replyToCommentId, timeout = 45_000) {
   return pollSharedFeedOfficialReplyComment({ fixture, surface, marker, replyToCommentId, withDatabase: withPoolerClient, delay, timeout });
 }
@@ -3050,6 +3079,97 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
   report.steps.push("feed_and_official_comment_emoji_picker_verified_with_common_tags");
 }
 
+async function verifyFeedOfficialCommentsErrorWeb(page, origin, fixture, evidenceDir, report, faults) {
+  await page.evaluate(() => {
+    globalThis.localStorage?.setItem("quata.feedOfficialComments.forceFailure", "1");
+    globalThis.localStorage?.removeItem("quata.feedOfficialComments.forceFailure.surface");
+  });
+  await feedOfficialCommentsStep("feed_error", async () => {
+    report.steps.push("feed_official_comments_web_feed_error_route_start");
+    await openAuthenticatedRoute(page, origin, `post-${encodeURIComponent(fixture.feed.postId)}`, `post/${fixture.feed.postId}`);
+    await waitVisibleSeededSurfaceText(page, `${fixture.marker} feed post body`, "feed_official_comments_feed_post_marker_missing");
+    await openFeedOfficialCommentsPanel(page, {
+      actionTag: `feed.action.comments.${fixture.feed.postId}`,
+      prefix: "feed.comments",
+      errorPrefix: "feed_official_comments_feed_error",
+      report,
+    });
+    report.evidence.feedErrorBefore = await attachScreenshot(page, evidenceDir, "web-feed-comments-error-before");
+    await fillEmojiComment(page, {
+      prefix: "feed.comments",
+      fallbackPoints: null,
+      value: fixture.feed.uiComment,
+      errorPrefix: "feed_official_comments_feed_error",
+      labelPatterns: {
+        emoji: [/Mostrar emojis|Show emojis|Afficher emojis|Afficher les emojis/i],
+        send: [/Enviar|Send|Envoyer/i],
+        input: [/Escribe un comentario|Write a comment|Écrire un commentaire/i],
+      },
+      composerOpen: (targetPage) => isTaggedCommentsComposerOpen(targetPage, "feed.comments"),
+    });
+    await assertVisibleTagOrText(
+      page,
+      "feed.comments.error",
+      [/feed_official_comments_e2e_forced_feed_comment_failure/i, /Error|No se pudo|failed|fall/i],
+      "feed_official_comments_feed_error_missing",
+    );
+    await assertFeedOfficialCommentNotVisible(
+      page,
+      "feed.comments",
+      fixture.feed.uiComment,
+      report,
+      "feed_official_comments_feed_failed_comment_still_visible",
+    );
+    await assertFeedOfficialCommentAbsent(fixture, "feed", fixture.feed.uiComment);
+    report.evidence.feedErrorAfter = await attachScreenshot(page, evidenceDir, "web-feed-comments-error-after");
+    report.steps.push("feed_comments_forced_error_visible_and_rollback_verified");
+  });
+  assertNoBrowserFaults(report, faults, "feed_official_comments_web_feed_error_fault");
+
+  await feedOfficialCommentsStep("official_error", async () => {
+    report.steps.push("feed_official_comments_web_official_error_route_start");
+    await openAuthenticatedRoute(page, origin, `official-${encodeURIComponent(fixture.official.postId)}`, `official/${fixture.official.postId}`);
+    await waitVisibleSeededSurfaceText(page, fixture.marker, "feed_official_comments_official_post_marker_missing");
+    await openFeedOfficialCommentsPanel(page, {
+      actionTag: `official.action.comments.${fixture.official.postId}`,
+      prefix: "official.comments",
+      errorPrefix: "feed_official_comments_official_error",
+      report,
+    });
+    report.evidence.officialErrorBefore = await attachScreenshot(page, evidenceDir, "web-official-comments-error-before");
+    await fillEmojiComment(page, {
+      prefix: "official.comments",
+      fallbackPoints: null,
+      value: fixture.official.uiComment,
+      errorPrefix: "feed_official_comments_official_error",
+      labelPatterns: {
+        emoji: [/Mostrar emojis|Show emojis|Afficher emojis|Afficher les emojis/i],
+        send: [/Enviar|Send|Envoyer/i],
+        input: [/Escribe un comentario|Write a comment|Écrire un commentaire/i],
+      },
+      composerOpen: (targetPage) => isTaggedCommentsComposerOpen(targetPage, "official.comments"),
+    });
+    await assertVisibleTagOrText(
+      page,
+      "official.comments.error",
+      [/feed_official_comments_e2e_forced_official_comment_failure/i, /Error|No se pudo|failed|fall/i],
+      "feed_official_comments_official_error_missing",
+    );
+    await assertFeedOfficialCommentNotVisible(
+      page,
+      "official.comments",
+      fixture.official.uiComment,
+      report,
+      "feed_official_comments_official_failed_comment_still_visible",
+    );
+    await assertFeedOfficialCommentAbsent(fixture, "official", fixture.official.uiComment);
+    report.evidence.officialErrorAfter = await attachScreenshot(page, evidenceDir, "web-official-comments-error-after");
+    report.steps.push("official_comments_forced_error_visible_and_rollback_verified");
+  });
+  assertNoBrowserFaults(report, faults, "feed_official_comments_web_official_error_fault");
+  report.steps.push("feed_and_official_comment_error_rollback_verified_with_common_tags");
+}
+
 async function assertCommentAuthorAnchorVisible(page, tag, report) {
   const deadline = Date.now() + 10_000;
   const patterns = [new RegExp(escapeRegExp(tag))];
@@ -4207,6 +4327,38 @@ async function visibleTextContentIncludes(page, probe) {
         const rect = element.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0 && containsNeedle(element.textContent)) return true;
         if (element.shadowRoot && visit(element.shadowRoot)) return true;
+      }
+      return false;
+    };
+    return visit(document);
+  }, probe);
+}
+
+async function visibleNonEditableTextContentIncludes(page, probe) {
+  return await page.evaluate((needle) => {
+    const compact = (value) => String(value ?? "").replace(/\s+/g, "");
+    const expected = compact(needle);
+    if (!expected) return false;
+    const containsNeedle = (value) => compact(value).includes(expected);
+    const isEditable = (element) => {
+      const editable = element.closest?.("input,textarea,[contenteditable='true'],[role='textbox']");
+      if (editable) return true;
+      const label = element.getAttribute?.("aria-label") ?? "";
+      return /\.input\b/.test(label);
+    };
+    const visibleRect = (element) => {
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      if (rect.width <= 0 || rect.height <= 0 || style.visibility === "hidden" || style.display === "none") return false;
+      if (rect.bottom < 0 || rect.right < 0 || rect.top > window.innerHeight || rect.left > window.innerWidth) return false;
+      return true;
+    };
+    const visit = (root) => {
+      for (const element of root.querySelectorAll("*")) {
+        if (element.shadowRoot && visit(element.shadowRoot)) return true;
+        if (!visibleRect(element) || isEditable(element) || !containsNeedle(element.textContent)) continue;
+        const childWithNeedle = [...element.children].some((child) => containsNeedle(child.textContent));
+        if (!childWithNeedle) return true;
       }
       return false;
     };
@@ -5372,7 +5524,7 @@ try {
   }
 
   if (state.peerMessage && state.b.accessToken && !options.composerEmojiOnly) {
-    if (options.feedOfficialCommentsOnly) {
+    if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly) {
       state.feedOfficialComments = {
         marker: `qadata-feed-official-comments-${runId}`,
         actorSession: state.a,
@@ -5380,7 +5532,11 @@ try {
       };
       await prepareFeedOfficialCommentsFixture(state.feedOfficialComments);
       report.steps.push("feed_official_comments_fixture_prepared");
-      await verifyFeedOfficialCommentsEmojiWeb(page, server.origin, state.feedOfficialComments, options.evidenceDir, report, faults);
+      if (options.feedOfficialCommentsErrorOnly) {
+        await verifyFeedOfficialCommentsErrorWeb(page, server.origin, state.feedOfficialComments, options.evidenceDir, report, faults);
+      } else {
+        await verifyFeedOfficialCommentsEmojiWeb(page, server.origin, state.feedOfficialComments, options.evidenceDir, report, faults);
+      }
     } else if (options.profileFollowOnly) {
       state.profileFollow = await prepareProfileFollowAbsent(state.a.profileId, state.b.profileId);
       report.steps.push("profile_follow_initial_state_snapshot_and_absent_prepared");
@@ -5439,16 +5595,16 @@ try {
       await openPeerProfileFromMessage(page, peerMarker, state.b, options.evidenceDir, report);
       report.steps.push("peer_avatar_opened_public_profile_and_returned_to_chat");
     }
-    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly) {
+    if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly) {
       const blockingFaults = faults.filter((fault) => !isNonBlockingBrowserRuntimeFault(fault, {
-        label: options.feedOfficialCommentsOnly ? "feed_official_comments_final" : "profile_entry_final",
+        label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly) ? "feed_official_comments_final" : "profile_entry_final",
       }));
       if (faults.length) {
         report.diagnostics = {
           ...(report.diagnostics ?? {}),
           browserRuntimeFaults: faults.slice(),
           nonBlockingBrowserRuntimeFaults: faults.filter((fault) => isNonBlockingBrowserRuntimeFault(fault, {
-            label: options.feedOfficialCommentsOnly ? "feed_official_comments_final" : "profile_entry_final",
+            label: (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly) ? "feed_official_comments_final" : "profile_entry_final",
           })),
         };
       }
@@ -5502,10 +5658,10 @@ try {
       if (options.profileListsOnly) throw new ProfileListsOnlyCompleted();
       if (options.profileEntryOnly) throw new ProfileEntryOnlyCompleted();
       if (options.profileRolesSafetyOnly) throw new ProfileRolesSafetyOnlyCompleted();
-      if (options.feedOfficialCommentsOnly) throw new EvidenceCompleted();
+      if (options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly) throw new EvidenceCompleted();
       throw new ProfileOnlyCompleted();
     }
-  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly) {
+  } else if (options.profileOnly || options.profileFollowOnly || options.profileListsOnly || options.profileContentOnly || options.profileEntryOnly || options.profilePrivateChatOnly || options.profileRolesSafetyOnly || options.feedOfficialCommentsOnly || options.feedOfficialCommentsErrorOnly) {
     throw new Error("profile_state_not_opened:peer_message_unavailable");
   }
 

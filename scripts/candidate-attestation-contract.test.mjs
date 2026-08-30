@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
@@ -21,6 +22,16 @@ function commit(directory, message) {
   git(directory, ["add", "-A"]);
   git(directory, ["commit", "-qm", message]);
   return git(directory, ["rev-parse", "HEAD"]);
+}
+
+function commitPaths(directory, message, paths) {
+  git(directory, ["add", ...paths]);
+  git(directory, ["commit", "-qm", message]);
+  return git(directory, ["rev-parse", "HEAD"]);
+}
+
+function sha256(content) {
+  return createHash("sha256").update(content).digest("hex");
 }
 
 function withRepository(callback) {
@@ -138,4 +149,60 @@ test("missing or dirty evidence entries fail closed", () => withRepository((dire
   const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
   assert.equal(result.ok, false);
   assert.deepEqual(result.incompleteEvidence, ["ios"]);
+}));
+
+test("local evidence report hash and required steps are audited when declared", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  const report = JSON.stringify({
+    status: "passed",
+    git: { head: productSha, workingTreeDirty: false },
+    steps: ["flow_verified"],
+    cleanup: {
+      state: "completed",
+      hardCleanup: { residueCounts: { chat_threads: 0 } },
+    },
+  });
+  write(directory, "build-reports/web/evidence.json", report);
+  const parsed = JSON.parse(manifest(productSha));
+  parsed.evidence.web.reportSha256 = sha256(report);
+  parsed.evidence.web.reportStatus = "passed";
+  parsed.evidence.web.reportGitHead = productSha;
+  parsed.evidence.web.reportWorkingTreeDirty = false;
+  parsed.evidence.web.requireCleanupState = "completed";
+  parsed.evidence.web.requireCleanupResidueZero = true;
+  parsed.evidence.web.requiredSteps = ["flow_verified"];
+  write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
+  const head = commitPaths(directory, "manifest with report contract", ["docs/candidate-attestations/chat.json"]);
+
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.evidenceArtifactFailures, []);
+}));
+
+test("local evidence report mismatch fails closed when declared", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  const report = JSON.stringify({
+    status: "passed",
+    git: { head: productSha, workingTreeDirty: false },
+    steps: ["flow_verified"],
+    cleanup: {
+      state: "completed",
+      hardCleanup: { residueCounts: { chat_threads: 0 } },
+    },
+  });
+  write(directory, "build-reports/web/evidence.json", report);
+  const parsed = JSON.parse(manifest(productSha));
+  parsed.evidence.web.reportSha256 = sha256(`${report}\nchanged`);
+  parsed.evidence.web.requiredSteps = ["flow_verified", "missing_step"];
+  write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
+  const head = commitPaths(directory, "manifest with bad report contract", ["docs/candidate-attestations/chat.json"]);
+
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+
+  assert.equal(result.ok, false);
+  assert.match(result.evidenceArtifactFailures.join("\n"), /web:report_sha256_mismatch/);
+  assert.match(result.evidenceArtifactFailures.join("\n"), /web:report_missing_step:missing_step/);
 }));

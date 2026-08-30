@@ -279,6 +279,7 @@ class OfficialRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun addComment(postId: String, comment: PostComment): Result<OfficialPostItem?> = runCatching {
+        forcedFeedOfficialCommentFailure("official")?.let { error(it) }
         val session = sessionManager.currentSession()
             ?: throw UserFacingException(appContext.getString(R.string.error_backend_unauthorized))
         if (AppConfig.USE_MOCK_BACKEND) {
@@ -471,6 +472,18 @@ class OfficialRepositoryImpl(
     private companion object {
         const val OFFICIAL_REPOSITORY_LOG_TAG = "QuataOfficial"
         const val OfficialFeedPageSize = 50
+        const val EvidencePreferences = "quata_feed_official_comments_evidence"
+        const val EvidenceOptInKey = "comments.optIn"
+        const val EvidenceSurfaceKey = "comments.surface"
+        const val EvidenceOptInValue = "I_ACCEPT_FEED_OFFICIAL_COMMENTS_FORCED_FAILURE_EVIDENCE"
+    }
+
+    private fun forcedFeedOfficialCommentFailure(surface: String): String? {
+        val preferences = appContext.getSharedPreferences(EvidencePreferences, Context.MODE_PRIVATE)
+        if (preferences.getString(EvidenceOptInKey, null) != EvidenceOptInValue) return null
+        val target = preferences.getString(EvidenceSurfaceKey, null)?.lowercase(java.util.Locale.ROOT)
+        if (!target.isNullOrBlank() && target != surface) return null
+        return "feed_official_comments_e2e_forced_${surface}_comment_failure"
     }
 
     private fun currentOfficialLanguage(): OfficialPostLanguage =

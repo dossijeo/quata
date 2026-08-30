@@ -1105,6 +1105,57 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
     }
 
+    func testFeedAndOfficialCommentsForcedErrorRollsBackSharedEmojiComment() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Feed/Official comments forced-error UI gate is opt-in.")
+        }
+        guard let feedPostId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID"]),
+              let feedComment = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_UI_COMMENT"]),
+              let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID"]),
+              let officialComment = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_UI_COMMENT"]) else {
+            throw XCTSkip("Disposable Feed/Official comments forced-error fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launchEnvironment["QUATA_IOS_FEED_OFFICIAL_COMMENTS_FORCE_FAILURE"] = "1"
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
+        sendFailingEmojiCommentFromTaggedSurface(
+            actionIdentifier: "feed.action.comments.\(feedPostId)",
+            inputIdentifier: "feed.comments.input",
+            emojiIdentifier: "feed.comments.emoji",
+            sendIdentifier: "feed.comments.send",
+            errorIdentifier: "feed.comments.error",
+            comment: feedComment,
+            beforeScreenshot: "ios-feed-comments-error-before",
+            afterScreenshot: "ios-feed-comments-error-after",
+            context: "Feed comments forced error",
+            in: app,
+        )
+
+        openDeepLink("quata://egquata.com/#official-\(encodedFragment(officialPostId))", in: app)
+        sendFailingEmojiCommentFromTaggedSurface(
+            actionIdentifier: "official.action.comments.\(officialPostId)",
+            inputIdentifier: "official.comments.input",
+            emojiIdentifier: "official.comments.emoji",
+            sendIdentifier: "official.comments.send",
+            errorIdentifier: "official.comments.error",
+            comment: officialComment,
+            beforeScreenshot: "ios-official-comments-error-before",
+            afterScreenshot: "ios-official-comments-error-after",
+            context: "Official comments forced error",
+            in: app,
+        )
+    }
+
     private func assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, replyComment: String, in app: XCUIApplication) {
         let posts = app.descendants(matching: .any)
             .matching(identifier: "public-profile.kpi.posts.\(profileId)")
@@ -1323,6 +1374,63 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             .matching(identifier: authorIdentifier)
             .firstMatch
         XCTAssertTrue(author.waitForExistence(timeout: 10), "\(context) must expose a stable comment author profile anchor.")
+    }
+
+    private func sendFailingEmojiCommentFromTaggedSurface(
+        actionIdentifier: String,
+        inputIdentifier: String,
+        emojiIdentifier: String,
+        sendIdentifier: String,
+        errorIdentifier: String,
+        comment: String,
+        beforeScreenshot: String,
+        afterScreenshot: String,
+        context: String,
+        in app: XCUIApplication,
+    ) {
+        let action = waitForVisibleIdentifier(actionIdentifier, in: app, context: context)
+        action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(
+            waitForCommentInput(inputIdentifier, in: app, timeout: 10, required: true).exists,
+            "\(context) must open the shared comments composer.",
+        )
+        let inputFrameBeforeEmoji = waitForCommentInput(inputIdentifier, in: app, timeout: 5, required: true).frame
+        let sendFrameBeforeEmoji = app.descendants(matching: .any)
+            .matching(identifier: sendIdentifier)
+            .firstMatch
+            .frame
+        attachScreenshot(app, name: beforeScreenshot)
+
+        tapTaggedButton(emojiIdentifier, in: app, context: "\(context) emoji")
+        let emojiPanel = app.descendants(matching: .any)
+            .matching(identifier: "community.emoji.panel")
+            .firstMatch
+        XCTAssertTrue(emojiPanel.waitForExistence(timeout: 10), "\(context) must show the shared emoji panel.")
+        verifyCommunityEmojiFrequentSection(context: context, screenshotPrefix: beforeScreenshot + "-panel", in: app)
+        tapEmojiCell(
+            "community.emoji.cell.frequent.0",
+            sectionIdentifier: "community.emoji.section.frequent",
+            in: app,
+            context: "\(context) first frequent emoji",
+        )
+
+        _ = waitForCommentInput(inputIdentifier, in: app, timeout: 3, required: false)
+        typeText(String(comment.dropFirst()), intoCommentInput: inputIdentifier, fallbackFrame: inputFrameBeforeEmoji, in: app)
+        tapTaggedButton(sendIdentifier, fallbackFrame: sendFrameBeforeEmoji, in: app, context: "\(context) send")
+
+        let error = app.descendants(matching: .any)
+            .matching(identifier: errorIdentifier)
+            .firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 20), "\(context) must surface the shared comments error anchor.")
+        let visibleComment = uniqueSubmittedCommentProbe(comment)
+        let rolledBackComment = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "(label CONTAINS %@ OR value CONTAINS %@) AND identifier != %@", visibleComment, visibleComment, inputIdentifier))
+            .firstMatch
+        XCTAssertTrue(
+            rolledBackComment.waitForNonExistence(timeout: 10),
+            "\(context) must remove the optimistic failed comment instead of leaving it visible.",
+        )
+        attachScreenshot(app, name: afterScreenshot)
     }
 
     private func verifyCommunityEmojiPanelSections(context: String, screenshotPrefix: String, in app: XCUIApplication) {

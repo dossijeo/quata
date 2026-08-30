@@ -173,6 +173,7 @@ class WebOfficialRepository(
     }
 
     override suspend fun addComment(postId: String, comment: PostComment): Result<OfficialPostItem?> = runCatching {
+        webFeedOfficialCommentFailure("official")?.let { error(it) }
         val userId = authenticatedUserId()
         val safePostId = postId.requireOfficialPostgrestIdentifier()
         val safeUserId = userId.requireOfficialPostgrestIdentifier()
