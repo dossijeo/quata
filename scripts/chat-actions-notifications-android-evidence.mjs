@@ -2129,6 +2129,8 @@ try {
     if (feedOfficialCommentsErrorOnly) {
       await assertFeedOfficialCommentAbsent(state.feedOfficialComments, "feed", state.feedOfficialComments.feed.uiComment);
       await assertFeedOfficialCommentAbsent(state.feedOfficialComments, "official", state.feedOfficialComments.official.uiComment);
+      report.steps.push("feed.comments_failed_comment_not_visible_after_rollback");
+      report.steps.push("official.comments_failed_comment_not_visible_after_rollback");
       report.steps.push("feed_comments_forced_error_visible_and_rollback_verified");
       report.steps.push("official_comments_forced_error_visible_and_rollback_verified");
     }
