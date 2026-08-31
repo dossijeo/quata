@@ -4,15 +4,15 @@
     "FLOW-EMOJI",
     "OVR-COMMENTS"
   ],
-  "productSha": "f2104932a5b1c9e6ebc749db87eb5b3e4c9b58b2",
+  "productSha": "5363ed22a2d7932fa4e72672e6cd729fce923f1c",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "f2104932a5b1c9e6ebc749db87eb5b3e4c9b58b2",
+      "sha": "5363ed22a2d7932fa4e72672e6cd729fce923f1c",
       "report": "build-reports/web/flow-emoji-selector-states-evidence.json",
-      "reportSha256": "dddad30262b6aa72b0a6bfa184a494d33ce41a6f8159e414364a7a4ad62d7e4e",
+      "reportSha256": "64d9fb030374aa2bd5a5afea754e373e1e24864d4503aa536f04101369d0c9cb",
       "reportStatus": "passed",
-      "reportGitHead": "f2104932a5b1c9e6ebc749db87eb5b3e4c9b58b2",
+      "reportGitHead": "5363ed22a2d7932fa4e72672e6cd729fce923f1c",
       "reportWorkingTreeDirty": false,
       "requireCleanupState": "completed",
       "requireCleanupResidueZero": true,
@@ -32,11 +32,11 @@
     },
     "android": {
       "status": "passed",
-      "sha": "f2104932a5b1c9e6ebc749db87eb5b3e4c9b58b2",
+      "sha": "5363ed22a2d7932fa4e72672e6cd729fce923f1c",
       "report": "build-reports/android/flow-emoji-selector-states-evidence.json",
-      "reportSha256": "b7e9f6a4823023e1460c5ad840f7bc11bf6da3af22b77b67710852b074e34580",
+      "reportSha256": "5faeacd17d7b547f96cba95fe1293998d679db00a834f70dd99a7c124a03de26",
       "reportStatus": "passed",
-      "reportGitHead": "f2104932a5b1c9e6ebc749db87eb5b3e4c9b58b2",
+      "reportGitHead": "5363ed22a2d7932fa4e72672e6cd729fce923f1c",
       "reportWorkingTreeDirty": false,
       "requireCleanupState": "completed",
       "requireCleanupResidueZero": true,
@@ -52,11 +52,11 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "f2104932a5b1c9e6ebc749db87eb5b3e4c9b58b2",
+      "sha": "5363ed22a2d7932fa4e72672e6cd729fce923f1c",
       "report": "build-reports/ios/flow-emoji-selector-states-evidence.json",
-      "reportSha256": "cc20a2fc9d78a613f0d9000958f0c347b71083a0862a9d1624c3e5cbb6d852e8",
+      "reportSha256": "67be0337a7d4c240a2c998599f0a429b5e7a7cd2016a28cdc483eb75a1dde588",
       "reportStatus": "passed",
-      "reportGitHead": "f2104932a5b1c9e6ebc749db87eb5b3e4c9b58b2",
+      "reportGitHead": "5363ed22a2d7932fa4e72672e6cd729fce923f1c",
       "reportWorkingTreeDirty": false,
       "requireCleanupState": "completed",
       "requireCleanupResidueZero": true,
@@ -76,6 +76,7 @@
   },
   "preflight": [
     "git diff --check",
+    "node --test scripts/capability-matrix-contract.test.mjs",
     "node --check scripts/chat-actions-notifications-web-evidence.mjs scripts/chat-actions-notifications-android-evidence.mjs scripts/chat-actions-notifications-ios-evidence.mjs",
     "node --test scripts/feed-official-comments-emoji-evidence-contract.test.mjs",
     "bash -n scripts/run-ios-chat-actions-notifications-ui-test.sh",
@@ -97,6 +98,7 @@
     "Web/Wasm, Android and iOS verify the common error state, retry action, empty state and absence of stale frequent cells using shared tags community.emoji.error, community.emoji.retry, community.emoji.empty and community.emoji.cell.frequent.0.",
     "Web/Wasm no longer uses absolute viewport coordinates for the Official comments action in this runner. If Compose/Wasm does not expose the exact action button as DOM/ARIA, replay derives the tap from the stable official-post-card anchor and the shared QuataFeedActionRail comments slot.",
     "The iOS evidence was rebuilt with --build-first because the previous local .xctestrun did not contain the new selector-state XCTest and correctly failed with zero executed tests.",
-    "This reduces selector-owned error and empty states. It does not declare full FLOW-EMOJI GO: broader visual comparison and unrelated emoji/comment routes remain governed by their own rows and manifests."
+    "This reduces selector-owned error and empty states. It does not declare full FLOW-EMOJI GO: broader visual comparison and unrelated emoji/comment routes remain governed by their own rows and manifests.",
+    "Product SHA 5363ed22 includes the reviewed capability-matrix hash refresh for QuataFeedViewController.kt after iOS fast contracts caught the drift; Web/Wasm, Android and iOS selector-state evidence was rerun exactly on that SHA."
   ]
 }
