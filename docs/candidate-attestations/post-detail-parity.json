@@ -6,11 +6,11 @@
     "OVR-POST-DETAIL"
   ],
   "status": "passed",
-  "productSha": "6c438b5dfd9cc82bb75f3b651eecc179df90e327",
+  "productSha": "e98dc3363b50b46d10cb30c932aedc3e802d6a10",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "6c438b5dfd9cc82bb75f3b651eecc179df90e327",
+      "sha": "e98dc3363b50b46d10cb30c932aedc3e802d6a10",
       "report": "build-reports/web/post-detail-evidence.json",
       "cleanup": {
         "verified": true,
@@ -25,7 +25,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "6c438b5dfd9cc82bb75f3b651eecc179df90e327",
+      "sha": "e98dc3363b50b46d10cb30c932aedc3e802d6a10",
       "report": "build-reports/android/post-detail-evidence.json",
       "cleanup": {
         "verified": true,
@@ -40,7 +40,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "6c438b5dfd9cc82bb75f3b651eecc179df90e327",
+      "sha": "e98dc3363b50b46d10cb30c932aedc3e802d6a10",
       "report": "build-reports/ios/post-detail-evidence.json",
       "cleanup": {
         "verified": true,
@@ -57,7 +57,7 @@
   "review": {
     "solo": {
       "status": "addressed",
-      "sha": "6c438b5dfd9cc82bb75f3b651eecc179df90e327",
+      "sha": "e98dc3363b50b46d10cb30c932aedc3e802d6a10",
       "notes": [
         "Independent Sol review found physical back, iOS state, focused post drift, Web text observability and browser-history risks.",
         "The candidate fixes those risks with common focused-detail state, Android BackHandler, iOS state-preserving slots, Web semantic evidence markers and hash replace back navigation."
