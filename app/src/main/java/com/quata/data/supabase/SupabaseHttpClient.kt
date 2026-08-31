@@ -186,6 +186,16 @@ class SupabaseHttpClient(
         return json.decodeFromString(response)
     }
 
+    internal suspend inline fun <reified Req, reified Res> rpcWithBearerToken(
+        functionName: String,
+        body: Req,
+        bearerToken: String
+    ): Res {
+        val payload = json.encodeToString(body)
+        val response = execute("POST", "${config.rpcUrl}/$functionName", payload, authBearerOverride = bearerToken)
+        return json.decodeFromString(response)
+    }
+
     internal suspend inline fun <reified Req, reified Res> invokeFunction(functionName: String, body: Req): Res {
         val payload = json.encodeToString(body)
         val response = execute("POST", "${config.functionsUrl}/$functionName", payload, useContentProfile = false)
@@ -251,7 +261,8 @@ class SupabaseHttpClient(
         cacheTable: String? = null,
         cacheQuery: Map<String, String?>? = null,
         cacheMode: SupabaseCacheMode = SupabaseCacheMode.CACHE_FIRST,
-        useContentProfile: Boolean = true
+        useContentProfile: Boolean = true,
+        authBearerOverride: String? = null
     ): String {
         if (method.equals("GET", ignoreCase = true)) {
             return executeCachedGet(url, cacheTable, cacheQuery, cacheMode)
@@ -265,7 +276,7 @@ class SupabaseHttpClient(
             "DELETE" -> builder.delete(requestBody).build()
             else -> error("Unsupported method: $method")
         }
-        return executeRequest(request)
+        return executeRequest(request, authBearerOverride)
     }
 
     private suspend fun executeCachedGet(
@@ -371,11 +382,15 @@ class SupabaseHttpClient(
     private fun CachedSupabaseResponse.isFresh(): Boolean =
         System.currentTimeMillis() - updatedAtMillis < CACHE_FIRST_REFRESH_TTL_MILLIS
 
-    private suspend fun executeRequest(request: Request): String = withContext(Dispatchers.IO) {
-        val freshRequest = withAuthHeader(refreshSessionIfNeeded(request))
+    private suspend fun executeRequest(request: Request, authBearerOverride: String? = null): String = withContext(Dispatchers.IO) {
+        val freshRequest = if (authBearerOverride.isNullOrBlank()) {
+            withAuthHeader(refreshSessionIfNeeded(request))
+        } else {
+            withAuthHeader(request, authBearerOverride)
+        }
         okHttp.newCall(freshRequest).execute().use { response ->
             val responseBody = response.body?.string().orEmpty()
-            if (response.code == 401 && sessionManager?.currentSession()?.refreshToken?.isNotBlank() == true) {
+            if (authBearerOverride.isNullOrBlank() && response.code == 401 && sessionManager?.currentSession()?.refreshToken?.isNotBlank() == true) {
                 val refreshed = refreshCurrentSession(force = true)
                 if (refreshed != null) {
                     val retryRequest = withAuthHeader(request)
@@ -466,11 +481,13 @@ class SupabaseHttpClient(
         )
     }
 
-    private fun withAuthHeader(request: Request): Request {
-        val bearer = sessionManager
-            ?.currentSession()
-            ?.bearerToken
+    private fun withAuthHeader(request: Request, bearerOverride: String? = null): Request {
+        val bearer = bearerOverride
             ?.takeIf { it.isNotBlank() }
+            ?: sessionManager
+                ?.currentSession()
+                ?.bearerToken
+                ?.takeIf { it.isNotBlank() }
             ?: config.anonKey
         return request.newBuilder()
             .header("apikey", config.anonKey)

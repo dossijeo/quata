@@ -23,7 +23,7 @@ internal fun webUgcTermsGateway(
 ): UgcTermsGateway {
     val pendingSyncScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     return LocalFirstUgcTermsGateway(
-        profileIdProvider = { authRepository.sessionForAuthenticatedRequest()?.userId },
+        profileIdProvider = { authRepository.storedProfileIdOrNull() },
         store = PreferenceUgcTermsAcceptanceStore(preferences),
         remote = UgcTermsRemoteGateway { profileId, version ->
             rpcClient.post(

@@ -10,7 +10,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.quata.core.localization.QuataLanguage
 import com.quata.core.moderation.UgcTermsGateway
-import com.quata.core.moderation.flushPendingAcceptanceIfSupported
 import kotlinx.coroutines.launch
 
 data class QuataUgcTermsStrings(
@@ -74,12 +73,6 @@ fun QuataUgcTermsGateContent(
         if (profileId != null) {
             accepted = gateway.hasAcceptedTerms().getOrDefault(false)
             onAcceptedStateChanged(accepted)
-        }
-    }
-
-    LaunchedEffect(profileId, accepted, gateway) {
-        if (profileId != null && accepted == true) {
-            gateway.flushPendingAcceptanceIfSupported()
         }
     }
 

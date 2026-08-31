@@ -65,6 +65,10 @@ class WebAuthRepository(
         return session
     }
 
+    /** Returns the persisted profile id without refreshing, expiring or clearing local credentials. */
+    internal suspend fun storedProfileIdOrNull(): String? =
+        storedSessionOrNull()?.userId?.trim()?.takeIf(String::isNotBlank)
+
     /** Returns credentials refreshed through Supabase Auth when they are close to expiry. */
     suspend fun currentWebPushCredentials(): WebPushCredentials? =
         sessionForAuthenticatedRequest()?.let { WebPushCredentials(it.accessToken, it.webSessionToken) }

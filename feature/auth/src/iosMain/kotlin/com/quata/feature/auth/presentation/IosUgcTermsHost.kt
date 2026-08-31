@@ -62,7 +62,7 @@ fun createIosUgcTermsGateway(
 ): UgcTermsGateway {
     val pendingSyncScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     return LocalFirstUgcTermsGateway(
-        profileIdProvider = { session.currentSession()?.userId },
+        profileIdProvider = { session.restoredSession()?.userId },
         store = PreferenceUgcTermsAcceptanceStore(preferences),
         remote = UgcTermsRemoteGateway { profileId, version ->
             iosUgcTermsRpcBoolean(configuration, session, transport, "quata_has_accepted_ugc_terms", profileId, version)

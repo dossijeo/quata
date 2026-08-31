@@ -1,6 +1,9 @@
 package com.quata.core.moderation
 
 import com.quata.core.platform.PreferenceStore
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 interface UgcTermsGateway {
     suspend fun hasAcceptedTerms(version: String = CurrentUgcTermsVersion): Result<Boolean>
@@ -57,9 +60,14 @@ class LocalFirstUgcTermsGateway(
     private val acceptance: UgcTermsAcceptanceGateway,
     private val pendingSyncLauncher: (((suspend () -> Unit) -> Unit))? = null,
 ) : UgcTermsGateway, UgcTermsPendingSyncGateway {
+    private val flushMutex = Mutex()
+
     override suspend fun hasAcceptedTerms(version: String): Result<Boolean> = runCatching {
         val profileId = requireProfileId()
-        if (store.isAccepted(profileId, version)) return@runCatching true
+        if (store.isAccepted(profileId, version)) {
+            launchPendingSync(version)
+            return@runCatching true
+        }
         val acceptedRemotely = remote.hasAcceptedTerms(profileId, version).getOrThrow()
         if (acceptedRemotely) store.markAcceptedSynced(profileId, version)
         acceptedRemotely
@@ -68,17 +76,17 @@ class LocalFirstUgcTermsGateway(
     override suspend fun acceptTerms(version: String): Result<Unit> = runCatching {
         val profileId = requireProfileId()
         store.markAcceptedPendingSync(profileId, version)
-        pendingSyncLauncher?.invoke {
-            flushPendingAcceptance(version)
-        }
+        launchPendingSync(version)
     }
 
     override suspend fun flushPendingAcceptance(version: String): Result<Boolean> = runCatching {
-        val profileId = requireProfileId()
-        if (!store.isPending(profileId, version)) return@runCatching true
-        acceptance.acceptTerms(profileId, version).getOrThrow()
-        store.markAcceptedSynced(profileId, version)
-        true
+        flushMutex.withLock {
+            val profileId = requireProfileId()
+            if (!store.isPending(profileId, version)) return@withLock true
+            acceptance.acceptTerms(profileId, version).getOrThrow()
+            store.markAcceptedSynced(profileId, version)
+            true
+        }
     }
 
     suspend fun hasPendingAcceptance(version: String = CurrentUgcTermsVersion): Result<Boolean> = runCatching {
@@ -89,6 +97,29 @@ class LocalFirstUgcTermsGateway(
     private suspend fun requireProfileId(): String =
         profileIdProvider()?.trim()?.takeIf(String::isNotEmpty)
             ?: error("ugc_terms_session_required")
+
+    private fun launchPendingSync(version: String) {
+        pendingSyncLauncher?.invoke {
+            flushPendingAcceptanceWithBackoff(version)
+        }
+    }
+
+    private suspend fun flushPendingAcceptanceWithBackoff(version: String) {
+        var delayMillis = PendingSyncInitialDelayMillis
+        repeat(PendingSyncRetryAttempts) { attempt ->
+            if (flushPendingAcceptance(version).getOrDefault(false)) return
+            if (attempt != PendingSyncRetryAttempts - 1) {
+                delay(delayMillis)
+                delayMillis = (delayMillis * 2).coerceAtMost(PendingSyncMaxDelayMillis)
+            }
+        }
+    }
+
+    private companion object {
+        const val PendingSyncRetryAttempts = 5
+        const val PendingSyncInitialDelayMillis = 1_000L
+        const val PendingSyncMaxDelayMillis = 30_000L
+    }
 }
 
 suspend fun UgcTermsGateway.flushPendingAcceptanceIfSupported(
