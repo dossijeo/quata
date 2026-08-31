@@ -6,12 +6,22 @@
     "FLOW-LEGAL-DOCUMENTS"
   ],
   "status": "passed",
-  "productSha": "4939f14415a834f579b87dceb5ffc585c86e9e20",
+  "productSha": "40d4b33069e7984dcb96d9d94cb33a7699347438",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "4939f14415a834f579b87dceb5ffc585c86e9e20",
+      "sha": "40d4b33069e7984dcb96d9d94cb33a7699347438",
       "report": "build-reports/web/about-release-history-evidence.json",
+      "reportSha256": "b758faf0d32b1f26dde3826061efe574fc5fa5b4e5ce776648f61e5c369a67dd",
+      "reportStatus": "passed",
+      "reportGitHead": "40d4b33069e7984dcb96d9d94cb33a7699347438",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "about_deeplink_rendered",
+        "about_legal_documents_opened_from_local_assets",
+        "about_release_history_button_navigated",
+        "release_history_direct_deeplink_rendered"
+      ],
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -24,8 +34,16 @@
     },
     "android": {
       "status": "passed",
-      "sha": "4939f14415a834f579b87dceb5ffc585c86e9e20",
+      "sha": "40d4b33069e7984dcb96d9d94cb33a7699347438",
       "report": "build-reports/android/about-release-history-evidence.json",
+      "reportSha256": "8b8c4e57218e142c744e242f0f6b0b5843b59d4c4e505fe8e761cc882d3b8a44",
+      "reportStatus": "passed",
+      "reportGitHead": "40d4b33069e7984dcb96d9d94cb33a7699347438",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "android_debug_and_test_apks_built",
+        "android_common_about_release_history_test_passed"
+      ],
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
@@ -33,13 +51,22 @@
       "coverage": [
         "Android builds debug and androidTest APKs, installs them on the active emulator and runs AboutReleaseHistoryCommonBridgeInstrumentedTest.",
         "The instrumented test mounts QuataAboutDialogContent and ReleaseHistoryContent from commonMain, navigates About to Release History and validates the shared legal document actions.",
-        "The runner records a final physical emulator screenshot in build-reports/android/about-release-history-evidence/android-about-release-history-final.png."
+        "The runner copies the real instrumented evidence artifacts from external app storage: android-about-common.png, android-about-to-release-history.png, android-release-history-next.png and android-about-release-history-common-evidence.json."
       ]
     },
     "ios": {
       "status": "passed",
-      "sha": "4939f14415a834f579b87dceb5ffc585c86e9e20",
+      "sha": "40d4b33069e7984dcb96d9d94cb33a7699347438",
       "report": "build-reports/ios/about-release-history-evidence.json",
+      "reportSha256": "2ba41f7f04c7cd36f001a9389d41c67fbdf6e7aea6f28c666689a050ee661795",
+      "reportStatus": "passed",
+      "reportGitHead": "40d4b33069e7984dcb96d9d94cb33a7699347438",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "mac_checkout_sha_matches_local_candidate",
+        "ios_simulator_signed_build_succeeded_on_mac",
+        "ios_about_release_history_ui_test_passed"
+      ],
       "cleanup": {
         "verified": true,
         "physicalResidue": 0
