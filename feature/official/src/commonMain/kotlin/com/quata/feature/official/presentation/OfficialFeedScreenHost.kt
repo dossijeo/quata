@@ -310,6 +310,8 @@ fun OfficialFeedScreenHost(
                                     displayName = post.author.displayName,
                                     neighborhood = post.author.neighborhood,
                                     fallbackNeighborhood = strings.officialAccountFallback,
+                                    authorProfileTestTag = officialAuthorAvatarTestTag(post.author.id),
+                                    onOpenAuthorProfile = { onOpenUserProfile(post.author.id) },
                                     avatar = {
                                         slots.avatar(
                                             post,
@@ -319,10 +321,7 @@ fun OfficialFeedScreenHost(
                                                 .semantics { contentDescription = officialAuthorAvatarTestTag(post.author.id) },
                                         )
                                     },
-                                    modifier = authorModifier
-                                        .testTag(officialAuthorAvatarTestTag(post.author.id))
-                                        .semantics { contentDescription = officialAuthorAvatarTestTag(post.author.id) }
-                                        .clickable { onOpenUserProfile(post.author.id) },
+                                    modifier = authorModifier,
                                 )
                             },
                             media = post.mediaUrl?.takeIf(String::isNotBlank)?.let { { mediaModifier -> slots.media(post, mediaModifier) { mediaPost = post.id } } },
@@ -397,6 +396,8 @@ fun OfficialFeedScreenHost(
                     displayName = post.author.displayName,
                     neighborhood = post.author.neighborhood,
                     fallbackNeighborhood = strings.officialAccountFallback,
+                    authorProfileTestTag = officialAuthorAvatarTestTag(post.author.id),
+                    onOpenAuthorProfile = { onOpenUserProfile(post.author.id) },
                     avatar = {
                         slots.avatar(
                             post,
@@ -406,10 +407,7 @@ fun OfficialFeedScreenHost(
                                 .semantics { contentDescription = officialAuthorAvatarTestTag(post.author.id) },
                         )
                     },
-                    modifier = it
-                        .testTag(officialAuthorAvatarTestTag(post.author.id))
-                        .semantics { contentDescription = officialAuthorAvatarTestTag(post.author.id) }
-                        .clickable { onOpenUserProfile(post.author.id) },
+                    modifier = it,
                 )
             },
             media = post.mediaUrl?.takeIf(String::isNotBlank)?.let { { modifier -> slots.media(post, modifier) { mediaPost = post.id } } },

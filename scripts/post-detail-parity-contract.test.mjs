@@ -11,7 +11,10 @@ async function source(path) {
 
 const chrome = await source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataPostDetailChromeContent.kt");
 const feedHost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedScreenHost.kt");
+const feedReelPost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelPostContent.kt");
+const feedAuthor = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/ReelAuthorContent.kt");
 const officialHost = await source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt");
+const officialAuthor = await source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialAuthorHeaderContent.kt");
 const androidNav = await source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt");
 const webMain = await source("web/src/wasmJsMain/kotlin/com/quata/web/Main.kt");
 const iosApp = await source("iosApp/iosApp/QuataIosApp.swift");
@@ -53,6 +56,17 @@ test("Feed focused-post mode exposes shared chrome and a real back callback", ()
   assert.match(iosApp, /onBackFromFocusedPost: postId == nil \? nil : \{ \[weak self\] in self\?\.authenticatedHost\.markFeedDetailClosed\(\) \}/);
 });
 
+test("Feed author profile entry is owned by the common reel row", () => {
+  assert.match(feedReelPost, /onOpenAuthorProfile: \(\) -> Unit = \{\}/);
+  assert.match(feedReelPost, /authorProfileTestTag = feedAuthorAvatarTestTag\(post\.author\.id\)/);
+  assert.match(feedReelPost, /onOpenAuthorProfile = onOpenAuthorProfile/);
+  assert.match(feedAuthor, /authorProfileTestTag: String\? = null/);
+  assert.match(feedAuthor, /onOpenAuthorProfile: \(\(\) -> Unit\)\? = null/);
+  assert.match(feedAuthor, /\.testTag\(it\)\.semantics \{ contentDescription = it \}/);
+  assert.match(feedAuthor, /Modifier\.clickable\(onClick = it\)/);
+  assert.match(feedHost, /onOpenAuthorProfile = \{ onOpenUserProfile\(post\.author\.id\) \}/);
+});
+
 test("Official focused-post mode exposes the same chrome contract", () => {
   assert.match(officialHost, /const val OfficialPostDetailChromeTestTag = "official\.detail\.chrome"/);
   assert.match(officialHost, /const val OfficialPostDetailBackTestTag = "official\.detail\.back"/);
@@ -67,6 +81,16 @@ test("Official focused-post mode exposes the same chrome contract", () => {
   assert.match(iosOfficial, /val onBackFromFocusedPost: \(\(\) -> Unit\)\? = null/);
   assert.match(iosApp, /func markOfficialDetailClosed\(\)/);
   assert.match(iosApp, /onBackFromFocusedPost: postId == nil \? nil : \{ \[weak self\] in self\?\.authenticatedHost\.markOfficialDetailClosed\(\) \}/);
+});
+
+test("Official author profile entry is owned by the common author header", () => {
+  assert.match(officialAuthor, /authorProfileTestTag: String\? = null/);
+  assert.match(officialAuthor, /onOpenAuthorProfile: \(\(\) -> Unit\)\? = null/);
+  assert.match(officialAuthor, /\.testTag\(it\)\.semantics \{ contentDescription = it \}/);
+  assert.match(officialAuthor, /Modifier\.clickable\(onClick = it\)/);
+  assert.match(officialHost, /authorProfileTestTag = officialAuthorAvatarTestTag\(post\.author\.id\)/);
+  assert.match(officialHost, /onOpenAuthorProfile = \{ onOpenUserProfile\(post\.author\.id\) \}/);
+  assert.doesNotMatch(officialHost, /modifier = authorModifier[\s\S]{0,180}\.clickable \{ onOpenUserProfile\(post\.author\.id\) \}/);
 });
 
 test("iOS focal evidence has a post-detail-only stage with shared anchors", () => {

@@ -53,6 +53,7 @@ fun FeedReelPostContent(
     onShare: () -> Unit,
     onReport: () -> Unit,
     onCreatePost: () -> Unit,
+    onOpenAuthorProfile: () -> Unit = {},
     navigation: (@Composable BoxScope.() -> Unit)? = null,
     translation: (@Composable () -> Unit)? = null,
     actionRail: (@Composable () -> Unit)? = null,
@@ -132,6 +133,8 @@ fun FeedReelPostContent(
                 showDescription = (isVideo || post.imageUrl != null) && displayText.isNotBlank() && !isTextOnly,
                 isDescriptionExpanded = isDescriptionExpanded,
                 onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
+                authorProfileTestTag = feedAuthorAvatarTestTag(post.author.id),
+                onOpenAuthorProfile = onOpenAuthorProfile,
                 avatar = avatar,
             )
         },

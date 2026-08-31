@@ -425,6 +425,7 @@ fun FeedScreenHost(
                         else onAuthRequired()
                     },
                     onCreatePost = { if (canParticipate) onCreatePost() else onAuthRequired() },
+                    onOpenAuthorProfile = { onOpenUserProfile(post.author.id) },
                 )
             }
             QuataFeedPullRefreshIndicator(
