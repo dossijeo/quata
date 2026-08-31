@@ -676,8 +676,8 @@ class ChatActionsNotificationsInstrumentedTest {
             if (row != null) {
                 val bounds = row.boundsInRoot
                 val y = bounds.center.y.roundToInt()
-                val startX = if (sectionIndex >= 4) (bounds.right - 12f).roundToInt() else (bounds.left + 12f).roundToInt()
-                val endX = if (sectionIndex >= 4) (bounds.left + 12f).roundToInt() else (bounds.right - 12f).roundToInt()
+                val startX = if (sectionIndex >= 3) (bounds.right - 12f).roundToInt() else (bounds.left + 12f).roundToInt()
+                val endX = if (sectionIndex >= 3) (bounds.left + 12f).roundToInt() else (bounds.right - 12f).roundToInt()
                 device.swipe(startX, y, endX, y, 16)
                 compose.waitForIdle()
                 return@repeat
@@ -685,7 +685,7 @@ class ChatActionsNotificationsInstrumentedTest {
             runCatching {
                 compose.onNodeWithTag("community.emoji.sections", useUnmergedTree = true)
                     .performTouchInput {
-                        if (sectionIndex >= 4) swipeLeft() else swipeRight()
+                        if (sectionIndex >= 3) swipeLeft() else swipeRight()
                     }
                 compose.waitForIdle()
             }
