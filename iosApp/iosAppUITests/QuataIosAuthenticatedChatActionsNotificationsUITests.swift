@@ -1110,6 +1110,50 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
     }
 
+    func testFeedAndOfficialPostDetailsUseSharedChromeAndBack() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_POST_DETAIL_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Feed/Official post-detail UI gate is opt-in.")
+        }
+        guard let feedPostId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID"]),
+              let feedPostBody = nonEmpty(environment["QUATA_IOS_CHAT_FEED_POST_BODY"]),
+              let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID"]),
+              let officialTitle = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_TITLE"]) else {
+            throw XCTSkip("Disposable Feed/Official post-detail fixture is not configured.")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+
+        let feed = app.descendants(matching: .any)
+            .matching(identifier: "quata-ios-feed-host")
+            .firstMatch
+        XCTAssertTrue(feed.waitForExistence(timeout: 20), "The seeded normal launch must restore Feed.")
+
+        openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: app)
+        assertPostDetailChrome(
+            chromeIdentifier: "feed.detail.chrome",
+            backIdentifier: "feed.detail.back",
+            expectedText: feedPostBody,
+            openScreenshot: "ios-post-detail-feed-open",
+            backScreenshot: "ios-post-detail-feed-back",
+            context: "Feed post detail",
+            in: app,
+        )
+
+        openDeepLink("quata://egquata.com/#official-\(encodedFragment(officialPostId))", in: app)
+        assertPostDetailChrome(
+            chromeIdentifier: "official.detail.chrome",
+            backIdentifier: "official.detail.back",
+            expectedText: officialTitle,
+            openScreenshot: "ios-post-detail-official-open",
+            backScreenshot: "ios-post-detail-official-back",
+            context: "Official post detail",
+            in: app,
+        )
+    }
+
     func testFeedAndOfficialCommentsForcedErrorRollsBackSharedEmojiComment() throws {
         let environment = ProcessInfo.processInfo.environment
         guard environment["QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E"] == "1" else {
@@ -2525,6 +2569,49 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(element.exists, "Expected \(identifier) for \(context).")
         return element
+    }
+
+    private func waitForExistingIdentifier(_ identifier: String, in app: XCUIApplication, context: String, timeout: TimeInterval = 15) -> XCUIElement {
+        let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        XCTAssertTrue(element.waitForExistence(timeout: timeout), "Expected \(identifier) for \(context).")
+        return element
+    }
+
+    private func waitForVisibleText(_ text: String, in app: XCUIApplication, context: String, timeout: TimeInterval = 20) -> XCUIElement {
+        let predicate = NSPredicate(format: "label CONTAINS %@", text)
+        let element = app.staticTexts.matching(predicate).firstMatch
+        if element.waitForExistence(timeout: timeout) {
+            return element
+        }
+        for _ in 0..<6 {
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+            if element.waitForExistence(timeout: 1) {
+                return element
+            }
+        }
+        XCTAssertTrue(element.exists, "Expected text for \(context): \(text)")
+        return element
+    }
+
+    private func assertPostDetailChrome(
+        chromeIdentifier: String,
+        backIdentifier: String,
+        expectedText: String,
+        openScreenshot: String,
+        backScreenshot: String,
+        context: String,
+        in app: XCUIApplication,
+    ) {
+        let chrome = waitForExistingIdentifier(chromeIdentifier, in: app, context: "\(context) chrome")
+        XCTAssertTrue(chrome.exists, "The common detail chrome must exist for \(context).")
+        let back = waitForVisibleIdentifier(backIdentifier, in: app, context: "\(context) back")
+        XCTAssertTrue(back.isHittable, "The common detail back action must be hittable for \(context).")
+        _ = waitForVisibleText(expectedText, in: app, context: "\(context) content")
+        attachScreenshot(app, name: openScreenshot)
+        back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(chrome.waitForNonExistence(timeout: 10), "The common detail chrome must close after back for \(context).")
+        attachScreenshot(app, name: backScreenshot)
     }
 
     private func tapVisibleIdentifier(_ identifier: String, in app: XCUIApplication, context: String, normalizedOffset: CGVector = CGVector(dx: 0.5, dy: 0.5)) {

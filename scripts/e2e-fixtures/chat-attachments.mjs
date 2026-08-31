@@ -601,6 +601,7 @@ export async function seedFeedOfficialCommentsFixture({
     postId: randomUUID(),
     seedCommentId: randomUUID(),
     uiComment: `😀 ${marker} feed ui comment`,
+    postBody: `${marker} feed post body`,
   };
   fixture.official = {
     postId: randomUUID(),
@@ -608,6 +609,7 @@ export async function seedFeedOfficialCommentsFixture({
     seedCommentId: randomUUID(),
     uiComment: `😀 ${marker} official ui comment`,
     title: `QADATA official comments ${marker.slice(-12)}`,
+    summary: `Fixture reversible de comentarios oficiales ${marker}`,
   };
   await withDatabase(async (client) => {
     await client.query("begin");
@@ -635,7 +637,7 @@ export async function seedFeedOfficialCommentsFixture({
          select $2::uuid, wall.id, $1::uuid, $3
          from wall
          returning id`,
-        [fixture.targetSession.profileId, fixture.feed.postId, `${marker} feed post body`],
+        [fixture.targetSession.profileId, fixture.feed.postId, fixture.feed.postBody],
       );
       if (feedPost.rowCount !== 1) throw new Error("feed_official_comments_fixture_wall_unavailable");
       await client.query(
@@ -657,8 +659,8 @@ export async function seedFeedOfficialCommentsFixture({
           fixture.official.postId,
           fixture.targetSession.profileId,
           fixture.official.title,
-          `Fixture reversible de comentarios oficiales ${marker}`,
-          `<p>Fixture reversible de comentarios oficiales ${marker}</p>`,
+          fixture.official.summary,
+          `<p>${fixture.official.summary}</p>`,
           fixture.official.translationGroupId,
         ],
       );

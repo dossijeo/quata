@@ -3,8 +3,13 @@ package com.quata.feature.official.presentation
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.rememberPagerState
@@ -27,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -41,6 +47,7 @@ import com.quata.core.ui.components.QuataFeedOverflowActionButton
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
+import com.quata.core.ui.components.QuataPostDetailChromeContent
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.communityEmojiCatalogState
 import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
@@ -100,6 +107,8 @@ class OfficialFeedScreenStrings(
     val showEmojis: String = "Mostrar emojis",
     val translatorContentDescription: String = "Traductor Fang",
     val emojiLabels: CommunityEmojiLabels = CommunityEmojiLabels(),
+    val detailTitle: String = "Detalle de comunicado",
+    val detailBack: String = "Volver a comunicados",
 ) {
     constructor() : this(
         empty = "No hay comunicados oficiales disponibles.", create = "Crear comunicado",
@@ -117,6 +126,9 @@ class OfficialFeedScreenStrings(
         shareFailed = "No se pudo compartir el comunicado.",
     )
 }
+
+const val OfficialPostDetailChromeTestTag = "official.detail.chrome"
+const val OfficialPostDetailBackTestTag = "official.detail.back"
 
 fun defaultOfficialFeedScreenStrings(languageTag: String?): OfficialFeedScreenStrings = when (languageTag?.substringBefore('-')?.lowercase()) {
     "en" -> OfficialFeedScreenStrings(loadingError="Could not load official notices.",live="LIVE",readMoreMoreInformation="More information",readMoreContinueReading="Continue reading",readMoreDetails="Details",typeAnnouncement="Announcement",typeNews="News",typeEvent="Event",typeUrgent="Urgent",officialAccountFallback="Official account",deleteTitle="Delete notice",deleteMessage="This action cannot be undone.",confirm="Confirm",cancel="Cancel",deleted="Notice deleted",shareUnavailable="This notice cannot be shared on this device.",shareFailed="Could not share notice",empty="No official notices are available.",create="Create notice",retry="Retry",like="Like",comments="Comments",share="Share",rank="Ranking",delete="Delete",close="Close",profile="Profile",readMore="Read more",refresh="Refresh",reportSent="Report sent for review",reportFailed="Could not send report",commentPlaceholder="Write a comment…",commentSend="Send comment",commentReport="Report",commentReply="Reply",commentReplyingTo={ "Replying to $it" },commentCancelReply="Cancel reply",commentsYou="You",commentReplyTo={ "↳ Reply to $it" },showEmojis="Show emojis",translatorContentDescription="Fang translator",emojiLabels=CommunityEmojiLabels(recent="Recent",frequent="Frequent",gestures="Gestures",people="People",animalsNature="Animals and nature",foodDrink="Food and drink",objectsSymbols="Objects and symbols",flags="Flags",empty="No emojis available."))
@@ -158,6 +170,8 @@ class OfficialFeedScreenPlatformSlots(
     val communityEmojiCatalog: (CommunityEmojiLabels, (() -> Unit)?) -> CommunityEmojiCatalogState = { labels, onRetry ->
         communityEmojiCatalogState(labels, onRetry = onRetry)
     },
+    /** Optional platform diagnostics hook; product state and rendering stay owned by commonMain. */
+    val onDetailPostResolved: (OfficialPostItem?) -> Unit = {},
 )
 
 /**
@@ -175,6 +189,7 @@ fun OfficialFeedScreenHost(
     focusedPostId: String?,
     strings: OfficialFeedScreenStrings,
     onFocusedPostHandled: () -> Unit,
+    onBackFromFocusedPost: (() -> Unit)? = null,
     onAuthRequired: () -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onCreateOfficialPost: () -> Unit,
@@ -186,8 +201,10 @@ fun OfficialFeedScreenHost(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val windowInfo = rememberQuataWindowLayoutInfo()
-    val visiblePosts = focusedPostId?.let { target -> state.posts.filter { post -> post.id == target } } ?: state.posts
-    val focusedPostPending = focusedPostId != null && visiblePosts.isEmpty()
+    var localFocusedPostId by rememberSaveable(focusedPostId) { mutableStateOf(focusedPostId) }
+    val activeFocusedPostId = localFocusedPostId
+    val visiblePosts = activeFocusedPostId?.let { target -> state.posts.filter { post -> post.id == target } } ?: state.posts
+    val focusedPostPending = activeFocusedPostId != null && visiblePosts.isEmpty()
     var readMorePost by rememberSaveable { mutableStateOf<String?>(null) }
     var commentsPost by rememberSaveable { mutableStateOf<String?>(null) }
     var mediaPost by rememberSaveable { mutableStateOf<String?>(null) }
@@ -200,10 +217,11 @@ fun OfficialFeedScreenHost(
     var retainedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var restored by remember { mutableStateOf(retainedPostId == null) }
     val pagerState = rememberPagerState(pageCount = { visiblePosts.size.coerceAtLeast(1) })
+    val layoutDirection = LocalLayoutDirection.current
     val effectiveUserId = currentUserId ?: state.currentUser?.id
     val canPublish = state.currentUser?.isOfficial == true && slots.canCreateOfficialPost
     val ranks = remember(state.posts) { calculateOfficialPostRanking(state.posts) }
-    val canPullRefresh = focusedPostId == null && pagerState.currentPage == 0 && !state.isRefreshing && commentsPost == null && readMorePost == null && !liveOpen
+    val canPullRefresh = activeFocusedPostId == null && pagerState.currentPage == 0 && !state.isRefreshing && commentsPost == null && readMorePost == null && !liveOpen
     val pullRefresh = rememberQuataFeedPullRefreshState(canPullRefresh, state.isRefreshing) { viewModel.onEvent(OfficialFeedUiEvent.Refresh) }
     fun message(value: String) {
         slots.message(value)
@@ -217,16 +235,19 @@ fun OfficialFeedScreenHost(
         if (state.message == OfficialFeedMessages.CommentReportFailed) { message(strings.reportFailed); viewModel.onEvent(OfficialFeedUiEvent.ClearMessage) }
     }
     LaunchedEffect(focusedPostId) {
-        focusedPostId?.takeIf { state.posts.none { post -> post.id == it } }?.let { viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(it)) }
+        localFocusedPostId = focusedPostId
     }
-    LaunchedEffect(focusedPostId, state.posts) {
-        val target = focusedPostId ?: return@LaunchedEffect
+    LaunchedEffect(activeFocusedPostId) {
+        activeFocusedPostId?.takeIf { state.posts.none { post -> post.id == it } }?.let { viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(it)) }
+    }
+    LaunchedEffect(activeFocusedPostId, visiblePosts) {
+        val target = activeFocusedPostId ?: return@LaunchedEffect
         val index = visiblePosts.indexOfFirst { it.id == target }
         if (target != handledFocus && index >= 0) { pagerState.scrollToPage(index); retainedPostId = target; restored = true; handledFocus = target; onFocusedPostHandled() }
     }
-    LaunchedEffect(retainedPostId, state.posts, focusedPostId) {
+    LaunchedEffect(retainedPostId, state.posts, activeFocusedPostId) {
         val index = state.posts.indexOfFirst { it.id == retainedPostId }
-        if (!restored && focusedPostId == null && index >= 0) { pagerState.scrollToPage(index); restored = true }
+        if (!restored && activeFocusedPostId == null && index >= 0) { pagerState.scrollToPage(index); restored = true }
     }
     LaunchedEffect(pagerState.currentPage, visiblePosts) { if (restored) visiblePosts.getOrNull(pagerState.currentPage)?.let { retainedPostId = it.id } }
     LaunchedEffect(rankingTargetPostId, visiblePosts) {
@@ -239,17 +260,46 @@ fun OfficialFeedScreenHost(
         rankingTargetPostId = null
     }
 
-    Box(modifier.fillMaxSize()) {
-        when {
-            state.error != null && state.posts.isEmpty() -> OfficialHostFailure(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(OfficialFeedUiEvent.Refresh) }, Modifier.fillMaxSize())
-            else -> OfficialFeedPagerContent(
-                padding = padding,
+    val showsDetailChrome = activeFocusedPostId != null && onBackFromFocusedPost != null
+    val viewportPadding = if (showsDetailChrome) {
+        PaddingValues(
+            start = padding.calculateStartPadding(layoutDirection),
+            top = 0.dp,
+            end = padding.calculateEndPadding(layoutDirection),
+            bottom = padding.calculateBottomPadding(),
+        )
+    } else {
+        padding
+    }
+
+    Column(modifier.fillMaxSize()) {
+        val detailPost = activeFocusedPostId?.let { id -> state.posts.firstOrNull { it.id == id } }
+        LaunchedEffect(detailPost?.id, detailPost?.title, detailPost?.summary) { slots.onDetailPostResolved(detailPost) }
+        if (showsDetailChrome) {
+            Spacer(Modifier.height(padding.calculateTopPadding()))
+            QuataPostDetailChromeContent(
+                title = strings.detailTitle,
+                subtitle = detailPost?.title,
+                backContentDescription = strings.detailBack,
+                rootTestTag = OfficialPostDetailChromeTestTag,
+                backTestTag = OfficialPostDetailBackTestTag,
+                onBack = {
+                    localFocusedPostId = null
+                    onBackFromFocusedPost?.invoke()
+                },
+            )
+        }
+        Box(Modifier.fillMaxSize().weight(1f)) {
+            when {
+                state.error != null && state.posts.isEmpty() -> OfficialHostFailure(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(OfficialFeedUiEvent.Refresh) }, Modifier.fillMaxSize())
+                else -> OfficialFeedPagerContent(
+                padding = viewportPadding,
                 pagerState = pagerState,
                 posts = visiblePosts,
-                hasMoreOlderPosts = focusedPostId == null && state.hasMoreOlderPosts,
+                hasMoreOlderPosts = activeFocusedPostId == null && state.hasMoreOlderPosts,
                 isLoadingOlder = state.isLoadingOlder,
                 isInitialLoading = state.isLoading || focusedPostPending,
-                onLoadOlder = { if (focusedPostId == null) viewModel.onEvent(OfficialFeedUiEvent.LoadOlderPage) },
+                onLoadOlder = { if (activeFocusedPostId == null) viewModel.onEvent(OfficialFeedUiEvent.LoadOlderPage) },
                 emptyContent = { loading -> if (loading) OfficialLoadingContent(canPublish, OfficialStatusStrings(strings.empty, strings.create), ::create, Modifier.fillMaxSize()) else OfficialEmptyContent(canPublish, OfficialStatusStrings(strings.empty, strings.create), ::create, Modifier.fillMaxSize()) },
                 pageContent = { index, post, _ ->
                     OfficialPagerPostPageContent(card = { cardModifier ->
@@ -332,7 +382,8 @@ fun OfficialFeedScreenHost(
                 if (state.isLoadingOlder) OfficialOlderPostsLoadingContent(Modifier.align(Alignment.BottomCenter))
             }
         }
-        if (slots.showComposeMessage) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+            if (slots.showComposeMessage) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+        }
     }
     state.posts.firstOrNull { it.id == readMorePost }?.let { post ->
         OfficialPostDetailPanelContent(

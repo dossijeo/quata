@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package com.quata.web
 
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,10 +31,11 @@ fun WebFeedHost(
     openingProfileUserId: String? = null,
     onAuthRequired: () -> Unit = {},
     onCreatePost: () -> Unit = {},
+    onBackFromFocusedPost: (() -> Unit)? = null,
     onOpenUserProfile: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LaunchedEffect(sharedPostId) { setWebFeedDetailMarker(sharedPostId) }
+    LaunchedEffect(sharedPostId) { setWebFeedDetailMarker(sharedPostId, null) }
     val windowLayout = rememberQuataWindowLayoutInfo()
     val languageTag = browserCapabilityLanguageTag()
     val commentsTranslationGateway = remember {
@@ -75,18 +78,27 @@ fun WebFeedHost(
                     message = webCommunityEmojiSelectorEvidenceValue("message"),
                 ) ?: communityEmojiCatalogState(labels, onRetry = onRetry)
             },
+            onDetailPostResolved = { post -> setWebFeedDetailMarker(post?.id ?: sharedPostId, post?.text) },
         ),
         presence = presence,
         currentUserId = currentUserId,
+        onBackFromFocusedPost = onBackFromFocusedPost,
         onAuthRequired = onAuthRequired,
         onCreatePost = onCreatePost,
         modifier = modifier,
     )
 }
 
-private fun setWebFeedDetailMarker(postId: String?) {
-    js("globalThis.document?.documentElement?.setAttribute('data-quata-feed-detail', postId || '')")
-}
+@JsFun("""(postId, text) => {
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  root.setAttribute('data-quata-feed-detail', postId || '');
+  const local = ['127.0.0.1', 'localhost'].includes(String(globalThis.location?.hostname || ''));
+  const optedIn = new URLSearchParams(globalThis.location?.search || '').get('quata-post-detail-e2e') === '1';
+  if (local && optedIn && text) root.setAttribute('data-quata-feed-detail-text', text);
+  else root.removeAttribute('data-quata-feed-detail-text');
+}""")
+private external fun setWebFeedDetailMarker(postId: String?, text: String?)
 
 private fun webCommunityEmojiSelectorEvidenceValue(key: String): String? = when (key) {
     "optIn" -> webCommunityEmojiSelectorEvidenceOptIn()

@@ -2,9 +2,12 @@ package com.quata.feature.feed.presentation
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -67,6 +71,7 @@ import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
 import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingItem
+import com.quata.core.ui.components.QuataPostDetailChromeContent
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
 import com.quata.core.ui.components.CommunityEmojiCatalogState
@@ -127,7 +132,12 @@ data class FeedScreenStrings(
     val showEmojis: String = "Mostrar emojis",
     val emojiLabels: CommunityEmojiLabels = CommunityEmojiLabels(),
     val locationLabel: @Composable (String) -> String = { location -> formatFeedLocationLabel(location) },
+    val detailTitle: String = "Detalle de publicación",
+    val detailBack: String = "Volver al feed",
 )
+
+const val FeedPostDetailChromeTestTag = "feed.detail.chrome"
+const val FeedPostDetailBackTestTag = "feed.detail.back"
 
 /** Shared location chip text; Android's localized resource intentionally uses the same red pin. */
 fun formatFeedLocationLabel(location: String): String = "\uD83D\uDCCD $location"
@@ -173,6 +183,8 @@ data class FeedScreenPlatformSlots(
     val communityEmojiCatalog: (CommunityEmojiLabels, (() -> Unit)?) -> CommunityEmojiCatalogState = { labels, onRetry ->
         communityEmojiCatalogState(labels, onRetry = onRetry)
     },
+    /** Optional platform diagnostics hook; product state and rendering stay owned by commonMain. */
+    val onDetailPostResolved: (Post?) -> Unit = {},
 )
 
 /**
@@ -199,6 +211,7 @@ fun FeedScreenHost(
     isLandscape: Boolean = rememberQuataWindowLayoutInfo().isLandscape,
     strings: FeedScreenStrings = FeedScreenStrings(),
     onFocusedPostHandled: () -> Unit = {},
+    onBackFromFocusedPost: (() -> Unit)? = null,
     onAuthRequired: () -> Unit = {},
     onOpenUserProfile: (String) -> Unit = {},
     onCreatePost: () -> Unit = {},
@@ -229,8 +242,13 @@ fun FeedScreenHost(
     var retainedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var hasAppliedRetainedPost by remember { mutableStateOf(retainedPostId == null) }
     var handledReset by rememberSaveable { mutableStateOf(feedResetToken) }
+    var localFocusedPostId by rememberSaveable(focusedPostId) { mutableStateOf(focusedPostId) }
+    val activeFocusedPostId = localFocusedPostId
+    val visiblePosts = activeFocusedPostId?.let { target -> state.posts.filter { post -> post.id == target } } ?: state.posts
+    val focusedPostPending = activeFocusedPostId != null && visiblePosts.isEmpty()
     val videoPositions = remember { mutableMapOf<String, Long>() }
-    val pagerState = rememberPagerState(pageCount = { state.posts.size })
+    val pagerState = rememberPagerState(pageCount = { visiblePosts.size.coerceAtLeast(1) })
+    val layoutDirection = LocalLayoutDirection.current
     val effectiveCurrentUserId = currentUserId ?: state.currentUser?.id
     val canParticipate = effectiveCurrentUserId != null
     val ranks = remember(state.posts) { calculateFeedRanking(state.posts) }
@@ -244,7 +262,7 @@ fun FeedScreenHost(
         // Pause here; the app owner releases transport/listeners through close().
         onDispose { presence?.setForeground(false) }
     }
-    val canPullRefresh = pagerState.currentPage == 0 && !state.isRefreshing && commentsPostId == null && !liveOpen
+    val canPullRefresh = activeFocusedPostId == null && pagerState.currentPage == 0 && !state.isRefreshing && commentsPostId == null && !liveOpen
     val pullRefreshState = rememberQuataFeedPullRefreshState(
         enabled = canPullRefresh,
         isRefreshing = state.isRefreshing,
@@ -255,7 +273,10 @@ fun FeedScreenHost(
     DisposableEffect(Unit) { onDispose { onCommentsVisibilityChanged(false) } }
 
     LaunchedEffect(focusedPostId) {
-        if (focusedPostId != null && focusedPostId != handledFocus) viewModel.onEvent(FeedUiEvent.FocusPost(focusedPostId))
+        localFocusedPostId = focusedPostId
+    }
+    LaunchedEffect(activeFocusedPostId) {
+        if (activeFocusedPostId != null && activeFocusedPostId != handledFocus) viewModel.onEvent(FeedUiEvent.FocusPost(activeFocusedPostId))
     }
     LaunchedEffect(networkReconnectToken) {
         if (networkReconnectToken != 0L) viewModel.onEvent(FeedUiEvent.Refresh)
@@ -267,48 +288,81 @@ fun FeedScreenHost(
             pendingDeletedPostId = null
         }
     }
-    LaunchedEffect(focusedPostId, state.posts) {
-        val index = state.posts.indexOfFirst { it.id == focusedPostId }
-        if (focusedPostId != null && focusedPostId != handledFocus && index >= 0) {
+    LaunchedEffect(activeFocusedPostId, visiblePosts) {
+        val index = visiblePosts.indexOfFirst { it.id == activeFocusedPostId }
+        if (activeFocusedPostId != null && activeFocusedPostId != handledFocus && index >= 0) {
             pagerState.scrollToPage(index)
-            retainedPostId = focusedPostId
+            retainedPostId = activeFocusedPostId
             hasAppliedRetainedPost = true
-            handledFocus = focusedPostId
+            handledFocus = activeFocusedPostId
             onFocusedPostHandled()
         }
     }
     LaunchedEffect(feedResetToken, state.posts.size) {
-        if (feedResetToken != handledReset && focusedPostId == null && state.posts.isNotEmpty()) {
+        if (feedResetToken != handledReset && activeFocusedPostId == null && state.posts.isNotEmpty()) {
             pagerState.scrollToPage(0)
             retainedPostId = state.posts.first().id
             hasAppliedRetainedPost = true
             handledReset = feedResetToken
         }
     }
-    LaunchedEffect(retainedPostId, state.posts, focusedPostId) {
+    LaunchedEffect(retainedPostId, state.posts, activeFocusedPostId) {
         val target = retainedPostId
-        if (!hasAppliedRetainedPost && focusedPostId == null && target != null && state.posts.isNotEmpty()) {
+        if (!hasAppliedRetainedPost && activeFocusedPostId == null && target != null && state.posts.isNotEmpty()) {
             state.posts.indexOfFirst { it.id == target }.takeIf { it >= 0 && it != pagerState.currentPage }
                 ?.let { pagerState.scrollToPage(it) }
             hasAppliedRetainedPost = true
         }
     }
 
-    androidx.compose.foundation.layout.Box(modifier.fillMaxSize()) {
-        when {
-            state.error != null && state.posts.isEmpty() -> FeedStatusContent(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(padding))
-            state.posts.isEmpty() && !state.isLoading -> FeedStatusContent(strings.empty, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(padding))
-            else -> FeedPagerViewportContent(padding, Modifier.fillMaxSize().nestedScroll(pullRefreshState.nestedScrollConnection)) {
+    LaunchedEffect(pagerState.currentPage, visiblePosts) {
+        if (hasAppliedRetainedPost) visiblePosts.getOrNull(pagerState.currentPage)?.let { retainedPostId = it.id }
+    }
+
+    val showsDetailChrome = activeFocusedPostId != null && onBackFromFocusedPost != null
+    val viewportPadding = if (showsDetailChrome) {
+        PaddingValues(
+            start = padding.calculateStartPadding(layoutDirection),
+            top = 0.dp,
+            end = padding.calculateEndPadding(layoutDirection),
+            bottom = padding.calculateBottomPadding(),
+        )
+    } else {
+        padding
+    }
+
+    Column(modifier.fillMaxSize()) {
+        val detailPost = activeFocusedPostId?.let { id -> state.posts.firstOrNull { it.id == id } }
+        LaunchedEffect(detailPost?.id, detailPost?.text) { slots.onDetailPostResolved(detailPost) }
+        if (showsDetailChrome) {
+            Spacer(Modifier.height(padding.calculateTopPadding()))
+            QuataPostDetailChromeContent(
+                title = strings.detailTitle,
+                subtitle = detailPost?.author?.displayName,
+                backContentDescription = strings.detailBack,
+                rootTestTag = FeedPostDetailChromeTestTag,
+                backTestTag = FeedPostDetailBackTestTag,
+                onBack = {
+                    localFocusedPostId = null
+                    onBackFromFocusedPost?.invoke()
+                },
+            )
+        }
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().weight(1f)) {
+            when {
+                state.error != null && state.posts.isEmpty() -> FeedStatusContent(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(viewportPadding))
+                state.posts.isEmpty() && !state.isLoading -> FeedStatusContent(strings.empty, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(viewportPadding))
+                else -> FeedPagerViewportContent(viewportPadding, Modifier.fillMaxSize().nestedScroll(pullRefreshState.nestedScrollConnection)) {
             FeedReelPagerContent(
                 pagerState = pagerState,
-                posts = state.posts,
-                hasMoreOlderPosts = state.hasMoreOlderPosts,
+                posts = visiblePosts,
+                hasMoreOlderPosts = activeFocusedPostId == null && state.hasMoreOlderPosts,
                 isLoadingOlder = state.isLoadingOlder,
                 onPostDisplayed = { visible, next ->
                     if (hasAppliedRetainedPost) retainedPostId = visible.id
                     viewModel.onEvent(FeedUiEvent.PostDisplayed(visible.id, next?.id))
                 },
-                onLoadOlder = { viewModel.onEvent(FeedUiEvent.LoadOlderPage) },
+                onLoadOlder = { if (activeFocusedPostId == null) viewModel.onEvent(FeedUiEvent.LoadOlderPage) },
             ) { _, post, isCurrent ->
                 val canDelete = post.author.id == effectiveCurrentUserId || state.currentUser?.isAdmin == true
                 FeedReelPostContent(
@@ -381,10 +435,11 @@ fun FeedScreenHost(
             )
             }
         }
-        if (slots.showComposeMessage) SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
-        )
+            if (slots.showComposeMessage) SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+            )
+        }
     }
 
     state.posts.firstOrNull { it.id == commentsPostId }?.let { post ->

@@ -39,6 +39,7 @@ const profileFollowOnly = process.argv.includes("--profile-follow-only");
 const profileListsOnly = process.argv.includes("--profile-lists-only");
 const profileContentOnly = process.argv.includes("--profile-content-only");
 const feedOfficialCommentsOnly = process.argv.includes("--feed-official-comments-only");
+const postDetailOnly = process.argv.includes("--post-detail-only");
 const feedOfficialCommentsErrorOnly = process.argv.includes("--feed-official-comments-error-only");
 const feedOfficialCommentsSelectorStatesOnly = process.argv.includes("--feed-official-comments-selector-states-only");
 const profileEntryOnly = process.argv.includes("--profile-entry-only");
@@ -154,6 +155,10 @@ const evidenceFiles = [
   "android-official-comments-error-before.png",
   "android-official-comments-error-after.png",
   "android-official-comments-emoji-selector-empty.png",
+  "android-post-detail-feed-open.png",
+  "android-post-detail-feed-back.png",
+  "android-post-detail-official-open.png",
+  "android-post-detail-official-back.png",
   "android-chat-attachment-document-visible.png",
   "android-chat-audio-recording-active.png",
   "android-chat-audio-recording-pending-attachment.png",
@@ -236,6 +241,11 @@ function parseArgs(argv) {
     if (key === "--community-chat-only") {
       result.output = join("build-reports", "android", "community-chat-flow-evidence.json");
       result.evidenceDir = join("build-reports", "android", "community-chat-flow-evidence");
+      continue;
+    }
+    if (key === "--post-detail-only") {
+      result.output = join("build-reports", "android", "post-detail-evidence.json");
+      result.evidenceDir = join("build-reports", "android", "post-detail-evidence");
       continue;
     }
     if (key === "--feed-official-comments-error-only") {
@@ -1532,7 +1542,7 @@ try {
     state.groupBlockProfile = await createTemporaryForwardProfile(`${runId}-block`, "2");
     report.steps.push("temporary_group_moderation_participant_profiles_created");
   }
-  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !communityChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
+  if (!translationOnly && !profileOnly && !profileFollowOnly && !profileListsOnly && !profileContentOnly && !feedOfficialCommentsOnly && !postDetailOnly && !feedOfficialCommentsErrorOnly && !feedOfficialCommentsSelectorStatesOnly && !profileEntryOnly && !profilePrivateChatOnly && !profileRolesSafetyOnly && !communityChatOnly && !menuSurfaceOnly && !attachmentsAudioOnly && !attachmentPickerOnly && !composerEmojiOnly && !groupSosOnly && !groupAdminOnly && !groupModerationOnly) {
     state.forwardProfile = await createTemporaryForwardProfile(runId);
     report.steps.push("temporary_forward_destination_profile_created");
   }
@@ -1684,6 +1694,8 @@ try {
       "-e", "quataChatActionsForwardQuery", state.forwardProfile?.phoneLocal ?? "translation-only",
       "-e", "quataChatActionsPostId", state.feedOfficialComments?.feed?.postId ?? state.profileContent?.postId ?? "",
       "-e", "quataChatActionsOfficialPostId", state.feedOfficialComments?.official?.postId ?? state.profileEntry?.official?.id ?? "",
+      "-e", "quataChatActionsFeedPostBody", state.feedOfficialComments?.feed?.postBody ?? "",
+      "-e", "quataChatActionsOfficialTitle", state.feedOfficialComments?.official?.title ?? "",
       "-e", "quataChatActionsCommentId", state.profileContent?.seedCommentId ?? "",
       "-e", "quataChatActionsAttachmentId", String(state.profileContent?.attachmentId ?? ""),
       "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",
@@ -2070,7 +2082,7 @@ try {
       state.profileEntry = await prepareProfileEntryFixture(config, runId);
       state.profileContent = state.profileEntry.profileContent;
       report.steps.push("profile_entry_feed_official_communities_conversations_and_chat_fixtures_prepared");
-    } else if (feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) {
+    } else if (feedOfficialCommentsOnly || postDetailOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) {
       state.feedOfficialComments = {
         marker: `qadata-feed-official-comments-${runId}`,
         actorSession: state.a,
@@ -2079,7 +2091,7 @@ try {
       await prepareFeedOfficialCommentsFixture(state.feedOfficialComments);
       state.feedOfficialComments.feed.uiReplyComment = `😀 ${state.feedOfficialComments.marker} feed reply comment`;
       state.feedOfficialComments.official.uiReplyComment = `😀 ${state.feedOfficialComments.marker} official reply comment`;
-      report.steps.push("feed_official_comments_fixture_prepared");
+      report.steps.push(postDetailOnly ? "post_detail_feed_official_fixture_prepared" : "feed_official_comments_fixture_prepared");
     } else if (profileRolesSafetyOnly) {
       state.profileRolesSafety = await prepareProfileRolesSafetyFixture({
         actorSession: state.a,
@@ -2100,7 +2112,7 @@ try {
       await prepareProfileContentFixture(state.profileContent);
       report.steps.push("profile_content_fixture_prepared");
     }
-    const profileStage = feedOfficialCommentsSelectorStatesOnly ? "feed-official-comments-selector-states" : feedOfficialCommentsErrorOnly ? "feed-official-comments-error" : feedOfficialCommentsOnly ? "feed-official-comments" : profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
+    const profileStage = postDetailOnly ? "post-detail" : feedOfficialCommentsSelectorStatesOnly ? "feed-official-comments-selector-states" : feedOfficialCommentsErrorOnly ? "feed-official-comments-error" : feedOfficialCommentsOnly ? "feed-official-comments" : profileFollowOnly ? "profile-follow" : profileListsOnly ? "profile-lists" : profileContentOnly ? "profile-content" : profileEntryOnly ? "profile-entry" : profilePrivateChatOnly ? "profile-private-chat" : profileRolesSafetyOnly ? "profile-roles-safety" : "profile";
     assertInstrumentationPassed(profileStage, await runInstrumentationStage(profileStage));
     if (profileFollowOnly) {
       await pollProfileFollowEdge(state.a.profileId, state.b.profileId, true);
@@ -2108,6 +2120,8 @@ try {
     }
     report.steps.push(profileListsOnly
       ? "peer_public_profile_followers_and_following_lists_opened_and_returned"
+      : postDetailOnly
+        ? "feed_and_official_post_detail_common_chrome_and_back_verified"
       : profileContentOnly
         ? "profile_content_gallery_comments_and_attachments_verified"
         : feedOfficialCommentsSelectorStatesOnly
@@ -2171,8 +2185,8 @@ try {
     }
   }
 
-  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly) {
-    const focalEvidencePrefix = (feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? /(feed-comments|official-comments)/ : /profile/;
+  if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || postDetailOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly) {
+    const focalEvidencePrefix = postDetailOnly ? /post-detail/ : (feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? /(feed-comments|official-comments)/ : /profile/;
     const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
     report.evidence.files = copiedEvidenceFiles.filter((name) => focalEvidencePrefix.test(name) || name.endsWith("evidence.json"));
     report.status = "passed";
@@ -2219,7 +2233,7 @@ try {
         hadProfileReport: Boolean(state.profileRolesSafety.previousReport),
       } : null,
     };
-    throw new Error((feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_only_completed" : profileRolesSafetyOnly ? "profile_roles_safety_only_completed" : profilePrivateChatOnly ? "profile_private_chat_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
+    throw new Error(postDetailOnly ? "post_detail_only_completed" : (feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? "feed_official_comments_only_completed" : profileRolesSafetyOnly ? "profile_roles_safety_only_completed" : profilePrivateChatOnly ? "profile_private_chat_only_completed" : profileEntryOnly ? "profile_entry_only_completed" : profileContentOnly ? "profile_content_only_completed" : profileListsOnly ? "profile_lists_only_completed" : profileFollowOnly ? "profile_follow_only_completed" : "profile_only_completed");
   }
 
   assertInstrumentationPassed("send-reply", await runInstrumentationStage("send-reply"));
@@ -2297,6 +2311,7 @@ try {
     error?.message === "profile_lists_only_completed" ||
     error?.message === "profile_entry_only_completed" ||
     error?.message === "profile_content_only_completed" ||
+    error?.message === "post_detail_only_completed" ||
     error?.message === "feed_official_comments_only_completed" ||
     error?.message === "profile_private_chat_only_completed" ||
     error?.message === "profile_roles_safety_only_completed"
