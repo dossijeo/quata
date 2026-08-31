@@ -518,6 +518,31 @@ async function closeTransientNotice(page) {
   }
 }
 
+async function closeTaggedCommentsPanelIfVisible(page, panelTag, errorPrefix) {
+  const panel = await visibleExactAriaLocator(page, panelTag, 1_000) ??
+    await visibleNativeControlExact(page, panelTag, 1_000);
+  if (!panel) return false;
+  const close = await visibleAriaLocator(page, [/Cerrar hoja|Close sheet/i], 1_500);
+  const closeControl = close ? null : await visibleNativeControl(page, [/Cerrar hoja|Close sheet/i], 1_500);
+  if (closeControl) {
+    await clickNativeControlCenter(page, closeControl, `${errorPrefix}_not_clickable`);
+  } else if (close) {
+    await clickLocatorPreferDom(page, close, `${errorPrefix}_not_clickable`);
+  } else {
+    throw new Error(`${errorPrefix}_anchor_missing`);
+  }
+  await page.waitForFunction((tag) => {
+    const visible = (element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.right > 0 &&
+        rect.top < window.innerHeight && rect.left < window.innerWidth;
+    };
+    return ![...document.querySelectorAll("[aria-label]")].some((element) => element.getAttribute("aria-label") === tag && visible(element));
+  }, panelTag, { timeout: 5_000 });
+  await delay(300);
+  return true;
+}
+
 async function verifyAttachmentPickerWeb(page, source, outcome, config, state, runId, evidenceDir, report) {
   const fixture = await createAttachmentPickerFixture(source, runId, "web");
   state.attachmentPicker = fixture;
@@ -2313,16 +2338,15 @@ async function selectEmojiCommentEmoji(page, { prefix, fallbackPoints, errorPref
   if (!panel) {
     throw new Error(`${errorPrefix}_emoji_panel_not_visible`);
   }
-  let observedFrequentCellBounds = null;
   if (errorPrefix === "feed_official_comments_feed") {
-    observedFrequentCellBounds = await verifyCommunityEmojiPanelSections(page, {
+    await verifyCommunityEmojiPanelSections(page, {
       errorPrefix,
       report,
       evidenceDir: options.evidenceDir,
       screenshotPrefix: "web-feed-comments-emoji-panel",
     });
   } else if (errorPrefix === "feed_official_comments_official") {
-    observedFrequentCellBounds = await verifyCommunityEmojiPanelSections(page, {
+    await verifyCommunityEmojiPanelSections(page, {
       errorPrefix,
       report,
       evidenceDir: options.evidenceDir,
@@ -2338,9 +2362,7 @@ async function selectEmojiCommentEmoji(page, { prefix, fallbackPoints, errorPref
       await clickLocatorCenter(page, firstFrequent, `${errorPrefix}_first_emoji_not_clickable`);
     }
   } else {
-    const fallbackCellX = fallbackPoints?.cellX ?? (observedFrequentCellBounds ? observedFrequentCellBounds.x + (observedFrequentCellBounds.width / 2) : panelFallback.cellX);
-    const fallbackCellY = fallbackPoints?.cellY ?? (observedFrequentCellBounds ? observedFrequentCellBounds.y + (observedFrequentCellBounds.height / 2) : panelFallback.cellY);
-    await page.mouse.click(fallbackCellX, fallbackCellY);
+    throw new Error(`${errorPrefix}_emoji_frequent_cell_anchor_missing:community.emoji.cell.frequent.0`);
   }
 }
 
@@ -2357,20 +2379,11 @@ const communityEmojiPanelProbeSections = [
 
 async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, evidenceDir, screenshotPrefix }) {
   const observed = [];
-  let frequentSectionBounds = null;
-  let frequentCellBounds = null;
   for (const section of communityEmojiPanelProbeSections) {
     const sectionTag = `community.emoji.section.${section}`;
     const gridTag = `community.emoji.grid.${section}`;
     const cellTag = `community.emoji.cell.${section}.0`;
-    const sectionLocator = await visibleExactAriaLocatorWithHorizontalScroll(page, sectionTag, 4_000);
-    const sectionControl = sectionLocator ? null : await visibleNativeControlExact(page, sectionTag, 2_000);
-    if (!sectionLocator && !sectionControl) throw new Error(`${errorPrefix}_emoji_section_anchor_missing:${sectionTag}`);
-    if (sectionControl) {
-      await clickNativeControlCenter(page, sectionControl, `${errorPrefix}_emoji_section_not_clickable:${sectionTag}`);
-    } else {
-      await clickLocatorCenter(page, sectionLocator, `${errorPrefix}_emoji_section_not_clickable:${sectionTag}`);
-    }
+    const { sectionLocator, sectionControl } = await clickCommunityEmojiSection(page, sectionTag, errorPrefix);
     const grid = await visibleExactAriaLocator(page, gridTag, 2_500);
     const gridControl = grid ? null : await visibleNativeControlExact(page, gridTag, 2_000);
     if (!grid && !gridControl) throw new Error(`${errorPrefix}_emoji_grid_anchor_missing:${gridTag}`);
@@ -2390,10 +2403,6 @@ async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, ev
       gridBounds: roundedBox(gridBox),
       firstCellBounds: roundedBox(cellBox),
     });
-    if (section === "frequent") {
-      frequentSectionBounds = sectionBox;
-      frequentCellBounds = cellBox;
-    }
     await attachScreenshot(page, evidenceDir, `${screenshotPrefix}-${section}`);
   }
   report.evidence.communityEmojiPanelSections ??= [];
@@ -2402,27 +2411,22 @@ async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, ev
     sections: observed,
   });
   report.steps.push(`${errorPrefix}_emoji_panel_all_sections_verified_by_common_anchors`);
-  const frequentSectionTag = "community.emoji.section.frequent";
-  const frequentNative = await visibleNativeControlExact(page, frequentSectionTag, 1_000);
-  const frequent = frequentNative ? null : await visibleExactAriaLocatorWithHorizontalScroll(page, frequentSectionTag, 4_000);
-  if (frequentNative) {
-    await clickNativeControlCenter(page, frequentNative, `${errorPrefix}_emoji_section_not_clickable:${frequentSectionTag}`);
-  } else if (frequent) {
-    await clickLocatorCenter(page, frequent, `${errorPrefix}_emoji_section_not_clickable:${frequentSectionTag}`);
-  } else if (await clickExactAriaLabel(page, "community.emoji.section.frequent")) {
-    report.evidence.communityEmojiPanelSemanticResets ??= [];
-    report.evidence.communityEmojiPanelSemanticResets.push({
-      surface: errorPrefix,
-      sectionTag: "community.emoji.section.frequent",
-      resolvedBy: "exact-aria-label",
-    });
-  } else {
-    throw new Error(`${errorPrefix}_emoji_section_anchor_missing:community.emoji.section.frequent`);
-  }
+  await clickCommunityEmojiSection(page, "community.emoji.section.frequent", errorPrefix);
   const frequentCell = await visibleExactAriaLocator(page, "community.emoji.cell.frequent.0", 2_500) ??
     await visibleNativeControlExact(page, "community.emoji.cell.frequent.0", 2_000);
   if (!frequentCell) throw new Error(`${errorPrefix}_emoji_frequent_reset_cell_missing`);
-  return frequentCellBounds;
+}
+
+async function clickCommunityEmojiSection(page, sectionTag, errorPrefix) {
+  const sectionLocator = await visibleExactAriaLocatorWithHorizontalScroll(page, sectionTag, 4_000);
+  const sectionControl = sectionLocator ? null : await visibleNativeControlExact(page, sectionTag, 2_000);
+  if (!sectionLocator && !sectionControl) throw new Error(`${errorPrefix}_emoji_section_anchor_missing:${sectionTag}`);
+  if (sectionControl) {
+    await clickNativeControlCenter(page, sectionControl, `${errorPrefix}_emoji_section_not_clickable:${sectionTag}`);
+  } else {
+    await clickLocatorCenter(page, sectionLocator, `${errorPrefix}_emoji_section_not_clickable:${sectionTag}`);
+  }
+  return { sectionLocator, sectionControl };
 }
 
 function nativeControlBox(control) {
@@ -2965,7 +2969,7 @@ async function verifyProfileEntryWeb(page, origin, fixture, profile, evidenceDir
 async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenceDir, report, faults) {
   await feedOfficialCommentsStep("feed", async () => {
     report.steps.push("feed_official_comments_web_feed_route_start");
-    await openAuthenticatedRoute(page, origin, `post-${encodeURIComponent(fixture.feed.postId)}`, `post/${fixture.feed.postId}`);
+    await openAuthenticatedRoute(page, origin, `post-${encodeURIComponent(fixture.feed.postId)}`, `post/${fixture.feed.postId}`, { forceReload: true });
     await waitVisibleSeededSurfaceText(page, `${fixture.marker} feed post body`, "feed_official_comments_feed_post_marker_missing");
     await openFeedOfficialCommentsPanel(page, {
       actionTag: `feed.action.comments.${fixture.feed.postId}`,
@@ -3011,10 +3015,11 @@ async function verifyFeedOfficialCommentsEmojiWeb(page, origin, fixture, evidenc
     report.steps.push("feed_comments_emoji_created_from_ui_and_verified_by_db");
   });
   assertNoBrowserFaults(report, faults, "feed_official_comments_web_feed_fault");
+  await closeTaggedCommentsPanelIfVisible(page, "feed.comments.panel", "feed_official_comments_feed_panel_close");
 
   await feedOfficialCommentsStep("official", async () => {
     report.steps.push("feed_official_comments_web_official_route_start");
-    await openAuthenticatedRoute(page, origin, `official-${encodeURIComponent(fixture.official.postId)}`, `official/${fixture.official.postId}`);
+    await openAuthenticatedRoute(page, origin, `official-${encodeURIComponent(fixture.official.postId)}`, `official/${fixture.official.postId}`, { forceReload: true });
     await waitVisibleSeededSurfaceText(page, fixture.marker, "feed_official_comments_official_post_marker_missing");
     await openFeedOfficialCommentsPanel(page, {
       actionTag: `official.action.comments.${fixture.official.postId}`,

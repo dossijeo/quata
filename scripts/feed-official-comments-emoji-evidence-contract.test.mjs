@@ -185,10 +185,12 @@ test("Web runner records a real Feed and Official emoji-comment flow", () => {
   assert.match(runner, /visibleNativeControl\(page, \[new RegExp\(escapeRegExp\(`\$\{prefix\}\.emoji`\)\)\]/);
   assert.match(runner, /verifyCommunityEmojiPanelSections/);
   assert.match(runner, /communityEmojiPanelProbeSections/);
-  assert.match(runner, /observedFrequentCellBounds/);
+  assert.match(runner, /clickCommunityEmojiSection/);
+  assert.match(runner, /emoji_frequent_cell_anchor_missing:community\.emoji\.cell\.frequent\.0/);
   assert.match(runner, /await attachScreenshot\(page, evidenceDir, `\$\{screenshotPrefix\}-\$\{section\}`\)/);
   assert.doesNotMatch(runner, /semantic_cell_was_observed_earlier_but_not_resolved_after_horizontal_scroll/);
   assert.doesNotMatch(runner, /communityEmojiPanelResetFallbacks/);
+  assert.doesNotMatch(runner, /observedFrequentCellBounds/);
   assert.match(runner, /community\.emoji\.section\.\$\{section\}/);
   assert.match(runner, /community\.emoji\.grid\.\$\{section\}/);
   assert.match(runner, /community\.emoji\.cell\.\$\{section\}\.0/);

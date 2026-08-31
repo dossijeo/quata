@@ -1087,6 +1087,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             context: "Feed comments",
             in: app,
         )
+        closeTaggedCommentsPanelIfVisible(panelIdentifier: "feed.comments.panel", context: "Feed comments", in: app)
 
         openDeepLink("quata://egquata.com/#official-\(encodedFragment(officialPostId))", in: app)
         sendEmojiCommentFromTaggedSurface(
@@ -1564,6 +1565,25 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "\(context) must expose the first frequent emoji cell.",
         )
         attachScreenshot(app, name: "\(screenshotPrefix)-frequent")
+    }
+
+    private func closeTaggedCommentsPanelIfVisible(panelIdentifier: String, context: String, in app: XCUIApplication) {
+        let panel = app.descendants(matching: .any)
+            .matching(identifier: panelIdentifier)
+            .firstMatch
+        guard panel.waitForExistence(timeout: 2) else {
+            return
+        }
+        let close = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Cerrar hoja", "Close sheet"))
+            .firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5), "\(context) must expose a stable close-sheet anchor before switching surfaces.")
+        if close.isHittable {
+            close.tap()
+        } else {
+            close.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+        XCTAssertFalse(panel.waitForExistence(timeout: 5), "\(context) comments panel must close before switching surfaces.")
     }
 
     private func tapEmojiSection(_ identifier: String, in app: XCUIApplication, context: String) {
