@@ -32,6 +32,9 @@ import com.quata.core.ui.components.quataUgcTermsStrings
 import com.quata.feature.auth.data.IosAuthHttpTransport
 import com.quata.feature.auth.data.IosAuthRuntimeConfiguration
 import com.quata.feature.auth.data.IosUrlSessionAuthHttpTransport
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
@@ -56,16 +59,24 @@ fun createIosUgcTermsGateway(
     session: IosRenewableAuthSession,
     preferences: PreferenceStore,
     transport: IosAuthHttpTransport,
-): UgcTermsGateway = LocalFirstUgcTermsGateway(
-    profileIdProvider = { session.currentSession()?.userId },
-    store = PreferenceUgcTermsAcceptanceStore(preferences),
-    remote = UgcTermsRemoteGateway { profileId, version ->
-        iosUgcTermsRpcBoolean(configuration, session, transport, "quata_has_accepted_ugc_terms", profileId, version)
-    },
-    acceptance = UgcTermsAcceptanceGateway { profileId, version ->
-        iosUgcTermsRpcUnit(configuration, session, transport, "quata_accept_ugc_terms", profileId, version)
-    },
-)
+): UgcTermsGateway {
+    val pendingSyncScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    return LocalFirstUgcTermsGateway(
+        profileIdProvider = { session.currentSession()?.userId },
+        store = PreferenceUgcTermsAcceptanceStore(preferences),
+        remote = UgcTermsRemoteGateway { profileId, version ->
+            iosUgcTermsRpcBoolean(configuration, session, transport, "quata_has_accepted_ugc_terms", profileId, version)
+        },
+        acceptance = UgcTermsAcceptanceGateway { profileId, version ->
+            iosUgcTermsRpcUnit(configuration, session, transport, "quata_accept_ugc_terms", profileId, version)
+        },
+        pendingSyncLauncher = { task ->
+            pendingSyncScope.launch {
+                task()
+            }
+        },
+    )
+}
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun QuataUgcTermsDialogViewController(

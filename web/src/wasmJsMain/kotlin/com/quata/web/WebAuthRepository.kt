@@ -10,6 +10,7 @@ import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -82,14 +83,16 @@ class WebAuthRepository(
     /** Non-suspending snapshot for feature session providers after launcher authentication. */
     internal fun activeProfileSessionOrNull(): WebLocalSession? = activeSession
 
-    /** Keeps the server logout, browser unsubscribe and local cleanup in the required order. */
+    /** Clears the browser session first; server logout and push unsubscribe are best-effort. */
     suspend fun logoutWithBrowserUnsubscribe(browserUnsubscribe: suspend () -> Result<Unit>): Result<Unit> {
-        val serverFailure = runCatching { notifyServerLogout() }.exceptionOrNull()
-        val browserFailure = browserUnsubscribe().exceptionOrNull()
+        val credentials = storedSessionOrNull()?.let { WebPushCredentials(it.accessToken, it.webSessionToken) }
         WebAuthStorage.clear(preferences)
         activeSession = null
-        val failure = serverFailure ?: browserFailure
-        return if (failure == null) Result.success(Unit) else Result.failure(failure)
+        withTimeoutOrNull(WebLogoutBestEffortTimeoutMillis) {
+            runCatching { notifyServerLogout(credentials) }
+            runCatching { browserUnsubscribe() }
+        }
+        return Result.success(Unit)
     }
 
     override suspend fun register(request: RegisterAccountRequest): Result<AuthSession> = runCatching {
@@ -212,8 +215,8 @@ class WebAuthRepository(
         WebAuthStorage.clear(preferences)
     }
 
-    private suspend fun notifyServerLogout() {
-        val credentials = currentWebPushCredentials() ?: return
+    private suspend fun notifyServerLogout(credentials: WebPushCredentials?) {
+        credentials ?: return
         val apiKey = configuration.supabasePublishableKey.requireConfigured("supabase_publishable_key_missing")
         webPostJson(
             endpoint = configuration.webPushEndpoint(),
@@ -498,6 +501,7 @@ private external fun requestTurnstileWidget(
 )
 
 private const val WebSessionRefreshLeewaySeconds = 60L
+private const val WebLogoutBestEffortTimeoutMillis = 500L
 
 private suspend fun webPostJson(
     endpoint: String,
@@ -545,7 +549,11 @@ private fun browserPostJson(
     const headers = { 'Content-Type': 'application/json', apikey: apiKey };
     if (accessToken != null && accessToken.length > 0) headers.Authorization = `Bearer ${'$'}{accessToken}`;
     if (webSessionToken != null && webSessionToken.length > 0) headers['x-quata-web-session'] = webSessionToken;
-    globalThis.fetch(endpoint, { method: 'POST', headers, body })
+    const controller = typeof globalThis.AbortController === 'function' ? new globalThis.AbortController() : null;
+    const timeoutId = globalThis.setTimeout(() => {
+      try { controller?.abort(); } catch (_) {}
+    }, 15000);
+    globalThis.fetch(endpoint, { method: 'POST', headers, body, signal: controller?.signal })
       .then(async (response) => {
         const text = await response.text();
         if (response.ok) onSuccess(text);
@@ -555,7 +563,8 @@ private fun browserPostJson(
           onFailure(errorCode ? `web_auth_${'$'}{errorCode}` : `web_auth_http_${'$'}{response.status}`);
         }
       })
-      .catch((error) => onFailure(error?.message || 'web_auth_network_error'));
+      .catch((error) => onFailure(error?.message || error?.name || 'web_auth_network_error'))
+      .finally(() => globalThis.clearTimeout(timeoutId));
     })()
     """,
 )

@@ -1797,6 +1797,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var authRequiredPromptVisible = false
     private var ugcTermsPromptFactory: (() -> UIViewController)?
     private var ugcTermsPromptVisible = false
+    private var ugcTermsPromptController: UIViewController?
     private var authModalTransitionsAnimated = true
     /// Retains the selected Auth entry until UIKit has completed dismissing the common prompt.
     private var pendingAuthenticationEntry: AuthenticationEntry?
@@ -2102,17 +2103,28 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             value: "Normas de la comunidad",
             comment: "",
         )
+        platformServices.attachPresenter(controller: prompt)
+        ugcTermsPromptController = prompt
         present(prompt, animated: authModalTransitionsAnimated)
     }
 
     func dismissUgcTermsPrompt(completion: (() -> Void)? = nil) {
         ugcTermsPromptVisible = false
         guard presentedViewController?.view.accessibilityIdentifier == "quata-ios-ugc-terms-dialog" else {
+            if let prompt = ugcTermsPromptController {
+                platformServices.detachPresenter(controller: prompt)
+            }
+            ugcTermsPromptController = nil
             completion?()
             return
         }
+        let prompt = ugcTermsPromptController
         dismiss(animated: authModalTransitionsAnimated) { [weak self] in
             self?.ugcTermsPromptVisible = false
+            if let prompt {
+                self?.platformServices.detachPresenter(controller: prompt)
+            }
+            self?.ugcTermsPromptController = nil
             DispatchQueue.main.async { completion?() }
         }
     }

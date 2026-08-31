@@ -42,12 +42,23 @@ class PushTokenManager(
     suspend fun unregisterCurrentToken() {
         if (AppConfig.USE_MOCK_BACKEND) return
         val session = sessionManager.currentSession()
+        unregisterTokenForProfile(session?.userId)
+    }
+
+    fun unregisterTokenForProfileAfterLogout(profileId: String?) {
+        if (AppConfig.USE_MOCK_BACKEND) return
+        scope.launch {
+            unregisterTokenForProfile(profileId)
+        }
+    }
+
+    private suspend fun unregisterTokenForProfile(profileId: String?) {
         val token = runCatching { FirebaseMessaging.getInstance().token.await() }
             .getOrNull()
             ?: preferences.getString(KEY_REGISTERED_TOKEN, null)
             ?: preferences.getString(KEY_PENDING_TOKEN, null)
-        if (session != null && !token.isNullOrBlank()) {
-            runCatching { supabaseApi.unregisterPushToken(session.userId, token) }
+        if (!profileId.isNullOrBlank() && !token.isNullOrBlank()) {
+            runCatching { supabaseApi.unregisterPushToken(profileId, token) }
                 .onFailure { Log.w(TAG, "Could not unregister FCM token", it) }
         }
         runCatching { FirebaseMessaging.getInstance().deleteToken().await() }

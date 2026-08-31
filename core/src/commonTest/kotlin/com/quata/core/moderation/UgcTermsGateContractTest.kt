@@ -23,9 +23,12 @@ class UgcTermsGateContractTest {
         )
 
         assertTrue(gateway.acceptTerms().isSuccess)
+        assertEquals(0, syncAttempts)
 
         assertEquals(true, gateway.hasAcceptedTerms().getOrThrow())
-        assertEquals(2, syncAttempts)
+        assertEquals(0, syncAttempts)
+        assertEquals(false, gateway.flushPendingAcceptance().isSuccess)
+        assertEquals(1, syncAttempts)
         assertEquals("true", preferences.getString("ugc_terms:pending:profile-1:$CurrentUgcTermsVersion"))
     }
 
@@ -50,9 +53,14 @@ class UgcTermsGateContractTest {
 
         assertTrue(gateway.acceptTerms().isSuccess)
         assertEquals("true", preferences.getString("ugc_terms:pending:profile-1:$CurrentUgcTermsVersion"))
-        assertEquals(1, syncAttempts)
+        assertEquals(0, syncAttempts)
 
         assertEquals(true, gateway.hasAcceptedTerms().getOrThrow())
+        assertEquals(0, syncAttempts)
+        assertEquals(false, gateway.flushPendingAcceptance().isSuccess)
+        assertEquals(1, syncAttempts)
+        assertEquals("true", preferences.getString("ugc_terms:pending:profile-1:$CurrentUgcTermsVersion"))
+        assertEquals(true, gateway.flushPendingAcceptance().getOrThrow())
         assertEquals(2, syncAttempts)
         assertEquals(null, preferences.getString("ugc_terms:pending:profile-1:$CurrentUgcTermsVersion"))
     }
@@ -70,6 +78,33 @@ class UgcTermsGateContractTest {
         assertEquals(true, gateway.hasAcceptedTerms().getOrThrow())
 
         assertEquals("true", preferences.getString("ugc_terms:accepted:profile-1:$CurrentUgcTermsVersion"))
+        assertEquals(null, preferences.getString("ugc_terms:pending:profile-1:$CurrentUgcTermsVersion"))
+    }
+
+    @Test
+    fun localAcceptanceCanLaunchBackgroundPendingSyncWithoutBlockingAccept() = runTest {
+        val preferences = MemoryPreferenceStore()
+        val pendingTasks = mutableListOf<suspend () -> Unit>()
+        var syncAttempts = 0
+        val gateway = LocalFirstUgcTermsGateway(
+            profileIdProvider = { "profile-1" },
+            store = PreferenceUgcTermsAcceptanceStore(preferences),
+            remote = UgcTermsRemoteGateway { _, _ -> Result.success(false) },
+            acceptance = UgcTermsAcceptanceGateway {
+                _, _ ->
+                syncAttempts += 1
+                Result.success(Unit)
+            },
+            pendingSyncLauncher = { task -> pendingTasks += task },
+        )
+
+        assertTrue(gateway.acceptTerms().isSuccess)
+        assertEquals(0, syncAttempts)
+        assertEquals(1, pendingTasks.size)
+
+        pendingTasks.single().invoke()
+
+        assertEquals(1, syncAttempts)
         assertEquals(null, preferences.getString("ugc_terms:pending:profile-1:$CurrentUgcTermsVersion"))
     }
 

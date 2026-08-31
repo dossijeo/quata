@@ -183,8 +183,10 @@ internal class AuthRepositoryImpl(
     }.mapFailureToUserFacing(appContext, R.string.error_backend_generic)
 
     override suspend fun logout() {
-        pushTokenManager.unregisterCurrentToken()
+        val profileId = sessionManager.currentSession()?.userId
+        if (profileId != null) clearLocalAccountData(profileId)
         sessionManager.clearSession()
+        pushTokenManager.unregisterTokenForProfileAfterLogout(profileId)
     }
 
     private suspend fun clearLocalAccountData(profileId: String) {

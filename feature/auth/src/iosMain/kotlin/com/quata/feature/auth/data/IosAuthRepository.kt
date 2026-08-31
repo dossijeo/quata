@@ -199,16 +199,17 @@ class IosAuthRepository(
 
     /** The local Keychain session is always cleared, even when remote Supabase logout is offline. */
     override suspend fun logout() {
+        val bearerToken = session.currentSession()?.bearerToken
+        session.clear()
         runCatching {
-            session.currentSession()?.let { active ->
+            bearerToken?.let { token ->
                 post(
                     endpoint = configuration.supabaseLogoutEndpoint(),
-                    accessToken = active.bearerToken,
+                    accessToken = token,
                     body = "{}",
                 )
             }
         }
-        session.clear()
     }
 
     private suspend fun performLifecycle(action: String, password: String): Result<Unit> = runCatching {
