@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
@@ -112,6 +113,8 @@ class ChatActionsNotificationsInstrumentedTest {
         val forwardQuery = optionalArgument("quataChatActionsForwardQuery")
         val postId = optionalArgument("quataChatActionsPostId")
         val officialPostId = optionalArgument("quataChatActionsOfficialPostId")
+        val feedPostBody = optionalArgument("quataChatActionsFeedPostBody")
+        val officialTitle = optionalArgument("quataChatActionsOfficialTitle")
         val commentId = optionalArgument("quataChatActionsCommentId")
         val attachmentId = optionalArgument("quataChatActionsAttachmentId")
         val documentProbe = optionalArgument("quataChatActionsDocumentProbe")
@@ -152,6 +155,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile", "profile-follow", "profile-roles-safety" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
+            "post-detail" -> listOf(postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
             "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
@@ -179,6 +183,21 @@ class ChatActionsNotificationsInstrumentedTest {
             app.container.sessionManager.currentSession()?.isSupabaseAuthenticated() == true,
         )
 
+        if (stage == "post-detail") {
+            runPostDetailStage(
+                feedPostId = postId.orEmpty(),
+                officialPostId = officialPostId.orEmpty(),
+                feedPostBody = feedPostBody.orEmpty(),
+                officialTitle = officialTitle.orEmpty(),
+            )
+            writeReport(
+                JSONObject()
+                    .put("check", "POST-DETAIL-ANDROID-COMMON-001")
+                    .put("status", "passed")
+                    .put("evidenceDirectory", evidenceDir().absolutePath),
+            )
+            return@runBlocking
+        }
         if (stage == "profile-entry") {
             runProfileEntryStage(
                 profileId = profileId.orEmpty(),
@@ -307,6 +326,34 @@ class ChatActionsNotificationsInstrumentedTest {
                 .put("status", "passed")
                 .put("evidenceDirectory", evidenceDir().absolutePath),
         )
+    }
+
+    private fun runPostDetailStage(
+        feedPostId: String,
+        officialPostId: String,
+        feedPostBody: String,
+        officialTitle: String,
+    ) {
+        ActivityScenario.launch<MainActivity>(chatIntent("quata://egquata.com/#post-${Uri.encode(feedPostId)}")).use {
+            waitForTag("feed.detail.chrome", "feed detail common chrome", 45_000)
+            waitForTag("feed.detail.back", "feed detail common back", 20_000)
+            waitForVisibleText(feedPostBody, "feed detail post body", 45_000)
+            saveScreenshot("android-post-detail-feed-open")
+            clickMergedTagWithAction("feed.detail.back")
+            waitForTagGone("feed.detail.chrome", "feed detail closed after back", 20_000)
+            SystemClock.sleep(800)
+            saveScreenshot("android-post-detail-feed-back")
+        }
+        ActivityScenario.launch<MainActivity>(chatIntent("quata://egquata.com/#official-${Uri.encode(officialPostId)}")).use {
+            waitForTag("official.detail.chrome", "official detail common chrome", 45_000)
+            waitForTag("official.detail.back", "official detail common back", 20_000)
+            waitForVisibleText(officialTitle, "official detail title", 45_000)
+            saveScreenshot("android-post-detail-official-open")
+            clickMergedTagWithAction("official.detail.back")
+            waitForTagGone("official.detail.chrome", "official detail closed after back", 20_000)
+            SystemClock.sleep(800)
+            saveScreenshot("android-post-detail-official-back")
+        }
     }
 
     private suspend fun runTranslationStage(markerProbe: String) {
@@ -2365,6 +2412,13 @@ class ChatActionsNotificationsInstrumentedTest {
         clickStableTag(tag)
     }
 
+    private fun clickMergedTagWithAction(tag: String) {
+        compose.onNodeWithTag(tag, useUnmergedTree = false)
+            .assertHasClickAction()
+            .performClick()
+        compose.waitForIdle()
+    }
+
     private fun clickComposeTag(tag: String) {
         val visibleNode = visibleTaggedNodes(tag)
             .maxWithOrNull(compareBy({ it.boundsInRoot.center.y }, { it.boundsInRoot.center.x }))
@@ -2529,6 +2583,14 @@ class ChatActionsNotificationsInstrumentedTest {
             true
         }.getOrDefault(false)
         assertTrue("The semantic tag must disappear in $context.", gone)
+    }
+
+    private fun waitForVisibleText(text: String, context: String, timeoutMillis: Long = 45_000) {
+        val visible = runCatching {
+            compose.waitUntil(timeoutMillis) { visibleNonEditableTextNodeCount(text) > 0 }
+            true
+        }.getOrDefault(false)
+        assertTrue("The expected text must be visible in $context: $text", visible)
     }
 
     private fun visibleTaggedNodes(tag: String) =

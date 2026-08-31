@@ -8,6 +8,7 @@ import android.os.Build
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -208,6 +209,9 @@ fun FeedScreen(
     val translatorModeController = LocalQuataTranslatorModeController.current
     val landscape = rememberQuataWindowLayoutInfo().isLandscape
     DisposableEffect(Unit) { onDispose { onLandscapeCommentsOverlayActiveChange(false) } }
+    BackHandler(enabled = focusedPostId != null && onBackFromFocusedPost != null) {
+        onBackFromFocusedPost?.invoke()
+    }
     FeedScreenHost(
         padding = padding,
         repository = feedRepository,

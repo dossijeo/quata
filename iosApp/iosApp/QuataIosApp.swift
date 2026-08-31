@@ -693,7 +693,7 @@ private final class IosAppCompositionRoot {
                     initialPostId: postId,
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onCreatePost: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
-                    onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                    onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markFeedDetailClosed() },
                     profileOpeningState: self.memberProfileOpeningState,
                     preferredLanguageTag: Locale.preferredLanguages.first,
                 ),
@@ -732,7 +732,7 @@ private final class IosAppCompositionRoot {
                     },
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onCreatePost: { [weak self] in self?.authenticatedHost.showComposer() },
-                    onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.showFeed(postId: nil) },
+                    onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markFeedDetailClosed() },
                     profileOpeningState: self.memberProfileOpeningState,
                     preferredLanguageTag: Locale.preferredLanguages.first,
                 ),
@@ -834,7 +834,7 @@ private final class IosAppCompositionRoot {
                         onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                         onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                         onCreateOfficialPost: onCreateOfficialPost,
-                        onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.showOfficial(postId: nil) },
+                        onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markOfficialDetailClosed() },
                         canCreateOfficialPost: self.authenticatedHost.canOpenOfficialEditor,
                         preferredLanguageTag: Locale.preferredLanguages.first,
                         profileOpeningState: self.memberProfileOpeningState,
@@ -852,7 +852,7 @@ private final class IosAppCompositionRoot {
                     onAuthRequired: { [weak self] in self?.authenticatedHost.presentAuthRequiredPrompt() },
                     onOpenUserProfile: { [weak self] id in self?.presentAuthenticatedMemberProfile(profileId: id) },
                     onCreateOfficialPost: onCreateOfficialPost,
-                    onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.showOfficial(postId: nil) },
+                    onBackFromFocusedPost: postId == nil ? nil : { [weak self] in self?.authenticatedHost.markOfficialDetailClosed() },
                     canCreateOfficialPost: self.authenticatedHost.canOpenOfficialEditor,
                     profileOpeningState: self.memberProfileOpeningState,
                 ),
@@ -2347,11 +2347,23 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
 
     func showFeed(postId: String?) { route(.feed(postId: postId)) }
 
+    func markFeedDetailClosed() {
+        if case .feed = visibleRoute {
+            visibleRoute = .feed(postId: nil)
+        }
+    }
+
     func showChat(conversationId: String, messageId: String?) {
         route(.chat(conversationId: conversationId, messageId: messageId))
     }
 
     func showOfficial(postId: String?) { route(.official(postId: postId)) }
+
+    func markOfficialDetailClosed() {
+        if case .official = visibleRoute {
+            visibleRoute = .official(postId: nil)
+        }
+    }
 
     func showOfficialEditor() { route(.officialEditor) }
 

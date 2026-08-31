@@ -141,6 +141,7 @@ fun WebOfficialHost(
                 message = webOfficialCommunityEmojiSelectorEvidenceValue("message"),
             ) ?: communityEmojiCatalogState(labels, onRetry = onRetry)
         },
+        onDetailPostResolved = { post -> setWebOfficialDetailMarker(post?.title, post?.summary) },
         ),
     )
 }
@@ -292,6 +293,18 @@ private fun webOfficialEditorPlatformSlots(platformServices: WebPlatformServices
     },
     preview = { state, previewModifier -> WebOfficialEditorPreview(state, previewModifier) },
 )
+
+@JsFun("""(title, summary) => {
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  const local = ['127.0.0.1', 'localhost'].includes(String(globalThis.location?.hostname || ''));
+  const optedIn = new URLSearchParams(globalThis.location?.search || '').get('quata-post-detail-e2e') === '1';
+  if (local && optedIn && title) root.setAttribute('data-quata-official-detail-title', title);
+  else root.removeAttribute('data-quata-official-detail-title');
+  if (local && optedIn && summary) root.setAttribute('data-quata-official-detail-summary', summary);
+  else root.removeAttribute('data-quata-official-detail-summary');
+}""")
+private external fun setWebOfficialDetailMarker(title: String?, summary: String?)
 
 @Composable
 private fun BrowserOfficialEditorMedia(media: OfficialEditorMedia, modifier: Modifier) {

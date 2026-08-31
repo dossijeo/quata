@@ -3,6 +3,7 @@ package com.quata.feature.official.presentation
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
@@ -48,6 +49,9 @@ fun OfficialFeedScreen(
     val context = LocalContext.current
     val translatorModeController = LocalQuataTranslatorModeController.current
     val commentNamePlaceholder = "\u0000"
+    BackHandler(enabled = focusedPostId != null && onBackFromFocusedPost != null) {
+        onBackFromFocusedPost?.invoke()
+    }
     val commentReplyingToTemplate =
         stringResource(R.string.comments_replying_to, commentNamePlaceholder)
     val commentReplyToTemplate =

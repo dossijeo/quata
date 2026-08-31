@@ -5,7 +5,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.rememberPagerState
@@ -28,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -165,6 +170,8 @@ class OfficialFeedScreenPlatformSlots(
     val communityEmojiCatalog: (CommunityEmojiLabels, (() -> Unit)?) -> CommunityEmojiCatalogState = { labels, onRetry ->
         communityEmojiCatalogState(labels, onRetry = onRetry)
     },
+    /** Optional platform diagnostics hook; product state and rendering stay owned by commonMain. */
+    val onDetailPostResolved: (OfficialPostItem?) -> Unit = {},
 )
 
 /**
@@ -194,8 +201,10 @@ fun OfficialFeedScreenHost(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val windowInfo = rememberQuataWindowLayoutInfo()
-    val visiblePosts = focusedPostId?.let { target -> state.posts.filter { post -> post.id == target } } ?: state.posts
-    val focusedPostPending = focusedPostId != null && visiblePosts.isEmpty()
+    var localFocusedPostId by rememberSaveable(focusedPostId) { mutableStateOf(focusedPostId) }
+    val activeFocusedPostId = localFocusedPostId
+    val visiblePosts = activeFocusedPostId?.let { target -> state.posts.filter { post -> post.id == target } } ?: state.posts
+    val focusedPostPending = activeFocusedPostId != null && visiblePosts.isEmpty()
     var readMorePost by rememberSaveable { mutableStateOf<String?>(null) }
     var commentsPost by rememberSaveable { mutableStateOf<String?>(null) }
     var mediaPost by rememberSaveable { mutableStateOf<String?>(null) }
@@ -208,10 +217,11 @@ fun OfficialFeedScreenHost(
     var retainedPostId by rememberSaveable { mutableStateOf<String?>(null) }
     var restored by remember { mutableStateOf(retainedPostId == null) }
     val pagerState = rememberPagerState(pageCount = { visiblePosts.size.coerceAtLeast(1) })
+    val layoutDirection = LocalLayoutDirection.current
     val effectiveUserId = currentUserId ?: state.currentUser?.id
     val canPublish = state.currentUser?.isOfficial == true && slots.canCreateOfficialPost
     val ranks = remember(state.posts) { calculateOfficialPostRanking(state.posts) }
-    val canPullRefresh = focusedPostId == null && pagerState.currentPage == 0 && !state.isRefreshing && commentsPost == null && readMorePost == null && !liveOpen
+    val canPullRefresh = activeFocusedPostId == null && pagerState.currentPage == 0 && !state.isRefreshing && commentsPost == null && readMorePost == null && !liveOpen
     val pullRefresh = rememberQuataFeedPullRefreshState(canPullRefresh, state.isRefreshing) { viewModel.onEvent(OfficialFeedUiEvent.Refresh) }
     fun message(value: String) {
         slots.message(value)
@@ -225,16 +235,19 @@ fun OfficialFeedScreenHost(
         if (state.message == OfficialFeedMessages.CommentReportFailed) { message(strings.reportFailed); viewModel.onEvent(OfficialFeedUiEvent.ClearMessage) }
     }
     LaunchedEffect(focusedPostId) {
-        focusedPostId?.takeIf { state.posts.none { post -> post.id == it } }?.let { viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(it)) }
+        localFocusedPostId = focusedPostId
     }
-    LaunchedEffect(focusedPostId, state.posts) {
-        val target = focusedPostId ?: return@LaunchedEffect
+    LaunchedEffect(activeFocusedPostId) {
+        activeFocusedPostId?.takeIf { state.posts.none { post -> post.id == it } }?.let { viewModel.onEvent(OfficialFeedUiEvent.EnsurePostLoaded(it)) }
+    }
+    LaunchedEffect(activeFocusedPostId, visiblePosts) {
+        val target = activeFocusedPostId ?: return@LaunchedEffect
         val index = visiblePosts.indexOfFirst { it.id == target }
         if (target != handledFocus && index >= 0) { pagerState.scrollToPage(index); retainedPostId = target; restored = true; handledFocus = target; onFocusedPostHandled() }
     }
-    LaunchedEffect(retainedPostId, state.posts, focusedPostId) {
+    LaunchedEffect(retainedPostId, state.posts, activeFocusedPostId) {
         val index = state.posts.indexOfFirst { it.id == retainedPostId }
-        if (!restored && focusedPostId == null && index >= 0) { pagerState.scrollToPage(index); restored = true }
+        if (!restored && activeFocusedPostId == null && index >= 0) { pagerState.scrollToPage(index); restored = true }
     }
     LaunchedEffect(pagerState.currentPage, visiblePosts) { if (restored) visiblePosts.getOrNull(pagerState.currentPage)?.let { retainedPostId = it.id } }
     LaunchedEffect(rankingTargetPostId, visiblePosts) {
@@ -247,29 +260,46 @@ fun OfficialFeedScreenHost(
         rankingTargetPostId = null
     }
 
+    val showsDetailChrome = activeFocusedPostId != null && onBackFromFocusedPost != null
+    val viewportPadding = if (showsDetailChrome) {
+        PaddingValues(
+            start = padding.calculateStartPadding(layoutDirection),
+            top = 0.dp,
+            end = padding.calculateEndPadding(layoutDirection),
+            bottom = padding.calculateBottomPadding(),
+        )
+    } else {
+        padding
+    }
+
     Column(modifier.fillMaxSize()) {
-        val detailPost = focusedPostId?.let { id -> state.posts.firstOrNull { it.id == id } }
-        if (focusedPostId != null && onBackFromFocusedPost != null) {
+        val detailPost = activeFocusedPostId?.let { id -> state.posts.firstOrNull { it.id == id } }
+        LaunchedEffect(detailPost?.id, detailPost?.title, detailPost?.summary) { slots.onDetailPostResolved(detailPost) }
+        if (showsDetailChrome) {
+            Spacer(Modifier.height(padding.calculateTopPadding()))
             QuataPostDetailChromeContent(
                 title = strings.detailTitle,
                 subtitle = detailPost?.title,
                 backContentDescription = strings.detailBack,
                 rootTestTag = OfficialPostDetailChromeTestTag,
                 backTestTag = OfficialPostDetailBackTestTag,
-                onBack = onBackFromFocusedPost,
+                onBack = {
+                    localFocusedPostId = null
+                    onBackFromFocusedPost?.invoke()
+                },
             )
         }
         Box(Modifier.fillMaxSize().weight(1f)) {
             when {
                 state.error != null && state.posts.isEmpty() -> OfficialHostFailure(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(OfficialFeedUiEvent.Refresh) }, Modifier.fillMaxSize())
                 else -> OfficialFeedPagerContent(
-                padding = padding,
+                padding = viewportPadding,
                 pagerState = pagerState,
                 posts = visiblePosts,
-                hasMoreOlderPosts = focusedPostId == null && state.hasMoreOlderPosts,
+                hasMoreOlderPosts = activeFocusedPostId == null && state.hasMoreOlderPosts,
                 isLoadingOlder = state.isLoadingOlder,
                 isInitialLoading = state.isLoading || focusedPostPending,
-                onLoadOlder = { if (focusedPostId == null) viewModel.onEvent(OfficialFeedUiEvent.LoadOlderPage) },
+                onLoadOlder = { if (activeFocusedPostId == null) viewModel.onEvent(OfficialFeedUiEvent.LoadOlderPage) },
                 emptyContent = { loading -> if (loading) OfficialLoadingContent(canPublish, OfficialStatusStrings(strings.empty, strings.create), ::create, Modifier.fillMaxSize()) else OfficialEmptyContent(canPublish, OfficialStatusStrings(strings.empty, strings.create), ::create, Modifier.fillMaxSize()) },
                 pageContent = { index, post, _ ->
                     OfficialPagerPostPageContent(card = { cardModifier ->

@@ -713,7 +713,7 @@ private fun QuataWebApp(
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 onCreateOfficialPost = { navigation.navigate("official-editor") },
-                                onBackFromFocusedPost = navigation.officialPostId?.let { { navigation.navigate("official") } },
+                                onBackFromFocusedPost = navigation.officialPostId?.let { { navigation.replace("official") } },
                             )
                             if (memberProfileId != null) {
                             WebNeighborhoodsHost(
@@ -786,7 +786,7 @@ private fun QuataWebApp(
                                 openingProfileUserId = memberProfileId,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onCreatePost = { navigation.navigate("composer") },
-                                onBackFromFocusedPost = navigation.postId?.let { { navigation.navigate("feed") } },
+                                onBackFromFocusedPost = navigation.postId?.let { { navigation.replace("feed") } },
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                             )
                             if (memberProfileId != null) {
@@ -964,6 +964,11 @@ internal class WebNavigationController(
         updateBrowserFragment(fragment)
     }
 
+    fun replace(fragment: String) {
+        acceptBrowserFragment(fragment)
+        replaceBrowserFragment(fragment)
+    }
+
     fun navigateConversation(conversationId: String, messageId: String? = null) {
         navigate(quataChatUrl(conversationId, messageId).substringAfter('#'))
     }
@@ -1053,6 +1058,16 @@ internal fun String.toWebNavigationState(): WebNavigationState {
 private fun browserFragment(): String = js("globalThis.location?.hash?.replace(/^#/, '') || ''")
 
 private fun setBrowserFragment(fragment: String): Unit = js("globalThis.location.hash = fragment")
+
+@JsFun("""(fragment) => {
+  const next = '#' + fragment;
+  if (globalThis.history?.replaceState) {
+    globalThis.history.replaceState(null, '', next);
+  } else {
+    globalThis.location.replace(next);
+  }
+}""")
+private external fun replaceBrowserFragment(fragment: String)
 
 /** Browser-test semantic marker for the real Compose shell; it does not render a parallel UI. */
 @JsFun("""(route, selectedPrimaryRoute) => {
