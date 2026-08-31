@@ -72,11 +72,11 @@ test("Official editor semantics contract stays hermetic", () => {
 });
 
 test("Official deep links render only the requested post and retry focused loads", () => {
-  assert.match(feedHost, /val visiblePosts = focusedPostId\?\.let \{ target -> state\.posts\.filter \{ post -> post\.id == target \} \} \?: state\.posts/);
+  assert.match(feedHost, /val visiblePosts = activeFocusedPostId\?\.let \{ target -> state\.posts\.filter \{ post -> post\.id == target \} \} \?: state\.posts/);
   assert.match(feedHost, /pagerState = rememberPagerState\(pageCount = \{ visiblePosts\.size\.coerceAtLeast\(1\) \}\)/);
   assert.match(feedHost, /posts = visiblePosts/);
   assert.match(feedHost, /isInitialLoading = state\.isLoading \|\| focusedPostPending/);
-  assert.match(feedHost, /onLoadOlder = \{ if \(focusedPostId == null\) viewModel\.onEvent\(OfficialFeedUiEvent\.LoadOlderPage\) \}/);
+  assert.match(feedHost, /onLoadOlder = \{ if \(activeFocusedPostId == null\) viewModel\.onEvent\(OfficialFeedUiEvent\.LoadOlderPage\) \}/);
   assert.match(feedViewModel, /private const val FocusedPostLoadAttempts = 4/);
   assert.match(feedViewModel, /repeat\(FocusedPostLoadAttempts\)/);
   assert.match(feedViewModel, /delay\(FocusedPostLoadRetryDelayMillis\)/);

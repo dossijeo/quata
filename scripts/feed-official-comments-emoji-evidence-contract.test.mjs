@@ -46,7 +46,7 @@ test("Feed and Official comments use the common emoji picker and common comment 
     assert.match(content, /emptyMessage = strings\.emojiLabels\.empty/, `${label}:empty_localized`);
   }
   assert.match(feedEvents, /data class FocusPost/);
-  assert.match(feed, /FeedUiEvent\.FocusPost\(focusedPostId\)/);
+  assert.match(feed, /FeedUiEvent\.FocusPost\(activeFocusedPostId\)/);
   assert.match(feedViewModel, /repository\.refreshPost\(postId\)/);
   assert.match(feedViewModel, /feedStore\.prependIfMissing\(post\)/);
   assert.match(feedViewModel, /feedStore\.replace\(postId\) \{ it\.withoutLocalPendingComment\(comment\) \}/);
