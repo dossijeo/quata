@@ -1118,7 +1118,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard let feedPostId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID"]),
               let feedPostBody = nonEmpty(environment["QUATA_IOS_CHAT_FEED_POST_BODY"]),
               let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID"]),
-              let officialTitle = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_TITLE"]) else {
+              let officialTitle = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_TITLE"]),
+              let officialArticle = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_ARTICLE"]),
+              let officialLink = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_LINK"]),
+              let peerProfileId = nonEmpty(environment["QUATA_IOS_CHAT_PROFILE_E2E_PROFILE_ID"]) else {
             throw XCTSkip("Disposable Feed/Official post-detail fixture is not configured.")
         }
 
@@ -1143,13 +1146,14 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
 
         openDeepLink("quata://egquata.com/#official-\(encodedFragment(officialPostId))", in: app)
-        assertPostDetailChrome(
+        assertOfficialPostDetailPanel(
             chromeIdentifier: "official.detail.chrome",
             backIdentifier: "official.detail.back",
-            expectedText: officialTitle,
-            openScreenshot: "ios-post-detail-official-open",
-            backScreenshot: "ios-post-detail-official-back",
-            context: "Official post detail",
+            readMoreIdentifier: "official.detail.read-more.\(officialPostId)",
+            expectedTitle: officialTitle,
+            expectedArticle: officialArticle,
+            expectedLink: officialLink,
+            peerProfileId: peerProfileId,
             in: app,
         )
     }
@@ -2612,6 +2616,48 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(chrome.waitForNonExistence(timeout: 10), "The common detail chrome must close after back for \(context).")
         attachScreenshot(app, name: backScreenshot)
+    }
+
+    private func assertOfficialPostDetailPanel(
+        chromeIdentifier: String,
+        backIdentifier: String,
+        readMoreIdentifier: String,
+        expectedTitle: String,
+        expectedArticle: String,
+        expectedLink: String,
+        peerProfileId: String,
+        in app: XCUIApplication,
+    ) {
+        let chrome = waitForExistingIdentifier(chromeIdentifier, in: app, context: "Official post detail chrome")
+        XCTAssertTrue(chrome.exists, "The common detail chrome must exist for Official post detail.")
+        let back = waitForVisibleIdentifier(backIdentifier, in: app, context: "Official post detail back")
+        XCTAssertTrue(back.isHittable, "The common detail back action must be hittable for Official post detail.")
+        _ = waitForVisibleText(expectedTitle, in: app, context: "Official post detail title")
+        attachScreenshot(app, name: "ios-post-detail-official-open")
+
+        tapVisibleIdentifier(readMoreIdentifier, in: app, context: "Official post detail read-more")
+        _ = waitForExistingIdentifier("official.detail.panel", in: app, context: "Official detail panel")
+        _ = waitForExistingIdentifier("official.detail.article", in: app, context: "Official detail article")
+        _ = waitForExistingIdentifier("official.detail.link", in: app, context: "Official detail link")
+        _ = waitForVisibleIdentifier("official.detail.profile", in: app, context: "Official detail profile")
+        _ = waitForVisibleText(expectedArticle, in: app, context: "Official detail article text")
+        _ = waitForVisibleText(expectedLink, in: app, context: "Official detail link text")
+        attachScreenshot(app, name: "ios-post-detail-official-panel")
+
+        tapVisibleIdentifier("official.detail.profile", in: app, context: "Official detail profile")
+        _ = waitForExistingIdentifier("public-profile.user.\(peerProfileId)", in: app, context: "Official detail public profile", timeout: 30)
+        attachScreenshot(app, name: "ios-post-detail-official-profile")
+        closePublicProfile(in: app)
+        XCTAssertTrue(waitForPublicProfileClosed(profileId: peerProfileId, in: app, timeout: 10), "The public profile sheet must close from Official detail.")
+
+        tapVisibleIdentifier("official.detail.panel.close", in: app, context: "Official detail panel close")
+        XCTAssertTrue(
+            !app.descendants(matching: .any).matching(identifier: "official.detail.panel").firstMatch.waitForExistence(timeout: 10),
+            "The Official detail panel must close before returning to the focused post.",
+        )
+        back.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(chrome.waitForNonExistence(timeout: 10), "The common detail chrome must close after back for Official post detail.")
+        attachScreenshot(app, name: "ios-post-detail-official-back")
     }
 
     private func tapVisibleIdentifier(_ identifier: String, in app: XCUIApplication, context: String, normalizedOffset: CGVector = CGVector(dx: 0.5, dy: 0.5)) {

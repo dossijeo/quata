@@ -17,6 +17,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -24,6 +27,8 @@ import androidx.compose.ui.unit.sp
 import com.quata.core.designsystem.theme.QuataResolvedTheme
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.feature.official.domain.OfficialPostItem
+
+fun officialPostReadMoreTestTag(postId: String): String = "official.detail.read-more.$postId"
 
 @Composable fun OfficialTypePill(label: String, modifier: Modifier = Modifier) {
     val template = quataTheme()
@@ -49,6 +54,17 @@ import com.quata.feature.official.domain.OfficialPostItem
     if (post.contentPlain.isBlank() || post.contentPlain.trim() == post.summary.trim()) if (post.linkUrl.isNullOrBlank()) return
     val template = quataTheme(); Spacer(Modifier.height(12.dp))
     Row(modifier.fillMaxWidth(), horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start) {
-        Text(label, color = if (template.resolvedTheme == QuataResolvedTheme.Dark) Color(0xFF2EA7FF) else Color(0xFF17954B), fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable(onClick = onReadMore))
+        val tag = officialPostReadMoreTestTag(post.id)
+        Text(
+            label,
+            color = if (template.resolvedTheme == QuataResolvedTheme.Dark) Color(0xFF2EA7FF) else Color(0xFF17954B),
+            fontWeight = FontWeight.ExtraBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .testTag(tag)
+                .semantics { contentDescription = tag }
+                .clickable(onClick = onReadMore),
+        )
     }
 }

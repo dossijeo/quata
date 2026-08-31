@@ -121,9 +121,41 @@ async function verifyOfficialDetail(page, origin, state) {
   await waitForAnchor(page, "official.detail.back");
   await waitForAttribute(page, "data-quata-official-detail-title", state.official.title, "official_detail_title_marker_missing");
   await waitForAttribute(page, "data-quata-official-detail-summary", state.official.summary, "official_detail_summary_marker_missing");
+  await waitForAttributeContains(page, "data-quata-official-detail-article", state.official.article, "official_detail_article_marker_missing");
+  await waitForAttribute(page, "data-quata-official-detail-link", state.official.linkUrl, "official_detail_link_marker_missing");
   const titleVisibleInAccessibility = await visibleText(page, state.official.title, 2_000);
-  report.anchors.push("official.detail.chrome", "official.detail.back");
-  report.diagnostics = { ...(report.diagnostics ?? {}), officialTitleVisibleInAccessibility: titleVisibleInAccessibility };
+  await clickAnchor(page, `official.detail.read-more.${state.official.postId}`);
+  await waitForAnchor(page, "official.detail.panel");
+  await waitForAnchor(page, "official.detail.article");
+  await waitForAnchor(page, "official.detail.link");
+  await waitForAnchor(page, "official.detail.profile");
+  const articleVisibleInAccessibility = await visibleText(page, state.official.article, 2_000);
+  const linkVisibleInAccessibility = await visibleText(page, state.official.linkUrl, 2_000);
+  report.evidence.officialPanel = await screenshot(page, "web-post-detail-official-panel");
+  await clickAnchor(page, "official.detail.profile");
+  await waitForAttribute(page, "data-quata-member-profile-id", state.targetSession.profileId, "official_detail_profile_route_missing", 20_000);
+  await waitForAnchor(page, "public-profile.back");
+  report.evidence.officialProfile = await screenshot(page, "web-post-detail-official-profile");
+  await clickAnchor(page, "public-profile.back");
+  await waitForAttributeCleared(page, "data-quata-member-profile-id", "official_detail_profile_route_not_cleared", 20_000);
+  await openRoute(page, origin, `official-${encodeURIComponent(state.official.postId)}`, `official/${state.official.postId}`);
+  await waitForAnchor(page, "official.detail.back");
+  report.anchors.push(
+    "official.detail.chrome",
+    "official.detail.back",
+    `official.detail.read-more.${state.official.postId}`,
+    "official.detail.panel",
+    "official.detail.article",
+    "official.detail.link",
+    "official.detail.profile",
+    "official.detail.panel.close",
+  );
+  report.diagnostics = {
+    ...(report.diagnostics ?? {}),
+    officialTitleVisibleInAccessibility: titleVisibleInAccessibility,
+    officialArticleVisibleInAccessibility: articleVisibleInAccessibility,
+    officialLinkVisibleInAccessibility: linkVisibleInAccessibility,
+  };
   report.evidence.officialDetail = await screenshot(page, "web-post-detail-official-open");
   await clickAnchor(page, "official.detail.back");
   await waitForRoute(page, "official", "official_back_route_missing");
@@ -160,6 +192,26 @@ async function waitForAttribute(page, name, value, error, timeout = 15_000) {
   });
 }
 
+async function waitForAttributeContains(page, name, value, error, timeout = 15_000) {
+  await page.waitForFunction(
+    ({ name, value }) => String(document.documentElement.getAttribute(name) ?? "").includes(value),
+    { name, value },
+    { timeout },
+  ).catch(() => {
+    throw new Error(error);
+  });
+}
+
+async function waitForAttributeCleared(page, name, error, timeout = 15_000) {
+  await page.waitForFunction(
+    (name) => !document.documentElement.hasAttribute(name) || document.documentElement.getAttribute(name) === "",
+    name,
+    { timeout },
+  ).catch(() => {
+    throw new Error(error);
+  });
+}
+
 async function waitForAnchor(page, tag, timeout = 15_000) {
   const locator = await anchorLocator(page, tag, timeout);
   await locator.waitFor({ state: "attached", timeout: 1_000 });
@@ -169,6 +221,10 @@ async function waitForAnchor(page, tag, timeout = 15_000) {
 async function clickAnchor(page, tag) {
   const locator = await anchorLocator(page, tag, 15_000);
   await locator.scrollIntoViewIfNeeded().catch(() => {});
+  if (await locator.click({ timeout: 2_000 }).then(() => true).catch(() => false)) {
+    await delay(500);
+    return;
+  }
   const box = await locator.boundingBox().catch(() => null);
   if (!box || box.width <= 0 || box.height <= 0) throw new Error(`anchor_not_visible:${tag}`);
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
@@ -177,13 +233,17 @@ async function clickAnchor(page, tag) {
 
 async function anchorLocator(page, tag, timeout) {
   const deadline = Date.now() + timeout;
+  const scrollPattern = [0, -700, -700, -700, 1400, 700, 700, -1400];
+  let index = 0;
   while (Date.now() < deadline) {
     const locator = page.locator(`[id=${cssString(tag)}], [aria-label*=${cssString(tag)}], [title*=${cssString(tag)}]`).first();
     if (await locator.count()) {
       const box = await locator.boundingBox().catch(() => null);
       if (box && box.width > 0 && box.height > 0) return locator;
     }
-    await page.mouse.wheel(0, 420).catch(() => {});
+    const delta = scrollPattern[index % scrollPattern.length];
+    index += 1;
+    if (delta !== 0) await page.mouse.wheel(0, delta).catch(() => {});
     await delay(250);
   }
   throw new Error(`missing_stable_anchor:${tag}`);

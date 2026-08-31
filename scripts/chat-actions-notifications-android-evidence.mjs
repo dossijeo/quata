@@ -1696,6 +1696,8 @@ try {
       "-e", "quataChatActionsOfficialPostId", state.feedOfficialComments?.official?.postId ?? state.profileEntry?.official?.id ?? "",
       "-e", "quataChatActionsFeedPostBody", state.feedOfficialComments?.feed?.postBody ?? "",
       "-e", "quataChatActionsOfficialTitle", state.feedOfficialComments?.official?.title ?? "",
+      "-e", "quataChatActionsOfficialArticle", state.feedOfficialComments?.official?.article ?? "",
+      "-e", "quataChatActionsOfficialLink", state.feedOfficialComments?.official?.linkUrl ?? "",
       "-e", "quataChatActionsCommentId", state.profileContent?.seedCommentId ?? "",
       "-e", "quataChatActionsAttachmentId", String(state.profileContent?.attachmentId ?? ""),
       "-e", "quataChatActionsProfileContentComment", state.profileContent?.uiCommentMarker ?? "",

@@ -274,7 +274,9 @@ fun OfficialFeedScreenHost(
 
     Column(modifier.fillMaxSize()) {
         val detailPost = activeFocusedPostId?.let { id -> state.posts.firstOrNull { it.id == id } }
-        LaunchedEffect(detailPost?.id, detailPost?.title, detailPost?.summary) { slots.onDetailPostResolved(detailPost) }
+        LaunchedEffect(detailPost?.id, detailPost?.title, detailPost?.summary, detailPost?.contentPlain, detailPost?.linkUrl) {
+            slots.onDetailPostResolved(detailPost)
+        }
         if (showsDetailChrome) {
             Spacer(Modifier.height(padding.calculateTopPadding()))
             QuataPostDetailChromeContent(

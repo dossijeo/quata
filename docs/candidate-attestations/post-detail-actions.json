@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-FEED",
+    "SCR-OFFICIAL",
+    "OVR-POST-DETAIL",
+    "OVR-PUBLIC-PROFILE"
+  ],
+  "status": "passed",
+  "productSha": "c0d10a1c90b343012cfaf5a52b2c15a2779c182e",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "c0d10a1c90b343012cfaf5a52b2c15a2779c182e",
+      "report": "build-reports/web/post-detail-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      },
+      "coverage": [
+        "Web/Wasm opens Feed and Official deep links with the shared post-detail chrome and real back behavior.",
+        "Official detail opens the shared article panel, verifies title, summary, article text and link URL through opt-in localhost evidence markers, and exposes panel/link/profile semantic anchors.",
+        "Official author profile navigation is verified through the shared profile action; close/back are verified without relying on DOM coordinates."
+      ]
+    },
+    "android": {
+      "status": "passed",
+      "sha": "c0d10a1c90b343012cfaf5a52b2c15a2779c182e",
+      "report": "build-reports/android/post-detail-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      },
+      "coverage": [
+        "Android opens Feed and Official deep links with the shared chrome and back anchors.",
+        "Official detail opens the shared article panel, verifies article text, external link text, profile action, profile route and panel close.",
+        "Temporary chat/feed/official fixtures are removed with cleanup completed and physical residue absent."
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "c0d10a1c90b343012cfaf5a52b2c15a2779c182e",
+      "report": "build-reports/ios/post-detail-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      },
+      "coverage": [
+        "iOS runs on the Mac simulator with the Mac checkout at the same SHA as the local candidate.",
+        "XCTest opens Feed and Official deep links with the shared chrome/back contract, then opens Official's shared article panel.",
+        "The iOS flow verifies title, article text, link text, profile route, public-profile close, panel close and final back navigation."
+      ]
+    }
+  },
+  "notes": [
+    "This focal candidate extends OVR-POST-DETAIL beyond chrome and author-entry coverage: Official article/link/profile panel actions are now implemented and evidenced across Android, Web/Wasm and iOS.",
+    "The Web/Wasm DOM detail markers are opt-in diagnostics restricted to localhost plus quata-post-detail-e2e=1; runtime behavior outside evidence keeps the normal Compose/Wasm surface.",
+    "The candidate does not declare full OVR-POST-DETAIL GO: media detail, comments integration, deep scroll restoration and public-profile post-detail coverage remain outside this focal candidate.",
+    "The iOS app/test signed build was generated on the Mac worktree before the exact-SHA evidence run."
+  ]
+}
