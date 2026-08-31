@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "units": [
+    "OVR-ABOUT",
+    "SCR-RELEASE-HISTORY",
+    "FLOW-LEGAL-DOCUMENTS"
+  ],
+  "status": "passed",
+  "productSha": "4939f14415a834f579b87dceb5ffc585c86e9e20",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "4939f14415a834f579b87dceb5ffc585c86e9e20",
+      "report": "build-reports/web/about-release-history-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      },
+      "coverage": [
+        "Web/Wasm opens the real About route, captures the common About surface and uses visible semantic text to avoid canvas coordinate replay.",
+        "The runner opens Privacy and Child Safety legal documents through the shared local asset catalog and common document viewer state.",
+        "The runner navigates About to Release History and validates the direct Release History deep link with common content screenshots."
+      ]
+    },
+    "android": {
+      "status": "passed",
+      "sha": "4939f14415a834f579b87dceb5ffc585c86e9e20",
+      "report": "build-reports/android/about-release-history-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      },
+      "coverage": [
+        "Android builds debug and androidTest APKs, installs them on the active emulator and runs AboutReleaseHistoryCommonBridgeInstrumentedTest.",
+        "The instrumented test mounts QuataAboutDialogContent and ReleaseHistoryContent from commonMain, navigates About to Release History and validates the shared legal document actions.",
+        "The runner records a final physical emulator screenshot in build-reports/android/about-release-history-evidence/android-about-release-history-final.png."
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "4939f14415a834f579b87dceb5ffc585c86e9e20",
+      "report": "build-reports/ios/about-release-history-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      },
+      "coverage": [
+        "iOS runs on the Mac simulator with the Mac checkout at the same SHA as the local candidate.",
+        "XCTest opens the real iOS About fixture, verifies common About anchors, opens both legal documents through the shared document opener and navigates to Release History.",
+        "Xcode 26 still stalls while collecting post-test simctl diagnostics; the wrapper accepts this only after the selected XCTest method passed exactly once and records the diagnostics timeout in the copied evidence."
+      ]
+    }
+  },
+  "validations": [
+    "node --test scripts/whats-new-release-history-contract.test.mjs scripts/legal-documents-parity-contract.test.mjs",
+    ".\\gradlew.bat :designsystem:compileKotlinMetadata :feature:whatsnew:compileKotlinMetadata --console=plain",
+    ".\\gradlew.bat :web:wasmJsBrowserDistribution --console=plain",
+    "node scripts/about-release-history-web-evidence.mjs",
+    "node scripts/about-release-history-android-evidence.mjs",
+    "node scripts/about-release-history-ios-evidence.mjs --project /Users/gabriel/StudioProjects/quata-about-flow --simulator 48950F56-C309-4AA7-921F-D76C6042AC2C"
+  ],
+  "notes": [
+    "This focal candidate closes OVR-ABOUT by exercising About, legal document openings, About to Release History navigation, Release History direct deep link and return-capable common anchors on Android, Web/Wasm and iOS.",
+    "The candidate reuses QuataAboutDialogContent, ReleaseHistoryContent, LegalDocument, QuataLegalDocumentLinksContent, DocumentOpenService, DocumentViewerState/openWithViewerState and QuataDocumentViewerStatusContent; platform code remains limited to native hosting and document opening edges.",
+    "No Supabase or Storage data is created by this candidate.",
+    "This does not declare global FLOW-DOCUMENT-VIEWER GO: non-legal document attachments, download/share and failure/rollback paths remain separate inventory items.",
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated."
+  ]
+}
