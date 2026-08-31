@@ -19,6 +19,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         "recent",
         "frequent",
         "gestures",
+        "people",
+        "animals_nature",
+        "food_drink",
+        "objects_symbols",
+        "flags",
     ]
 
     func testGroupAdminPromotesParticipantThroughSharedMemberMenu() throws {
@@ -1082,6 +1087,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             context: "Feed comments",
             in: app,
         )
+        closeTaggedCommentsPanelIfVisible(panelIdentifier: "feed.comments.panel", context: "Feed comments", in: app)
 
         openDeepLink("quata://egquata.com/#official-\(encodedFragment(officialPostId))", in: app)
         sendEmojiCommentFromTaggedSurface(
@@ -1100,7 +1106,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             afterScreenshot: "ios-official-comments-emoji-after",
             authorScreenshot: "ios-official-comments-author-profile",
             context: "Official comments",
-            verifyFullEmojiCatalog: false,
             in: app,
         )
     }
@@ -1539,9 +1544,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 app.descendants(matching: .any).matching(identifier: cellIdentifier).firstMatch.waitForExistence(timeout: 2),
                 "\(context) must expose first emoji cell \(cellIdentifier).",
             )
-            if section == "frequent" {
-                attachScreenshot(app, name: "\(screenshotPrefix)-\(section)")
-            }
+            attachScreenshot(app, name: "\(screenshotPrefix)-\(section)")
         }
         let frequentCell = app.descendants(matching: .any).matching(identifier: "community.emoji.cell.frequent.0").firstMatch
         for _ in 0..<3 where !frequentCell.exists {
@@ -1561,6 +1564,25 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "\(context) must expose the first frequent emoji cell.",
         )
         attachScreenshot(app, name: "\(screenshotPrefix)-frequent")
+    }
+
+    private func closeTaggedCommentsPanelIfVisible(panelIdentifier: String, context: String, in app: XCUIApplication) {
+        let panel = app.descendants(matching: .any)
+            .matching(identifier: panelIdentifier)
+            .firstMatch
+        guard panel.waitForExistence(timeout: 2) else {
+            return
+        }
+        let close = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Cerrar hoja", "Close sheet"))
+            .firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5), "\(context) must expose a stable close-sheet anchor before switching surfaces.")
+        if close.isHittable {
+            close.tap()
+        } else {
+            close.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+        XCTAssertFalse(panel.waitForExistence(timeout: 5), "\(context) comments panel must close before switching surfaces.")
     }
 
     private func tapEmojiSection(_ identifier: String, in app: XCUIApplication, context: String) {
@@ -1615,7 +1637,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return target
         }
         let row = emojiSectionsRow(in: app)
-        let preferLeft = emojiSectionIndex(identifier) >= 4
+        let preferLeft = emojiSectionIndex(identifier) >= 3
         for _ in 0..<10 {
             if target.exists, target.isHittable || visibleFrame(of: target, constrainedTo: row, in: app) != nil {
                 return target

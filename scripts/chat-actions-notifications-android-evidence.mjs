@@ -199,6 +199,7 @@ const communityEmojiPanelProbeSections = [
 ];
 for (const prefix of ["android-feed-comments-emoji-before-panel", "android-official-comments-emoji-before-panel"]) {
   for (const section of communityEmojiPanelProbeSections) {
+    evidenceFiles.push(`${prefix}-${section}.png`);
     evidenceFiles.push(`${prefix}-${section}-missing-panel-tag.png`);
     evidenceFiles.push(`${prefix}-${section}-missing-panel-tag-semantics.txt`);
     evidenceFiles.push(`${prefix}-${section}-section-not-clickable.png`);
@@ -823,7 +824,7 @@ async function collectAvailableDeviceEvidence(destination) {
     try {
       const localFile = join(destination, file);
       await adbRunAsCat(`${deviceEvidencePath}/${file}`, localFile);
-      if (file.endsWith(".png") && (await stat(localFile)).size === 0) {
+      if ((await stat(localFile)).size === 0) {
         await rm(localFile, { force: true });
         continue;
       }
@@ -2171,12 +2172,9 @@ try {
   }
 
   if (profileOnly || profileFollowOnly || profileListsOnly || profileContentOnly || feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly || profileEntryOnly || profilePrivateChatOnly || profileRolesSafetyOnly) {
-    await rm(evidenceDir, { recursive: true, force: true });
-    await mkdir(evidenceDir, { recursive: true });
     const focalEvidencePrefix = (feedOfficialCommentsOnly || feedOfficialCommentsErrorOnly || feedOfficialCommentsSelectorStatesOnly) ? /(feed-comments|official-comments)/ : /profile/;
-    for (const file of evidenceFiles.filter((name) => focalEvidencePrefix.test(name) || name.endsWith("evidence.json"))) {
-      await adbRunAsCat(`${deviceEvidencePath}/${file}`, join(evidenceDir, file));
-    }
+    const copiedEvidenceFiles = await collectAvailableDeviceEvidence(evidenceDir);
+    report.evidence.files = copiedEvidenceFiles.filter((name) => focalEvidencePrefix.test(name) || name.endsWith("evidence.json"));
     report.status = "passed";
     report.evidence.directory = fileURLToPath(new URL(`../${evidenceDir.replaceAll("\\", "/")}`, import.meta.url));
     report.fixture = {

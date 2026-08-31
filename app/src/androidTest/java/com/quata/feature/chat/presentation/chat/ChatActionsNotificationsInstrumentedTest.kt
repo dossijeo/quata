@@ -599,6 +599,7 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.onNodeWithTag(emojiTag, useUnmergedTree = true)
             .performTouchInput { click(center) }
         waitForTag("community.emoji.panel", "comments emoji panel", 10_000)
+        verifyCommunityEmojiPanelSections("$beforeScreenshot-panel")
         clickStableTag("community.emoji.cell.frequent.0")
         compose.onNodeWithTag(inputTag, useUnmergedTree = true)
             .performTextInput(comment.removePrefix("😀").trimStart())
@@ -660,9 +661,7 @@ class ChatActionsNotificationsInstrumentedTest {
             clickEmojiPanelSection(sectionTag, "$screenshotPrefix-$section")
             waitForEmojiPanelTag(gridTag, "emoji panel selected grid $section", "$screenshotPrefix-$section")
             waitForEmojiPanelTag(firstCellTag, "emoji panel first cell $section", "$screenshotPrefix-$section")
-            if (section == "frequent" || section == "flags") {
-                saveScreenshot("$screenshotPrefix-$section")
-            }
+            saveScreenshot("$screenshotPrefix-$section")
         }
         scrollEmojiSectionIntoView("community.emoji.section.frequent", 1)
         clickEmojiPanelSection("community.emoji.section.frequent", "$screenshotPrefix-reset-frequent")
@@ -677,8 +676,8 @@ class ChatActionsNotificationsInstrumentedTest {
             if (row != null) {
                 val bounds = row.boundsInRoot
                 val y = bounds.center.y.roundToInt()
-                val startX = if (sectionIndex >= 4) (bounds.right - 12f).roundToInt() else (bounds.left + 12f).roundToInt()
-                val endX = if (sectionIndex >= 4) (bounds.left + 12f).roundToInt() else (bounds.right - 12f).roundToInt()
+                val startX = if (sectionIndex >= 3) (bounds.right - 12f).roundToInt() else (bounds.left + 12f).roundToInt()
+                val endX = if (sectionIndex >= 3) (bounds.left + 12f).roundToInt() else (bounds.right - 12f).roundToInt()
                 device.swipe(startX, y, endX, y, 16)
                 compose.waitForIdle()
                 return@repeat
@@ -686,7 +685,7 @@ class ChatActionsNotificationsInstrumentedTest {
             runCatching {
                 compose.onNodeWithTag("community.emoji.sections", useUnmergedTree = true)
                     .performTouchInput {
-                        if (sectionIndex >= 4) swipeLeft() else swipeRight()
+                        if (sectionIndex >= 3) swipeLeft() else swipeRight()
                     }
                 compose.waitForIdle()
             }

@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "units": [
+    "FLOW-EMOJI",
+    "OVR-COMMENTS"
+  ],
+  "productSha": "001ddb2b50572eb84516b3e7aa68ae5ff63a7ebc",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "001ddb2b50572eb84516b3e7aa68ae5ff63a7ebc",
+      "report": "build-reports/web/flow-emoji-visual-comparison-final-evidence.json",
+      "reportSha256": "6417eaaf0a381191b028b2355ab2ef09253d85ae554fbd61055139f470dad77f",
+      "reportStatus": "passed",
+      "reportGitHead": "001ddb2b50572eb84516b3e7aa68ae5ff63a7ebc",
+      "reportWorkingTreeDirty": false,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "feed_official_comments_feed_emoji_panel_all_sections_verified_by_common_anchors",
+        "feed_official_comments_official_emoji_panel_all_sections_verified_by_common_anchors",
+        "feed_and_official_comment_emoji_picker_verified_with_common_tags"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "android": {
+      "status": "passed",
+      "sha": "001ddb2b50572eb84516b3e7aa68ae5ff63a7ebc",
+      "report": "build-reports/android/flow-emoji-visual-comparison-final-evidence.json",
+      "reportSha256": "94811603becb040cd954812aa95dbfd32484235aea7599472b6e9d49ea3506bf",
+      "reportStatus": "passed",
+      "reportGitHead": "001ddb2b50572eb84516b3e7aa68ae5ff63a7ebc",
+      "reportWorkingTreeDirty": false,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "feed_and_official_comments_emoji_picker_verified_with_common_tags",
+        "feed_comments_emoji_created_from_ui_and_verified_by_db",
+        "official_comments_emoji_created_from_ui_and_verified_by_db"
+      ],
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "001ddb2b50572eb84516b3e7aa68ae5ff63a7ebc",
+      "report": "build-reports/ios/flow-emoji-visual-comparison-final-evidence.json",
+      "reportSha256": "495b53a2b5fa78f331225b5c09e7c3650c28b23694e5c89d5f0b884940c382dc",
+      "reportStatus": "passed",
+      "reportGitHead": "001ddb2b50572eb84516b3e7aa68ae5ff63a7ebc",
+      "reportWorkingTreeDirty": false,
+      "requireCleanupState": "completed",
+      "requireCleanupResidueZero": true,
+      "requiredSteps": [
+        "ios_xctest_feed_and_official_comments_emoji_picker_verified",
+        "ios_feed_and_official_emoji_panel_all_sections_attached",
+        "feed_comments_emoji_created_from_ui_and_verified_by_db",
+        "official_comments_emoji_created_from_ui_and_verified_by_db"
+      ],
+      "uiReportDirectory": "build-reports/ios/flow-emoji-visual-comparison-final-evidence/mac-ui-report",
+      "resultBundleDirectory": "build-reports/ios/flow-emoji-visual-comparison-final-evidence/xcresults",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      }
+    }
+  },
+  "preflight": [
+    "git diff --check",
+    "node --test scripts/candidate-attestation-contract.test.mjs scripts/feed-official-comments-emoji-evidence-contract.test.mjs",
+    "node scripts/chat-actions-notifications-web-evidence.mjs --feed-official-comments-only --out build-reports/web/flow-emoji-visual-comparison-final-evidence.json --evidence-dir build-reports/web/flow-emoji-visual-comparison-final-evidence",
+    "node scripts/chat-actions-notifications-android-evidence.mjs --feed-official-comments-only --out build-reports/android/flow-emoji-visual-comparison-final-evidence.json --evidence-dir build-reports/android/flow-emoji-visual-comparison-final-evidence",
+    "node scripts/chat-actions-notifications-ios-evidence.mjs --feed-official-comments-only --out build-reports/ios/flow-emoji-visual-comparison-final-evidence.json --evidence-dir build-reports/ios/flow-emoji-visual-comparison-final-evidence"
+  ],
+  "notes": [
+    "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
+    "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
+    "This candidate extends FLOW-EMOJI visual comparison for Feed and Official comments. Web/Wasm, Android and iOS open the common CommunityEmojiPanelContent, traverse recent, frequent, gestures, people, animals_nature, food_drink, objects_symbols and flags, submit real emoji comments, verify DB persistence and complete physical cleanup.",
+    "The iOS runner now fails closed when the XCTest bundle is older than the UI test sources, and the iOS evidence report explicitly requires all 16 Feed/Official emoji panel attachments before it can pass.",
+    "The iOS full-section route took 645 seconds in the simulator on this candidate. Its watchdog is 840 seconds for this focal 16-screenshot path, while evidence acceptance still depends on the XCTest terminal success marker, exact report status, 16/16 attachment count and cleanup verification."
+  ]
+}
