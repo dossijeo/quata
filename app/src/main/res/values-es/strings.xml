@@ -601,12 +601,6 @@
     <string name="account_delete_type_confirmation">Escribe %1$s para confirmar.</string>
     <string name="account_delete_confirm_action">Eliminar definitivamente</string>
     <string name="account_delete_success">La cuenta y sus datos se han eliminado.</string>
-    <string name="ugc_terms_title">Normas de la comunidad</string>
-    <string name="ugc_terms_body">Para participar y compartir contenido en Q&#252;ata debes aceptar nuestras normas de comunidad y seguridad infantil. No se permite contenido ilegal, abusivo, sexual, violento, de odio o de explotaci&#243;n. Puedes denunciar contenido y bloquear usuarios en cualquier momento.</string>
-    <string name="ugc_terms_accept">Acepto</string>
-    <string name="ugc_terms_accepting">Guardando&#8230;</string>
-    <string name="ugc_terms_logout">Cerrar sesi&#243;n</string>
-    <string name="ugc_terms_accept_error">No hemos podido guardar tu aceptaci&#243;n. Comprueba la conexi&#243;n e int&#233;ntalo de nuevo.</string>
     <string name="moderation_report">Denunciar</string>
     <string name="moderation_block">Bloquear</string>
     <string name="moderation_unblock">Desbloquear</string>

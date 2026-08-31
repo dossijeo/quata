@@ -599,12 +599,6 @@
     <string name="account_delete_type_confirmation">Type %1$s to confirm.</string>
     <string name="account_delete_confirm_action">Delete permanently</string>
     <string name="account_delete_success">Your account and data have been deleted.</string>
-    <string name="ugc_terms_title">Community rules</string>
-    <string name="ugc_terms_body">To participate and share content on Q&#252;ata, you must accept our community and child safety standards. Illegal, abusive, sexual, violent, hateful or exploitative content is not permitted. You can report content and block users at any time.</string>
-    <string name="ugc_terms_accept">I accept</string>
-    <string name="ugc_terms_accepting">Saving&#8230;</string>
-    <string name="ugc_terms_logout">Sign out</string>
-    <string name="ugc_terms_accept_error">We could not save your acceptance. Check your connection and try again.</string>
     <string name="moderation_report">Report</string>
     <string name="moderation_block">Block</string>
     <string name="moderation_unblock">Unblock</string>

@@ -25,8 +25,12 @@ import com.quata.core.navigation.quataPostIdOrNull
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.language.BrowserTranslationHttpTransport
 import com.quata.core.language.FangTranslationService
+import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
+import com.quata.core.moderation.LegalDocument
 import com.quata.core.ui.components.QuataPrimaryBottomNavigation
 import com.quata.core.ui.components.QuataPrimaryNavigationLabels
 import com.quata.core.ui.components.QuataPrimaryNavigationMode
@@ -34,6 +38,10 @@ import com.quata.core.ui.components.QuataAuthenticatedChromeSpanish
 import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
+import com.quata.core.ui.components.QuataLegalDocumentLinksColumnContent
+import com.quata.core.ui.components.QuataUgcTermsGateContent
+import com.quata.core.ui.components.quataUgcTermsStrings
 import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.clickable
@@ -159,11 +167,19 @@ private fun QuataWebApp(
         )
     }
     val chatRepository = remember(runtimeConfiguration, authRepository) {
+        val rpcClient = WebPostgrestRpcClient(runtimeConfiguration, authRepository)
         WebChatRepository(
             configuration = runtimeConfiguration,
-            rpcClient = WebPostgrestRpcClient(runtimeConfiguration, authRepository),
+            rpcClient = rpcClient,
             authRepository = authRepository,
             attachmentUploader = WebChatAttachmentUploader(runtimeConfiguration, authRepository),
+        )
+    }
+    val ugcTermsGateway = remember(runtimeConfiguration, authRepository, platformServices.preferences) {
+        webUgcTermsGateway(
+            authRepository = authRepository,
+            rpcClient = WebPostgrestRpcClient(runtimeConfiguration, authRepository),
+            preferences = platformServices.preferences,
         )
     }
     // Test-only selection is fail-closed: both localhost and the explicit query opt-in are
@@ -240,6 +256,8 @@ private fun QuataWebApp(
     // dialog over the public shell, mirroring Android's AppNavGraph contract.
     var isAuthRequiredPromptOpen by remember { mutableStateOf(false) }
     var authInitialDestination by remember { mutableStateOf(AuthProductDestination.Login) }
+    var ugcTermsAccepted by remember(currentUserId) { mutableStateOf<Boolean?>(null) }
+    var ugcTermsDocumentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
     // authenticated shell level so navigation does not manufacture a second browser profile UI.
     val feedMemberProfileRoute = remember(navigation) {
@@ -287,6 +305,7 @@ private fun QuataWebApp(
             platformServices.preferences.putString("web.auth.logout_status", result.diagnosticValue())
             currentUserId = null
             currentUserIsOfficial = false
+            ugcTermsAccepted = null
             isSessionReady = false
             navigation.navigate("")
             isLoggingOut = false
@@ -820,6 +839,33 @@ private fun QuataWebApp(
                     onLogin = ::chooseLoginFromPrompt,
                 )
             }
+            QuataUgcTermsGateContent(
+                profileId = currentUserId.takeIf { isSessionReady },
+                gateway = ugcTermsGateway,
+                strings = quataUgcTermsStrings(listOfNotNull(webProfileLanguageTag()).toQuataLanguage()),
+                onAcceptedStateChanged = { ugcTermsAccepted = it },
+                onLogout = { completeLogout() },
+                legalLinks = {
+                    val language = listOfNotNull(webProfileLanguageTag()).toQuataLanguage()
+                    QuataLegalDocumentLinksColumnContent(
+                        language = language,
+                        documents = listOf(LegalDocument.ChildSafety, LegalDocument.Privacy),
+                        onOpenDocument = { document ->
+                            scope.launch {
+                                val file = webLegalDocumentFile(document, language)
+                                ugcTermsDocumentViewerState = documentViewerOpeningState(file)
+                                ugcTermsDocumentViewerState =
+                                    platformServices.documentOpener.openWithViewerState(file).completed
+                            }
+                        },
+                    )
+                },
+            )
+            QuataDocumentViewerStatusContent(
+                state = ugcTermsDocumentViewerState,
+                strings = webDocumentViewerStatusStrings(listOfNotNull(webProfileLanguageTag())),
+                onDismiss = { ugcTermsDocumentViewerState = null },
+            )
         }
 }
 }

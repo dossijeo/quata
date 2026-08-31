@@ -287,6 +287,14 @@ private final class IosAppCompositionRoot {
     /// the launcher boundary prevents Cuenta from opening a second Keychain/refresh pipeline.
     private lazy var renewableAuthSession: IosRenewableAuthSession? =
         runtimeBootstrap?.authSessionForInteractiveLogin()
+    private lazy var ugcTermsGateway: UgcTermsGateway? = {
+        guard let runtimeConfiguration, let renewableAuthSession else { return nil }
+        return IosUgcTermsHostKt.createIosUgcTermsGateway(
+            configuration: authRuntimeConfiguration(from: runtimeConfiguration),
+            session: renewableAuthSession,
+            preferences: platformServices.services.preferences
+        )
+    }()
     // Chat receives precisely the Keychain-backed session retained by Feed/Auth. It is created
     // only after a restored or newly logged-in session has installed the authenticated Feed host.
     private lazy var chatRuntimeBootstrap: IosChatRuntimeBootstrap? = {
@@ -744,6 +752,7 @@ private final class IosAppCompositionRoot {
         installCommunitiesIfAvailable()
         installAuthenticatedOfficialEditorIfAvailable()
         installAuthenticatedComposerIfAvailable()
+        installUgcTermsGateIfAvailable()
         presentPendingExternalShareIfAvailable()
         return true
     }
@@ -1403,6 +1412,33 @@ private final class IosAppCompositionRoot {
         authenticatedHost.installAuthentication(dependencies)
     }
 
+    private func installUgcTermsGateIfAvailable() {
+        guard
+            let gateway = ugcTermsGateway,
+            let session = renewableAuthSession?.restoredSession()
+        else { return }
+        authenticatedHost.installUgcTermsPromptFactory {
+            IosUgcTermsHostKt.QuataUgcTermsDialogViewController(
+                profileId: session.userId,
+                languageCode: Locale.current.languageCode ?? "en",
+                gateway: gateway,
+                documentOpener: self.platformServices.services.documentOpener,
+                onAccepted: { [weak self] in
+                    DispatchQueue.main.async {
+                        self?.authenticatedHost.dismissUgcTermsPrompt()
+                    }
+                },
+                onLogout: { [weak self] in
+                    DispatchQueue.main.async {
+                        self?.authenticatedHost.dismissUgcTermsPrompt {
+                            self?.authenticatedHost.performLogout()
+                        }
+                    }
+                }
+            )
+        }
+    }
+
     private func createAuthRepository(
         configuration: IosFeedRuntimeConfiguration,
         bootstrap _: IosFeedRuntimeBootstrap,
@@ -1712,6 +1748,8 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
     private var authenticationFactory: ((AuthenticationEntry) -> UIViewController)?
     private var authRequiredPromptFactory: (() -> UIViewController)?
     private var authRequiredPromptVisible = false
+    private var ugcTermsPromptFactory: (() -> UIViewController)?
+    private var ugcTermsPromptVisible = false
     private var authModalTransitionsAnimated = true
     /// Retains the selected Auth entry until UIKit has completed dismissing the common prompt.
     private var pendingAuthenticationEntry: AuthenticationEntry?
@@ -1891,6 +1929,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
             // pending identifier while returning the authenticated user to the real Feed surface.
             showRouteController(feedController, route: .feed(postId: nil))
         }
+        presentUgcTermsPromptIfNeeded()
     }
 
     func installAuthentication(_ dependencies: IosAuthHostDependencies) {
@@ -1908,6 +1947,11 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 onLogin: { self?.openLoginFromAuthRequiredPrompt() },
             )
         }
+    }
+
+    func installUgcTermsPromptFactory(_ factory: @escaping () -> UIViewController) {
+        ugcTermsPromptFactory = factory
+        presentUgcTermsPromptIfNeeded()
     }
 
     /// The actual sign-out operation stays in the shared Auth module. UIKit only supplies the
@@ -1990,6 +2034,38 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
         // keeps the following full-screen presentation serialized.
         dismiss(animated: authModalTransitionsAnimated) { [weak self] in
             self?.authRequiredPromptVisible = false
+            DispatchQueue.main.async { completion?() }
+        }
+    }
+
+    func presentUgcTermsPromptIfNeeded() {
+        guard
+            hasAuthenticatedSession,
+            !ugcTermsPromptVisible,
+            presentedViewController == nil,
+            let ugcTermsPromptFactory
+        else { return }
+        ugcTermsPromptVisible = true
+        let prompt = IosTransparentComposeOverlayController(content: ugcTermsPromptFactory())
+        prompt.modalPresentationStyle = .overFullScreen
+        makeComposeOverlayTransparent(prompt.view)
+        prompt.view.accessibilityIdentifier = "quata-ios-ugc-terms-dialog"
+        prompt.view.accessibilityLabel = NSLocalizedString(
+            "ugc_terms_title",
+            value: "Normas de la comunidad",
+            comment: "",
+        )
+        present(prompt, animated: authModalTransitionsAnimated)
+    }
+
+    func dismissUgcTermsPrompt(completion: (() -> Void)? = nil) {
+        ugcTermsPromptVisible = false
+        guard presentedViewController?.view.accessibilityIdentifier == "quata-ios-ugc-terms-dialog" else {
+            completion?()
+            return
+        }
+        dismiss(animated: authModalTransitionsAnimated) { [weak self] in
+            self?.ugcTermsPromptVisible = false
             DispatchQueue.main.async { completion?() }
         }
     }
