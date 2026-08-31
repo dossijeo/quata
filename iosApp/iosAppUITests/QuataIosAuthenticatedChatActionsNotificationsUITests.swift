@@ -1638,7 +1638,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return target
         }
         let row = emojiSectionsRow(in: app)
-        let preferLeft = emojiSectionIndex(identifier) >= 4
+        let preferLeft = emojiSectionIndex(identifier) >= 3
         for _ in 0..<10 {
             if target.exists, target.isHittable || visibleFrame(of: target, constrainedTo: row, in: app) != nil {
                 return target
