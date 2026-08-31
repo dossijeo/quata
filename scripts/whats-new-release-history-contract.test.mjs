@@ -18,6 +18,9 @@ const iosHostUiTests = await source('../iosApp/iosAppUITests/QuataIosHostUITests
 const androidEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/whatsnew/presentation/AboutReleaseHistoryInstrumentedTest.kt');
 const androidWhatsNewEvidenceTest = await source('../app/src/androidTest/java/com/quata/feature/whatsnew/presentation/WhatsNewCommonInstrumentedTest.kt');
 const webEvidenceRunner = await source('../scripts/about-release-history-web-evidence.mjs');
+const androidEvidenceRunner = await source('../scripts/about-release-history-android-evidence.mjs');
+const iosEvidenceRunner = await source('../scripts/about-release-history-ios-evidence.mjs');
+const iosEvidenceShellRunner = await source('../scripts/run-ios-about-release-history-ui-test.sh');
 const webWhatsNewEvidenceRunner = await source('../scripts/whats-new-web-evidence.mjs');
 const packageJson = JSON.parse(await source('../package.json'));
 const webAndroidWorkflow = await source('../.github/workflows/web-android-pr.yml');
@@ -159,12 +162,17 @@ test('About and Release History evidence runners exercise real common anchors', 
   assert.match(androidEvidenceTest, /ReleaseHistoryPreviousTestTag/);
   assert.match(androidEvidenceTest, /ReleaseHistoryCloseTestTag/);
   assert.match(androidEvidenceTest, /android-about-release-history-common-evidence\.json/);
+  assert.match(androidEvidenceRunner, /ABOUT-RELEASE-HISTORY-ANDROID-COMMON-001/);
+  assert.match(androidEvidenceRunner, /AboutReleaseHistoryCommonBridgeInstrumentedTest/);
+  assert.match(androidEvidenceRunner, /android_debug_and_test_apks_built/);
+  assert.match(androidEvidenceRunner, /copyDeviceEvidence/);
 
   assert.match(webEvidenceRunner, /ABOUT-RELEASE-HISTORY-WEB-001/);
-  assert.match(webEvidenceRunner, /page\.goto\(`\$\{server\.origin\}\/#about`\)/);
+  assert.match(webEvidenceRunner, /page\.goto\(aboutUrl\(\)\)/);
   assert.match(webEvidenceRunner, /clickVisibleText\(page, \/Historial de versiones\|Release history\/\)/);
   assert.match(webEvidenceRunner, /waitForHash\(page, "#release-history"\)/);
-  assert.match(webEvidenceRunner, /page\.goto\(`\$\{server\.origin\}\/#release-history`\)/);
+  assert.match(webEvidenceRunner, /page\.goto\(releaseHistoryUrl\(\)\)/);
+  assert.match(webEvidenceRunner, /about_legal_documents_opened_from_local_assets/);
   assert.doesNotMatch(webEvidenceRunner, /location\.hash\s*=\s*["']release-history["']/);
 
   assert.match(iosSwift, /case "about-release-history":/);
@@ -175,6 +183,13 @@ test('About and Release History evidence runners exercise real common anchors', 
   assert.match(iosHostUiTests, /"about-release-history"/);
   assert.match(iosHostUiTests, /"release-history-common-root"/);
   assert.match(iosHostUiTests, /"release-history-page-0"/);
+  assert.match(iosEvidenceRunner, /ABOUT-RELEASE-HISTORY-IOS-COMMON-001/);
+  assert.match(iosEvidenceRunner, /mac_checkout_sha_matches_local_candidate/);
+  assert.match(iosEvidenceRunner, /bash scripts\/run-ios-about-release-history-ui-test\.sh/);
+  assert.match(iosEvidenceShellRunner, /QuataIosUITests\/QuataIosHostUITests\/testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces/);
+  assert.match(iosEvidenceShellRunner, /check-ios-xctest-executed\.py/);
+  assert.match(iosEvidenceShellRunner, /xcode_status=\$\?/);
+  assert.match(iosEvidenceShellRunner, /\\\*\\\* TEST EXECUTE SUCCEEDED \\\*\\\*/);
 });
 
 async function source(path) {

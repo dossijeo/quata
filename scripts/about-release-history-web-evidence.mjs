@@ -34,16 +34,17 @@ try {
   });
   const page = await context.newPage();
 
-  await page.goto(`${server.origin}/#about`);
+  await page.goto(aboutUrl());
   await waitForRoute(page, "about");
   await expectVisibleText(page, /Acerca de Quata|About Quata/);
   report.steps.push("about_deeplink_rendered");
   report.evidence.about = await screenshot(page, "web-about");
   report.evidence.legalDocuments = [];
-  report.evidence.legalDocuments.push(await clickAndCaptureDownload(page, /Política de privacidad|Privacy policy/, "privacy_es.docx"));
-  report.evidence.legalDocuments.push(await clickAndCaptureDownload(page, /Seguridad de menores|Child safety/, "child_safety_es.docx"));
-  report.steps.push("about_legal_documents_downloaded_from_local_assets");
+  report.evidence.legalDocuments.push(await clickAndCaptureDocumentViewer(page, /Política de privacidad|Privacy policy/, "privacy_es.docx"));
+  report.evidence.legalDocuments.push(await clickAndCaptureDocumentViewer(page, /Seguridad infantil|Child safety/, "child_safety_es.docx"));
+  report.steps.push("about_legal_documents_opened_from_local_assets");
 
+  await ensureAboutVisible(page);
   await clickVisibleText(page, /Historial de versiones|Release history/);
   await waitForHash(page, "#release-history");
   await waitForRoute(page, "release-history");
@@ -51,7 +52,7 @@ try {
   report.steps.push("about_release_history_button_navigated");
   report.evidence.releaseHistoryFromAbout = await screenshot(page, "web-release-history-from-about");
 
-  await page.goto(`${server.origin}/#release-history`);
+  await page.goto(releaseHistoryUrl());
   await waitForRoute(page, "release-history");
   await expectVisibleText(page, /Historial de versiones|Release history/);
   report.steps.push("release_history_direct_deeplink_rendered");
@@ -161,19 +162,87 @@ async function clickVisibleText(page, pattern) {
   await clickLocatorCenter(page, locator);
 }
 
-async function clickAndCaptureDownload(page, pattern, expectedName) {
+async function clickAndCaptureDocumentViewer(page, pattern, expectedName) {
+  await ensureAboutVisible(page);
   const locator = page.getByText(pattern).first();
   await locator.waitFor({ state: "visible", timeout: 30_000 });
-  const [download] = await Promise.all([
-    page.waitForEvent("download", { timeout: 30_000 }),
-    clickLocatorCenter(page, locator),
-  ]);
-  const suggestedName = download.suggestedFilename();
-  if (suggestedName !== expectedName) throw new Error(`legal_download_name_mismatch:${suggestedName}`);
+  const beforeCount = await documentOpenCount(page);
+  await clickLocatorCenter(page, locator);
+  const opened = await waitForDocumentOpen(page, expectedName, beforeCount);
+  await page.waitForFunction(
+    () => document.querySelector("[data-quata-docmentis-viewer='true']") ||
+      document.querySelector("[data-testid='document-viewer-status-root']"),
+    null,
+    { timeout: 30_000 },
+  );
+  const viewer = await page.evaluate(() => {
+    const overlay = document.querySelector("[data-quata-docmentis-viewer='true']");
+    if (overlay) {
+      return {
+        surface: "docmentis-overlay",
+        renderReady: overlay.getAttribute("data-quata-docmentis-render-ready") === "true",
+        label: overlay.getAttribute("aria-label") || "",
+      };
+    }
+    const status = document.querySelector("[data-testid='document-viewer-status-root']");
+    return status ? { surface: "common-status", renderReady: true, label: status.textContent || "" } : null;
+  });
+  await closeDocumentViewer(page);
   return {
-    displayName: suggestedName,
-    localAsset: `legal/${suggestedName}`,
+    displayName: opened.displayName,
+    localAsset: `legal/${expectedName}`,
+    reference: opened.reference,
+    viewer,
   };
+}
+
+async function ensureAboutVisible(page) {
+  const about = page.getByText(/Acerca de Quata|About Quata/).first();
+  if (await about.isVisible().catch(() => false)) return;
+  await page.goto(aboutUrl());
+  await waitForRoute(page, "about");
+  await about.waitFor({ state: "visible", timeout: 30_000 });
+}
+
+function aboutUrl() {
+  return `${server.origin}/?quata-auth-e2e=1&evidence=${Date.now()}#about`;
+}
+
+function releaseHistoryUrl() {
+  return `${server.origin}/?quata-auth-e2e=1&evidence=${Date.now()}#release-history`;
+}
+
+async function documentOpenCount(page) {
+  return await page.evaluate(() => Array.isArray(globalThis.__quataDocumentOpenEvidence)
+    ? globalThis.__quataDocumentOpenEvidence.length
+    : 0);
+}
+
+async function waitForDocumentOpen(page, expectedName, beforeCount) {
+  await page.waitForFunction(
+    ({ expectedName, beforeCount }) => {
+      const events = Array.isArray(globalThis.__quataDocumentOpenEvidence)
+        ? globalThis.__quataDocumentOpenEvidence
+        : [];
+      return events.length > beforeCount && events.at(-1)?.displayName === expectedName;
+    },
+    { expectedName, beforeCount },
+    { timeout: 30_000 },
+  );
+  return await page.evaluate(() => globalThis.__quataDocumentOpenEvidence.at(-1));
+}
+
+async function closeDocumentViewer(page) {
+  await page.evaluate(() => {
+    globalThis.__quataDocmentisActive?.close?.("cancelled");
+    document.querySelector("[data-testid='document-viewer-status-close']")?.click();
+  });
+  await page.waitForFunction(
+    () => !document.querySelector("[data-quata-docmentis-viewer='true']") &&
+      !document.querySelector("[data-testid='document-viewer-status-root']"),
+    null,
+    { timeout: 10_000 },
+  ).catch(() => {});
 }
 
 async function clickLocatorCenter(page, locator) {
