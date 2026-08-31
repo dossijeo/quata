@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "units": [
+    "SCR-FEED",
+    "SCR-OFFICIAL",
+    "OVR-POST-DETAIL"
+  ],
+  "status": "passed",
+  "productSha": "35e7b213b2f650b517d558562cb7dafb316a2a94",
+  "evidence": {
+    "web": {
+      "status": "passed",
+      "sha": "35e7b213b2f650b517d558562cb7dafb316a2a94",
+      "report": "build-reports/web/post-detail-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      },
+      "coverage": [
+        "Web/Wasm opens Feed post detail from the hash route and resolves the real common post body through an evidence opt-in semantic marker",
+        "Web/Wasm opens Official post detail from the hash route and resolves the real common title and summary through evidence opt-in semantic markers",
+        "Feed and Official render the shared detail chrome/back anchors from commonMain",
+        "Detail back replaces the browser fragment instead of adding a history entry that reopens the same detail"
+      ]
+    },
+    "android": {
+      "status": "passed",
+      "sha": "35e7b213b2f650b517d558562cb7dafb316a2a94",
+      "report": "build-reports/android/post-detail-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      },
+      "coverage": [
+        "Android opens Feed and Official detail deep links through the production app host",
+        "Android resolves shared detail chrome/back testTags and exact seeded Feed/Official text",
+        "System/back behavior clears the focused detail instead of leaving the app",
+        "Temporary Feed/Official fixture rows and comments are deleted and verified absent"
+      ]
+    },
+    "ios": {
+      "status": "passed",
+      "sha": "35e7b213b2f650b517d558562cb7dafb316a2a94",
+      "report": "build-reports/ios/post-detail-evidence.json",
+      "cleanup": {
+        "verified": true,
+        "physicalResidue": 0
+      },
+      "coverage": [
+        "iOS opens Feed and Official detail deep links in the Mac simulator through the production authenticated host",
+        "iOS resolves shared detail chrome/back accessibility identifiers and exact seeded Feed/Official text",
+        "Back closes the shared detail chrome and returns to the underlying Feed/Official surface",
+        "XCTest attachments capture Feed and Official open/back states for visual comparison"
+      ]
+    }
+  },
+  "review": {
+    "solo": {
+      "status": "addressed",
+      "sha": "35e7b213b2f650b517d558562cb7dafb316a2a94",
+      "notes": [
+        "Independent Sol review found physical back, iOS state, focused post drift, Web text observability and browser-history risks.",
+        "The candidate fixes those risks with common focused-detail state, Android BackHandler, iOS state-preserving slots, Web semantic evidence markers and hash replace back navigation."
+      ]
+    }
+  },
+  "notes": [
+    "This is a focal reduction of OVR-POST-DETAIL for Feed and Official common detail chrome, exact deep-link target retention and back behavior.",
+    "The evidence does not declare full OVR-POST-DETAIL GO: author-to-profile, complete media detail, comments, actions, article links and public-profile post detail remain outside this focal candidate.",
+    "Web/Wasm Compose text is painted in canvas and was not exposed through document body text or Chromium accessibility snapshots in this runner; evidence-only localhost opt-in markers are populated from the real common Post/OfficialPostItem state and are not product fallbacks."
+  ]
+}
