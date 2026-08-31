@@ -63,10 +63,18 @@ if [[ -n "$QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_RESULT_BUNDLE_DIR" ]]; then
   result_args=(-resultBundlePath "$result_bundle")
 fi
 
+test_command=(
+  xcodebuild test-without-building -xctestrun "$xctestrun"
+  -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID"
+)
+if [[ "${#result_args[@]}" -gt 0 ]]; then
+  test_command+=("${result_args[@]}")
+fi
+test_command+=(-only-testing:"$selected")
+
 set +e
 run_bounded testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces "$QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_TIMEOUT_SECONDS" "$QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_LOG_DIR/ui.log" \
-  xcodebuild test-without-building -xctestrun "$xctestrun" \
-  -destination "platform=iOS Simulator,id=$QUATA_IOS_SIMULATOR_UDID" "${result_args[@]}" -only-testing:"$selected"
+  "${test_command[@]}"
 xcode_status=$?
 set -e
 
