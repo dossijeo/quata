@@ -4,19 +4,19 @@
     "OVR-UGC-TERMS",
     "FLOW-LEGAL-DOCUMENTS"
   ],
-  "productSha": "755c5d38b65ed528d59cbf13d433ac2299e39601",
+  "productSha": "f64d0c9f8a58e14e2eacd63b66eb6d4004029c1e",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "755c5d38b65ed528d59cbf13d433ac2299e39601",
+      "sha": "f64d0c9f8a58e14e2eacd63b66eb6d4004029c1e",
       "report": "build-reports/web/ugc-terms-evidence.json",
-      "reportSha256": "0cfddbbe941ac8b5d1d0263368009757ac3d912b67b061f1cb4097cfe7ff1579",
+      "reportSha256": "2db6e39c463c6c36b956e44d600ad6f00809c4839a0f104931c79a2586e08166",
       "cleanup": {
         "verified": true,
         "mode": "supabase_state_restored",
         "physicalResidue": 0
       },
-      "reportGitHead": "755c5d38b65ed528d59cbf13d433ac2299e39601",
+      "reportGitHead": "f64d0c9f8a58e14e2eacd63b66eb6d4004029c1e",
       "requiredSteps": [
         "terms_acceptance_snapshot_registered_before_remote_mutation",
         "authorized_profile_authenticated_without_logging_credentials",
@@ -29,19 +29,19 @@
     },
     "android": {
       "status": "passed",
-      "sha": "755c5d38b65ed528d59cbf13d433ac2299e39601",
+      "sha": "f64d0c9f8a58e14e2eacd63b66eb6d4004029c1e",
       "report": "build-reports/android/ugc-terms-evidence.json",
-      "reportSha256": "4e8f79b81e8793f6f19e3d4e6e219d2f6f96cdb89640e333c074bf06b3020418",
+      "reportSha256": "9e1643e9d42142b6cd18a32cd0c808b1f572768f2d74f9aed1c661b0236a56db",
       "screenshots": [
-        "build-reports/android/ugc-terms-evidence-755c5d38/ugc-terms-evidence/ugc-terms-evidence/android-ugc-terms-required.png",
-        "build-reports/android/ugc-terms-evidence-755c5d38/ugc-terms-evidence/ugc-terms-evidence/android-ugc-terms-accepted.png"
+        "build-reports/android/ugc-terms-evidence-f64d0c9f/ugc-terms-evidence/android-ugc-terms-required.png",
+        "build-reports/android/ugc-terms-evidence-f64d0c9f/ugc-terms-evidence/android-ugc-terms-accepted.png"
       ],
       "cleanup": {
         "verified": true,
         "mode": "local_instrumented_fixture",
         "physicalResidue": 0
       },
-      "reportGitHead": "755c5d38b65ed528d59cbf13d433ac2299e39601",
+      "reportGitHead": "f64d0c9f8a58e14e2eacd63b66eb6d4004029c1e",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "common_dialog_blocks_shell",
@@ -52,22 +52,30 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "755c5d38b65ed528d59cbf13d433ac2299e39601",
+      "sha": "f64d0c9f8a58e14e2eacd63b66eb6d4004029c1e",
       "report": "build-reports/ios/ugc-terms-evidence.json",
-      "reportSha256": "5a339f3f02cfe851e103855b767c4f5cc49e6fa7853624a18dcf5c6fc14c0a03",
+      "reportSha256": "8d29f91f6ff302aaf93e7b0049d949475fa81134b89e7fc27497a76c3838c6af",
+      "reportStatus": "passed_with_post_xcodebuild_interrupt",
       "log": "build-reports/ios/UGC-TERMS-ui/ui.log",
+      "requiredLog": {
+        "path": "build-reports/ios/UGC-TERMS-ui/ui.log",
+        "contains": [
+          "Executed 1 test, with 0 failures",
+          "PASS_EXECUTED:testUgcTermsFixtureRendersCommonGateLegalLinksAndAccepts"
+        ]
+      },
       "cleanup": {
         "verified": true,
         "mode": "local_ios_fixture",
         "physicalResidue": 0
       },
-      "reportGitHead": "755c5d38b65ed528d59cbf13d433ac2299e39601",
+      "reportGitHead": "f64d0c9f8a58e14e2eacd63b66eb6d4004029c1e",
       "requiredSteps": [
-        "dialog_visible",
-        "child_safety_link_opened",
-        "privacy_link_opened",
-        "accept_clicked",
-        "accepted_marker_visible"
+        "dialog_required",
+        "legal_child_safety_opened",
+        "legal_privacy_opened",
+        "acceptance_recorded",
+        "accepted_shell_visible"
       ]
     }
   },
@@ -79,7 +87,7 @@
     "node scripts/ugc-terms-web-evidence.mjs --dist web/build/dist/wasmJs/productionExecutable --chrome \"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\" --out build-reports/web/ugc-terms-evidence.json",
     "./gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.moderation.UgcTermsGateCommonInstrumentedTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --console=plain --no-parallel --no-daemon",
     "./gradlew.bat :app:lintDebug --console=plain --no-parallel --no-daemon",
-    "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/quata && git reset --hard 755c5d38b65ed528d59cbf13d433ac2299e39601 && bash scripts/build-ios-intel-simulator-signed.sh\"",
+    "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/quata && git reset --hard f64d0c9f8a58e14e2eacd63b66eb6d4004029c1e && bash scripts/build-ios-intel-simulator-signed.sh\"",
     "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/quata && xcodebuild test-without-building ... -only-testing:QuataIosUITests/QuataIosHostUITests/testUgcTermsFixtureRendersCommonGateLegalLinksAndAccepts\""
   ],
   "notes": [
