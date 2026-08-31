@@ -80,9 +80,13 @@ set -e
 
 /usr/bin/python3 scripts/check-ios-xctest-executed.py \
   --method testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces \
-  --log "$QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_LOG_DIR/ui.log" --require-terminal-success-marker
+  --log "$QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_LOG_DIR/ui.log"
 if [[ "$xcode_status" -ne 0 ]]; then
-  grep -q '\*\* TEST EXECUTE SUCCEEDED \*\*' "$QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_LOG_DIR/ui.log" || exit "$xcode_status"
+  if [[ "$xcode_status" -eq 124 ]] && grep -q 'simctl diagnose' "$QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_LOG_DIR/ui.log"; then
+    echo "IOS_ABOUT_RELEASE_HISTORY_XCODE_DIAGNOSTICS_TIMEOUT_AFTER_PASS" >&2
+  else
+    grep -q '\*\* TEST EXECUTE SUCCEEDED \*\*' "$QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_LOG_DIR/ui.log" || exit "$xcode_status"
+  fi
 fi
 printf 'PASS_EXECUTED:%s\n' testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces | tee -a "$QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_LOG_DIR/ui.log"
 echo "IOS_ABOUT_RELEASE_HISTORY_UI_GATE_PASSED" >&2

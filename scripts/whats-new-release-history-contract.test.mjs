@@ -190,6 +190,8 @@ test('About and Release History evidence runners exercise real common anchors', 
   assert.match(iosEvidenceShellRunner, /QuataIosUITests\/QuataIosHostUITests\/testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces/);
   assert.match(iosEvidenceShellRunner, /check-ios-xctest-executed\.py/);
   assert.match(iosEvidenceShellRunner, /xcode_status=\$\?/);
+  assert.match(iosEvidenceShellRunner, /IOS_ABOUT_RELEASE_HISTORY_XCODE_DIAGNOSTICS_TIMEOUT_AFTER_PASS/);
+  assert.match(iosEvidenceShellRunner, /simctl diagnose/);
   assert.match(iosEvidenceShellRunner, /\\\*\\\* TEST EXECUTE SUCCEEDED \\\*\\\*/);
 });
 
