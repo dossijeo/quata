@@ -4,57 +4,83 @@
     "OVR-UGC-TERMS",
     "FLOW-LEGAL-DOCUMENTS"
   ],
-  "productSha": "03feb4edc07a3a8839f861e8ccaf216721a7a5a4",
+  "productSha": "755c5d38b65ed528d59cbf13d433ac2299e39601",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "03feb4edc07a3a8839f861e8ccaf216721a7a5a4",
+      "sha": "755c5d38b65ed528d59cbf13d433ac2299e39601",
       "report": "build-reports/web/ugc-terms-evidence.json",
-      "reportSha256": "2587f407599753ceb6fb8c3f57f6bce3b74f2207ce1487fd267c883ffd33d933",
+      "reportSha256": "0cfddbbe941ac8b5d1d0263368009757ac3d912b67b061f1cb4097cfe7ff1579",
       "cleanup": {
         "verified": true,
         "mode": "supabase_state_restored",
         "physicalResidue": 0
-      }
+      },
+      "reportGitHead": "755c5d38b65ed528d59cbf13d433ac2299e39601",
+      "requiredSteps": [
+        "terms_acceptance_snapshot_registered_before_remote_mutation",
+        "authorized_profile_authenticated_without_logging_credentials",
+        "common_ugc_terms_dialog_blocks_authenticated_web_shell_until_acceptance",
+        "ugc_terms_common_legal_links_open_real_web_document_viewer",
+        "ugc_terms_acceptance_invoked_real_gateway_and_unblocked_shell",
+        "supabase_terms_acceptance_row_created_by_product_rpc",
+        "fresh_web_context_reads_remote_acceptance_without_reprompt"
+      ]
     },
     "android": {
       "status": "passed",
-      "sha": "03feb4edc07a3a8839f861e8ccaf216721a7a5a4",
+      "sha": "755c5d38b65ed528d59cbf13d433ac2299e39601",
       "report": "build-reports/android/ugc-terms-evidence.json",
-      "reportSha256": "c01ff7fa4bb2a81a06f28ba347ddb08eabd89cbc1a2b706372209ad424d8cd02",
+      "reportSha256": "4e8f79b81e8793f6f19e3d4e6e219d2f6f96cdb89640e333c074bf06b3020418",
       "screenshots": [
-        "build-reports/android/ugc-terms-evidence-03feb4ed/ugc-terms-evidence/android-ugc-terms-required.png",
-        "build-reports/android/ugc-terms-evidence-03feb4ed/ugc-terms-evidence/android-ugc-terms-accepted.png"
+        "build-reports/android/ugc-terms-evidence-755c5d38/ugc-terms-evidence/ugc-terms-evidence/android-ugc-terms-required.png",
+        "build-reports/android/ugc-terms-evidence-755c5d38/ugc-terms-evidence/ugc-terms-evidence/android-ugc-terms-accepted.png"
       ],
       "cleanup": {
         "verified": true,
         "mode": "local_instrumented_fixture",
         "physicalResidue": 0
-      }
+      },
+      "reportGitHead": "755c5d38b65ed528d59cbf13d433ac2299e39601",
+      "reportWorkingTreeDirty": false,
+      "requiredSteps": [
+        "common_dialog_blocks_shell",
+        "child_safety_document_opened",
+        "privacy_document_opened",
+        "common_accept_unblocks_shell"
+      ]
     },
     "ios": {
       "status": "passed",
-      "sha": "03feb4edc07a3a8839f861e8ccaf216721a7a5a4",
-      "report": "build-reports/ios/ugc-terms-evidence/ios-ugc-terms-evidence.json",
-      "reportSha256": "882780921499410fd6b47c6feb74d124984733e4d82c31294b1e0606afd7ad61",
-      "log": "build-reports/ios/ugc-terms-evidence/ui.log",
+      "sha": "755c5d38b65ed528d59cbf13d433ac2299e39601",
+      "report": "build-reports/ios/ugc-terms-evidence.json",
+      "reportSha256": "5a339f3f02cfe851e103855b767c4f5cc49e6fa7853624a18dcf5c6fc14c0a03",
+      "log": "build-reports/ios/UGC-TERMS-ui/ui.log",
       "cleanup": {
         "verified": true,
         "mode": "local_ios_fixture",
         "physicalResidue": 0
-      }
+      },
+      "reportGitHead": "755c5d38b65ed528d59cbf13d433ac2299e39601",
+      "requiredSteps": [
+        "dialog_visible",
+        "child_safety_link_opened",
+        "privacy_link_opened",
+        "accept_clicked",
+        "accepted_marker_visible"
+      ]
     }
   },
   "preflight": [
     "git diff --check",
-    "node --test scripts/ugc-terms-parity-contract.test.mjs scripts/candidate-attestation-contract.test.mjs",
+    "node --test scripts/ugc-terms-parity-contract.test.mjs scripts/candidate-attestation-contract.test.mjs scripts/capability-matrix-contract.test.mjs",
     "./gradlew.bat :core:allTests --console=plain --no-parallel",
-    "./gradlew.bat :web:wasmJsBrowserDistribution --console=plain --no-parallel",
+    "./gradlew.bat :web:wasmJsBrowserDistribution --console=plain --no-parallel --no-daemon",
     "node scripts/ugc-terms-web-evidence.mjs --dist web/build/dist/wasmJs/productionExecutable --chrome \"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\" --out build-reports/web/ugc-terms-evidence.json",
-    "./gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.moderation.UgcTermsGateCommonInstrumentedTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --console=plain --no-parallel",
-    "./gradlew.bat :app:lintDebug --console=plain --no-parallel",
-    "ssh quata-mac 'cd /Users/gabriel/Documents/Projects/quata && bash scripts/build-ios-intel-simulator-signed.sh'",
-    "ssh quata-mac 'cd /Users/gabriel/Documents/Projects/quata && xcodebuild test-without-building ... -only-testing:QuataIosUITests/QuataIosHostUITests/testUgcTermsFixtureRendersCommonGateLegalLinksAndAccepts'"
+    "./gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.moderation.UgcTermsGateCommonInstrumentedTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --console=plain --no-parallel --no-daemon",
+    "./gradlew.bat :app:lintDebug --console=plain --no-parallel --no-daemon",
+    "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/quata && git reset --hard 755c5d38b65ed528d59cbf13d433ac2299e39601 && bash scripts/build-ios-intel-simulator-signed.sh\"",
+    "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/quata && xcodebuild test-without-building ... -only-testing:QuataIosUITests/QuataIosHostUITests/testUgcTermsFixtureRendersCommonGateLegalLinksAndAccepts\""
   ],
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
@@ -63,7 +89,7 @@
     "LocalFirstUgcTermsGateway keeps accepted state locally before remote sync, retries pending sync in the background and avoids indefinite Web hangs through fetch timeout/abort behavior.",
     "Web/Wasm evidence is authenticated against Supabase with authorized test credentials, exercises the production Web gateway/RPC, verifies the quata_accept_ugc_terms row, checks fresh-context no-reprompt behavior, restores the original acceptance state and verifies cleanup.",
     "Android evidence runs the common gate on a real emulator through Compose semantics and screenshots, covering document links, blocking behavior and accept flow with a local instrumented fixture; production Android remains the existing ModerationRepository gateway wired through AppNavGraph.",
-    "iOS evidence runs the common gate on the Mac Hyper-V simulator through XCTest/accessibility anchors, opens both legal documents and accepts the gate. The selected XCTest passed with zero failures, but xcodebuild was terminated after PASS because simctl diagnose remained in post-test diagnostics.",
+    "iOS evidence runs the common gate on the Mac Hyper-V simulator through XCTest/accessibility anchors, opens both legal documents and accepts the gate. The selected XCTest passed with zero failures; xcodebuild was terminated only after PASS because it remained in post-test processing.",
     "This is a focal reduction of OVR-UGC-TERMS and the UGC legal-document entry path. It does not replace the broader FLOW-DOCUMENT-VIEWER certification for non-legal attachments, download/share or document return semantics."
   ]
 }
