@@ -50,9 +50,9 @@ class UgcTermsGateContractTest {
 
         assertTrue(gateway.acceptTerms().isSuccess)
         assertEquals("true", preferences.getString("ugc_terms:pending:profile-1:$CurrentUgcTermsVersion"))
+        assertEquals(1, syncAttempts)
 
         assertEquals(true, gateway.hasAcceptedTerms().getOrThrow())
-
         assertEquals(2, syncAttempts)
         assertEquals(null, preferences.getString("ugc_terms:pending:profile-1:$CurrentUgcTermsVersion"))
     }

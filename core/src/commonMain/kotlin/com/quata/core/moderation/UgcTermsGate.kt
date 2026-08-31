@@ -1,6 +1,7 @@
 package com.quata.core.moderation
 
 import com.quata.core.platform.PreferenceStore
+import kotlinx.coroutines.withTimeoutOrNull
 
 interface UgcTermsGateway {
     suspend fun hasAcceptedTerms(version: String = CurrentUgcTermsVersion): Result<Boolean>
@@ -56,9 +57,7 @@ class LocalFirstUgcTermsGateway(
         val profileId = requireProfileId()
         if (store.isAccepted(profileId, version)) {
             if (store.isPending(profileId, version)) {
-                acceptance.acceptTerms(profileId, version).onSuccess {
-                    store.markAcceptedSynced(profileId, version)
-                }
+                syncPendingAcceptance(profileId, version)
             }
             return@runCatching true
         }
@@ -70,15 +69,25 @@ class LocalFirstUgcTermsGateway(
     override suspend fun acceptTerms(version: String): Result<Unit> = runCatching {
         val profileId = requireProfileId()
         store.markAcceptedPendingSync(profileId, version)
-        acceptance.acceptTerms(profileId, version).onSuccess {
-            store.markAcceptedSynced(profileId, version)
-        }
+        syncPendingAcceptance(profileId, version)
         Unit
+    }
+
+    private suspend fun syncPendingAcceptance(profileId: String, version: String) {
+        withTimeoutOrNull(PendingSyncTimeoutMillis) {
+            acceptance.acceptTerms(profileId, version).onSuccess {
+                store.markAcceptedSynced(profileId, version)
+            }
+        }
     }
 
     private suspend fun requireProfileId(): String =
         profileIdProvider()?.trim()?.takeIf(String::isNotEmpty)
             ?: error("ugc_terms_session_required")
+
+    private companion object {
+        const val PendingSyncTimeoutMillis = 8_000L
+    }
 }
 
 object AcceptAllUgcTermsGateway : UgcTermsGateway {

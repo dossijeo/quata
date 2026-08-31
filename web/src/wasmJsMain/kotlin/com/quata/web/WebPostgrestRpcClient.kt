@@ -84,6 +84,14 @@ private fun browserPostgrestRpcPostRequest(
       onFailure('postgrest_fetch_unsupported', null);
       return;
     }
+    const controller = typeof globalThis.AbortController === 'function' ? new globalThis.AbortController() : null;
+    const timeoutId = globalThis.setTimeout(() => {
+      try {
+        controller?.abort();
+      } catch (_) {
+        // Ignore abort failures and let fetch settle through its own error path.
+      }
+    }, 15000);
     globalThis.fetch(url, {
       method: 'POST',
       headers: {
@@ -93,11 +101,13 @@ private fun browserPostgrestRpcPostRequest(
         'Content-Type': 'application/json',
       },
       body,
+      signal: controller?.signal,
     }).then(async (response) => {
       const responseBody = await response.text();
       if (response.ok) onSuccess(responseBody, response.status, response.headers.get('content-range'));
       else onFailure(`postgrest_rpc_http_${'$'}{response.status}`, response.status);
-    }).catch((error) => onFailure(error?.message ?? error?.name ?? 'postgrest_rpc_network_error', null));
+    }).catch((error) => onFailure(error?.message ?? error?.name ?? 'postgrest_rpc_network_error', null))
+      .finally(() => globalThis.clearTimeout(timeoutId));
     })()
     """,
 )

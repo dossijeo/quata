@@ -59,7 +59,6 @@ fun QuataTermsAcceptanceDialogContent(
         },
         dismissButton = {
             TextButton(
-                enabled = !isAccepting,
                 onClick = onLogout,
                 modifier = Modifier.testTag(QuataUgcTermsLogoutTestTag),
             ) { Text(logoutLabel) }

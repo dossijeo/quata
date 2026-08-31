@@ -11,6 +11,7 @@ const androidNav = await source('../app/src/main/java/com/quata/core/navigation/
 const androidStrings = await source('../app/src/main/res/values/strings.xml');
 const androidEvidenceTest = await source('../app/src/androidTest/java/com/quata/core/moderation/UgcTermsGateCommonInstrumentedTest.kt');
 const webGateway = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebUgcTermsGateway.kt');
+const webRpcClient = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebPostgrestRpcClient.kt');
 const webMain = await source('../web/src/wasmJsMain/kotlin/com/quata/web/Main.kt');
 const webAuthBridge = await source('../web/src/wasmJsMain/kotlin/com/quata/web/WebAuthE2eBridge.kt');
 const webEvidenceRunner = await source('../scripts/ugc-terms-web-evidence.mjs');
@@ -24,6 +25,7 @@ test('UGC terms use one common local-first contract across platforms', () => {
   assert.match(ugcGate, /PreferenceUgcTermsAcceptanceStore/);
   assert.match(ugcGate, /markAcceptedPendingSync\(profileId, version\)/);
   assert.match(ugcGate, /acceptance\.acceptTerms\(profileId, version\)/);
+  assert.match(ugcGate, /withTimeoutOrNull\(PendingSyncTimeoutMillis\)/);
   assert.match(ugcGate, /store\.isPending\(profileId, version\)/);
   assert.match(ugcGate, /acceptedKey\(profileId, version\)/);
   assert.match(ugcGate, /pendingKey\(profileId, version\)/);
@@ -51,7 +53,9 @@ test('UGC terms dialog exposes stable common semantic anchors and copy', () => {
   assert.match(gateContent, /QuataLanguage\.French/);
   assert.match(gateContent, /Qüata/);
   assert.match(gateContent, /accepted != true/);
+  assert.match(gateContent, /gateway\.hasAcceptedTerms\(\)/);
   assert.match(gateContent, /checking/);
+  assert.doesNotMatch(dialog, /enabled = !isAccepting,[\s\S]*modifier = Modifier\.testTag\(QuataUgcTermsLogoutTestTag\)/);
 });
 
 test('Android keeps original moderation repository behavior behind the common gateway', () => {
@@ -100,6 +104,8 @@ test('Web and iOS call the same Supabase RPCs with canonical parameter names', (
   assert.match(webAuthBridge, /installWebUgcTermsE2eBridge/);
   assert.match(webAuthBridge, /__quataUgcTermsE2eProduct/);
   assert.match(webAuthBridge, /quata-auth-e2e/);
+  assert.match(webRpcClient, /AbortController/);
+  assert.match(webRpcClient, /setTimeout\(\(\) =>/);
   assert.match(iosHost, /QuataUgcTermsDialogViewController/);
   assert.match(iosHost, /QuataIosUgcTermsEvidenceViewController/);
   assert.match(iosHost, /QuataUgcTermsGateContent\(/);

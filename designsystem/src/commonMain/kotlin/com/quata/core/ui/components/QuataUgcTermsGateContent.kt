@@ -94,6 +94,9 @@ fun QuataUgcTermsGateContent(
                             onSuccess = {
                                 accepted = true
                                 onAcceptedStateChanged(true)
+                                launch {
+                                    gateway.hasAcceptedTerms()
+                                }
                             },
                             onFailure = {
                                 errorMessage = strings.acceptError
