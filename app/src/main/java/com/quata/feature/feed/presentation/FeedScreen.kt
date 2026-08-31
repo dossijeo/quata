@@ -155,9 +155,9 @@ import com.quata.core.text.cleanTextCanvasSeedBody
 import com.quata.core.text.extractPostMeta
 import com.quata.core.text.parsePostShortcodeContent
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
-import com.quata.core.ui.components.ClickableProfileAvatar
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.CommunityEmojiPanelDismissState
+import com.quata.core.ui.components.ProfileAvatarWithLoadingHalo
 import com.quata.core.ui.components.applyQuataVideoPlaybackTransform
 import com.quata.core.ui.components.findQuataTextureView
 import com.quata.core.ui.components.QuataScreen
@@ -265,15 +265,12 @@ fun FeedScreen(
                 )
             },
             avatar = { post ->
-                ClickableProfileAvatar(
+                ProfileAvatarWithLoadingHalo(
                     name = post.author.displayName, avatarUrl = post.author.avatarUrl,
                     isOfficial = post.author.isOfficial, profileId = post.author.id,
                     isLoading = openingProfileUserId == post.author.id,
-                    onClick = { onOpenUserProfile(post.author.id) },
                     modifier = Modifier
                         .size(56.dp)
-                        .testTag(feedAuthorAvatarTestTag(post.author.id))
-                        .semantics { contentDescription = feedAuthorAvatarTestTag(post.author.id) }
                         .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
                 )
             },

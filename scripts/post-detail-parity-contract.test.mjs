@@ -13,6 +13,9 @@ const chrome = await source("designsystem/src/commonMain/kotlin/com/quata/core/u
 const feedHost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedScreenHost.kt");
 const feedReelPost = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/FeedReelPostContent.kt");
 const feedAuthor = await source("feature/feed/src/commonMain/kotlin/com/quata/feature/feed/presentation/ReelAuthorContent.kt");
+const androidFeedScreen = await source("app/src/main/java/com/quata/feature/feed/presentation/FeedScreen.kt");
+const webFeedAvatar = await source("web/src/wasmJsMain/kotlin/com/quata/web/BrowserFeedAvatarContent.kt");
+const iosFeedAvatar = await source("feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/IosFeedAvatarContent.kt");
 const officialHost = await source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt");
 const officialAuthor = await source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialAuthorHeaderContent.kt");
 const androidNav = await source("app/src/main/java/com/quata/core/navigation/AppNavGraph.kt");
@@ -65,6 +68,12 @@ test("Feed author profile entry is owned by the common reel row", () => {
   assert.match(feedAuthor, /\.testTag\(it\)\.semantics \{ contentDescription = it \}/);
   assert.match(feedAuthor, /Modifier\.clickable\(onClick = it\)/);
   assert.match(feedHost, /onOpenAuthorProfile = \{ onOpenUserProfile\(post\.author\.id\) \}/);
+  assert.doesNotMatch(androidFeedScreen, /ClickableProfileAvatar\(/);
+  assert.doesNotMatch(androidFeedScreen, /avatar = \{ post ->[\s\S]{0,700}feedAuthorAvatarTestTag\(post\.author\.id\)/);
+  assert.doesNotMatch(webFeedAvatar, /feedAuthorAvatarTestTag\(post\.author\.id\)/);
+  assert.doesNotMatch(webFeedAvatar, /\.clickable\(/);
+  assert.doesNotMatch(iosFeedAvatar, /feedAuthorAvatarTestTag\(post\.author\.id\)/);
+  assert.doesNotMatch(iosFeedAvatar, /\.clickable\(/);
 });
 
 test("Official focused-post mode exposes the same chrome contract", () => {

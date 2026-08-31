@@ -1,15 +1,11 @@
 package com.quata.feature.feed.presentation
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.Post
 import com.quata.core.ui.components.IosRemoteAvatar
@@ -23,6 +19,8 @@ fun IosFeedAuthorAvatar(
     isOnline: Boolean? = null,
     isLoading: Boolean = false,
 ) {
+    @Suppress("UNUSED_VARIABLE")
+    val commonRowOwnsProfileNavigation = onOpenUserProfile
     QuataAvatarLoadingHaloContent(isLoading = isLoading, modifier = Modifier.size(56.dp)) {
         IosRemoteAvatar(
             name = post.author.displayName,
@@ -32,10 +30,7 @@ fun IosFeedAuthorAvatar(
             isOnline = isOnline,
             modifier = Modifier
                 .size(56.dp)
-                .testTag(feedAuthorAvatarTestTag(post.author.id))
-                .semantics { contentDescription = feedAuthorAvatarTestTag(post.author.id) }
-                .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
-                .clickable(enabled = !isLoading) { onOpenUserProfile(post.author.id) },
+                .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
         )
     }
 }
