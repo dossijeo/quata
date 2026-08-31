@@ -316,7 +316,7 @@ test("iOS runner records the same Feed and Official emoji-comment flow", () => {
   assert.match(uiTest, /official\.comments\.emoji/);
   assert.match(uiTest, /verifyCommunityEmojiPanelSections/);
   assert.match(uiTest, /verifyCommunityEmojiFrequentSection/);
-  assert.match(uiTest, /verifyFullEmojiCatalog: false/);
+  assert.doesNotMatch(uiTest, /verifyFullEmojiCatalog: false/);
   assert.match(uiTest, /communityEmojiPanelProbeSections/);
   assert.match(uiTest, /communityEmojiPanelIosEvidenceSections/);
   assert.match(uiTest, /community\.emoji\.sections/);
@@ -359,6 +359,7 @@ test("Feed and Official selector empty and error states are evidenced through th
   assert.match(webRunner, /feedOfficialCommentsContextualWebAnchors/);
   assert.match(webRunner, /await closeProfileSheetIfVisible\(page\);[\s\S]*await openAuthenticatedRoute\(page, origin, routeHash, routePath, \{ forceReload: true \}\)/);
   assert.match(webRunner, /const reloadQuery = options\.forceReload \? `&route-reload=\$\{Date\.now\(\)\}` : ""/);
+  assert.match(webRunner, /const scope = root\?\.shadowRoot \?\? root \?\? document;[\s\S]*scope\.querySelectorAll\("\[aria-label\]"\)/);
   assert.match(webRunner, /contextualAnchor: cardTag/);
   assert.match(webRunner, /official-post-card-\$\{postId\}/);
   assert.match(webRunner, /QuataFeedActionRail portrait comments slot/);

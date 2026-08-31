@@ -599,6 +599,7 @@ class ChatActionsNotificationsInstrumentedTest {
         compose.onNodeWithTag(emojiTag, useUnmergedTree = true)
             .performTouchInput { click(center) }
         waitForTag("community.emoji.panel", "comments emoji panel", 10_000)
+        verifyCommunityEmojiPanelSections("$beforeScreenshot-panel")
         clickStableTag("community.emoji.cell.frequent.0")
         compose.onNodeWithTag(inputTag, useUnmergedTree = true)
             .performTextInput(comment.removePrefix("😀").trimStart())

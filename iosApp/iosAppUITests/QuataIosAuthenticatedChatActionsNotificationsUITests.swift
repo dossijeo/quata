@@ -1106,7 +1106,6 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             afterScreenshot: "ios-official-comments-emoji-after",
             authorScreenshot: "ios-official-comments-author-profile",
             context: "Official comments",
-            verifyFullEmojiCatalog: false,
             in: app,
         )
     }

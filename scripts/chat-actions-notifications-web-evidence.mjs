@@ -537,7 +537,9 @@ async function closeTaggedCommentsPanelIfVisible(page, panelTag, errorPrefix) {
       return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.right > 0 &&
         rect.top < window.innerHeight && rect.left < window.innerWidth;
     };
-    return ![...document.querySelectorAll("[aria-label]")].some((element) => element.getAttribute("aria-label") === tag && visible(element));
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    return ![...scope.querySelectorAll("[aria-label]")].some((element) => element.getAttribute("aria-label") === tag && visible(element));
   }, panelTag, { timeout: 5_000 });
   await delay(300);
   return true;
