@@ -166,6 +166,7 @@ test('About and Release History evidence runners exercise real common anchors', 
   assert.match(androidEvidenceRunner, /AboutReleaseHistoryCommonBridgeInstrumentedTest/);
   assert.match(androidEvidenceRunner, /android_debug_and_test_apks_built/);
   assert.match(androidEvidenceRunner, /copyDeviceEvidence/);
+  assert.match(androidEvidenceRunner, /android-about-release-history-final\.png/);
 
   assert.match(webEvidenceRunner, /ABOUT-RELEASE-HISTORY-WEB-001/);
   assert.match(webEvidenceRunner, /page\.goto\(aboutUrl\(\)\)/);
@@ -185,6 +186,7 @@ test('About and Release History evidence runners exercise real common anchors', 
   assert.match(iosHostUiTests, /"release-history-page-0"/);
   assert.match(iosEvidenceRunner, /ABOUT-RELEASE-HISTORY-IOS-COMMON-001/);
   assert.match(iosEvidenceRunner, /mac_checkout_sha_matches_local_candidate/);
+  assert.match(iosEvidenceRunner, /rm -rf \$\{shellQuote\(options\.remoteLogDir\)\}/);
   assert.match(iosEvidenceRunner, /bash scripts\/run-ios-about-release-history-ui-test\.sh/);
   assert.doesNotMatch(iosEvidenceRunner, /QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_RESULT_BUNDLE_DIR=/);
   assert.match(iosEvidenceShellRunner, /QuataIosUITests\/QuataIosHostUITests\/testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces/);

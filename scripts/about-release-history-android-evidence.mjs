@@ -43,6 +43,7 @@ try {
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   await copyDeviceEvidence(evidenceDir);
+  await captureAndroidScreenshot(join(evidenceDir, "android-about-release-history-final.png"));
   report.evidence.directory = evidenceDir;
   report.evidence.files = await evidenceFileHashes(evidenceDir);
   report.status = "passed";
@@ -93,6 +94,11 @@ async function copyDeviceEvidence(evidenceDir) {
 
 async function adbRunAsCat(devicePath, localPath) {
   const output = await runBuffer(adb, ["exec-out", "run-as", "com.quata", "cat", devicePath]);
+  await writeFile(localPath, output);
+}
+
+async function captureAndroidScreenshot(localPath) {
+  const output = await runBuffer(adb, ["exec-out", "screencap", "-p"]);
   await writeFile(localPath, output);
 }
 

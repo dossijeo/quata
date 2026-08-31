@@ -38,6 +38,8 @@ bash scripts/build-ios-intel-simulator-signed.sh
   await runSshScript(options.host, `
 set -euo pipefail
 cd ${shellQuote(options.project)}
+rm -rf ${shellQuote(options.remoteLogDir)}
+mkdir -p ${shellQuote(options.remoteLogDir)}
 export QUATA_IOS_DERIVED_DATA_PATH=${shellQuote(options.derivedDataPath)}
 export QUATA_IOS_SIMULATOR_UDID=${shellQuote(options.simulatorUdid)}
 export QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_LOG_DIR=${shellQuote(options.remoteLogDir)}
