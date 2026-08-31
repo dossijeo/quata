@@ -109,6 +109,9 @@ test('About opens the common dialog and links to Release History on Android, Web
 
   assert.match(androidNav, /AboutQuataDialog\([\s\S]*?onOpenReleaseHistory = \{/);
   assert.match(androidNav, /QuataAboutDialogContent\([\s\S]*?onOpenReleaseHistory = onOpenReleaseHistory,/);
+  assert.match(androidNav, /documentViewerState = documentViewerOpeningState\(file\.value\)/);
+  assert.match(androidNav, /container\.documentOpenService\.openWithViewerState\(file\.value\)\.completed/);
+  assert.match(androidNav, /QuataDocumentViewerStatusContent\(/);
 
   assert.match(web, /enum class WebWhatsNewDestination \{ PendingReleases, About, ReleaseHistory \}/);
   assert.match(web, /"about" -> WebWhatsNewDestination\.About/);
@@ -166,7 +169,8 @@ test('About and Release History evidence runners exercise real common anchors', 
   assert.match(androidEvidenceRunner, /AboutReleaseHistoryCommonBridgeInstrumentedTest/);
   assert.match(androidEvidenceRunner, /android_debug_and_test_apks_built/);
   assert.match(androidEvidenceRunner, /copyDeviceEvidence/);
-  assert.match(androidEvidenceRunner, /android-about-release-history-final\.png/);
+  assert.match(androidEvidenceRunner, /externalDeviceEvidencePath/);
+  assert.doesNotMatch(androidEvidenceRunner, /screencap/);
 
   assert.match(webEvidenceRunner, /ABOUT-RELEASE-HISTORY-WEB-001/);
   assert.match(webEvidenceRunner, /page\.goto\(aboutUrl\(\)\)/);

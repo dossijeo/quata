@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 
 const CHECK = "ABOUT-RELEASE-HISTORY-ANDROID-COMMON-001";
 const deviceEvidencePath = "files/about-release-history-evidence";
+const externalDeviceEvidencePath = "/sdcard/Android/data/com.quata/files/about-release-history-evidence";
 
 const options = parseArgs(process.argv.slice(2));
 const adb = process.env.ADB?.trim() || "adb";
@@ -26,6 +27,7 @@ try {
   await run(adb, ["install", "-r", "app/build/outputs/apk/debug/app-debug.apk"]);
   await run(adb, ["install", "-r", "-t", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"]);
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]);
+  await run(adb, ["shell", "rm", "-rf", externalDeviceEvidencePath]).catch(() => {});
 
   const instrumentationOutput = await runCapture(adb, [
     "shell", "am", "instrument", "-w", "-r",
@@ -43,7 +45,6 @@ try {
   await rm(evidenceDir, { recursive: true, force: true });
   await mkdir(evidenceDir, { recursive: true });
   await copyDeviceEvidence(evidenceDir);
-  await captureAndroidScreenshot(join(evidenceDir, "android-about-release-history-final.png"));
   report.evidence.directory = evidenceDir;
   report.evidence.files = await evidenceFileHashes(evidenceDir);
   report.status = "passed";
@@ -52,6 +53,7 @@ try {
   await copyDeviceEvidence(resolve(options.evidenceDir)).catch(() => {});
 } finally {
   await run(adb, ["shell", "run-as", "com.quata", "rm", "-rf", deviceEvidencePath]).catch(() => {});
+  await run(adb, ["shell", "rm", "-rf", externalDeviceEvidencePath]).catch(() => {});
   await run(adb, ["uninstall", "com.quata.test"]).catch(() => {});
   report.finishedAt = new Date().toISOString();
   await mkdir(dirname(options.output), { recursive: true });
@@ -86,8 +88,15 @@ function parseArgs(args) {
 
 async function copyDeviceEvidence(evidenceDir) {
   await mkdir(evidenceDir, { recursive: true });
-  const listing = await runCapture(adb, ["shell", "run-as", "com.quata", "ls", deviceEvidencePath]).catch(() => "");
-  for (const name of listing.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)) {
+  const copied = new Set();
+  const externalListing = await runCapture(adb, ["shell", "ls", externalDeviceEvidencePath]).catch(() => "");
+  for (const name of externalListing.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)) {
+    await adbCat(`${externalDeviceEvidencePath}/${name}`, join(evidenceDir, name)).catch(() => {});
+    copied.add(name);
+  }
+  const internalListing = await runCapture(adb, ["shell", "run-as", "com.quata", "ls", deviceEvidencePath]).catch(() => "");
+  for (const name of internalListing.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)) {
+    if (copied.has(name)) continue;
     await adbRunAsCat(`${deviceEvidencePath}/${name}`, join(evidenceDir, name)).catch(() => {});
   }
 }
@@ -97,8 +106,8 @@ async function adbRunAsCat(devicePath, localPath) {
   await writeFile(localPath, output);
 }
 
-async function captureAndroidScreenshot(localPath) {
-  const output = await runBuffer(adb, ["exec-out", "screencap", "-p"]);
+async function adbCat(devicePath, localPath) {
+  const output = await runBuffer(adb, ["exec-out", "cat", devicePath]);
   await writeFile(localPath, output);
 }
 
