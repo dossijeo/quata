@@ -136,7 +136,7 @@ fun WebOfficialHost(
                 message = webOfficialCommunityEmojiSelectorEvidenceValue("message"),
             ) ?: communityEmojiCatalogState(labels, onRetry = onRetry)
         },
-        onDetailPostResolved = { post -> setWebOfficialDetailMarker(post?.title, post?.summary) },
+        onDetailPostResolved = { post -> setWebOfficialDetailMarker(post?.title, post?.summary, post?.contentPlain, post?.linkUrl) },
         ),
     )
 }
@@ -289,7 +289,7 @@ private fun webOfficialEditorPlatformSlots(platformServices: WebPlatformServices
     preview = { state, previewModifier -> WebOfficialEditorPreview(state, previewModifier) },
 )
 
-@JsFun("""(title, summary) => {
+@JsFun("""(title, summary, article, link) => {
   const root = globalThis.document?.documentElement;
   if (!root) return;
   const local = ['127.0.0.1', 'localhost'].includes(String(globalThis.location?.hostname || ''));
@@ -298,8 +298,12 @@ private fun webOfficialEditorPlatformSlots(platformServices: WebPlatformServices
   else root.removeAttribute('data-quata-official-detail-title');
   if (local && optedIn && summary) root.setAttribute('data-quata-official-detail-summary', summary);
   else root.removeAttribute('data-quata-official-detail-summary');
+  if (local && optedIn && article) root.setAttribute('data-quata-official-detail-article', article);
+  else root.removeAttribute('data-quata-official-detail-article');
+  if (local && optedIn && link) root.setAttribute('data-quata-official-detail-link', link);
+  else root.removeAttribute('data-quata-official-detail-link');
 }""")
-private external fun setWebOfficialDetailMarker(title: String?, summary: String?)
+private external fun setWebOfficialDetailMarker(title: String?, summary: String?, article: String?, link: String?)
 
 @Composable
 private fun BrowserOfficialEditorMedia(media: OfficialEditorMedia, modifier: Modifier) {

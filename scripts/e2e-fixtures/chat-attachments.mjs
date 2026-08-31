@@ -610,6 +610,8 @@ export async function seedFeedOfficialCommentsFixture({
     uiComment: `😀 ${marker} official ui comment`,
     title: `QADATA official comments ${marker.slice(-12)}`,
     summary: `Fixture reversible de comentarios oficiales ${marker}`,
+    article: `Detalle ampliado reversible ${marker}`,
+    linkUrl: `https://example.com/quata-post-detail/${marker.slice(-18)}`,
   };
   await withDatabase(async (client) => {
     await client.query("begin");
@@ -653,15 +655,16 @@ export async function seedFeedOfficialCommentsFixture({
          ) values (
            $1::uuid, $2::uuid, $3, $4, 'news', $5,
            'Leer mas', 'es', $6::uuid, null,
-           null, null, false, true, now()
+           null, $7, false, true, now()
          )`,
         [
           fixture.official.postId,
           fixture.targetSession.profileId,
           fixture.official.title,
           fixture.official.summary,
-          `<p>${fixture.official.summary}</p>`,
+          `<p>${fixture.official.summary}</p><p>${fixture.official.article}</p>`,
           fixture.official.translationGroupId,
+          fixture.official.linkUrl,
         ],
       );
       await client.query(

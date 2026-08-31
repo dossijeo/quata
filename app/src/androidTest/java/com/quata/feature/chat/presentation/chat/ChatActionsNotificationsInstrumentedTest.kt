@@ -115,6 +115,8 @@ class ChatActionsNotificationsInstrumentedTest {
         val officialPostId = optionalArgument("quataChatActionsOfficialPostId")
         val feedPostBody = optionalArgument("quataChatActionsFeedPostBody")
         val officialTitle = optionalArgument("quataChatActionsOfficialTitle")
+        val officialArticle = optionalArgument("quataChatActionsOfficialArticle")
+        val officialLink = optionalArgument("quataChatActionsOfficialLink")
         val commentId = optionalArgument("quataChatActionsCommentId")
         val attachmentId = optionalArgument("quataChatActionsAttachmentId")
         val documentProbe = optionalArgument("quataChatActionsDocumentProbe")
@@ -155,7 +157,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "profile", "profile-follow", "profile-roles-safety" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-lists" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank()
             "profile-private-chat" -> !chatUrl.isNullOrBlank() && !peerProbe.isNullOrBlank() && !profileId.isNullOrBlank() && !privateProbe.isNullOrBlank()
-            "post-detail" -> listOf(postId, officialPostId).all { !it.isNullOrBlank() }
+            "post-detail" -> listOf(postId, officialPostId, officialArticle, officialLink, profileId).all { !it.isNullOrBlank() }
             "profile-entry" -> listOf(chatUrl, peerProbe, profileId, postId, officialPostId).all { !it.isNullOrBlank() }
             "community-chat" -> !communityName.isNullOrBlank()
             "feed-official-comments" -> listOf(postId, officialPostId, feedComment, feedCommentId, feedReplyComment, officialComment, officialCommentId, officialReplyComment, actorProfileId).all { !it.isNullOrBlank() }
@@ -189,6 +191,9 @@ class ChatActionsNotificationsInstrumentedTest {
                 officialPostId = officialPostId.orEmpty(),
                 feedPostBody = feedPostBody.orEmpty(),
                 officialTitle = officialTitle.orEmpty(),
+                officialArticle = officialArticle.orEmpty(),
+                officialLink = officialLink.orEmpty(),
+                officialProfileId = profileId.orEmpty(),
             )
             writeReport(
                 JSONObject()
@@ -333,6 +338,9 @@ class ChatActionsNotificationsInstrumentedTest {
         officialPostId: String,
         feedPostBody: String,
         officialTitle: String,
+        officialArticle: String,
+        officialLink: String,
+        officialProfileId: String,
     ) {
         ActivityScenario.launch<MainActivity>(chatIntent("quata://egquata.com/#post-${Uri.encode(feedPostId)}")).use {
             waitForTag("feed.detail.chrome", "feed detail common chrome", 45_000)
@@ -348,6 +356,25 @@ class ChatActionsNotificationsInstrumentedTest {
             waitForTag("official.detail.chrome", "official detail common chrome", 45_000)
             waitForTag("official.detail.back", "official detail common back", 20_000)
             waitForVisibleText(officialTitle, "official detail title", 45_000)
+            clickMergedTagWithAction("official.detail.read-more.$officialPostId")
+            waitForTag("official.detail.panel", "official detail common panel", 20_000)
+            waitForTag("official.detail.article", "official detail article container", 20_000)
+            waitForTag("official.detail.link", "official detail link action", 20_000)
+            waitForTag("official.detail.profile", "official detail profile action", 20_000)
+            waitForVisibleText(officialArticle, "official detail article body", 20_000)
+            waitForVisibleText(officialLink, "official detail external link", 20_000)
+            saveScreenshot("android-post-detail-official-panel")
+            clickMergedTagWithAction("official.detail.profile")
+            waitForTag("public-profile.user.$officialProfileId", "official detail public profile route", 30_000)
+            saveScreenshot("android-post-detail-official-profile")
+            val closedByCommonBack = runCatching {
+                compose.onNodeWithTag("public-profile.back", useUnmergedTree = true)
+                    .performTouchInput { click(center) }
+                true
+            }.getOrDefault(false)
+            if (!closedByCommonBack) device.pressBack()
+            waitForTagGone("public-profile.user.$officialProfileId", "official detail public profile closed", 20_000)
+            clickMergedTagWithAction("official.detail.panel.close")
             saveScreenshot("android-post-detail-official-open")
             clickMergedTagWithAction("official.detail.back")
             waitForTagGone("official.detail.chrome", "official detail closed after back", 20_000)
