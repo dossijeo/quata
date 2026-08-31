@@ -199,6 +199,7 @@ const communityEmojiPanelProbeSections = [
 ];
 for (const prefix of ["android-feed-comments-emoji-before-panel", "android-official-comments-emoji-before-panel"]) {
   for (const section of communityEmojiPanelProbeSections) {
+    evidenceFiles.push(`${prefix}-${section}.png`);
     evidenceFiles.push(`${prefix}-${section}-missing-panel-tag.png`);
     evidenceFiles.push(`${prefix}-${section}-missing-panel-tag-semantics.txt`);
     evidenceFiles.push(`${prefix}-${section}-section-not-clickable.png`);

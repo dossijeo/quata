@@ -369,6 +369,7 @@ test("Feed and Official selector empty and error states are evidenced through th
   assert.doesNotMatch(webRunner, /viewport\.width \* 0\.89/);
   assert.doesNotMatch(webRunner, /viewport\.height \* 0\.78/);
   assert.match(androidRunner, /feed-official-comments-selector-states/);
+  assert.match(androidRunner, /evidenceFiles\.push\(`\$\{prefix\}-\$\{section\}\.png`\)/);
   assert.match(androidRunner, /const copiedEvidenceFiles = await collectAvailableDeviceEvidence\(evidenceDir\)/);
   assert.match(androidRunner, /report\.evidence\.files = copiedEvidenceFiles\.filter/);
   assert.match(androidUiTest, /runFeedOfficialCommentsSelectorStatesStage/);
