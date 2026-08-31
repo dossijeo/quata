@@ -315,10 +315,7 @@ fun OfficialFeedScreenHost(
                                     avatar = {
                                         slots.avatar(
                                             post,
-                                            Modifier
-                                                .size(58.dp)
-                                                .testTag(officialAuthorAvatarTestTag(post.author.id))
-                                                .semantics { contentDescription = officialAuthorAvatarTestTag(post.author.id) },
+                                            Modifier.size(58.dp),
                                         )
                                     },
                                     modifier = authorModifier,
@@ -401,10 +398,7 @@ fun OfficialFeedScreenHost(
                     avatar = {
                         slots.avatar(
                             post,
-                            Modifier
-                                .size(58.dp)
-                                .testTag(officialAuthorAvatarTestTag(post.author.id))
-                                .semantics { contentDescription = officialAuthorAvatarTestTag(post.author.id) },
+                            Modifier.size(58.dp),
                         )
                     },
                     modifier = it,

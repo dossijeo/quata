@@ -123,10 +123,12 @@ test("PROF-ENTRY Android and iOS evidence cover Feed, Official, Communities, Con
 test("PROF-ENTRY product anchors live in common/shared surfaces", () => {
   assert.match(feedAnchor, /fun feedAuthorAvatarTestTag\(profileId: String\): String = "feed\.author\.avatar\.\$profileId"/);
   assert.match(officialAnchor, /fun officialAuthorAvatarTestTag\(profileId: String\): String = "official\.author\.avatar\.\$profileId"/);
-  assert.match(officialHost, /authorModifier\s*\n\s*\.testTag\(officialAuthorAvatarTestTag\(post\.author\.id\)\)/);
-  assert.match(officialHost, /contentDescription = officialAuthorAvatarTestTag\(post\.author\.id\)/);
+  assert.match(officialHost, /authorProfileTestTag = officialAuthorAvatarTestTag\(post\.author\.id\)/);
+  assert.doesNotMatch(officialHost, /Modifier\s*\n\s*\.size\(58\.dp\)\s*\n\s*\.testTag\(officialAuthorAvatarTestTag\(post\.author\.id\)\)/);
+  assert.doesNotMatch(officialHost, /Modifier\s*\n\s*\.size\(58\.dp\)\s*\n\s*\.semantics\s*\{\s*contentDescription = officialAuthorAvatarTestTag\(post\.author\.id\)\s*\}/);
   assert.match(webOfficialHost, /BrowserOfficialAuthorAvatar\(post, onOpenUserProfile/);
-  assert.match(webOfficialHost, /officialAuthorAvatarTestTag\(post\.author\.id\)/);
+  assert.match(webOfficialHost, /commonHeaderOwnsProfileNavigation = onOpenUserProfile/);
+  assert.doesNotMatch(webOfficialHost, /BrowserRemoteAvatar\([\s\S]*officialAuthorAvatarTestTag\(post\.author\.id\)[\s\S]*\.clickable/);
   assert.match(conversationAnchor, /fun conversationAvatarTestTag\(profileId: String\): String = "conversation\.avatar\.\$profileId"/);
   assert.match(conversationAnchor, /contentDescription = conversationAvatarTestTag\(id\)/);
   assert.match(conversationList, /const val ConversationListTestTag: String = "conversation\.list"/);
