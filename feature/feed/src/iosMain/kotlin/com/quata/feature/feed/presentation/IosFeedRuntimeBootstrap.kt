@@ -42,6 +42,7 @@ class IosFeedRuntimeBootstrap(
         initialPostId: String? = null,
         onAuthRequired: () -> Unit = {},
         onCreatePost: () -> Unit = {},
+        onBackFromFocusedPost: (() -> Unit)? = null,
         profileOpeningState: IosMemberProfileOpeningState,
         preferredLanguageTag: String? = null,
     ): IosFeedHostDependencies = iosPublicPostgrestReadOnlyFeedHostDependencies(
@@ -52,6 +53,7 @@ class IosFeedRuntimeBootstrap(
             initialPostId = initialPostId,
             onAuthRequired = onAuthRequired,
             onCreatePost = onCreatePost,
+            onBackFromFocusedPost = onBackFromFocusedPost,
             profileOpeningState = profileOpeningState,
             preferredLanguageTag = preferredLanguageTag,
         )
@@ -63,11 +65,21 @@ class IosFeedRuntimeBootstrap(
         onOpenUserProfile: (String) -> Unit = {},
         onAuthRequired: () -> Unit = {},
         onCreatePost: () -> Unit = {},
+        onBackFromFocusedPost: (() -> Unit)? = null,
         profileOpeningState: IosMemberProfileOpeningState,
         preferredLanguageTag: String? = null,
     ): IosFeedHostDependencies = iosAuthenticatedPostgrestFeedHostDependencies(
-        configuration, authSession, mediaFactory, shareService, initialPostId, onOpenUserProfile,
-        onAuthRequired, onCreatePost, profileOpeningState, preferredLanguageTag,
+        configuration = configuration,
+        authSession = authSession,
+        mediaFactory = mediaFactory,
+        shareService = shareService,
+        initialPostId = initialPostId,
+        onOpenUserProfile = onOpenUserProfile,
+        onAuthRequired = onAuthRequired,
+        onCreatePost = onCreatePost,
+        onBackFromFocusedPost = onBackFromFocusedPost,
+        profileOpeningState = profileOpeningState,
+        preferredLanguageTag = preferredLanguageTag,
     )
 
     /** Returns whether a Keychain record exists; do not use this to mount authenticated UI. */

@@ -2,6 +2,7 @@ package com.quata.feature.feed.presentation
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
@@ -67,6 +68,7 @@ import com.quata.core.ui.components.QuataFeedPullRefreshIndicator
 import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingItem
+import com.quata.core.ui.components.QuataPostDetailChromeContent
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
 import com.quata.core.ui.components.CommunityEmojiCatalogState
@@ -127,7 +129,12 @@ data class FeedScreenStrings(
     val showEmojis: String = "Mostrar emojis",
     val emojiLabels: CommunityEmojiLabels = CommunityEmojiLabels(),
     val locationLabel: @Composable (String) -> String = { location -> formatFeedLocationLabel(location) },
+    val detailTitle: String = "Detalle de publicación",
+    val detailBack: String = "Volver al feed",
 )
+
+const val FeedPostDetailChromeTestTag = "feed.detail.chrome"
+const val FeedPostDetailBackTestTag = "feed.detail.back"
 
 /** Shared location chip text; Android's localized resource intentionally uses the same red pin. */
 fun formatFeedLocationLabel(location: String): String = "\uD83D\uDCCD $location"
@@ -199,6 +206,7 @@ fun FeedScreenHost(
     isLandscape: Boolean = rememberQuataWindowLayoutInfo().isLandscape,
     strings: FeedScreenStrings = FeedScreenStrings(),
     onFocusedPostHandled: () -> Unit = {},
+    onBackFromFocusedPost: (() -> Unit)? = null,
     onAuthRequired: () -> Unit = {},
     onOpenUserProfile: (String) -> Unit = {},
     onCreatePost: () -> Unit = {},
@@ -294,11 +302,23 @@ fun FeedScreenHost(
         }
     }
 
-    androidx.compose.foundation.layout.Box(modifier.fillMaxSize()) {
-        when {
-            state.error != null && state.posts.isEmpty() -> FeedStatusContent(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(padding))
-            state.posts.isEmpty() && !state.isLoading -> FeedStatusContent(strings.empty, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(padding))
-            else -> FeedPagerViewportContent(padding, Modifier.fillMaxSize().nestedScroll(pullRefreshState.nestedScrollConnection)) {
+    Column(modifier.fillMaxSize()) {
+        val detailPost = focusedPostId?.let { id -> state.posts.firstOrNull { it.id == id } }
+        if (focusedPostId != null && onBackFromFocusedPost != null) {
+            QuataPostDetailChromeContent(
+                title = strings.detailTitle,
+                subtitle = detailPost?.author?.displayName,
+                backContentDescription = strings.detailBack,
+                rootTestTag = FeedPostDetailChromeTestTag,
+                backTestTag = FeedPostDetailBackTestTag,
+                onBack = onBackFromFocusedPost,
+            )
+        }
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().weight(1f)) {
+            when {
+                state.error != null && state.posts.isEmpty() -> FeedStatusContent(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(padding))
+                state.posts.isEmpty() && !state.isLoading -> FeedStatusContent(strings.empty, strings.retry, { viewModel.onEvent(FeedUiEvent.Refresh) }, Modifier.fillMaxSize().padding(padding))
+                else -> FeedPagerViewportContent(padding, Modifier.fillMaxSize().nestedScroll(pullRefreshState.nestedScrollConnection)) {
             FeedReelPagerContent(
                 pagerState = pagerState,
                 posts = state.posts,
@@ -381,10 +401,11 @@ fun FeedScreenHost(
             )
             }
         }
-        if (slots.showComposeMessage) SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
-        )
+            if (slots.showComposeMessage) SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+            )
+        }
     }
 
     state.posts.firstOrNull { it.id == commentsPostId }?.let { post ->

@@ -79,6 +79,7 @@ class IosOfficialHostDependencies(
     val onAuthRequired: () -> Unit = {},
     val onOpenUserProfile: (String) -> Unit = {},
     val onCreateOfficialPost: () -> Unit = {},
+    val onBackFromFocusedPost: (() -> Unit)? = null,
     val profileOpeningState: IosMemberProfileOpeningState,
 )
 
@@ -96,6 +97,7 @@ fun createIosOfficialHostDependencies(
     preferredLanguageTag: String? = null,
     onAuthRequired: () -> Unit = {}, onOpenUserProfile: (String) -> Unit = {},
     onCreateOfficialPost: () -> Unit = {},
+    onBackFromFocusedPost: (() -> Unit)? = null,
     canCreateOfficialPost: Boolean = false,
     profileOpeningState: IosMemberProfileOpeningState,
 ): IosOfficialHostDependencies = IosOfficialHostDependencies(
@@ -107,6 +109,7 @@ fun createIosOfficialHostDependencies(
     mediaViewerFactory = mediaViewerFactory,
     onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
     onCreateOfficialPost = onCreateOfficialPost,
+    onBackFromFocusedPost = onBackFromFocusedPost,
     canCreateOfficialPost = canCreateOfficialPost,
     profileOpeningState = profileOpeningState,
 )
@@ -124,6 +127,7 @@ fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
     shareService: ShareService = IosShareService(),
     mediaViewerFactory: IosOfficialMediaViewerFactory? = null,
     onAuthRequired: () -> Unit = {}, onOpenUserProfile: (String) -> Unit = {},
+    onBackFromFocusedPost: (() -> Unit)? = null,
     profileOpeningState: IosMemberProfileOpeningState,
 ): IosOfficialHostDependencies = createIosOfficialHostDependencies(
     repository = IosOfficialReadRepository(configuration = configuration),
@@ -131,6 +135,7 @@ fun iosPublicPostgrestReadOnlyOfficialHostDependencies(
     shareService = shareService,
     mediaViewerFactory = mediaViewerFactory,
     onAuthRequired = onAuthRequired, onOpenUserProfile = onOpenUserProfile,
+    onBackFromFocusedPost = onBackFromFocusedPost,
     profileOpeningState = profileOpeningState,
 )
 
@@ -145,6 +150,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     onAuthRequired: () -> Unit = {},
     onOpenUserProfile: (String) -> Unit = {},
     onCreateOfficialPost: () -> Unit = {},
+    onBackFromFocusedPost: (() -> Unit)? = null,
     canCreateOfficialPost: Boolean = false,
     preferredLanguageTag: String? = null,
     profileOpeningState: IosMemberProfileOpeningState,
@@ -157,6 +163,7 @@ fun iosAuthenticatedPostgrestOfficialHostDependencies(
     preferredLanguageTag = preferredLanguageTag,
     onAuthRequired = onAuthRequired,
     onOpenUserProfile = onOpenUserProfile,
+    onBackFromFocusedPost = onBackFromFocusedPost,
     canCreateOfficialPost = canCreateOfficialPost,
     onCreateOfficialPost = onCreateOfficialPost,
     profileOpeningState = profileOpeningState,
@@ -180,6 +187,7 @@ fun QuataOfficialViewController(dependencies: IosOfficialHostDependencies): UIVi
                 onAuthRequired = dependencies.onAuthRequired,
                 onOpenUserProfile = dependencies.onOpenUserProfile,
                 onCreateOfficialPost = dependencies.onCreateOfficialPost,
+                onBackFromFocusedPost = dependencies.onBackFromFocusedPost,
                 slots = iosOfficialPlatformSlots(
                     dependencies.shareService,
                     dependencies.mediaViewerFactory,

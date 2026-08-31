@@ -731,7 +731,8 @@ fun AppNavGraph(
                         networkReconnectToken = feedNetworkReconnectToken,
                         isNetworkAvailable = isDeviceNetworkAvailable,
                         isAppForeground = isAppForeground,
-                        onFocusedPostHandled = { feedFocusedPostId = null },
+                        onFocusedPostHandled = {},
+                        onBackFromFocusedPost = { feedFocusedPostId = null },
                         onAuthRequired = { requestAuthentication() },
                         onCreatePost = {
                             if (isAuthenticated) navigateBottomRoute(AppDestinations.CreatePost.route) else requestAuthentication()
@@ -754,7 +755,8 @@ fun AppNavGraph(
                         shareService = container.shareService,
                         currentUserId = container.sessionManager.currentSession()?.userId,
                         focusedPostId = officialFocusedPostId,
-                        onFocusedPostHandled = { officialFocusedPostId = null },
+                        onFocusedPostHandled = {},
+                        onBackFromFocusedPost = { officialFocusedPostId = null },
                         onAuthRequired = { requestAuthentication() },
                         onOpenUserProfile = { userId ->
                             globalProfileViewModel.openUserProfile(userId)

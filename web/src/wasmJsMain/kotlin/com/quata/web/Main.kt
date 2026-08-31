@@ -713,6 +713,7 @@ private fun QuataWebApp(
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                                 onCreateOfficialPost = { navigation.navigate("official-editor") },
+                                onBackFromFocusedPost = navigation.officialPostId?.let { { navigation.navigate("official") } },
                             )
                             if (memberProfileId != null) {
                             WebNeighborhoodsHost(
@@ -785,6 +786,7 @@ private fun QuataWebApp(
                                 openingProfileUserId = memberProfileId,
                                 onAuthRequired = ::requestAuthenticationForCurrentRoute,
                                 onCreatePost = { navigation.navigate("composer") },
+                                onBackFromFocusedPost = navigation.postId?.let { { navigation.navigate("feed") } },
                                 onOpenUserProfile = feedMemberProfileRoute::open,
                             )
                             if (memberProfileId != null) {

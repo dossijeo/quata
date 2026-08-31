@@ -3,6 +3,7 @@ package com.quata.feature.official.presentation
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -41,6 +42,7 @@ import com.quata.core.ui.components.QuataFeedOverflowActionButton
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataLiveRankingPanelContent
 import com.quata.core.ui.components.QuataLiveRankingStrings
+import com.quata.core.ui.components.QuataPostDetailChromeContent
 import com.quata.core.ui.components.QuataStandardFloatingPanelContent
 import com.quata.core.ui.components.communityEmojiCatalogState
 import com.quata.core.ui.components.rememberQuataFeedPullRefreshState
@@ -100,6 +102,8 @@ class OfficialFeedScreenStrings(
     val showEmojis: String = "Mostrar emojis",
     val translatorContentDescription: String = "Traductor Fang",
     val emojiLabels: CommunityEmojiLabels = CommunityEmojiLabels(),
+    val detailTitle: String = "Detalle de comunicado",
+    val detailBack: String = "Volver a comunicados",
 ) {
     constructor() : this(
         empty = "No hay comunicados oficiales disponibles.", create = "Crear comunicado",
@@ -117,6 +121,9 @@ class OfficialFeedScreenStrings(
         shareFailed = "No se pudo compartir el comunicado.",
     )
 }
+
+const val OfficialPostDetailChromeTestTag = "official.detail.chrome"
+const val OfficialPostDetailBackTestTag = "official.detail.back"
 
 fun defaultOfficialFeedScreenStrings(languageTag: String?): OfficialFeedScreenStrings = when (languageTag?.substringBefore('-')?.lowercase()) {
     "en" -> OfficialFeedScreenStrings(loadingError="Could not load official notices.",live="LIVE",readMoreMoreInformation="More information",readMoreContinueReading="Continue reading",readMoreDetails="Details",typeAnnouncement="Announcement",typeNews="News",typeEvent="Event",typeUrgent="Urgent",officialAccountFallback="Official account",deleteTitle="Delete notice",deleteMessage="This action cannot be undone.",confirm="Confirm",cancel="Cancel",deleted="Notice deleted",shareUnavailable="This notice cannot be shared on this device.",shareFailed="Could not share notice",empty="No official notices are available.",create="Create notice",retry="Retry",like="Like",comments="Comments",share="Share",rank="Ranking",delete="Delete",close="Close",profile="Profile",readMore="Read more",refresh="Refresh",reportSent="Report sent for review",reportFailed="Could not send report",commentPlaceholder="Write a comment…",commentSend="Send comment",commentReport="Report",commentReply="Reply",commentReplyingTo={ "Replying to $it" },commentCancelReply="Cancel reply",commentsYou="You",commentReplyTo={ "↳ Reply to $it" },showEmojis="Show emojis",translatorContentDescription="Fang translator",emojiLabels=CommunityEmojiLabels(recent="Recent",frequent="Frequent",gestures="Gestures",people="People",animalsNature="Animals and nature",foodDrink="Food and drink",objectsSymbols="Objects and symbols",flags="Flags",empty="No emojis available."))
@@ -175,6 +182,7 @@ fun OfficialFeedScreenHost(
     focusedPostId: String?,
     strings: OfficialFeedScreenStrings,
     onFocusedPostHandled: () -> Unit,
+    onBackFromFocusedPost: (() -> Unit)? = null,
     onAuthRequired: () -> Unit,
     onOpenUserProfile: (String) -> Unit,
     onCreateOfficialPost: () -> Unit,
@@ -239,10 +247,22 @@ fun OfficialFeedScreenHost(
         rankingTargetPostId = null
     }
 
-    Box(modifier.fillMaxSize()) {
-        when {
-            state.error != null && state.posts.isEmpty() -> OfficialHostFailure(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(OfficialFeedUiEvent.Refresh) }, Modifier.fillMaxSize())
-            else -> OfficialFeedPagerContent(
+    Column(modifier.fillMaxSize()) {
+        val detailPost = focusedPostId?.let { id -> state.posts.firstOrNull { it.id == id } }
+        if (focusedPostId != null && onBackFromFocusedPost != null) {
+            QuataPostDetailChromeContent(
+                title = strings.detailTitle,
+                subtitle = detailPost?.title,
+                backContentDescription = strings.detailBack,
+                rootTestTag = OfficialPostDetailChromeTestTag,
+                backTestTag = OfficialPostDetailBackTestTag,
+                onBack = onBackFromFocusedPost,
+            )
+        }
+        Box(Modifier.fillMaxSize().weight(1f)) {
+            when {
+                state.error != null && state.posts.isEmpty() -> OfficialHostFailure(state.error ?: strings.loadingError, strings.retry, { viewModel.onEvent(OfficialFeedUiEvent.Refresh) }, Modifier.fillMaxSize())
+                else -> OfficialFeedPagerContent(
                 padding = padding,
                 pagerState = pagerState,
                 posts = visiblePosts,
@@ -332,7 +352,8 @@ fun OfficialFeedScreenHost(
                 if (state.isLoadingOlder) OfficialOlderPostsLoadingContent(Modifier.align(Alignment.BottomCenter))
             }
         }
-        if (slots.showComposeMessage) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+            if (slots.showComposeMessage) SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+        }
     }
     state.posts.firstOrNull { it.id == readMorePost }?.let { post ->
         OfficialPostDetailPanelContent(
