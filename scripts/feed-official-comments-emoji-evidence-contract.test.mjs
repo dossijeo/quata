@@ -303,7 +303,12 @@ test("iOS runner records the same Feed and Official emoji-comment flow", () => {
   assert.match(wrapper, /\|\| "\$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E" == "1"/);
   assert.match(wrapper, /&& "\$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E" != "1"/);
   assert.match(wrapper, /run_and_require "\$feed_official_comments_error" "\$feed_official_comments_error_method" "\$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR\/feed-official-comments-error\.log" 720/);
-  assert.match(wrapper, /run_and_require "\$feed_official_comments" "\$feed_official_comments_method" "\$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR\/feed-official-comments\.log" 720/);
+  assert.match(wrapper, /run_and_require "\$feed_official_comments" "\$feed_official_comments_method" "\$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR\/feed-official-comments\.log" 840/);
+  assert.match(wrapper, /stale_xctest_bundle/);
+  assert.match(wrapper, /-newer "\$xctestrun"/);
+  assert.match(runner, /assertIosFeedOfficialEmojiPanelEvidence\(options\)/);
+  assert.match(runner, /ios_feed_official_emoji_panel_evidence_missing/);
+  assert.match(runner, /ios-\$\{surface\}-comments-emoji-before-panel-\$\{section\}/);
   assert.match(uiTest, /func testFeedAndOfficialCommentsUseSharedEmojiPicker/);
   assert.match(uiTest, /func testFeedAndOfficialCommentsForcedErrorRollsBackSharedEmojiComment/);
   assert.match(uiTest, /QUATA_IOS_FEED_OFFICIAL_COMMENTS_FORCE_FAILURE/);

@@ -130,6 +130,11 @@ done < <(find "$QUATA_IOS_DERIVED_DATA_PATH/Build/Products" -name '*.xctestrun' 
 [[ "${#xctestruns[@]}" -eq 1 ]] || { echo "Expected exactly one .xctestrun, found ${#xctestruns[@]}" >&2; exit 2; }
 xctestrun="${xctestruns[0]}"
 mkdir -p "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR"
+stale_xctest_source="$(find iosApp/iosAppUITests iosApp/iosAppTests -type f \( -name '*.swift' -o -name '*.m' -o -name '*.mm' \) -newer "$xctestrun" -print -quit)"
+if [[ -n "$stale_xctest_source" ]]; then
+  echo "stale_xctest_bundle:$stale_xctest_source is newer than $xctestrun; rebuild with QUATA_IOS_BUILD_FIRST=1 or --build-first before collecting iOS evidence." >&2
+  exit 2
+fi
 patched_xctestrun="$(dirname "$xctestrun")/$(basename "$xctestrun" .xctestrun)-quata-patched.xctestrun"
 rm -f "$patched_xctestrun"
 cp "$xctestrun" "$patched_xctestrun"
@@ -394,7 +399,7 @@ elif [[ "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E" == "1" ]
 elif [[ "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_ERROR_UI_E2E" == "1" ]]; then
   run_and_require "$feed_official_comments_error" "$feed_official_comments_error_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/feed-official-comments-error.log" 720
 elif [[ "$QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_UI_E2E" == "1" ]]; then
-  run_and_require "$feed_official_comments" "$feed_official_comments_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/feed-official-comments.log" 720
+  run_and_require "$feed_official_comments" "$feed_official_comments_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/feed-official-comments.log" 840
 elif [[ "$QUATA_IOS_CHAT_PROFILE_ROLES_SAFETY_UI_E2E" == "1" ]]; then
   run_and_require "$profile_roles_safety" "$profile_roles_safety_method" "$QUATA_IOS_CHAT_ACTIONS_NOTIFICATIONS_LOG_DIR/profile-roles-safety.log"
 elif [[ "${QUATA_IOS_CHAT_PROFILE_FOLLOW_UI_E2E:-0}" == "1" ]]; then

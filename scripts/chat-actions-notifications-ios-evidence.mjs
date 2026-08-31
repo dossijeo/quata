@@ -724,6 +724,9 @@ bash scripts/run-ios-chat-actions-notifications-ui-test.sh
     }
 
     await copyRemoteEvidence(options);
+    if (feedOfficialCommentsOnly) {
+      await assertIosFeedOfficialEmojiPanelEvidence(options);
+    }
     report.status = "passed";
     report.fixture = (profileEvidenceOnly || communityChatOnly || menuSurfaceOnly || keyboardMenuOnly || attachmentsAudioOnly || composerEmojiOnly || groupSosOnly || attachmentPickerOnly || groupAdminOnly || groupModerationOnly)
       ? {
@@ -2373,6 +2376,43 @@ async function copyRemoteEvidence(values) {
   });
   report.evidence.uiReportDirectory = target;
   report.evidence.resultBundleDirectory = resultTarget;
+}
+
+async function assertIosFeedOfficialEmojiPanelEvidence(values) {
+  const sections = [
+    "recent",
+    "frequent",
+    "gestures",
+    "people",
+    "animals_nature",
+    "food_drink",
+    "objects_symbols",
+    "flags",
+  ];
+  const logPath = join(values.evidenceDir, "mac-ui-report", "feed-official-comments.log");
+  const log = await readFile(logPath, "utf8");
+  const missing = [];
+  const found = [];
+  for (const surface of ["feed", "official"]) {
+    for (const section of sections) {
+      const name = `ios-${surface}-comments-emoji-before-panel-${section}`;
+      if (log.includes(`Added attachment named '${name}'`) || log.includes(`Added attachment named "${name}"`)) {
+        found.push(name);
+      } else {
+        missing.push(name);
+      }
+    }
+  }
+  report.evidence.iosFeedOfficialEmojiPanelAttachments = {
+    expectedCount: sections.length * 2,
+    foundCount: found.length,
+    found,
+    missing,
+  };
+  if (missing.length > 0) {
+    throw new Error(`ios_feed_official_emoji_panel_evidence_missing:${missing.join(",")}`);
+  }
+  report.steps.push("ios_feed_and_official_emoji_panel_all_sections_attached");
 }
 
 async function gitMetadata() {
