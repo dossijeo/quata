@@ -7,11 +7,11 @@
     "OVR-PUBLIC-PROFILE"
   ],
   "status": "passed",
-  "productSha": "7024a3cd1ae040e22bd4ec7a8c97e42701f4cbbe",
+  "productSha": "7761581c9d8b0bf3b056318335d2681e110b8561",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "7024a3cd1ae040e22bd4ec7a8c97e42701f4cbbe",
+      "sha": "7761581c9d8b0bf3b056318335d2681e110b8561",
       "report": "build-reports/web/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -19,13 +19,13 @@
       },
       "coverage": [
         "Web/Wasm opens the shared public profile from Feed and Official author anchors exposed by common UI",
-        "The same profile-entry runner still covers Communities, Conversations and Chat entry anchors",
+        "The same profile-entry runner still covers Communities and Conversations entry anchors in this focal replay",
         "The replay resolves semantic profile-entry markers and only keeps platform fallbacks as diagnostics where Compose/Wasm canvas limits DOM exposure"
       ]
     },
     "android": {
       "status": "passed",
-      "sha": "7024a3cd1ae040e22bd4ec7a8c97e42701f4cbbe",
+      "sha": "7761581c9d8b0bf3b056318335d2681e110b8561",
       "report": "build-reports/android/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -39,7 +39,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "7024a3cd1ae040e22bd4ec7a8c97e42701f4cbbe",
+      "sha": "7761581c9d8b0bf3b056318335d2681e110b8561",
       "report": "build-reports/ios/profile-entry-chat-evidence.json",
       "cleanup": {
         "verified": true,
@@ -47,13 +47,13 @@
       },
       "coverage": [
         "iOS runs on the Mac simulator with the Mac checkout at the same SHA as the local candidate",
-        "XCTest opens the shared public profile from the common profile-entry anchors, verifies avatar, name, neighborhood and KPIs, then returns to Chat",
+        "XCTest opens the shared public profile from the common profile-entry anchors, verifies the public-profile route is visible, then returns to the source surface",
         "The runner generated the local public runtime xcconfig before build-for-testing and preserved exact-SHA evidence"
       ]
     }
   },
   "notes": [
-    "This is a focal reduction of OVR-POST-DETAIL for author-to-public-profile entry from Feed and Official, while revalidating the existing global profile-entry path across Feed, Official, Communities, Conversations and Chat.",
+    "This is a focal reduction of OVR-POST-DETAIL for author-to-public-profile entry from Feed and Official, while revalidating the existing global profile-entry path across Feed, Official, Communities and Conversations, plus Android/iOS Chat where covered by their platform runners.",
     "The candidate moves profile-entry clickability and semantic anchors into commonMain/common UI surfaces rather than leaving platform hosts to wrap author rows independently.",
     "The evidence does not declare full OVR-POST-DETAIL GO: complete actions, link/article behavior, comments integration, media detail, scroll restoration and public-profile post detail remain outside this focal candidate.",
     "During iOS validation the Mac VM had only about 120 MiB free, which caused a transient Code Signing subsystem failure. Cleaning generated build artifacts from obsolete worktrees restored space; the final iOS evidence passed after a clean build on the same product SHA."
