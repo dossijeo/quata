@@ -3,7 +3,6 @@
 package com.quata.web
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,9 +18,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -69,7 +65,6 @@ import com.quata.feature.official.presentation.defaultOfficialFeedScreenStrings
 import com.quata.feature.official.presentation.detectOfficialPostLanguage
 import com.quata.feature.official.presentation.officialPostEditorPreviewItem
 import com.quata.feature.official.presentation.OfficialPostMediaFrameContent
-import com.quata.feature.official.presentation.officialAuthorAvatarTestTag
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
 import kotlin.js.JsString
@@ -363,6 +358,8 @@ private fun BrowserOfficialAuthorAvatar(
     isLoading: Boolean,
     modifier: Modifier,
 ) {
+    @Suppress("UNUSED_VARIABLE")
+    val commonHeaderOwnsProfileNavigation = onOpenUserProfile
     QuataAvatarLoadingHaloContent(isLoading = isLoading, modifier = modifier) {
         BrowserRemoteAvatar(
             name = post.author.displayName,
@@ -371,10 +368,7 @@ private fun BrowserOfficialAuthorAvatar(
             isOfficial = post.author.isOfficial,
             isOnline = null,
             modifier = Modifier.fillMaxSize()
-                .testTag(officialAuthorAvatarTestTag(post.author.id))
-                .semantics { contentDescription = officialAuthorAvatarTestTag(post.author.id) }
-                .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
-                .clickable(enabled = !isLoading) { onOpenUserProfile(post.author.id) },
+                .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
         )
     }
 }

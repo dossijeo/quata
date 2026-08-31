@@ -15,6 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -31,6 +34,8 @@ fun ReelAuthorContent(
     showDescription: Boolean,
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
+    authorProfileTestTag: String? = null,
+    onOpenAuthorProfile: (() -> Unit)? = null,
     avatar: @Composable () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -50,7 +55,10 @@ fun ReelAuthorContent(
             )
             Spacer(Modifier.height(10.dp))
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        val authorModifier = Modifier
+            .then(authorProfileTestTag?.let { Modifier.testTag(it).semantics { contentDescription = it } } ?: Modifier)
+            .then(onOpenAuthorProfile?.let { Modifier.clickable(onClick = it) } ?: Modifier)
+        Row(modifier = authorModifier, verticalAlignment = Alignment.CenterVertically) {
             avatar()
             Spacer(Modifier.width(12.dp))
             Column {

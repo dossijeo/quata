@@ -2,7 +2,6 @@ package com.quata.web
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -11,15 +10,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.quata.core.model.Post
 import com.quata.core.ui.components.QuataAvatarFrameContent
 import com.quata.core.ui.components.QuataLiveRankingItem
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
-import com.quata.feature.feed.presentation.feedAuthorAvatarTestTag
 
 /**
  * Browser image adapter for the shared Feed identity slots.
@@ -36,6 +31,8 @@ fun BrowserFeedAuthorAvatar(
     isLoading: Boolean = false,
     modifier: Modifier = Modifier.size(56.dp),
 ) {
+    @Suppress("UNUSED_VARIABLE")
+    val commonRowOwnsProfileNavigation = onOpenUserProfile
     QuataAvatarLoadingHaloContent(isLoading = isLoading, modifier = modifier) {
         BrowserRemoteAvatar(
             name = post.author.displayName,
@@ -44,10 +41,7 @@ fun BrowserFeedAuthorAvatar(
             isOfficial = post.author.isOfficial,
             isOnline = isOnline,
             modifier = Modifier.fillMaxSize()
-                .testTag(feedAuthorAvatarTestTag(post.author.id))
-                .semantics { contentDescription = feedAuthorAvatarTestTag(post.author.id) }
-                .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
-                .clickable(enabled = !isLoading) { onOpenUserProfile(post.author.id) },
+                .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
         )
     }
 }

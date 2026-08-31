@@ -1,5 +1,6 @@
 package com.quata.feature.official.presentation
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -26,9 +30,15 @@ fun OfficialAuthorHeaderContent(
     neighborhood: String,
     fallbackNeighborhood: String,
     avatar: @Composable () -> Unit,
+    authorProfileTestTag: String? = null,
+    onOpenAuthorProfile: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    val authorModifier = modifier
+        .then(authorProfileTestTag?.let { Modifier.testTag(it).semantics { contentDescription = it } } ?: Modifier)
+        .then(onOpenAuthorProfile?.let { Modifier.clickable(onClick = it) } ?: Modifier)
+        .fillMaxWidth()
+    Row(authorModifier, verticalAlignment = Alignment.CenterVertically) {
         avatar()
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
