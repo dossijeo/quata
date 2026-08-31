@@ -2394,9 +2394,7 @@ async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, ev
       frequentSectionBounds = sectionBox;
       frequentCellBounds = cellBox;
     }
-    if (section === "frequent" || section === "flags") {
-      await attachScreenshot(page, evidenceDir, `${screenshotPrefix}-${section}`);
-    }
+    await attachScreenshot(page, evidenceDir, `${screenshotPrefix}-${section}`);
   }
   report.evidence.communityEmojiPanelSections ??= [];
   report.evidence.communityEmojiPanelSections.push({
@@ -2418,34 +2416,11 @@ async function verifyCommunityEmojiPanelSections(page, { errorPrefix, report, ev
       sectionTag: "community.emoji.section.frequent",
       resolvedBy: "exact-aria-label",
     });
-  } else if (frequentSectionBounds) {
-    report.evidence.communityEmojiPanelResetFallbacks ??= [];
-    report.evidence.communityEmojiPanelResetFallbacks.push({
-      surface: errorPrefix,
-      sectionTag: "community.emoji.section.frequent",
-      reason: "semantic_anchor_was_observed_earlier_but_not_resolved_after_horizontal_scroll",
-      bounds: roundedBox(frequentSectionBounds),
-    });
-    await page.mouse.click(
-      frequentSectionBounds.x + (frequentSectionBounds.width / 2),
-      frequentSectionBounds.y + (frequentSectionBounds.height / 2),
-    );
-    await delay(250);
   } else {
     throw new Error(`${errorPrefix}_emoji_section_anchor_missing:community.emoji.section.frequent`);
   }
   const frequentCell = await visibleExactAriaLocator(page, "community.emoji.cell.frequent.0", 2_500) ??
     await visibleNativeControlExact(page, "community.emoji.cell.frequent.0", 2_000);
-  if (!frequentCell && frequentCellBounds) {
-    report.evidence.communityEmojiPanelResetFallbacks ??= [];
-    report.evidence.communityEmojiPanelResetFallbacks.push({
-      surface: errorPrefix,
-      cellTag: "community.emoji.cell.frequent.0",
-      reason: "semantic_cell_was_observed_earlier_but_not_resolved_after_horizontal_scroll",
-      bounds: roundedBox(frequentCellBounds),
-    });
-    return frequentCellBounds;
-  }
   if (!frequentCell) throw new Error(`${errorPrefix}_emoji_frequent_reset_cell_missing`);
   return frequentCellBounds;
 }

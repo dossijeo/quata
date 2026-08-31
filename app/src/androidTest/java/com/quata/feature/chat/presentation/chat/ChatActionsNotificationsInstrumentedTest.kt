@@ -660,9 +660,7 @@ class ChatActionsNotificationsInstrumentedTest {
             clickEmojiPanelSection(sectionTag, "$screenshotPrefix-$section")
             waitForEmojiPanelTag(gridTag, "emoji panel selected grid $section", "$screenshotPrefix-$section")
             waitForEmojiPanelTag(firstCellTag, "emoji panel first cell $section", "$screenshotPrefix-$section")
-            if (section == "frequent" || section == "flags") {
-                saveScreenshot("$screenshotPrefix-$section")
-            }
+            saveScreenshot("$screenshotPrefix-$section")
         }
         scrollEmojiSectionIntoView("community.emoji.section.frequent", 1)
         clickEmojiPanelSection("community.emoji.section.frequent", "$screenshotPrefix-reset-frequent")

@@ -19,6 +19,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         "recent",
         "frequent",
         "gestures",
+        "people",
+        "animals_nature",
+        "food_drink",
+        "objects_symbols",
+        "flags",
     ]
 
     func testGroupAdminPromotesParticipantThroughSharedMemberMenu() throws {
@@ -1539,9 +1544,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 app.descendants(matching: .any).matching(identifier: cellIdentifier).firstMatch.waitForExistence(timeout: 2),
                 "\(context) must expose first emoji cell \(cellIdentifier).",
             )
-            if section == "frequent" {
-                attachScreenshot(app, name: "\(screenshotPrefix)-\(section)")
-            }
+            attachScreenshot(app, name: "\(screenshotPrefix)-\(section)")
         }
         let frequentCell = app.descendants(matching: .any).matching(identifier: "community.emoji.cell.frequent.0").firstMatch
         for _ in 0..<3 where !frequentCell.exists {

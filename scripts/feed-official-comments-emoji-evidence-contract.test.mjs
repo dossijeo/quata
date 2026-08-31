@@ -186,7 +186,9 @@ test("Web runner records a real Feed and Official emoji-comment flow", () => {
   assert.match(runner, /verifyCommunityEmojiPanelSections/);
   assert.match(runner, /communityEmojiPanelProbeSections/);
   assert.match(runner, /observedFrequentCellBounds/);
-  assert.match(runner, /semantic_cell_was_observed_earlier_but_not_resolved_after_horizontal_scroll/);
+  assert.match(runner, /await attachScreenshot\(page, evidenceDir, `\$\{screenshotPrefix\}-\$\{section\}`\)/);
+  assert.doesNotMatch(runner, /semantic_cell_was_observed_earlier_but_not_resolved_after_horizontal_scroll/);
+  assert.doesNotMatch(runner, /communityEmojiPanelResetFallbacks/);
   assert.match(runner, /community\.emoji\.section\.\$\{section\}/);
   assert.match(runner, /community\.emoji\.grid\.\$\{section\}/);
   assert.match(runner, /community\.emoji\.cell\.\$\{section\}\.0/);
@@ -358,7 +360,9 @@ test("Feed and Official selector empty and error states are evidenced through th
   assert.match(webRunner, /contextualAnchor: cardTag/);
   assert.match(webRunner, /official-post-card-\$\{postId\}/);
   assert.match(webRunner, /QuataFeedActionRail portrait comments slot/);
+  assert.match(webRunner, /await attachScreenshot\(page, evidenceDir, `\$\{screenshotPrefix\}-\$\{section\}`\)/);
   assert.doesNotMatch(webRunner, /feedOfficialCommentsMissingStableWebAnchors/);
+  assert.doesNotMatch(webRunner, /communityEmojiPanelResetFallbacks/);
   assert.doesNotMatch(webRunner, /viewport\.width \* 0\.89/);
   assert.doesNotMatch(webRunner, /viewport\.height \* 0\.78/);
   assert.match(androidRunner, /feed-official-comments-selector-states/);
@@ -372,5 +376,6 @@ test("Feed and Official selector empty and error states are evidenced through th
   assert.match(iosWrapper, /feed_official_comments_selector_states='QuataIosUITests\/QuataIosAuthenticatedChatActionsNotificationsUITests\/testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates'/);
   assert.match(iosWrapper, /testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates/);
   assert.match(iosUiTest, /testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates/);
+  assert.match(iosUiTest, /private let communityEmojiPanelIosEvidenceSections = \[[\s\S]*?"flags"/);
   assert.match(iosUiTest, /QUATA_IOS_COMMUNITY_EMOJI_SELECTOR_EVIDENCE_OPT_IN/);
 });
