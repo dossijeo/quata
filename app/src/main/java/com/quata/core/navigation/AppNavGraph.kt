@@ -135,6 +135,9 @@ import com.quata.core.presence.LocalUserPresence
 import com.quata.core.platform.PermissionStatus
 import com.quata.core.platform.PlatformPermission
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
 import com.quata.core.session.AuthState
 import com.quata.core.text.SosShortcodeKind
 import com.quata.core.text.SosLocationUnavailableReason
@@ -147,7 +150,9 @@ import com.quata.core.ui.components.QuataAuthRequiredDialogContent
 import com.quata.core.ui.components.QuataConfirmationDialogContent
 import com.quata.core.ui.components.QuataLegalDocumentLinksColumnContent
 import com.quata.core.ui.components.QuataLegalDocumentLinksContent
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
 import com.quata.core.ui.components.QuataTermsAcceptanceDialogContent
+import com.quata.core.ui.components.quataDocumentViewerStatusStrings
 import com.quata.core.ui.components.QuataNavigationRail
 import com.quata.core.ui.components.QuataNavigationRailWidth
 import com.quata.core.ui.components.QuataNetworkImageState
@@ -1447,19 +1452,44 @@ private fun AboutQuataDialog(
     onOpenReleaseHistory: () -> Unit
 ) {
     val context = LocalContext.current
-    QuataAboutDialogContent(
-        title = stringResource(R.string.about_title),
-        version = stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
-        versionDate = stringResource(R.string.about_version_date, BuildConfig.APP_VERSION_DATE),
-        body = stringResource(R.string.about_body),
-        releaseHistoryLabel = stringResource(R.string.release_history_short),
-        closeLabel = stringResource(R.string.common_close),
-        onDismiss = onDismiss,
-        onOpenReleaseHistory = onOpenReleaseHistory,
-        legalLinks = {
-            LegalDocumentLinks(context, container)
-        },
-    )
+    val scope = rememberCoroutineScope()
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
+
+    Box {
+        QuataAboutDialogContent(
+            title = stringResource(R.string.about_title),
+            version = stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
+            versionDate = stringResource(R.string.about_version_date, BuildConfig.APP_VERSION_DATE),
+            body = stringResource(R.string.about_body),
+            releaseHistoryLabel = stringResource(R.string.release_history_short),
+            closeLabel = stringResource(R.string.common_close),
+            onDismiss = onDismiss,
+            onOpenReleaseHistory = onOpenReleaseHistory,
+            legalLinks = {
+                QuataLegalDocumentLinksContent(
+                    language = QuataLanguageManager.currentLanguage,
+                    onOpenDocument = { document ->
+                        scope.launch {
+                            when (val file = LegalDocuments.platformFile(context, document)) {
+                                is PlatformResult.Success -> {
+                                    documentViewerState = documentViewerOpeningState(file.value)
+                                    documentViewerState = container.documentOpenService.openWithViewerState(file.value).completed
+                                }
+                                is PlatformResult.Failure,
+                                PlatformResult.Cancelled,
+                                PlatformResult.Unsupported -> Toast.makeText(context, R.string.error_generic, Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    },
+                )
+            },
+        )
+        QuataDocumentViewerStatusContent(
+            state = documentViewerState,
+            strings = quataDocumentViewerStatusStrings(QuataLanguageManager.currentLanguage),
+            onDismiss = { documentViewerState = null },
+        )
+    }
 }
 
 private enum class AccountLifecycleAction { Deactivate, DeleteData }

@@ -105,8 +105,11 @@ test('About evidence runners exercise both shared legal document actions', () =>
   assert.match(androidEvidenceTest, /privacy_es\.docx/);
   assert.match(androidEvidenceTest, /child_safety_es\.docx/);
 
-  assert.match(webEvidenceRunner, /clickAndCaptureDownload\(page, \/Política de privacidad\|Privacy policy\/, "privacy_es\.docx"\)/);
-  assert.match(webEvidenceRunner, /clickAndCaptureDownload\(page, \/Seguridad de menores\|Child safety\/, "child_safety_es\.docx"\)/);
+  assert.match(webEvidenceRunner, /clickAndCaptureDocumentViewer\(page, \/Política de privacidad\|Privacy policy\/, "privacy_es\.docx"\)/);
+  assert.match(webEvidenceRunner, /clickAndCaptureDocumentViewer\(page, \/Seguridad infantil\|Child safety\/, "child_safety_es\.docx"\)/);
+  assert.match(webEvidenceRunner, /\?quata-auth-e2e=1&evidence=\$\{Date\.now\(\)\}#about/);
+  assert.match(webEvidenceRunner, /__quataDocumentOpenEvidence/);
+  assert.match(webEvidenceRunner, /data-quata-docmentis-viewer/);
 
   assert.match(iosRuntime, /fun QuataIosAboutLegalEvidenceViewController\(/);
   assert.match(iosSwift, /QuataIosAboutLegalEvidenceViewController\(/);
