@@ -7,11 +7,11 @@
     "OVR-PUBLIC-PROFILE"
   ],
   "status": "passed",
-  "productSha": "7761581c9d8b0bf3b056318335d2681e110b8561",
+  "productSha": "8a115f7e6d81c343ccfe47c475480b4265330290",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "7761581c9d8b0bf3b056318335d2681e110b8561",
+      "sha": "8a115f7e6d81c343ccfe47c475480b4265330290",
       "report": "build-reports/web/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -25,7 +25,7 @@
     },
     "android": {
       "status": "passed",
-      "sha": "7761581c9d8b0bf3b056318335d2681e110b8561",
+      "sha": "8a115f7e6d81c343ccfe47c475480b4265330290",
       "report": "build-reports/android/chat-actions-notifications-evidence.json",
       "cleanup": {
         "verified": true,
@@ -39,7 +39,7 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "7761581c9d8b0bf3b056318335d2681e110b8561",
+      "sha": "8a115f7e6d81c343ccfe47c475480b4265330290",
       "report": "build-reports/ios/profile-entry-chat-evidence.json",
       "cleanup": {
         "verified": true,
@@ -54,7 +54,7 @@
   },
   "notes": [
     "This is a focal reduction of OVR-POST-DETAIL for author-to-public-profile entry from Feed and Official, while revalidating the existing global profile-entry path across Feed, Official, Communities and Conversations, plus Android/iOS Chat where covered by their platform runners.",
-    "The candidate moves profile-entry clickability and semantic anchors into commonMain/common UI surfaces rather than leaving platform hosts to wrap author rows independently.",
+    "The candidate moves profile-entry clickability and semantic anchors into commonMain/common UI surfaces rather than leaving platform hosts or avatar slots to wrap author rows independently.",
     "The evidence does not declare full OVR-POST-DETAIL GO: complete actions, link/article behavior, comments integration, media detail, scroll restoration and public-profile post detail remain outside this focal candidate.",
     "During iOS validation the Mac VM had only about 120 MiB free, which caused a transient Code Signing subsystem failure. Cleaning generated build artifacts from obsolete worktrees restored space; the final iOS evidence passed after a clean build on the same product SHA."
   ]
