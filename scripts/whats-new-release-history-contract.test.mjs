@@ -186,6 +186,7 @@ test('About and Release History evidence runners exercise real common anchors', 
   assert.match(iosEvidenceRunner, /ABOUT-RELEASE-HISTORY-IOS-COMMON-001/);
   assert.match(iosEvidenceRunner, /mac_checkout_sha_matches_local_candidate/);
   assert.match(iosEvidenceRunner, /bash scripts\/run-ios-about-release-history-ui-test\.sh/);
+  assert.doesNotMatch(iosEvidenceRunner, /QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_RESULT_BUNDLE_DIR=/);
   assert.match(iosEvidenceShellRunner, /QuataIosUITests\/QuataIosHostUITests\/testAboutReleaseHistoryFixtureRendersRealSharedComposeSurfaces/);
   assert.match(iosEvidenceShellRunner, /check-ios-xctest-executed\.py/);
   assert.match(iosEvidenceShellRunner, /xcode_status=\$\?/);

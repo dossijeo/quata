@@ -41,7 +41,6 @@ cd ${shellQuote(options.project)}
 export QUATA_IOS_DERIVED_DATA_PATH=${shellQuote(options.derivedDataPath)}
 export QUATA_IOS_SIMULATOR_UDID=${shellQuote(options.simulatorUdid)}
 export QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_LOG_DIR=${shellQuote(options.remoteLogDir)}
-export QUATA_IOS_ABOUT_RELEASE_HISTORY_UI_RESULT_BUNDLE_DIR=${shellQuote(`${options.remoteLogDir}/xcresults`)}
 bash scripts/run-ios-about-release-history-ui-test.sh
 `);
   report.steps.push("ios_about_release_history_ui_test_passed");
