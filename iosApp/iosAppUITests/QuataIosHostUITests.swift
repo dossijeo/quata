@@ -139,11 +139,101 @@ final class QuataIosHostUITests: XCTestCase {
             .tap()
         XCTAssertTrue(
             app.descendants(matching: .any)
-                .matching(identifier: "legal-document-opened-child_safety_es.docx")
-                .firstMatch
-                .waitForExistence(timeout: 10),
+            .matching(identifier: "legal-document-opened-child_safety_es.docx")
+            .firstMatch
+            .waitForExistence(timeout: 10),
             "The shared register Child Safety link must resolve to the packaged Spanish DOCX.",
         )
+    }
+
+    func testUgcTermsFixtureRendersCommonGateLegalLinksAndAccepts() {
+        let app = fixtureApp("ugc-terms", spanishLocale: true)
+        app.launch()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ugc-terms-dialog")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The iOS UGC fixture must mount the shared blocking terms dialog.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ugc-terms-body")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared UGC terms body must be visible before acceptance.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ugc-terms-logout")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The shared UGC terms logout action must remain available while blocked.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-ugc-terms-required")
+
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-childsafety")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "ugc-terms-legal-document-opened-child_safety_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The UGC Child Safety link must resolve to the packaged Spanish DOCX.",
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "document-viewer-status-root")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The UGC legal link must render the common document viewer status chrome.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-ugc-terms-child-safety")
+        app.descendants(matching: .any)
+            .matching(identifier: "document-viewer-status-close")
+            .firstMatch
+            .tap()
+
+        app.descendants(matching: .any)
+            .matching(identifier: "legal-document-link-privacy")
+            .firstMatch
+            .tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "ugc-terms-legal-document-opened-privacy_es.docx")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "The UGC Privacy link must resolve to the packaged Spanish DOCX.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-ugc-terms-privacy")
+        app.descendants(matching: .any)
+            .matching(identifier: "document-viewer-status-close")
+            .firstMatch
+            .tap()
+
+        let accept = app.descendants(matching: .any)
+            .matching(identifier: "quata-ugc-terms-accept")
+            .firstMatch
+        XCTAssertTrue(accept.waitForExistence(timeout: 10), "The shared UGC accept action must be exposed.")
+        accept.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-ugc-terms-accepted")
+                .firstMatch
+                .waitForExistence(timeout: 10),
+            "Accepting UGC terms must invoke the common gateway callback.",
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)
+                .matching(identifier: "quata-ios-ugc-terms-logout")
+                .firstMatch
+                .exists,
+            "Accepting the dialog must not invoke the logout callback.",
+        )
+        QuataIosHostUITestSupport.attachRenderedSurface(named: "ios-ugc-terms-accepted")
     }
 
     func testRealAuthRecoveryFixtureRoundTripsPasswordAndKeepsEvidence() throws {

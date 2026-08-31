@@ -312,6 +312,47 @@ private fun QuataWebApp(
             onFinished(result)
         }
     }
+    fun openUgcTermsDocument(document: LegalDocument) {
+        scope.launch {
+            val language = listOfNotNull(webProfileLanguageTag()).toQuataLanguage()
+            val file = webLegalDocumentFile(document, language)
+            ugcTermsDocumentViewerState = documentViewerOpeningState(file)
+            ugcTermsDocumentViewerState =
+                platformServices.documentOpener.openWithViewerState(file).completed
+        }
+    }
+    LaunchedEffect(currentUserId, isSessionReady, ugcTermsAccepted) {
+        setWebUgcTermsGateMarker(currentUserId.takeIf { isSessionReady }, ugcTermsAccepted)
+    }
+    DisposableEffect(ugcTermsGateway, currentUserId, isSessionReady) {
+        val removeBridge = installWebUgcTermsE2eBridge(
+            accept = { resolve, reject ->
+                scope.launch {
+                    ugcTermsGateway.acceptTerms().fold(
+                        onSuccess = {
+                            ugcTermsAccepted = true
+                            resolve("accepted")
+                        },
+                        onFailure = { reject("accept_failed") },
+                    )
+                }
+            },
+            logout = { completeLogout() },
+        )
+        onDispose {
+            removeBridge()
+            clearWebUgcTermsGateMarker()
+        }
+    }
+    DisposableEffect(platformServices.documentOpener) {
+        val removeLegalBridge = installWebLegalDocumentsE2eBridge(
+            surface = "ugc-terms",
+            openPrivacy = { openUgcTermsDocument(LegalDocument.Privacy) },
+            openChildSafety = { openUgcTermsDocument(LegalDocument.ChildSafety) },
+            dismissStatus = { ugcTermsDocumentViewerState = null },
+        )
+        onDispose(removeLegalBridge)
+    }
     DisposableEffect(authRepository, sessionCoordinator, platformServices.preferences) {
         val removeBridge = installWebAuthE2eBridge(
             login = { countryCode, phone, password, resolve, reject ->
@@ -850,14 +891,7 @@ private fun QuataWebApp(
                     QuataLegalDocumentLinksColumnContent(
                         language = language,
                         documents = listOf(LegalDocument.ChildSafety, LegalDocument.Privacy),
-                        onOpenDocument = { document ->
-                            scope.launch {
-                                val file = webLegalDocumentFile(document, language)
-                                ugcTermsDocumentViewerState = documentViewerOpeningState(file)
-                                ugcTermsDocumentViewerState =
-                                    platformServices.documentOpener.openWithViewerState(file).completed
-                            }
-                        },
+                        onOpenDocument = ::openUgcTermsDocument,
                     )
                 },
             )
@@ -1139,6 +1173,27 @@ private external fun clearWebNavigationShellMarker()
   else root.removeAttribute('data-quata-member-profile-id');
 }""")
 private external fun setWebMemberProfileMarker(profileId: String?)
+
+/** Browser-test semantic marker for the real common UGC terms gate. */
+@JsFun("""(profileId, accepted) => {
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  if (!profileId) {
+    root.removeAttribute('data-quata-ugc-terms-profile-id');
+    root.removeAttribute('data-quata-ugc-terms-state');
+    return;
+  }
+  root.setAttribute('data-quata-ugc-terms-profile-id', profileId);
+  root.setAttribute('data-quata-ugc-terms-state', accepted === true ? 'accepted' : (accepted === null || accepted === undefined ? 'checking' : 'required'));
+}""")
+private external fun setWebUgcTermsGateMarker(profileId: String?, accepted: Boolean?)
+
+@JsFun("""() => {
+  const root = globalThis.document?.documentElement;
+  root?.removeAttribute('data-quata-ugc-terms-profile-id');
+  root?.removeAttribute('data-quata-ugc-terms-state');
+}""")
+private external fun clearWebUgcTermsGateMarker()
 
 /** Test semantics for the real Compose prompt; these attributes do not render a parallel UI. */
 @JsFun("""(visible, pendingRoute) => {

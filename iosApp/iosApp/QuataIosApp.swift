@@ -491,6 +491,53 @@ private final class IosAppCompositionRoot {
                 return IosAuthLaunchFixtureHostKt.QuataAuthLaunchFixtureViewController()
             }
             return container
+        case "ugc-terms":
+            var container: IosAuthLaunchFixtureContainerViewController!
+            container = IosAuthLaunchFixtureContainerViewController {
+                IosUgcTermsHostKt.QuataIosUgcTermsEvidenceViewController(
+                    languageCode: Locale.preferredLanguages.first,
+                    onOpened: { name in
+                        DispatchQueue.main.async {
+                            guard let view = container?.view else { return }
+                            let marker = UILabel()
+                            marker.accessibilityIdentifier = "ugc-terms-legal-document-opened-\(name)"
+                            marker.accessibilityLabel = name
+                            marker.isAccessibilityElement = true
+                            marker.text = name
+                            marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                            marker.alpha = 0.01
+                            view.addSubview(marker)
+                        }
+                    },
+                    onAccepted: {
+                        DispatchQueue.main.async {
+                            guard let view = container?.view else { return }
+                            let marker = UILabel()
+                            marker.accessibilityIdentifier = "quata-ios-ugc-terms-accepted"
+                            marker.accessibilityLabel = "Quata iOS UGC terms accepted"
+                            marker.isAccessibilityElement = true
+                            marker.text = "accepted"
+                            marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                            marker.alpha = 0.01
+                            view.addSubview(marker)
+                        }
+                    },
+                    onLogout: {
+                        DispatchQueue.main.async {
+                            guard let view = container?.view else { return }
+                            let marker = UILabel()
+                            marker.accessibilityIdentifier = "quata-ios-ugc-terms-logout"
+                            marker.accessibilityLabel = "Quata iOS UGC terms logout"
+                            marker.isAccessibilityElement = true
+                            marker.text = "logout"
+                            marker.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+                            marker.alpha = 0.01
+                            view.addSubview(marker)
+                        }
+                    },
+                )
+            }
+            return container
         case "auth-recovery-real":
             guard
                 let runtimeConfiguration,

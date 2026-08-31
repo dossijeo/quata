@@ -106,6 +106,47 @@ fun QuataUgcTermsDialogViewController(
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
+fun QuataIosUgcTermsEvidenceViewController(
+    languageCode: String?,
+    onOpened: (String) -> Unit,
+    onAccepted: () -> Unit,
+    onLogout: () -> Unit,
+): UIViewController = ComposeUIViewController(configure = { opaque = false }) {
+    val language = (languageCode ?: "es").toUgcTermsLanguage()
+    val gateway = remember { IosUgcTermsEvidenceGateway() }
+    var documentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
+    QuataTheme {
+        QuataUgcTermsGateContent(
+            profileId = "ios-ugc-terms-fixture",
+            gateway = gateway,
+            strings = quataUgcTermsStrings(language),
+            onAcceptedStateChanged = { accepted -> if (accepted == true) onAccepted() },
+            onLogout = onLogout,
+            legalLinks = {
+                QuataLegalDocumentLinksColumnContent(
+                    language = language,
+                    documents = listOf(LegalDocument.ChildSafety, LegalDocument.Privacy),
+                    onOpenDocument = { document ->
+                        val file = iosLegalDocumentFile(document, language)
+                            ?: iosLegalDocumentPlaceholderFile(document, language)
+                        onOpened(file.displayName.orEmpty())
+                        documentViewerState = DocumentViewerState.Opened(
+                            file = file,
+                            descriptor = documentViewerOpeningState(file).descriptor,
+                        )
+                    },
+                )
+            },
+        )
+        QuataDocumentViewerStatusContent(
+            state = documentViewerState,
+            strings = quataDocumentViewerStatusStrings(language),
+            onDismiss = { documentViewerState = null },
+        )
+    }
+}
+
 private suspend fun iosUgcTermsRpcBoolean(
     configuration: IosAuthRuntimeConfiguration,
     session: IosRenewableAuthSession,
@@ -173,4 +214,16 @@ private fun String.toUgcTermsLanguage(): QuataLanguage = when {
     startsWith("fr", ignoreCase = true) -> QuataLanguage.French
     startsWith("en", ignoreCase = true) -> QuataLanguage.English
     else -> QuataLanguage.Spanish
+}
+
+private class IosUgcTermsEvidenceGateway : UgcTermsGateway {
+    private var accepted = false
+
+    override suspend fun hasAcceptedTerms(version: String): Result<Boolean> =
+        Result.success(accepted)
+
+    override suspend fun acceptTerms(version: String): Result<Unit> {
+        accepted = true
+        return Result.success(Unit)
+    }
 }
