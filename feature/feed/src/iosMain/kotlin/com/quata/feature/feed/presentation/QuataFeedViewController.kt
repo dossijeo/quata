@@ -14,6 +14,9 @@ import com.quata.core.designsystem.theme.QuataTheme
 import com.quata.core.language.FangTranslationService
 import com.quata.core.language.IosFastTextLanguageIdentifier
 import com.quata.core.language.IosTranslationHttpTransport
+import com.quata.core.ui.components.CommunityEmojiLabels
+import com.quata.core.ui.components.communityEmojiCatalogState
+import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
 import com.quata.designsystem.translation.FangTextTranslatorGateway
 import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
 import com.quata.designsystem.translation.quataTranslatorStringsForLanguage
@@ -26,6 +29,7 @@ import com.quata.feature.feed.data.IosAuthenticatedFeedRepository
 import com.quata.core.session.IosRenewableAuthSession
 import com.quata.core.ui.components.IosMemberProfileOpeningState
 import com.quata.feature.feed.data.RemoteFeedReadRepository
+import platform.Foundation.NSProcessInfo
 import platform.UIKit.UIViewController
 
 /**
@@ -184,6 +188,10 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
                 showComposeMessage = true,
                 commentsTranslationGateway = commentsTranslationGateway,
                 commentsTranslatorStrings = quataTranslatorStringsForLanguage(dependencies.preferredLanguageTag),
+                communityEmojiCatalog = { labels, onRetry ->
+                    iosCommunityEmojiSelectorEvidenceCatalogState(labels, onRetry)
+                        ?: communityEmojiCatalogState(labels, onRetry = onRetry)
+                },
             ),
             onOpenUserProfile = dependencies.onOpenUserProfile,
             onAuthRequired = dependencies.onAuthRequired,
@@ -191,6 +199,17 @@ fun QuataFeedViewController(dependencies: IosFeedHostDependencies): UIViewContro
         )
     }
 }
+
+private fun iosCommunityEmojiSelectorEvidenceCatalogState(
+    labels: CommunityEmojiLabels,
+    onRetry: (() -> Unit)?,
+) = communityEmojiSelectorEvidenceCatalogState(
+    labels = labels,
+    onRetry = onRetry,
+    optIn = NSProcessInfo.processInfo.environment["QUATA_IOS_COMMUNITY_EMOJI_SELECTOR_EVIDENCE_OPT_IN"]?.toString(),
+    mode = NSProcessInfo.processInfo.environment["QUATA_IOS_COMMUNITY_EMOJI_SELECTOR_EVIDENCE_MODE"]?.toString(),
+    message = NSProcessInfo.processInfo.environment["QUATA_IOS_COMMUNITY_EMOJI_SELECTOR_EVIDENCE_MESSAGE"]?.toString(),
+)
 
 /**
  * Honest launcher surface used only when the iOS host has no valid public runtime configuration.

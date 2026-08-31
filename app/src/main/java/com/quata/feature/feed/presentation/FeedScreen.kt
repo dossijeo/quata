@@ -66,6 +66,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
 import com.quata.core.ui.components.CommunityEmojiPanel
 import com.quata.core.ui.components.CommunityEmojiLabels
+import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
 import com.quata.core.ui.components.CompactIcon
 import com.quata.core.ui.components.CompactIconButton
 import com.quata.core.ui.components.dismissCommunityEmojiPanelOnOutsideTap
@@ -282,9 +283,28 @@ fun FeedScreen(
             },
             rankingAvatar = { item -> AvatarImage(item.avatarName, item.avatarUrl, item.isOfficial, item.profileId, Modifier.size(44.dp)) },
             standardFloatingPanel = { dismiss, content -> QuataStandardFloatingPanel(onDismiss = dismiss, content = content) },
+            communityEmojiCatalog = { labels, onRetry ->
+                androidCommunityEmojiSelectorEvidenceCatalogState(context, labels, onRetry)
+                    ?: com.quata.core.ui.components.communityEmojiCatalogState(labels, onRetry = onRetry)
+            },
         ),
     )
 }
+
+private fun androidCommunityEmojiSelectorEvidenceCatalogState(
+    context: Context,
+    labels: CommunityEmojiLabels,
+    onRetry: (() -> Unit)?,
+) = communityEmojiSelectorEvidenceCatalogState(
+    labels = labels,
+    onRetry = onRetry,
+    optIn = context.getSharedPreferences("quata_community_emoji_selector_evidence", Context.MODE_PRIVATE)
+        .getString("optIn", null),
+    mode = context.getSharedPreferences("quata_community_emoji_selector_evidence", Context.MODE_PRIVATE)
+        .getString("mode", null),
+    message = context.getSharedPreferences("quata_community_emoji_selector_evidence", Context.MODE_PRIVATE)
+        .getString("message", null),
+)
 
 /** Platform slot at the media-surface level; variant selection belongs exclusively to FeedScreenHost. */
 @Composable

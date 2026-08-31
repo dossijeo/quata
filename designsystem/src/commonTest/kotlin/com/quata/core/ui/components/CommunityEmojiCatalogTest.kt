@@ -76,6 +76,41 @@ class CommunityEmojiCatalogTest {
         unavailable.onRetry?.invoke()
         assertTrue(retried)
     }
+
+    @Test
+    fun `selector evidence state is opt-in and maps to common empty and retryable error states`() {
+        assertEquals(
+            null,
+            communityEmojiSelectorEvidenceCatalogState(
+                labels = CommunityEmojiLabels(),
+                onRetry = {},
+                optIn = null,
+                mode = CommunityEmojiSelectorEvidenceModeError,
+            ),
+        )
+
+        val empty = communityEmojiSelectorEvidenceCatalogState(
+            labels = CommunityEmojiLabels(),
+            onRetry = {},
+            optIn = CommunityEmojiSelectorEvidenceOptInValue,
+            mode = CommunityEmojiSelectorEvidenceModeEmpty,
+        )
+        assertTrue(empty is CommunityEmojiCatalogState.Available)
+        assertTrue(empty.sections.isEmpty())
+
+        var retried = false
+        val error = communityEmojiSelectorEvidenceCatalogState(
+            labels = CommunityEmojiLabels(empty = "No catalog"),
+            onRetry = { retried = true },
+            optIn = CommunityEmojiSelectorEvidenceOptInValue,
+            mode = CommunityEmojiSelectorEvidenceModeError,
+            message = "Broken catalog",
+        )
+        assertTrue(error is CommunityEmojiCatalogState.Unavailable)
+        assertEquals("Broken catalog", error.message)
+        error.onRetry?.invoke()
+        assertTrue(retried)
+    }
 }
 
 private val RegionalIndicatorRange = 0x1F1E6..0x1F1FF

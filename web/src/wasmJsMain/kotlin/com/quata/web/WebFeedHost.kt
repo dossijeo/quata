@@ -8,6 +8,8 @@ import androidx.compose.ui.Modifier
 import com.quata.core.language.BrowserTranslationHttpTransport
 import com.quata.core.language.FangTranslationService
 import com.quata.core.platform.ShareService
+import com.quata.core.ui.components.communityEmojiCatalogState
+import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
 import com.quata.core.ui.window.rememberQuataWindowLayoutInfo
 import com.quata.designsystem.translation.FangTextTranslatorGateway
 import com.quata.designsystem.translation.quataTranslatorPreferredLanguage
@@ -64,6 +66,15 @@ fun WebFeedHost(
             showComposeMessage = true,
             commentsTranslationGateway = commentsTranslationGateway,
             commentsTranslatorStrings = quataTranslatorStringsForLanguage(languageTag),
+            communityEmojiCatalog = { labels, onRetry ->
+                communityEmojiSelectorEvidenceCatalogState(
+                    labels = labels,
+                    onRetry = onRetry,
+                    optIn = webCommunityEmojiSelectorEvidenceValue("optIn"),
+                    mode = webCommunityEmojiSelectorEvidenceValue("mode"),
+                    message = webCommunityEmojiSelectorEvidenceValue("message"),
+                ) ?: communityEmojiCatalogState(labels, onRetry = onRetry)
+            },
         ),
         presence = presence,
         currentUserId = currentUserId,
@@ -76,3 +87,19 @@ fun WebFeedHost(
 private fun setWebFeedDetailMarker(postId: String?) {
     js("globalThis.document?.documentElement?.setAttribute('data-quata-feed-detail', postId || '')")
 }
+
+private fun webCommunityEmojiSelectorEvidenceValue(key: String): String? = when (key) {
+    "optIn" -> webCommunityEmojiSelectorEvidenceOptIn()
+    "mode" -> webCommunityEmojiSelectorEvidenceMode()
+    "message" -> webCommunityEmojiSelectorEvidenceMessage()
+    else -> null
+}
+
+private fun webCommunityEmojiSelectorEvidenceOptIn(): String? =
+    js("globalThis.localStorage?.getItem('quata.communityEmojiSelector.optIn') ?? null")
+
+private fun webCommunityEmojiSelectorEvidenceMode(): String? =
+    js("globalThis.localStorage?.getItem('quata.communityEmojiSelector.mode') ?? null")
+
+private fun webCommunityEmojiSelectorEvidenceMessage(): String? =
+    js("globalThis.localStorage?.getItem('quata.communityEmojiSelector.message') ?? null")

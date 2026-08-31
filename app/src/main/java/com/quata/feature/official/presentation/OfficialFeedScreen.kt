@@ -20,6 +20,8 @@ import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentViewerDialog
 import com.quata.core.ui.components.AvatarImage
 import com.quata.core.ui.components.CommunityEmojiLabels
+import com.quata.core.ui.components.communityEmojiCatalogState
+import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
 import com.quata.core.translation.FangTranslatorIconButton
 import com.quata.core.translation.LocalQuataTranslatorModeController
 import com.quata.designsystem.translation.QuataTranslatorOverlaySource
@@ -136,9 +138,28 @@ fun OfficialFeedScreen(
                     modifier = triggerModifier,
                 )
             },
+            communityEmojiCatalog = { labels, onRetry ->
+                androidOfficialCommunityEmojiSelectorEvidenceCatalogState(context, labels, onRetry)
+                    ?: communityEmojiCatalogState(labels, onRetry = onRetry)
+            },
         ),
     )
 }
+
+private fun androidOfficialCommunityEmojiSelectorEvidenceCatalogState(
+    context: android.content.Context,
+    labels: CommunityEmojiLabels,
+    onRetry: (() -> Unit)?,
+) = communityEmojiSelectorEvidenceCatalogState(
+    labels = labels,
+    onRetry = onRetry,
+    optIn = context.getSharedPreferences("quata_community_emoji_selector_evidence", android.content.Context.MODE_PRIVATE)
+        .getString("optIn", null),
+    mode = context.getSharedPreferences("quata_community_emoji_selector_evidence", android.content.Context.MODE_PRIVATE)
+        .getString("mode", null),
+    message = context.getSharedPreferences("quata_community_emoji_selector_evidence", android.content.Context.MODE_PRIVATE)
+        .getString("message", null),
+)
 
 @Composable
 internal fun OfficialPostMedia(post: OfficialPostItem, onOpenMedia: () -> Unit, modifier: Modifier = Modifier) {

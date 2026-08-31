@@ -67,7 +67,7 @@
           "evidence": [
             {
               "path": "feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/QuataFeedViewController.kt",
-              "sha256": "f8df35a6a0ca24af159107f65f9f1cc90322067b6e61b42df043b4ba10335336",
+              "sha256": "1e510b6121acf1192f82ca2b59d084346d9cdcb9c5452101b99d2b75fffe75c9",
               "role": "composition"
             },
             {
@@ -128,7 +128,7 @@
           "evidence": [
             {
               "path": "feature/feed/src/iosMain/kotlin/com/quata/feature/feed/presentation/QuataFeedViewController.kt",
-              "sha256": "f8df35a6a0ca24af159107f65f9f1cc90322067b6e61b42df043b4ba10335336",
+              "sha256": "1e510b6121acf1192f82ca2b59d084346d9cdcb9c5452101b99d2b75fffe75c9",
               "role": "composition"
             },
             {

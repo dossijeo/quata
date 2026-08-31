@@ -41,6 +41,8 @@ import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.ShareService
+import com.quata.core.ui.components.communityEmojiCatalogState
+import com.quata.core.ui.components.communityEmojiSelectorEvidenceCatalogState
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
 import com.quata.core.ui.richtext.QuataRichTextRenderer
@@ -128,9 +130,34 @@ fun WebOfficialHost(
         rankingAvatar = { item -> BrowserFeedRankingAvatar(item) },
         commentsTranslationGateway = commentsTranslationGateway,
         commentsTranslatorStrings = quataTranslatorStringsForLanguage(languageTag),
+        communityEmojiCatalog = { labels, onRetry ->
+            communityEmojiSelectorEvidenceCatalogState(
+                labels = labels,
+                onRetry = onRetry,
+                optIn = webOfficialCommunityEmojiSelectorEvidenceValue("optIn"),
+                mode = webOfficialCommunityEmojiSelectorEvidenceValue("mode"),
+                message = webOfficialCommunityEmojiSelectorEvidenceValue("message"),
+            ) ?: communityEmojiCatalogState(labels, onRetry = onRetry)
+        },
         ),
     )
 }
+
+private fun webOfficialCommunityEmojiSelectorEvidenceValue(key: String): String? = when (key) {
+    "optIn" -> webOfficialCommunityEmojiSelectorEvidenceOptIn()
+    "mode" -> webOfficialCommunityEmojiSelectorEvidenceMode()
+    "message" -> webOfficialCommunityEmojiSelectorEvidenceMessage()
+    else -> null
+}
+
+private fun webOfficialCommunityEmojiSelectorEvidenceOptIn(): String? =
+    js("globalThis.localStorage?.getItem('quata.communityEmojiSelector.optIn') ?? null")
+
+private fun webOfficialCommunityEmojiSelectorEvidenceMode(): String? =
+    js("globalThis.localStorage?.getItem('quata.communityEmojiSelector.mode') ?? null")
+
+private fun webOfficialCommunityEmojiSelectorEvidenceMessage(): String? =
+    js("globalThis.localStorage?.getItem('quata.communityEmojiSelector.message') ?? null")
 
 /** Browser editor adapter: acquisition/rendering are native seams; form and preview are common. */
 @Composable

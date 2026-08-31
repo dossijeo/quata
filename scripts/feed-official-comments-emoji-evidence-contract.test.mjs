@@ -322,3 +322,55 @@ test("iOS runner records the same Feed and Official emoji-comment flow", () => {
   assert.match(uiTest, /sendFailingEmojiCommentFromTaggedSurface/);
   assert.ok(uiTest.includes('feed.comments.reply.\\(feedCommentId)'));
 });
+
+test("Feed and Official selector empty and error states are evidenced through the shared emoji panel", () => {
+  const catalog = source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/CommunityEmojiCatalog.kt");
+  const officialHost = source("feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialFeedScreenHost.kt");
+  const androidUiTest = source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt");
+  const webRunner = source("scripts/chat-actions-notifications-web-evidence.mjs");
+  const androidRunner = source("scripts/chat-actions-notifications-android-evidence.mjs");
+  const iosRunner = source("scripts/chat-actions-notifications-ios-evidence.mjs");
+  const iosWrapper = source("scripts/run-ios-chat-actions-notifications-ui-test.sh");
+  const iosUiTest = source("iosApp/iosAppUITests/QuataIosAuthenticatedChatActionsNotificationsUITests.swift");
+
+  assert.match(catalog, /CommunityEmojiSelectorEvidenceOptInValue = "I_ACCEPT_COMMUNITY_EMOJI_SELECTOR_STATE_EVIDENCE"/);
+  assert.match(catalog, /CommunityEmojiSelectorEvidenceModeEmpty = "empty"/);
+  assert.match(catalog, /CommunityEmojiSelectorEvidenceModeError = "error"/);
+  assert.match(catalog, /communityEmojiSelectorEvidenceCatalogState/);
+  assert.match(officialHost, /communityEmojiCatalog: \(CommunityEmojiLabels, \(\(\) -> Unit\)\?\) -> CommunityEmojiCatalogState/);
+  assert.match(officialHost, /slots\.communityEmojiCatalog\(strings\.emojiLabels\)/);
+
+  for (const runner of [webRunner, androidRunner, iosRunner]) {
+    assert.match(runner, /--feed-official-comments-selector-states-only/);
+    assert.match(runner, /flow-emoji-selector-states-evidence/);
+    assert.match(runner, /feed_comments_emoji_selector_error_state_visible_with_retry/);
+    assert.match(runner, /official_comments_emoji_selector_empty_state_visible_without_cells/);
+    assert.match(runner, /flow_emoji_selector_empty_and_error_states_verified_with_common_tags/);
+  }
+
+  assert.match(webRunner, /quata\.communityEmojiSelector\.optIn/);
+  assert.match(webRunner, /community\.emoji\.error/);
+  assert.match(webRunner, /community\.emoji\.retry/);
+  assert.match(webRunner, /community\.emoji\.empty/);
+  assert.match(webRunner, /feedOfficialCommentsContextualWebAnchors/);
+  assert.match(webRunner, /await closeProfileSheetIfVisible\(page\);[\s\S]*await openAuthenticatedRoute\(page, origin, routeHash, routePath, \{ forceReload: true \}\)/);
+  assert.match(webRunner, /const reloadQuery = options\.forceReload \? `&route-reload=\$\{Date\.now\(\)\}` : ""/);
+  assert.match(webRunner, /contextualAnchor: cardTag/);
+  assert.match(webRunner, /official-post-card-\$\{postId\}/);
+  assert.match(webRunner, /QuataFeedActionRail portrait comments slot/);
+  assert.doesNotMatch(webRunner, /feedOfficialCommentsMissingStableWebAnchors/);
+  assert.doesNotMatch(webRunner, /viewport\.width \* 0\.89/);
+  assert.doesNotMatch(webRunner, /viewport\.height \* 0\.78/);
+  assert.match(androidRunner, /feed-official-comments-selector-states/);
+  assert.match(androidUiTest, /runFeedOfficialCommentsSelectorStatesStage/);
+  assert.match(androidUiTest, /quata_community_emoji_selector_evidence/);
+  assert.match(androidUiTest, /community\.emoji\.error/);
+  assert.match(androidUiTest, /community\.emoji\.retry/);
+  assert.match(androidUiTest, /community\.emoji\.empty/);
+  assert.match(iosRunner, /feedOfficialCommentsSelectorStatesOnly/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E/);
+  assert.match(iosWrapper, /feed_official_comments_selector_states='QuataIosUITests\/QuataIosAuthenticatedChatActionsNotificationsUITests\/testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates'/);
+  assert.match(iosWrapper, /testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates/);
+  assert.match(iosUiTest, /testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates/);
+  assert.match(iosUiTest, /QUATA_IOS_COMMUNITY_EMOJI_SELECTOR_EVIDENCE_OPT_IN/);
+});

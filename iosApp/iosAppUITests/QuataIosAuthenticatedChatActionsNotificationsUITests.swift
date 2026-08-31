@@ -1156,6 +1156,48 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         )
     }
 
+    func testFeedAndOfficialCommentsExposeSharedEmojiSelectorStates() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["QUATA_IOS_CHAT_FEED_OFFICIAL_COMMENTS_SELECTOR_STATES_UI_E2E"] == "1" else {
+            throw XCTSkip("Authenticated Feed/Official comments selector-state UI gate is opt-in.")
+        }
+        guard let feedPostId = nonEmpty(environment["QUATA_IOS_CHAT_FEED_COMMENTS_POST_ID"]),
+              let officialPostId = nonEmpty(environment["QUATA_IOS_CHAT_OFFICIAL_COMMENTS_POST_ID"]) else {
+            throw XCTSkip("Disposable Feed/Official comments fixture is not configured.")
+        }
+
+        let feedApp = launchAppForEmojiSelectorState(mode: "error")
+        XCTAssertTrue(
+            feedApp.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore Feed.",
+        )
+        openDeepLink("quata://egquata.com/#post-\(encodedFragment(feedPostId))", in: feedApp)
+        verifyEmojiSelectorState(
+            actionIdentifier: "feed.action.comments.\(feedPostId)",
+            emojiIdentifier: "feed.comments.emoji",
+            mode: "error",
+            screenshot: "ios-feed-comments-emoji-selector-error",
+            context: "Feed comments emoji selector error",
+            in: feedApp,
+        )
+        feedApp.terminate()
+
+        let officialApp = launchAppForEmojiSelectorState(mode: "empty")
+        XCTAssertTrue(
+            officialApp.descendants(matching: .any).matching(identifier: "quata-ios-feed-host").firstMatch.waitForExistence(timeout: 20),
+            "The seeded normal launch must restore Feed.",
+        )
+        openDeepLink("quata://egquata.com/#official-\(encodedFragment(officialPostId))", in: officialApp)
+        verifyEmojiSelectorState(
+            actionIdentifier: "official.action.comments.\(officialPostId)",
+            emojiIdentifier: "official.comments.emoji",
+            mode: "empty",
+            screenshot: "ios-official-comments-emoji-selector-empty",
+            context: "Official comments emoji selector empty",
+            in: officialApp,
+        )
+    }
+
     private func assertProfileContentStage(profileId: String, actorProfileId: String, postId: String, commentId: String, attachmentId: String, uiComment: String, replyComment: String, in app: XCUIApplication) {
         let posts = app.descendants(matching: .any)
             .matching(identifier: "public-profile.kpi.posts.\(profileId)")
@@ -1431,6 +1473,56 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "\(context) must remove the optimistic failed comment instead of leaving it visible.",
         )
         attachScreenshot(app, name: afterScreenshot)
+    }
+
+    private func launchAppForEmojiSelectorState(mode: String) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launchEnvironment["QUATA_IOS_COMMUNITY_EMOJI_SELECTOR_EVIDENCE_OPT_IN"] = "I_ACCEPT_COMMUNITY_EMOJI_SELECTOR_STATE_EVIDENCE"
+        app.launchEnvironment["QUATA_IOS_COMMUNITY_EMOJI_SELECTOR_EVIDENCE_MODE"] = mode
+        app.launchEnvironment["QUATA_IOS_COMMUNITY_EMOJI_SELECTOR_EVIDENCE_MESSAGE"] = "Emoji selector evidence failure"
+        app.launch()
+        return app
+    }
+
+    private func verifyEmojiSelectorState(
+        actionIdentifier: String,
+        emojiIdentifier: String,
+        mode: String,
+        screenshot: String,
+        context: String,
+        in app: XCUIApplication,
+    ) {
+        let action = waitForVisibleIdentifier(actionIdentifier, in: app, context: context)
+        action.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        tapTaggedButton(emojiIdentifier, in: app, context: "\(context) emoji")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "community.emoji.panel").firstMatch.waitForExistence(timeout: 10),
+            "\(context) must show the shared emoji panel.",
+        )
+        if mode == "error" {
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "community.emoji.error").firstMatch.waitForExistence(timeout: 5),
+                "\(context) must expose the shared emoji selector error anchor.",
+            )
+            let retry = app.descendants(matching: .any).matching(identifier: "community.emoji.retry").firstMatch
+            XCTAssertTrue(retry.waitForExistence(timeout: 5), "\(context) must expose the shared retry anchor.")
+            retry.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "community.emoji.error").firstMatch.waitForExistence(timeout: 5),
+                "\(context) retry must keep the forced error state observable.",
+            )
+        } else {
+            XCTAssertTrue(
+                app.descendants(matching: .any).matching(identifier: "community.emoji.empty").firstMatch.waitForExistence(timeout: 5),
+                "\(context) must expose the shared empty anchor.",
+            )
+            XCTAssertFalse(
+                app.descendants(matching: .any).matching(identifier: "community.emoji.cell.frequent.0").firstMatch.exists,
+                "\(context) empty state must not expose stale emoji cells.",
+            )
+        }
+        attachScreenshot(app, name: screenshot)
     }
 
     private func verifyCommunityEmojiPanelSections(context: String, screenshotPrefix: String, in app: XCUIApplication) {
