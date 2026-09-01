@@ -164,6 +164,9 @@ test("iOS media attachment evidence only taps a freshly visible chat viewport fr
     iosUiTest.indexOf("private func openChatMediaAttachment"),
     iosUiTest.indexOf("private func openResolvedMedia"),
   );
+  assert.match(openChatMediaAttachment, /func mediaElement\(\) -> XCUIElement\?/);
+  assert.match(openChatMediaAttachment, /guard let media = mediaElement\(\) else/);
+  assert.match(openChatMediaAttachment, /ios-\\\(slug\(context\)\)-media-anchor-missing/);
   assert.match(openChatMediaAttachment, /return openResolvedMedia\(media, context: context, in: app, failOnMiss: true\)/);
   assert.doesNotMatch(openChatMediaAttachment, /if openResolvedMedia\(media, context: context, in: app\)/);
 });
@@ -189,7 +192,8 @@ test("iOS media overlay close is exposed through a native accessibility anchor",
     "iOS fullscreen media close helper must prefer explicit close anchors before navigation/back fallback.",
   );
   assert.match(iosUiTest, /private func isFullscreenMediaChromeVisible\(in app: XCUIApplication, timeout: TimeInterval = 0\) -> Bool/);
-  assert.match(iosUiTest, /isFullscreenMediaChromeVisible\(in: app, timeout: 5\)/);
+  assert.match(iosUiTest, /isFullscreenMediaChromeVisible\(in: app, timeout: 0\.2\)/);
+  assert.doesNotMatch(iosUiTest, /isFullscreenMediaChromeVisible\(in: app, timeout: 5\)/);
   assert.doesNotMatch(iosUiTest, /matching\(identifier: "fullscreen-media\.root"\)\.firstMatch\.waitForExistence\(timeout: 5\)/);
 });
 

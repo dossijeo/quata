@@ -2106,8 +2106,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return scoped + unscoped
         }
 
-        func mediaElement() -> XCUIElement {
-            let candidates = mediaElements().filter(\.exists)
+        func mediaElement() -> XCUIElement? {
+            let candidates = mediaElements()
             if let visible = candidates.first(where: { isElementVisibleInChatViewport($0, in: app) }) {
                 return visible
             }
@@ -2117,12 +2117,16 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             if let first = candidates.first {
                 return first
             }
-            return app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+            return nil
         }
 
         for _ in 0..<14 {
-            let media = mediaElement()
-            if media.waitForExistence(timeout: 1), isElementVisibleInChatViewport(media, in: app) {
+            guard let media = mediaElement() else {
+                app.swipeUp()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.35))
+                continue
+            }
+            if isElementVisibleInChatViewport(media, in: app) {
                 attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-visible")
                 if openResolvedMedia(media, context: context, in: app, failOnMiss: false) {
                     return true
@@ -2132,8 +2136,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         }
 
-        let media = mediaElement()
-        guard media.waitForExistence(timeout: 3) else {
+        guard let media = mediaElement() else {
+            attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-missing")
             XCTFail("The shared media attachment anchor \(identifier) must be visible in message \(messageId) for \(context).")
             return false
         }
@@ -2290,7 +2294,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(dismissed, "The shared fullscreen media overlay dismiss action must close \(context).")
         XCTAssertFalse(
-            isFullscreenMediaChromeVisible(in: app, timeout: 5),
+            isFullscreenMediaChromeVisible(in: app, timeout: 0.2),
             "The shared fullscreen media overlay must close back to the Chat thread after \(context).",
         )
     }
