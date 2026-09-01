@@ -2925,17 +2925,6 @@
 
     <issue
         id="UnusedResources"
-        message="The resource `R.string.ugc_terms_accept_error` appears to be unused"
-        errorLine1="    &lt;string name=&quot;ugc_terms_accept_error&quot;>We could not save your acceptance. Check your connection and try again.&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="619"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
         message="The resource `R.string.release_history` appears to be unused"
         errorLine1="    &lt;string name=&quot;release_history&quot;>Version history&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">

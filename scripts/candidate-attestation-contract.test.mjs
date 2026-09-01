@@ -181,6 +181,36 @@ test("local evidence report hash and required steps are audited when declared", 
   assert.deepEqual(result.evidenceArtifactFailures, []);
 }));
 
+test("declared evidence log markers are audited", () => withRepository((directory) => {
+  write(directory, "README.md", "base\n");
+  const productSha = commit(directory, "product evidence");
+  const report = JSON.stringify({
+    status: "passed_with_post_xcodebuild_interrupt",
+    git: { head: productSha, workingTreeDirty: false },
+    steps: ["ios_fixture_passed"],
+    cleanup: { state: "not_applicable" },
+  });
+  write(directory, "build-reports/ios/evidence.json", report);
+  write(directory, "build-reports/ios/UGC-TERMS-ui/ui.log", "Executed 1 test, with 0 failures\nPASS_EXECUTED:testUgcTerms\n");
+  const parsed = JSON.parse(manifest(productSha));
+  parsed.evidence.ios.reportSha256 = sha256(report);
+  parsed.evidence.ios.reportStatus = "passed_with_post_xcodebuild_interrupt";
+  parsed.evidence.ios.reportGitHead = productSha;
+  parsed.evidence.ios.reportWorkingTreeDirty = false;
+  parsed.evidence.ios.requiredSteps = ["ios_fixture_passed"];
+  parsed.evidence.ios.requiredLog = {
+    path: "build-reports/ios/UGC-TERMS-ui/ui.log",
+    contains: ["Executed 1 test, with 0 failures", "PASS_EXECUTED:testUgcTerms"],
+  };
+  write(directory, "docs/candidate-attestations/chat.json", JSON.stringify(parsed, null, 2));
+  const head = commitPaths(directory, "manifest with required log", ["docs/candidate-attestations/chat.json"]);
+
+  const result = validateAttestation({ manifestPath: "docs/candidate-attestations/chat.json", head, cwd: directory });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.evidenceArtifactFailures, []);
+}));
+
 test("local evidence report mismatch fails closed when declared", () => withRepository((directory) => {
   write(directory, "README.md", "base\n");
   const productSha = commit(directory, "product evidence");

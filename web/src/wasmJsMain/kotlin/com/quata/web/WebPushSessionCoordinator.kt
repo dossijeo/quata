@@ -3,6 +3,7 @@
 package com.quata.web
 
 import com.quata.core.platform.PreferenceStore
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -176,10 +177,14 @@ class WebPushSessionCoordinator internal constructor(
     )
 }
 
-private suspend fun unsubscribeBrowserPush(): Result<Unit> = suspendCoroutine { continuation ->
+private suspend fun unsubscribeBrowserPush(): Result<Unit> = suspendCancellableCoroutine { continuation ->
     browserUnsubscribePush(
-        onSuccess = { continuation.resume(Result.success(Unit)) },
-        onFailure = { reason -> continuation.resume(Result.failure(IllegalStateException(reason))) },
+        onSuccess = {
+            if (continuation.isActive) continuation.resume(Result.success(Unit))
+        },
+        onFailure = { reason ->
+            if (continuation.isActive) continuation.resume(Result.failure(IllegalStateException(reason)))
+        },
     )
 }
 

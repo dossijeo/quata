@@ -597,11 +597,19 @@ class SupabaseCommunityApi(private val client: SupabaseHttpClient) {
             QuataRegisterPushTokenRequest(profileId, token, platform)
         )
 
-    suspend fun unregisterPushToken(profileId: String, token: String): JsonElement =
-        client.rpc<QuataUnregisterPushTokenRequest, JsonElement>(
-            "quata_unregister_push_token",
-            QuataUnregisterPushTokenRequest(profileId, token)
-        )
+    suspend fun unregisterPushToken(profileId: String, token: String, bearerToken: String? = null): JsonElement =
+        if (bearerToken.isNullOrBlank()) {
+            client.rpc<QuataUnregisterPushTokenRequest, JsonElement>(
+                "quata_unregister_push_token",
+                QuataUnregisterPushTokenRequest(profileId, token)
+            )
+        } else {
+            client.rpcWithBearerToken<QuataUnregisterPushTokenRequest, JsonElement>(
+                "quata_unregister_push_token",
+                QuataUnregisterPushTokenRequest(profileId, token),
+                bearerToken
+            )
+        }
 
     suspend fun createOrGetPrivateChat(user1: String, user2: String): String {
         val chatId = client.rpc<RpcCreateOrGetPrivateChatRequest, String>("create_or_get_private_chat", RpcCreateOrGetPrivateChatRequest(user1, user2))

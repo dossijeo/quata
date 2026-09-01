@@ -601,12 +601,6 @@
     <string name="account_delete_type_confirmation">Saisis %1$s pour confirmer.</string>
     <string name="account_delete_confirm_action">Supprimer d&#233;finitivement</string>
     <string name="account_delete_success">Le compte et ses donn&#233;es ont &#233;t&#233; supprim&#233;s.</string>
-    <string name="ugc_terms_title">R&#232;gles de la communaut&#233;</string>
-    <string name="ugc_terms_body">Pour participer et partager du contenu sur Q&#252;ata, vous devez accepter nos r&#232;gles de communaut&#233; et de s&#233;curit&#233; des enfants. Les contenus ill&#233;gaux, abusifs, sexuels, violents, haineux ou relevant de l\'exploitation sont interdits. Vous pouvez signaler du contenu et bloquer des utilisateurs &#224; tout moment.</string>
-    <string name="ugc_terms_accept">J\'accepte</string>
-    <string name="ugc_terms_accepting">Enregistrement&#8230;</string>
-    <string name="ugc_terms_logout">Se d&#233;connecter</string>
-    <string name="ugc_terms_accept_error">Impossible d\'enregistrer votre acceptation. V&#233;rifiez la connexion et r&#233;essayez.</string>
     <string name="moderation_report">Signaler</string>
     <string name="moderation_block">Bloquer</string>
     <string name="moderation_unblock">D&#233;bloquer</string>

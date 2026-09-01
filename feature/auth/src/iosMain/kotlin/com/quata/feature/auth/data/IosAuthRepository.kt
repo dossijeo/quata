@@ -16,6 +16,10 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -105,6 +109,8 @@ class IosAuthRepository(
     private val session: IosRenewableAuthSession,
     private val transport: IosAuthHttpTransport = IosUrlSessionAuthHttpTransport(),
 ) : AuthRepository {
+    private val logoutScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override suspend fun login(countryCode: String, phone: String, password: String): Result<AuthSession> = runCatching {
         require(password.isNotBlank()) { "ios_auth_password_required" }
         val payload = postPublic(
@@ -199,16 +205,19 @@ class IosAuthRepository(
 
     /** The local Keychain session is always cleared, even when remote Supabase logout is offline. */
     override suspend fun logout() {
-        runCatching {
-            session.currentSession()?.let { active ->
-                post(
-                    endpoint = configuration.supabaseLogoutEndpoint(),
-                    accessToken = active.bearerToken,
-                    body = "{}",
-                )
+        val bearerToken = session.restoredSession()?.bearerToken
+        session.clear()
+        logoutScope.launch {
+            runCatching {
+                bearerToken?.let { token ->
+                    post(
+                        endpoint = configuration.supabaseLogoutEndpoint(),
+                        accessToken = token,
+                        body = "{}",
+                    )
+                }
             }
         }
-        session.clear()
     }
 
     private suspend fun performLifecycle(action: String, password: String): Result<Unit> = runCatching {

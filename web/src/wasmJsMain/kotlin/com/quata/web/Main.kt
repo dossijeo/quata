@@ -25,8 +25,12 @@ import com.quata.core.navigation.quataPostIdOrNull
 import com.quata.core.navigation.quataPostUrl
 import com.quata.core.language.BrowserTranslationHttpTransport
 import com.quata.core.language.FangTranslationService
+import com.quata.core.platform.DocumentViewerState
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openWithViewerState
+import com.quata.core.moderation.LegalDocument
 import com.quata.core.ui.components.QuataPrimaryBottomNavigation
 import com.quata.core.ui.components.QuataPrimaryNavigationLabels
 import com.quata.core.ui.components.QuataPrimaryNavigationMode
@@ -34,6 +38,10 @@ import com.quata.core.ui.components.QuataAuthenticatedChromeSpanish
 import com.quata.core.ui.components.QuataAuthenticatedShellChrome
 import com.quata.core.ui.components.QuataAuthRequiredDialogContent
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
+import com.quata.core.ui.components.QuataLegalDocumentLinksColumnContent
+import com.quata.core.ui.components.QuataUgcTermsGateContent
+import com.quata.core.ui.components.quataUgcTermsStrings
 import com.quata.designsystem.effects.fluidTouchEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.clickable
@@ -159,11 +167,19 @@ private fun QuataWebApp(
         )
     }
     val chatRepository = remember(runtimeConfiguration, authRepository) {
+        val rpcClient = WebPostgrestRpcClient(runtimeConfiguration, authRepository)
         WebChatRepository(
             configuration = runtimeConfiguration,
-            rpcClient = WebPostgrestRpcClient(runtimeConfiguration, authRepository),
+            rpcClient = rpcClient,
             authRepository = authRepository,
             attachmentUploader = WebChatAttachmentUploader(runtimeConfiguration, authRepository),
+        )
+    }
+    val ugcTermsGateway = remember(runtimeConfiguration, authRepository, platformServices.preferences) {
+        webUgcTermsGateway(
+            authRepository = authRepository,
+            rpcClient = WebPostgrestRpcClient(runtimeConfiguration, authRepository),
+            preferences = platformServices.preferences,
         )
     }
     // Test-only selection is fail-closed: both localhost and the explicit query opt-in are
@@ -240,6 +256,8 @@ private fun QuataWebApp(
     // dialog over the public shell, mirroring Android's AppNavGraph contract.
     var isAuthRequiredPromptOpen by remember { mutableStateOf(false) }
     var authInitialDestination by remember { mutableStateOf(AuthProductDestination.Login) }
+    var ugcTermsAccepted by remember(currentUserId) { mutableStateOf<Boolean?>(null) }
+    var ugcTermsDocumentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     // Feed authors reuse the existing Communities member-profile surface.  The id lives at the
     // authenticated shell level so navigation does not manufacture a second browser profile UI.
     val feedMemberProfileRoute = remember(navigation) {
@@ -287,11 +305,53 @@ private fun QuataWebApp(
             platformServices.preferences.putString("web.auth.logout_status", result.diagnosticValue())
             currentUserId = null
             currentUserIsOfficial = false
+            ugcTermsAccepted = null
             isSessionReady = false
             navigation.navigate("")
             isLoggingOut = false
             onFinished(result)
         }
+    }
+    fun openUgcTermsDocument(document: LegalDocument) {
+        scope.launch {
+            val language = listOfNotNull(webProfileLanguageTag()).toQuataLanguage()
+            val file = webLegalDocumentFile(document, language)
+            ugcTermsDocumentViewerState = documentViewerOpeningState(file)
+            ugcTermsDocumentViewerState =
+                platformServices.documentOpener.openWithViewerState(file).completed
+        }
+    }
+    LaunchedEffect(currentUserId, isSessionReady, ugcTermsAccepted) {
+        setWebUgcTermsGateMarker(currentUserId.takeIf { isSessionReady }, ugcTermsAccepted)
+    }
+    DisposableEffect(ugcTermsGateway, currentUserId, isSessionReady) {
+        val removeBridge = installWebUgcTermsE2eBridge(
+            accept = { resolve, reject ->
+                scope.launch {
+                    ugcTermsGateway.acceptTerms().fold(
+                        onSuccess = {
+                            ugcTermsAccepted = true
+                            resolve("accepted")
+                        },
+                        onFailure = { reject("accept_failed") },
+                    )
+                }
+            },
+            logout = { completeLogout() },
+        )
+        onDispose {
+            removeBridge()
+            clearWebUgcTermsGateMarker()
+        }
+    }
+    DisposableEffect(platformServices.documentOpener) {
+        val removeLegalBridge = installWebLegalDocumentsE2eBridge(
+            surface = "ugc-terms",
+            openPrivacy = { openUgcTermsDocument(LegalDocument.Privacy) },
+            openChildSafety = { openUgcTermsDocument(LegalDocument.ChildSafety) },
+            dismissStatus = { ugcTermsDocumentViewerState = null },
+        )
+        onDispose(removeLegalBridge)
     }
     DisposableEffect(authRepository, sessionCoordinator, platformServices.preferences) {
         val removeBridge = installWebAuthE2eBridge(
@@ -820,6 +880,26 @@ private fun QuataWebApp(
                     onLogin = ::chooseLoginFromPrompt,
                 )
             }
+            QuataUgcTermsGateContent(
+                profileId = currentUserId.takeIf { isSessionReady },
+                gateway = ugcTermsGateway,
+                strings = quataUgcTermsStrings(listOfNotNull(webProfileLanguageTag()).toQuataLanguage()),
+                onAcceptedStateChanged = { ugcTermsAccepted = it },
+                onLogout = { completeLogout() },
+                legalLinks = {
+                    val language = listOfNotNull(webProfileLanguageTag()).toQuataLanguage()
+                    QuataLegalDocumentLinksColumnContent(
+                        language = language,
+                        documents = listOf(LegalDocument.ChildSafety, LegalDocument.Privacy),
+                        onOpenDocument = ::openUgcTermsDocument,
+                    )
+                },
+            )
+            QuataDocumentViewerStatusContent(
+                state = ugcTermsDocumentViewerState,
+                strings = webDocumentViewerStatusStrings(listOfNotNull(webProfileLanguageTag())),
+                onDismiss = { ugcTermsDocumentViewerState = null },
+            )
         }
 }
 }
@@ -1093,6 +1173,27 @@ private external fun clearWebNavigationShellMarker()
   else root.removeAttribute('data-quata-member-profile-id');
 }""")
 private external fun setWebMemberProfileMarker(profileId: String?)
+
+/** Browser-test semantic marker for the real common UGC terms gate. */
+@JsFun("""(profileId, accepted) => {
+  const root = globalThis.document?.documentElement;
+  if (!root) return;
+  if (!profileId) {
+    root.removeAttribute('data-quata-ugc-terms-profile-id');
+    root.removeAttribute('data-quata-ugc-terms-state');
+    return;
+  }
+  root.setAttribute('data-quata-ugc-terms-profile-id', profileId);
+  root.setAttribute('data-quata-ugc-terms-state', accepted === true ? 'accepted' : (accepted === null || accepted === undefined ? 'checking' : 'required'));
+}""")
+private external fun setWebUgcTermsGateMarker(profileId: String?, accepted: Boolean?)
+
+@JsFun("""() => {
+  const root = globalThis.document?.documentElement;
+  root?.removeAttribute('data-quata-ugc-terms-profile-id');
+  root?.removeAttribute('data-quata-ugc-terms-state');
+}""")
+private external fun clearWebUgcTermsGateMarker()
 
 /** Test semantics for the real Compose prompt; these attributes do not render a parallel UI. */
 @JsFun("""(visible, pendingRoute) => {

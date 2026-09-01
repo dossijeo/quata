@@ -18,6 +18,14 @@ const webOfficialRepository = await readFile(
   new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialRepository.kt", import.meta.url),
   "utf8",
 );
+const webOfficialE2eBridge = await readFile(
+  new URL("../web/src/wasmJsMain/kotlin/com/quata/web/WebOfficialE2eBridge.kt", import.meta.url),
+  "utf8",
+);
+const commonOfficialEditor = await readFile(
+  new URL("../feature/official/src/commonMain/kotlin/com/quata/feature/official/presentation/OfficialPostEditorRoot.kt", import.meta.url),
+  "utf8",
+);
 const iosOfficialRepository = await readFile(
   new URL("../feature/official/src/iosMain/kotlin/com/quata/feature/official/data/IosOfficialReadRepository.kt", import.meta.url),
   "utf8",
@@ -33,7 +41,21 @@ test("Web Official surface exposes the shared editor action for official users",
   assert.match(webOfficialHost, /onCreateOfficialPost: \(\) -> Unit/);
   assert.match(webOfficialHost, /canCreateOfficialPost: Boolean/);
   assert.match(webOfficialHost, /canCreateOfficialPost = canCreateOfficialPost/);
+  assert.match(webOfficialHost, /installWebOfficialFeedE2eBridge/);
   assert.doesNotMatch(webOfficialHost, /canCreateOfficialPost = true/);
+});
+
+test("Web Official editor evidence bridge is localhost opt-in and invokes common editor actions", () => {
+  assert.match(webOfficialE2eBridge, /quata-official-editor-e2e/);
+  assert.match(webOfficialE2eBridge, /location\?\.hostname === 'localhost' \|\| location\?\.hostname === '127\.0\.0\.1'/);
+  assert.match(webOfficialE2eBridge, /__quataOfficialFeedE2eProduct/);
+  assert.match(webOfficialE2eBridge, /__quataOfficialEditorE2eProduct/);
+  assert.match(webOfficialE2eBridge, /data-quata-official-editor-e2e/);
+  assert.match(commonOfficialEditor, /class OfficialPostEditorE2eActions/);
+  assert.match(commonOfficialEditor, /e2eBridgeInstaller: \(\(OfficialPostEditorE2eActions\) -> \(\(\) -> Unit\)\)\? = null/);
+  assert.match(commonOfficialEditor, /publish = \{ requestPublication\(\) \}/);
+  assert.match(commonOfficialEditor, /skipTranslation = \{ skipPendingTranslation\(\) \}/);
+  assert.match(webOfficialHost, /e2eBridgeInstaller = \{ actions: OfficialPostEditorE2eActions ->/);
 });
 
 test("Official publish eligibility remains owned by commonMain state", async () => {
@@ -42,6 +64,7 @@ test("Official publish eligibility remains owned by commonMain state", async () 
     "utf8",
   );
   assert.match(commonHost, /val canPublish = state\.currentUser\?\.isOfficial == true && slots\.canCreateOfficialPost/);
+  assert.match(commonHost, /LaunchedEffect\(repository, currentUserId\)[\s\S]*viewModel\.refreshCurrentUser\(\)/);
   assert.doesNotMatch(webOfficialHost, /rememberWebOfficialCreatePermission/);
 });
 

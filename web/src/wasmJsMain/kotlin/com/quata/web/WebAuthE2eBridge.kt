@@ -166,3 +166,36 @@ private external fun installDocumentStatusBridgeWhenAllowed(
     surface: String,
     dismissStatus: () -> Unit,
 ): () -> Unit
+
+/**
+ * Localhost-only UGC terms bridge for the real common prompt. It invokes the same gateway/logout
+ * callbacks wired by Main and exists only because Compose/Wasm still renders the dialog in canvas.
+ */
+internal fun installWebUgcTermsE2eBridge(
+    accept: ((String) -> Unit, (String) -> Unit) -> Unit,
+    logout: () -> Unit,
+): () -> Unit = installUgcTermsBridgeWhenAllowed(accept, logout)
+
+@JsFun(
+    """(accept, logout) => {
+      const location = globalThis.location;
+      const localHost = location?.hostname === '127.0.0.1' || location?.hostname === 'localhost';
+      const optedIn = new URLSearchParams(location?.search || '').get('quata-auth-e2e') === '1' ||
+        globalThis.sessionStorage?.getItem('quata.auth.e2e') === '1';
+      if (!localHost || !optedIn) return () => {};
+      const promise = (operation) => new Promise((resolve, reject) => operation(resolve, reject));
+      const bridge = Object.freeze({
+        version: 1,
+        accept: () => promise((resolve, reject) => accept(resolve, reject)),
+        logout: () => logout(),
+      });
+      globalThis.__quataUgcTermsE2eProduct = bridge;
+      return () => {
+        if (globalThis.__quataUgcTermsE2eProduct === bridge) delete globalThis.__quataUgcTermsE2eProduct;
+      };
+    }""",
+)
+private external fun installUgcTermsBridgeWhenAllowed(
+    accept: ((String) -> Unit, (String) -> Unit) -> Unit,
+    logout: () -> Unit,
+): () -> Unit

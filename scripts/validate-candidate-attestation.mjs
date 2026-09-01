@@ -114,6 +114,17 @@ function localEvidenceFailures(manifest, productSha, cwd = process.cwd()) {
         failures.push(`${platform}:report_missing_step:${step}`);
       }
     }
+    if (item.requiredLog) {
+      const logPath = resolve(cwd, item.requiredLog.path ?? "");
+      if (!item.requiredLog.path || !existsSync(logPath)) {
+        failures.push(`${platform}:required_log_missing:${item.requiredLog.path ?? ""}`);
+      } else {
+        const log = readFileSync(logPath, "utf8");
+        for (const marker of item.requiredLog.contains ?? []) {
+          if (!log.includes(marker)) failures.push(`${platform}:required_log_missing_marker:${marker}`);
+        }
+      }
+    }
     return failures;
   });
 }

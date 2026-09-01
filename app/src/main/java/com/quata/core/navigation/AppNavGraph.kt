@@ -151,8 +151,9 @@ import com.quata.core.ui.components.QuataConfirmationDialogContent
 import com.quata.core.ui.components.QuataLegalDocumentLinksColumnContent
 import com.quata.core.ui.components.QuataLegalDocumentLinksContent
 import com.quata.core.ui.components.QuataDocumentViewerStatusContent
-import com.quata.core.ui.components.QuataTermsAcceptanceDialogContent
+import com.quata.core.ui.components.QuataUgcTermsGateContent
 import com.quata.core.ui.components.quataDocumentViewerStatusStrings
+import com.quata.core.ui.components.quataUgcTermsStrings
 import com.quata.core.ui.components.QuataNavigationRail
 import com.quata.core.ui.components.QuataNavigationRailWidth
 import com.quata.core.ui.components.QuataNetworkImageState
@@ -301,12 +302,8 @@ fun AppNavGraph(
     var isAccountOperationInProgress by remember { mutableStateOf(false) }
     var accountOperationError by remember { mutableStateOf<String?>(null) }
     var ugcTermsAccepted by remember(currentUserId) { mutableStateOf<Boolean?>(null) }
-    var isAcceptingUgcTerms by remember(currentUserId) { mutableStateOf(false) }
+    var ugcTermsDocumentViewerState by remember { mutableStateOf<DocumentViewerState?>(null) }
     ConfigureAppSystemBars()
-    LaunchedEffect(currentUserId) {
-        ugcTermsAccepted = if (currentUserId == null) null else
-            container.moderationRepository.hasAcceptedTerms().getOrDefault(false)
-    }
     LaunchedEffect(isDeviceNetworkAvailable) {
         container.chatRepository.setDeviceNetworkAvailable(isDeviceNetworkAvailable)
         container.userPresenceRepository.setDeviceNetworkAvailable(isDeviceNetworkAvailable)
@@ -1209,30 +1206,47 @@ fun AppNavGraph(
             )
         }
 
-        if (currentUserId != null && ugcTermsAccepted == false) {
-            UgcTermsDialog(
-                container = container,
-                isAccepting = isAcceptingUgcTerms,
-                onAccept = {
-                    if (!isAcceptingUgcTerms) {
-                        isAcceptingUgcTerms = true
-                        // Local acceptance always unlocks the app; synchronization is retried by WorkManager.
-                        ugcTermsAccepted = true
-                        appScope.launch {
-                            container.moderationRepository.acceptTerms()
-                            isAcceptingUgcTerms = false
-                        }
-                    }
-                },
-                onLogout = {
-                    appScope.launch {
-                        container.authRepository.logout()
-                        ugcTermsAccepted = null
-                        navController.navigate(AppDestinations.Feed.route) { popUpTo(0) }
-                    }
+        QuataUgcTermsGateContent(
+            profileId = currentUserId,
+            gateway = container.moderationRepository,
+            strings = quataUgcTermsStrings(QuataLanguageManager.currentLanguage),
+            onAcceptedStateChanged = { ugcTermsAccepted = it },
+            onLogout = {
+                appScope.launch {
+                    container.authRepository.logout()
+                    ugcTermsAccepted = null
+                    navController.navigate(AppDestinations.Feed.route) { popUpTo(0) }
                 }
-            )
-        }
+            },
+            legalLinks = {
+                val scope = rememberCoroutineScope()
+                QuataLegalDocumentLinksColumnContent(
+                    language = QuataLanguageManager.currentLanguage,
+                    documents = listOf(LegalDocument.ChildSafety, LegalDocument.Privacy),
+                    onOpenDocument = { document ->
+                        scope.launch {
+                            when (val file = LegalDocuments.platformFile(appContext, document)) {
+                                is PlatformResult.Success -> {
+                                    ugcTermsDocumentViewerState = documentViewerOpeningState(file.value)
+                                    ugcTermsDocumentViewerState =
+                                        container.documentOpenService.openWithViewerState(file.value).completed
+                                }
+                                is PlatformResult.Failure,
+                                PlatformResult.Cancelled,
+                                PlatformResult.Unsupported -> {
+                                    Toast.makeText(appContext, R.string.error_generic, Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    },
+                )
+            },
+        )
+        QuataDocumentViewerStatusContent(
+            state = ugcTermsDocumentViewerState,
+            strings = quataDocumentViewerStatusStrings(QuataLanguageManager.currentLanguage),
+            onDismiss = { ugcTermsDocumentViewerState = null },
+        )
 
         if (isFeedCommentsOverlayVisible) {
             Box(
@@ -1517,36 +1531,6 @@ private fun AccountLifecycleConfirmationDialog(
         onConfirm = onConfirm,
         confirmationPrompt = if (isDeletion) stringResource(R.string.account_delete_type_confirmation, requiredConfirmation) else null,
         requiredConfirmation = requiredConfirmation.takeIf { isDeletion },
-    )
-}
-
-@Composable
-private fun UgcTermsDialog(
-    container: AppContainer,
-    isAccepting: Boolean,
-    onAccept: () -> Unit,
-    onLogout: () -> Unit
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    QuataTermsAcceptanceDialogContent(
-        title = stringResource(R.string.ugc_terms_title),
-        body = stringResource(R.string.ugc_terms_body),
-        acceptLabel = stringResource(R.string.ugc_terms_accept),
-        acceptingLabel = stringResource(R.string.ugc_terms_accepting),
-        logoutLabel = stringResource(R.string.ugc_terms_logout),
-        isAccepting = isAccepting,
-        onAccept = onAccept,
-        onLogout = onLogout,
-        legalLinks = {
-            QuataLegalDocumentLinksColumnContent(
-                language = QuataLanguageManager.currentLanguage,
-                documents = listOf(LegalDocument.ChildSafety, LegalDocument.Privacy),
-                onOpenDocument = { document ->
-                    scope.launch { openLegalDocument(context, container, document) }
-                },
-            )
-        },
     )
 }
 

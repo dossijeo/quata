@@ -11,7 +11,7 @@ class ModerationRepository(
     private val sessionManager: SessionManager,
     private val termsAcceptanceStore: UgcTermsAcceptanceStore,
     private val appContext: Context
-) {
+) : UgcTermsGateway {
     suspend fun report(
         target: ModerationTarget,
         targetId: String,
@@ -27,7 +27,7 @@ class ModerationRepository(
         api.blockProfile(requireProfileId(), profileId)
     }
 
-    suspend fun hasAcceptedTerms(version: String = CurrentUgcTermsVersion): Result<Boolean> = runCatching {
+    override suspend fun hasAcceptedTerms(version: String): Result<Boolean> = runCatching {
         val userId = requireProfileId()
         if (termsAcceptanceStore.isAccepted(userId, version)) {
             if (termsAcceptanceStore.isPending(userId, version)) {
@@ -40,7 +40,7 @@ class ModerationRepository(
         acceptedRemotely
     }
 
-    suspend fun acceptTerms(version: String = CurrentUgcTermsVersion): Result<Unit> = runCatching {
+    override suspend fun acceptTerms(version: String): Result<Unit> = runCatching {
         val userId = requireProfileId()
         termsAcceptanceStore.markAcceptedPendingSync(userId, version)
         ChatMessageStateWorkScheduler.scheduleOneTime(appContext)
