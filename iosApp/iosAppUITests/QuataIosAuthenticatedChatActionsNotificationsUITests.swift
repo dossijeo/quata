@@ -2093,19 +2093,31 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     ) -> Bool {
         waitForFullscreenMediaToDisappear(in: app, timeout: 2)
 
-        func mediaElement() -> XCUIElement {
+        func mediaElements() -> [XCUIElement] {
             let message = app.descendants(matching: .any)
                 .matching(identifier: "chat.message.\(messageId)")
                 .firstMatch
             let scoped = message.descendants(matching: .any)
                 .matching(identifier: identifier)
-                .firstMatch
-            if scoped.exists {
-                return scoped
-            }
-            return app.descendants(matching: .any)
+                .allElementsBoundByIndex
+            let unscoped = app.descendants(matching: .any)
                 .matching(identifier: identifier)
-                .firstMatch
+                .allElementsBoundByIndex
+            return scoped + unscoped
+        }
+
+        func mediaElement() -> XCUIElement {
+            let candidates = mediaElements().filter(\.exists)
+            if let visible = candidates.first(where: { isElementVisibleInChatViewport($0, in: app) }) {
+                return visible
+            }
+            if let hittable = candidates.first(where: \.isHittable) {
+                return hittable
+            }
+            if let first = candidates.first {
+                return first
+            }
+            return app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         }
 
         for _ in 0..<14 {
@@ -2121,6 +2133,12 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         let media = mediaElement()
         guard media.waitForExistence(timeout: 3) else {
             XCTFail("The shared media attachment anchor \(identifier) must be visible in message \(messageId) for \(context).")
+            return false
+        }
+
+        guard isElementVisibleInChatViewport(media, in: app) || media.isHittable else {
+            attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-offscreen")
+            XCTFail("The shared media attachment anchor \(identifier) exists but is not visible in message \(messageId) for \(context).")
             return false
         }
 

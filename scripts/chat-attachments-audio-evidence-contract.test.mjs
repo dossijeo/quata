@@ -502,7 +502,9 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /waitForFocusedMessageHighlightToClear\(videoMessageId, in: app\)/);
   assert.match(iosUiTest, /waitForFocusedMessageHighlightToClear\(imageMessageId, in: app\)/);
   assert.match(iosUiTest, /matching\(identifier: "chat\.message\.[^"]*messageId[^"]*"\)/);
-  assert.match(iosUiTest, /if scoped\.exists[\s\S]*return scoped[\s\S]*return app\.descendants\(matching: \.any\)[\s\S]*\.matching\(identifier: identifier\)/);
+  assert.match(iosUiTest, /\.allElementsBoundByIndex/);
+  assert.match(iosUiTest, /candidates\.first\(where: \{ isElementVisibleInChatViewport\(\$0, in: app\) \}\)/);
+  assert.match(iosUiTest, /media-anchor-offscreen/);
   assert.match(iosUiTest, /guard makeChatAnchorVisible\(identifier: "chat\.attachment\.audio\.player"/);
   assert.match(iosUiTest, /testAttachmentPickerFixtureUsesSharedComposerAnchors/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_PICKER_UI_E2E/);
