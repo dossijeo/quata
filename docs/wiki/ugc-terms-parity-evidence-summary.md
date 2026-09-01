@@ -6,18 +6,18 @@ The raw `build-reports/*` artifacts remain local evidence outputs and are not co
 ## Candidate
 
 - Unit: `OVR-UGC-TERMS`, `FLOW-LEGAL-DOCUMENTS`
-- Product/Evidence SHA: `f64d0c9f8a58e14e2eacd63b66eb6d4004029c1e`
+- Product/Evidence SHA: `101e652603f0616a330c9180cf6fd459a93f21c9`
 - Attestation HEAD first linked from: `e0a59061f2472429742554b603cd0af1e73b4f98`
-- Exact working tree for product evidence: clean product checkout at `f64d0c9f8a58e14e2eacd63b66eb6d4004029c1e`
+- Exact working tree for product evidence: clean product checkout at `101e652603f0616a330c9180cf6fd459a93f21c9`
 
 ## Evidence Outputs
 
 | Platform | Local report | SHA-256 | Status |
 | --- | --- | --- | --- |
-| Web/Wasm | `build-reports/web/ugc-terms-evidence.json` | `2db6e39c463c6c36b956e44d600ad6f00809c4839a0f104931c79a2586e08166` | `passed` |
-| Android | `build-reports/android/ugc-terms-evidence.json` | `9e1643e9d42142b6cd18a32cd0c808b1f572768f2d74f9aed1c661b0236a56db` | `passed` |
-| iOS | `build-reports/ios/ugc-terms-evidence.json` | `8d29f91f6ff302aaf93e7b0049d949475fa81134b89e7fc27497a76c3838c6af` | `passed_with_post_xcodebuild_interrupt` |
-| iOS XCTest log | `build-reports/ios/UGC-TERMS-ui/ui.log` | `369a18ae2f5ca40e32f8d977c8da5a151fdd6fb3145c4e13958671f2168b72cb` | contains PASS markers |
+| Web/Wasm | `build-reports/web/ugc-terms-evidence.json` | `e4dcc641a6e8a0be22ab304c4e652676cb291790323eaf89ade4af7a1c1ca7a6` | `passed` |
+| Android | `build-reports/android/ugc-terms-evidence.json` | `161e2cfd3b62171689f5587b73cb16c14d142c0df7933600745195f68418bab6` | `passed` |
+| iOS | `build-reports/ios/ugc-terms-evidence.json` | `18397c2b9fa48228f87bb45fbac35adc6a74bae307f89a9b11de1fc6918f8c61` | `passed` |
+| iOS XCTest log | `build-reports/ios/UGC-TERMS-ui/ui.log` | `2303724265e0c60945eb61f81be5726c3d3926f6705663303f97f7159b8e891f` | contains PASS markers |
 
 ## iOS Log Markers
 
@@ -27,7 +27,7 @@ The iOS XCTest evidence log contained these required markers:
 - `Executed 1 test, with 0 failures`
 - `PASS_EXECUTED:testUgcTermsFixtureRendersCommonGateLegalLinksAndAccepts`
 
-The `xcodebuild` process was interrupted only after the XCTest PASS markers and `.xcresult` presence were observed, because the command remained in post-test processing. This is recorded in the iOS report as `passed_with_post_xcodebuild_interrupt`; it is not counted as a product failure.
+The iOS XCTest command reached `TEST EXECUTE SUCCEEDED`; the local log is copied and audited by the candidate manifest markers.
 
 ## Covered Product Behaviors
 
