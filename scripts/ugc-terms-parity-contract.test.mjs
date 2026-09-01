@@ -123,7 +123,9 @@ test('Web and iOS call the same Supabase RPCs with canonical parameter names', (
   assert.match(webAuthBridge, /quata-auth-e2e/);
   assert.match(webRpcClient, /AbortController/);
   assert.match(webRpcClient, /setTimeout\(\(\) =>/);
-  assert.match(webAuthRepository, /WebAuthStorage\.clear\(preferences\)[\s\S]*activeSession = null[\s\S]*withTimeoutOrNull\(WebLogoutBestEffortTimeoutMillis\)/);
+  assert.match(webAuthRepository, /val serverFailure = runCatching \{ notifyServerLogout\(\) \}\.exceptionOrNull\(\)[\s\S]*val browserFailure = browserUnsubscribe\(\)\.exceptionOrNull\(\)[\s\S]*WebAuthStorage\.clear\(preferences\)/);
+  assert.match(webAuthRepository, /private suspend fun notifyServerLogout\(\) \{[\s\S]*storedSessionOrNull\(\)\?\.let \{ WebPushCredentials\(it\.accessToken, it\.webSessionToken\) \}/);
+  assert.doesNotMatch(webAuthRepository, /notifyServerLogout\(\)[\s\S]{0,240}currentWebPushCredentials\(\)/);
   assert.match(webAuthRepository, /AbortController/);
   assert.match(androidAuthRepository, /val bearerToken = session\?\.bearerToken[\s\S]*sessionManager\.clearSession\(\)[\s\S]*unregisterTokenForProfileAfterLogout\(profileId, bearerToken\)/);
   assert.match(androidPushTokenManager, /fun unregisterTokenForProfileAfterLogout\(profileId: String\?, bearerToken: String\?\)/);
