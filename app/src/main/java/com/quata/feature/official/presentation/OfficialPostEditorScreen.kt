@@ -74,7 +74,7 @@ import com.quata.core.model.User
 import com.quata.core.text.decodeHtmlEntities
 import com.quata.core.ui.components.QuataEditorScaffold
 import com.quata.core.ui.components.QuataEditorToolButton
-import com.quata.core.ui.richtext.QuataRichTextEditorBox
+import com.quata.core.ui.richtext.QuataPortableRichTextEditorBox
 import com.quata.core.ui.richtext.QuataRichTextRenderer
 import com.quata.core.translation.QuataDeepLLanguage
 import com.quata.core.translation.QuataOfficialDeepLTranslator
@@ -384,7 +384,7 @@ private fun OfficialLongContentEditor(
         onSave = onSave,
         saveIcon = { Icon(Icons.Filled.Save, contentDescription = null) },
         editorContent = { editorModifier ->
-            QuataRichTextEditorBox(
+            QuataPortableRichTextEditorBox(
                 initialHtml = html,
                 placeholder = title,
                 onHtmlChange = onHtmlChange,

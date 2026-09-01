@@ -113,7 +113,11 @@ private fun QuataRichTextRenderedBlock(
 
         RichTextBlockType.Bullet,
         RichTextBlockType.Numbered,
-        RichTextBlockType.Todo -> QuataRichTextListBlock(block, orderedIndex)
+        RichTextBlockType.Todo -> QuataRichTextListBlock(
+            block = block,
+            orderedIndex = orderedIndex,
+            modifier = Modifier.padding(start = RendererIndentUnit * block.indentLevel),
+        )
 
         else -> QuataRichTextTextBlock(
             block = block,
@@ -127,9 +131,10 @@ private fun QuataRichTextRenderedBlock(
 private fun QuataRichTextListBlock(
     block: QuataRichTextBlock,
     orderedIndex: Int?,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(start = 0.dp),
         verticalAlignment = Alignment.Top,

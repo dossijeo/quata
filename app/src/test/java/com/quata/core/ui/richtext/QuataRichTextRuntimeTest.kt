@@ -101,7 +101,26 @@ class QuataRichTextRuntimeTest {
     }
 
     @Test
-    fun parseHtmlFlattensNestedListsWithoutIndentation() {
+    fun htmlRoundTripPreservesLinkAttributeEntities() {
+        val url = "https://egquata.com/post?a=1&b=2"
+        val blocks = listOf(
+            QuataRichTextBlock(
+                type = RichTextBlockType.Paragraph,
+                text = "open link",
+                spans = listOf(QuataTextSpan(5, 9, QuataSpanStyle.Link(url))),
+            ),
+        )
+
+        val once = convertBlocksToHtml(blocks)
+        val parsed = parseHtmlToRichTextBlocks(once)
+        val twice = convertBlocksToHtml(parsed)
+
+        assertEquals(listOf(QuataTextSpan(5, 9, QuataSpanStyle.Link(url))), parsed.first().spans)
+        assertEquals(once, twice)
+    }
+
+    @Test
+    fun parseHtmlPreservesNestedListsWithIndentation() {
         val html = """
             <ul>
                 <li>Root bullet
@@ -133,7 +152,48 @@ class QuataRichTextRuntimeTest {
             parsed.map { it.type },
         )
         assertEquals(listOf("Root bullet", "Child bullet", "Second root", "Root number", "Child number"), parsed.map { it.text.text })
-        assertEquals(listOf(0, 0, 0, 0, 0), parsed.map { it.indentLevel })
+        assertEquals(listOf(0, 1, 0, 0, 1), parsed.map { it.indentLevel })
+    }
+
+    @Test
+    fun statePreservesIndentThroughActionsAndGeneratedHtml() {
+        val state = QuataRichTextEditorState(
+            """
+                <ul>
+                    <li>Parent</li>
+                    <li>Child</li>
+                </ul>
+            """.trimIndent(),
+        )
+
+        val childId = state.blocks[1].id
+        state.selectBlock(childId)
+        state.toggleIndent(childId, 1)
+
+        assertEquals(listOf(0, 1), state.blocks.map { it.indentLevel })
+        assertTrue(state.html.contains("data-quata-indent=\"1\""))
+
+        val parsed = parseHtmlToRichTextBlocks(state.html)
+        assertEquals(listOf("Parent", "Child"), parsed.map { it.text.text })
+        assertEquals(listOf(0, 1), parsed.map { it.indentLevel })
+
+        state.undo()
+        assertEquals(listOf(0, 0), state.blocks.map { it.indentLevel })
+        state.redo()
+        assertEquals(listOf(0, 1), state.blocks.map { it.indentLevel })
+    }
+
+    @Test
+    fun stateDoesNotIndentUnsupportedBlocks() {
+        val state = QuataRichTextEditorState("<p>Paragraph</p><blockquote>Quote</blockquote><hr>")
+
+        for (block in state.blocks) {
+            state.toggleIndent(block.id, 1)
+        }
+
+        assertEquals(listOf(0, 0, 0), state.blocks.map { it.indentLevel })
+        assertTrue(state.html.contains("<p>Paragraph</p>"))
+        assertTrue(state.html.contains("<blockquote>Quote</blockquote>"))
     }
 
     @Test
@@ -154,7 +214,7 @@ class QuataRichTextRuntimeTest {
     }
 
     @Test
-    fun stateIgnoresLegacyIndentAttributesWhenReorderingAndDeleting() {
+    fun statePreservesIndentedSubtreesWhenReorderingAndDeleting() {
         val state = QuataRichTextEditorState(
             """
                 <p>Intro</p>
@@ -172,14 +232,39 @@ class QuataRichTextRuntimeTest {
         state.selectBlock(parentId)
         state.moveBlockDown(parentId)
 
-        assertEquals(listOf("Intro", "Child", "Parent", "Sibling", "Outro"), state.blocks.map { it.text.text })
-        assertEquals(listOf(0, 0, 0, 0, 0), state.blocks.map { it.indentLevel })
+        assertEquals(listOf("Intro", "Sibling", "Parent", "Child", "Outro"), state.blocks.map { it.text.text })
+        assertEquals(listOf(0, 0, 0, 1, 0), state.blocks.map { it.indentLevel })
 
         state.selectBlock(state.blocks[2].id)
         state.selectBlock(state.blocks[4].id, clearSelection = false, useShift = true)
         state.removeSelectedBlocks()
 
-        assertEquals(listOf("Intro", "Child"), state.blocks.map { it.text.text })
+        assertEquals(listOf("Intro", "Sibling"), state.blocks.map { it.text.text })
+    }
+
+    @Test
+    fun railActionsUseTappedBlockWhenSingleSelectionIsElsewhere() {
+        val state = QuataRichTextEditorState("<p>A</p><p>B</p><p>C</p>")
+        val firstId = state.blocks[0].id
+        val secondId = state.blocks[1].id
+
+        state.selectBlock(firstId)
+        state.removeBlock(secondId)
+
+        assertEquals(listOf("A", "C"), state.blocks.map { it.text.text })
+    }
+
+    @Test
+    fun railActionsUseMultiSelectionWhenTappedBlockIsSelected() {
+        val state = QuataRichTextEditorState("<p>A</p><p>B</p><p>C</p><p>D</p>")
+        val secondId = state.blocks[1].id
+        val thirdId = state.blocks[2].id
+
+        state.selectBlock(secondId)
+        state.selectBlock(thirdId, clearSelection = false, useCtrlOrCmd = true)
+        state.removeBlock(thirdId)
+
+        assertEquals(listOf("A", "D"), state.blocks.map { it.text.text })
     }
 
     @Test
