@@ -33,6 +33,7 @@ const [
   browserAudioPlayer,
   browserChatMedia,
   androidMediaViewer,
+  fullscreenMediaOverlay,
   androidPlatformServices,
   iosAudioPlayerHost,
   iosAudioHost,
@@ -68,6 +69,7 @@ const [
   source("core/src/wasmJsMain/kotlin/com/quata/core/platform/BrowserAudioPlayerService.wasm.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/BrowserChatMediaContent.kt"),
   source("app/src/main/java/com/quata/core/ui/components/AttachmentMediaViewer.kt"),
+  source("designsystem/src/commonMain/kotlin/com/quata/core/ui/components/QuataFullscreenMediaOverlayContent.kt"),
   source("core/src/androidMain/kotlin/com/quata/core/platform/AndroidPlatformServices.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosAvFoundationAudioPlayerHost.kt"),
   source("core/src/iosMain/kotlin/com/quata/core/platform/IosAvFoundationAudioHost.kt"),
@@ -316,6 +318,16 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
   assert.match(iosHost, /onOpenAttachment: suspend \(PlatformFile\) -> PlatformResult<Unit>/);
   assert.match(iosHost, /shareDownloadedAttachment/);
   assert.match(iosHost, /attachmentDownloader\.download/);
+});
+
+test("fullscreen media overlay dismisses through common animated state before host removal", () => {
+  assert.match(fullscreenMediaOverlay, /val requestDismiss = \{\s*visible = false\s*\}/);
+  assert.match(fullscreenMediaOverlay, /QuataFullscreenMediaOverlayTopBar\([\s\S]*onBack = requestDismiss/);
+  assert.match(fullscreenMediaOverlay, /CompactIconButton\([\s\S]*onClick = requestDismiss/);
+  assert.match(fullscreenMediaOverlay, /nativeClose\(requestDismiss\)/);
+  assert.match(fullscreenMediaOverlay, /LaunchedEffect\(visible, hasOpened\)[\s\S]*delay\(170L\)[\s\S]*onDismiss\(\)/);
+  assert.doesNotMatch(fullscreenMediaOverlay, /onBack = onDismiss/);
+  assert.doesNotMatch(fullscreenMediaOverlay, /nativeClose\(onDismiss\)/);
 });
 
 test("common chat product routes attachments and audio without platform-specific product forks", () => {

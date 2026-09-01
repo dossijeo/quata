@@ -64,6 +64,9 @@ fun QuataFullscreenMediaOverlayContent(
     val template = quataTheme()
     var visible by remember { mutableStateOf(false) }
     var hasOpened by remember { mutableStateOf(false) }
+    val requestDismiss = {
+        visible = false
+    }
     LaunchedEffect(Unit) {
         hasOpened = true
         visible = true
@@ -89,7 +92,7 @@ fun QuataFullscreenMediaOverlayContent(
             ) {
                 QuataFullscreenMediaOverlayTopBar(
                     title = title,
-                    onBack = onDismiss,
+                    onBack = requestDismiss,
                 )
                 Box(
                     modifier = with(this@Column) {
@@ -98,7 +101,7 @@ fun QuataFullscreenMediaOverlayContent(
                 ) {
                     mediaContent(Modifier.fillMaxSize())
                     CompactIconButton(
-                        onClick = onDismiss,
+                        onClick = requestDismiss,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .zIndex(6f)
@@ -113,7 +116,7 @@ fun QuataFullscreenMediaOverlayContent(
                             tint = template.colors.textPrimary,
                         )
                     }
-                    nativeClose(onDismiss)
+                    nativeClose(requestDismiss)
                 }
             }
         }
