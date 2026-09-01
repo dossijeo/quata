@@ -2275,9 +2275,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     private func closeFullscreenMedia(context: String, in app: XCUIApplication) {
         let closeIdentifiers = [
-            "fullscreen-media.back",
             "fullscreen-media.close",
             "fullscreen-media.media-close",
+            "fullscreen-media.back",
         ]
         var dismissed = false
         for identifier in closeIdentifiers {

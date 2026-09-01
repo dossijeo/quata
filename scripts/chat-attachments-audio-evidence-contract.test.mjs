@@ -177,6 +177,14 @@ test("iOS media overlay close is exposed through a native accessibility anchor",
   assert.match(iosMediaBridge, /button\.addTarget\(target, action: #selector\(IosChatNativeMediaCloseTarget\.close\), for: \.touchUpInside\)/);
   assert.match(iosUiTest, /fullscreen-media\.close/);
   assert.match(iosUiTest, /fullscreen-media\.media-close/);
+  const closeHelper = iosUiTest.slice(
+    iosUiTest.indexOf("private func closeFullscreenMedia"),
+    iosUiTest.indexOf("@discardableResult", iosUiTest.indexOf("private func closeFullscreenMedia")),
+  );
+  assert.ok(
+    closeHelper.indexOf('"fullscreen-media.close"') < closeHelper.indexOf('"fullscreen-media.back"'),
+    "iOS fullscreen media close helper must prefer explicit close anchors before navigation/back fallback.",
+  );
 });
 
 test("audio attachment player exposes stable common playback anchors", () => {
