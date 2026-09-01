@@ -386,6 +386,12 @@ test("common chat attachments and audio expose stable cross-platform evidence an
   assert.match(chatBrowserHostContent, /ChatMediaAttachmentContent\(/);
   assert.match(chatBrowserHostContent, /ChatDocumentAttachmentContent\(/);
   assert.match(chatBrowserHostContent, /ChatAudioAttachmentPlayerContent\(/);
+  assert.match(chatBrowserHostContent, /QuataDocumentViewerStatusContent\(/);
+  assert.match(chatBrowserHostContent, /allowPlatformFallbackForUnsupportedFormat = true/);
+  assert.match(chatBrowserHostContent, /documentOpenJob\?\.cancel\(\)/);
+  assert.match(chatBrowserHostContent, /documentOpenGeneration/);
+  assert.match(chatBrowserHostContent, /if \(documentOpenGeneration == openGeneration\)/);
+  assert.doesNotMatch(chatBrowserHostContent, /currentCoroutineContext\(\)\[Job\]/);
   assert.match(chatBrowserHostContent, /ChatUiEvent\.AttachmentSelected/);
   assert.match(chatBrowserHostContent, /FilePickerSource\.Documents/);
   assert.match(chatBrowserHostContent, /FilePickerSource\.Gallery/);

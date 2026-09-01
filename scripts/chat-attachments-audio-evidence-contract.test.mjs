@@ -17,8 +17,11 @@ const [
   commonAudioPlayer,
   commonAudioPolicy,
   androidHost,
+  appContainer,
+  androidDocumentReaderHost,
   androidNativeChatScreen,
   webHost,
+  iosAttachmentPreviewService,
   iosHost,
   iosMediaBridge,
   androidUiTest,
@@ -49,8 +52,11 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentPlayerContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConsecutiveAudioPolicy.kt"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt"),
+  source("app/src/main/java/com/quata/core/di/AppContainer.kt"),
+  source("document-reader/src/main/java/com/quata/documentreader/AndroidDocumentOpenService.kt"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/ChatScreen.kt"),
   source("web/src/wasmJsMain/kotlin/com/quata/web/WebChatHost.kt"),
+  source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/data/IosChatAttachmentPreviewService.kt"),
   source("feature/chat/src/iosMain/kotlin/com/quata/feature/chat/presentation/chat/QuataChatViewController.kt"),
   source("iosApp/iosApp/IosChatMediaBridge.swift"),
   source("app/src/androidTest/java/com/quata/feature/chat/presentation/chat/ChatActionsNotificationsInstrumentedTest.kt"),
@@ -256,7 +262,8 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
     assert.match(host, /onShareAttachment\s*=/);
     assert.match(host, /mediaSlots\s*=\s*(ChatMediaPlatformSlots|iosChatMediaPlatformSlots)\(/);
   }
-  assert.match(androidHost, /openAttachmentWithDocumentReaderOrChooser/);
+  assert.match(androidHost, /documentOpenService: DocumentOpenService/);
+  assert.match(androidHost, /documentOpenService\.open\(file\)/);
   assert.match(androidHost, /saveChatAttachmentToDownloads/);
   assert.match(androidHost, /shareService\.share\(/);
   assert.match(androidNativeChatScreen, /nextConsecutiveAudioMessage\(state\.messages, finishedMessage\.composeKey\(\)\)/);
@@ -280,7 +287,7 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
   assert.match(webHost, /SharePayload\(title = .*files = listOf\(local\)\)/);
   assert.match(webHost, /revokeWebAttachmentObjectUrl/);
   assert.match(androidRunner, /stat\(localFile\)\)\.size === 0/);
-  assert.match(iosHost, /onOpenAttachment: \(PlatformFile\) -> Unit/);
+  assert.match(iosHost, /onOpenAttachment: suspend \(PlatformFile\) -> PlatformResult<Unit>/);
   assert.match(iosHost, /shareDownloadedAttachment/);
   assert.match(iosHost, /attachmentDownloader\.download/);
 });
@@ -294,6 +301,14 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonHost, /ChatBrowserAttachmentContent\(/);
   assert.match(commonHost, /ChatMediaAttachmentContent\(/);
   assert.match(commonHost, /ChatDocumentAttachmentContent\(/);
+  assert.match(commonHost, /QuataDocumentViewerStatusContent\(/);
+  assert.match(commonHost, /allowPlatformFallbackForUnsupportedFormat = true/);
+  assert.match(commonHost, /documentOpenJob\?\.cancel\(\)/);
+  assert.match(commonHost, /documentOpenGeneration/);
+  assert.match(commonHost, /val openGeneration = documentOpenGeneration \+ 1L/);
+  assert.match(commonHost, /if \(documentOpenGeneration == openGeneration\)/);
+  assert.doesNotMatch(commonHost, /currentCoroutineContext\(\)\[Job\]/);
+  assert.match(commonHost, /documentViewerOpeningState\(file\)/);
   assert.match(commonHost, /ChatDocumentAttachmentDownloadTestTag|onDownloadAttachment/);
   assert.match(commonHost, /ChatDocumentAttachmentShareTestTag|onShareAttachment/);
   assert.match(commonHost, /ChatAudioAttachmentPlayerContent\(/);
@@ -309,6 +324,13 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonAudioPolicy, /if \(!previous\.isPlaying\) return false/);
   assert.match(commonAudioPolicy, /if \(current\.isPlaying\) return false/);
   assert.match(commonAudioPolicy, /return current\.isNearEnd\(\) \|\| previous\.isNearEnd\(current\.durationMillis\)/);
+  assert.match(androidDocumentReaderHost, /runCatching \{ launchReader\(request\) \}\.getOrDefault\(false\)/);
+  assert.match(androidDocumentReaderHost, /return runCatching \{[\s\S]*launchChooser\(request\)/);
+  assert.match(androidDocumentReaderHost, /Intent\.createChooser/);
+  assert.match(appContainer, /isDarkModeProvider|QuataThemeMode\.Dark|UI_MODE_NIGHT_YES/);
+  assert.match(webHost, /when \(openWebExternalLinkResult\(it\)\)/);
+  assert.doesNotMatch(webHost, /openWebExternalLink\(it\)\s*PlatformResult\.Success/);
+  assert.match(iosAttachmentPreviewService, /if \(!supportsQuickLook\(attachment\)\) return PlatformResult\.Unsupported/);
 });
 
 test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evidence exists", () => {
@@ -374,6 +396,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /ChatDocumentAttachmentOpenTestTag/);
   assert.match(androidUiTest, /ChatDocumentAttachmentDownloadTestTag/);
   assert.match(androidUiTest, /ChatDocumentAttachmentShareTestTag/);
+  assert.match(androidUiTest, /document-viewer-status-root/);
   assert.match(androidUiTest, /android-chat-audio-consecutive-next-playing/);
   assert.match(androidUiTest, /compose\.waitUntil\(15_000\)/);
   assert.match(androidUiTest, /hasAudioDescription\(audioName, "Pausar", "Pause"\)/);
@@ -410,6 +433,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /android-chat-attachment-video-viewer/);
   assert.match(androidUiTest, /android-chat-attachment-media-viewer/);
   assert.match(androidUiTest, /android-chat-attachment-document-visible/);
+  assert.match(androidUiTest, /android-chat-attachment-document-viewer-status/);
   assert.match(androidRunner, /android-chat-audio-recording-active\.png/);
   assert.match(androidRunner, /android-chat-audio-recording-pending-attachment\.png/);
   assert.match(androidRunner, /android-chat-audio-recording-ready-to-send\.png/);
@@ -454,6 +478,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /ios-chat-attachment-media-viewer/);
   assert.match(iosUiTest, /ios-chat-attachment-video-viewer/);
   assert.match(iosUiTest, /ios-chat-attachment-document-visible/);
+  assert.match(iosUiTest, /ios-chat-attachment-document-viewer-status/);
+  assert.match(iosUiTest, /document-viewer-status-root/);
   assert.match(iosUiTest, /ios-chat-audio-toggle-attempted/);
   assert.match(iosUiTest, /Set\(\[documentProbe, audioProbe, imageProbe, videoProbe\]\)\.count/);
   assert.match(iosUiTest, /app\.terminate\(\)[\s\S]*?openDeepLink\("quata:\/\/egquata\.com\/#chat-/);
@@ -582,6 +608,8 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /waitMessageVisibleNearCurrentPosition\(page, fixtures\.image\.marker, "image_attachment_message_not_visible"\)/);
   assert.match(webRunner, /async function waitMessageVisibleNearCurrentPosition\(page, marker, error, timeout = 45_000\)/);
   assert.match(webRunner, /verifyDocumentAttachmentActionsWeb/);
+  assert.match(webRunner, /web-chat-attachment-document-viewer-status/);
+  assert.match(webRunner, /document-viewer-status-root/);
   assert.match(webRunner, /acceptDownloads: true/);
   assert.match(webRunner, /__quataSharePayloads/);
   assert.match(webRunner, /chat\\.attachment\\.document\\.download/);

@@ -28,8 +28,6 @@ class AndroidDocumentOpenService(
 
         val uri = reference.toSafeDocumentUri() ?: return PlatformResult.Failure("document_uri_invalid")
         val resolvedMime = resolveMimeType(uri, file)
-        val descriptor = DocumentSupport.describe(reference, file.displayName, resolvedMime)
-        if (!descriptor.isPreviewable) return PlatformResult.Unsupported
 
         return host.open(
             AndroidDocumentOpenRequest(

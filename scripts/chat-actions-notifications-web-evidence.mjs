@@ -474,6 +474,24 @@ async function verifyDocumentAttachmentActionsWeb(page, documentFixture, evidenc
   if (!share) throw new Error("document_attachment_share_anchor_missing");
   report.evidence.attachmentDocumentActions = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-actions");
 
+  await clickLocatorCenter(page, open, "document_attachment_open_not_clickable");
+  await page.waitForFunction(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    return Boolean(scope.querySelector("[data-testid='document-viewer-status-root']"));
+  }, { timeout: 10_000 });
+  report.evidence.attachmentDocumentViewerStatus = await attachScreenshot(page, evidenceDir, "web-chat-attachment-document-viewer-status");
+  await page.evaluate(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    scope.querySelector("[data-testid='document-viewer-status-close']")?.click();
+  });
+  await page.waitForFunction(() => {
+    const root = document.querySelector("#quata-root");
+    const scope = root?.shadowRoot ?? root ?? document;
+    return !scope.querySelector("[data-testid='document-viewer-status-root']");
+  }, { timeout: 10_000 });
+
   const [downloadEvent] = await Promise.all([
     page.waitForEvent("download", { timeout: 10_000 }),
     clickLocatorCenter(page, download, "document_attachment_download_not_clickable"),
@@ -5568,12 +5586,20 @@ try {
     };
     throw new EvidenceCompleted();
   }
-  await waitMessageVisible(page, ownMarker, "message_not_visible:own");
-  if (state.peerMessage) {
-    await waitMessageVisible(page, peerMarker, "message_not_visible:peer");
+  if (!options.attachmentsAudioOnly) {
+    await waitMessageVisible(page, ownMarker, "message_not_visible:own");
+    if (state.peerMessage) {
+      await waitMessageVisible(page, peerMarker, "message_not_visible:peer");
+    }
   }
   report.evidence.threadInitial = await attachScreenshot(page, options.evidenceDir, "web-chat-actions-thread-initial");
-  report.steps.push(state.peerMessage ? "thread_rendered_with_own_and_peer_messages" : "thread_rendered_with_own_message");
+  report.steps.push(
+    options.attachmentsAudioOnly
+      ? "thread_rendered_for_attachments_audio_focal_mode"
+      : state.peerMessage
+        ? "thread_rendered_with_own_and_peer_messages"
+        : "thread_rendered_with_own_message",
+  );
 
   const translationMarker = state.peerMessage ? peerMarker : ownMarker;
   if (options.translationOnly || (isFullEvidenceMode(options) && state.peerMessage)) {

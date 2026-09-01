@@ -44,6 +44,12 @@ import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
+import com.quata.core.platform.DocumentViewerState
+import com.quata.core.platform.documentViewerOpeningState
+import com.quata.core.platform.openPlatformDocumentWithViewerState
+import com.quata.core.localization.QuataLanguage
+import com.quata.core.ui.components.QuataDocumentViewerStatusContent
+import com.quata.core.ui.components.quataDocumentViewerStatusStrings
 import com.quata.core.navigation.AppDestinations
 import com.quata.core.ui.components.QuataAvatarLoadingHaloContent
 import com.quata.core.ui.components.CompactIcon
@@ -56,6 +62,7 @@ import com.quata.feature.chat.presentation.conversations.ConversationAvatarKind
 import com.quata.feature.chat.presentation.conversations.ConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.resolveConversationAvatarPresentation
 import com.quata.feature.chat.presentation.conversations.resolveMessageAvatarPresentation
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
@@ -93,7 +100,7 @@ fun ChatProductHostContent(
     onOpenConversation: (String) -> Unit,
     onOpenMessageConversation: (String, String) -> Unit,
     onBackToList: () -> Unit,
-    onOpenAttachment: (PlatformFile) -> Unit,
+    onOpenAttachment: suspend (PlatformFile) -> PlatformResult<Unit>,
     onDownloadAttachment: suspend (PlatformFile) -> PlatformResult<Unit> = { PlatformResult.Unsupported },
     onShareAttachment: suspend (PlatformFile) -> PlatformResult<Unit> = { PlatformResult.Unsupported },
     onOpenExternalLink: (String) -> Unit,
@@ -197,7 +204,7 @@ private fun ChatCommonConversationHost(
     onBackToList: () -> Unit,
     onOpenConversation: (String) -> Unit,
     onOpenMessageConversation: (String, String) -> Unit,
-    onOpenAttachment: (PlatformFile) -> Unit,
+    onOpenAttachment: suspend (PlatformFile) -> PlatformResult<Unit>,
     onDownloadAttachment: suspend (PlatformFile) -> PlatformResult<Unit>,
     onShareAttachment: suspend (PlatformFile) -> PlatformResult<Unit>,
     onOpenExternalLink: (String) -> Unit,
@@ -245,6 +252,9 @@ private fun ChatCommonConversationHost(
     var recordingError by remember { mutableStateOf<String?>(null) }
     var pendingAudioRecording by remember { mutableStateOf<AudioRecording?>(null) }
     var viewedMedia by remember(conversationId) { mutableStateOf<PlatformFile?>(null) }
+    var documentViewerState by remember(conversationId) { mutableStateOf<DocumentViewerState?>(null) }
+    var documentOpenJob by remember(conversationId) { mutableStateOf<Job?>(null) }
+    var documentOpenGeneration by remember(conversationId) { mutableLongStateOf(0L) }
     val ownsViewModel = conversationModel == null
     val viewModel = remember(repository, conversationId, conversationModel) {
         conversationModel ?: ChatViewModel(
@@ -263,7 +273,24 @@ private fun ChatCommonConversationHost(
     fun openAttachment(file: PlatformFile) {
         when (chatAttachmentKind(file)) {
             ChatAttachmentKind.Image, ChatAttachmentKind.Video -> viewedMedia = file
-            else -> onOpenAttachment(file)
+            ChatAttachmentKind.Audio -> Unit
+            else -> {
+                documentOpenJob?.cancel()
+                val openGeneration = documentOpenGeneration + 1L
+                documentOpenGeneration = openGeneration
+                documentViewerState = documentViewerOpeningState(file)
+                documentOpenJob = scope.launch {
+                    val result = openPlatformDocumentWithViewerState(
+                        file = file,
+                        open = onOpenAttachment,
+                        allowPlatformFallbackForUnsupportedFormat = true,
+                    )
+                    if (documentOpenGeneration == openGeneration) {
+                        documentViewerState = result.completed
+                        documentOpenJob = null
+                    }
+                }
+            }
         }
     }
     fun handleAttachmentActionResult(result: PlatformResult<Unit>, successText: String, unsupportedText: String) {
@@ -359,6 +386,8 @@ private fun ChatCommonConversationHost(
         viewModel.setConversationVisible(true)
         onDispose {
             if (isRecordingAudio) scope.launch { audioRecorder.cancel() }
+            documentOpenJob?.cancel()
+            documentOpenGeneration += 1L
             audioLifecycle.dispose()
             viewModel.setConversationVisible(false)
             viewModel.cleanupEmptyConversationIfNeeded()
@@ -696,6 +725,21 @@ private fun ChatCommonConversationHost(
             mediaSlots.viewer(file, kind, mediaModifier)
         }
     }
+    QuataDocumentViewerStatusContent(
+        state = documentViewerState,
+        strings = quataDocumentViewerStatusStrings(chatDocumentViewerLanguage(languageTag)),
+        onDismiss = {
+            documentOpenJob?.cancel()
+            documentOpenJob = null
+            documentOpenGeneration += 1L
+            documentViewerState = null
+        },
+    )
+}
+
+private fun chatDocumentViewerLanguage(languageTag: String?): QuataLanguage {
+    val normalized = languageTag.orEmpty().substringBefore('-').substringBefore('_').lowercase()
+    return QuataLanguage.entries.firstOrNull { it.tag == normalized } ?: QuataLanguage.Spanish
 }
 
 

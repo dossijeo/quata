@@ -1,6 +1,7 @@
 package com.quata.core.di
 
 import android.content.Context
+import android.content.res.Configuration
 import com.quata.core.auth.GoogleAuthHelper
 import com.quata.core.auth.AndroidRegistrationChallengeService
 import com.quata.core.auth.RegistrationClientIdentityStore
@@ -19,6 +20,7 @@ import com.quata.core.notifications.PushTokenManager
 import com.quata.core.preferences.SessionPreferences
 import com.quata.core.preferences.ThemePreferences
 import com.quata.core.preferences.TouchFlowPreferences
+import com.quata.core.designsystem.theme.QuataThemeMode
 import com.quata.core.presence.UserPresenceRepository
 import com.quata.core.presence.UserPresenceRepositoryImpl
 import com.quata.core.session.SessionManager
@@ -91,7 +93,14 @@ class AppContainer(context: Context) {
     /** Android's internal reader handles PDF, RTF/text and Office attachments through the shared boundary. */
     val documentOpenService: DocumentOpenService = AndroidDocumentOpenService(
         context = appContext,
-        host = QuataDocumentReaderOpenHost(appContext),
+        host = QuataDocumentReaderOpenHost(appContext) {
+            when (themePreferences.themeMode()) {
+                QuataThemeMode.Dark -> true
+                QuataThemeMode.Light -> false
+                QuataThemeMode.System -> appContext.resources.configuration.uiMode and
+                    Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+            }
+        },
     )
     val platformServices: PlatformServices = AndroidPlatformServices(
         preferences = AndroidPreferenceStore(appContext),

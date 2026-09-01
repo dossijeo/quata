@@ -70,7 +70,7 @@ class IosChatHostDependencies(
     val onOpenMessageConversation: (String, String) -> Unit,
     val onBackToList: () -> Unit,
     /** Host slot for image/document/audio/map URIs selected from a shared bubble. */
-    val onOpenAttachment: (PlatformFile) -> Unit,
+    val onOpenAttachment: suspend (PlatformFile) -> PlatformResult<Unit>,
     /** Host slot reserved for a platform avatar/profile destination. */
     val onOpenAvatar: (String) -> Unit = {},
     /** Host slot for validated HTTP(S) links, including map/location destinations. */

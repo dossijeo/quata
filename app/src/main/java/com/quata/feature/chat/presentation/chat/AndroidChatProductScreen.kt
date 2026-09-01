@@ -28,8 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quata.R
-import com.quata.core.designsystem.theme.QuataResolvedTheme
-import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.localization.QuataLanguageManager
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
@@ -38,6 +36,7 @@ import com.quata.core.platform.ClipboardService
 import com.quata.core.platform.FilePickerRequest
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.FilePickerSource
+import com.quata.core.platform.DocumentOpenService
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.SharePayload
@@ -47,7 +46,6 @@ import com.quata.core.ui.components.AttachmentFullscreenMediaContent
 import com.quata.core.ui.components.AttachmentPreview
 import com.quata.core.ui.components.AttachmentThumbnail
 import com.quata.core.ui.components.AvatarImage
-import com.quata.core.ui.components.openAttachmentWithDocumentReaderOrChooser
 import com.quata.feature.chat.domain.ChatRepository
 import java.io.File
 import java.io.FileInputStream
@@ -66,6 +64,7 @@ fun AndroidChatProductScreen(
     clipboardService: ClipboardService,
     shareService: ShareService,
     filePickerService: FilePickerService,
+    documentOpenService: DocumentOpenService,
     cameraCaptureService: CameraCaptureService,
     audioRecorderService: AudioRecorderService,
     audioPlayerService: AudioPlayerService,
@@ -90,7 +89,6 @@ fun AndroidChatProductScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val languageTag = QuataLanguageManager.currentLanguage.tag
-    val template = quataTheme()
     val attachmentFallbackName = stringResource(R.string.common_file)
     val translationGateway = remember(context) {
         FangChatTranslationGateway(QuataCachedTranslator.get(context))
@@ -114,12 +112,7 @@ fun AndroidChatProductScreen(
             onOpenConversation = onOpenConversation,
             onOpenMessageConversation = onOpenMessageConversation,
             onBackToList = onBack,
-            onOpenAttachment = { file ->
-                context.openAttachmentWithDocumentReaderOrChooser(
-                    attachment = file.toAttachmentPreview(attachmentFallbackName),
-                    isDarkMode = template.resolvedTheme != QuataResolvedTheme.Light,
-                )
-            },
+            onOpenAttachment = { file -> documentOpenService.open(file) },
             onDownloadAttachment = { file -> context.saveChatAttachmentToDownloads(file, attachmentFallbackName) },
             onShareAttachment = { file ->
                 shareService.share(

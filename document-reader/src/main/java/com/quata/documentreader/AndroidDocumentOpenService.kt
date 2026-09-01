@@ -1,6 +1,8 @@
 package com.quata.documentreader
 
 import android.content.Context
+import android.content.Intent
+import android.widget.Toast
 import com.quata.core.platform.AndroidDocumentOpenHost
 import com.quata.core.platform.AndroidDocumentOpenRequest
 import com.quata.core.platform.PlatformResult
@@ -16,18 +18,38 @@ class QuataDocumentReaderOpenHost(
     private val isDarkModeProvider: () -> Boolean = { false },
 ) : AndroidDocumentOpenHost {
     private val applicationContext = context.applicationContext
-    private val bridge = QuataDocumentReaderOpenBridge { request ->
-        QuataDocumentReader.open(
-            context = applicationContext,
-            uri = request.uri,
-            fileName = request.displayName,
-            mimeType = request.mimeType,
-            isDarkMode = isDarkModeProvider(),
-        )
-    }
+    private val bridge = QuataDocumentReaderOpenBridge(
+        launchReader = { request ->
+            QuataDocumentReader.open(
+                context = applicationContext,
+                uri = request.uri,
+                fileName = request.displayName,
+                mimeType = request.mimeType,
+                isDarkMode = isDarkModeProvider(),
+            )
+        },
+        launchChooser = { request -> applicationContext.openWithSystemChooser(request) },
+    )
 
     override suspend fun open(request: AndroidDocumentOpenRequest): PlatformResult<Unit> {
         return bridge.open(request)
+    }
+
+    private fun Context.openWithSystemChooser(request: AndroidDocumentOpenRequest): Boolean {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(request.uri, request.mimeType ?: "*/*")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return runCatching {
+            startActivity(
+                Intent.createChooser(intent, request.displayName ?: "document")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            true
+        }.onFailure {
+            Toast.makeText(this, request.displayName ?: "document", Toast.LENGTH_SHORT).show()
+        }.getOrDefault(false)
     }
 }
 
@@ -37,11 +59,22 @@ class QuataDocumentReaderOpenHost(
  * Office MIME types. It merely maps the established renderer result into the shared contract.
  */
 internal class QuataDocumentReaderOpenBridge(
-    private val launch: (AndroidDocumentOpenRequest) -> Boolean,
+    private val launchReader: (AndroidDocumentOpenRequest) -> Boolean,
+    private val launchChooser: (AndroidDocumentOpenRequest) -> Boolean,
 ) {
-    fun open(request: AndroidDocumentOpenRequest): PlatformResult<Unit> = runCatching {
-        if (launch(request)) PlatformResult.Success(Unit) else PlatformResult.Unsupported
-    }.getOrElse { error ->
-        PlatformResult.Failure(error.message ?: "android_document_open_failed")
+    fun open(request: AndroidDocumentOpenRequest): PlatformResult<Unit> {
+        val readerOpened = runCatching { launchReader(request) }.getOrDefault(false)
+        if (readerOpened) {
+            return PlatformResult.Success(Unit)
+        }
+        return runCatching {
+            if (launchChooser(request)) {
+                PlatformResult.Success(Unit)
+            } else {
+                PlatformResult.Unsupported
+            }
+        }.getOrElse { error ->
+            PlatformResult.Failure(error.message ?: "android_document_open_failed")
+        }
     }
 }

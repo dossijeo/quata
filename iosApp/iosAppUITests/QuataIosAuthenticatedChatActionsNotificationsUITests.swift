@@ -361,6 +361,13 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             )
         }
         attachScreenshot(app, name: "ios-chat-attachment-document-visible")
+        app.descendants(matching: .any).matching(identifier: "chat.attachment.document.open").firstMatch.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(identifier: "document-viewer-status-root").firstMatch.waitForExistence(timeout: 15),
+            "Opening a Chat document attachment must surface the shared document viewer status chrome.",
+        )
+        attachScreenshot(app, name: "ios-chat-attachment-document-viewer-status")
+        app.descendants(matching: .any).matching(identifier: "document-viewer-status-close").firstMatch.tap()
 
         guard makeChatAnchorVisible(identifier: "chat.attachment.audio.player", context: "Chat audio attachment", in: app) else {
             return

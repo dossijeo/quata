@@ -7,10 +7,12 @@ import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.FilePickerService
 import com.quata.core.platform.CameraCaptureService
+import com.quata.core.platform.PlatformResult
 import com.quata.core.platform.PlatformFile
 import com.quata.core.platform.ShareService
 import com.quata.feature.chat.data.IosChatAttachmentUploader
 import com.quata.feature.chat.data.IosChatAttachmentDownloader
+import com.quata.feature.chat.data.IosChatAttachmentPreviewService
 import com.quata.feature.chat.data.IosChatAuthenticatedUserProvider
 import com.quata.feature.chat.data.ChatPostgrestResponse
 import com.quata.feature.chat.data.ChatPostgrestTransport
@@ -74,7 +76,7 @@ class IosChatRuntimeBootstrap(
         onOpenConversation: (String) -> Unit,
         onOpenMessageConversation: (String, String) -> Unit,
         onBackToList: () -> Unit,
-        onOpenAttachment: (PlatformFile) -> Unit,
+        attachmentPreviewService: IosChatAttachmentPreviewService?,
         onOpenExternalLink: (String) -> Unit,
         onOpenMapLink: (String) -> ChatMapOpenResult = { value ->
             onOpenExternalLink(value)
@@ -98,7 +100,9 @@ class IosChatRuntimeBootstrap(
         onOpenConversation = onOpenConversation,
         onOpenMessageConversation = onOpenMessageConversation,
         onBackToList = onBackToList,
-        onOpenAttachment = onOpenAttachment,
+        onOpenAttachment = { attachment ->
+            attachmentPreviewService?.openRemoteAttachment(attachment) ?: PlatformResult.Unsupported
+        },
         onOpenExternalLink = onOpenExternalLink,
         onOpenMapLink = onOpenMapLink,
         onOpenAvatar = onOpenAvatar,

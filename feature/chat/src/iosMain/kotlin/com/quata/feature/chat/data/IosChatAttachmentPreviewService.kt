@@ -31,6 +31,7 @@ class IosChatAttachmentPreviewService(
             is DocumentPreviewAdmission.Open)
 
     suspend fun openRemoteAttachment(attachment: PlatformFile): PlatformResult<Unit> {
+        if (!supportsQuickLook(attachment)) return PlatformResult.Unsupported
         val downloaded = downloader.download(
             publicUrl = attachment.reference,
             displayName = attachment.displayName,

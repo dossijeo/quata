@@ -1048,6 +1048,25 @@ class ChatActionsNotificationsInstrumentedTest {
                 .fetchSemanticsNode()
         }
         saveScreenshot("android-chat-attachment-document-visible")
+        compose.onNodeWithTag(ChatDocumentAttachmentOpenTestTag, useUnmergedTree = true)
+            .performClick()
+        compose.waitForIdle()
+        if (runCatching {
+                compose.onNodeWithTag("document-viewer-status-root", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isFailure) {
+            device.pressBack()
+            compose.waitForIdle()
+        }
+        compose.waitUntil(20_000) {
+            runCatching {
+                compose.onNodeWithTag("document-viewer-status-root", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        }
+        saveScreenshot("android-chat-attachment-document-viewer-status")
+        compose.onNodeWithTag("document-viewer-status-close", useUnmergedTree = true)
+            .performClick()
 
         waitForAudioAttachment(audioName, "audio attachment message")
         saveScreenshot("android-chat-audio-player-visible")

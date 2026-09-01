@@ -128,7 +128,7 @@ fun WebChatHost(
         onOpenConversation = onOpenConversation,
         onOpenMessageConversation = onOpenMessageConversation,
         onBackToList = onBackToList,
-        onOpenAttachment = { file -> scope.launch { file.openWebAttachment(documentOpener) } },
+        onOpenAttachment = { file -> file.openWebAttachment(documentOpener) },
         onDownloadAttachment = { file -> file.downloadWebAttachment() },
         onShareAttachment = { file -> file.shareWebAttachment(shareService) },
         onOpenExternalLink = ::openWebExternalLink,
@@ -262,14 +262,21 @@ internal fun observeChatBrowserDocumentVisibility(onChanged: (Boolean) -> Unit):
     """,
 )
 
-private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenService) {
+private suspend fun PlatformFile.openWebAttachment(documentOpener: DocumentOpenService): PlatformResult<Unit> =
     when (DocumentSupport.describe(reference, displayName, mimeType).kind) {
         DocumentPreviewKind.Pdf,
         DocumentPreviewKind.RichText,
         DocumentPreviewKind.Office -> documentOpener.open(this)
-        else -> reference.safeBrowserChatMediaUrl()?.let(::openWebExternalLink)
+        else -> reference.safeBrowserChatMediaUrl()
+            ?.let {
+                when (openWebExternalLinkResult(it)) {
+                    "opened" -> PlatformResult.Success(Unit)
+                    "unsupported" -> PlatformResult.Unsupported
+                    else -> PlatformResult.Failure("web_chat_attachment_popup_blocked")
+                }
+            }
+            ?: PlatformResult.Unsupported
     }
-}
 
 private suspend fun PlatformFile.downloadWebAttachment(): PlatformResult<Unit> {
     recordWebAttachmentActionEvent("download", "start", displayName)

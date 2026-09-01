@@ -2340,19 +2340,7 @@ final class IosAuthenticatedHostRouter: UIViewController, IosAuthenticatedRouteH
                 onBackToList: { [weak self] in
                     self?.openChatList()
                 },
-                onOpenAttachment: { [weak self] attachment in
-                    guard let attachmentPreviewService,
-                          attachmentPreviewService.supportsQuickLook(attachment: attachment) else {
-                        self?.presentRemoteAttachmentPreviewUnsupportedNotice()
-                        return
-                    }
-                    attachmentPreviewService.openRemoteAttachmentOrThrow(attachment: attachment) { error in
-                        guard error != nil else { return }
-                        DispatchQueue.main.async {
-                            self?.presentRemoteAttachmentDownloadFailureNotice()
-                        }
-                    }
-                },
+                attachmentPreviewService: attachmentPreviewService,
                 onOpenExternalLink: { value in
                     guard let url = URL(string: value),
                           ["https", "http"].contains(url.scheme?.lowercased() ?? "") else { return }
