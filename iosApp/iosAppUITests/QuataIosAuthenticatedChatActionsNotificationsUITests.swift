@@ -2124,7 +2124,9 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             let media = mediaElement()
             if media.waitForExistence(timeout: 1), isElementVisibleInChatViewport(media, in: app) {
                 attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-visible")
-                return openResolvedMedia(media, context: context, in: app, failOnMiss: true)
+                if openResolvedMedia(media, context: context, in: app, failOnMiss: false) {
+                    return true
+                }
             }
             scrollElementTowardViewport(media, in: app)
             RunLoop.current.run(until: Date().addingTimeInterval(0.35))
@@ -2199,9 +2201,22 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         in app: XCUIApplication,
         failOnMiss: Bool = false
     ) -> Bool {
-        tapVisibleFrameCenter(media, in: app)
+        guard tapVisibleFrameCenter(media, in: app) else {
+            attachScreenshot(app, name: "ios-\(slug(context))-media-open-stale-frame")
+            if failOnMiss {
+                XCTFail("The shared media attachment anchor became non-visible before opening \(context).")
+            }
+            return false
+        }
         if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
             return true
+        }
+        guard isElementVisibleInChatViewport(media, in: app) else {
+            attachScreenshot(app, name: "ios-\(slug(context))-media-open-rerendered-offscreen")
+            if failOnMiss {
+                XCTFail("The shared media attachment anchor became non-visible while opening \(context).")
+            }
+            return false
         }
         tapResolvedMediaFallback(media)
         if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
@@ -2223,19 +2238,23 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
     }
 
     private func tapResolvedMedia(_ media: XCUIElement) {
-        media.tap()
+        if media.isHittable {
+            media.tap()
+        }
     }
 
     private func tapResolvedMediaFallback(_ media: XCUIElement) {
+        guard !media.frame.isNull, !media.frame.isEmpty else { return }
         media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
-    private func tapVisibleFrameCenter(_ element: XCUIElement, in app: XCUIApplication) {
+    @discardableResult
+    private func tapVisibleFrameCenter(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
         let visibleFrame = element.frame.intersection(chatMessageViewport(in: app))
-        let frame = visibleFrame.isNull || visibleFrame.isEmpty ? element.frame : visibleFrame
-        guard !frame.isNull, !frame.isEmpty else { return }
+        guard !visibleFrame.isNull, !visibleFrame.isEmpty else { return false }
         let origin = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
-        origin.withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
+        origin.withOffset(CGVector(dx: visibleFrame.midX, dy: visibleFrame.midY)).tap()
+        return true
     }
 
     private func assertFullscreenMediaOpened(context: String, in app: XCUIApplication, reportFailure: Bool = true) -> Bool {

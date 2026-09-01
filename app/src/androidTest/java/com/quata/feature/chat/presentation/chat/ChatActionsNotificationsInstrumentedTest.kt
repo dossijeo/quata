@@ -1084,7 +1084,7 @@ class ChatActionsNotificationsInstrumentedTest {
         waitForAudioProgressToStart(audioName)
         compose.onNode(hasTestTag(ChatAudioAttachmentProgressTestTag) and hasAudioDescription(audioName), useUnmergedTree = true)
             .performTouchInput {
-                click(Offset(center.x * 1.9f, center.y))
+                click(Offset((size.width - 1f).coerceAtLeast(0f), center.y))
             }
         compose.waitForIdle()
         saveScreenshot("android-chat-audio-seek-attempted")

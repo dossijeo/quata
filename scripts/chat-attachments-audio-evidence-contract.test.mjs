@@ -145,7 +145,7 @@ test("media attachments own the primary tap instead of the whole message bubble"
 });
 
 test("iOS media attachment evidence replays resolved semantic media before relative fallback", () => {
-  assert.match(iosUiTest, /private func tapResolvedMedia\(_ media: XCUIElement\) \{\s*media\.tap\(\)\s*\}/);
+  assert.match(iosUiTest, /private func tapResolvedMedia\(_ media: XCUIElement\) \{\s*if media\.isHittable \{\s*media\.tap\(\)\s*\}\s*\}/);
   assert.match(iosUiTest, /private func tapResolvedMediaFallback\(_ media: XCUIElement\)/);
   assert.match(iosUiTest, /media\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
   assert.match(iosUiTest, /tapVisibleFrameCenter\(media, in: app\)/);
@@ -156,6 +156,8 @@ test("iOS media attachment evidence replays resolved semantic media before relat
   );
   assert.match(openResolvedMedia, /tapResolvedMedia\(media\)/);
   assert.match(openResolvedMedia, /tapResolvedMediaFallback\(media\)/);
+  assert.match(openResolvedMedia, /guard tapVisibleFrameCenter\(media, in: app\) else/);
+  assert.match(openResolvedMedia, /guard isElementVisibleInChatViewport\(media, in: app\) else/);
   assert.doesNotMatch(openResolvedMedia, /app\.coordinate\(withNormalizedOffset:/);
   const openChatMediaAttachment = iosUiTest.slice(
     iosUiTest.indexOf("private func openChatMediaAttachment"),
@@ -206,6 +208,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /val boundedProgress = progress\.coerceIn\(0f, 1f\)/);
   assert.match(commonAudioPlayer, /val progressPercent = \(boundedProgress \* 100f\)\.toInt\(\)\.coerceIn\(0, 100\)/);
   assert.match(commonAudioPlayer, /contentDescription = "\$ChatAudioAttachmentProgressTestTag \$displayText \$progressPercent%"/);
+  assert.match(androidUiTest, /\(size\.width - 1f\)\.coerceAtLeast\(0f\)/);
+  assert.doesNotMatch(androidUiTest, /center\.x \* 1\.9f/);
   assert.doesNotMatch(iosAudioPlayerHost, /private var playbackRequested/);
   assert.match(iosAudioPlayerHost, /private var playbackClockStartTimeSeconds: Double\? = null/);
   assert.match(iosAudioPlayerHost, /private var playbackClockStartPositionMillis = 0L/);
@@ -735,7 +739,7 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /web-chat-audio-next-player-visible/);
   assert.match(webRunner, /nextAudioMessageId/);
   assert.match(androidUiTest, /android-chat-audio-recording-ready/);
-  assert.match(androidUiTest, /click\(Offset\(center\.x \* 1\.9f, center\.y\)\)/);
+  assert.match(androidUiTest, /click\(Offset\(\(size\.width - 1f\)\.coerceAtLeast\(0f\), center\.y\)\)/);
   assert.match(androidUiTest, /dismissComposerImeIfFocused\(\)/);
   assert.match(iosUiTest, /CGVector\(dx: 0\.95, dy: 0\.5\)/);
   assert.match(iosUiTest, /waitForPendingAttachmentToSend\(marker: marker, in: app, context: "audio recording"\)/);
