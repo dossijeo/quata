@@ -478,7 +478,7 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
                     if (sessionId != nextSessionId) return
                     eventSink.tryEmit(
                         AudioPlaybackEvent.StateChanged(
-                            currentState(if (isPlaying) AudioPlaybackPhase.Playing else AudioPlaybackPhase.Paused),
+                            if (isPlaying) currentState(AudioPlaybackPhase.Playing) else currentState(),
                         ),
                     )
                 }

@@ -176,7 +176,9 @@ private fun PlatformFile.wavDurationMillis(url: NSURL): Long? {
         return null
     }
     val data = NSData.dataWithContentsOfURL(url) ?: return null
-    val bytes = data.bytes?.readBytes(data.length.toInt()) ?: return null
+    val byteCount = data.length.toLong()
+    if (byteCount <= 0L || byteCount > WAV_METADATA_FALLBACK_MAX_BYTES) return null
+    val bytes = data.bytes?.readBytes(byteCount.toInt()) ?: return null
     if (bytes.size < 12 || bytes.ascii(0, 4) != "RIFF" || bytes.ascii(8, 4) != "WAVE") return null
     var offset = 12
     var byteRate: Long? = null
@@ -185,20 +187,22 @@ private fun PlatformFile.wavDurationMillis(url: NSURL): Long? {
         val chunkId = bytes.ascii(offset, 4)
         val chunkSize = bytes.uint32Le(offset + 4)
         val chunkDataOffset = offset + 8
-        if (chunkSize > Int.MAX_VALUE) return null
+        val chunkEnd = chunkDataOffset.toLong() + chunkSize
+        if (chunkEnd > bytes.size.toLong()) return null
         val chunkSizeInt = chunkSize.toInt()
-        if (chunkDataOffset + chunkSizeInt > bytes.size) return null
         when (chunkId) {
             "fmt " -> if (chunkSizeInt >= 16) byteRate = bytes.uint32Le(chunkDataOffset + 8).takeIf { it > 0L }
             "data" -> dataSize = chunkSize.takeIf { it > 0L }
         }
         if (byteRate != null && dataSize != null) break
-        offset = chunkDataOffset + chunkSizeInt + (chunkSizeInt and 1)
+        offset = (chunkEnd + (chunkSize and 1L)).toInt()
     }
     val rate = byteRate ?: return null
     val size = dataSize ?: return null
     return ((size * 1_000L) / rate).takeIf { it > 0L }
 }
+
+private const val WAV_METADATA_FALLBACK_MAX_BYTES = 2L * 1024L * 1024L
 
 private fun ByteArray.ascii(offset: Int, length: Int): String =
     decodeToString(offset, offset + length)

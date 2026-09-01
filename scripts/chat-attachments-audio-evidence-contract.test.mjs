@@ -243,6 +243,8 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /phase = overridePhase \?: if \(it\.playing\) AudioPlaybackPhase\.Playing else AudioPlaybackPhase\.Ready/);
   assert.match(iosAudioPlayerHost, /fallbackDurationMillis = file\.wavDurationMillis\(url\) \?: 0L/);
   assert.match(iosAudioPlayerHost, /private fun PlatformFile\.wavDurationMillis\(url: NSURL\): Long\?/);
+  assert.match(iosAudioPlayerHost, /WAV_METADATA_FALLBACK_MAX_BYTES/);
+  assert.match(iosAudioPlayerHost, /val chunkEnd = chunkDataOffset\.toLong\(\) \+ chunkSize/);
   assert.match(iosAudioPlayerHost, /NSData\.dataWithContentsOfURL\(url\)/);
   assert.match(iosAudioPlayerHost, /while \(offset \+ 8 <= bytes\.size\)/);
   assert.match(iosAudioPlayerHost, /"fmt " -> if \(chunkSizeInt >= 16\) byteRate = bytes\.uint32Le\(chunkDataOffset \+ 8\)/);
@@ -254,6 +256,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(androidPlatformServices, /active\.seekTo\(target\)/);
   assert.match(androidPlatformServices, /AudioPlaybackEvent\.Ended/);
   assert.match(androidPlatformServices, /Player\.STATE_ENDED/);
+  assert.match(androidPlatformServices, /if \(isPlaying\) currentState\(AudioPlaybackPhase\.Playing\) else currentState\(\)/);
   assert.match(androidPlatformServices, /sessionId = sessionId/);
   assert.match(androidPlatformServices, /positionMillis = target/);
 });
@@ -390,13 +393,19 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonAudioController, /AudioPlaybackEvent\.Ended/);
   assert.match(commonAudioController, /AudioPlaybackEvent\.Failed/);
   assert.match(commonAudioController, /private var generation = 0L/);
+  assert.match(commonAudioController, /requestNewPlaybackGeneration\(\)/);
   assert.match(commonAudioController, /event\.state\.sessionId != 0L && event\.state\.sessionId != current\.playback\.sessionId/);
+  assert.match(commonAudioController, /isTerminalPlaybackFailure\(\)/);
+  assert.match(commonAudioController, /withContext\(NonCancellable\) \{ audioPlayer\.stop\(\) \}/);
+  assert.match(commonAudioController, /current\.playback\.phase == AudioPlaybackPhase\.Failed \|\| !current\.playback\.isLoaded -> startNewPlayback/);
   assert.match(commonAudioController, /nextConsecutiveAudioMessage\(messages\(\), key\)/);
   assert.match(commonAudioController, /audioPlayer\.seekTo/);
   assert.doesNotMatch(commonAudioPolicy, /currentIndex - 1/);
   assert.doesNotMatch(commonAudioPolicy, /isNearEnd/);
   assert.doesNotMatch(commonAudioPolicy, /didAudioPlaybackFinish/);
   assert.match(commonAudioPolicy, /messages\.sortedWith/);
+  assert.match(commonAudioPolicy, /Instant\.parse\(sentAt\)\.toEpochMilliseconds\(\)/);
+  assert.match(commonAudioPolicy, /if \(current\.isDeleted\) return null/);
   assert.match(commonAudioPolicy, /ordered\.getOrNull\(currentIndex \+ 1\)/);
   assert.match(androidDocumentReaderHost, /runCatching \{ launchReader\(request\) \}\.getOrDefault\(false\)/);
   assert.match(androidDocumentReaderHost, /return runCatching \{[\s\S]*launchChooser\(request\)/);
@@ -405,6 +414,8 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(webHost, /when \(openWebExternalLinkResult\(it\)\)/);
   assert.doesNotMatch(webHost, /openWebExternalLink\(it\)\s*PlatformResult\.Success/);
   assert.match(iosAttachmentPreviewService, /if \(!supportsQuickLook\(attachment\)\) return PlatformResult\.Unsupported/);
+  assert.match(iosAttachmentPreviewService, /var adoptedByDismissAwareViewer = false/);
+  assert.match(iosAttachmentPreviewService, /finally \{\s*if \(!adoptedByDismissAwareViewer\) lease\.release\(\)\s*\}/);
 });
 
 test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evidence exists", () => {
