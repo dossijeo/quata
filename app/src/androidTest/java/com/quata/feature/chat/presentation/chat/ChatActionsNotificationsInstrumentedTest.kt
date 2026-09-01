@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.SystemClock
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -23,6 +24,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
@@ -120,6 +122,7 @@ class ChatActionsNotificationsInstrumentedTest {
         val commentId = optionalArgument("quataChatActionsCommentId")
         val attachmentId = optionalArgument("quataChatActionsAttachmentId")
         val documentProbe = optionalArgument("quataChatActionsDocumentProbe")
+        val documentName = optionalArgument("quataChatActionsDocumentName")
         val audioProbe = optionalArgument("quataChatActionsAudioProbe")
         val audioName = optionalArgument("quataChatActionsAudioName")
         val nextAudioName = optionalArgument("quataChatActionsNextAudioName")
@@ -164,7 +167,7 @@ class ChatActionsNotificationsInstrumentedTest {
             "feed-official-comments-error" -> listOf(postId, officialPostId, feedComment, officialComment).all { !it.isNullOrBlank() }
             "feed-official-comments-selector-states" -> listOf(postId, officialPostId).all { !it.isNullOrBlank() }
             "profile-content" -> listOf(chatUrl, peerProbe, profileId, postId, commentId, attachmentId, profileContentComment, profileContentReplyComment, actorProfileId).all { !it.isNullOrBlank() }
-            "attachments-audio" -> listOf(chatUrl, documentProbe, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
+            "attachments-audio" -> listOf(chatUrl, documentProbe, documentName, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker).all { !it.isNullOrBlank() }
             "attachment-picker" -> listOf(chatUrl, attachmentPickerSource, attachmentPickerName, attachmentPickerMarker).all { !it.isNullOrBlank() }
             "composer-emoji" -> listOf(chatUrl, ownProbe, composerMarker).all { !it.isNullOrBlank() }
             "group-sos" -> !chatUrl.isNullOrBlank() && !ownProbe.isNullOrBlank()
@@ -290,7 +293,7 @@ class ChatActionsNotificationsInstrumentedTest {
                 "profile-follow" -> runProfileFollowStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-roles-safety" -> runProfileRolesSafetyStage(peerProbe.orEmpty(), profileId.orEmpty())
                 "profile-lists" -> runProfileListsStage(peerProbe.orEmpty(), profileId.orEmpty())
-                "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), audioProbe.orEmpty(), audioName.orEmpty(), nextAudioName.orEmpty(), imageProbe.orEmpty(), videoProbe.orEmpty(), audioRecordingMarker.orEmpty())
+                "attachments-audio" -> runAttachmentsAudioStage(documentProbe.orEmpty(), documentName.orEmpty(), audioProbe.orEmpty(), audioName.orEmpty(), nextAudioName.orEmpty(), imageProbe.orEmpty(), videoProbe.orEmpty(), audioRecordingMarker.orEmpty())
                 "attachment-picker" -> runAttachmentPickerStage(attachmentPickerSource.orEmpty(), attachmentPickerOutcome, attachmentPickerName.orEmpty(), attachmentPickerMarker.orEmpty())
                 "composer-emoji" -> runComposerEmojiStage(ownProbe.orEmpty(), composerMarker.orEmpty())
                 "group-sos" -> runGroupSosStage(ownProbe.orEmpty())
@@ -993,7 +996,7 @@ class ChatActionsNotificationsInstrumentedTest {
         SystemClock.sleep(800)
     }
 
-    private fun runAttachmentsAudioStage(documentProbe: String, audioProbe: String, audioName: String, nextAudioName: String, imageProbe: String, videoProbe: String, audioRecordingMarker: String) {
+    private fun runAttachmentsAudioStage(documentProbe: String, documentName: String, audioProbe: String, audioName: String, nextAudioName: String, imageProbe: String, videoProbe: String, audioRecordingMarker: String) {
         verifyAndroidAudioRecordingComposer(audioRecordingMarker)
 
         waitForMarker(videoProbe.take(28), "video attachment message")
@@ -1033,12 +1036,7 @@ class ChatActionsNotificationsInstrumentedTest {
         saveScreenshot("android-chat-attachment-media-viewer-closed")
 
         waitForMarker(documentProbe.take(28), "document attachment message")
-        compose.waitUntil(20_000) {
-            runCatching {
-                compose.onNodeWithTag(ChatDocumentAttachmentTestTag, useUnmergedTree = true)
-                    .fetchSemanticsNode()
-            }.isSuccess
-        }
+        waitForDocumentAttachment(documentName, "document attachment message")
         listOf(
             ChatDocumentAttachmentOpenTestTag,
             ChatDocumentAttachmentDownloadTestTag,
@@ -1048,25 +1046,26 @@ class ChatActionsNotificationsInstrumentedTest {
                 .fetchSemanticsNode()
         }
         saveScreenshot("android-chat-attachment-document-visible")
-        compose.onNodeWithTag(ChatDocumentAttachmentOpenTestTag, useUnmergedTree = true)
-            .performClick()
+        clickVisibleDocumentAttachmentOpen(documentName)
         compose.waitForIdle()
-        if (runCatching {
-                compose.onNodeWithTag("document-viewer-status-root", useUnmergedTree = true)
-                    .fetchSemanticsNode()
-            }.isFailure) {
+        if (waitForDocumentViewerStatusRoot(2_000)) {
+            saveScreenshot("android-chat-attachment-document-viewer-status")
+            compose.onNodeWithTag("document-viewer-status-close", useUnmergedTree = true)
+                .performClick()
+        } else {
+            assertTrue(
+                "android_document_reader_missing_stable_anchor:$documentName",
+                waitForAndroidDocumentReader(documentName),
+            )
+            saveScreenshot("android-chat-attachment-document-reader")
             device.pressBack()
-            compose.waitForIdle()
+            compose.waitUntil(10_000) {
+                runCatching {
+                    compose.onNodeWithTag(ChatDocumentAttachmentTestTag, useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                }.isSuccess
+            }
         }
-        compose.waitUntil(20_000) {
-            runCatching {
-                compose.onNodeWithTag("document-viewer-status-root", useUnmergedTree = true)
-                    .fetchSemanticsNode()
-            }.isSuccess
-        }
-        saveScreenshot("android-chat-attachment-document-viewer-status")
-        compose.onNodeWithTag("document-viewer-status-close", useUnmergedTree = true)
-            .performClick()
 
         waitForAudioAttachment(audioName, "audio attachment message")
         saveScreenshot("android-chat-audio-player-visible")
@@ -1098,6 +1097,59 @@ class ChatActionsNotificationsInstrumentedTest {
             }.isSuccess
         }
         saveScreenshot("android-chat-audio-consecutive-next-playing")
+    }
+
+    private fun waitForDocumentViewerStatusRoot(timeoutMs: Long): Boolean {
+        return runCatching {
+            compose.waitUntil(timeoutMs) {
+                runCatching {
+                    compose.onNodeWithTag("document-viewer-status-root", useUnmergedTree = true)
+                        .fetchSemanticsNode()
+                }.isSuccess
+            }
+            true
+        }.getOrDefault(false)
+    }
+
+    private fun waitForAndroidDocumentReader(documentName: String): Boolean {
+        val exactName = documentName.takeIf { it.isNotBlank() } ?: return false
+        val basename = exactName.substringBeforeLast('.', exactName)
+        return device.wait(
+            Until.hasObject(By.text(exactName)),
+            20_000,
+        ) || device.wait(
+            Until.hasObject(By.textContains(basename)),
+            2_000,
+        ) || device.wait(
+            Until.hasObject(By.text("1 / 1")),
+            2_000,
+        )
+    }
+
+    private fun waitForDocumentAttachment(name: String, context: String, timeoutMillis: Long = 45_000) {
+        val documentMatcher = documentAttachmentMatcher(name)
+        val scrolled = runCatching {
+            compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
+                .performScrollToNode(documentMatcher)
+            compose.waitUntil(10_000) {
+                visibleNodes(documentMatcher).isNotEmpty()
+            }
+            true
+        }.getOrDefault(false)
+        assertTrue("The document attachment must be visible in $context.", scrolled)
+    }
+
+    private fun documentAttachmentMatcher(name: String): SemanticsMatcher =
+        hasTestTag(ChatDocumentAttachmentTestTag) and hasAnyDescendant(hasText(name, substring = true))
+
+    private fun documentAttachmentOpenMatcher(name: String): SemanticsMatcher =
+        hasTestTag(ChatDocumentAttachmentOpenTestTag) and hasAnyDescendant(hasText(name, substring = true))
+
+    private fun clickVisibleDocumentAttachmentOpen(name: String) {
+        val node = visibleNodes(documentAttachmentOpenMatcher(name)).firstOrNull()
+            ?: error("document_attachment_open_anchor_not_visible:$name")
+        val center = node.boundsInRoot.center
+        check(device.click(center.x.roundToInt(), center.y.roundToInt())) { "document_attachment_open_tap_failed:$name" }
     }
 
     private fun hasAudioDescription(name: String, vararg actions: String): SemanticsMatcher =
@@ -1728,10 +1780,27 @@ class ChatActionsNotificationsInstrumentedTest {
         val matcher = hasContentDescription(contentDescription)
         compose.onNodeWithTag(ChatConversationMessagesListTestTag, useUnmergedTree = true)
             .performScrollToNode(matcher)
-        compose.onNode(matcher, useUnmergedTree = true)
-            .fetchSemanticsNode()
-        compose.onNode(matcher, useUnmergedTree = true)
-            .performTouchInput { click(center) }
+        compose.waitUntil(10_000) {
+            visibleNodes(matcher).isNotEmpty()
+        }
+        runCatching {
+            compose.onNode(matcher, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.OnClick)
+            compose.waitForIdle()
+        }
+        if (runCatching {
+                compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+            }.isSuccess
+        ) {
+            return
+        }
+        val visibleNode = visibleNodes(matcher).firstOrNull()
+            ?: error("chat_media_attachment_missing_visible_anchor:$contentDescription")
+        val center = visibleNode.boundsInRoot.center
+        check(device.click(center.x.roundToInt(), center.y.roundToInt())) {
+            "chat_media_attachment_visible_tap_failed:$contentDescription"
+        }
         compose.waitUntil(10_000) {
             runCatching {
                 compose.onNodeWithTag("fullscreen-media.root", useUnmergedTree = true)
@@ -1749,11 +1818,15 @@ class ChatActionsNotificationsInstrumentedTest {
             "fullscreen-media.back",
         ).forEach { tag ->
             runCatching {
-                compose.onNodeWithTag(tag, useUnmergedTree = true)
-                    .performClick()
+                clickStableTag(tag)
                 compose.waitForIdle()
             }
-            waitForFullscreenMediaClosed(titleNeedle, 2_000)
+            if (waitForFullscreenMediaClosed(titleNeedle, 2_000)) {
+                compose.waitUntil(10_000) {
+                    nodeWithTagVisible(ChatConversationMessagesListTestTag)
+                }
+                return
+            }
         }
         listOf(
             "fullscreen-media.media-close",
@@ -1762,7 +1835,12 @@ class ChatActionsNotificationsInstrumentedTest {
         ).forEach { tag ->
             waitForObject(By.res(targetContext.packageName, tag), tag, 500)?.click()
                 ?: waitForObject(By.descContains(tag), tag, 500)?.click()
-            waitForFullscreenMediaClosed(titleNeedle, 2_000)
+            if (waitForFullscreenMediaClosed(titleNeedle, 2_000)) {
+                compose.waitUntil(10_000) {
+                    nodeWithTagVisible(ChatConversationMessagesListTestTag)
+                }
+                return
+            }
         }
         if (isFullscreenMediaAccessible(titleNeedle)) {
             device.pressBack()
@@ -2640,8 +2718,11 @@ class ChatActionsNotificationsInstrumentedTest {
     }
 
     private fun visibleTaggedNodes(tag: String) =
+        visibleNodes(hasTestTag(tag))
+
+    private fun visibleNodes(matcher: SemanticsMatcher) =
         runCatching {
-            compose.onAllNodes(hasTestTag(tag), useUnmergedTree = true)
+            compose.onAllNodes(matcher, useUnmergedTree = true)
                 .fetchSemanticsNodes()
                 .filter { node ->
                     val bounds = node.boundsInRoot

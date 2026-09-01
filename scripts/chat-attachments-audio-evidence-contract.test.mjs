@@ -270,7 +270,10 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
   assert.doesNotMatch(androidNativeChatScreen, /val nextIndex = currentIndex \+ 1/);
   assert.match(androidUiTest, /closeFullscreenMediaViewer\("\.mp4"\)/);
   assert.match(androidUiTest, /closeFullscreenMediaViewer\("\.png"\)/);
+  assert.match(androidUiTest, /chat_media_attachment_missing_visible_anchor/);
+  assert.match(androidUiTest, /chat_media_attachment_visible_tap_failed/);
   assert.doesNotMatch(androidUiTest, /private fun closeFullscreenMediaViewer\(titleNeedle: String\) \{\s*device\.pressBack\(\)/);
+  assert.match(androidUiTest, /clickStableTag\(tag\)/);
   assert.match(androidUiTest, /waitForFullscreenMediaClosed\(titleNeedle, 10_000\)/);
   assert.doesNotMatch(androidUiTest, /if \(waitForFullscreenMediaClosed\(titleNeedle, 2_000\)\) \{\s*return\s*\}/);
   assert.match(androidUiTest, /ensureFullscreenMediaVisuallyDismissed\(titleNeedle\)/);
@@ -378,10 +381,11 @@ test("inventory keeps CHAT-ATTACHMENTS and CHAT-AUDIO open until full scope evid
 
 test("Android and iOS runners expose an opt-in attachments/audio evidence stage", () => {
   assert.match(androidUiTest, /val videoProbe = optionalArgument\("quataChatActionsVideoProbe"\)/);
+  assert.match(androidUiTest, /val documentName = optionalArgument\("quataChatActionsDocumentName"\)/);
   assert.match(androidUiTest, /val audioName = optionalArgument\("quataChatActionsAudioName"\)/);
   assert.match(androidUiTest, /val nextAudioName = optionalArgument\("quataChatActionsNextAudioName"\)/);
-  assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker\)/);
-  assert.match(androidUiTest, /"attachments-audio" -> runAttachmentsAudioStage\(documentProbe\.orEmpty\(\), audioProbe\.orEmpty\(\), audioName\.orEmpty\(\), nextAudioName\.orEmpty\(\), imageProbe\.orEmpty\(\), videoProbe\.orEmpty\(\), audioRecordingMarker\.orEmpty\(\)\)/);
+  assert.match(androidUiTest, /"attachments-audio" -> listOf\(chatUrl, documentProbe, documentName, audioProbe, audioName, nextAudioName, imageProbe, videoProbe, audioRecordingMarker\)/);
+  assert.match(androidUiTest, /"attachments-audio" -> runAttachmentsAudioStage\(documentProbe\.orEmpty\(\), documentName\.orEmpty\(\), audioProbe\.orEmpty\(\), audioName\.orEmpty\(\), nextAudioName\.orEmpty\(\), imageProbe\.orEmpty\(\), videoProbe\.orEmpty\(\), audioRecordingMarker\.orEmpty\(\)\)/);
   assert.match(androidUiTest, /ChatVideoAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatImageAttachmentContentDescription/);
   assert.match(androidUiTest, /ChatDocumentAttachmentTestTag/);
@@ -396,7 +400,14 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /ChatDocumentAttachmentOpenTestTag/);
   assert.match(androidUiTest, /ChatDocumentAttachmentDownloadTestTag/);
   assert.match(androidUiTest, /ChatDocumentAttachmentShareTestTag/);
+  assert.match(androidUiTest, /waitForDocumentAttachment\(documentName, "document attachment message"\)/);
+  assert.match(androidUiTest, /private fun documentAttachmentOpenMatcher\(name: String\): SemanticsMatcher/);
+  assert.match(androidUiTest, /clickVisibleDocumentAttachmentOpen\(documentName\)/);
+  assert.match(androidUiTest, /private fun visibleNodes\(matcher: SemanticsMatcher\)/);
   assert.match(androidUiTest, /document-viewer-status-root/);
+  assert.match(androidUiTest, /waitForAndroidDocumentReader\(documentName\)/);
+  assert.match(androidUiTest, /android_document_reader_missing_stable_anchor/);
+  assert.match(androidRunner, /"quataChatActionsDocumentName", state\.attachmentsAudio\?\.document\?\.name/);
   assert.match(androidUiTest, /android-chat-audio-consecutive-next-playing/);
   assert.match(androidUiTest, /compose\.waitUntil\(15_000\)/);
   assert.match(androidUiTest, /hasAudioDescription\(audioName, "Pausar", "Pause"\)/);
@@ -434,6 +445,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidUiTest, /android-chat-attachment-media-viewer/);
   assert.match(androidUiTest, /android-chat-attachment-document-visible/);
   assert.match(androidUiTest, /android-chat-attachment-document-viewer-status/);
+  assert.match(androidUiTest, /android-chat-attachment-document-reader/);
   assert.match(androidRunner, /android-chat-audio-recording-active\.png/);
   assert.match(androidRunner, /android-chat-audio-recording-pending-attachment\.png/);
   assert.match(androidRunner, /android-chat-audio-recording-ready-to-send\.png/);

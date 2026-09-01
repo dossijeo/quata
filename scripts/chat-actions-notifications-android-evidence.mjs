@@ -1709,6 +1709,7 @@ try {
       "-e", "quataChatActionsOfficialCommentId", state.feedOfficialComments?.official?.seedCommentId ?? "",
       "-e", "quataChatActionsOfficialReplyComment", state.feedOfficialComments?.official?.uiReplyComment ?? "",
       "-e", "quataChatActionsDocumentProbe", state.attachmentsAudio?.document?.markerProbe ?? "",
+      "-e", "quataChatActionsDocumentName", state.attachmentsAudio?.document?.name ?? "",
       "-e", "quataChatActionsAudioProbe", state.attachmentsAudio?.audio?.markerProbe ?? "",
       "-e", "quataChatActionsAudioName", state.attachmentsAudio?.audio?.name ?? "",
       "-e", "quataChatActionsNextAudioName", state.attachmentsAudio?.nextAudio?.name ?? "",
