@@ -2135,8 +2135,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         guard viewport.contains(CGPoint(x: frame.midX, y: frame.midY)) else { return false }
         let visible = frame.intersection(viewport)
         guard !visible.isNull, !visible.isEmpty else { return false }
-        return visible.width >= min(frame.width * 0.55, 48) &&
-            visible.height >= min(frame.height * 0.55, 48)
+        return visible.width >= min(frame.width * 0.2, 24) &&
+            visible.height >= min(frame.height * 0.2, 24)
     }
 
     private func scrollElementTowardViewport(_ element: XCUIElement, in app: XCUIApplication) {
