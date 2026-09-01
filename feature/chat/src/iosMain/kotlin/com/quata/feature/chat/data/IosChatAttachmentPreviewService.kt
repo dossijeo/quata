@@ -43,25 +43,27 @@ class IosChatAttachmentPreviewService(
             PlatformResult.Unsupported -> return PlatformResult.Failure("ios_chat_attachment_download_unsupported")
         }
         val lease = TemporaryPreviewLease { downloader.discard(localFile) }
-        val opened = if (documentOpener is IosDismissAwareDocumentOpenService) {
-            documentOpener.open(localFile, lease::release)
-        } else {
-            documentOpener.open(localFile)
-        }
-        return when (opened) {
-            is PlatformResult.Success -> opened
-            is PlatformResult.Failure -> {
-                lease.release()
-                PlatformResult.Failure(opened.reason ?: "ios_chat_attachment_preview_failed")
+        var adoptedByDismissAwareViewer = false
+        try {
+            val opened = if (documentOpener is IosDismissAwareDocumentOpenService) {
+                documentOpener.open(localFile, lease::release)
+            } else {
+                documentOpener.open(localFile)
             }
-            PlatformResult.Cancelled -> {
-                lease.release()
-                PlatformResult.Failure("ios_chat_attachment_preview_cancelled")
+            return when (opened) {
+                is PlatformResult.Success -> {
+                    adoptedByDismissAwareViewer = documentOpener is IosDismissAwareDocumentOpenService
+                    opened
+                }
+                is PlatformResult.Failure ->
+                    PlatformResult.Failure(opened.reason ?: "ios_chat_attachment_preview_failed")
+                PlatformResult.Cancelled ->
+                    PlatformResult.Failure("ios_chat_attachment_preview_cancelled")
+                PlatformResult.Unsupported ->
+                    PlatformResult.Failure("ios_chat_attachment_preview_unsupported")
             }
-            PlatformResult.Unsupported -> {
-                lease.release()
-                PlatformResult.Failure("ios_chat_attachment_preview_unsupported")
-            }
+        } finally {
+            if (!adoptedByDismissAwareViewer) lease.release()
         }
     }
 

@@ -63,11 +63,16 @@ internal class ChatAudioPlaybackController(
         val messageKey = message.composeKey()
         val current = _state.value
         if (current.activeReference == reference && current.operationInFlight) return
-        launchSerial(cancelActive = current.activeReference != reference) {
+        val replaceActive = current.activeReference != reference
+        if (replaceActive) {
+            requestNewPlaybackGeneration()
+        }
+        launchSerial(cancelActive = replaceActive) {
             val current = _state.value
             when {
                 current.activeReference != reference -> startNewPlayback(reference, messageKey, file)
                 current.playback.phase == AudioPlaybackPhase.Playing || current.playback.isPlaying -> pauseActive()
+                current.playback.phase == AudioPlaybackPhase.Failed || !current.playback.isLoaded -> startNewPlayback(reference, messageKey, file)
                 else -> resumeActive()
             }
         }
@@ -115,8 +120,14 @@ internal class ChatAudioPlaybackController(
         }
     }
 
-    private suspend fun startNewPlayback(reference: String, messageKey: String, file: PlatformFile) {
+    private fun requestNewPlaybackGeneration() {
         generation += 1L
+    }
+
+    private suspend fun startNewPlayback(reference: String, messageKey: String, file: PlatformFile) {
+        if (_state.value.activeReference == reference) {
+            generation += 1L
+        }
         val requestGeneration = generation
         _state.value = ChatAudioPlaybackUiState(
             activeReference = reference,
@@ -191,8 +202,13 @@ internal class ChatAudioPlaybackController(
             val current = _state.value
             if (current.activeReference == null || event.state.sessionId != 0L && event.state.sessionId != current.playback.sessionId) return
             when (event) {
-                is AudioPlaybackEvent.StateChanged -> _state.value = current.copy(playback = event.state, failed = false)
-                is AudioPlaybackEvent.Failed -> _state.value = current.copy(playback = event.state.copy(isPlaying = false, phase = AudioPlaybackPhase.Failed), failed = true, operationInFlight = false)
+                is AudioPlaybackEvent.StateChanged -> if (!current.isTerminalPlaybackFailure()) {
+                    _state.value = current.copy(playback = event.state, failed = false)
+                }
+                is AudioPlaybackEvent.Failed -> {
+                    _state.value = current.copy(playback = event.state.copy(isPlaying = false, phase = AudioPlaybackPhase.Failed), failed = true, operationInFlight = false)
+                    withContext(NonCancellable) { audioPlayer.stop() }
+                }
                 is AudioPlaybackEvent.Ended -> handleEnded(event.state)
             }
         }
@@ -237,7 +253,7 @@ internal class ChatAudioPlaybackController(
         )
     }
 
-    private fun failIfCurrent(requestGeneration: Long, reason: String?) {
+    private suspend fun failIfCurrent(requestGeneration: Long, reason: String?) {
         if (generation != requestGeneration) return
         val current = _state.value
         _state.value = current.copy(
@@ -245,9 +261,13 @@ internal class ChatAudioPlaybackController(
             failed = true,
             operationInFlight = false,
         )
+        withContext(NonCancellable) { audioPlayer.stop() }
     }
 
     private fun updateOperation(inFlight: Boolean) {
         _state.value = _state.value.copy(operationInFlight = inFlight)
     }
+
+    private fun ChatAudioPlaybackUiState.isTerminalPlaybackFailure(): Boolean =
+        failed || playback.phase == AudioPlaybackPhase.Failed
 }

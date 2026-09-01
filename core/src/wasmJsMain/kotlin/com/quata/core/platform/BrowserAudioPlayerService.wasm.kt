@@ -33,10 +33,14 @@ class BrowserAudioPlayerService : AudioPlayerService {
         stop()
         val id = "quata-audio-${++nextId}"
         val nextSessionId = ++sessionId
-        return browserAudioResult(nextSessionId) { onResult ->
+        audioId = id
+        val result = browserAudioResult(nextSessionId) { onResult ->
             browserAudioLoad(id, nextSessionId, file.reference, onResult, ::emitBrowserAudioEvent)
         }
-            .also { result -> if (result is PlatformResult.Success) audioId = id }
+        if (result !is PlatformResult.Success && audioId == id) {
+            audioId = null
+        }
+        return result
     }
 
     override suspend fun play(): PlatformResult<AudioPlaybackState> = withAudioId { id, onResult ->

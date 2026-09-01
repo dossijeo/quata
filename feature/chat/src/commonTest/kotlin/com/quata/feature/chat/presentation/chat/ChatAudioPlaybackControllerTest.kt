@@ -46,6 +46,7 @@ class ChatAudioPlaybackControllerTest {
         assertEquals(AudioPlaybackPhase.Failed, controller.state.value.playback.phase)
         assertFalse(controller.state.value.playback.isPlaying)
         assertTrue(controller.state.value.failed)
+        assertTrue("stop" in player.calls)
         controller.dispose()
     }
 
@@ -95,6 +96,100 @@ class ChatAudioPlaybackControllerTest {
     }
 
     @Test
+    fun replacingPendingAudioPreventsFirstLoadFromPlayingLater() = runTest {
+        val first = message("1", 1_000)
+        val second = message("2", 2_000)
+        val firstLoadGate = CompletableDeferred<PlatformResult<AudioPlaybackState>>()
+        val player = RecordingAudioPlayer(
+            loadResult = { player, file ->
+                if (file.reference.endsWith("/1")) {
+                    firstLoadGate.await()
+                } else {
+                    PlatformResult.Success(player.state(AudioPlaybackPhase.Ready, isPlaying = false))
+                }
+            },
+            playState = { it.state(AudioPlaybackPhase.Playing, isPlaying = true) },
+        )
+        val controller = ChatAudioPlaybackController(player, { listOf(first, second) }, StandardTestDispatcher(testScheduler))
+
+        controller.toggle(first, file("1"))
+        runCurrent()
+        controller.toggle(second, file("2"))
+        runCurrent()
+        firstLoadGate.complete(PlatformResult.Success(player.state(AudioPlaybackPhase.Ready, isPlaying = false)))
+        runCurrent()
+
+        assertEquals(second.composeKey(), controller.state.value.activeMessageKey)
+        assertEquals(listOf("load:1", "load:2", "play:2"), player.calls.filter { it != "stop" })
+        controller.dispose()
+    }
+
+    @Test
+    fun queuedReadyAfterPlayFailureCannotClearFailure() = runTest {
+        val first = message("1", 1_000)
+        val player = RecordingAudioPlayer(playResult = { PlatformResult.Failure("boom") })
+        val controller = ChatAudioPlaybackController(player, { listOf(first) }, StandardTestDispatcher(testScheduler))
+
+        controller.toggle(first, file("1"))
+        runCurrent()
+        val failedSession = player.lastLoadedSessionId
+        player.emitStateChanged(failedSession, AudioPlaybackPhase.Ready, isPlaying = false)
+        runCurrent()
+
+        assertEquals(AudioPlaybackPhase.Failed, controller.state.value.playback.phase)
+        assertTrue(controller.state.value.failed)
+        assertTrue("stop" in player.calls)
+        controller.dispose()
+    }
+
+    @Test
+    fun tapAfterLoadFailureRetriesLoadInsteadOfPlayingMissingPlayer() = runTest {
+        val first = message("1", 1_000)
+        var attempt = 0
+        val player = RecordingAudioPlayer(
+            loadResult = { player, _ ->
+                attempt += 1
+                if (attempt == 1) {
+                    PlatformResult.Failure("network")
+                } else {
+                    PlatformResult.Success(player.state(AudioPlaybackPhase.Ready, isPlaying = false))
+                }
+            },
+            playState = { it.state(AudioPlaybackPhase.Playing, isPlaying = true) },
+        )
+        val controller = ChatAudioPlaybackController(player, { listOf(first) }, StandardTestDispatcher(testScheduler))
+
+        controller.toggle(first, file("1"))
+        runCurrent()
+        controller.toggle(first, file("1"))
+        runCurrent()
+
+        assertEquals(AudioPlaybackPhase.Playing, controller.state.value.playback.phase)
+        assertEquals(listOf("load:1", "stop", "load:1", "play:1"), player.calls)
+        controller.dispose()
+    }
+
+    @Test
+    fun nativeFailedEventStopsPlayerAndKeepsFailureTerminal() = runTest {
+        val first = message("1", 1_000)
+        val player = RecordingAudioPlayer(playState = { it.state(AudioPlaybackPhase.Playing, isPlaying = true) })
+        val controller = ChatAudioPlaybackController(player, { listOf(first) }, StandardTestDispatcher(testScheduler))
+
+        controller.toggle(first, file("1"))
+        runCurrent()
+        val session = player.currentSessionId
+        player.emitFailed(session)
+        runCurrent()
+        player.emitStateChanged(session, AudioPlaybackPhase.Ready, isPlaying = false)
+        runCurrent()
+
+        assertEquals(AudioPlaybackPhase.Failed, controller.state.value.playback.phase)
+        assertTrue(controller.state.value.failed)
+        assertTrue("stop" in player.calls)
+        controller.dispose()
+    }
+
+    @Test
     fun secondTapWhileLoadingDoesNotCancelIntoResume() = runTest {
         val first = message("1", 1_000)
         val loadGate = CompletableDeferred<PlatformResult<AudioPlaybackState>>()
@@ -131,11 +226,15 @@ class ChatAudioPlaybackControllerTest {
         val calls = mutableListOf<String>()
         private var sessionId = 0L
         private var activeId: String? = null
+        val currentSessionId: Long get() = sessionId
+        var lastLoadedSessionId: Long = 0L
+            private set
 
         override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> {
             activeId = file.reference.substringAfterLast("/")
             calls += "load:$activeId"
             sessionId += 1L
+            lastLoadedSessionId = sessionId
             return loadResult(this, file)
         }
 
@@ -150,7 +249,11 @@ class ChatAudioPlaybackControllerTest {
         override suspend fun seekTo(positionMillis: Long): PlatformResult<AudioPlaybackState> =
             PlatformResult.Success(state(AudioPlaybackPhase.Playing, isPlaying = true, positionMillis = positionMillis))
 
-        override suspend fun stop(): PlatformResult<Unit> = PlatformResult.Success(Unit)
+        override suspend fun stop(): PlatformResult<Unit> {
+            calls += "stop"
+            sessionId += 1L
+            return PlatformResult.Success(Unit)
+        }
 
         override suspend fun state(): AudioPlaybackState = state(AudioPlaybackPhase.Playing, isPlaying = true)
 
@@ -179,6 +282,19 @@ class ChatAudioPlaybackControllerTest {
                         phase = AudioPlaybackPhase.Ended,
                         sessionId = sessionId,
                     ),
+                ),
+            )
+        }
+
+        fun emitStateChanged(sessionId: Long, phase: AudioPlaybackPhase, isPlaying: Boolean) {
+            eventSink.tryEmit(AudioPlaybackEvent.StateChanged(state(phase, isPlaying).copy(sessionId = sessionId)))
+        }
+
+        fun emitFailed(sessionId: Long) {
+            eventSink.tryEmit(
+                AudioPlaybackEvent.Failed(
+                    state(AudioPlaybackPhase.Failed, isPlaying = false).copy(sessionId = sessionId),
+                    "decode",
                 ),
             )
         }
