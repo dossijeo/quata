@@ -8,6 +8,7 @@ import platform.AVFAudio.AVAudioSessionCategoryPlayback
 import platform.CoreFoundation.CFAbsoluteTimeGetCurrent
 import platform.Foundation.NSData
 import platform.Foundation.NSURL
+import platform.Foundation.dataWithContentsOfURL
 
 /** AVFoundation playback host kept separate from recording because both contracts expose stop(). */
 @OptIn(ExperimentalForeignApi::class)
