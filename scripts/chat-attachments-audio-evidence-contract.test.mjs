@@ -144,20 +144,17 @@ test("media attachments own the primary tap instead of the whole message bubble"
   );
 });
 
-test("iOS media attachment evidence replays resolved semantic media before relative fallback", () => {
-  assert.match(iosUiTest, /private func tapResolvedMedia\(_ media: XCUIElement\) \{\s*if media\.isHittable \{\s*media\.tap\(\)\s*\}\s*\}/);
-  assert.match(iosUiTest, /private func tapResolvedMediaFallback\(_ media: XCUIElement\)/);
-  assert.match(iosUiTest, /media\.coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.5\)\)\.tap\(\)/);
+test("iOS media attachment evidence only taps a freshly visible chat viewport frame", () => {
   assert.match(iosUiTest, /tapVisibleFrameCenter\(media, in: app\)/);
   assert.match(iosUiTest, /element\.frame\.intersection\(chatMessageViewport\(in: app\)\)/);
   const openResolvedMedia = iosUiTest.slice(
     iosUiTest.indexOf("private func openResolvedMedia"),
-    iosUiTest.indexOf("private func tapResolvedMedia("),
+    iosUiTest.indexOf("    @discardableResult", iosUiTest.indexOf("private func openResolvedMedia")),
   );
-  assert.match(openResolvedMedia, /tapResolvedMedia\(media\)/);
-  assert.match(openResolvedMedia, /tapResolvedMediaFallback\(media\)/);
   assert.match(openResolvedMedia, /guard tapVisibleFrameCenter\(media, in: app\) else/);
   assert.match(openResolvedMedia, /guard isElementVisibleInChatViewport\(media, in: app\) else/);
+  assert.doesNotMatch(openResolvedMedia, /tapResolvedMedia/);
+  assert.doesNotMatch(openResolvedMedia, /coordinate\(withNormalizedOffset: CGVector\(dx: 0\.5, dy: 0\.35\)\)\.tap\(\)/);
   assert.doesNotMatch(openResolvedMedia, /app\.coordinate\(withNormalizedOffset:/);
   const openChatMediaAttachment = iosUiTest.slice(
     iosUiTest.indexOf("private func openChatMediaAttachment"),

@@ -2138,7 +2138,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             return false
         }
 
-        guard isElementVisibleInChatViewport(media, in: app) || media.isHittable else {
+        guard isElementVisibleInChatViewport(media, in: app) else {
             attachScreenshot(app, name: "ios-\(slug(context))-media-anchor-offscreen")
             XCTFail("The shared media attachment anchor \(identifier) exists but is not visible in message \(messageId) for \(context).")
             return false
@@ -2218,34 +2218,11 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             }
             return false
         }
-        tapResolvedMediaFallback(media)
-        if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
-            return true
-        }
-        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).tap()
-        if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
-            return true
-        }
-        tapResolvedMedia(media)
-        if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
-            return true
-        }
         attachScreenshot(app, name: "ios-\(slug(context))-media-open-failed")
         if failOnMiss {
             XCTFail("The shared fullscreen media overlay must open from \(context).")
         }
         return false
-    }
-
-    private func tapResolvedMedia(_ media: XCUIElement) {
-        if media.isHittable {
-            media.tap()
-        }
-    }
-
-    private func tapResolvedMediaFallback(_ media: XCUIElement) {
-        guard !media.frame.isNull, !media.frame.isEmpty else { return }
-        media.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     @discardableResult
