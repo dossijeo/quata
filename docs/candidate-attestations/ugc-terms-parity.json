@@ -5,6 +5,7 @@
     "FLOW-LEGAL-DOCUMENTS"
   ],
   "productSha": "f64d0c9f8a58e14e2eacd63b66eb6d4004029c1e",
+  "durableEvidenceSummary": "docs/wiki/ugc-terms-parity-evidence-summary.md",
   "evidence": {
     "web": {
       "status": "passed",
