@@ -4,20 +4,20 @@
     "OVR-UGC-TERMS",
     "FLOW-LEGAL-DOCUMENTS"
   ],
-  "productSha": "101e652603f0616a330c9180cf6fd459a93f21c9",
+  "productSha": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
   "durableEvidenceSummary": "docs/wiki/ugc-terms-parity-evidence-summary.md",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "101e652603f0616a330c9180cf6fd459a93f21c9",
+      "sha": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
       "report": "build-reports/web/ugc-terms-evidence.json",
-      "reportSha256": "e4dcc641a6e8a0be22ab304c4e652676cb291790323eaf89ade4af7a1c1ca7a6",
+      "reportSha256": "13468732cf2391592b29787716e73d193f30fbaf7b0cba500e03b63bca4b0e05",
       "cleanup": {
         "verified": true,
         "mode": "supabase_state_restored",
         "physicalResidue": 0
       },
-      "reportGitHead": "101e652603f0616a330c9180cf6fd459a93f21c9",
+      "reportGitHead": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
       "requiredSteps": [
         "terms_acceptance_snapshot_registered_before_remote_mutation",
         "authorized_profile_authenticated_without_logging_credentials",
@@ -30,19 +30,19 @@
     },
     "android": {
       "status": "passed",
-      "sha": "101e652603f0616a330c9180cf6fd459a93f21c9",
+      "sha": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
       "report": "build-reports/android/ugc-terms-evidence.json",
-      "reportSha256": "161e2cfd3b62171689f5587b73cb16c14d142c0df7933600745195f68418bab6",
+      "reportSha256": "44b99631de9649de19af2184778410797a59c17ec6d38c88be010c15e432cae0",
       "screenshots": [
-        "build-reports/android/ugc-terms-evidence-101e6526/ugc-terms-evidence/android-ugc-terms-required.png",
-        "build-reports/android/ugc-terms-evidence-101e6526/ugc-terms-evidence/android-ugc-terms-accepted.png"
+        "build-reports/android/ugc-terms-evidence-a4a341f9/ugc-terms-evidence/android-ugc-terms-required.png",
+        "build-reports/android/ugc-terms-evidence-a4a341f9/ugc-terms-evidence/android-ugc-terms-accepted.png"
       ],
       "cleanup": {
         "verified": true,
         "mode": "local_instrumented_fixture",
         "physicalResidue": 0
       },
-      "reportGitHead": "101e652603f0616a330c9180cf6fd459a93f21c9",
+      "reportGitHead": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "common_dialog_blocks_shell",
@@ -53,9 +53,9 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "101e652603f0616a330c9180cf6fd459a93f21c9",
+      "sha": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
       "report": "build-reports/ios/ugc-terms-evidence.json",
-      "reportSha256": "18397c2b9fa48228f87bb45fbac35adc6a74bae307f89a9b11de1fc6918f8c61",
+      "reportSha256": "a77a87b5eafa49ac9ff2701cd0db848700934b80cb8dca3207fa984d6e974af2",
       "reportStatus": "passed",
       "log": "build-reports/ios/UGC-TERMS-ui/ui.log",
       "requiredLog": {
@@ -70,7 +70,7 @@
         "mode": "local_ios_fixture",
         "physicalResidue": 0
       },
-      "reportGitHead": "101e652603f0616a330c9180cf6fd459a93f21c9",
+      "reportGitHead": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
       "requiredSteps": [
         "dialog_required",
         "legal_child_safety_opened",
@@ -88,17 +88,17 @@
     "node scripts/ugc-terms-web-evidence.mjs --dist web/build/dist/wasmJs/productionExecutable --chrome \"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\" --out build-reports/web/ugc-terms-evidence.json",
     "./gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.moderation.UgcTermsGateCommonInstrumentedTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --console=plain --no-parallel --no-daemon",
     "./gradlew.bat :app:lintDebug --console=plain --no-parallel --no-daemon",
-    "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/quata && git fetch origin codex/ugc-terms-parity && git reset --hard 101e652603f0616a330c9180cf6fd459a93f21c9 && bash scripts/build-ios-intel-simulator-signed.sh\"",
+    "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/quata && git fetch origin codex/ugc-terms-parity && git reset --hard a4a341f9fdc7182c7ae15bad5918806afde8c833 && bash scripts/build-ios-intel-simulator-signed.sh\"",
     "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/quata && xcodebuild test-without-building ... -only-testing:QuataIosUITests/QuataIosHostUITests/testUgcTermsFixtureRendersCommonGateLegalLinksAndAccepts\""
   ],
   "notes": [
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
     "QuataUgcTermsGateContent and QuataTermsAcceptanceDialogContent provide the common blocking UI, localized copy, legal document links, accept/logout actions and stable semantic anchors for Android, Web/Wasm and iOS.",
-    "LocalFirstUgcTermsGateway keeps accepted state locally before remote sync, retries pending sync in the background and avoids indefinite Web hangs through fetch timeout/abort behavior.",
+    "LocalFirstUgcTermsGateway keeps accepted state locally before remote sync, retries pending sync in the background and avoids indefinite Web hangs through fetch timeout/abort behavior; Web logout also bounds browser push unsubscribe through a cancellable service-worker bridge before clearing local session state.",
     "Web/Wasm evidence is authenticated against Supabase with authorized test credentials, exercises the production Web gateway/RPC, verifies the quata_accept_ugc_terms row, checks fresh-context no-reprompt behavior, restores the original acceptance state and verifies cleanup.",
     "Android evidence runs the common gate on a real emulator through Compose semantics and screenshots, covering document links, blocking behavior and accept flow with a local instrumented fixture; production Android remains the existing ModerationRepository gateway wired through AppNavGraph.",
-    "iOS evidence runs the common gate on the Mac Hyper-V simulator through XCTest/accessibility anchors, opens both legal documents and accepts the gate. The selected XCTest passed with zero failures; xcodebuild was terminated only after PASS because it remained in post-test processing.",
+    "iOS evidence runs the common gate on the Mac Hyper-V simulator through XCTest/accessibility anchors, opens both legal documents and accepts the gate. The selected XCTest passed with zero failures; xcodebuild reached TEST EXECUTE SUCCEEDED after a slow post-test diagnostic phase.",
     "This is a focal reduction of OVR-UGC-TERMS and the UGC legal-document entry path. It does not replace the broader FLOW-DOCUMENT-VIEWER certification for non-legal attachments, download/share or document return semantics."
   ]
 }

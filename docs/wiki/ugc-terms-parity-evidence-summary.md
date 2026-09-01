@@ -6,18 +6,18 @@ The raw `build-reports/*` artifacts remain local evidence outputs and are not co
 ## Candidate
 
 - Unit: `OVR-UGC-TERMS`, `FLOW-LEGAL-DOCUMENTS`
-- Product/Evidence SHA: `101e652603f0616a330c9180cf6fd459a93f21c9`
+- Product/Evidence SHA: `a4a341f9fdc7182c7ae15bad5918806afde8c833`
 - Attestation HEAD first linked from: `e0a59061f2472429742554b603cd0af1e73b4f98`
-- Exact working tree for product evidence: clean product checkout at `101e652603f0616a330c9180cf6fd459a93f21c9`
+- Exact working tree for product evidence: clean product checkout at `a4a341f9fdc7182c7ae15bad5918806afde8c833`
 
 ## Evidence Outputs
 
 | Platform | Local report | SHA-256 | Status |
 | --- | --- | --- | --- |
-| Web/Wasm | `build-reports/web/ugc-terms-evidence.json` | `e4dcc641a6e8a0be22ab304c4e652676cb291790323eaf89ade4af7a1c1ca7a6` | `passed` |
-| Android | `build-reports/android/ugc-terms-evidence.json` | `161e2cfd3b62171689f5587b73cb16c14d142c0df7933600745195f68418bab6` | `passed` |
-| iOS | `build-reports/ios/ugc-terms-evidence.json` | `18397c2b9fa48228f87bb45fbac35adc6a74bae307f89a9b11de1fc6918f8c61` | `passed` |
-| iOS XCTest log | `build-reports/ios/UGC-TERMS-ui/ui.log` | `2303724265e0c60945eb61f81be5726c3d3926f6705663303f97f7159b8e891f` | contains PASS markers |
+| Web/Wasm | `build-reports/web/ugc-terms-evidence.json` | `13468732cf2391592b29787716e73d193f30fbaf7b0cba500e03b63bca4b0e05` | `passed` |
+| Android | `build-reports/android/ugc-terms-evidence.json` | `44b99631de9649de19af2184778410797a59c17ec6d38c88be010c15e432cae0` | `passed` |
+| iOS | `build-reports/ios/ugc-terms-evidence.json` | `a77a87b5eafa49ac9ff2701cd0db848700934b80cb8dca3207fa984d6e974af2` | `passed` |
+| iOS XCTest log | `build-reports/ios/UGC-TERMS-ui/ui.log` | `e00c873b4bdb3c536517b6fe59652c817ca82c63619771475fa25169448f7f16` | contains PASS markers |
 
 ## iOS Log Markers
 
@@ -34,6 +34,7 @@ The iOS XCTest command reached `TEST EXECUTE SUCCEEDED`; the local log is copied
 - Common UGC terms gate blocks authenticated shell until acceptance.
 - Child-safety and privacy legal links open from the common gate on Web/Wasm, Android and iOS.
 - Acceptance is recorded locally before remote sync, avoiding reprompt when the network/logout path is unavailable.
+- Web logout preserves server/browser/local ordering and bounds browser push unsubscribe through a cancellable service-worker bridge before clearing local state.
 - Web/Wasm validates a real Supabase-backed acceptance row and fresh-context no-reprompt behavior, then restores the original acceptance state.
 - Android exercises the common Compose gate on a real emulator with screenshots and semantic anchors.
 - iOS exercises the common gate on the Mac Hyper-V simulator with XCTest/accessibility anchors.
