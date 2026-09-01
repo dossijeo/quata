@@ -31,6 +31,7 @@ private val AllowedHtmlTags = linkedSetOf(
 private const val TODO_UNCHECKED = "\u2610"
 private const val TODO_CHECKED = "\u2611"
 private const val TODO_MARK = "data-quata-todo"
+private const val INDENT_MARK = "data-quata-indent"
 
 public fun convertBlocksToHtml(blocks: List<QuataRichTextBlock>): String {
     if (blocks.isEmpty()) return ""
@@ -56,6 +57,9 @@ public fun convertBlocksToHtml(blocks: List<QuataRichTextBlock>): String {
                     if (item.type == RichTextBlockType.Todo) {
                         val todoState = if (item.isChecked) "true" else "false"
                         html.append(" ").append(TODO_MARK).append("=\"").append(todoState).append("\"")
+                    }
+                    if (item.indentLevel > 0) {
+                        html.append(" ").append(INDENT_MARK).append("=\"").append(item.indentLevel.coerceAtMost(8)).append("\"")
                     }
                     html.append(">")
                     if (item.type == RichTextBlockType.Todo) {
@@ -200,7 +204,7 @@ private fun parseListTag(
     for (item in findListItems(content)) {
         val attrs = item.attributes
         val rawContent = item.content
-        val indent = 0
+        val indent = parseIndentFromAttributes(attrs) ?: parentIndent.coerceIn(0, 8)
         val todoCheckedFromAttr = parseTodoCheckedFromAttributes(attrs)
         val isTodoAttribute = forceTodo || todoCheckedFromAttr != null || parseTodoFromAttributes(attrs)
         val nestedLists = findHtmlBlocks(rawContent, setOf("ul", "ol"))
@@ -242,7 +246,7 @@ private fun parseListTag(
                 parseListTag(
                     containerTag = nestedList.tag,
                     content = nestedList.content,
-                    parentIndent = 0,
+                    parentIndent = indent + 1,
                     forceTodo = forceTodo || isTodoListContainer(nestedList.attributes),
                 ),
             )
@@ -465,6 +469,16 @@ private fun parseTodoCheckedFromAttributes(rawAttributes: String): Boolean? {
         value.equals("yes", ignoreCase = true)
 }
 
+private fun parseIndentFromAttributes(rawAttributes: String): Int? {
+    return Regex("""\bdata-quata-indent\s*=\s*(?:(["'])(.*?)\1|([^\s>]+))""", RegexOption.IGNORE_CASE)
+        .find(rawAttributes)
+        ?.let { match ->
+            val quoted = match.groupValues.getOrNull(2).orEmpty()
+            val unquoted = match.groupValues.getOrNull(3).orEmpty()
+            quoted.ifBlank { unquoted }.toIntOrNull()?.coerceIn(0, 8)
+        }
+}
+
 private fun isTodoListContainer(rawAttributes: String): Boolean {
     val classValue = Regex("class\\s*=\\s*([\"'])(.*?)\\1", RegexOption.IGNORE_CASE).find(rawAttributes)
         ?.groupValues
@@ -585,7 +599,7 @@ private fun styleForTag(tag: String, attributes: String): QuataSpanStyle? = when
             .find(attributes)
             ?.groupValues
             ?.getOrNull(2)
-        sanitizeHref(href)?.let(QuataSpanStyle::Link)
+        sanitizeHref(href?.let(::decodeHtmlText))?.let(QuataSpanStyle::Link)
     }
     else -> null
 }

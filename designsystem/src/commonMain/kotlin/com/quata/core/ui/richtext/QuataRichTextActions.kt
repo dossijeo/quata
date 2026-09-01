@@ -135,7 +135,7 @@ public data class ConvertRichTextBlockType(
                 selectionStart = nextSelection.start,
                 selectionEnd = nextSelection.end,
                 checked = if (nextType == RichTextBlockType.Todo) block.checked else false,
-                indentLevel = 0,
+                indentLevel = if (supportsRichTextIndent(nextType)) block.indentLevel else 0,
                 spans = if (supportsSpans) QuataSpanAlgorithms.normalize(block.spans, nextText.length) else emptyList(),
             )
         }
@@ -160,7 +160,11 @@ public data class ShiftRichTextIndent(
 ) : QuataRichTextAction {
     override fun reduce(state: QuataRichTextDocumentState): QuataRichTextDocumentState {
         return state.mapBlock(blockId) { block ->
-            block.copy(indentLevel = 0)
+            if (!supportsRichTextIndent(block.type)) {
+                block
+            } else {
+                block.copy(indentLevel = (block.indentLevel + delta).coerceIn(0, maxIndent))
+            }
         }
     }
 }
@@ -231,7 +235,7 @@ public fun QuataRichTextBlock.toModel(): QuataRichTextBlockModel {
         selectionStart = text.selection.start,
         selectionEnd = text.selection.end,
         checked = isChecked,
-        indentLevel = 0,
+        indentLevel = indentLevel,
         spans = spans,
     ).normalized()
 }
@@ -242,7 +246,7 @@ public fun QuataRichTextBlockModel.toBlock(): QuataRichTextBlock {
         type = type,
         text = text,
         checked = checked,
-        indent = 0,
+        indent = indentLevel,
         spans = spans,
     )
     block.text = TextFieldValue(text, selection = selectionRange().clampTo(text))
@@ -262,9 +266,16 @@ private fun QuataRichTextBlockModel.normalized(): QuataRichTextBlockModel {
         selectionStart = range.start,
         selectionEnd = range.end,
         checked = if (type == RichTextBlockType.Todo) checked else false,
-        indentLevel = 0,
+        indentLevel = if (supportsRichTextIndent(type)) indentLevel.coerceIn(0, 8) else 0,
         spans = if (supportsSpans) QuataSpanAlgorithms.normalize(spans, normalizedText.length) else emptyList(),
     )
+}
+
+private fun supportsRichTextIndent(type: RichTextBlockType): Boolean = when (type) {
+    RichTextBlockType.Bullet,
+    RichTextBlockType.Numbered,
+    RichTextBlockType.Todo -> true
+    else -> false
 }
 
 private fun TextRange.clampTo(text: String): TextRange {

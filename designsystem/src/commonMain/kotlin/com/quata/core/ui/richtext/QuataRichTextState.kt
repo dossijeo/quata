@@ -50,7 +50,7 @@ public class QuataRichTextBlock(
     var type by mutableStateOf(type)
     var text by mutableStateOf(TextFieldValue(text))
     var isChecked by mutableStateOf(checked)
-    var indentLevel by mutableStateOf(0)
+    var indentLevel by mutableStateOf(indent.coerceIn(0, 8))
     var spans by mutableStateOf(QuataSpanAlgorithms.normalize(spans, text.length))
 }
 
@@ -429,10 +429,10 @@ public class QuataRichTextEditorState(initialHtml: String = "") {
 
     private fun activeRootTargets(fallbackBlockId: String? = null): List<String> {
         val anchors = selectedBlockIds.toList()
-        val target = if (anchors.isNotEmpty()) {
-            anchors
-        } else {
-            listOfNotNull(fallbackBlockId ?: selectedBlockId.value)
+        val target = when {
+            fallbackBlockId != null && (anchors.size <= 1 || !anchors.contains(fallbackBlockId)) -> listOf(fallbackBlockId)
+            anchors.isNotEmpty() -> anchors
+            else -> listOfNotNull(fallbackBlockId ?: selectedBlockId.value)
         }
         if (target.isEmpty()) return emptyList()
 
@@ -482,19 +482,11 @@ public class QuataRichTextEditorState(initialHtml: String = "") {
     }
 
     fun moveBlockUp(blockId: String) {
-        if (selectedBlockIds.isNotEmpty()) {
-            moveRootsUp(selectedBlockIds.toSet())
-            return
-        }
-        moveRootsUp(listOf(blockId))
+        moveRootsUp(activeRootTargets(blockId).toSet())
     }
 
     fun moveBlockDown(blockId: String) {
-        if (selectedBlockIds.isNotEmpty()) {
-            moveRootsDown(selectedBlockIds.toSet())
-            return
-        }
-        moveRootsDown(listOf(blockId))
+        moveRootsDown(activeRootTargets(blockId).toSet())
     }
 
     fun moveSelectedRootsTo(targetIndex: Int): Boolean {
@@ -1512,8 +1504,7 @@ public class QuataRichTextEditorState(initialHtml: String = "") {
     }
 
     fun toggleIndent(blockId: String, delta: Int) {
-        // Indentation needs an explicit, designed control. Horizontal gestures are reserved for deletion.
-        return
+        dispatchRichTextAction(ShiftRichTextIndent(blockId, delta, maxIndent.intValue))
     }
 
     fun toggleHeading(level: Int = 2) {
@@ -2318,7 +2309,12 @@ public class QuataRichTextEditorState(initialHtml: String = "") {
     }
 }
 
-private fun supportsIndent(type: RichTextBlockType): Boolean = false
+private fun supportsIndent(type: RichTextBlockType): Boolean = when (type) {
+    RichTextBlockType.Bullet,
+    RichTextBlockType.Numbered,
+    RichTextBlockType.Todo -> true
+    else -> false
+}
 
 private fun supportsSpans(type: RichTextBlockType): Boolean = when (type) {
     RichTextBlockType.Code,
