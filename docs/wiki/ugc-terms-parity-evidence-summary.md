@@ -6,18 +6,18 @@ The raw `build-reports/*` artifacts remain local evidence outputs and are not co
 ## Candidate
 
 - Unit: `OVR-UGC-TERMS`, `FLOW-LEGAL-DOCUMENTS`
-- Product/Evidence SHA: `a4a341f9fdc7182c7ae15bad5918806afde8c833`
-- Attestation HEAD first linked from: `e0a59061f2472429742554b603cd0af1e73b4f98`
-- Exact working tree for product evidence: clean product checkout at `a4a341f9fdc7182c7ae15bad5918806afde8c833`
+- Product/Evidence SHA: `760b8e4c4e46c6f6ca300bc0ed15846353472495`
+- Attestation HEAD first linked from: `e0a59061f2472429742554b603cd0af1e73b4f98`; reattested after the Web authenticated browser CI gate fix at `760b8e4c4e46c6f6ca300bc0ed15846353472495`
+- Exact working tree for product evidence: clean product checkout at `760b8e4c4e46c6f6ca300bc0ed15846353472495`
 
 ## Evidence Outputs
 
 | Platform | Local report | SHA-256 | Status |
 | --- | --- | --- | --- |
-| Web/Wasm | `build-reports/web/ugc-terms-evidence.json` | `13468732cf2391592b29787716e73d193f30fbaf7b0cba500e03b63bca4b0e05` | `passed` |
-| Android | `build-reports/android/ugc-terms-evidence.json` | `44b99631de9649de19af2184778410797a59c17ec6d38c88be010c15e432cae0` | `passed` |
-| iOS | `build-reports/ios/ugc-terms-evidence.json` | `a77a87b5eafa49ac9ff2701cd0db848700934b80cb8dca3207fa984d6e974af2` | `passed` |
-| iOS XCTest log | `build-reports/ios/UGC-TERMS-ui/ui.log` | `e00c873b4bdb3c536517b6fe59652c817ca82c63619771475fa25169448f7f16` | contains PASS markers |
+| Web/Wasm | `build-reports/web/ugc-terms-evidence.json` | `0b82bbca7faa9d2b14413846779bba56d9f552c62d48e443370bcc05c28c07cc` | `passed` |
+| Android | `build-reports/android/ugc-terms-evidence.json` | `58ae0f55ada80a9ea20494f9cf7cff54c5dae3d5ed55f4dfce9fa01f51e04e90` | `passed` |
+| iOS | `build-reports/ios/ugc-terms-evidence.json` | `5e2ea75df6d11338885aa17c49649df4550087900686e3b725eb879645637645` | `passed` |
+| iOS XCTest log | `build-reports/ios/UGC-TERMS-ui/ui.log` | `20ac776692ffa4a88066bf212e3868d5856dddfafecf226b90892b8b35127f32` | contains PASS markers |
 
 ## iOS Log Markers
 
@@ -25,7 +25,11 @@ The iOS XCTest evidence log contained these required markers:
 
 - `Test Case '-[QuataIosUITests.QuataIosHostUITests testUgcTermsFixtureRendersCommonGateLegalLinksAndAccepts]' passed`
 - `Executed 1 test, with 0 failures`
-- `PASS_EXECUTED:testUgcTermsFixtureRendersCommonGateLegalLinksAndAccepts`
+- `ios-ugc-terms-required`
+- `ios-ugc-terms-child-safety`
+- `ios-ugc-terms-privacy`
+- `ios-ugc-terms-accepted`
+- `TEST EXECUTE SUCCEEDED`
 
 The iOS XCTest command reached `TEST EXECUTE SUCCEEDED`; the local log is copied and audited by the candidate manifest markers.
 

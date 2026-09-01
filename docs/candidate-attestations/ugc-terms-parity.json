@@ -4,20 +4,20 @@
     "OVR-UGC-TERMS",
     "FLOW-LEGAL-DOCUMENTS"
   ],
-  "productSha": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
+  "productSha": "760b8e4c4e46c6f6ca300bc0ed15846353472495",
   "durableEvidenceSummary": "docs/wiki/ugc-terms-parity-evidence-summary.md",
   "evidence": {
     "web": {
       "status": "passed",
-      "sha": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
+      "sha": "760b8e4c4e46c6f6ca300bc0ed15846353472495",
       "report": "build-reports/web/ugc-terms-evidence.json",
-      "reportSha256": "13468732cf2391592b29787716e73d193f30fbaf7b0cba500e03b63bca4b0e05",
+      "reportSha256": "0b82bbca7faa9d2b14413846779bba56d9f552c62d48e443370bcc05c28c07cc",
       "cleanup": {
         "verified": true,
         "mode": "supabase_state_restored",
         "physicalResidue": 0
       },
-      "reportGitHead": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
+      "reportGitHead": "760b8e4c4e46c6f6ca300bc0ed15846353472495",
       "requiredSteps": [
         "terms_acceptance_snapshot_registered_before_remote_mutation",
         "authorized_profile_authenticated_without_logging_credentials",
@@ -30,19 +30,19 @@
     },
     "android": {
       "status": "passed",
-      "sha": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
+      "sha": "760b8e4c4e46c6f6ca300bc0ed15846353472495",
       "report": "build-reports/android/ugc-terms-evidence.json",
-      "reportSha256": "44b99631de9649de19af2184778410797a59c17ec6d38c88be010c15e432cae0",
+      "reportSha256": "58ae0f55ada80a9ea20494f9cf7cff54c5dae3d5ed55f4dfce9fa01f51e04e90",
       "screenshots": [
-        "build-reports/android/ugc-terms-evidence-a4a341f9/ugc-terms-evidence/android-ugc-terms-required.png",
-        "build-reports/android/ugc-terms-evidence-a4a341f9/ugc-terms-evidence/android-ugc-terms-accepted.png"
+        "build-reports/android/ugc-terms-evidence-760b8e4c/ugc-terms-evidence/android-ugc-terms-required.png",
+        "build-reports/android/ugc-terms-evidence-760b8e4c/ugc-terms-evidence/android-ugc-terms-accepted.png"
       ],
       "cleanup": {
         "verified": true,
         "mode": "local_instrumented_fixture",
         "physicalResidue": 0
       },
-      "reportGitHead": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
+      "reportGitHead": "760b8e4c4e46c6f6ca300bc0ed15846353472495",
       "reportWorkingTreeDirty": false,
       "requiredSteps": [
         "common_dialog_blocks_shell",
@@ -53,16 +53,20 @@
     },
     "ios": {
       "status": "passed",
-      "sha": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
+      "sha": "760b8e4c4e46c6f6ca300bc0ed15846353472495",
       "report": "build-reports/ios/ugc-terms-evidence.json",
-      "reportSha256": "a77a87b5eafa49ac9ff2701cd0db848700934b80cb8dca3207fa984d6e974af2",
+      "reportSha256": "5e2ea75df6d11338885aa17c49649df4550087900686e3b725eb879645637645",
       "reportStatus": "passed",
       "log": "build-reports/ios/UGC-TERMS-ui/ui.log",
       "requiredLog": {
         "path": "build-reports/ios/UGC-TERMS-ui/ui.log",
         "contains": [
           "Executed 1 test, with 0 failures",
-          "PASS_EXECUTED:testUgcTermsFixtureRendersCommonGateLegalLinksAndAccepts"
+          "ios-ugc-terms-required",
+          "ios-ugc-terms-child-safety",
+          "ios-ugc-terms-privacy",
+          "ios-ugc-terms-accepted",
+          "TEST EXECUTE SUCCEEDED"
         ]
       },
       "cleanup": {
@@ -70,14 +74,15 @@
         "mode": "local_ios_fixture",
         "physicalResidue": 0
       },
-      "reportGitHead": "a4a341f9fdc7182c7ae15bad5918806afde8c833",
+      "reportGitHead": "760b8e4c4e46c6f6ca300bc0ed15846353472495",
       "requiredSteps": [
         "dialog_required",
         "legal_child_safety_opened",
         "legal_privacy_opened",
         "acceptance_recorded",
         "accepted_shell_visible"
-      ]
+      ],
+      "logSha256": "20ac776692ffa4a88066bf212e3868d5856dddfafecf226b90892b8b35127f32"
     }
   },
   "preflight": [
@@ -89,9 +94,12 @@
     "./gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.quata.core.moderation.UgcTermsGateCommonInstrumentedTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --console=plain --no-parallel --no-daemon",
     "./gradlew.bat :app:lintDebug --console=plain --no-parallel --no-daemon",
     "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/quata && git fetch origin codex/ugc-terms-parity && git reset --hard a4a341f9fdc7182c7ae15bad5918806afde8c833 && bash scripts/build-ios-intel-simulator-signed.sh\"",
-    "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/quata && xcodebuild test-without-building ... -only-testing:QuataIosUITests/QuataIosHostUITests/testUgcTermsFixtureRendersCommonGateLegalLinksAndAccepts\""
+    "ssh quata-mac \"cd /Users/gabriel/Documents/Projects/quata && xcodebuild test-without-building ... -only-testing:QuataIosUITests/QuataIosHostUITests/testUgcTermsFixtureRendersCommonGateLegalLinksAndAccepts\"",
+    "node --test scripts/web-authenticated-browser-e2e.test.mjs scripts/web-pwa-push-lifecycle-contract.test.mjs scripts/ugc-terms-parity-contract.test.mjs",
+    "node scripts/web-authenticated-browser-e2e.mjs --chrome \"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\" --out build-reports/web/authenticated-browser-e2e-760b8e4c.json"
   ],
   "notes": [
+    "CI anomaly on PR #309 at 9ac0b81d was backend_mutation_blocked for the read-only quata_has_accepted_ugc_terms RPC in the hermetic Web authenticated browser gate. Commit 760b8e4c declares that read with exact body/stage validation and fixtures it as accepted=true without opening quata_accept_ugc_terms; the failing E2E then passed locally.",
     "This manifest is attestation metadata. Product evidence remains valid for later documentation-only commits only when scripts/validate-candidate-attestation.mjs classifies the real diff as attestation-only.",
     "Any executable, workflow, runner, source, resource, test, configuration or dependency change after productSha invalidates this evidence and requires affected evidence to be repeated.",
     "QuataUgcTermsGateContent and QuataTermsAcceptanceDialogContent provide the common blocking UI, localized copy, legal document links, accept/logout actions and stable semantic anchors for Android, Web/Wasm and iOS.",
