@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.dp
 import com.quata.core.designsystem.theme.quataTheme
 import com.quata.core.model.Message
 import com.quata.core.model.MessageDeliveryState
-import com.quata.core.platform.AudioPlaybackState
 import com.quata.core.platform.AudioPlayerService
 import com.quata.core.platform.AudioRecorderService
 import com.quata.core.platform.AudioRecording
@@ -251,12 +250,6 @@ private fun ChatCommonConversationHost(
     val scope = rememberCoroutineScope()
     val template = quataTheme()
     var attachmentPickerError by remember { mutableStateOf<String?>(null) }
-    val audioLifecycle = remember(audioPlayer) { ChatAudioPlaybackLifecycleOwner(audioPlayer) }
-    var activeAudioReference by remember { mutableStateOf<String?>(null) }
-    var activeAudioMessageKey by remember { mutableStateOf<String?>(null) }
-    var audioPlayback by remember { mutableStateOf(AudioPlaybackState()) }
-    var audioFailed by remember { mutableStateOf(false) }
-    var audioOperationInFlight by remember { mutableStateOf(false) }
     var isRecordingAudio by remember { mutableStateOf(false) }
     var recordingElapsedSeconds by remember { mutableLongStateOf(0L) }
     var recordingError by remember { mutableStateOf<String?>(null) }
@@ -275,6 +268,10 @@ private fun ChatCommonConversationHost(
         )
     }
     val state by viewModel.uiState.collectAsState()
+    val audioController = remember(audioPlayer, conversationId) {
+        ChatAudioPlaybackController(audioPlayer = audioPlayer, messages = { viewModel.uiState.value.messages })
+    }
+    val audioPlaybackState by audioController.state.collectAsState()
     val chromeStrings = remember(languageTag) { chatChromeStringsForLanguage(languageTag) }
     val sosStrings = remember(languageTag) { chatSosStringsForLanguage(languageTag) }
     val usersById = remember(state.participantCandidates, state.currentUser) {
@@ -345,52 +342,6 @@ private fun ChatCommonConversationHost(
             recordingElapsedSeconds += 1L
         }
     }
-    suspend fun advanceOrCompleteActiveAudioPlayback() {
-        val next = activeAudioMessageKey?.let { key -> nextConsecutiveAudioMessage(state.messages, key) }
-        val nextReference = next?.attachmentUri
-        if (next != null && !nextReference.isNullOrBlank()) {
-            val nextFile = PlatformFile(nextReference, next.attachmentName, next.attachmentMimeType)
-            val result = when (val loaded = audioPlayer.load(nextFile)) {
-                is PlatformResult.Success -> audioPlayer.play()
-                is PlatformResult.Failure -> loaded
-                PlatformResult.Cancelled -> PlatformResult.Cancelled
-                PlatformResult.Unsupported -> PlatformResult.Unsupported
-            }
-            when (result) {
-                is PlatformResult.Success -> {
-                    activeAudioReference = nextReference
-                    activeAudioMessageKey = next.composeKey()
-                    audioPlayback = result.value
-                    audioFailed = false
-                }
-                is PlatformResult.Failure,
-                PlatformResult.Cancelled,
-                PlatformResult.Unsupported -> audioFailed = true
-            }
-        } else {
-            audioPlayback = AudioPlaybackState()
-            activeAudioReference = null
-            activeAudioMessageKey = null
-        }
-    }
-    LaunchedEffect(activeAudioReference, audioOperationInFlight) {
-        if (activeAudioReference == null || audioOperationInFlight) return@LaunchedEffect
-        while (activeAudioReference != null) {
-            delay(250L)
-            if (audioOperationInFlight) break
-            val previousPlayback = audioPlayback
-            val currentPlayback = audioPlayer.state()
-            val finished = didAudioPlaybackFinish(previousPlayback, currentPlayback)
-            if (finished) {
-                audioPlayback = currentPlayback
-                advanceOrCompleteActiveAudioPlayback()
-                break
-            } else {
-                audioPlayback = currentPlayback
-                if (!currentPlayback.isPlaying) break
-            }
-        }
-    }
     DisposableEffect(viewModel, audioRecorder, audioPlayer) {
         repository.setActiveConversation(conversationId)
         viewModel.setConversationVisible(true)
@@ -398,7 +349,7 @@ private fun ChatCommonConversationHost(
             if (isRecordingAudio) scope.launch { audioRecorder.cancel() }
             documentOpenJob?.cancel()
             documentOpenGeneration += 1L
-            audioLifecycle.dispose()
+            audioController.dispose()
             viewModel.setConversationVisible(false)
             viewModel.cleanupEmptyConversationIfNeeded()
             repository.setActiveConversation(null)
@@ -637,18 +588,9 @@ private fun ChatCommonConversationHost(
                 val textColor = if (message.isMine || isSelected) template.colors.accentContent else template.colors.textPrimary
                 ChatBrowserAttachmentContent(
                     message = message,
-                    audioPlayer = audioPlayer,
-                    activeAudioReference = activeAudioReference,
-                    playback = audioPlayback,
-                    failed = audioFailed,
-                    onPlaybackChanged = { reference, updatedPlayback, failed ->
-                        activeAudioReference = reference
-                        activeAudioMessageKey = message.composeKey()
-                        audioPlayback = updatedPlayback
-                        audioFailed = failed
-                    },
-                    onPlaybackOperationInFlight = { audioOperationInFlight = it },
-                    onPlaybackCompleted = { advanceOrCompleteActiveAudioPlayback() },
+                    audioState = audioPlaybackState,
+                    onToggleAudio = audioController::toggle,
+                    onSeekAudio = audioController::seekToFraction,
                     onOpenAttachment = ::openAttachment,
                     onDownloadAttachment = ::downloadAttachment,
                     onShareAttachment = ::shareAttachment,
@@ -662,7 +604,6 @@ private fun ChatCommonConversationHost(
                     pauseAudioLabel = chromeStrings.pauseAudio,
                     audioErrorText = chromeStrings.audioUnsupported,
                     textColor = textColor,
-                    launch = audioLifecycle::launch,
                     documentAttachmentActionsHost = documentAttachmentActionsHost,
                     modifier = attachmentModifier,
                 )
@@ -731,6 +672,7 @@ private fun ChatCommonConversationHost(
         QuataFullscreenMediaOverlayContent(
             title = file.displayName ?: chromeStrings.attachment,
             onDismiss = { viewedMedia = null },
+            showCommonMediaClose = mediaSlots.showCommonMediaClose,
             nativeClose = { dismiss -> mediaSlots.nativeClose(this, dismiss) },
         ) { mediaModifier ->
             mediaSlots.viewer(file, kind, mediaModifier)
@@ -763,13 +705,9 @@ private fun Long.toDurationLabel(): String {
 @Composable
 private fun ChatBrowserAttachmentContent(
     message: Message,
-    audioPlayer: AudioPlayerService,
-    activeAudioReference: String?,
-    playback: AudioPlaybackState,
-    failed: Boolean,
-    onPlaybackChanged: (String?, AudioPlaybackState, Boolean) -> Unit,
-    onPlaybackOperationInFlight: (Boolean) -> Unit,
-    onPlaybackCompleted: suspend () -> Unit,
+    audioState: ChatAudioPlaybackUiState,
+    onToggleAudio: (Message, PlatformFile) -> Unit,
+    onSeekAudio: (String, Float) -> Unit,
     onOpenAttachment: (PlatformFile) -> Unit,
     mediaPreview: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
     playVideoLabel: String = "Play video",
@@ -783,7 +721,6 @@ private fun ChatBrowserAttachmentContent(
     pauseAudioLabel: String = "Pause audio",
     audioErrorText: String = "Audio not available",
     textColor: androidx.compose.ui.graphics.Color,
-    launch: ((suspend () -> Unit) -> Unit),
     documentAttachmentActionsHost: (@Composable (ChatDocumentAttachmentActions) -> Unit)? = null,
     modifier: Modifier,
 ) {
@@ -829,11 +766,12 @@ private fun ChatBrowserAttachmentContent(
         )
         return
     }
-    val isActive = activeAudioReference == reference
-    val visiblePlayback = if (isActive) playback else AudioPlaybackState()
+    val isActive = audioState.activeReference == reference
+    val visiblePlayback = if (isActive) audioState.playback else com.quata.core.platform.AudioPlaybackState()
     ChatAudioAttachmentPlayerContent(
         isPlaying = visiblePlayback.isPlaying,
-        hasError = isActive && failed,
+        hasError = isActive && audioState.failed,
+        isLoading = isActive && audioState.operationInFlight,
         progress = if (visiblePlayback.durationMillis > 0L) {
             visiblePlayback.positionMillis.toFloat() / visiblePlayback.durationMillis.toFloat()
         } else 0f,
@@ -841,55 +779,8 @@ private fun ChatBrowserAttachmentContent(
         errorText = audioErrorText,
         textColor = textColor,
         playPauseDescription = if (visiblePlayback.isPlaying) pauseAudioLabel else playAudioLabel,
-        onTogglePlayback = {
-            if (!isActive) {
-                onPlaybackChanged(reference, AudioPlaybackState(isLoaded = true, isPlaying = true), false)
-            }
-            onPlaybackOperationInFlight(true)
-            launch {
-                try {
-                    val result = when {
-                        !isActive -> when (val loaded = audioPlayer.load(PlatformFile(reference, displayName, mimeType))) {
-                            is PlatformResult.Success -> audioPlayer.play()
-                            is PlatformResult.Failure -> loaded
-                            PlatformResult.Cancelled -> PlatformResult.Cancelled
-                            PlatformResult.Unsupported -> PlatformResult.Unsupported
-                        }
-                        visiblePlayback.isPlaying -> audioPlayer.pause()
-                        else -> audioPlayer.play()
-                    }
-                    when (result) {
-                        is PlatformResult.Success -> onPlaybackChanged(reference, result.value, false)
-                        is PlatformResult.Failure,
-                        PlatformResult.Cancelled,
-                        PlatformResult.Unsupported -> onPlaybackChanged(reference, visiblePlayback, true)
-                    }
-                } finally {
-                    onPlaybackOperationInFlight(false)
-                }
-            }
-        },
-        onSeekToFraction = { fraction ->
-            if (isActive && visiblePlayback.durationMillis > 0L) {
-                onPlaybackOperationInFlight(true)
-                launch {
-                    try {
-                        when (val result = audioPlayer.seekTo((visiblePlayback.durationMillis * fraction).toLong())) {
-                            is PlatformResult.Success -> {
-                                val finished = didAudioPlaybackFinish(visiblePlayback, result.value)
-                                onPlaybackChanged(reference, result.value, false)
-                                if (finished) onPlaybackCompleted()
-                            }
-                            is PlatformResult.Failure,
-                            PlatformResult.Cancelled,
-                            PlatformResult.Unsupported -> onPlaybackChanged(reference, visiblePlayback, true)
-                        }
-                    } finally {
-                        onPlaybackOperationInFlight(false)
-                    }
-                }
-            }
-        },
+        onTogglePlayback = { onToggleAudio(message, PlatformFile(reference, displayName, mimeType)) },
+        onSeekToFraction = { fraction -> onSeekAudio(reference, fraction) },
         modifier = modifier,
     )
 }

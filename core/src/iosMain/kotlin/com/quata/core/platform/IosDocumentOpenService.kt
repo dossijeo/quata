@@ -42,11 +42,18 @@ class IosDocumentOpenService(
         if (!NSFileManager.defaultManager.fileExistsAtPath(path)) {
             return PlatformResult.Failure("document_open_source_missing")
         }
+        if (activePreview != null) {
+            return PlatformResult.Failure("document_open_preview_already_presented")
+        }
         return suspendCancellableCoroutine { continuation ->
             // URLSession-backed feature adapters may resume on a delegate queue. UIKit and the
             // retained Quick Look data source must instead be mutated on the main queue.
             dispatch_async(dispatch_get_main_queue()) {
                 if (!continuation.isActive) return@dispatch_async
+                if (activePreview != null) {
+                    continuation.resume(PlatformResult.Failure("document_open_preview_already_presented"))
+                    return@dispatch_async
+                }
                 val dataSource = IosQuickLookDataSource(
                     IosQuickLookPreviewItem(
                         url = url,

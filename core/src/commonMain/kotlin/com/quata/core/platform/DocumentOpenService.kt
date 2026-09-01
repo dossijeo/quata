@@ -25,7 +25,7 @@ sealed interface DocumentViewerState {
         val descriptor: DocumentPreviewDescriptor,
     ) : DocumentViewerState
 
-    data class Opened(
+    data class Presented(
         val file: PlatformFile,
         val descriptor: DocumentPreviewDescriptor,
     ) : DocumentViewerState
@@ -80,7 +80,7 @@ suspend fun openPlatformDocumentWithViewerState(
     return DocumentViewerOpenResult(
         started = started,
         completed = when (val result = platformResult) {
-            is PlatformResult.Success -> DocumentViewerState.Opened(file, descriptor)
+            is PlatformResult.Success -> DocumentViewerState.Presented(file, descriptor)
             PlatformResult.Cancelled -> DocumentViewerState.Failed(
                 file = file,
                 descriptor = descriptor,

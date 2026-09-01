@@ -63,6 +63,7 @@ private fun chatAttachmentKindFromExtension(value: String): ChatAttachmentKind =
 data class ChatMediaPlatformSlots(
     val preview: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
     val viewer: @Composable (PlatformFile, ChatAttachmentKind, Modifier) -> Unit,
+    val showCommonMediaClose: Boolean = true,
     val nativeClose: @Composable BoxScope.(onDismiss: () -> Unit) -> Unit = {},
 )
 

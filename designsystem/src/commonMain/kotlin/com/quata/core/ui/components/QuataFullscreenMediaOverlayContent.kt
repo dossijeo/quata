@@ -1,6 +1,7 @@
 package com.quata.core.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -22,10 +23,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.quata.core.designsystem.theme.quataTheme
-import kotlinx.coroutines.delay
 
 const val QuataFullscreenMediaOverlayRootTestTag = "fullscreen-media.root"
 const val QuataFullscreenMediaOverlayBackTestTag = "fullscreen-media.back"
@@ -58,18 +56,17 @@ fun QuataFullscreenMediaOverlayContent(
     title: String,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    showCommonMediaClose: Boolean = true,
     nativeClose: @Composable BoxScope.(onDismiss: () -> Unit) -> Unit = {},
     mediaContent: @Composable (Modifier) -> Unit,
 ) {
     val template = quataTheme()
-    var visible by remember { mutableStateOf(false) }
-    var hasOpened by remember { mutableStateOf(false) }
+    val visibility = remember { MutableTransitionState(false) }
     val requestDismiss = {
-        visible = false
+        visibility.targetState = false
     }
     LaunchedEffect(Unit) {
-        hasOpened = true
-        visible = true
+        visibility.targetState = true
     }
 
     Box(
@@ -78,7 +75,7 @@ fun QuataFullscreenMediaOverlayContent(
             .zIndex(50f),
     ) {
         AnimatedVisibility(
-            visible = visible,
+            visibleState = visibility,
             enter = scaleIn(initialScale = 0.18f) + fadeIn(),
             exit = fadeOut(),
         ) {
@@ -100,21 +97,23 @@ fun QuataFullscreenMediaOverlayContent(
                     },
                 ) {
                     mediaContent(Modifier.fillMaxSize())
-                    CompactIconButton(
-                        onClick = requestDismiss,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .zIndex(6f)
-                            .padding(16.dp)
-                            .background(template.colors.topChrome.copy(alpha = 0.88f), CircleShape)
-                            .testTag(QuataFullscreenMediaOverlayMediaCloseTestTag)
-                            .semantics { contentDescription = QuataFullscreenMediaOverlayMediaCloseTestTag },
-                    ) {
-                        CompactIcon(
-                            Icons.Filled.Close,
-                            contentDescription = null,
-                            tint = template.colors.textPrimary,
-                        )
+                    if (showCommonMediaClose) {
+                        CompactIconButton(
+                            onClick = requestDismiss,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .zIndex(6f)
+                                .padding(16.dp)
+                                .background(template.colors.topChrome.copy(alpha = 0.88f), CircleShape)
+                                .testTag(QuataFullscreenMediaOverlayMediaCloseTestTag)
+                                .semantics { contentDescription = QuataFullscreenMediaOverlayMediaCloseTestTag },
+                        ) {
+                            CompactIcon(
+                                Icons.Filled.Close,
+                                contentDescription = null,
+                                tint = template.colors.textPrimary,
+                            )
+                        }
                     }
                     nativeClose(requestDismiss)
                 }
@@ -122,11 +121,16 @@ fun QuataFullscreenMediaOverlayContent(
         }
     }
 
-    LaunchedEffect(visible, hasOpened) {
-        if (hasOpened && !visible) {
-            delay(170L)
-            onDismiss()
-        }
+    LaunchedEffect(visibility) {
+        var hasPresented = false
+        snapshotFlow { visibility.isIdle && !visibility.currentState && !visibility.targetState }
+            .collect { dismissed ->
+                if (!dismissed) {
+                    hasPresented = true
+                } else if (hasPresented) {
+                    onDismiss()
+                }
+            }
     }
 }
 

@@ -7,7 +7,7 @@ import kotlin.test.assertIs
 
 class DocumentOpenServiceStateTest {
     @Test
-    fun successfulOpenReportsCommonOpeningAndOpenedStates() = runTest {
+    fun successfulOpenReportsCommonOpeningAndPresentedStates() = runTest {
         val file = PlatformFile(
             reference = "https://cdn.quata.test/legal/privacy_es.docx",
             displayName = "privacy_es.docx",
@@ -19,13 +19,13 @@ class DocumentOpenServiceStateTest {
 
         assertEquals(DocumentPreviewKind.Office, result.started.descriptor.kind)
         assertEquals(file, result.started.file)
-        val opened = assertIs<DocumentViewerState.Opened>(result.completed)
-        assertEquals(DocumentPreviewKind.Office, opened.descriptor.kind)
+        val presented = assertIs<DocumentViewerState.Presented>(result.completed)
+        assertEquals(DocumentPreviewKind.Office, presented.descriptor.kind)
         assertEquals(listOf(file), service.openedFiles)
     }
 
     @Test
-    fun callbackOpenReportsTheSameCommonStates() = runTest {
+    fun callbackOpenReportsTheSameCommonPresentedState() = runTest {
         val file = PlatformFile(
             reference = "https://cdn.quata.test/chat/brief.pdf",
             displayName = "brief.pdf",
@@ -39,8 +39,8 @@ class DocumentOpenServiceStateTest {
         })
 
         assertEquals(DocumentPreviewKind.Pdf, result.started.descriptor.kind)
-        val opened = assertIs<DocumentViewerState.Opened>(result.completed)
-        assertEquals(file, opened.file)
+        val presented = assertIs<DocumentViewerState.Presented>(result.completed)
+        assertEquals(file, presented.file)
         assertEquals(listOf(file), openedFiles)
     }
 
@@ -80,8 +80,8 @@ class DocumentOpenServiceStateTest {
         )
 
         assertEquals(DocumentPreviewKind.Unsupported, result.started.descriptor.kind)
-        val opened = assertIs<DocumentViewerState.Opened>(result.completed)
-        assertEquals(file, opened.file)
+        val presented = assertIs<DocumentViewerState.Presented>(result.completed)
+        assertEquals(file, presented.file)
         assertEquals(listOf(file), openedFiles)
     }
 

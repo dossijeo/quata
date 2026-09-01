@@ -68,6 +68,7 @@ internal fun iosChatMediaPlatformSlots(
     viewer = { file, kind, modifier ->
         IosChatMediaViewer(file, kind, downloader, viewerFactory, retryLabel, modifier)
     },
+    showCommonMediaClose = false,
     nativeClose = { onDismiss ->
         IosChatNativeMediaCloseButton(
             onDismiss = onDismiss,

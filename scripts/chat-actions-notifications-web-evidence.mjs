@@ -457,7 +457,7 @@ async function verifyAttachmentsAudioWeb(page, fixtures, evidenceDir, report, co
   const playback = await waitAudioPlaybackObserved(page);
   if (playback.state !== "playing") throw new Error(`audio_playback_not_playing:${playback.state}`);
   report.evidence.audioPlaybackObserved = playback;
-  report.evidence.audioSeekObserved = await seekAudioProgressWeb(page, fixtures.audio.name, 0.95);
+  report.evidence.audioSeekObserved = await seekAudioProgressWeb(page, fixtures.audio.name, 0.8);
   report.evidence.audioToggle = await attachScreenshot(page, evidenceDir, "web-chat-audio-toggle-attempted");
   if (fixtures.nextAudio) {
     await page.mouse.wheel(0, 520);
@@ -4712,7 +4712,12 @@ async function waitAudioPlaybackObserved(page, timeout = 10_000) {
 async function seekAudioProgressWeb(page, audioName, fraction) {
   const progress = await visibleAriaLocator(page, [new RegExp(`chat\\.attachment\\.audio\\.progress.*${escapeRegExp(audioName)}`, "i")], 10_000);
   if (!progress) throw new Error("audio_progress_anchor_not_visible");
-  await clickLocatorFraction(page, progress, fraction, "audio_progress_seek_not_clickable");
+  await progress.focus();
+  await page.keyboard.press("Home");
+  const steps = Math.round(Math.max(0, Math.min(1, fraction)) * 10);
+  for (let i = 0; i < steps; i += 1) {
+    await page.keyboard.press("ArrowRight");
+  }
   const targetPercent = Math.round(fraction * 100);
   const deadline = Date.now() + 8_000;
   let lastState = null;

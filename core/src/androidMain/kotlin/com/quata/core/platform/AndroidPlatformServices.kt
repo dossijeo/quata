@@ -16,11 +16,15 @@ import android.media.MediaRecorder
 import java.io.File
 import java.util.Locale
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -452,15 +456,43 @@ class AndroidAudioRecorderService(context: Context) : AudioRecorderService {
 class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
     private val applicationContext = context.applicationContext
     private var player: ExoPlayer? = null
+    private var sessionId = 0L
+    private val eventSink = MutableSharedFlow<AudioPlaybackEvent>(extraBufferCapacity = 16)
+    override val events: SharedFlow<AudioPlaybackEvent> = eventSink.asSharedFlow()
 
     override suspend fun load(file: PlatformFile): PlatformResult<AudioPlaybackState> = runCatching {
         releasePlayer()
+        val nextSessionId = ++sessionId
         ExoPlayer.Builder(applicationContext).build().also { newPlayer ->
+            newPlayer.addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (sessionId != nextSessionId) return
+                    when (playbackState) {
+                        Player.STATE_READY -> eventSink.tryEmit(AudioPlaybackEvent.StateChanged(currentState(AudioPlaybackPhase.Ready)))
+                        Player.STATE_ENDED -> eventSink.tryEmit(AudioPlaybackEvent.Ended(currentState(AudioPlaybackPhase.Ended)))
+                        Player.STATE_IDLE -> eventSink.tryEmit(AudioPlaybackEvent.StateChanged(currentState(AudioPlaybackPhase.Idle)))
+                    }
+                }
+
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    if (sessionId != nextSessionId) return
+                    eventSink.tryEmit(
+                        AudioPlaybackEvent.StateChanged(
+                            currentState(if (isPlaying) AudioPlaybackPhase.Playing else AudioPlaybackPhase.Paused),
+                        ),
+                    )
+                }
+
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    if (sessionId != nextSessionId) return
+                    eventSink.tryEmit(AudioPlaybackEvent.Failed(currentState(AudioPlaybackPhase.Failed), error.message))
+                }
+            })
             newPlayer.setMediaItem(MediaItem.fromUri(file.reference))
             newPlayer.prepare()
             player = newPlayer
         }
-        PlatformResult.Success(currentState())
+        PlatformResult.Success(currentState(AudioPlaybackPhase.Loading))
     }.getOrElse { PlatformResult.Failure(it.message) }
 
     override suspend fun play(): PlatformResult<AudioPlaybackState> = playerOrFailure { active ->
@@ -484,7 +516,6 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
             active.seekTo(target)
             PlatformResult.Success(
                 currentState().copy(
-                    isPlaying = active.isPlaying || active.playWhenReady,
                     positionMillis = target,
                     durationMillis = durationMillis,
                 ),
@@ -499,12 +530,21 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
 
     override suspend fun state(): AudioPlaybackState = currentState()
 
-    private fun currentState(): AudioPlaybackState = player?.let { active ->
+    private fun currentState(overridePhase: AudioPlaybackPhase? = null): AudioPlaybackState = player?.let { active ->
+        val phase = overridePhase ?: when {
+            active.playbackState == Player.STATE_ENDED -> AudioPlaybackPhase.Ended
+            active.isPlaying -> AudioPlaybackPhase.Playing
+            active.playbackState == Player.STATE_READY -> AudioPlaybackPhase.Ready
+            active.playbackState == Player.STATE_BUFFERING -> AudioPlaybackPhase.Loading
+            else -> AudioPlaybackPhase.Idle
+        }
         AudioPlaybackState(
             isLoaded = active.playbackState != androidx.media3.common.Player.STATE_IDLE,
             isPlaying = active.isPlaying,
             positionMillis = active.currentPosition.coerceAtLeast(0L),
             durationMillis = active.duration.takeIf { it > 0L } ?: 0L,
+            phase = phase,
+            sessionId = sessionId,
         )
     } ?: AudioPlaybackState()
 
@@ -517,6 +557,7 @@ class AndroidAudioPlayerService(context: Context) : AudioPlayerService {
     }
 
     private fun releasePlayer() {
+        sessionId += 1L
         runCatching { player?.release() }
         player = null
     }

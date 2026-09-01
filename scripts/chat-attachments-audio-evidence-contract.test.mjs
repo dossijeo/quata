@@ -15,6 +15,7 @@ const [
   commonDocumentAttachment,
   commonAttachmentPresentation,
   commonAudioPlayer,
+  commonAudioController,
   commonAudioPolicy,
   androidHost,
   appContainer,
@@ -52,6 +53,7 @@ const [
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatDocumentAttachmentContent.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAttachmentPresentation.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioAttachmentPlayerContent.kt"),
+  source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatAudioPlaybackController.kt"),
   source("feature/chat/src/commonMain/kotlin/com/quata/feature/chat/presentation/chat/ChatConsecutiveAudioPolicy.kt"),
   source("app/src/main/java/com/quata/feature/chat/presentation/chat/AndroidChatProductScreen.kt"),
   source("app/src/main/java/com/quata/core/di/AppContainer.kt"),
@@ -207,7 +209,7 @@ test("audio attachment player exposes stable common playback anchors", () => {
     assert.match(commonAudioPlayer, new RegExp(`testTag = ${constant}`));
   }
   assert.match(commonAudioPlayer, /playPauseDescription/);
-  assert.match(commonAudioPlayer, /val toggleDescription = "\$playPauseDescription \$displayText"/);
+  assert.match(commonAudioPlayer, /val toggleDescription = if \(isLoading\) "Loading \$displayText" else "\$playPauseDescription \$displayText"/);
   assert.match(commonAudioPlayer, /contentDescription = toggleDescription/);
   assert.match(commonAudioPlayer, /errorText/);
   assert.match(commonAudioPlayer, /if \(hasError\) errorText else displayText/);
@@ -216,7 +218,10 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(commonAudioPlayer, /val boundedProgress = progress\.coerceIn\(0f, 1f\)/);
   assert.match(commonAudioPlayer, /val progressPercent = \(boundedProgress \* 100f\)\.toInt\(\)\.coerceIn\(0, 100\)/);
   assert.match(commonAudioPlayer, /contentDescription = "\$ChatAudioAttachmentProgressTestTag \$displayText \$progressPercent%"/);
-  assert.match(androidUiTest, /click\(Offset\(center\.x \* 1\.8f, center\.y\)\)/);
+  assert.match(commonAudioPlayer, /ProgressBarRangeInfo\(boundedProgress, 0f\.\.1f, 0\)/);
+  assert.match(commonAudioPlayer, /setProgress \{ target ->/);
+  assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
+  assert.doesNotMatch(androidUiTest, /center\.x \* 1\.8f/);
   assert.doesNotMatch(androidUiTest, /center\.x \* 1\.9f/);
   assert.doesNotMatch(androidUiTest, /size\.width/);
   assert.doesNotMatch(iosAudioPlayerHost, /private var playbackRequested/);
@@ -229,21 +234,27 @@ test("audio attachment player exposes stable common playback anchors", () => {
   assert.match(iosAudioPlayerHost, /val boundedPositionMillis = if \(durationMillis > 0L\) \{\s*positionMillis\.coerceIn\(0L, durationMillis\)/);
   assert.match(iosAudioPlayerHost, /if \(wasPlaying && !player\.play\(\)\) \{/);
   assert.match(iosAudioPlayerHost, /startPlaybackClock\(player, boundedPositionMillis\)/);
-  assert.match(iosAudioPlayerHost, /PlatformResult\.Success\(\s*stateValue\(\)\.copy\(/);
+  assert.match(iosAudioPlayerHost, /AVAudioPlayerDelegateProtocol/);
+  assert.match(iosAudioPlayerHost, /AudioPlaybackEvent\.Ended/);
+  assert.match(iosAudioPlayerHost, /AudioPlaybackEvent\.Failed/);
   assert.match(iosAudioPlayerHost, /playbackClockStartPositionMillis \+ \(\(nowSeconds\(\) - started\) \* 1_000\)/);
   assert.match(iosAudioPlayerHost, /maxOf\(nativePositionMillis, clockPositionMillis \?: nativePositionMillis\)/);
-  assert.match(iosAudioPlayerHost, /AudioPlaybackState\(true, it\.playing, positionMillis, durationMillis\)/);
+  assert.match(iosAudioPlayerHost, /sessionId = sessionId/);
+  assert.match(iosAudioPlayerHost, /phase = overridePhase \?: if \(it\.playing\) AudioPlaybackPhase\.Playing else AudioPlaybackPhase\.Ready/);
   assert.match(iosAudioPlayerHost, /fallbackDurationMillis = file\.wavDurationMillis\(url\) \?: 0L/);
   assert.match(iosAudioPlayerHost, /private fun PlatformFile\.wavDurationMillis\(url: NSURL\): Long\?/);
   assert.match(iosAudioPlayerHost, /NSData\.dataWithContentsOfURL\(url\)/);
-  assert.match(iosAudioPlayerHost, /header\.ascii\(0, 4\) != "RIFF"/);
-  assert.match(iosAudioPlayerHost, /header\.uint32Le\(28\)/);
+  assert.match(iosAudioPlayerHost, /while \(offset \+ 8 <= bytes\.size\)/);
+  assert.match(iosAudioPlayerHost, /"fmt " -> if \(chunkSizeInt >= 16\) byteRate = bytes\.uint32Le\(chunkDataOffset \+ 8\)/);
+  assert.match(iosAudioPlayerHost, /"data" -> dataSize = chunkSize\.takeIf/);
   assert.doesNotMatch(iosAudioPlayerHost, /copy\(isPlaying = true\)/);
   assert.doesNotMatch(iosAudioPlayerHost, /it\.playing \|\| playbackRequested/);
   assert.doesNotMatch(iosAudioPlayerHost, /prepareToPlay\(\)\) return PlatformResult\.Failure\("audio_player_prepare_failed"\)/);
   assert.match(androidPlatformServices, /val target = if \(durationMillis > 0L\)/);
   assert.match(androidPlatformServices, /active\.seekTo\(target\)/);
-  assert.match(androidPlatformServices, /currentState\(\)\.copy\(/);
+  assert.match(androidPlatformServices, /AudioPlaybackEvent\.Ended/);
+  assert.match(androidPlatformServices, /Player\.STATE_ENDED/);
+  assert.match(androidPlatformServices, /sessionId = sessionId/);
   assert.match(androidPlatformServices, /positionMillis = target/);
 });
 
@@ -327,11 +338,16 @@ test("Android, Web and iOS attach native adapters to the same common chat produc
 });
 
 test("fullscreen media overlay dismisses through common animated state before host removal", () => {
-  assert.match(fullscreenMediaOverlay, /val requestDismiss = \{\s*visible = false\s*\}/);
+  assert.match(fullscreenMediaOverlay, /val visibility = remember \{ MutableTransitionState\(false\) \}/);
+  assert.match(fullscreenMediaOverlay, /val requestDismiss = \{\s*visibility\.targetState = false\s*\}/);
   assert.match(fullscreenMediaOverlay, /QuataFullscreenMediaOverlayTopBar\([\s\S]*onBack = requestDismiss/);
   assert.match(fullscreenMediaOverlay, /CompactIconButton\([\s\S]*onClick = requestDismiss/);
   assert.match(fullscreenMediaOverlay, /nativeClose\(requestDismiss\)/);
-  assert.match(fullscreenMediaOverlay, /LaunchedEffect\(visible, hasOpened\)[\s\S]*delay\(170L\)[\s\S]*onDismiss\(\)/);
+  assert.match(fullscreenMediaOverlay, /MutableTransitionState\(false\)/);
+  assert.match(fullscreenMediaOverlay, /var hasPresented = false/);
+  assert.match(fullscreenMediaOverlay, /snapshotFlow \{ visibility\.isIdle && !visibility\.currentState && !visibility\.targetState \}/);
+  assert.match(fullscreenMediaOverlay, /if \(!dismissed\) \{\s*hasPresented = true\s*\} else if \(hasPresented\) \{\s*onDismiss\(\)\s*\}/);
+  assert.doesNotMatch(fullscreenMediaOverlay, /delay\(170L\)/);
   assert.doesNotMatch(fullscreenMediaOverlay, /onBack = onDismiss/);
   assert.doesNotMatch(fullscreenMediaOverlay, /nativeClose\(onDismiss\)/);
 });
@@ -366,18 +382,22 @@ test("common chat product routes attachments and audio without platform-specific
   assert.match(commonHost, /ChatDocumentAttachmentDownloadTestTag|onDownloadAttachment/);
   assert.match(commonHost, /ChatDocumentAttachmentShareTestTag|onShareAttachment/);
   assert.match(commonHost, /ChatAudioAttachmentPlayerContent\(/);
-  assert.match(commonHost, /audioPlayer\.load/);
-  assert.match(commonHost, /audioPlayer\.seekTo/);
-  assert.match(commonHost, /LaunchedEffect\(activeAudioReference, audioOperationInFlight\)/);
-  assert.doesNotMatch(commonHost, /LaunchedEffect\(activeAudioReference, audioPlayback\.isPlaying\)/);
-  assert.match(commonHost, /suspend fun advanceOrCompleteActiveAudioPlayback\(\)/);
-  assert.match(commonHost, /val finished = didAudioPlaybackFinish\(previousPlayback, currentPlayback\)[\s\S]*if \(finished\)/);
-  assert.match(commonHost, /val finished = didAudioPlaybackFinish\(visiblePlayback, result\.value\)[\s\S]*if \(finished\) onPlaybackCompleted\(\)/);
-  assert.doesNotMatch(commonHost, /val currentPlayback = audioPlayer\.state\(\)\s+audioPlayback = currentPlayback\s+if \(didAudioPlaybackFinish/);
-  assert.match(commonAudioPolicy, /listOf\(currentIndex \+ 1, currentIndex - 1\)/);
-  assert.match(commonAudioPolicy, /if \(!previous\.isPlaying\) return false/);
-  assert.match(commonAudioPolicy, /if \(current\.isPlaying\) return false/);
-  assert.match(commonAudioPolicy, /return current\.isNearEnd\(\) \|\| previous\.isNearEnd\(current\.durationMillis\)/);
+  assert.match(commonHost, /ChatAudioPlaybackController\(audioPlayer = audioPlayer/);
+  assert.doesNotMatch(commonHost, /AudioPlaybackState\(isLoaded = true,\s*isPlaying = true\)/);
+  assert.doesNotMatch(commonHost, /LaunchedEffect\(activeAudioReference/);
+  assert.doesNotMatch(commonHost, /didAudioPlaybackFinish/);
+  assert.match(commonAudioController, /audioPlayer\.events\.collect/);
+  assert.match(commonAudioController, /AudioPlaybackEvent\.Ended/);
+  assert.match(commonAudioController, /AudioPlaybackEvent\.Failed/);
+  assert.match(commonAudioController, /private var generation = 0L/);
+  assert.match(commonAudioController, /event\.state\.sessionId != 0L && event\.state\.sessionId != current\.playback\.sessionId/);
+  assert.match(commonAudioController, /nextConsecutiveAudioMessage\(messages\(\), key\)/);
+  assert.match(commonAudioController, /audioPlayer\.seekTo/);
+  assert.doesNotMatch(commonAudioPolicy, /currentIndex - 1/);
+  assert.doesNotMatch(commonAudioPolicy, /isNearEnd/);
+  assert.doesNotMatch(commonAudioPolicy, /didAudioPlaybackFinish/);
+  assert.match(commonAudioPolicy, /messages\.sortedWith/);
+  assert.match(commonAudioPolicy, /ordered\.getOrNull\(currentIndex \+ 1\)/);
   assert.match(androidDocumentReaderHost, /runCatching \{ launchReader\(request\) \}\.getOrDefault\(false\)/);
   assert.match(androidDocumentReaderHost, /return runCatching \{[\s\S]*launchChooser\(request\)/);
   assert.match(androidDocumentReaderHost, /Intent\.createChooser/);
@@ -483,12 +503,11 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /activeAudioToggle\.waitForExistence\(timeout: 15\)/);
   assert.match(iosUiTest, /waitForAudioProgressToStart\(audioName: audioName, in: app, timeout: 20\)/);
   assert.match(iosUiTest, /audioToggleElement\(audioName: nextAudioName, action: "Pausar", fallbackAction: "Pause"/);
-  assert.match(commonHost, /var audioOperationInFlight by remember \{ mutableStateOf\(false\) \}/);
-  assert.match(commonHost, /LaunchedEffect\(activeAudioReference, audioOperationInFlight\)/);
-  assert.match(commonHost, /AudioPlaybackState\(isLoaded = true, isPlaying = true\)/);
-  assert.match(commonHost, /onPlaybackOperationInFlight\(true\)/);
-  assert.match(commonHost, /onPlaybackOperationInFlight\(false\)/);
-  assert.match(commonHost, /onPlaybackCompleted = \{ advanceOrCompleteActiveAudioPlayback\(\) \}/);
+  assert.match(commonHost, /ChatAudioPlaybackController\(audioPlayer = audioPlayer/);
+  assert.doesNotMatch(commonHost, /var audioOperationInFlight by remember/);
+  assert.doesNotMatch(commonHost, /AudioPlaybackState\(isLoaded = true, isPlaying = true\)/);
+  assert.doesNotMatch(commonHost, /onPlaybackOperationInFlight/);
+  assert.doesNotMatch(commonHost, /onPlaybackCompleted/);
   assert.match(androidUiTest, /ChatAudioAttachmentPlayerTestTag/);
   assert.match(androidUiTest, /ChatAudioAttachmentToggleTestTag/);
   assert.match(androidUiTest, /ChatAudioAttachmentProgressTestTag/);
@@ -503,6 +522,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(androidRunner, /android-chat-audio-recording-sent\.png/);
   assert.match(androidRunner, /android-chat-audio-seek-attempted\.png/);
   assert.match(androidUiTest, /android-chat-audio-toggle-attempted/);
+  assert.match(androidUiTest, /performSemanticsAction\(SemanticsActions\.SetProgress\) \{ seek -> seek\(0\.8f\) \}/);
+  assert.doesNotMatch(androidUiTest, /center\.x \* 1\.8f/);
   assert.match(androidUiTest, /quataChatActionsAudioRecordingMarker/);
   assert.match(androidUiTest, /android-chat-audio-recording-ready-to-send/);
   assert.match(androidUiTest, /android-chat-audio-recording-sent/);
@@ -536,6 +557,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /ios-chat-audio-recording-sent/);
   assert.match(iosUiTest, /dismissKeyboardIfVisible\(in: app\)/);
   assert.match(iosUiTest, /ios-chat-audio-seek-attempted/);
+  assert.match(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
+  assert.doesNotMatch(iosUiTest, /audioProgress[\s\S]{0,120}coordinate\(withNormalizedOffset: CGVector\(dx: 0\.95/);
   assert.match(iosUiTest, /chat\.attachment\.pending/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER/);
   assert.match(iosUiTest, /chat\.composer\.send/);
@@ -756,7 +779,11 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /audioRecordingSent/);
   assert.match(webRunner, /seekAudioProgressWeb/);
   assert.match(webRunner, /audioSeekObserved/);
-  assert.match(webRunner, /seekAudioProgressWeb\(page, fixtures\.audio\.name, 0\.95\)/);
+  assert.match(webRunner, /seekAudioProgressWeb\(page, fixtures\.audio\.name, 0\.8\)/);
+  assert.match(webRunner, /page\.keyboard\.press\("Home"\)/);
+  assert.match(webRunner, /page\.keyboard\.press\("ArrowRight"\)/);
+  assert.doesNotMatch(webRunner, /page\.keyboard\.press\("End"\)/);
+  assert.doesNotMatch(webRunner, /clickLocatorFraction\(page, progress, fraction/);
   assert.match(webRunner, /--use-fake-device-for-media-stream/);
   assert.match(webRunner, /grantPermissions\(\["microphone"\]/);
   assert.match(webRunner, /waitConsecutiveAudioPlaybackObserved/);
@@ -768,9 +795,9 @@ test("real Chat evidence runners seed reversible document/audio attachments", as
   assert.match(webRunner, /web-chat-audio-next-player-visible/);
   assert.match(webRunner, /nextAudioMessageId/);
   assert.match(androidUiTest, /android-chat-audio-recording-ready/);
-  assert.match(androidUiTest, /click\(Offset\(center\.x \* 1\.8f, center\.y\)\)/);
   assert.match(androidUiTest, /dismissComposerImeIfFocused\(\)/);
-  assert.match(iosUiTest, /CGVector\(dx: 0\.95, dy: 0\.5\)/);
+  assert.match(iosUiTest, /audioProgress\.adjust\(toNormalizedSliderPosition: 0\.8\)/);
+  assert.doesNotMatch(iosUiTest, /CGVector\(dx: 0\.95, dy: 0\.5\)/);
   assert.match(iosUiTest, /waitForPendingAttachmentToSend\(marker: marker, in: app, context: "audio recording"\)/);
   assert.match(iosUiTest, /Sending .* must clear the shared pending attachment surface and composer marker/);
   assert.match(androidMediaViewer, /ChatAudioAttachmentPlayerContent\(/);

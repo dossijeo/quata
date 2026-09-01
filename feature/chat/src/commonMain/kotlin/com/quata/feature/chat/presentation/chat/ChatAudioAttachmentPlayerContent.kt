@@ -1,6 +1,7 @@
 package com.quata.feature.chat.presentation.chat
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -31,10 +32,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
@@ -56,6 +65,7 @@ const val ChatAudioAttachmentProgressTestTag = "chat.attachment.audio.progress"
 fun ChatAudioAttachmentPlayerContent(
     isPlaying: Boolean,
     hasError: Boolean,
+    isLoading: Boolean = false,
     progress: Float,
     displayText: String,
     errorText: String,
@@ -68,10 +78,13 @@ fun ChatAudioAttachmentPlayerContent(
     var scrubberSize by remember { mutableStateOf(IntSize.Zero) }
     val boundedProgress = progress.coerceIn(0f, 1f)
     val progressPercent = (boundedProgress * 100f).toInt().coerceIn(0, 100)
-    val toggleDescription = "$playPauseDescription $displayText"
+    val toggleDescription = if (isLoading) "Loading $displayText" else "$playPauseDescription $displayText"
+    fun seekToFraction(fraction: Float) {
+        onSeekToFraction(fraction.coerceIn(0f, 1f))
+    }
     fun seekToX(x: Float) {
         val width = scrubberSize.width.toFloat().coerceAtLeast(1f)
-        onSeekToFraction((x / width).coerceIn(0f, 1f))
+        seekToFraction(x / width)
     }
 
     Surface(
@@ -130,10 +143,30 @@ fun ChatAudioAttachmentPlayerContent(
                 ) {
                     LinearProgressIndicator(
                         progress = { boundedProgress },
-                        modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(999.dp)).semantics {
-                            testTag = ChatAudioAttachmentProgressTestTag
-                            contentDescription = "$ChatAudioAttachmentProgressTestTag $displayText $progressPercent%"
-                        },
+                        modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(999.dp))
+                            .semantics {
+                                testTag = ChatAudioAttachmentProgressTestTag
+                                contentDescription = "$ChatAudioAttachmentProgressTestTag $displayText $progressPercent%"
+                                progressBarRangeInfo = ProgressBarRangeInfo(boundedProgress, 0f..1f, 0)
+                                setProgress { target ->
+                                    seekToFraction(target)
+                                    true
+                                }
+                            }
+                            .focusable()
+                            .onKeyEvent { event ->
+                                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                                when (event.key) {
+                                    Key.DirectionLeft -> seekToFraction(boundedProgress - 0.1f)
+                                    Key.DirectionRight -> seekToFraction(boundedProgress + 0.1f)
+                                    Key.PageDown -> seekToFraction(boundedProgress - 0.25f)
+                                    Key.PageUp -> seekToFraction(boundedProgress + 0.25f)
+                                    Key.MoveHome -> seekToFraction(0f)
+                                    Key.MoveEnd -> seekToFraction(1f)
+                                    else -> return@onKeyEvent false
+                                }
+                                true
+                            },
                         color = textColor.copy(alpha = 0.78f),
                         trackColor = textColor.copy(alpha = 0.18f),
                     )

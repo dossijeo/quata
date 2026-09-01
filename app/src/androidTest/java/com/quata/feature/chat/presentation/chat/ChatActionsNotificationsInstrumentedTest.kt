@@ -1083,9 +1083,7 @@ class ChatActionsNotificationsInstrumentedTest {
         saveScreenshot("android-chat-audio-toggle-attempted")
         waitForAudioProgressToStart(audioName)
         compose.onNode(hasTestTag(ChatAudioAttachmentProgressTestTag) and hasAudioDescription(audioName), useUnmergedTree = true)
-            .performTouchInput {
-                click(Offset(center.x * 1.8f, center.y))
-            }
+            .performSemanticsAction(SemanticsActions.SetProgress) { seek -> seek(0.8f) }
         compose.waitForIdle()
         saveScreenshot("android-chat-audio-seek-attempted")
         compose.waitUntil(8_000) {
