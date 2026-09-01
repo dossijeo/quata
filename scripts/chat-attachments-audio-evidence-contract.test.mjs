@@ -463,6 +463,7 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE/);
+  assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID/);
   assert.match(iosUiTest, /QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID/);
   assert.match(iosUiTest, /chat\.attachment\.media/);
@@ -492,6 +493,8 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosUiTest, /ios-chat-attachment-document-visible/);
   assert.match(iosUiTest, /ios-chat-attachment-document-viewer-status/);
   assert.match(iosUiTest, /document-viewer-status-root/);
+  assert.ok(iosUiTest.includes("?message=\\(encodedQuery(audioMessageId))"));
+  assert.doesNotMatch(iosUiTest, /matching\(identifier: "document-viewer-status-close"\)\.firstMatch\.tap\(\)/);
   assert.match(iosUiTest, /ios-chat-audio-toggle-attempted/);
   assert.match(iosUiTest, /Set\(\[documentProbe, audioProbe, imageProbe, videoProbe\]\)\.count/);
   assert.match(iosUiTest, /app\.terminate\(\)[\s\S]*?openDeepLink\("quata:\/\/egquata\.com\/#chat-/);
@@ -516,10 +519,13 @@ test("Android and iOS runners expose an opt-in attachments/audio evidence stage"
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENTS_AUDIO_UI_E2E/);
   assert.match(iosWrapper, /simctl privacy "\$QUATA_IOS_SIMULATOR_UDID" grant microphone com\.quata\.ios/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_DOCUMENT_PROBE/);
+  assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID/);
+  assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID'\] = attachment_audio_message/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID'\] = attachment_image_message/);
   assert.match(iosWrapper, /env\['QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID'\] = attachment_video_message/);
+  assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID/);
   assert.match(iosRunner, /QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID/);
   assert.match(iosWrapper, /QUATA_IOS_CHAT_ATTACHMENT_AUDIO_PROBE/);

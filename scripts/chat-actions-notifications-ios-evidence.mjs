@@ -482,6 +482,7 @@ export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_NAME=${shellQuote(state.attachmentsAudio?
 export QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME=${shellQuote(state.attachmentsAudio?.nextAudio?.name ?? "attachments-audio-next.wav")}
 export QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE=${shellQuote(state.attachmentsAudio?.image?.markerProbe ?? "attachments-audio")}
 export QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE=${shellQuote(state.attachmentsAudio?.video?.markerProbe ?? "attachments-audio")}
+export QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.audio?.messageId ?? "attachments-audio"))}
 export QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.image?.messageId ?? "attachments-audio"))}
 export QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID=${shellQuote(String(state.attachmentsAudio?.video?.messageId ?? "attachments-audio"))}
 export QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER=${shellQuote(state.attachmentsAudio?.recordingMarker ?? "attachments-audio")}

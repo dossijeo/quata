@@ -287,6 +287,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
               let nextAudioName = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_NEXT_AUDIO_NAME"]),
               let imageProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_PROBE"]),
               let videoProbe = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_PROBE"]),
+              let audioMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_AUDIO_MESSAGE_ID"]),
               let imageMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_IMAGE_MESSAGE_ID"]),
               let videoMessageId = nonEmpty(environment["QUATA_IOS_CHAT_ATTACHMENT_VIDEO_MESSAGE_ID"]),
               let audioRecordingMarker = nonEmpty(environment["QUATA_IOS_CHAT_AUDIO_RECORDING_MARKER"]) else {
@@ -367,7 +368,10 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
             "Opening a Chat document attachment must surface the shared document viewer status chrome.",
         )
         attachScreenshot(app, name: "ios-chat-attachment-document-viewer-status")
-        app.descendants(matching: .any).matching(identifier: "document-viewer-status-close").firstMatch.tap()
+
+        openDeepLink("quata://egquata.com/#chat-\(encodedFragment(conversationId))?message=\(encodedQuery(audioMessageId))", in: app)
+        _ = chatHost(in: app, context: "attachments/audio audio message after document viewer")
+        waitForFocusedMessageHighlightToClear(audioMessageId, in: app)
 
         guard makeChatAnchorVisible(identifier: "chat.attachment.audio.player", context: "Chat audio attachment", in: app) else {
             return
