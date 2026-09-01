@@ -2271,8 +2271,8 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
 
     private func closeFullscreenMedia(context: String, in app: XCUIApplication) {
         let closeIdentifiers = [
-            "fullscreen-media.close",
             "fullscreen-media.media-close",
+            "fullscreen-media.close",
             "fullscreen-media.back",
         ]
         var dismissed = false
@@ -2282,10 +2282,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
                 .firstMatch
             if control.waitForExistence(timeout: 2) {
                 control.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-                dismissed = !app.descendants(matching: .any)
-                    .matching(identifier: "fullscreen-media.root")
-                    .firstMatch
-                    .waitForExistence(timeout: 3)
+                dismissed = waitForFullscreenMediaToDisappear(in: app, timeout: 3)
                 if dismissed {
                     break
                 }
@@ -2293,17 +2290,38 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         }
         XCTAssertTrue(dismissed, "The shared fullscreen media overlay dismiss action must close \(context).")
         XCTAssertFalse(
-            app.descendants(matching: .any).matching(identifier: "fullscreen-media.root").firstMatch.waitForExistence(timeout: 5),
+            isFullscreenMediaChromeVisible(in: app, timeout: 5),
             "The shared fullscreen media overlay must close back to the Chat thread after \(context).",
         )
     }
 
     @discardableResult
     private func waitForFullscreenMediaToDisappear(in app: XCUIApplication, timeout: TimeInterval) -> Bool {
-        !app.descendants(matching: .any)
-            .matching(identifier: "fullscreen-media.root")
-            .firstMatch
-            .waitForExistence(timeout: timeout)
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if !isFullscreenMediaChromeVisible(in: app, timeout: 0.2) {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        } while Date() < deadline
+        return false
+    }
+
+    private func isFullscreenMediaChromeVisible(in app: XCUIApplication, timeout: TimeInterval = 0) -> Bool {
+        for identifier in [
+            "fullscreen-media.title",
+            "fullscreen-media.media-close",
+            "fullscreen-media.close",
+            "fullscreen-media.back",
+        ] {
+            if app.descendants(matching: .any)
+                .matching(identifier: identifier)
+                .firstMatch
+                .waitForExistence(timeout: timeout) {
+                return true
+            }
+        }
+        return false
     }
 
     private func openPeerPublicProfile(peerProfileId: String, in app: XCUIApplication) -> XCUIElement {
