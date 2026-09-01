@@ -2181,7 +2181,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         in app: XCUIApplication,
         failOnMiss: Bool = false
     ) -> Bool {
-        tapResolvedMedia(media)
+        tapVisibleFrameCenter(media, in: app)
         if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
             return true
         }
@@ -2193,7 +2193,7 @@ final class QuataIosAuthenticatedChatActionsNotificationsUITests: XCTestCase {
         if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
             return true
         }
-        tapVisibleFrameCenter(media, in: app)
+        tapResolvedMedia(media)
         if assertFullscreenMediaOpened(context: context, in: app, reportFailure: false) {
             return true
         }
