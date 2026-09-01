@@ -495,6 +495,15 @@ async function startServer(distribution, state, configuration) {
         }
         return json(response, 200, { items: [], has_more: false, next_offset: body.p_offset, total: 0, actor_neighborhood: "Fixture District" });
       }
+      if (url.pathname === "/rest/v1/rpc/quata_has_accepted_ugc_terms") {
+        const body = await jsonBody(request);
+        if (request.method !== "POST" || request.headers.authorization !== `Bearer ${FIXTURE.accessToken}` ||
+            body.p_actor_profile_id !== FIXTURE.profileId || typeof body.p_terms_version !== "string" ||
+            body.p_terms_version.trim().length === 0 || Object.keys(body).length !== 2) {
+          return json(response, 405, { error: "fixture_ugc_terms_acceptance_read_forbidden" });
+        }
+        return json(response, 200, true);
+      }
       if (url.pathname.startsWith("/rest/v1/")) {
         if (request.method !== "GET") return json(response, 405, { error: "fixture_product_mutation_forbidden" });
         return json(response, 200, []);

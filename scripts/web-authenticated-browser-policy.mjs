@@ -28,6 +28,13 @@ const NOTIFICATION_INBOX_READ_STAGES = Object.freeze([
   "compose_auth_bridge_logout",
 ]);
 
+const UGC_TERMS_ACCEPTANCE_READ_STAGES = Object.freeze([
+  "compose_auth_bridge_login",
+  "authenticated_browser_restore",
+  "authenticated_route_matrix",
+  "authenticated_navigation_stress",
+]);
+
 const AUTH_LOGIN_STAGES = Object.freeze([
   "native_auth_control_login",
   "compose_auth_bridge_login",
@@ -128,6 +135,15 @@ export function backendBrowserRequestDecision({ backend, url, method, stage, bod
     return Object.freeze({ backendApi: true, allowed: true, reason: "declared_chat_candidate_directory_read" });
   }
 
+  if (
+    normalizedMethod === "POST" &&
+    parsed.pathname === "/rest/v1/rpc/quata_has_accepted_ugc_terms" &&
+    UGC_TERMS_ACCEPTANCE_READ_STAGES.includes(stage) &&
+    isUgcTermsAcceptanceReadBody(body)
+  ) {
+    return Object.freeze({ backendApi: true, allowed: true, reason: "declared_ugc_terms_acceptance_read" });
+  }
+
   const action = safeJson(body)?.action;
   if (
     normalizedMethod === "POST" &&
@@ -184,4 +200,16 @@ function isConversationCandidateReadBody(value) {
     typeof parsed.p_query === "string" &&
     Number.isInteger(parsed.p_limit) && parsed.p_limit >= 1 && parsed.p_limit <= 50 &&
     Number.isInteger(parsed.p_offset) && parsed.p_offset >= 0;
+}
+
+function isUgcTermsAcceptanceReadBody(value) {
+  const parsed = safeJson(value);
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") return false;
+  const keys = Object.keys(parsed).sort();
+  const expected = ["p_actor_profile_id", "p_terms_version"];
+  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(parsed.p_actor_profile_id) &&
+    typeof parsed.p_terms_version === "string" &&
+    parsed.p_terms_version.trim().length >= 1 &&
+    parsed.p_terms_version.length <= 80;
 }

@@ -429,6 +429,50 @@ test("browser policy allows only declared read RPCs and Auth lifecycle effects",
     stage: "compose_auth_bridge_logout",
     body: "{}",
   }).allowed, true);
+  const ugcTermsReadBody = JSON.stringify({
+    p_actor_profile_id: "00000000-0000-4000-8000-000000000001",
+    p_terms_version: "ugc-terms-v1",
+  });
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_has_accepted_ugc_terms`,
+    method: "POST",
+    stage: "compose_auth_bridge_login",
+    body: ugcTermsReadBody,
+  }).allowed, true);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_has_accepted_ugc_terms`,
+    method: "POST",
+    stage: "authenticated_browser_restore",
+    body: ugcTermsReadBody,
+  }).allowed, true);
+  assert.equal(decision({
+    url: `${backend}/rest/v1/rpc/quata_has_accepted_ugc_terms`,
+    method: "POST",
+    stage: "undeclared_login_like_stage",
+    body: ugcTermsReadBody,
+  }).allowed, false);
+  for (const body of [
+    "{}",
+    "not-json",
+    JSON.stringify({ p_actor_profile_id: "00000000-0000-4000-8000-000000000001" }),
+    JSON.stringify({ p_actor_profile_id: "not-a-uuid", p_terms_version: "ugc-terms-v1" }),
+    JSON.stringify({ p_actor_profile_id: "00000000-0000-4000-8000-000000000001", p_terms_version: "" }),
+    JSON.stringify({ p_actor_profile_id: "00000000-0000-4000-8000-000000000001", p_terms_version: "ugc-terms-v1", unexpected: true }),
+  ]) {
+    assert.equal(decision({
+      url: `${backend}/rest/v1/rpc/quata_has_accepted_ugc_terms`,
+      method: "POST",
+      stage: "compose_auth_bridge_login",
+      body,
+    }).allowed, false);
+  }
+});
+
+test("hermetic fixture answers UGC terms acceptance reads without opening mutation RPCs", () => {
+  assert.match(runner, /url\.pathname === "\/rest\/v1\/rpc\/quata_has_accepted_ugc_terms"/);
+  assert.match(runner, /fixture_ugc_terms_acceptance_read_forbidden/);
+  assert.match(runner, /return json\(response, 200, true\)/);
+  assert.doesNotMatch(runner, /url\.pathname === "\/rest\/v1\/rpc\/quata_accept_ugc_terms"/);
 });
 
 test("navigation stress permits only the exact read-only inbox RPC", () => {
