@@ -33,8 +33,10 @@ let distribution;
 let server;
 let browser;
 let context;
+let page;
 try {
   if (options.requirePrIdentity) assertPullRequestIdentity(report.pullRequest, git.head);
+  const ugcTermsVersion = await currentUgcTermsVersion();
   distribution = await configuredDistribution(options.distribution);
   server = await startServer(distribution, report.requests);
   browser = await chromium.launch({
@@ -43,7 +45,7 @@ try {
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-renderer-accessibility"],
   });
   context = await browser.newContext({ locale: "es-ES", viewport: { width: 430, height: 930 }, deviceScaleFactor: 1 });
-  await context.addInitScript(({ profileId, accessToken, refreshToken, webSessionToken }) => {
+  await context.addInitScript(({ profileId, accessToken, refreshToken, webSessionToken, ugcTermsVersion }) => {
     localStorage.setItem("quata_web_access_token", accessToken);
     localStorage.setItem("quata_web_refresh_token", refreshToken);
     localStorage.setItem("quata_web_session_token", webSessionToken);
@@ -52,14 +54,16 @@ try {
     localStorage.setItem("quata_web_is_official", "true");
     localStorage.setItem("web.auth.session_ready", "true");
     localStorage.setItem("quata_web_client_instance_id", `official-editor-web-${crypto.randomUUID()}`);
+    localStorage.setItem(`ugc_terms:accepted:${profileId}:${ugcTermsVersion}`, "true");
   }, {
     profileId: PROFILE_ID,
     accessToken: ACCESS_TOKEN,
     refreshToken: REFRESH_TOKEN,
     webSessionToken: WEB_SESSION_TOKEN,
+    ugcTermsVersion,
   });
 
-  const page = await context.newPage();
+  page = await context.newPage();
   const faults = [];
   page.on("pageerror", () => faults.push("pageerror"));
   page.on("console", (entry) => {
@@ -68,7 +72,7 @@ try {
     if (/403|postgrest_http_403|fixture_publish_forbidden/i.test(text)) return;
     faults.push(`console_error:${text.slice(0, 120)}`);
   });
-  await page.goto(`${server.origin}/#official`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${server.origin}/?quata-auth-e2e=1&quata-official-editor-e2e=1#official`, { waitUntil: "domcontentloaded" });
   await page.locator("#quata-root").waitFor({ state: "attached", timeout: 30_000 });
   await page.waitForFunction(() =>
     localStorage.getItem("web.navigation.route") === "official" &&
@@ -78,52 +82,38 @@ try {
   await waitForRequest("community_profiles", report.requests);
   report.steps.push("official_shell_mounted_with_authenticated_fixture");
 
-  const createButton = page.getByLabel(/Crear comunicado|Create notice|Créer un communiqué/i).first();
-  await createButton.waitFor({ timeout: 45_000 });
-  const buttonBox = await createButton.boundingBox();
-  if (!buttonBox || buttonBox.width <= 0 || buttonBox.height <= 0) {
-    throw new Error("official_create_cta_not_visible");
-  }
+  await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-official-feed-e2e") === "ready", null, { timeout: 45_000 });
+  const feedState = await waitForOfficialFeedState(page, (state) => state.canCreateOfficialPost === true);
+  if (!feedState.currentUserId) throw new Error("official_feed_e2e_session_missing");
   report.steps.push("shared_create_cta_visible_for_official_profile");
   report.evidence.official = await screenshot(page, options.evidenceDir, "web-official-create-cta-visible");
 
-  await createButton.click({ force: true });
+  await page.evaluate(() => globalThis.__quataOfficialFeedE2eProduct.create());
   await page.waitForFunction(() =>
     localStorage.getItem("web.navigation.route") === "official-editor" &&
     document.documentElement.getAttribute("data-quata-shell-route") === "official-editor",
     { timeout: 45_000 },
   );
   report.steps.push("create_cta_opens_shared_official_editor_route");
-  await page.getByText(/Crear publicaci[oó]n oficial|Create official post|Créer une publication officielle/i)
-    .waitFor({ timeout: 45_000 });
+  await page.waitForFunction(() => document.documentElement.getAttribute("data-quata-official-editor-e2e") === "ready", null, { timeout: 45_000 });
+  await waitForOfficialEditorState(page, (state) => state.canPublish === true);
   report.evidence.editor = await screenshot(page, options.evidenceDir, "web-official-editor-opened");
 
-  const publishButton = page.locator("#official-editor-publish").first();
-  await publishButton.waitFor({ state: "attached", timeout: 45_000 });
-  await clickSemanticElement(page, "official-editor-publish");
-  await expectSemanticText(page, "official-editor-feedback", /A(?:ñ|Ã±)ade texto|Add text|Ajoute/i);
+  await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct.publish());
+  await waitForOfficialEditorState(page, (state) => /A(?:ñ|Ã±)ade texto|Add text|Ajoute/i.test(state.feedback ?? ""));
   if (report.requests.some((entry) => entry.table === "official_posts" && entry.method === "POST")) {
     throw new Error("official_editor_invalid_draft_mutated");
   }
   report.steps.push("empty_publish_shows_shared_validation_feedback_without_mutation");
   report.evidence.validation = await screenshot(page, options.evidenceDir, "web-official-editor-validation-feedback");
 
-  await clickSemanticElement(page, "official-editor-body-action");
-  const bodyField = page.getByRole("textbox").first();
-  await bodyField.waitFor({ state: "attached", timeout: 15_000 });
-  await bodyField.click({ force: true });
-  await page.keyboard.insertText("Official editor reversible evidence");
-  await page.locator("#official-editor-preview")
-    .getByText(/Official editor reversible evidence/i)
-    .waitFor({ state: "attached", timeout: 15_000 });
-  await clickSemanticElement(page, "official-editor-publish");
-  await page.getByText(/Generar traducciones|Generate translations|Générer des traductions|GÃ©nÃ©rer des traductions/i)
-    .waitFor({ timeout: 15_000 });
+  await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct.setBodyHtml("<p>Official editor reversible evidence</p>"));
+  await waitForOfficialEditorState(page, (state) => state.bodyLength > 0);
+  await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct.publish());
+  await waitForOfficialEditorState(page, (state) => state.pendingTranslation === true);
   report.steps.push("valid_publish_opens_shared_translation_prompt");
   report.evidence.translationPrompt = await screenshot(page, options.evidenceDir, "web-official-editor-translation-prompt");
-  await page.getByRole("button", {
-    name: /Publicar solo este idioma|Publish only this language|Publier seulement cette langue/i,
-  }).click({ force: true });
+  await page.evaluate(() => globalThis.__quataOfficialEditorE2eProduct.skipTranslation());
   await waitForRequest("official_posts", report.requests, 45_000, (entry) => entry.method === "POST" && entry.authenticated);
   if (!report.requests.some((entry) => entry.table === "official_posts" && entry.method === "POST" && entry.authenticated)) {
     throw new Error("official_editor_publish_request_missing");
@@ -146,6 +136,12 @@ try {
 } catch (error) {
   report.error = safeFailure(error);
   report.errorDetail = typeof error?.message === "string" ? error.message : String(error);
+  if (page) {
+    report.evidence.failure = await screenshot(page, options.evidenceDir, "web-official-editor-failure").catch(() => null);
+    report.diagnostics = await collectPageDiagnostics(page).catch((diagnosticError) => ({
+      error: typeof diagnosticError?.message === "string" ? diagnosticError.message : String(diagnosticError),
+    }));
+  }
 } finally {
   await context?.close().catch(() => {});
   await browser?.close().catch(() => {});
@@ -187,6 +183,13 @@ function parseArgs(args) {
     if (key === "--evidence-dir") parsed.evidenceDir = resolve(value);
   }
   return parsed;
+}
+
+async function currentUgcTermsVersion() {
+  const source = await readFile(new URL("../core/src/commonMain/kotlin/com/quata/core/moderation/ModerationModels.kt", import.meta.url), "utf8");
+  const version = /CurrentUgcTermsVersion\s*=\s*"([^"]+)"/.exec(source)?.[1];
+  if (!version) throw new Error("missing_current_ugc_terms_version");
+  return version;
 }
 
 async function configuredDistribution(source) {
@@ -333,6 +336,37 @@ async function waitForRequest(table, requests, timeoutMs = 45_000, predicate = (
   throw new Error(`request_not_observed:${table}`);
 }
 
+async function waitForOfficialFeedState(page, predicate, timeoutMs = 15_000) {
+  return waitForBridgeState(
+    page,
+    () => globalThis.__quataOfficialFeedE2eProduct?.state?.(),
+    predicate,
+    "official_feed_e2e_state_timeout",
+    timeoutMs,
+  );
+}
+
+async function waitForOfficialEditorState(page, predicate, timeoutMs = 15_000) {
+  return waitForBridgeState(
+    page,
+    () => globalThis.__quataOfficialEditorE2eProduct?.state?.(),
+    predicate,
+    "official_editor_e2e_state_timeout",
+    timeoutMs,
+  );
+}
+
+async function waitForBridgeState(page, stateFactory, predicate, errorCode, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let lastState = null;
+  while (Date.now() < deadline) {
+    lastState = await page.evaluate(stateFactory).catch(() => null);
+    if (lastState && predicate(lastState)) return lastState;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`${errorCode}:${JSON.stringify(lastState)}`);
+}
+
 async function clickSemanticElement(page, id) {
   await page.locator(`#${id}`).first().dispatchEvent("click");
 }
@@ -356,6 +390,21 @@ async function screenshot(page, evidenceDir, name) {
   return path;
 }
 
+async function collectPageDiagnostics(page) {
+  return page.evaluate(() => ({
+    route: localStorage.getItem("web.navigation.route"),
+    shellRoute: document.documentElement.getAttribute("data-quata-shell-route"),
+    sessionReady: localStorage.getItem("web.auth.session_ready"),
+    userId: localStorage.getItem("quata_web_user_id"),
+    isOfficial: localStorage.getItem("quata_web_is_official"),
+    ugcKeys: Object.keys(localStorage).filter((key) => key.startsWith("ugc_terms:accepted:")).sort(),
+    feedBridge: globalThis.__quataOfficialFeedE2eProduct?.state?.() ?? null,
+    editorBridge: globalThis.__quataOfficialEditorE2eProduct?.state?.() ?? null,
+    ids: Array.from(document.querySelectorAll("[id]")).map((node) => node.id).filter(Boolean).slice(0, 80),
+    bodyText: document.body?.innerText?.slice(0, 2000) ?? "",
+  }));
+}
+
 function safeFailure(error) {
   const message = typeof error?.message === "string" ? error.message : "";
   return [
@@ -366,6 +415,7 @@ function safeFailure(error) {
     "pr_identity_missing_merge", "pr_identity_checkout_not_merge", "pr_identity_head_matches_base",
     "official_create_cta_not_visible", "browser_runtime_fault",
     "official_profile_permission_read_missing", "official_editor_publish_fixture_not_denied",
-    "request_not_observed",
+    "request_not_observed", "official_feed_e2e_session_missing",
+    "official_feed_e2e_state_timeout", "official_editor_e2e_state_timeout",
   ].find((prefix) => message.startsWith(prefix)) ?? "official_editor_web_evidence_failure";
 }

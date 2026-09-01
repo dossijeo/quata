@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +39,16 @@ const val OfficialEditorMediaPreviewTestTag = "official-editor-media-preview"
 const val OfficialEditorPreviewTestTag = "official-editor-preview"
 const val OfficialEditorFeedbackTestTag = "official-editor-feedback"
 const val OfficialEditorPublishTestTag = "official-editor-publish"
+
+class OfficialPostEditorE2eActions(
+    val setAdvancedMode: () -> Unit,
+    val setTitle: (String) -> Unit,
+    val setSummary: (String) -> Unit,
+    val setBodyHtml: (String) -> Unit,
+    val publish: () -> Unit,
+    val skipTranslation: () -> Boolean,
+    val state: () -> String,
+)
 
 data class OfficialEditorMedia(
     val url: String,
@@ -295,6 +306,7 @@ fun OfficialPostEditorRoot(
     },
     translator: OfficialPostEditorTranslator? = null,
     newTranslationGroupId: () -> String,
+    e2eBridgeInstaller: ((OfficialPostEditorE2eActions) -> (() -> Unit))? = null,
 ) {
     var draftState by rememberSaveable(stateSaver = OfficialEditorDraftStateSaver) {
         mutableStateOf(OfficialEditorDraftState())
@@ -327,6 +339,39 @@ fun OfficialPostEditorRoot(
                 pendingTranslation = draft.pendingOfficialTranslations(sourceLanguage)
             }
         }
+    }
+
+    fun skipPendingTranslation(): Boolean {
+        val pending = pendingTranslation ?: return false
+        val groupId = newTranslationGroupId()
+        onSubmit(listOf(pending.draft.copy(translationGroupId = groupId)))
+        pendingTranslation = null
+        return true
+    }
+
+    DisposableEffect(e2eBridgeInstaller, canPublish, error, localFeedback, pendingTranslation, draftState) {
+        val uninstall = e2eBridgeInstaller?.invoke(
+            OfficialPostEditorE2eActions(
+                setAdvancedMode = { draftState = draftState.withMode(true) },
+                setTitle = { value -> draftState = draftState.copy(title = value) },
+                setSummary = { value -> draftState = draftState.copy(summary = value) },
+                setBodyHtml = { value -> draftState = draftState.copy(contentHtml = value) },
+                publish = { requestPublication() },
+                skipTranslation = { skipPendingTranslation() },
+                state = {
+                    officialEditorE2eStateJson(
+                        canPublish = canPublish,
+                        isPublishing = isPublishing,
+                        bodyLength = draftState.contentHtml.length,
+                        title = draftState.title,
+                        summary = draftState.summary,
+                        feedback = error ?: localFeedback ?: if (!canPublish) strings.unavailable else "",
+                        pendingTranslation = pendingTranslation != null,
+                    )
+                },
+            ),
+        )
+        onDispose { uninstall?.invoke() }
     }
 
     OfficialEditorScreenContent(
@@ -517,9 +562,7 @@ fun OfficialPostEditorRoot(
                 if (!pending.isTranslating) pendingTranslation = null
             },
             onSkip = {
-                val groupId = newTranslationGroupId()
-                onSubmit(listOf(pending.draft.copy(translationGroupId = groupId)))
-                pendingTranslation = null
+                skipPendingTranslation()
             },
             onGenerate = {
                 val service = translator ?: return@OfficialTranslationPromptContent
@@ -545,6 +588,41 @@ fun OfficialPostEditorRoot(
             },
         )
     }
+}
+
+private fun officialEditorE2eStateJson(
+    canPublish: Boolean,
+    isPublishing: Boolean,
+    bodyLength: Int,
+    title: String,
+    summary: String,
+    feedback: String,
+    pendingTranslation: Boolean,
+): String = buildString {
+    append('{')
+    append("\"canPublish\":").append(canPublish).append(',')
+    append("\"isPublishing\":").append(isPublishing).append(',')
+    append("\"bodyLength\":").append(bodyLength).append(',')
+    append("\"title\":").append(title.officialEditorE2eJsonString()).append(',')
+    append("\"summary\":").append(summary.officialEditorE2eJsonString()).append(',')
+    append("\"feedback\":").append(feedback.officialEditorE2eJsonString()).append(',')
+    append("\"pendingTranslation\":").append(pendingTranslation)
+    append('}')
+}
+
+private fun String.officialEditorE2eJsonString(): String = buildString {
+    append('"')
+    for (char in this@officialEditorE2eJsonString) {
+        when (char) {
+            '\\' -> append("\\\\")
+            '"' -> append("\\\"")
+            '\n' -> append("\\n")
+            '\r' -> append("\\r")
+            '\t' -> append("\\t")
+            else -> append(char)
+        }
+    }
+    append('"')
 }
 
 fun officialPostEditorPreviewItem(

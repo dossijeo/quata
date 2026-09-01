@@ -57,6 +57,7 @@ import com.quata.feature.official.presentation.OfficialEditorMedia
 import com.quata.feature.official.presentation.OfficialEditorMediaPreviewContent
 import com.quata.feature.official.presentation.OfficialEditorPostPreviewContent
 import com.quata.feature.official.presentation.OfficialPostEditorFangTranslator
+import com.quata.feature.official.presentation.OfficialPostEditorE2eActions
 import com.quata.feature.official.presentation.OfficialPostEditorPlatformSlots
 import com.quata.feature.official.presentation.OfficialPostEditorRoot
 import com.quata.feature.official.presentation.OfficialPostEditorPreviewState
@@ -67,6 +68,8 @@ import com.quata.feature.official.presentation.officialPostEditorPreviewItem
 import com.quata.feature.official.presentation.OfficialPostMediaFrameContent
 import kotlinx.browser.document
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlin.js.JsString
 import kotlin.js.toJsString
 
@@ -92,6 +95,18 @@ fun WebOfficialHost(
             translator = FangTranslationService(transport = BrowserTranslationHttpTransport()),
             preferredLanguage = quataTranslatorPreferredLanguage(languageTag),
         )
+    }
+    DisposableEffect(currentUserId, canCreateOfficialPost, onCreateOfficialPost) {
+        val uninstall = installWebOfficialFeedE2eBridge(
+            create = onCreateOfficialPost,
+            state = {
+                buildJsonObject {
+                    put("currentUserId", currentUserId.orEmpty())
+                    put("canCreateOfficialPost", canCreateOfficialPost)
+                }.toString()
+            },
+        )
+        onDispose(uninstall)
     }
     OfficialFeedScreenHost(
         padding = PaddingValues(),
@@ -204,6 +219,17 @@ fun WebOfficialEditorHost(
         },
         translator = translator,
         newTranslationGroupId = { webRandomUuid() },
+        e2eBridgeInstaller = { actions: OfficialPostEditorE2eActions ->
+            installWebOfficialEditorE2eBridge(
+                setAdvancedMode = actions.setAdvancedMode,
+                setTitle = actions.setTitle,
+                setSummary = actions.setSummary,
+                setBodyHtml = actions.setBodyHtml,
+                publish = actions.publish,
+                skipTranslation = actions.skipTranslation,
+                state = actions.state,
+            )
+        },
         modifier = modifier,
     )
 }

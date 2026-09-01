@@ -228,6 +228,9 @@ fun OfficialFeedScreenHost(
         if (slots.showComposeMessage) scope.launch { snackbar.showSnackbar(value) }
     }
     fun create() { if (effectiveUserId == null) onAuthRequired() else onCreateOfficialPost() }
+    LaunchedEffect(repository, currentUserId) {
+        viewModel.refreshCurrentUser()
+    }
 
     LaunchedEffect(state.message) {
         if (state.message == OfficialFeedMessages.PostDeleted) { message(strings.deleted); viewModel.onEvent(OfficialFeedUiEvent.ClearMessage) }
