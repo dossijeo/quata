@@ -123,7 +123,8 @@ test('Web and iOS call the same Supabase RPCs with canonical parameter names', (
   assert.match(webAuthBridge, /quata-auth-e2e/);
   assert.match(webRpcClient, /AbortController/);
   assert.match(webRpcClient, /setTimeout\(\(\) =>/);
-  assert.match(webAuthRepository, /val serverFailure = runCatching \{ notifyServerLogout\(\) \}\.exceptionOrNull\(\)[\s\S]*val browserFailure = browserUnsubscribe\(\)\.exceptionOrNull\(\)[\s\S]*WebAuthStorage\.clear\(preferences\)/);
+  assert.match(webAuthRepository, /val serverFailure = runCatching \{ notifyServerLogout\(\) \}\.exceptionOrNull\(\)[\s\S]*withTimeoutOrNull\(WebBrowserUnsubscribeTimeoutMillis\)[\s\S]*runCatching \{ browserUnsubscribe\(\)\.getOrThrow\(\) \}[\s\S]*val browserFailure = browserResult\.exceptionOrNull\(\)[\s\S]*WebAuthStorage\.clear\(preferences\)/);
+  assert.match(webAuthRepository, /web_push_unsubscribe_timeout/);
   assert.match(webAuthRepository, /private suspend fun notifyServerLogout\(\) \{[\s\S]*storedSessionOrNull\(\)\?\.let \{ WebPushCredentials\(it\.accessToken, it\.webSessionToken\) \}/);
   assert.doesNotMatch(webAuthRepository, /notifyServerLogout\(\)[\s\S]{0,240}currentWebPushCredentials\(\)/);
   assert.match(webAuthRepository, /AbortController/);

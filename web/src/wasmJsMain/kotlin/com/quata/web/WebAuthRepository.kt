@@ -8,6 +8,7 @@ import com.quata.core.platform.PreferenceStore
 import com.quata.feature.auth.domain.AuthRepository
 import com.quata.feature.auth.domain.PasswordRecoveryQuestion
 import com.quata.feature.auth.domain.RegisterAccountRequest
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
@@ -89,7 +90,10 @@ class WebAuthRepository(
     /** Keeps the server logout, browser unsubscribe and local cleanup in the required order. */
     suspend fun logoutWithBrowserUnsubscribe(browserUnsubscribe: suspend () -> Result<Unit>): Result<Unit> {
         val serverFailure = runCatching { notifyServerLogout() }.exceptionOrNull()
-        val browserFailure = browserUnsubscribe().exceptionOrNull()
+        val browserResult = withTimeoutOrNull(WebBrowserUnsubscribeTimeoutMillis) {
+            runCatching { browserUnsubscribe().getOrThrow() }
+        } ?: Result.failure(IllegalStateException("web_push_unsubscribe_timeout"))
+        val browserFailure = browserResult.exceptionOrNull()
         WebAuthStorage.clear(preferences)
         activeSession = null
         val failure = serverFailure ?: browserFailure
@@ -502,6 +506,7 @@ private external fun requestTurnstileWidget(
 )
 
 private const val WebSessionRefreshLeewaySeconds = 60L
+private const val WebBrowserUnsubscribeTimeoutMillis = 5_000L
 private suspend fun webPostJson(
     endpoint: String,
     apiKey: String,
